@@ -241,8 +241,7 @@ object Exporter {
         return sb.toString()
     }
 
-    /** RFC 4180: quote free text and double any embedded quotes. */
-    private fun q(s: String?): String = if (s == null) "" else "\"" + s.replace("\"", "\"\"") + "\""
+    private fun q(s: String?): String = ExportText.csv(s)
 
     fun gpx(rows: List<DetectionEntity>): String {
         val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
@@ -277,8 +276,7 @@ object Exporter {
         return sb.toString()
     }
 
-    private fun x(s: String): String =
-        s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+    private fun x(s: String): String = ExportText.xml(s)
 
     internal fun stamp() = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
 

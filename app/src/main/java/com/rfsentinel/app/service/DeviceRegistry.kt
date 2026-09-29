@@ -1,6 +1,7 @@
 package com.rfsentinel.app.service
 
 import com.rfsentinel.app.data.KnownDeviceEntity
+import com.rfsentinel.app.data.WhitelistCache
 import com.rfsentinel.app.detect.AddressType
 import com.rfsentinel.app.detect.Advert
 import com.rfsentinel.app.detect.AdvertFingerprint
@@ -32,6 +33,8 @@ object DeviceRegistry {
     private const val HISTORY_MIN_SPACING_MS = 1000L
     private const val LOCATION_SPACING_MS = 45_000L
     private const val ROTATION_SILENCE_MS = 1_500L
+    /** How long a device keeps a match after the evidence was last observed. */
+    const val HIT_HOLD_MS = 120_000L
     private const val ROTATION_WINDOW_MS = 30_000L
 
     data class Sample(val time: Long, val rssi: Int)
@@ -98,6 +101,9 @@ object DeviceRegistry {
         /** The address this device most likely used before its address rotated. */
         var linkedFrom: String? = null
         var inherited: List<Hit> = emptyList()
+        /** The device's own strongest recent match, held for [HIT_HOLD_MS] after it was last seen. */
+        var heldHit: Hit? = null
+        var heldUntil = 0L
     }
 
     private val tracks = ConcurrentHashMap<String, Track>()
@@ -134,8 +140,7 @@ object DeviceRegistry {
             vendor?.let { t.vendor = it }
             // Keep the richest identity: a later advert may lack the fields an earlier one had.
             if (identity.facts.size >= t.identity.facts.size || t.identity.type == "Device") t.identity = identity
-            // Keep the strongest evidence seen this session (payload tags can be intermittent).
-            if (hits.isNotEmpty() && (t.hits.isEmpty() || hits.first().confidence >= t.hits.first().confidence)) t.hits = hits
+            t.hits = mergeHits(t, hits, now)
             remoteId?.let { t.remoteId = it }
             t.rssi = a.rssi
             if (location != null && (a.rssi >= t.bestRssi || t.bestPosition == null)) t.bestPosition = location
@@ -153,6 +158,25 @@ object DeviceRegistry {
             }
         }
         return isFirst
+    }
+
+    /**
+     * Current matches plus the device's own strongest recent one. Payload tags
+     * can be intermittent (not every packet carries them), so a match is held
+     * for [HIT_HOLD_MS] after it was last observed instead of flickering, then
+     * fades. The patrol-vehicle hit is never held: it is recomputed from the live
+     * group every classification, so it disappears when the group breaks up.
+     */
+    private fun mergeHits(t: Track, hits: List<Hit>, now: Long): List<Hit> {
+        val own = hits.firstOrNull { it.source != PatrolCluster.SOURCE }
+        if (own != null) {
+            val held = t.heldHit
+            if (held == null || now > t.heldUntil || own.confidence >= held.confidence) t.heldHit = own
+            if (own.label == t.heldHit?.label) t.heldUntil = now + HIT_HOLD_MS
+        }
+        val held = t.heldHit?.takeIf { now <= t.heldUntil }
+        val merged = if (held != null && hits.none { it.label == held.label }) hits + held else hits
+        return merged.sortedByDescending { it.confidence }
     }
 
     /**
@@ -197,7 +221,8 @@ object DeviceRegistry {
     fun clusterHit(mac: String, now: Long = System.currentTimeMillis()): Hit? {
         var (time, groups) = groupCache
         if (now - time >= 2_000L) {
-            val members = tracks.values.mapNotNull { t ->
+            // Devices the user trusts (whitelisted) never make others look like a patrol car.
+            val members = tracks.values.filterNot { WhitelistCache.contains(it.mac) }.mapNotNull { t ->
                 synchronized(t) {
                     t.role?.let { role ->
                         PatrolCluster.Member(t.mac, role, t.firstSeen, t.lastSeen, t.history.map { it.time to it.rssi })
@@ -287,7 +312,7 @@ object DeviceRegistry {
      */
     private fun sameApFacts(t: Track): List<Pair<String, String>> {
         val siblings = tracks.values.filter { o ->
-            o !== t && Advert.Source.WIFI in o.sources && WifiFingerprint.sameAccessPoint(t.mac, o.mac)
+            o !== t && WifiFingerprint.sameAccessPoint(t.mac, o.mac) && synchronized(o) { Advert.Source.WIFI in o.sources }
         }.map { o -> synchronized(o) { Triple(o.mac, o.name, o.identity.type) } }
         if (siblings.isEmpty()) return emptyList()
         val out = mutableListOf<Pair<String, String>>()

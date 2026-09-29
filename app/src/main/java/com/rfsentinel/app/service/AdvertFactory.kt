@@ -84,7 +84,10 @@ object AdvertFactory {
             rssi = r.level,
             name = ssid,
             addressType = AddressType.ofWifi(mac),
-            wifi = Advert.WifiInfo(r.frequency, r.capabilities.orEmpty(), standard, ies)
+            wifi = Advert.WifiInfo(r.frequency, r.capabilities.orEmpty(), standard, ies),
+            // When the AP was actually heard, not when the cached result was read.
+            timestamp = System.currentTimeMillis() -
+                ((android.os.SystemClock.elapsedRealtime() * 1000 - r.timestamp) / 1000).coerceAtLeast(0)
         )
     }
 }

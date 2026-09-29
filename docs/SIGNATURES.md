@@ -69,20 +69,28 @@ Single rules are only the first pass. Every 2 s per device the scanner also:
    device, the scores combine by noisy-OR, with each supporting hit discounted by
    half because rules often share evidence. Hits under 30 never corroborate.
    Fusion alone never goes past 90. Example: watchlisted address 70 plus Zebra
-   serial name 50 gives 78.
+   serial name 50 gives 78. The patrol-vehicle hit (below) is never fused: it is
+   derived from the device's own matches, so fusing would count them twice.
 2. **Detects patrol-vehicle kits.** Every device gets a *role* when its matches
    or IEEE registrant say it is police-type gear: body camera, plate reader,
    two-way radio, vehicle cellular router, mobile printer, in-car computer,
-   rugged laptop or police camera. At least two *different* roles count as one
-   vehicle when either condition holds:
+   rugged laptop or police camera. Consumer brands that also make car audio or
+   office gear (Kenwood, Panasonic Connect, Havis) get no role from their vendor
+   name alone, and whitelisted devices never count. At least two *different* roles
+   count as one vehicle when either condition holds:
    - their RSSI rises and falls together (Pearson r ≥ 0.6 over at least 8
      aligned seconds);
    - both signals are flat (parked) and they appeared within 30 s of each other.
 
    Each member then gets "Possible police vehicle" at 24 + 12 × roles,
    +10 when the signals move together, capped at 88. So two roles score 48 and
-   stay weak; three moving together score 70. Separate signals that don't move
-   together (r < 0.6) are never grouped.
+   stay weak; three moving together score 70. Never grouped: signals that don't
+   move together (r < 0.6), one moving device next to a parked one, or fewer than
+   8 shared seconds. The group hit is recomputed every 2 s, so it disappears when
+   the group breaks up.
+
+   A device's own match is held for 2 minutes after its evidence was last seen
+   (some body cams only include their tag in some packets), then fades.
 3. **Links rotated addresses.** A structural advert fingerprint survives address
    rotation: names, service UUIDs, service-data and company-ID payload sizes,
    TX power and connectable flag. When a new private address appears with the

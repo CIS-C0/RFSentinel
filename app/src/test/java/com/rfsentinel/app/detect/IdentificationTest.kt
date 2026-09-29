@@ -45,6 +45,18 @@ class IdentificationTest {
         assertEquals(EvidenceFusion.FUSED_CAP, many.first().confidence)
     }
 
+    @Test
+    fun clusterHitIsNeverFusedWithTheDevicesOwnMatch() {
+        // A 2-role group scores 48 (weak). The radio's own 45 is what gave it its role,
+        // so fusing the two would double-count and push it past the 50% alert line.
+        val fused = EvidenceFusion.fuse(listOf(
+            hit(Category.PUBLIC_SAFETY, "Motorola Solutions equipment", 45),
+            hit(Category.PUBLIC_SAFETY, "Two-way radio in a possible police vehicle", 48, PatrolCluster.SOURCE)
+        ))
+        assertEquals(48, fused.first().confidence)
+        assertTrue(fused.all { it.confidence < 50 })
+    }
+
     // ---- Patrol-vehicle clusters ----------------------------------------------
 
     private fun wave(start: Long, phase: Double = 0.0, offset: Int = -70) =
@@ -91,6 +103,40 @@ class IdentificationTest {
             PatrolCluster.Member("AA:00:00:00:00:02", "mobile printer", 0, now, emptyList())
         )
         assertTrue(PatrolCluster.groups(stale, now).isEmpty())
+    }
+
+    @Test
+    fun aMovingDeviceAndAParkedOneAreNotAVehicle() {
+        val now = 60_000L
+        val parked = (0 until 60).map { it * 1000L to -60 }
+        val members = listOf(
+            PatrolCluster.Member("AA:00:00:00:00:01", "two-way radio", 0, now, wave(0)),
+            PatrolCluster.Member("AA:00:00:00:00:02", "mobile printer", 5_000, now, parked)
+        )
+        assertTrue(PatrolCluster.groups(members, now).isEmpty())
+        assertEquals(PatrolCluster.Motion.OneFlat, PatrolCluster.motion(wave(0), parked, now))
+    }
+
+    @Test
+    fun consumerBrandsHaveNoPatrolRole() {
+        assertNull(PatrolCluster.roleOf(emptyList(), "JVCKENWOOD Corporation", "KENWOOD CAR"))
+        assertNull(PatrolCluster.roleOf(emptyList(), "Panasonic Connect Co., Ltd.", null))
+    }
+
+    @Test
+    fun matchesFadeAfterTheEvidenceStops() {
+        DeviceRegistry.startSession(0)
+        val mac = "00:25:DF:00:00:42"
+        val a = { t: Long -> Advert(mac, Advert.Source.BLE, -60, null, timestamp = t) }
+        val id = DeviceIntel.Identity("x", emptyList())
+        val axon = Hit(Category.BODY_CAM, "Axon body camera", 90, "e", "s")
+        DeviceRegistry.report(a(1_000), listOf(axon), id, null, null, null, 1_000)
+        // Intermittent tag: a packet without it keeps the match for a while...
+        DeviceRegistry.report(a(30_000), emptyList(), id, null, null, null, 30_000)
+        assertEquals("Axon body camera", DeviceRegistry.get(mac)!!.best?.label)
+        // ...but not forever.
+        DeviceRegistry.report(a(1_000 + DeviceRegistry.HIT_HOLD_MS + 1), emptyList(), id, null, null, null, 1_000 + DeviceRegistry.HIT_HOLD_MS + 1)
+        assertNull(DeviceRegistry.get(mac)!!.best)
     }
 
     @Test

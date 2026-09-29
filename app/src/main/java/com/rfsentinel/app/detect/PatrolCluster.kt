@@ -40,11 +40,11 @@ object PatrolCluster {
 
     private val ROLE_BY_VENDOR = listOf(
         Regex("axon|taser", RegexOption.IGNORE_CASE) to "Axon / TASER gear",
-        Regex("motorola solutions|harris corp|l3harris|kenwood", RegexOption.IGNORE_CASE) to "two-way radio",
+        Regex("motorola solutions|harris corp|l3harris", RegexOption.IGNORE_CASE) to "two-way radio",
         Regex("cradlepoint|sierra wireless", RegexOption.IGNORE_CASE) to "vehicle cellular router",
         Regex("zebra|ruggedjet|pocketjet", RegexOption.IGNORE_CASE) to "mobile printer",
-        Regex("cyberkar|havis", RegexOption.IGNORE_CASE) to "in-car computer / console",
-        Regex("getac|panasonic connect", RegexOption.IGNORE_CASE) to "rugged laptop / body cam",
+        Regex("cyberkar", RegexOption.IGNORE_CASE) to "in-car computer / console",
+        Regex("getac", RegexOption.IGNORE_CASE) to "rugged laptop / body cam",
         Regex("genetec", RegexOption.IGNORE_CASE) to "plate reader",
         Regex("utility,? inc|digital ally|watchguard|i-pro", RegexOption.IGNORE_CASE) to "police camera"
     )
@@ -75,12 +75,18 @@ object PatrolCluster {
         for (i in live.indices) for (j in i + 1 until live.size) {
             val a = live[i]; val b = live[j]
             if (a.role == b.role) continue
-            val r = correlation(a.samples, b.samples, now)
-            val together = (r != null && r >= MIN_CORRELATION) ||
-                (r == null && kotlin.math.abs(a.firstSeen - b.firstSeen) <= ARRIVAL_WINDOW_MS)
+            val m = motion(a.samples, b.samples, now)
+            val together = when (m) {
+                is Motion.Moving -> m.r >= MIN_CORRELATION
+                // Both parked: signals can't correlate, so arriving together is the only clue.
+                Motion.BothFlat -> kotlin.math.abs(a.firstSeen - b.firstSeen) <= ARRIVAL_WINDOW_MS
+                // One moves while the other sits still: not the same vehicle. Too little
+                // overlap: no evidence either way, so don't group.
+                Motion.OneFlat, Motion.TooShort -> false
+            }
             if (together) {
                 parent[find(i)] = find(j)
-                if (r != null) { correlatedPairs += i; correlatedPairs += j }
+                if (m is Motion.Moving) { correlatedPairs += i; correlatedPairs += j }
             }
         }
         return live.indices.groupBy { find(it) }.values
@@ -104,23 +110,36 @@ object PatrolCluster {
         )
     }
 
+    /** How two devices' signals behave over the same seconds. */
+    sealed interface Motion {
+        /** Both signals vary: [r] is their Pearson correlation. */
+        data class Moving(val r: Double) : Motion
+        /** Both signals are flat: both parked relative to you. */
+        data object BothFlat : Motion
+        /** One varies while the other is flat: they aren't moving together. */
+        data object OneFlat : Motion
+        /** Fewer than [MIN_OVERLAP] shared seconds. */
+        data object TooShort : Motion
+    }
+
     /**
-     * Pearson correlation of two RSSI series over the last [WINDOW_MS], aligned
-     * by second. Null when there's too little overlap or both signals are flat
-     * (parked next to each other and to you: correlation says nothing then).
+     * Compares two RSSI series over the last [WINDOW_MS], aligned by second.
+     * A signal whose standard deviation is under [MIN_SPREAD_DB] counts as flat.
      */
-    fun correlation(a: List<Pair<Long, Int>>, b: List<Pair<Long, Int>>, now: Long): Double? {
+    fun motion(a: List<Pair<Long, Int>>, b: List<Pair<Long, Int>>, now: Long): Motion {
         fun bucket(s: List<Pair<Long, Int>>) =
             s.filter { now - it.first <= WINDOW_MS }.associate { it.first / 1000 to it.second.toDouble() }
         val ba = bucket(a); val bb = bucket(b)
         val keys = ba.keys.intersect(bb.keys)
-        if (keys.size < MIN_OVERLAP) return null
+        if (keys.size < MIN_OVERLAP) return Motion.TooShort
         val xs = keys.map { ba.getValue(it) }; val ys = keys.map { bb.getValue(it) }
         val mx = xs.average(); val my = ys.average()
         val sx = sqrt(xs.sumOf { (it - mx) * (it - mx) } / xs.size)
         val sy = sqrt(ys.sumOf { (it - my) * (it - my) } / ys.size)
-        if (sx < MIN_SPREAD_DB || sy < MIN_SPREAD_DB) return null
+        val flatX = sx < MIN_SPREAD_DB; val flatY = sy < MIN_SPREAD_DB
+        if (flatX && flatY) return Motion.BothFlat
+        if (flatX || flatY) return Motion.OneFlat
         val cov = xs.indices.sumOf { (xs[it] - mx) * (ys[it] - my) } / xs.size
-        return cov / (sx * sy)
+        return Motion.Moving(cov / (sx * sy))
     }
 }

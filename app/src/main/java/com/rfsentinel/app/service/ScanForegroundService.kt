@@ -15,6 +15,8 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Build
+import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
@@ -74,6 +76,8 @@ class ScanForegroundService : Service() {
         private const val CLASSIFY_INTERVAL_MS = 2_000L
 
         private const val STATUS_INTERVAL_MS = 10_000L
+        /** Each periodic job holds a short wake lock only while it runs. */
+        private const val WAKE_SLICE_MS = 10_000L
         private const val HISTORY_FLUSH_MS = 60_000L
 
         /** True while an instance is alive in this process. Source of truth for the UI. */
@@ -94,6 +98,14 @@ class ScanForegroundService : Service() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var wakeLock: PowerManager.WakeLock? = null
+
+    /**
+     * Scan results arrive on the main thread (BLE callbacks, the WiFi broadcast).
+     * Detection runs here instead, one result at a time in arrival order, so a
+     * busy street never stalls the UI.
+     */
+    private lateinit var pipelineThread: HandlerThread
+    private lateinit var pipeline: Handler
 
     private lateinit var bleEngine: BleScanEngine
     private lateinit var wifiEngine: WifiScanEngine
@@ -130,8 +142,12 @@ class ScanForegroundService : Service() {
         NotificationHelper.createChannels(this)
         OuiWatchlist.load(this)
 
-        bleEngine = BleScanEngine(this) { r -> AdvertFactory.fromBle(r)?.let(::process) }
-        wifiEngine = WifiScanEngine(this) { r -> AdvertFactory.fromWifi(r)?.let(::process) }
+        pipelineThread = HandlerThread("rf-pipeline").apply { start() }
+        pipeline = Handler(pipelineThread.looper)
+        bleEngine = BleScanEngine(this) { r -> pipeline.post { AdvertFactory.fromBle(r)?.let(::process) } }
+        wifiEngine = WifiScanEngine(this) { results ->
+            pipeline.post { results.forEach { r -> AdvertFactory.fromWifi(r)?.let(::process) } }
+        }
 
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "RFSentinel::ScanWakeLock")
@@ -151,9 +167,6 @@ class ScanForegroundService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-
-        // Safety-capped wake lock; renewed implicitly each time the service restarts.
-        wakeLock?.let { if (!it.isHeld) it.acquire(12 * 60 * 60 * 1000L) }
 
         if (!btStateReceiverRegistered) {
             ContextCompat.registerReceiver(
@@ -243,6 +256,7 @@ class ScanForegroundService : Service() {
         wifiPollJob?.cancel()
         wifiPollJob = serviceScope.launch {
             while (isActive) {
+                holdAwake()
                 wifiEngine.requestScan()
                 delay(Prefs.scanIntervalMs(this@ScanForegroundService))
             }
@@ -402,15 +416,34 @@ class ScanForegroundService : Service() {
         DeviceRegistry.setKnown(mac, known)
     }
 
-    /** Merges this session's sightings into known_devices (throttled, batched). */
-    private suspend fun flushHistory() {
+    /**
+     * Keeps the CPU awake for one short slice of periodic work (a WiFi scan
+     * request, a status/trace/history update). The lock is never held between
+     * slices, so the phone can still deep-sleep; BLE results wake it by themselves.
+     */
+    private fun holdAwake() {
+        runCatching { wakeLock?.acquire(WAKE_SLICE_MS) }
+    }
+
+    /** Sightings to merge into known_devices, taken synchronously from memory. */
+    private class HistoryBatch(val seen: List<DeviceRegistry.Snapshot>, val sessionStart: Long)
+
+    private fun takeHistory(): HistoryBatch? {
         val since = lastHistoryFlush
         lastHistoryFlush = System.currentTimeMillis()
         val seen = DeviceRegistry.summaries(since)
-        if (seen.isEmpty()) return
+        return if (seen.isEmpty()) null else HistoryBatch(seen, DeviceRegistry.sessionStart)
+    }
+
+    /** Merges this session's sightings into known_devices (throttled, batched). */
+    private suspend fun flushHistory() {
+        takeHistory()?.let { writeHistory(it) }
+    }
+
+    private suspend fun writeHistory(batch: HistoryBatch) {
         val dao = AppDatabase.getInstance(this).knownDeviceDao()
-        val sessionStart = DeviceRegistry.sessionStart
-        seen.chunked(400).forEach { chunk ->
+        val sessionStart = batch.sessionStart
+        batch.seen.chunked(400).forEach { chunk ->
             val existing = dao.getAll(chunk.map { it.mac }).associateBy { it.mac }
             dao.upsertAll(chunk.map { s ->
                 val e = existing[s.mac]
@@ -444,6 +477,7 @@ class ScanForegroundService : Service() {
         housekeepingJob = serviceScope.launch {
             while (isActive) {
                 delay(STATUS_INTERVAL_MS)
+                holdAwake()
                 val devices = DeviceRegistry.snapshot()
                 val flagged = devices.count { d -> d.best != null && !WhitelistCache.contains(d.mac) }
                 val text = "${devices.size} device${if (devices.size == 1) "" else "s"} nearby" +
@@ -481,12 +515,15 @@ class ScanForegroundService : Service() {
             locationListening = false
         }
         serviceScope.cancel()
-        // Final history flush outlives the service scope.
+        pipelineThread.quitSafely()
+        // Take the final history and trace synchronously, so a scan restarted right
+        // away (new session, new trace) can't clear or reuse them; write them after.
+        val history = takeHistory()
+        val trip = TripRecorder.detach() // stopping the scanner ends the trace recording too
         val app = application as RFSentinelApp
         app.appScope.launch {
-            runCatching { flushHistory() }
-            // Stopping the scanner ends the trace recording too.
-            runCatching { TripRecorder.stop(app) }
+            history?.let { runCatching { writeHistory(it) }.onFailure { e -> Log.w(TAG, "History flush failed", e) } }
+            trip?.let { runCatching { TripRecorder.persist(app, it) }.onFailure { e -> Log.w(TAG, "Trace save failed", e) } }
         }
         wakeLock?.let { if (it.isHeld) it.release() }
         isRunning = false

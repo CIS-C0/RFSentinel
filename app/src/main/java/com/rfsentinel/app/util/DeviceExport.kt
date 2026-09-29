@@ -228,7 +228,6 @@ object DeviceExport {
 
     fun pretty(el: com.google.gson.JsonElement): String = gson.toJson(el)
 
-    private fun q(s: String?): String = if (s == null) "" else "\"" + s.replace("\"", "\"\"") + "\""
-    private fun x(s: String): String =
-        s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+    private fun q(s: String?): String = ExportText.csv(s)
+    private fun x(s: String): String = ExportText.xml(s)
 }

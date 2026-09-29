@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.wifi.ScanResult
 import android.net.wifi.WifiManager
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
 
 /**
@@ -20,7 +21,7 @@ import androidx.core.content.ContextCompat
  */
 class WifiScanEngine(
     private val context: Context,
-    private val onResult: (ScanResult) -> Unit
+    private val onResults: (List<ScanResult>) -> Unit
 ) {
     private val wifiManager =
         context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
@@ -29,13 +30,23 @@ class WifiScanEngine(
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context?, intent: Intent?) {
             // Even when OUR request was throttled (EXTRA_RESULTS_UPDATED = false) the
-            // cached results may come from another app's fresh scan, so use them either way.
+            // cached results may come from another app's fresh scan, so use them - but
+            // only entries actually heard recently. The cache also holds access points
+            // from minutes ago; replaying those as "seen now" would place them at your
+            // current position and could fake a device following you.
             try {
-                wifiManager.scanResults.forEach(onResult)
+                val nowUs = SystemClock.elapsedRealtime() * 1000
+                val fresh = wifiManager.scanResults.filter { nowUs - it.timestamp <= MAX_RESULT_AGE_US }
+                if (fresh.isNotEmpty()) onResults(fresh)
             } catch (e: SecurityException) {
                 // Missing location permission - caller should have requested it already.
             }
         }
+    }
+
+    companion object {
+        /** Cached scan results older than this are ignored (ScanResult.timestamp is µs since boot). */
+        const val MAX_RESULT_AGE_US = 30_000_000L
     }
 
     fun start() {

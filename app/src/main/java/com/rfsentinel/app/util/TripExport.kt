@@ -20,9 +20,8 @@ object TripExport {
     private fun iso(t: Long): String =
         SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }.format(Date(t))
     private fun local(t: Long): String = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date(t))
-    private fun x(s: String?): String = (s ?: "").replace("&", "&amp;").replace("<", "&lt;")
-        .replace(">", "&gt;").replace("\"", "&quot;")
-    private fun q(s: String?): String = if (s == null) "" else "\"" + s.replace("\"", "\"\"") + "\""
+    private fun x(s: String?): String = ExportText.xml(s)
+    private fun q(s: String?): String = ExportText.csv(s)
 
     private fun describe(d: TripDeviceEntity) = buildString {
         append(d.mac)

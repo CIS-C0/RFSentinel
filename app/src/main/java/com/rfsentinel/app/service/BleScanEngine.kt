@@ -30,7 +30,9 @@ class BleScanEngine(
     private val onResult: (ScanResult) -> Unit
 ) {
     private var scanner: BluetoothLeScanner? = null
+    /** Tracked separately: either scan can fail on its own, and both must always be stopped. */
     @Volatile private var scanning = false
+    @Volatile private var filteredScanning = false
 
     private val callback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) = onResult(result)
@@ -46,6 +48,7 @@ class BleScanEngine(
         override fun onBatchScanResults(results: MutableList<ScanResult>) = results.forEach(onResult)
         override fun onScanFailed(errorCode: Int) {
             Log.w(TAG, "Filtered BLE scan failed: $errorCode")
+            filteredScanning = false
         }
     }
 
@@ -56,6 +59,8 @@ class BleScanEngine(
     @SuppressLint("MissingPermission")
     fun start(scanMode: Int, watchedMacs: List<String>) {
         if (scanning) return
+        // A previous unfiltered scan may have failed on its own while the filtered one kept running.
+        stop()
         val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager ?: return
         val adapter = manager.adapter ?: return
         if (!adapter.isEnabled) return
@@ -80,6 +85,7 @@ class BleScanEngine(
         }
         try {
             scanner?.startScan(buildFilters(watchedMacs), settings(ScanSettings.SCAN_MODE_BALANCED), filteredCallback)
+            filteredScanning = true
         } catch (e: Exception) {
             Log.w(TAG, "Filtered scan unavailable", e)
         }
@@ -87,14 +93,16 @@ class BleScanEngine(
 
     @SuppressLint("MissingPermission")
     fun stop() {
-        if (!scanning) return
-        try {
-            scanner?.stopScan(callback)
-            scanner?.stopScan(filteredCallback)
-        } catch (e: Exception) {
-            // Adapter already turned off (IllegalStateException) or permission revoked.
+        if (scanning) {
+            try { scanner?.stopScan(callback) } catch (e: Exception) {
+                // Adapter already turned off (IllegalStateException) or permission revoked.
+            }
+        }
+        if (filteredScanning) {
+            try { scanner?.stopScan(filteredCallback) } catch (e: Exception) {}
         }
         scanning = false
+        filteredScanning = false
     }
 
     fun isScanning() = scanning

@@ -64,15 +64,60 @@ object TripRecorder {
         return id
     }
 
+    /** What's left to write for a trip that was just stopped (see [detach]). */
+    class Final internal constructor(
+        val id: Long,
+        val points: List<TripPointEntity>,
+        val devices: List<TripDeviceEntity>,
+        val distanceM: Double,
+        val totalPoints: Int,
+        val deviceCount: Int,
+        val flaggedCount: Int
+    )
+
+    /**
+     * Stops recording immediately and hands back everything not yet written.
+     * Synchronous, so a scan restarted right after sees no active trip and can
+     * start a new one; write the result with [persist].
+     */
+    fun detach(): Final? = synchronized(this) {
+        val id = activeTripId ?: return null
+        val changed = takeDirty()
+        Final(
+            id, pendingPoints.toList(), changed, distanceM, points.size,
+            devices.size, devices.values.count { it.flagged }
+        ).also {
+            pendingPoints.clear()
+            activeTripId = null
+        }
+    }
+
+    /** Writes a detached trip and closes it; deletes it if nothing was recorded. */
+    suspend fun persist(context: Context, f: Final) {
+        val dao = AppDatabase.getInstance(context).tripDao()
+        if (f.points.isNotEmpty()) dao.insertPoints(f.points)
+        if (f.devices.isNotEmpty()) f.devices.chunked(300).forEach { dao.upsertDevices(it) }
+        dao.updateStats(f.id, System.currentTimeMillis(), f.distanceM, f.totalPoints, f.deviceCount, f.flaggedCount)
+        // An empty trip (no GPS fix at all) isn't worth keeping.
+        val trip = dao.get(f.id)
+        if (trip != null && trip.pointCount == 0 && trip.deviceCount == 0) dao.delete(f.id)
+    }
+
     /** Stops recording and writes the final state. */
     suspend fun stop(context: Context) {
-        val id = activeTripId ?: return
-        flush(context, closing = true)
-        synchronized(this) { activeTripId = null }
-        // An empty trip (no GPS fix at all) isn't worth keeping.
-        val dao = AppDatabase.getInstance(context).tripDao()
-        val trip = dao.get(id)
-        if (trip != null && trip.pointCount == 0 && trip.deviceCount == 0) dao.delete(id)
+        detach()?.let { persist(context, it) }
+    }
+
+    /**
+     * Takes the changed devices. Clearing only what was read (not the whole set)
+     * means a device marked dirty by a scanner thread meanwhile stays dirty for
+     * the next flush instead of being lost; its state is read after removal, so
+     * it's never older than what's recorded.
+     */
+    private fun takeDirty(): List<TripDeviceEntity> {
+        val keys = dirty.toList()
+        dirty.removeAll(keys.toSet())
+        return keys.mapNotNull { devices[it] }
     }
 
     /** Called for every location fix while recording. */
@@ -131,7 +176,7 @@ object TripRecorder {
         val totalPoints: Int
         synchronized(this) {
             newPoints = pendingPoints.toList(); pendingPoints.clear()
-            changed = dirty.mapNotNull { devices[it] }; dirty.clear()
+            changed = takeDirty()
             totalPoints = points.size
         }
         val dao = AppDatabase.getInstance(context).tripDao()

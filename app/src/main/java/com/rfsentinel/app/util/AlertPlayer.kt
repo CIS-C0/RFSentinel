@@ -116,6 +116,9 @@ object AlertPlayer {
         vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1))
     }
 
+    /** Announcements raised while the speech engine is still starting. */
+    private val pending = mutableListOf<Pair<String, AudioAttributes>>()
+
     @Synchronized
     private fun speak(context: Context, text: String, attrs: AudioAttributes) {
         val engine = tts
@@ -124,16 +127,32 @@ object AlertPlayer {
             engine.speak(text, TextToSpeech.QUEUE_ADD, null, "rf-${System.nanoTime()}")
             return
         }
+        // Still starting: queue it (bounded) so it's spoken once ready.
+        if (pending.size < 5) pending += text to attrs
         if (engine == null) {
-            tts = TextToSpeech(context) { status ->
-                ttsReady = status == TextToSpeech.SUCCESS
-                if (ttsReady) {
-                    tts?.language = Locale.getDefault()
-                    tts?.setAudioAttributes(attrs)
-                    tts?.speak(text, TextToSpeech.QUEUE_ADD, null, "rf-first")
-                }
-            }
+            tts = TextToSpeech(context) { status -> onTtsInit(status) }
         }
+    }
+
+    @Synchronized
+    private fun onTtsInit(status: Int) {
+        val engine = tts ?: return
+        if (status != TextToSpeech.SUCCESS) {
+            // Engine missing or still updating: drop it so the next alert tries again,
+            // instead of staying silent until the app restarts.
+            runCatching { engine.shutdown() }
+            tts = null
+            ttsReady = false
+            pending.clear()
+            return
+        }
+        ttsReady = true
+        engine.language = Locale.getDefault()
+        pending.forEach { (text, attrs) ->
+            engine.setAudioAttributes(attrs)
+            engine.speak(text, TextToSpeech.QUEUE_ADD, null, "rf-${System.nanoTime()}")
+        }
+        pending.clear()
     }
 
     @Synchronized
@@ -141,5 +160,6 @@ object AlertPlayer {
         tts?.shutdown()
         tts = null
         ttsReady = false
+        pending.clear()
     }
 }
