@@ -1,0 +1,106 @@
+[
+  {
+    "prefix": "00:25:DF",
+    "label": "Axon Enterprise (body cam / TASER / holster sensor)",
+    "source": "IEEE MA-L registry (Axon Enterprise, Inc., reg. 2010-01-05); field-observed on body cams per all-cameras-are-beacons",
+    "confidence": "confirmed",
+    "score": 75,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "D8:1F:65",
+    "label": "Axon equipment (field-attributed block)",
+    "source": "IEEE lists the registrant as Private; 9 distinct MACs field-attributed to Axon (8 with the BWCDEVICE tag) per all-cameras-are-beacons, 2026-09",
+    "confidence": "confirmed",
+    "score": 75,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "D4:2D:C5",
+    "label": "i-PRO Co., Ltd. (body cams / surveillance cameras, ex-Panasonic)",
+    "source": "IEEE MA-L registry (i-PRO Co., Ltd., reg. 2019-08-24)",
+    "confidence": "confirmed",
+    "score": 55,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "B4:1E:52",
+    "label": "Flock Safety (ALPR camera)",
+    "source": "IEEE MA-L registry (Flock Safety, reg. 2024-05-09)",
+    "confidence": "confirmed",
+    "score": 75,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:09:BC",
+    "label": "Utility, Inc. (BodyWorn body cameras)",
+    "source": "IEEE MA-L registry (Utility, Inc); weak fallback - the 'BodyWorn Remote' name is the strong signal",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "00:16:ED",
+    "label": "Utility, Inc. (BodyWorn body cameras)",
+    "source": "IEEE MA-L registry (Utility, Inc); weak fallback",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "00:1F:92",
+    "label": "Motorola Solutions (radios, ex-Avigilon cameras, in-car gear)",
+    "source": "IEEE MA-L registry. Weak: in one field capture 27 of 27 Motorola WiFi hits were NOT body cams (all-cameras-are-beacons)",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "4C:CC:34",
+    "label": "Motorola Solutions (radios / in-car gear)",
+    "source": "IEEE MA-L registry. Weak: commonly retail, school and venue two-way radios",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:18:85",
+    "label": "Motorola Solutions",
+    "source": "IEEE MA-L registry. Weak vendor-only match",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:04:7D",
+    "label": "Motorola Solutions",
+    "source": "IEEE MA-L registry. Weak vendor-only match",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "10:74:6F",
+    "label": "Motorola Solutions Malaysia",
+    "source": "IEEE MA-L registry. Weak vendor-only match",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "B8:E2:8C",
+    "label": "Motorola Solutions Malaysia",
+    "source": "IEEE MA-L registry. Weak vendor-only match",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "9C:86:2B",
+    "label": "Motorola Solutions Malaysia",
+    "source": "IEEE MA-L registry. Weak vendor-only match",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  }
+]

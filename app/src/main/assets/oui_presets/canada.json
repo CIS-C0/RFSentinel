@@ -1,0 +1,210 @@
+[
+  {
+    "prefix": "00:25:DF",
+    "label": "Axon (body cam / TASER) - dominant body-cam and TASER vendor for Canadian police services, including the RCMP (Axon Body 4)",
+    "source": "IEEE MA-L (Axon Enterprise, Inc.); PSPC/RCMP federal body-camera contract announcement; public police procurement records",
+    "confidence": "confirmed",
+    "score": 75,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "D8:1F:65",
+    "label": "Axon equipment (field-attributed block)",
+    "source": "IEEE lists the registrant as Private; field-attributed to Axon (BWCDEVICE-tagged devices) per all-cameras-are-beacons",
+    "confidence": "confirmed",
+    "score": 75,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "8C:1F:64:DF:0",
+    "label": "Cyberkar Systems - Canadian police-vehicle computers / in-car systems integrator",
+    "source": "IEEE MA-S 8C:1F:64:DF:0/36 (Cyberkar Systems inc.); public police procurement records. Narrow police-vehicle registrant; match all 36 bits",
+    "confidence": "confirmed",
+    "score": 65,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "name:BC-03",
+    "label": "Getac BC-03 body camera (used in Canadian police body-cam pilots)",
+    "source": "Public police pilot report (Getac BC-02/BC-03). Name form is a capture candidate per all-cameras-are-beacons - verify. Getac has no IEEE block of its own (its blocks are shared with laptops), so only the name can be matched",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "name:BC-02",
+    "label": "Getac BC-02 body camera (used in Canadian police body-cam pilots)",
+    "source": "Public police pilot report (Getac BC-02 quick-start guide). Capture-candidate name - verify",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "name:BC-04",
+    "label": "Getac BC-04 body camera",
+    "source": "Getac product line after the BC-03; capture-candidate name per all-cameras-are-beacons - verify",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "name:HS-01",
+    "label": "Getac HS-01 holster sensor (starts the body cam when a weapon is drawn)",
+    "source": "Public police pilot report (Bluetooth weapon/TASER holster sensors); HS-01 name is a capture candidate per all-cameras-are-beacons - verify",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "D4:2D:C5",
+    "label": "i-PRO Co., Ltd. (body cams / surveillance cameras, ex-Panasonic)",
+    "source": "IEEE MA-L (i-PRO Co., Ltd.)",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:1F:92",
+    "label": "Motorola Solutions - ex-Avigilon surveillance cameras; P25 radio networks used by Canadian police",
+    "source": "IEEE MA-L ownership history. Weak vendor-only match: Motorola blocks mostly carry two-way radios and infrastructure",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "4C:CC:34",
+    "label": "Motorola Solutions (radios / in-car gear) - P25 radio networks",
+    "source": "IEEE MA-L; field-observed on WiFi (all-cameras-are-beacons). Weak vendor-only match",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:18:85",
+    "label": "Motorola Solutions - P25 radio networks",
+    "source": "IEEE MA-L. Weak vendor-only match",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:04:7D",
+    "label": "Motorola Solutions - P25 radio networks",
+    "source": "IEEE MA-L. Weak vendor-only match",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "10:74:6F",
+    "label": "Motorola Solutions Malaysia (radio manufacturing entity)",
+    "source": "IEEE MA-L. Weak vendor-only match",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "B8:E2:8C",
+    "label": "Motorola Solutions Malaysia (radio manufacturing entity)",
+    "source": "IEEE MA-L. Weak vendor-only match",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "9C:86:2B",
+    "label": "Motorola Solutions Malaysia (radio manufacturing entity)",
+    "source": "IEEE MA-L. Weak vendor-only match",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:BF:15",
+    "label": "Genetec - AutoVu license-plate readers / security systems (Canadian vendor used by municipal police)",
+    "source": "IEEE MA-L (Genetec Inc.); public reporting on police Genetec Cloudrunner plate-reader cameras. Weak: registry-only, these cameras likely report over cellular, and the block also covers Genetec servers / access control",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "0C:BF:15",
+    "label": "Genetec - AutoVu license-plate readers / security systems",
+    "source": "IEEE MA-L (Genetec Inc.). Weak registry-only match",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:BE:7",
+    "label": "Genetec - security equipment (IAB block)",
+    "source": "IEEE IAB 00:50:C2:BE:7/36 (Genetec Inc.). Weak registry-only match",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "F4:60:77",
+    "label": "Texas Instruments Bluetooth chip block (used in Zebra mobile printers)",
+    "source": "IEEE MA-L (Texas Instruments); seen on Zebra ZQ-series mobile printers. Very weak: TI chips are in countless products - listed so these devices are highlighted, not alerted",
+    "confidence": "candidate",
+    "score": 20,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "name:RJ-4230B",
+    "label": "Brother RuggedJet 4230B mobile printer (in-car e-citation printer)",
+    "source": "Brother Mobile Solutions public-safety/eCitation material. Brother's default Bluetooth name starts with the model - verify",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "name:RJ-4250WB",
+    "label": "Brother RuggedJet 4250WB mobile printer (in-car e-citation printer)",
+    "source": "Brother RuggedJet 4200 public-safety datasheet (e-citations, accident reports, parking). Default name starts with the model - verify",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "name:RJ-4040",
+    "label": "Brother RuggedJet 4040 mobile printer (older e-citation printer)",
+    "source": "Brother eCitation material; older RuggedJet model still in fleets. Name form - verify",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "name:PJ-763",
+    "label": "Brother PocketJet 7 full-page printer (in-car reports / tickets)",
+    "source": "Brother: PocketJet is the most common 8.5-inch in-car citation/report printer. Name form - verify",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "name:PJ-883",
+    "label": "Brother PocketJet 8 full-page printer (in-car reports / tickets)",
+    "source": "Brother PocketJet 8 (Patrol PC in-car mount). Name form - verify",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:30:44",
+    "label": "Cradlepoint vehicle router - installed in police cars; also common on buses and in stores",
+    "source": "IEEE MA-L (CradlePoint, Inc); public police procurement records. Weak: common on transit and retail, and the BSSID may use a module vendor's block (all-cameras-are-beacons)",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:E0:1C",
+    "label": "Cradlepoint vehicle router - police cars, buses, stores",
+    "source": "IEEE MA-L (CradlePoint, Inc). Weak - see 00:30:44",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "PUBLIC_SAFETY"
+  }
+]

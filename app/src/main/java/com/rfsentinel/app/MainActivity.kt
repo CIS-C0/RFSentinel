@@ -1,0 +1,397 @@
+package com.rfsentinel.app
+
+import android.bluetooth.BluetoothManager
+import android.content.Intent
+import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
+import android.view.View
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SearchView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.SimpleItemAnimator
+import com.rfsentinel.app.data.Favorites
+import com.rfsentinel.app.data.WhitelistCache
+import com.rfsentinel.app.databinding.ActivityMainBinding
+import com.rfsentinel.app.detect.Advert
+import com.rfsentinel.app.detect.Category
+import com.rfsentinel.app.detect.DeviceIntel
+import com.rfsentinel.app.detect.Tier
+import com.rfsentinel.app.ouilist.OuiListActivity
+import com.rfsentinel.app.service.DeviceRegistry
+import com.rfsentinel.app.service.ScanForegroundService
+import com.rfsentinel.app.settings.SettingsActivity
+import com.rfsentinel.app.ui.AboutDialog
+import com.rfsentinel.app.ui.DetectionLogActivity
+import com.rfsentinel.app.ui.DeviceActions
+import com.rfsentinel.app.ui.DeviceAdapter
+import com.rfsentinel.app.ui.DeviceRow
+import com.rfsentinel.app.ui.RadarView
+import com.rfsentinel.app.util.Exporter
+import com.rfsentinel.app.util.Permissions
+import com.rfsentinel.app.util.Prefs
+import com.rfsentinel.app.util.ProximityUtil
+import com.rfsentinel.app.util.applySystemBarInsets
+import com.rfsentinel.app.whitelist.WhitelistActivity
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+class MainActivity : AppCompatActivity() {
+
+    companion object {
+        /** A flagged row flashes while its device was heard within this window. */
+        private const val FLASH_WINDOW_MS = 60_000L
+        private const val REFRESH_MS = 1_000L
+        private const val WEAK_COLOR = 0xFFB26A00.toInt()
+        private const val WHITELIST_COLOR = 0xFF6B7B80.toInt()
+    }
+
+    private enum class Filter { ALL, FLAGGED, TRACKERS, DRONES, NEW, FAVORITES, BLE, WIFI }
+
+    private lateinit var binding: ActivityMainBinding
+    private lateinit var adapter: DeviceAdapter
+    private var filter = Filter.ALL
+    private var query = ""
+    private var deviceCount = 0
+    private var flaggedCount = 0
+    private var demoMode = false
+
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        // Only the required set gates scanning; a denied notification permission
+        // just means alerts show in-app and via sound only.
+        if (Permissions.missingRequired(this).isEmpty()) {
+            startScanning()
+        } else {
+            binding.statusText.text = "Location and Bluetooth-scan permissions are required to scan"
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        binding.root.applySystemBarInsets()
+        applyThemeHeader()
+
+        adapter = DeviceAdapter(
+            onClick = { DeviceActions.openDetails(this, it.mac) },
+            onLongPress = { DeviceActions.showQuickActions(this, it.mac) }
+        )
+        binding.recyclerView.layoutManager = LinearLayoutManager(this)
+        binding.recyclerView.adapter = adapter
+        // Rows rebind every second (RSSI / "seen Xs ago"); the default change
+        // crossfade would make the whole list flicker and fight the match flash.
+        (binding.recyclerView.itemAnimator as? SimpleItemAnimator)?.supportsChangeAnimations = false
+        binding.radarView.onBlipClick = { DeviceActions.openDetails(this, it) }
+
+        binding.startStopButton.setOnClickListener {
+            if (ScanForegroundService.isRunning) stopScanning() else requestPermissionsAndStart()
+        }
+        binding.viewToggleButton.setOnClickListener {
+            Prefs.setRadarView(this, !Prefs.radarView(this))
+            applyViewMode()
+        }
+        binding.filterChips.setOnCheckedStateChangeListener { _, ids ->
+            filter = when (ids.firstOrNull()) {
+                R.id.chipFlagged -> Filter.FLAGGED
+                R.id.chipTrackers -> Filter.TRACKERS
+                R.id.chipDrones -> Filter.DRONES
+                R.id.chipNew -> Filter.NEW
+                R.id.chipFavorites -> Filter.FAVORITES
+                R.id.chipBle -> Filter.BLE
+                R.id.chipWifi -> Filter.WIFI
+                else -> Filter.ALL
+            }
+            render()
+        }
+
+        // Debug builds only: made-up devices for screenshots (see DemoData).
+        if (BuildConfig.DEBUG && intent.getBooleanExtra("demo", false)) {
+            demoMode = true
+            intent.getStringExtra("view")?.let { Prefs.setRadarView(this, it == "radar") }
+            lifecycleScope.launch(kotlinx.coroutines.Dispatchers.Default) { com.rfsentinel.app.ui.DemoData.populate() }
+        }
+        applyViewMode()
+        observeDevices()
+        updateStatus()
+        lifecycleScope.launch { Favorites.load(this@MainActivity) }
+        // Only on a real fresh start - a theme change recreates this screen too.
+        if (savedInstanceState == null && !Prefs.onboardingDone(this)) showOnboarding()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateStatus()
+    }
+
+    /** Styled themes: their own title, animated wordmark and the user's banner image. */
+    private fun applyThemeHeader() {
+        val theme = com.rfsentinel.app.ui.ThemeManager.current(this)
+        theme.appTitle?.let { title = it }
+        val header = theme.header
+        binding.themedHeader.visibility = if (header != null) View.VISIBLE else View.GONE
+        if (header == null) return
+        binding.themeHeader.style = header
+        val file = com.rfsentinel.app.ui.ThemeManager.bannerFile(this)
+        if (com.rfsentinel.app.ui.ThemeManager.hasBanner(this)) {
+            val bmp = android.graphics.BitmapFactory.decodeFile(file.absolutePath, android.graphics.BitmapFactory.Options().apply {
+                // Downsample big images so the header stays light.
+                val probe = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                android.graphics.BitmapFactory.decodeFile(file.absolutePath, probe)
+                inSampleSize = maxOf(1, probe.outWidth / 1200)
+            })
+            binding.themeBanner.setImageBitmap(bmp)
+            binding.themeBanner.visibility = if (bmp != null) View.VISIBLE else View.GONE
+        } else {
+            binding.themeBanner.visibility = View.GONE
+        }
+    }
+
+    private fun applyViewMode() {
+        val radar = Prefs.radarView(this)
+        binding.radarView.visibility = if (radar) View.VISIBLE else View.GONE
+        binding.recyclerView.visibility = if (radar) View.GONE else View.VISIBLE
+        binding.viewToggleButton.text = if (radar) "List view" else "Radar view"
+    }
+
+    private fun updateStatus() {
+        val running = ScanForegroundService.isRunning || demoMode
+        binding.startStopButton.text = if (running) "Stop scanning" else "Start scanning"
+        binding.statusText.text = when {
+            !running -> "Idle - tap Start to listen for nearby devices"
+            !bluetoothOn() && !demoMode -> "Scanning WiFi only - turn on Bluetooth for BLE (picked up automatically)"
+            else -> "Scanning · $deviceCount ${plural(deviceCount, "device", "devices")} nearby" +
+                if (flaggedCount > 0) " · $flaggedCount flagged" else ""
+        }
+    }
+
+    private fun plural(n: Int, one: String, many: String) = if (n == 1) one else many
+
+    private fun bluetoothOn(): Boolean =
+        (getSystemService(BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter?.isEnabled == true
+
+    /** Rebuilds the live list / radar once a second while the screen is visible. */
+    private fun observeDevices() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    render()
+                    delay(REFRESH_MS)
+                }
+            }
+        }
+    }
+
+    private fun render() {
+        val now = System.currentTimeMillis()
+        val all = DeviceRegistry.snapshot(now)
+        val threshold = Prefs.alertThreshold(this)
+        deviceCount = all.size
+        val flagged = all.filter { it.best != null && !WhitelistCache.contains(it.mac) }
+        flaggedCount = flagged.size
+        updateBanner(flagged, threshold)
+        updateStatus()
+
+        val visible = all.filter { matchesFilter(it) && matchesQuery(it) }
+            .sortedWith(
+                compareByDescending<DeviceRegistry.Snapshot> { it.best != null && !WhitelistCache.contains(it.mac) }
+                    .thenByDescending { it.following }
+                    .thenByDescending { it.best?.confidence ?: 0 }
+                    .thenBy { bandOrder(ProximityUtil.band(it.rssi)) }
+                    .thenBy { it.firstSeen }
+            )
+
+        if (binding.radarView.visibility == View.VISIBLE) {
+            binding.radarView.setBlips(visible.take(200).map { s ->
+                val alert = s.best != null && !WhitelistCache.contains(s.mac)
+                RadarView.Blip(
+                    s.mac, s.rssi,
+                    if (alert) colorFor(s) else binding.radarView.ordinaryColor(),
+                    alert,
+                    if (alert) s.best?.label else null
+                )
+            })
+        } else {
+            adapter.submitList(visible.map { toRow(it, now, threshold) })
+        }
+        binding.emptyText.visibility = if (visible.isEmpty()) View.VISIBLE else View.GONE
+        binding.emptyText.text = when {
+            all.isEmpty() && !ScanForegroundService.isRunning -> "Not scanning.\nTap Start scanning to begin."
+            all.isEmpty() -> "Listening... no devices heard yet."
+            else -> "No devices match this filter."
+        }
+    }
+
+    private fun matchesFilter(s: DeviceRegistry.Snapshot): Boolean = when (filter) {
+        Filter.ALL -> true
+        Filter.FLAGGED -> s.best != null && !WhitelistCache.contains(s.mac)
+        Filter.TRACKERS -> s.hits.any { it.category == Category.TRACKER } ||
+            s.deviceType.contains("tracker", true) || s.deviceType.contains("Find My", true)
+        Filter.DRONES -> s.hits.any { it.category == Category.DRONE } || s.remoteId != null
+        Filter.NEW -> s.isNew
+        Filter.FAVORITES -> Favorites.contains(s.mac)
+        Filter.BLE -> Advert.Source.BLE in s.sources
+        Filter.WIFI -> Advert.Source.WIFI in s.sources
+    }
+
+    private fun matchesQuery(s: DeviceRegistry.Snapshot): Boolean {
+        if (query.isBlank()) return true
+        val q = query.trim()
+        return listOfNotNull(s.mac, s.name, s.vendor, s.deviceType, s.best?.label)
+            .any { it.contains(q, ignoreCase = true) }
+    }
+
+    private fun colorFor(s: DeviceRegistry.Snapshot): Int {
+        val best = s.best ?: return com.rfsentinel.app.ui.ThemeManager.ink(this, WHITELIST_COLOR)
+        return com.rfsentinel.app.ui.ThemeManager.ink(this, if (best.tier == Tier.WEAK) WEAK_COLOR else best.category.colorArgb)
+    }
+
+    private fun toRow(s: DeviceRegistry.Snapshot, now: Long, threshold: Int): DeviceRow {
+        val whitelisted = WhitelistCache.contains(s.mac)
+        val best = s.best
+        val alert = best != null && !whitelisted
+        val ageSec = (now - s.lastSeen) / 1000
+        val age = if (ageSec < 2) "now" else "${ageSec}s ago"
+        val badges = buildList {
+            if (s.following) add("FOLLOWING")
+            if (Favorites.contains(s.mac)) add("★")
+            if (s.isNew) add("NEW")
+        }
+        val tag = when {
+            whitelisted -> "WHITELISTED"
+            best != null -> (if (s.following) "FOLLOWING · " else "") +
+                "${best.category.shortTag} · ${best.tier.label} ${best.confidence}%"
+            else -> null
+        }
+        return DeviceRow(
+            mac = s.mac,
+            title = best?.label ?: s.name ?: s.deviceType,
+            subtitle = s.mac + "  ·  " + (s.vendor ?: s.addressType.label),
+            meta = listOf(
+                if (best != null && s.name != null) "\"${s.name}\"" else s.deviceType,
+                s.sources.joinToString("+") { if (it == Advert.Source.BLE) "BLE" else "WiFi" },
+                "${ProximityUtil.band(s.rssi)} ${s.rssi} dBm ${DeviceIntel.formatDistance(s.distanceM)}",
+                age
+            ).joinToString(" · ") + if (badges.isNotEmpty()) "  " + badges.joinToString(" ") else "",
+            tag = tag,
+            tagColor = if (whitelisted) com.rfsentinel.app.ui.ThemeManager.ink(this, WHITELIST_COLOR) else colorFor(s),
+            highlight = if (alert) colorFor(s) else null,
+            flashing = alert && now - s.lastSeen < FLASH_WINDOW_MS &&
+                (s.following || (best!!.confidence >= threshold && best.category != Category.TRACKER)),
+            bold = alert
+        )
+    }
+
+    private fun updateBanner(flagged: List<DeviceRegistry.Snapshot>, threshold: Int) {
+        val banner = binding.threatBanner
+        if (!ScanForegroundService.isRunning && flagged.isEmpty()) {
+            banner.visibility = View.GONE
+            return
+        }
+        banner.visibility = View.VISIBLE
+        val following = flagged.firstOrNull { it.following }
+        val top = flagged.maxByOrNull { it.best!!.confidence }
+        val (color, text) = when {
+            following != null -> 0xFFB3261E.toInt() to "⚠ ${following.best!!.label} may be following you"
+            top == null -> 0xFF2E7D32.toInt() to "✓ All clear - no flagged equipment nearby"
+            top.best!!.tier == Tier.STRONG -> 0xFFB3261E.toInt() to "⚠ Strong match nearby: ${top.best!!.label}"
+            top.best!!.confidence >= threshold -> 0xFFC8431A.toInt() to "Probable match nearby: ${top.best!!.label}"
+            else -> WEAK_COLOR to "Weak match only (verify): ${top.best!!.label}"
+        }
+        banner.text = if (flagged.size > 1 && following == null) "$text  (+${flagged.size - 1} more)" else text
+        banner.background.mutate().setTint(color)
+    }
+
+    private fun bandOrder(band: String) = when (band) {
+        "Near" -> 0
+        "Nearby" -> 1
+        else -> 2
+    }
+
+    private fun requestPermissionsAndStart() {
+        val toAsk = (Permissions.required() + Permissions.optional())
+            .filterNot { Permissions.granted(this, it) }
+        if (toAsk.isEmpty()) startScanning() else permissionLauncher.launch(toAsk.toTypedArray())
+    }
+
+    private fun startScanning() {
+        try {
+            ScanForegroundService.start(this)
+        } catch (e: Exception) {
+            binding.statusText.text = "Could not start scanner: ${e.message}"
+            return
+        }
+        binding.root.postDelayed({ updateStatus() }, 500)
+    }
+
+    private fun stopScanning() {
+        ScanForegroundService.stop(this)
+        binding.root.postDelayed({ updateStatus() }, 300)
+    }
+
+    /** First launch: the setup wizard (theme, region, alerts, location, permissions). */
+    private fun showOnboarding() {
+        startActivity(Intent(this, com.rfsentinel.app.ui.SetupActivity::class.java))
+    }
+
+    override fun onPrepareOptionsMenu(menu: Menu): Boolean {
+        val muted = Prefs.alertsMuted(this)
+        menu.findItem(R.id.action_mute)?.apply {
+            setIcon(if (muted) R.drawable.ic_car_volume_off else R.drawable.ic_car_volume)
+            title = if (muted) "Unmute alerts" else "Mute alerts"
+        }
+        // The icons are white vectors; tint them to the theme's action-bar ink so they stay
+        // visible on Paper and red-only in Night Drive.
+        val ink = com.google.android.material.color.MaterialColors.getColor(
+            supportActionBar?.themedContext ?: this, androidx.appcompat.R.attr.colorControlNormal, android.graphics.Color.WHITE
+        )
+        for (i in 0 until menu.size()) menu.getItem(i).icon?.mutate()?.setTint(ink)
+        return super.onPrepareOptionsMenu(menu)
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.menu_main, menu)
+        (menu.findItem(R.id.action_search)?.actionView as? SearchView)?.apply {
+            queryHint = "Name, address, vendor, type..."
+            setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+                override fun onQueryTextSubmit(q: String?) = true
+                override fun onQueryTextChange(q: String?): Boolean {
+                    this@MainActivity.query = q.orEmpty()
+                    render()
+                    return true
+                }
+            })
+        }
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_match_log -> { startActivity(Intent(this, DetectionLogActivity::class.java)); true }
+            R.id.action_settings -> { startActivity(Intent(this, SettingsActivity::class.java)); true }
+            R.id.action_whitelist -> { startActivity(Intent(this, WhitelistActivity::class.java)); true }
+            R.id.action_oui_list -> { startActivity(Intent(this, OuiListActivity::class.java)); true }
+            R.id.action_export -> { Exporter.showExportMenu(this); true }
+            R.id.action_export_all -> { Exporter.showExportAll(this); true }
+            R.id.action_map -> { startActivity(Intent(this, com.rfsentinel.app.ui.MapActivity::class.java)); true }
+            R.id.action_traces -> { startActivity(Intent(this, com.rfsentinel.app.ui.TripsActivity::class.java)); true }
+            R.id.action_about -> { AboutDialog.show(this); true }
+            R.id.action_mute -> {
+                val muted = !Prefs.alertsMuted(this)
+                Prefs.setAlertsMuted(this, muted)
+                invalidateOptionsMenu()
+                android.widget.Toast.makeText(
+                    this, if (muted) "Alert sound and voice muted" else "Alert sound on", android.widget.Toast.LENGTH_SHORT
+                ).show()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+}

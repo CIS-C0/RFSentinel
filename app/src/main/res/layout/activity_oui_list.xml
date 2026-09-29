@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <RadioGroup
+        android:id="@+id/ruleType"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:checkedButton="@id/typeAddress"
+        android:orientation="horizontal">
+
+        <RadioButton
+            android:id="@+id/typeAddress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Address" />
+
+        <RadioButton
+            android:id="@+id/typeName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Name has" />
+
+        <RadioButton
+            android:id="@+id/typeVendor"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Maker has" />
+    </RadioGroup>
+
+    <EditText
+        android:id="@+id/prefixInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Prefix AA:BB:CC or device AA:BB:CC:DD:EE:FF"
+        android:importantForAutofill="no"
+        android:inputType="textCapCharacters|textNoSuggestions" />
+
+    <EditText
+        android:id="@+id/labelInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Label (what it is)"
+        android:importantForAutofill="no"
+        android:inputType="text" />
+
+    <Button
+        android:id="@+id/addButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Add to watchlist" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="4dp"
+        android:text="Built-in presets (body cams, Flock, Motorola...) are listed below with their confidence. Payload signatures (Axon tags, Remote ID, trackers, glasses) are built into the detection engine - see About &amp; sources."
+        android:textColor="#888888"
+        android:textSize="11sp" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="8dp"
+        android:layout_weight="1" />
+
+</LinearLayout>

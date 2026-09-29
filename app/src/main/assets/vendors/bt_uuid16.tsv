@@ -1,0 +1,809 @@
+# Bluetooth SIG 16-bit UUIDs: services, SDO and member (hex, name). Source: bitbucket.org/bluetooth-SIG/public
+1800	GAP
+1801	GATT
+1802	Immediate Alert
+1803	Link Loss
+1804	Tx Power
+1805	Current Time
+1806	Reference Time Update
+1807	Next DST Change
+1808	Glucose
+1809	Health Thermometer
+180A	Device Information
+180D	Heart Rate
+180E	Phone Alert Status
+180F	Battery
+1810	Blood Pressure
+1811	Alert Notification
+1812	Human Interface Device
+1813	Scan Parameters
+1814	Running Speed and Cadence
+1815	Automation IO
+1816	Cycling Speed and Cadence
+1818	Cycling Power
+1819	Location and Navigation
+181A	Environmental Sensing
+181B	Body Composition
+181C	User Data
+181D	Weight Scale
+181E	Bond Management
+181F	Continuous Glucose Monitoring
+1820	Internet Protocol Support
+1821	Indoor Positioning
+1822	Pulse Oximeter
+1823	HTTP Proxy
+1824	Transport Discovery
+1825	Object Transfer
+1826	Fitness Machine
+1827	Mesh Provisioning
+1828	Mesh Proxy
+1829	Reconnection Configuration
+183A	Insulin Delivery
+183B	Binary Sensor
+183C	Emergency Configuration
+183D	Authorization Control
+183E	Physical Activity Monitor
+183F	Elapsed Time
+1840	Generic Health Sensor
+1843	Audio Input Control
+1844	Volume Control
+1845	Volume Offset Control
+1846	Coordinated Set Identification
+1847	Device Time
+1848	Media Control
+1849	Generic Media Control
+184A	Constant Tone Extension
+184B	Telephone Bearer
+184C	Generic Telephone Bearer
+184D	Microphone Control
+184E	Audio Stream Control
+184F	Broadcast Audio Scan
+1850	Published Audio Capabilities
+1851	Basic Audio Announcement
+1852	Broadcast Audio Announcement
+1853	Common Audio
+1854	Hearing Access
+1855	Telephony and Media Audio
+1856	Public Broadcast Announcement
+1857	Electronic Shelf Label
+1858	Gaming Audio
+1859	Mesh Proxy Solicitation
+185A	Industrial Measurement Device
+185B	Ranging
+185C	HID ISO
+185D	Cookware
+185E	Voice Assistant
+185F	Generic Voice Assistant
+1860	Tire Pressure Monitoring System
+FC25	Trackonomy Systems, Inc.
+FC26	Hudl, Inc.
+FC27	Barking Labs Corp.
+FC28	TechnoPartner Tecnologia Ltda.
+FC29	Google LLC
+FC2A	Troo Corporation
+FC2B	Elder Technologies, Inc
+FC2C	Verkada Inc.
+FC30	Arashi Vision Inc.
+FC31	Ford Motor Company
+FC32	InPlay, Inc.
+FC34	Mitsubishi Electric Corporation
+FC35	Metabowerke GmbH
+FC36	PharmaSens AG
+FC37	TANlock GmbH
+FC38	SetPoint Medical
+FC39	Harman International
+FC3A	C.O.B.O. SpA
+FC3B	BONX INC.
+FC3C	Eforthink Technology Co., Ltd.
+FC3D	Reelables, Inc.
+FC3E	Google LLC
+FC3F	Milwaukee Electric Tools
+FC41	Yoto Limited
+FC43	Atmosic Technologies, Inc.
+FC44	Block, Inc.
+FC45	Mitsubishi Electric Corporation
+FC46	Xiaomi
+FC47	Shanghai Ingeek Technology Co., Ltd.
+FC48	Michelin
+FC49	Golioth, Inc.
+FC4A	Shenzhen Shokz Co.,Ltd.
+FC4B	WinMagic Inc.
+FC4C	HP Inc.
+FC4D	Lodestar Technology Inc.
+FC4E	Lodestar Technology Inc.
+FC4F	WaveRF, Corp.
+FC50	Ant Group Co., Ltd.
+FC51	Ant Group Co., Ltd.
+FC52	LG Electronics Inc.
+FC53	LEGIC Identsystems AG
+FC54	Shenzhen Yinwang Intelligent Technologies Co., Ltd.
+FC55	BYD Company Limited
+FC56	Google LLC
+FC57	Ambient Life Inc.
+FC58	Shenzhen Minew Technologies Co., Ltd.
+FC59	Ant Group Co., Ltd.
+FC5A	LAST LOCK INC.
+FC5B	Time Location Systems AS
+FC5C	PLASTIC RESEARCH AND DEVELOPMENT CORPORATION
+FC5D	GP Acoustics International Limited
+FC5E	KUBU SMART LIMITED
+FC5F	PI-CRYSTAL INC.
+FC60	Ohme Operations UK Limited
+FC61	QIKCONNEX LLC
+FC62	SPRiNTUS GmbH
+FC63	Volvo Technology AB
+FC64	Volvo Technology AB
+FC65	Robor Electronics B.V.
+FC66	Xiaomi Inc.
+FC67	Guangdong Hengqin Xingtong Technology Co.,ltd.
+FC68	RIGH, INC.
+FC69	Harman International
+FC6A	Sonos Inc
+FC6B	Sonos Inc
+FC6C	Powerstick.com
+FC6D	MOTIVE TECHNOLOGIES, INC.
+FC6E	stryker
+FC6F	NextSense, Inc.
+FC70	MOTIVE TECHNOLOGIES, INC.
+FC71	Hive-Zox International SA
+FC72	iodyne, LLC
+FC73	Google LLC
+FC74	EMBEINT INC
+FC75	Xiaomi Inc.
+FC76	Weber-Stephen Products LLC
+FC77	SING SUN TECHNOLOGY (INTERNATIONAL) LIMITED
+FC78	DHL
+FC79	LG Electronics Inc.
+FC7A	Outshiny India Private Limited
+FC7B	Testo SE & Co. KGaA
+FC7C	Motorola Mobility, LLC
+FC7D	MML US, Inc
+FC7E	Harman International
+FC7F	Southco
+FC80	TELE System Communications Pte. Ltd.
+FC81	Axon Enterprise, Inc.
+FC82	Zwift, Inc.
+FC83	iHealth Labs, Inc.
+FC84	NINGBO FOTILE KITCHENWARE CO., LTD.
+FC85	Zhejiang Huanfu Technology Co., LTD
+FC86	Samsara Networks, Inc
+FC87	Samsara Networks, Inc
+FC88	CCC del Uruguay
+FC89	Intel Corporation
+FC8A	Intel Corporation
+FC8B	Kaspersky Lab Middle East FZ-LLC
+FC8C	VusionGroup
+FC8D	Caire Inc.
+FC8E	Blue Iris Labs, Inc.
+FC8F	Bose Corporation
+FC90	Wiliot LTD.
+FC91	Samsung Electronics Co., Ltd.
+FC92	Furuno Electric Co., Ltd.
+FC93	Komatsu Ltd.
+FC94	Apple Inc.
+FC95	Hippo Camp Software Ltd.
+FC96	LEGO System A/S
+FC97	Japan Display Inc.
+FC98	Ruuvi Innovations Ltd.
+FC99	Badger Meter
+FC9A	Koppli AB
+FC9B	Merry Electronics (S) Pte Ltd
+FC9D	Lenovo (Singapore) Pte Ltd.
+FC9E	Dell Computer Corporation
+FC9F	Delta Development Team, Inc
+FCA0	Apple Inc.
+FCA1	PF SCHWEISSTECHNOLOGIE GMBH
+FCA2	Meizu Technology Co., Ltd.
+FCA3	Gunnebo Aktiebolag
+FCA4	HP Inc.
+FCA5	HAYWARD INDUSTRIES, INC.
+FCA6	Hubble Network Inc.
+FCA7	Hubble Network Inc.
+FCA8	Medtronic Inc.
+FCA9	Medtronic Inc.
+FCAA	Spintly, Inc.
+FCAB	IRISS INC.
+FCAC	IRISS INC.
+FCAD	Beijing 99help Safety Technology Co., Ltd
+FCAE	Imagine Marketing Limited
+FCAF	AltoBeam Inc.
+FCB0	Ford Motor Company
+FCB1	Google LLC
+FCB2	Apple Inc.
+FCB3	SWEEN
+FCB4	OMRON HEALTHCARE Co., Ltd.
+FCB5	OMRON HEALTHCARE Co., Ltd.
+FCB6	OMRON HEALTHCARE Co., Ltd.
+FCB7	T-Mobile USA
+FCB8	Ribbiot, INC.
+FCB9	Lumi United Technology Co., Ltd
+FCBA	BlueID GmbH
+FCBB	SharkNinja Operating LLC
+FCBC	Drowsy Digital, Inc.
+FCBD	Toshiba Corporation
+FCBE	Musen Connect, Inc.
+FCBF	ASSA ABLOY Opening Solutions Sweden AB
+FCC0	Xiaomi Inc.
+FCC1	TIMECODE SYSTEMS LIMITED
+FCC2	Qualcomm Technologies, Inc.
+FCC3	HP Inc.
+FCC4	OMRON(DALIAN) CO,.LTD.
+FCC5	OMRON(DALIAN) CO,.LTD.
+FCC6	Wiliot LTD.
+FCC7	PB INC.
+FCC8	Allthenticate, Inc.
+FCC9	SkyHawke Technologies
+FCCA	Cosmed s.r.l.
+FCCB	TOTO LTD.
+FCCC	Wi-Fi Easy Connect Specification
+FCCD	Marshall Group AB
+FCCE	Luna Health, Inc.
+FCCF	Google LLC
+FCD0	Laerdal Medical AS
+FCD1	Shenzhen Benwei Media Co.,Ltd.
+FCD2	Allterco Robotics ltd
+FCD3	Fisher & Paykel Healthcare
+FCD4	OMRON HEALTHCARE
+FCD5	Nortek Security & Control
+FCD6	SWISSINNO SOLUTIONS AG
+FCD7	PowerPal Pty Ltd
+FCD8	Appex Factory S.L.
+FCD9	Huso, INC
+FCDA	Draeger
+FCDB	aconno GmbH
+FCDC	Amazon.com Services, LLC
+FCDD	Mobilaris AB
+FCDE	ARCTOP, INC.
+FCDF	NIO USA, Inc.
+FCE0	Akciju sabiedriba \"SAF TEHNIKA\
+FCE1	Sony Group Corporation
+FCE2	Baracoda Daily Healthtech
+FCE3	Smith & Nephew Medical Limited
+FCE4	Samsara Networks, Inc
+FCE5	Samsara Networks, Inc
+FCE6	Guard RFID Solutions Inc.
+FCE7	TKH Security B.V.
+FCE8	ITT Industries
+FCE9	MindRhythm, Inc.
+FCEA	Chess Wise B.V.
+FCEB	Avi-On
+FCEC	Griffwerk GmbH
+FCED	Workaround Gmbh
+FCEE	Velentium, LLC
+FCEF	Divesoft s.r.o.
+FCF0	Security Enhancement Systems, LLC
+FCF1	Google LLC
+FCF2	Bitwards Oy
+FCF3	Armatura LLC
+FCF4	Allegion
+FCF5	Trident Communication Technology, LLC
+FCF6	The Linux Foundation
+FCF7	Honor Device Co., Ltd.
+FCF8	Honor Device Co., Ltd.
+FCF9	Leupold & Stevens, Inc.
+FCFA	Leupold & Stevens, Inc.
+FCFB	Shenzhen Benwei Media Co., Ltd.
+FCFC	Barrot Technology Co.,Ltd.
+FCFD	Barrot Technology Co.,Ltd.
+FCFE	Sonova Consumer Hearing GmbH
+FCFF	701x
+FD00	FUTEK Advanced Sensor Technology, Inc.
+FD01	Sanvita Medical Corporation
+FD02	LEGO System A/S
+FD03	Quuppa Oy
+FD04	Shure Inc.
+FD05	Qualcomm Technologies, Inc.
+FD06	RACE-AI LLC
+FD07	Swedlock AB
+FD08	Bull Group Incorporated Company
+FD09	Cousins and Sears LLC
+FD0A	Luminostics, Inc.
+FD0B	Luminostics, Inc.
+FD0C	OSM HK Limited
+FD0D	Blecon Ltd
+FD0E	HerdDogg, Inc
+FD0F	AEON MOTOR CO.,LTD.
+FD10	AEON MOTOR CO.,LTD.
+FD11	AEON MOTOR CO.,LTD.
+FD12	AEON MOTOR CO.,LTD.
+FD13	BRG Sports, Inc.
+FD14	BRG Sports, Inc.
+FD15	Panasonic Corporation
+FD16	Sensitech, Inc.
+FD17	LEGIC Identsystems AG
+FD18	LEGIC Identsystems AG
+FD19	Smith & Nephew Medical Limited
+FD1A	CSIRO
+FD1B	Helios Sports, Inc.
+FD1C	Brady Worldwide Inc.
+FD1D	Samsung Electronics Co., Ltd
+FD1E	Plume Design Inc.
+FD1F	3M
+FD20	GN Hearing A/S
+FD21	Huawei Technologies Co., Ltd.
+FD22	Huawei Technologies Co., Ltd.
+FD23	DOM Sicherheitstechnik GmbH & Co. KG
+FD24	GD Midea Air-Conditioning Equipment Co., Ltd.
+FD25	GD Midea Air-Conditioning Equipment Co., Ltd.
+FD26	Novo Nordisk A/S
+FD27	Integrated Illumination Systems, Inc.
+FD28	Julius Blum GmbH
+FD29	Asahi Kasei Corporation
+FD2A	Sony Corporation
+FD2B	The Access Technologies
+FD2C	The Access Technologies
+FD2D	Xiaomi Inc.
+FD2E	Bitstrata Systems Inc.
+FD2F	Bitstrata Systems Inc.
+FD30	Sesam Solutions BV
+FD31	LG Electronics Inc.
+FD32	Gemalto Holding BV
+FD33	DashLogic, Inc.
+FD34	Aerosens LLC.
+FD35	Transsion Holdings Limited
+FD36	Google LLC
+FD37	TireCheck GmbH
+FD38	Danfoss A/S
+FD39	PREDIKTAS
+FD3A	Verkada Inc.
+FD3B	Verkada Inc.
+FD3C	Redline Communications Inc.
+FD3D	Woan Technology (Shenzhen) Co., Ltd.
+FD3E	Pure Watercraft, inc.
+FD3F	Cognosos, Inc
+FD40	Beflex Inc.
+FD41	Amazon Lab126
+FD42	Globe (Jiangsu) Co.,Ltd
+FD43	Apple Inc.
+FD44	Apple Inc.
+FD45	GB Solution co.,Ltd
+FD46	Lemco IKE
+FD47	Liberty Global Inc.
+FD48	Geberit International AG
+FD49	Panasonic Corporation
+FD4A	Sigma Elektro GmbH
+FD4B	Samsung Electronics Co., Ltd.
+FD4C	Adolf Wuerth GmbH & Co KG
+FD4D	70mai Co.,Ltd.
+FD4E	70mai Co.,Ltd.
+FD4F	SONITOR TECHNOLOGIES AS
+FD50	Hangzhou Tuya Information  Technology Co., Ltd
+FD51	UTC Fire and Security
+FD52	UTC Fire and Security
+FD53	PCI Private Limited
+FD54	Qingdao Haier Technology Co., Ltd.
+FD55	Braveheart Wireless, Inc.
+FD56	Resmed Ltd
+FD57	Volvo Car Corporation
+FD58	Volvo Car Corporation
+FD59	Samsung Electronics Co., Ltd.
+FD5A	Samsung Electronics Co., Ltd.
+FD5B	V2SOFT INC.
+FD5C	React Mobile
+FD5D	maxon motor ltd.
+FD5E	Tapkey GmbH
+FD5F	Meta Platforms Technologies, LLC
+FD60	Sercomm Corporation
+FD61	Arendi AG
+FD62	Google LLC
+FD63	Google LLC
+FD64	INRIA
+FD65	Razer Inc.
+FD66	Zebra Technologies Corporation
+FD67	Montblanc Simplo GmbH
+FD68	Ubique Innovation AG
+FD69	Samsung Electronics Co., Ltd
+FD6A	Emerson
+FD6B	rapitag GmbH
+FD6C	Samsung Electronics Co., Ltd.
+FD6D	Sigma Elektro GmbH
+FD6E	Polidea sp. z o.o.
+FD6F	Apple, Inc.
+FD70	GuangDong Oppo Mobile Telecommunications Corp., Ltd
+FD71	GN Hearing A/S
+FD72	Logitech International SA
+FD73	BRControls Products BV
+FD74	BRControls Products BV
+FD75	Insulet Corporation
+FD76	Insulet Corporation
+FD77	Withings
+FD78	Withings
+FD79	Withings
+FD7A	Withings
+FD7B	WYZE LABS, INC.
+FD7C	Toshiba Information Systems(Japan) Corporation
+FD7D	Center for Advanced Research Wernher Von Braun
+FD7E	Samsung Electronics Co., Ltd.
+FD7F	Husqvarna AB
+FD80	Phindex Technologies, Inc
+FD81	CANDY HOUSE, Inc.
+FD82	Sony Corporation
+FD83	iNFORM Technology GmbH
+FD84	Tile, Inc.
+FD85	Husqvarna AB
+FD86	Abbott
+FD87	Google LLC
+FD88	Urbanminded LTD
+FD89	Urbanminded LTD
+FD8A	Signify Netherlands B.V.
+FD8B	Jigowatts Inc.
+FD8C	Google LLC
+FD8D	quip NYC Inc.
+FD8E	Motorola Solutions
+FD90	Guangzhou SuperSound Information Technology Co.,Ltd
+FD91	Groove X, Inc.
+FD92	Qualcomm Technologies International, Ltd. (QTIL)
+FD93	Bayerische Motoren Werke AG
+FD94	Hewlett Packard Enterprise
+FD95	Rigado
+FD96	Google LLC
+FD97	June Life, Inc.
+FD98	Disney Worldwide Services, Inc.
+FD99	ABB Oy
+FD9A	Huawei Technologies Co., Ltd.
+FD9B	Huawei Technologies Co., Ltd.
+FD9C	Huawei Technologies Co., Ltd.
+FD9D	Gastec Corporation
+FD9E	The Coca-Cola Company
+FD9F	VitalTech Affiliates LLC
+FDA0	Secugen Corporation
+FDA1	Groove X, Inc
+FDA2	Groove X, Inc
+FDA3	Inseego Corp.
+FDA4	Inseego Corp.
+FDA5	Neurostim OAB, Inc.
+FDA6	WWZN Information Technology Company Limited
+FDA7	WWZN Information Technology Company Limited
+FDA8	PSA Peugeot Citroën
+FDA9	Rhombus Systems, Inc.
+FDAA	Xiaomi Inc.
+FDAB	Xiaomi Inc.
+FDAC	Tentacle Sync GmbH
+FDAD	Houwa System Design, k.k.
+FDAE	Houwa System Design, k.k.
+FDAF	Wiliot LTD
+FDB0	Oura Health Ltd
+FDB1	Oura Health Ltd
+FDB2	Portable Multimedia Ltd
+FDB3	Audiodo AB
+FDB4	HP Inc
+FDB5	ECSG
+FDB6	GWA Hygiene GmbH
+FDB7	LivaNova USA Inc.
+FDB8	LivaNova USA Inc.
+FDBB	Profoto
+FDBC	Emerson
+FDBD	Clover Network, Inc.
+FDBE	California Things Inc.
+FDBF	California Things Inc.
+FDC0	Hunter Douglas
+FDC1	Hunter Douglas
+FDC2	Baidu Online Network Technology (Beijing) Co., Ltd
+FDC3	Baidu Online Network Technology (Beijing) Co., Ltd
+FDC4	Simavita (Aust) Pty Ltd
+FDC5	Automatic Labs
+FDC6	Eli Lilly and Company
+FDC7	Eli Lilly and Company
+FDC8	Hach – Danaher
+FDC9	Busch-Jaeger Elektro GmbH
+FDCA	Fortin Electronic Systems
+FDCB	Meggitt SA
+FDCC	Shoof Technologies
+FDCD	Qingping Technology (Beijing) Co., Ltd.
+FDCE	SENNHEISER electronic GmbH & Co. KG
+FDCF	Nalu Medical, Inc
+FDD0	Huawei Technologies Co., Ltd
+FDD1	Huawei Technologies Co., Ltd
+FDD2	Bose Corporation
+FDD3	FUBA Automotive Electronics GmbH
+FDD4	LX Solutions Pty Limited
+FDD5	Brompton Bicycle Ltd
+FDD6	Ministry of Supply
+FDD7	Copeland Cold Chain LP
+FDD8	Jiangsu Teranovo Tech Co., Ltd.
+FDD9	Jiangsu Teranovo Tech Co., Ltd.
+FDDA	MHCS
+FDDB	Samsung Electronics Co., Ltd.
+FDDC	4iiii Innovations Inc.
+FDDD	Arch Systems Inc
+FDDE	Noodle Technology Inc.
+FDDF	Harman International
+FDE0	John Deere
+FDE1	Fortin Electronic Systems
+FDE2	Google LLC
+FDE3	Abbott Diabetes Care
+FDE4	JUUL Labs, Inc.
+FDE5	SMK Corporation
+FDE6	Intelletto Technologies Inc
+FDE7	SECOM Co., LTD
+FDE8	Robert Bosch GmbH
+FDE9	Spacesaver Corporation
+FDEA	SeeScan, Inc
+FDEB	Syntronix Corporation
+FDEC	Mannkind Corporation
+FDED	Pole Star
+FDEE	Huawei Technologies Co., Ltd.
+FDEF	ART AND PROGRAM, INC.
+FDF0	Google LLC
+FDF1	LAMPLIGHT Co.,Ltd
+FDF2	AMICCOM Electronics Corporation
+FDF3	Amersports
+FDF4	O. E. M. Controls, Inc.
+FDF5	Milwaukee Electric Tools
+FDF6	AIAIAI ApS
+FDF7	HP Inc.
+FDF8	Onvocal
+FDF9	INIA
+FDFA	Tandem Diabetes Care
+FDFB	Tandem Diabetes Care
+FDFC	Optrel AG
+FDFD	RecursiveSoft Inc.
+FDFE	ADHERIUM(NZ) LIMITED
+FDFF	OSRAM GmbH
+FE00	Amazon.com Services, Inc.
+FE01	Duracell U.S. Operations Inc.
+FE02	Robert Bosch GmbH
+FE03	Amazon.com Services, Inc.
+FE04	Motorola Solutions, Inc.
+FE05	CORE Transport Technologies NZ Limited
+FE06	Qualcomm Technologies, Inc.
+FE07	Sonos, Inc.
+FE08	Microsoft
+FE09	Pillsy, Inc.
+FE0A	ruwido austria gmbh
+FE0B	ruwido austria gmbh
+FE0C	Procter & Gamble
+FE0D	Procter & Gamble
+FE0E	Setec Pty Ltd
+FE0F	Signify Netherlands B.V. (formerly Philips Lighting B.V.)
+FE10	LAPIS Technology Co., Ltd.
+FE11	GMC-I Messtechnik GmbH
+FE12	M-Way Solutions GmbH
+FE13	Apple Inc.
+FE14	Flextronics International USA Inc.
+FE15	Amazon.com Services, Inc..
+FE16	Footmarks, Inc.
+FE17	Telit Wireless Solutions GmbH
+FE18	Runtime, Inc.
+FE19	Google LLC
+FE1A	Tyto Life LLC
+FE1B	Tyto Life LLC
+FE1C	NetMedia, Inc.
+FE1D	Illuminati Instrument Corporation
+FE1E	LAMPLIGHT Co., Ltd.
+FE1F	Garmin International, Inc.
+FE20	Emerson
+FE21	Bose Corporation
+FE22	Zoll Medical Corporation
+FE23	Zoll Medical Corporation
+FE24	August Home Inc
+FE25	Apple, Inc.
+FE26	Google LLC
+FE27	Google LLC
+FE28	Ayla Networks
+FE29	Gibson Innovations
+FE2A	DaisyWorks, Inc.
+FE2B	ITT Industries
+FE2C	Google LLC
+FE2D	LAMPLIGHT Co., Ltd.
+FE2E	ERi,Inc.
+FE2F	CRESCO Wireless, Inc
+FE30	Volkswagen AG
+FE31	Volkswagen AG
+FE32	Pro-Mark, Inc.
+FE33	CHIPOLO d.o.o.
+FE34	SmallLoop LLC
+FE35	HUAWEI Technologies Co., Ltd
+FE36	HUAWEI Technologies Co., Ltd
+FE39	TTS Tooltechnic Systems AG & Co. KG
+FE3A	TTS Tooltechnic Systems AG & Co. KG
+FE3B	Dolby Laboratories
+FE3C	alibaba
+FE3D	BD Medical
+FE3E	BD Medical
+FE3F	Friday Labs Limited
+FE40	Inugo Systems Limited
+FE41	Inugo Systems Limited
+FE42	Nets A/S
+FE43	Andreas Stihl AG & Co. KG
+FE44	SK Telecom
+FE45	Snapchat Inc
+FE46	B&O Play A/S
+FE47	General Motors
+FE48	General Motors
+FE49	SenionLab AB
+FE4A	OMRON HEALTHCARE Co., Ltd.
+FE4B	Signify Netherlands B.V. (formerly Philips Lighting B.V.)
+FE4C	Volkswagen AG
+FE4D	Casambi Technologies Oy
+FE4E	NTT docomo
+FE4F	Molekule, Inc.
+FE50	Google LLC
+FE51	SRAM
+FE52	SetPoint Medical
+FE53	3M
+FE54	Motiv, Inc.
+FE55	Google LLC
+FE56	Google LLC
+FE57	Dotted Labs
+FE58	Nordic Semiconductor ASA
+FE59	Nordic Semiconductor ASA
+FE5A	Cronologics Corporation
+FE5B	GT-tronics HK Ltd
+FE5C	million hunters GmbH
+FE5D	Grundfos A/S
+FE5E	Plastc Corporation
+FE5F	Eyefi, Inc.
+FE60	Lierda Science & Technology Group Co., Ltd.
+FE61	Logitech International SA
+FE62	Indagem Tech LLC
+FE63	Connected Yard, Inc.
+FE64	Siemens AG
+FE65	CHIPOLO d.o.o.
+FE66	Intel Corporation
+FE67	Lab Sensor Solutions
+FE68	Capsle Technologies Inc.
+FE69	Capsle Technologies Inc.
+FE6A	Kontakt Micro-Location Sp. z o.o.
+FE6B	TASER International, Inc.
+FE6C	TASER International, Inc.
+FE6D	The University of Tokyo
+FE6E	The University of Tokyo
+FE6F	LINE Corporation
+FE70	Beijing Jingdong Century Trading Co., Ltd.
+FE71	Plume Design Inc
+FE72	Abbott Medical (formerly St. Jude Medical, Inc.)
+FE73	Abbott Medical (formerly St. Jude Medical, Inc.)
+FE74	unwire
+FE75	TangoMe
+FE76	TangoMe
+FE77	Hewlett-Packard Company
+FE78	Hewlett-Packard Company
+FE79	Zebra Technologies
+FE7A	Bragi GmbH
+FE7B	Orion Labs, Inc.
+FE7C	Telit Wireless Solutions (Formerly Stollmann E+V GmbH)
+FE7D	Aterica Health Inc.
+FE7E	Awear Solutions Ltd
+FE7F	Doppler Lab
+FE80	Doppler Lab
+FE81	Medtronic Inc.
+FE82	Medtronic Inc.
+FE83	Blue Bite
+FE84	RF Digital Corp
+FE85	RF Digital Corp
+FE86	HUAWEI Technologies Co., Ltd
+FE87	Qingdao Yeelink Information Technology Co., Ltd. ( 青岛亿联客信息技术有限公司 )
+FE88	SALTO SYSTEMS S.L.
+FE89	B&O Play A/S
+FE8A	Apple, Inc.
+FE8B	Apple, Inc.
+FE8C	TRON Forum
+FE8D	Interaxon Inc.
+FE8E	ARM Ltd
+FE8F	CSR
+FE90	JUMA
+FE91	Shanghai Imilab Technology Co.,Ltd
+FE92	Jarden Safety & Security
+FE93	OttoQ In
+FE94	OttoQ In
+FE95	Xiaomi Inc.
+FE96	Tesla Motors Inc.
+FE97	Tesla Motors Inc.
+FE98	Currant Inc
+FE99	Currant Inc
+FE9A	Estimote
+FE9B	Samsara Networks, Inc
+FE9C	GSI Laboratories, Inc.
+FE9D	Mobiquity Networks Inc
+FE9E	Renesas Design Netherlands B.V.
+FE9F	Google LLC
+FEA0	Google LLC
+FEA3	ITT Industries
+FEA4	Paxton Access Ltd
+FEA5	GoPro, Inc.
+FEA6	GoPro, Inc.
+FEA7	UTC Fire and Security
+FEA8	Savant Systems LLC
+FEA9	Savant Systems LLC
+FEAA	Google LLC
+FEAB	Nokia
+FEAC	Nokia
+FEAD	Nokia
+FEAE	Nokia
+FEAF	Nest Labs Inc
+FEB0	Nest Labs Inc
+FEB1	Electronics Tomorrow Limited
+FEB2	Microsoft Corporation
+FEB3	Taobao
+FEB4	WiSilica Inc.
+FEB5	WiSilica Inc.
+FEB6	Vencer Co., Ltd
+FEB7	Meta Platforms, Inc.
+FEB8	Meta Platforms, Inc.
+FEB9	LG Electronics
+FEBA	Tencent Holdings Limited
+FEBB	adafruit industries
+FEBC	Dexcom Inc
+FEBD	Clover Network, Inc
+FEBE	Bose Corporation
+FEBF	Nod, Inc.
+FEC0	KDDI Corporation
+FEC1	KDDI Corporation
+FEC2	Blue Spark Technologies, Inc.
+FEC3	360fly, Inc.
+FEC4	PLUS Location Systems
+FEC5	Realtek Semiconductor Corp.
+FEC6	Kocomojo, LLC
+FEC7	Apple, Inc.
+FEC8	Apple, Inc.
+FEC9	Apple, Inc.
+FECA	Apple, Inc.
+FECB	Apple, Inc.
+FECC	Apple, Inc.
+FECD	Apple, Inc.
+FECE	Apple, Inc.
+FECF	Apple, Inc.
+FED0	Apple, Inc.
+FED1	Apple, Inc.
+FED2	Apple, Inc.
+FED3	Apple, Inc.
+FED4	Apple, Inc.
+FED5	Plantronics Inc.
+FED6	Broadcom
+FED7	Broadcom
+FED8	Google LLC
+FED9	Pebble Technology Corporation
+FEDA	ISSC Technologies Corp.
+FEDB	Perka, Inc.
+FEDC	Jawbone
+FEDD	Jawbone
+FEDE	Coin, Inc.
+FEE0	Anhui Huami Information Technology Co., Ltd.
+FEE1	Anhui Huami Information Technology Co., Ltd.
+FEE2	Anki, Inc.
+FEE3	Anki, Inc.
+FEE4	Nordic Semiconductor ASA
+FEE5	Nordic Semiconductor ASA
+FEE6	Silvair, Inc.
+FEE7	Tencent Holdings Limited.
+FEE8	Quintic Corp.
+FEE9	Quintic Corp.
+FEEA	Swirl Networks, Inc.
+FEEB	Swirl Networks, Inc.
+FEEC	Tile, Inc.
+FEED	Tile, Inc.
+FEEE	Polar Electro Oy
+FEEF	Polar Electro Oy
+FEF0	Intel
+FEF1	CSR
+FEF2	CSR
+FEF3	Google LLC
+FEF4	Google LLC
+FEF5	Dialog Semiconductor GmbH
+FEF6	Wicentric, Inc.
+FEF7	Aplix Corporation
+FEF8	Aplix Corporation
+FEF9	PayPal, Inc.
+FEFA	PayPal, Inc.
+FEFB	Telit Wireless Solutions (Formerly Stollmann E+V GmbH)
+FEFC	Gimbal, Inc.
+FEFD	Gimbal, Inc.
+FEFE	GN Hearing A/S
+FEFF	GN Netcom
+FFEF	Wi-Fi Direct Specification
+FFF0	Public Key Open Credential (PKOC)
+FFF1	ICCE Digital Key
+FFF2	Aliro
+FFF3	FiRa Consortium
+FFF4	FiRa Consortium
+FFF5	Car Connectivity Consortium, LLC
+FFF6	Matter Profile ID
+FFF7	Zigbee Direct
+FFF8	Mopria Alliance BLE
+FFF9	FIDO2 secure client-to-authenticator transport
+FFFA	ASTM Remote ID
+FFFB	Direct Thread Commissioning
+FFFC	Wireless Power Transfer (WPT)
+FFFD	Universal Second Factor Authenticator
+FFFE	Wireless Power Transfer

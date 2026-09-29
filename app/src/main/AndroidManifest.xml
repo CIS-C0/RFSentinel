@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+
+    <!-- Legacy Bluetooth permissions: required for BLE scanning on API 26-30. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+
+    <!-- BLE scanning on API 31+. Deliberately NOT flagged neverForLocation: that flag
+         makes Android strip some beacon-style advertisements from results, and we
+         hold location permission anyway (WiFi scan results require it). -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+
+    <!-- Only used by the map screen to download OpenStreetMap tiles. Scanning,
+         detections and history never leave the phone. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <application
+        android:name=".RFSentinelApp"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.RFSentinel"
+        tools:targetApi="31">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".settings.SettingsActivity" android:exported="false" />
+        <activity android:name=".whitelist.WhitelistActivity" android:exported="false" />
+        <activity android:name=".ouilist.OuiListActivity" android:exported="false" />
+        <activity android:name=".ui.DetectionLogActivity" android:exported="false" />
+        <activity
+            android:name=".ui.SetupActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.MapActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity" />
+        <activity
+            android:name=".ui.TripsActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity" />
+        <activity
+            android:name=".ui.DeviceDetailActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity" />
+
+        <!-- Android Auto (Car App Library). Sideloaded builds need Android Auto's
+             developer setting "Unknown sources". -->
+        <service
+            android:name=".car.RFSentinelCarAppService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.car.app.CarAppService" />
+                <!-- POI is the category every Android Auto version lists; IOT kept as a
+                     secondary so newer hosts can file it there too. -->
+                <category android:name="androidx.car.app.category.POI" />
+                <category android:name="androidx.car.app.category.IOT" />
+            </intent-filter>
+        </service>
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+        <meta-data
+            android:name="androidx.car.app.minCarApiLevel"
+            android:value="1" />
+
+        <receiver
+            android:name=".ui.StatusWidget"
+            android:exported="false"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/status_widget_info" />
+        </receiver>
+
+        <service
+            android:name=".service.ScanForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice|location" />
+
+        <service
+            android:name=".service.ScanTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_scan"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.ACTIVE_TILE"
+                android:value="true" />
+        </service>
+
+        <receiver
+            android:name=".receiver.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+
+</manifest>

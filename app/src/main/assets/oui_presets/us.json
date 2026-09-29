@@ -1,0 +1,50 @@
+[
+  {
+    "prefix": "00:25:DF",
+    "label": "Axon Enterprise (dominant US body cam / taser vendor, thousands of agencies under contract)",
+    "source": "IEEE MA-L registry + extensive public agency contract reporting",
+    "confidence": "confirmed",
+    "category": "BODY_CAM",
+    "score": 75
+  },
+  {
+    "prefix": "D4:2D:C5",
+    "label": "i-PRO Co., Ltd. (body cams/surveillance)",
+    "source": "IEEE MA-L registry",
+    "confidence": "confirmed",
+    "category": "PUBLIC_SAFETY",
+    "score": 55
+  },
+  {
+    "prefix": "00:1F:92",
+    "label": "Motorola Solutions (ex-Avigilon / VideoIQ surveillance cameras)",
+    "source": "IEEE MA-L registry. Weak vendor-only match: Motorola blocks mostly carry two-way radios and infrastructure",
+    "confidence": "confirmed",
+    "category": "PUBLIC_SAFETY",
+    "score": 45
+  },
+  {
+    "prefix": "4C:CC:34",
+    "label": "Motorola Solutions Inc.",
+    "source": "IEEE MA-L registry. Weak vendor-only match: Motorola blocks mostly carry two-way radios and infrastructure",
+    "confidence": "confirmed",
+    "category": "PUBLIC_SAFETY",
+    "score": 45
+  },
+  {
+    "prefix": "00:18:85",
+    "label": "Motorola Solutions Inc.",
+    "source": "IEEE MA-L registry. Weak vendor-only match: Motorola blocks mostly carry two-way radios and infrastructure",
+    "confidence": "confirmed",
+    "category": "PUBLIC_SAFETY",
+    "score": 45
+  },
+  {
+    "prefix": "00:04:7D",
+    "label": "Motorola Solutions Inc.",
+    "source": "IEEE MA-L registry. Weak vendor-only match: Motorola blocks mostly carry two-way radios and infrastructure",
+    "confidence": "confirmed",
+    "category": "PUBLIC_SAFETY",
+    "score": 45
+  }
+]

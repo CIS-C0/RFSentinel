@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <Button
+            android:id="@+id/runSetupButton"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Run the setup wizard again" />
+
+        <!-- ================= Appearance ================= -->
+        <TextView style="@style/SettingsHeader" android:text="Appearance" />
+
+        <RadioGroup
+            android:id="@+id/themeGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            style="@style/SettingsLabel"
+            android:text="Banner image - shown above the animated header in the styled themes (DedSec, Night Drive, Synthwave...). Pick any image on your phone (for example a logo you have); it's copied privately into the app." />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/bannerPickButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1"
+                android:text="Choose image" />
+
+            <Button
+                android:id="@+id/bannerClearButton"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Remove image" />
+        </LinearLayout>
+
+        <!-- ================= Scanning ================= -->
+        <TextView style="@style/SettingsHeader" android:text="Scanning" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/bleSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Bluetooth LE scanning" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/wifiSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="WiFi access-point scanning" />
+
+        <TextView style="@style/SettingsLabel" android:text="Bluetooth scan intensity" />
+
+        <RadioGroup
+            android:id="@+id/scanModeGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <RadioButton
+                android:id="@+id/scanModeLowLatency"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Maximum detection (most battery)" />
+
+            <RadioButton
+                android:id="@+id/scanModeBalanced"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Balanced" />
+
+            <RadioButton
+                android:id="@+id/scanModeLowPower"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Battery saver (misses short broadcasts)" />
+        </RadioGroup>
+
+        <TextView style="@style/SettingsLabel" android:text="WiFi scan interval (seconds, Android allows about one scan per 30 s)" />
+
+        <EditText
+            android:id="@+id/intervalInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="30"
+            android:importantForAutofill="no"
+            android:inputType="number" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/bootSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Auto-start scanning when the phone boots" />
+
+        <Button
+            android:id="@+id/batteryButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Battery settings: allow background scanning" />
+
+        <!-- ================= Detection ================= -->
+        <TextView style="@style/SettingsHeader" android:text="What to detect" />
+
+        <LinearLayout
+            android:id="@+id/categoryContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <TextView style="@style/SettingsLabel" android:text="Watchlist presets (MAC prefixes)" />
+
+        <CheckBox
+            android:id="@+id/presetGlobal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Global (Axon, Flock, i-PRO, Utility, Motorola Solutions)" />
+
+        <CheckBox
+            android:id="@+id/presetCanada"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Canada (Axon, Cyberkar, Getac, Genetec, Motorola, ticket printers...)" />
+        <CheckBox
+            android:id="@+id/presetUs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="United States" />
+
+        <!-- ================= Alerts ================= -->
+        <TextView style="@style/SettingsHeader" android:text="Alerts" />
+
+        <TextView style="@style/SettingsLabel" android:text="Sound an alert for matches that are at least..." />
+
+        <RadioGroup
+            android:id="@+id/thresholdGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <RadioButton
+                android:id="@+id/thresholdWeak"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Weak (every match - more false alarms)" />
+
+            <RadioButton
+                android:id="@+id/thresholdMedium"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Probable (recommended)" />
+
+            <RadioButton
+                android:id="@+id/thresholdStrong"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Strong only" />
+        </RadioGroup>
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/soundSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Alert sound" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/vibrateSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Vibration (1 pulse weak, 2 probable, 3 strong)" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/voiceSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Spoken alerts (e.g. while driving)" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/discreetSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Discreet mode (hide details on the lock screen and in notifications)" />
+
+        <TextView style="@style/SettingsLabel" android:text="Re-alert cooldown per device (minutes)" />
+
+        <EditText
+            android:id="@+id/dedupeInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="5"
+            android:importantForAutofill="no"
+            android:inputType="number" />
+
+        <!-- ================= Location ================= -->
+        <TextView style="@style/SettingsHeader" android:text="Location" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/followSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Warn when a tracker or flagged device keeps moving with me" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView style="@style/SettingsLabel" android:text="For at least (minutes)" />
+
+                <EditText
+                    android:id="@+id/followMinutesInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:importantForAutofill="no"
+                    android:inputType="number" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView style="@style/SettingsLabel" android:text="While I moved (metres)" />
+
+                <EditText
+                    android:id="@+id/followMetersInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:importantForAutofill="no"
+                    android:inputType="number" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/autoRecordSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Record a GPS trace automatically whenever scanning starts" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/gpsSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Save GPS position with logged matches (privacy-sensitive)" />
+
+        <!-- ================= Data ================= -->
+        <TextView style="@style/SettingsHeader" android:text="Data (stays on this phone)" />
+
+        <TextView style="@style/SettingsLabel" android:text="Keep match log and device history for (days, 0 = forever)" />
+
+        <EditText
+            android:id="@+id/retentionInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="90"
+            android:importantForAutofill="no"
+            android:inputType="number" />
+
+        <Button
+            android:id="@+id/exportAllButton"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Export all devices (CSV, JSON, KML...)" />
+
+        <Button
+            android:id="@+id/forgetHistoryButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Forget device history (keeps favorites)" />
+
+        <Button
+            android:id="@+id/clearLogButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Clear match history" />
+
+        <Button
+            android:id="@+id/saveButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Save" />
+
+    </LinearLayout>
+</ScrollView>

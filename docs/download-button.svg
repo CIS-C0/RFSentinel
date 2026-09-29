@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="120" viewBox="0 0 560 120" role="img" aria-label="Download the app for Android (APK)">
+  <defs>
+    <linearGradient id="btn" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2BFFE6"/>
+      <stop offset="1" stop-color="#00BFAE"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-40%" width="140%" height="180%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Magenta offset shadow, then the cut-corner button with a soft glow -->
+  <path d="M26 14 H546 L556 24 V100 L546 110 H26 L16 100 V24 Z" fill="#FF2E88" opacity="0.85"/>
+  <path d="M20 8 H540 L550 18 V94 L540 104 H20 L10 94 V18 Z" fill="url(#btn)" filter="url(#glow)">
+    <animate attributeName="opacity" values="1;0.88;1" dur="2.2s" repeatCount="indefinite"/>
+  </path>
+
+  <!-- Download arrow in a circle -->
+  <g transform="translate(76 56)">
+    <circle r="30" fill="#050505"/>
+    <g fill="none" stroke="#2BFFE6" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M0 -16 V8">
+        <animateTransform attributeName="transform" type="translate" values="0 -2;0 3;0 -2" dur="1.4s" repeatCount="indefinite"/>
+      </path>
+      <path d="M-10 -1 L0 9 L10 -1">
+        <animateTransform attributeName="transform" type="translate" values="0 -2;0 3;0 -2" dur="1.4s" repeatCount="indefinite"/>
+      </path>
+      <path d="M-13 17 H13"/>
+    </g>
+  </g>
+
+  <text x="124" y="54" font-family="'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="34" font-weight="800" fill="#050505" letter-spacing="1">DOWNLOAD THE APP</text>
+  <text x="126" y="84" font-family="'Share Tech Mono', Consolas, 'DejaVu Sans Mono', monospace" font-size="18" fill="#06312D">Android · free · latest version (.apk)</text>
+</svg>

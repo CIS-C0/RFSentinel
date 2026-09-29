@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">RF Sentinel</string>
+    <string name="tile_label">RF Sentinel</string>
+    <string name="tile_scanning">Scanning</string>
+    <string name="tile_idle">Idle</string>
+    <string name="disclaimer">Passive, receive-only scanning. A match means a device with a watchlisted vendor prefix is advertising nearby - not proof of any specific equipment. Check local laws before use.</string>
+    <string name="widget_description">Scanner status with a start / stop button</string>
+</resources>

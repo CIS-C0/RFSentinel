@@ -1,0 +1,4039 @@
+# Bluetooth SIG company identifiers (hex id, name). Source: bitbucket.org/bluetooth-SIG/public
+0000	Ericsson AB
+0001	Nokia Mobile Phones
+0002	Intel Corp.
+0003	IBM Corp.
+0004	Toshiba Corp.
+0005	3Com
+0006	Microsoft
+0007	Lucent
+0008	Motorola
+0009	Infineon Technologies AG
+000A	Qualcomm Technologies International, Ltd. (QTIL)
+000B	Silicon Wave
+000C	Digianswer A/S
+000D	Texas Instruments Inc.
+000E	Parthus Technologies Inc.
+000F	Broadcom Corporation
+0010	Mitel Semiconductor
+0011	Widcomm, Inc.
+0012	Zeevo, Inc.
+0013	Atmel Corporation
+0014	Mitsubishi Electric Corporation
+0015	RTX A/S
+0016	KC Technology Inc.
+0017	Newlogic
+0018	Transilica, Inc.
+0019	Rohde & Schwarz GmbH & Co. KG
+001A	TTPCom Limited
+001B	Signia Technologies, Inc.
+001C	Conexant Systems Inc.
+001D	Qualcomm
+001E	Inventel
+001F	AVM Berlin
+0020	BandSpeed, Inc.
+0021	Mansella Ltd
+0022	NEC Corporation
+0023	WavePlus Technology Co., Ltd.
+0024	Alcatel
+0025	NXP B.V.
+0026	C Technologies
+0027	Open Interface
+0028	R F Micro Devices
+0029	Hitachi Ltd
+002A	Symbol Technologies, Inc.
+002B	Tenovis
+002C	Macronix International Co. Ltd.
+002D	GCT Semiconductor
+002E	Norwood Systems
+002F	MewTel Technology Inc.
+0030	ST Microelectronics
+0031	Synopsys, Inc.
+0032	Red-M (Communications) Ltd
+0033	Commil Ltd
+0034	Computer Access Technology Corporation (CATC)
+0036	Renesas Electronics Corporation
+0037	Mobilian Corporation
+0038	Syntronix Corporation
+0039	Integrated System Solution Corp.
+003A	Panasonic Holdings Corporation
+003B	Gennum Corporation
+003C	BlackBerry Limited
+003D	IPextreme, Inc.
+003E	Systems and Chips, Inc
+003F	Bluetooth SIG, Inc
+0040	Seiko Epson Corporation
+0041	Integrated Silicon Solution Taiwan, Inc.
+0042	CONWISE Technology Corporation Ltd
+0043	PARROT AUTOMOTIVE SAS
+0044	Socket Mobile
+0045	Atheros Communications, Inc.
+0046	MediaTek, Inc.
+0047	Bluegiga
+0048	Marvell Technology Group Ltd.
+0049	3DSP Corporation
+004A	Accel Semiconductor Ltd.
+004B	AUMOVIO Systems, Inc.
+004C	Apple, Inc.
+004D	Staccato Communications, Inc.
+004E	Avago Technologies
+004F	APT Ltd.
+0050	SiRF Technology, Inc.
+0051	Tzero Technologies, Inc.
+0052	J&M Corporation
+0053	Free2move AB
+0054	3DiJoy Corporation
+0055	Plantronics, Inc.
+0056	Sony Ericsson Mobile Communications
+0057	Harman International Industries, Inc.
+0058	Vizio, Inc.
+0059	Nordic Semiconductor ASA
+005A	EM Microelectronic-Marin SA
+005B	Ralink Technology Corporation
+005C	Belkin International, Inc.
+005D	Realtek Semiconductor Corporation
+005E	Stonestreet One, LLC
+005F	Wicentric, Inc.
+0060	RivieraWaves S.A.S
+0061	RDA Microelectronics
+0062	Gibson Guitars
+0063	MiCommand Inc.
+0064	Band XI International, LLC
+0065	HP, Inc.
+0067	GN Hearing
+0068	General Motors
+0069	A&D Engineering, Inc.
+006A	LTM Limited
+006B	Polar Electro OY
+006C	Beautiful Enterprise Co., Ltd.
+006E	Summit Data Communications, Inc.
+006F	Sound ID
+0070	Monster, LLC
+0071	connectBlue AB
+0072	ShangHai Super Smart Electronics Co. Ltd.
+0073	Group Sense Ltd.
+0074	Zomm, LLC
+0075	Samsung Electronics Co. Ltd.
+0076	Creative Technology Ltd.
+0077	Laird Connectivity LLC
+0078	Nike, Inc.
+0079	lesswire AG
+007A	MStar Semiconductor, Inc.
+007B	Hanlynn Technologies
+007D	Seers Technology Co., Ltd.
+007F	Autonet Mobile
+0080	DeLorme Publishing Company, Inc.
+0081	WuXi Vimicro
+0082	DSEA A/S
+0083	TimeKeeping Systems, Inc.
+0084	Ludus Helsinki Ltd.
+0085	BlueRadios, Inc.
+0086	Equinux AG
+0087	Garmin International, Inc.
+0089	GN Hearing A/S
+008A	Jawbone
+008B	Topcon Positioning Systems, LLC
+008C	Gimbal Inc.
+008D	Zscan Software
+008E	Quintic Corp
+008F	Telit Wireless Solutions GmbH
+0090	Funai Electric Co., Ltd.
+0091	Advanced PANMOBIL systems GmbH & Co. KG
+0092	ThinkOptics, Inc.
+0093	Universal Electronics, Inc.
+0094	Airoha Technology Corp.
+0095	NEC Lighting, Ltd.
+0096	ODM Technology, Inc.
+0097	ConnecteDevice Ltd.
+0098	zero1.tv GmbH
+0099	i.Tech Dynamic Global Distribution Ltd.
+009A	Alpwise
+009B	Jiangsu Toppower Automotive Electronics Co., Ltd.
+009C	Colorfy, Inc.
+009D	Geoforce Inc.
+009E	Bose Corporation
+009F	Suunto Oy
+00A0	Kensington Computer Products Group
+00A1	SR-Medizinelektronik
+00A2	Vertu Corporation Limited
+00A3	Meta Watch Ltd.
+00A4	LINAK A/S
+00A5	OTL Dynamics LLC
+00A6	Panda Ocean Inc.
+00A7	Visteon Corporation
+00A8	ARP Devices Limited
+00A9	MARELLI EUROPE S.P.A.
+00AA	CAEN RFID srl
+00AB	Ingenieur-Systemgruppe Zahn GmbH
+00AC	Green Throttle Games
+00AD	Peter Systemtechnik GmbH
+00AE	Omegawave Oy
+00AF	Cinetix
+00B0	Passif Semiconductor Corp
+00B1	Saris Cycling Group, Inc
+00B2	Bekey A/S
+00B3	Clarinox Technologies Pty. Ltd.
+00B4	BDE Technology Co., Ltd.
+00B5	Swirl Networks
+00B6	Meso international
+00B7	TreLab Ltd
+00B8	Qualcomm Innovation Center, Inc. (QuIC)
+00B9	Johnson Controls, Inc.
+00BA	Starkey Hearing Technologies
+00BB	S-Power Electronics Limited
+00BC	Ace Sensor Inc
+00BD	Aplix Corporation
+00BE	AAMP of America
+00BF	Stalmart Technology Limited
+00C0	AMICCOM Electronics Corporation
+00C1	Shenzhen Excelsecu Data Technology Co.,Ltd
+00C2	Geneq Inc.
+00C3	adidas AG
+00C4	LG Electronics
+00C5	Onset Computer Corporation
+00C6	Selfly BV
+00C7	Quuppa Oy.
+00C8	GeLo Inc
+00C9	Evluma
+00CA	MC10
+00CB	Binauric SE
+00CC	Beats Electronics
+00CD	Microchip Technology Inc.
+00CE	Eve Systems GmbH
+00CF	ARCHOS SA
+00D0	Dexcom, Inc.
+00D1	Polar Electro Europe B.V.
+00D2	Renesas Design Netherlands B.V.
+00D3	Taixingbang Technology (HK) Co,. LTD.
+00D5	Austco Communication Systems
+00D6	Timex Group USA, Inc.
+00D7	Qualcomm Technologies, Inc.
+00D8	Qualcomm Connected Experiences, Inc.
+00D9	Voyetra Turtle Beach
+00DA	txtr GmbH
+00DB	Snuza (Pty) Ltd
+00DC	Procter & Gamble
+00DD	Hosiden Corporation
+00DE	Muzik LLC
+00DF	Misfit Wearables Corp
+00E0	Google
+00E1	Danlers Ltd
+00E2	Semilink Inc
+00E3	inMusic Brands, Inc
+00E4	L.S. Research, Inc.
+00E5	Eden Software Consultants Ltd.
+00E7	KS Technologies
+00E8	ACTS Technologies
+00E9	Vtrack Systems
+00EA	Nielsen-Kellerman
+00EB	Server Technology Inc.
+00EC	BioResearch Associates
+00ED	Jolly Logic, LLC
+00EE	Above Average Outcomes, Inc.
+00EF	Bitsplitters GmbH
+00F0	PayPal, Inc.
+00F1	Witron Technology Limited
+00F2	Morse Project Inc.
+00F3	Kent Displays Inc.
+00F4	Nautilus Inc.
+00F5	Smartifier Oy
+00F7	VSN Technologies, Inc.
+00F8	AceUni Corp., Ltd.
+00FA	Crystal Alarm AB
+00FB	KOUKAAM a.s.
+00FC	Delphi Corporation
+00FD	ValenceTech Limited
+00FE	Stanley Black and Decker
+00FF	Typo Products, LLC
+0100	TomTom International BV
+0101	Fugoo, Inc.
+0102	Keiser Corporation
+0103	Bang & Olufsen A/S
+0104	PLUS Location Systems Pty Ltd
+0105	Ubiquitous Computing Technology Corporation
+0106	Innovative Yachtter Solutions
+0107	Demant A/S
+0108	Chicony Electronics Co., Ltd.
+0109	Atus BV
+010A	Codegate Ltd
+010B	ERi, Inc
+010C	Transducers Direct, LLC
+010D	DENSO TEN Limited
+010E	Audi AG
+010F	HiSilicon Technologies CO., LIMITED
+0110	Nippon Seiki Co., Ltd.
+0111	Steelseries ApS
+0112	Visybl Inc.
+0113	Openbrain Technologies, Co., Ltd.
+0115	e.solutions
+0116	10AK Technologies
+0117	Wimoto Technologies Inc
+0118	Radius Networks, Inc.
+011A	Qualcomm Labs, Inc.
+011B	Hewlett Packard Enterprise
+011C	Baidu
+011D	Arendi AG
+011E	Skoda Auto a.s.
+011F	Volkswagen AG
+0120	Porsche AG
+0121	Sino Wealth Electronic Ltd.
+0122	AirTurn, Inc.
+0123	Kinsa, Inc
+0124	HID Global
+0125	SEAT es
+0126	Promethean Ltd.
+0127	Salutica Allied Solutions
+0128	GPSI Group Pty Ltd
+0129	Nimble Devices Oy
+012A	Changzhou Yongse Infotech  Co., Ltd.
+012B	SportIQ
+012C	TEMEC Instruments B.V.
+012D	Sony Corporation
+012E	ASSA ABLOY
+012F	Clarion Co. Inc.
+0130	Warehouse Innovations
+0131	Cypress Semiconductor
+0132	MADS Inc
+0133	Blue Maestro Limited
+0134	Resolution Products, Ltd.
+0135	Aireware LLC
+0136	Silvair, Inc.
+0137	Prestigio Plaza Ltd.
+0138	NTEO Inc.
+0139	Focus Systems Corporation
+013A	Tencent Holdings Ltd.
+013B	Allegion
+013C	Murata Manufacturing Co., Ltd.
+013D	WirelessWERX
+013E	Nod, Inc.
+0140	Alpine Electronics (China) Co., Ltd
+0141	FedEx Services
+0142	Grape Systems Inc.
+0143	Bkon Connect
+0144	Lintech GmbH
+0145	Novatel Wireless
+0146	Ciright
+0147	Mighty Cast, Inc.
+0148	Ambimat Electronics
+0149	Perytons Ltd.
+014A	Tivoli Audio, LLC
+014B	Master Lock
+014C	Mesh-Net Ltd
+014D	HUIZHOU DESAY SV AUTOMOTIVE CO., LTD.
+014E	Tangerine, Inc.
+014F	B&W Group Ltd.
+0150	Pioneer Corporation
+0151	OnBeep
+0152	Vernier Software & Technology
+0153	ROL Ergo
+0154	Pebble Technology
+0155	NETATMO
+0156	Accumulate AB
+0157	Anhui Huami Information Technology Co., Ltd.
+0158	Inmite s.r.o.
+0159	ChefSteps, Inc.
+015A	micas AG
+015B	Biomedical Research Ltd.
+015C	Pitius Tec S.L.
+015D	Estimote, Inc.
+015E	Unikey Technologies, Inc.
+015F	Timer Cap Co.
+0160	AwoX
+0161	yikes
+0162	MADSGlobalNZ Ltd.
+0163	PCH International
+0164	Qingdao Yeelink Information Technology Co., Ltd.
+0165	Milwaukee Electric Tools
+0166	MISHIK Pte Ltd
+0167	Ascensia Diabetes Care US Inc.
+0168	Spicebox LLC
+0169	emberlight
+016A	Copeland Cold Chain LP
+016B	Qblinks
+016C	MYSPHERA
+016D	LifeScan Inc
+016E	Volantic AB
+016F	Podo Labs, Inc
+0170	Roche Diabetes Care AG
+0171	Amazon.com Services LLC
+0172	Connovate Technology Private Limited
+0173	Kocomojo, LLC
+0174	Everykey Inc.
+0175	Dynamic Controls
+0176	SentriLock
+0177	I-SYST inc.
+0178	CASIO COMPUTER CO., LTD.
+0179	LAPIS Semiconductor Co.,Ltd
+017A	Telemonitor, Inc.
+017B	taskit GmbH
+017C	Mercedes-Benz Group AG
+017D	BatAndCat
+017E	BluDotz Ltd
+017F	XTel Wireless ApS
+0180	Gigaset Technologies GmbH
+0181	Gecko Health Innovations, Inc.
+0183	Walt Disney
+0184	Nectar
+0187	Seraphim Sense Ltd
+0188	Unico RBC
+0189	Physical Enterprises Inc.
+018A	Able Trend Technology Limited
+018B	Konica Minolta, Inc.
+018C	Wilo SE
+018D	Extron Design Services
+018E	Google LLC
+0190	Intelletto Technologies Inc.
+0191	FDK CORPORATION
+0192	Cloudleaf, Inc
+0193	Maveric Automation LLC
+0194	Acoustic Stream Corporation
+0195	Zuli
+0196	Paxton Access Ltd
+0197	WiSilica Inc.
+0198	VENGIT Korlatolt Felelossegu Tarsasag
+0199	SALTO SYSTEMS S.L.
+019A	TRON Forum
+019B	CUBETECH s.r.o.
+019C	Cokiya Incorporated
+019D	CVS Health
+019E	Ceruus
+019F	Strainstall Ltd
+01A0	Channel Enterprises (HK) Ltd.
+01A1	FIAMM
+01A2	GIGALANE.CO.,LTD
+01A4	MSA Innovation, LLC
+01A5	Icon Health and Fitness
+01A6	Wille Engineering
+01A7	ENERGOUS CORPORATION
+01A8	Taobao
+01A9	Canon Inc.
+01AA	Geophysical Technology Inc.
+01AB	Meta Platforms, Inc.
+01AC	Trividia Health, Inc.
+01AD	FlightSafety International
+01AF	Sunrise Micro Devices, Inc.
+01B0	Star Micronics Co., Ltd.
+01B1	Netizens Sp. z o.o.
+01B2	Nymi Inc.
+01B3	Nytec, Inc.
+01B4	Trineo Sp. z o.o.
+01B5	Nest Labs Inc.
+01B6	LM Technologies Ltd
+01B7	General Electric Company
+01B8	i+D3 S.L.
+01B9	HANA Micron
+01BA	SPIA Cycling Inc.
+01BB	Cochlear Bone Anchored Solutions AB
+01BC	SenionLab AB
+01BD	Syszone Co., Ltd
+01BE	Pulsate Mobile Ltd.
+01BF	Hongkong OnMicro Electronics Limited
+01C1	BRADATECH Corp.
+01C2	Transenergooil AG
+01C4	DME Microelectronics
+01C5	Bitcraze AB
+01C6	HASWARE Inc.
+01C7	Abiogenix Inc.
+01C8	Poly-Control ApS
+01C9	Avi-on
+01CA	Laerdal Medical AS
+01CB	Fetch My Pet
+01CC	Sam Labs Ltd.
+01CD	Chengdu Synwing Technology Ltd
+01CE	HOUWA SYSTEM DESIGN, k.k.
+01CF	BSH
+01D0	Primus Inter Pares Ltd
+01D1	August Home, Inc
+01D2	Gill Electronics
+01D3	Sky Wave Design
+01D4	Newlab S.r.l.
+01D5	ELAD srl
+01D6	G-wearables inc.
+01D8	Code Corporation
+01D9	Savant Systems LLC
+01DA	Logitech International SA
+01DB	Innblue Consulting
+01DD	Koninklijke Philips N.V.
+01DE	Minelab Electronics Pty Limited
+01DF	Bison Group Ltd.
+01E0	WS Audiology Denmark A/S
+01E1	Jolla Ltd
+01E3	Caterpillar Inc
+01E4	Freedom Innovations
+01E5	Dynamic Devices Ltd
+01E6	Technology Solutions (UK) Ltd
+01EA	Advanced Application Design, Inc.
+01EC	Spreadtrum Communications Shanghai Ltd
+01EE	Valeo Service
+01EF	Fullpower Technologies, Inc.
+01F0	KloudNation
+01F1	Zebra Technologies Corporation
+01F2	Itron, Inc.
+01F3	The University of Tokyo
+01F4	UTC Fire and Security
+01F5	Cool Webthings Limited
+01F6	DJO Global
+01F7	Gelliner Limited
+01F8	Anyka (Guangzhou) Microelectronics Technology Co, LTD
+01F9	Medtronic Inc.
+01FA	Gozio Inc.
+01FB	Form Lifting, LLC
+01FC	Wahoo Fitness, LLC
+01FD	Kontakt Micro-Location Sp. z o.o.
+01FE	Radio Systems Corporation
+01FF	Freescale Semiconductor, Inc.
+0200	Verifone Systems Pte Ltd. Taiwan Branch
+0201	AR Timing
+0202	Rigado LLC
+0203	Kemppi Oy
+0206	Otter Products, LLC
+0207	STEMP Inc.
+0208	LumiGeek LLC
+0209	InvisionHeart Inc.
+020A	Macnica Inc.
+020B	Jaguar Land Rover Limited
+020C	CoroWare Technologies, Inc
+020E	Omron Healthcare Co., LTD
+020F	Comodule GMBH
+0210	ikeGPS
+0211	Telink Semiconductor Co. Ltd
+0212	Interplan Co., Ltd
+0213	Wyler AG
+0214	IK Multimedia Production srl
+0215	Lukoton Experience Oy
+0216	MTI Ltd
+0217	Tech4home, Lda
+0219	DOTT Limited
+021A	Blue Speck Labs, LLC
+021B	Cisco Systems, Inc
+021C	Mobicomm Inc
+021D	Edamic
+021E	Goodnet, Ltd
+021F	Luster Leaf Products  Inc
+0220	Manus Machina BV
+0221	Mobiquity Networks Inc
+0222	Praxis Dynamics
+0223	Philip Morris Products S.A.
+0224	Comarch SA
+0225	Nestlé Nespresso S.A.
+0226	Merlinia A/S
+0227	LifeBEAM Technologies
+0228	Twocanoes Labs, LLC
+0229	Muoverti Limited
+022A	Stamer Musikanlagen GMBH
+022B	Tesla, Inc.
+022C	Pharynks Corporation
+022D	Lupine
+022E	Siemens AG
+0230	Foster Electric Company, Ltd
+0231	ETA SA
+0232	x-Senso Solutions Kft
+0234	FengFan (BeiJing) Technology Co, Ltd
+0235	Qrio Inc
+0236	Pitpatpet Ltd
+0237	MSHeli s.r.l.
+0238	Trakm8 Ltd
+0239	JIN CO, Ltd
+023A	Alatech Tehnology
+023B	Beijing CarePulse Electronic Technology Co, Ltd
+023D	ViCentra B.V.
+023E	Raven Industries
+023F	WaveWare Technologies Inc.
+0240	Argenox Technologies
+0241	Bragi GmbH
+0243	Masimo Corp
+0244	Iotera Inc
+0245	Endress+Hauser
+0246	ACKme Networks, Inc.
+0247	FiftyThree Inc.
+0248	Parker Hannifin Corp
+024A	Uwatec AG
+024B	Orlan LLC
+024C	Blue Clover Devices
+024D	M-Way Solutions GmbH
+024E	Microtronics Engineering GmbH
+024F	Schneider Schreibgeräte GmbH
+0250	Sapphire Circuits LLC
+0251	Lumo Bodytech Inc.
+0252	Restar Corporation
+0253	Xicato Inc.
+0254	Playbrush
+0255	Dai Nippon Printing Co., Ltd.
+0256	G24 Power Limited
+0257	AdBabble Local Commerce Inc.
+0258	Devialet SA
+0259	ALTYOR
+025A	University of Applied Sciences Valais/Haute Ecole Valaisanne
+025B	Five Interactive, LLC dba Zendo
+025C	NetEase（Hangzhou）Network co.Ltd.
+025D	Lexmark International Inc.
+025E	Fluke Corporation
+025F	Yardarm Technologies
+0261	SECVRE GmbH
+0262	Glacial Ridge Technologies
+0264	DDS, Inc.
+0265	SMK Corporation
+0266	Schawbel Technologies LLC
+0267	XMI Systems SA
+0268	Cerevo
+0269	Torrox GmbH & Co KG
+026A	Gemalto
+026B	DEKA Research & Development Corp.
+026C	Domster Tadeusz Szydlowski
+026D	Technogym SPA
+026E	FLEURBAEY BVBA
+026F	Aptcode Solutions
+0270	LSI ADL Technology
+0271	Animas Corp
+0272	Alps Alpine Co., Ltd.
+0273	OCEASOFT
+0274	Motsai Research
+0275	Geotab
+0276	E.G.O. Elektro-Geraetebau GmbH
+0277	bewhere inc
+0278	Johnson Outdoors Inc
+0279	steute Schaltgerate GmbH & Co. KG
+027A	Ekomini inc.
+027B	DEFA AS
+027C	Aseptika Ltd
+027D	HUAWEI Technologies Co., Ltd.
+027E	HabitAware, LLC
+027F	ruwido austria gmbh
+0280	ITEC corporation
+0281	StoneL
+0282	Sonova AG
+0283	Maven Machines, Inc.
+0284	Synapse Electronics
+0285	WOWTech Canada Ltd.
+0286	RF Code, Inc.
+0287	Wally Ventures S.L.
+0289	SK Telecom
+028A	Jetro AS
+028B	Code Gears LTD
+028C	NANOLINK APS
+028E	RF Digital Corp
+028F	Church & Dwight Co., Inc
+0290	Multibit Oy
+0291	CliniCloud Inc
+0293	Blue Bite
+0294	ELIAS GmbH
+0295	Sivantos GmbH
+0296	Petzl
+0297	storm power ltd
+0298	EISST Ltd
+0299	Inexess Technology Simma KG
+029A	Currant, Inc.
+029B	C2 Development, Inc.
+029C	Blue Sky Scientific, LLC
+029D	ALOTTAZS LABS, LLC
+029E	Kupson spol. s r.o.
+029F	Areus Engineering GmbH
+02A0	Impossible Camera GmbH
+02A2	Sera4 Ltd.
+02A3	Itude
+02A4	Pacific Lock Company
+02A5	Tendyron Corporation
+02A6	Robert Bosch GmbH
+02A7	Illuxtron international B.V.
+02A8	miSport Ltd.
+02A9	Chargelib
+02AA	Doppler Lab
+02AB	BBPOS Limited
+02AD	Rx Networks, Inc.
+02AE	WeatherFlow, Inc.
+02AF	Technicolor USA Inc.
+02B0	Bestechnic(Shanghai),Ltd
+02B1	Raden Inc
+02B2	Oura Health Oy
+02B3	CLABER S.P.A.
+02B4	Hyginex, Inc.
+02B5	HANSHIN ELECTRIC RAILWAY CO.,LTD.
+02B6	Schneider Electric
+02B7	Oort Technologies LLC
+02B8	Chrono Therapeutics
+02B9	Rinnai Corporation
+02BA	Swissprime Technologies AG
+02BB	YOKOWO CO., LTD.
+02BC	Genevac Ltd
+02BD	Chemtronics
+02BE	Seguro Technology Sp. z o.o.
+02C0	Dash Robotics
+02C1	LINE Corporation
+02C2	Guillemot Corporation
+02C3	Techtronic Power Tools Technology Limited
+02C4	Wilson Sporting Goods
+02C5	Lenovo (Singapore) Pte Ltd.
+02C6	Ayatan Sensors
+02C7	Electronics Tomorrow Limited
+02C8	OneSpan
+02C9	PayRange Inc.
+02CA	ABOV Semiconductor
+02CB	AINA-Wireless Inc.
+02CD	BMA ergonomics b.v.
+02CE	Teva Branded Pharmaceutical Products R&D, Inc.
+02CF	Anima
+02D0	3M
+02D1	Empatica Srl
+02D2	Afero, Inc.
+02D3	Powercast Corporation
+02D4	Secuyou ApS
+02D5	OMRON Corporation
+02D6	Send Solutions
+02D7	NIPPON SYSTEMWARE CO.,LTD.
+02D8	Neosfar
+02D9	Fliegl Agrartechnik GmbH
+02DA	Gilvader
+02DB	Digi International Inc (R)
+02DC	DeWalch Technologies, Inc.
+02DD	Flint Rehabilitation Devices, LLC
+02DE	Samsung SDS Co., Ltd.
+02DF	Blur Product Development
+02E0	University of Michigan
+02E1	Victron Energy BV
+02E2	NTT docomo
+02E3	Carmanah Technologies Corp.
+02E4	Bytestorm Ltd.
+02E5	Espressif Systems (Shanghai) Co., Ltd.
+02E6	Unwire
+02E7	Connected Yard, Inc.
+02E8	American Music Environments
+02E9	Sensogram Technologies, Inc.
+02EA	Fujitsu Limited
+02EB	Ardic Technology
+02ED	HTC Corporation
+02EE	Citizen Holdings Co., Ltd.
+02EF	SMART-INNOVATION.inc
+02F0	Blackrat Software
+02F1	The Idea Cave, LLC
+02F2	GoPro, Inc.
+02F3	AuthAir, Inc
+02F4	Vensi, Inc.
+02F5	Indagem Tech LLC
+02F6	Intemo Technologies
+02F8	Runteq Oy Ltd
+02F9	IMAGINATION TECHNOLOGIES LTD
+02FB	Clarius Mobile Health Corp.
+02FC	Shanghai Frequen Microelectronics Co., Ltd.
+02FE	Lierda Science & Technology Group Co., Ltd.
+02FF	Silicon Laboratories
+0300	World Moto Inc.
+0301	Giatec Scientific Inc.
+0302	Loop Devices, Inc
+0303	IACA electronique
+0304	Oura Health Ltd
+0305	Swipp ApS
+0306	Life Laboratory Inc.
+0307	FUJI INDUSTRIAL CO.,LTD.
+0308	Surefire, LLC
+0309	Dolby Labs
+030A	Ellisys
+030B	Magnitude Lighting Converters
+030C	Hilti AG
+030D	Devdata S.r.l.
+030F	Shortcut Labs
+0310	SGL Italia S.r.l.
+0311	PEEQ DATA
+0312	Ducere Technologies Pvt Ltd
+0313	DiveNav, Inc.
+0314	RIIG AI Sp. z o.o.
+0315	Thermo Fisher Scientific
+0316	AG Measurematics Pvt. Ltd.
+0317	CHUO Electronics CO., LTD.
+0318	Aspenta International
+0319	Eugster Frismag AG
+031A	Wurth Elektronik eiSos GmbH & Co. KG
+031B	HQ Inc
+031C	Lab Sensor Solutions
+031D	Enterlab ApS
+031E	Eyefi, Inc.
+031F	MetaSystem S.p.A.
+0320	SONO ELECTRONICS. CO., LTD
+0323	Rotor Bike Components
+0324	Astro, Inc.
+0326	Healthwear Technologies (Changzhou)Ltd
+0327	Essex Electronics
+0328	Grundfos A/S
+0329	Eargo, Inc.
+032A	Electronic Design Lab
+032B	ESYLUX
+032C	NIPPON SMT.CO.,Ltd
+032D	BM innovations GmbH
+032E	indoormap
+032F	OttoQ Inc
+0330	North Pole Engineering
+0331	3flares Technologies Inc.
+0333	Mul-T-Lock
+0334	Airthings ASA
+0335	Enlighted Inc
+0336	GISTIC
+0337	AJP2 Holdings, LLC
+0338	COBI GmbH
+0339	Blue Sky Scientific, LLC
+033A	Appception, Inc.
+033B	Courtney Thorne Limited
+033D	TPV Technology Limited
+033E	Monitra SA
+033F	Automation Components, Inc.
+0341	Etesian Technologies LLC
+0342	GERTEC BRASIL LTDA.
+0343	Drekker Development Pty. Ltd.
+0344	Whirl Inc
+0345	Locus Positioning
+0346	Acuity Brands Lighting, Inc
+0347	Prevent Biometrics
+0349	VersaMe
+034B	Libratone A/S
+034C	HM Electronics, Inc.
+034D	TASER International, Inc.
+034F	Heartland Payment Systems
+0350	Bitstrata Systems Inc.
+0351	Pieps GmbH
+0352	iRiding(Xiamen)Technology Co.,Ltd.
+0353	Alpha Audiotronics, Inc.
+0354	TOPPAN, Inc.
+0355	Sigma Designs, Inc.
+0356	Spectrum Brands, Inc.
+0357	Polymap Wireless
+0358	MagniWare Ltd.
+0359	Novotec Medical GmbH
+035A	Phillips-Medisize A/S
+035B	Matrix Inc.
+035C	Eaton Corporation
+035D	KYS
+035E	Naya Health, Inc.
+035F	Acromag
+0360	Insulet Corporation
+0361	Wellinks Inc.
+0362	ON Semiconductor
+0363	FREELAP SA
+0364	Favero Electronics Srl
+0365	BioMech Sensor LLC
+0366	BOLTT Sports technologies Private limited
+0368	Metormote AB
+0369	littleBits
+036A	SetPoint Medical
+036B	BRControls Products BV
+036C	Zipcar
+036D	AirBolt Pty Ltd
+036E	MOTIVE TECHNOLOGIES, INC.
+036F	Motiv, Inc.
+0370	Wazombi Labs OÜ
+0372	Nixie Labs, Inc.
+0373	AppNearMe Ltd
+0374	Holman Industries
+0375	Expain AS
+0376	Electronic Temperature Instruments Ltd
+0377	Plejd AB
+0378	Propeller Health
+0379	Shenzhen iMCO Electronic Technology Co.,Ltd
+037A	Algoria
+037B	Apption Labs Inc.
+037C	Cronologics Corporation
+037D	MICRODIA Ltd.
+037E	lulabytes S.L.
+037F	Société des Produits Nestlé S.A.
+0380	LLC "MEGA-F service
+0381	Sharp Corporation
+0382	Precision Outcomes Ltd
+0383	Kronos Incorporated
+0385	Embedded Electronic Solutions Ltd. dba e2Solutions
+0386	Aterica Inc.
+0387	BluStor PMC, Inc.
+0388	Kapsch TrafficCom AB
+0389	ActiveBlu Corporation
+038A	Kohler Mira Limited
+038B	Noke
+038C	Appion Inc.
+038D	Resmed Ltd
+038E	Crownstone B.V.
+038F	Xiaomi Inc.
+0390	INFOTECH s.r.o.
+0391	Thingsquare AB
+0392	T&D
+0393	LAVAZZA S.p.A.
+0395	SDATAWAY
+0396	BLOKS GmbH
+0397	LEGO System A/S
+0398	Thetatronics Ltd
+0399	Nikon Corporation
+039A	NeST
+039B	South Silicon Valley Microelectronics
+039C	ALE International
+039D	CareView Communications, Inc.
+039E	SchoolBoard Limited
+039F	Molex Corporation
+03A0	IVT Wireless Limited
+03A1	Alpine Labs LLC
+03A2	Candura Instruments
+03A3	SmartMovt Technology Co., Ltd
+03A4	Token Zero Ltd
+03A5	ACE CAD Enterprise Co., Ltd. (ACECAD)
+03A6	Medela, Inc
+03A7	AeroScout
+03A8	Esrille Inc.
+03AA	Exon Sp. z o.o.
+03AB	Meizu Technology Co., Ltd.
+03AD	XiQ
+03AE	Allswell Inc.
+03AF	Comm-N-Sense Corp DBA Verigo
+03B0	VIBRADORM GmbH
+03B1	Otodata Wireless Network Inc.
+03B2	Propagation Systems Limited
+03B3	Midwest Instruments & Controls
+03B4	Alpha Nodus, inc.
+03B5	petPOMM, Inc
+03B6	Mattel
+03B7	Airbly Inc.
+03B8	A-Safe Limited
+03B9	FREDERIQUE CONSTANT SA
+03BA	Maxscend Microelectronics Company Limited
+03BB	Abbott
+03BC	ASB Bank Ltd
+03BD	amadas
+03BE	Applied Science, Inc.
+03BF	iLumi Solutions Inc.
+03C0	Arch Systems Inc.
+03C1	Ember Technologies, Inc.
+03C2	Snapchat Inc
+03C3	Casambi Technologies Oy
+03C4	Pico Technology Inc.
+03C5	Abbott Medical
+03C6	Intricon
+03C7	Structural Health Systems, Inc.
+03C8	Avvel International
+03C9	Gallagher Group
+03CA	In2things Automation Pvt. Ltd.
+03CB	SYSDEV Srl
+03CC	Vonkil Technologies Ltd
+03CD	Wynd Technologies, Inc.
+03CE	CONTRINEX S.A.
+03CF	MIRA, Inc.
+03D0	Watteam Ltd
+03D1	Density Inc.
+03D2	IOT Pot India Private Limited
+03D3	Sigma Connectivity AB
+03D4	PEG PEREGO SPA
+03D5	Wyzelink Systems Inc.
+03D6	Yota Devices LTD
+03D7	FINSECUR
+03D8	Zen-Me Labs Ltd
+03D9	3IWare Co., Ltd.
+03DA	EnOcean GmbH
+03DB	Instabeat, Inc
+03DC	Nima Labs
+03DD	Andreas Stihl AG & Co. KG
+03DE	Nathan Rhoades LLC
+03DF	Grob Technologies, LLC
+03E0	Actions Technology Co.,Ltd
+03E1	SPD Development Company Ltd
+03E2	Sensoan Oy
+03E3	Qualcomm Life Inc
+03E4	Chip-ing AG
+03E5	ffly4u
+03E6	IoT Instruments Oy
+03E7	TRUE Fitness Technology
+03E9	SHENZHEN LEMONJOY TECHNOLOGY CO., LTD.
+03EA	Hello Inc.
+03EB	Ozo Edu, Inc.
+03EC	Jigowatts Inc.
+03ED	BASIC MICRO.COM,INC.
+03EE	CUBE TECHNOLOGIES
+03F0	CLINK
+03F1	Hestan Smart Cooking Inc.
+03F2	WindowMaster A/S
+03F4	PAL Technologies Ltd
+03F5	WHERE, Inc.
+03F6	Iton Technology Corp.
+03F7	Owl Labs Inc.
+03F8	Rockford Corp.
+03F9	Becon Technologies Co.,Ltd.
+03FA	Vyassoft Technologies Inc
+03FB	Nox Medical
+03FC	Kimberly-Clark
+03FD	Trimble Inc.
+03FE	Littelfuse
+03FF	Withings
+0400	i-developer IT Beratung UG
+0401	Relations Inc.
+0402	Sears Holdings Corporation
+0403	Gantner Electronic GmbH
+0404	Authomate Inc
+0405	Vertex International, Inc.
+0407	Swiss Audio SA
+0408	ToGetHome Inc.
+040A	ZF OPENMATICS s.r.o.
+040B	Jana Care Inc.
+040D	NorthStar Battery Company, LLC
+040E	SKF (U.K.) Limited
+040F	CO-AX Technology, Inc.
+0410	Fender Musical Instruments
+0411	Luidia Inc
+0412	SEFAM
+0413	Wireless Cables Inc
+0416	SODA GmbH
+0417	Fatigue Science
+0419	Novalogy LTD
+041A	Friday Labs Limited
+041B	OrthoAccel Technologies
+041C	WaterGuru, Inc.
+041D	Benning Elektrotechnik und Elektronik GmbH & Co. KG
+041E	Dell Computer Corporation
+041F	Kopin Corporation
+0420	TecBakery GmbH
+0421	Backbone Labs, Inc.
+0422	DELSEY SA
+0423	Chargifi Limited
+0424	Trainesense Ltd.
+0425	Unify Software and Solutions GmbH & Co. KG
+0426	Husqvarna AB
+0427	Focus fleet and fuel management inc
+0428	SmallLoop, LLC
+0429	Prolon Inc.
+042A	BD Medical
+042B	iMicroMed Incorporated
+042C	Ticto N.V.
+042D	Meshtech AS
+042E	MemCachier Inc.
+042F	Danfoss A/S
+0430	SnapStyk Inc.
+0431	Alticor Inc.
+0432	Silk Labs, Inc.
+0433	Pillsy Inc.
+0434	Hatch Baby, Inc.
+0435	Blocks Wearables Ltd.
+0436	Drayson Technologies (Europe) Limited
+0437	eBest IOT Inc.
+0438	Helvar Ltd
+0439	Radiance Technologies
+043A	Nuheara Limited
+043B	Appside co., ltd.
+043D	Coiler Corporation
+043E	Thermomedics, Inc.
+043F	Tentacle Sync GmbH
+0440	Valencell, Inc.
+0442	SECOM CO., LTD.
+0443	Tucker International LLC
+0444	Metanate Limited
+0445	Kobian Canada Inc.
+0446	NETGEAR, Inc.
+0447	Fabtronics Australia Pty Ltd
+0448	Grand Centrix GmbH
+0449	1UP USA.com llc
+044A	SHIMANO INC.
+044B	Nain Inc.
+044C	LifeStyle Lock, LLC
+044D	VEGA Grieshaber KG
+044E	Xtrava Inc.
+044F	TTS Tooltechnic Systems AG & Co. KG
+0450	Teenage Engineering AB
+0451	Tunstall Nordic AB
+0452	Svep Design Center AB
+0453	Qorvo Utrecht B.V.
+0454	Sphinx Electronics GmbH & Co KG
+0456	Nemik Consulting Inc
+0457	RF INNOVATION
+0458	Mini Solution Co., Ltd.
+045A	2048450 Ontario Inc
+045C	Delta T Corporation
+045D	Boston Scientific Corporation
+045E	Nuviz, Inc.
+045F	Real Time Automation, Inc.
+0460	Kolibree
+0461	vhf elektronik GmbH
+0462	Bonsai Systems GmbH
+0463	Fathom Systems Inc.
+0464	Bellman & Symfon Group AB
+0465	International Forte Group LLC
+0467	Codenex Oy
+0468	Kynesim Ltd
+0469	Palago AB
+046A	INSIGMA INC.
+046B	PMD Solutions
+046C	Qingdao Realtime Technology Co., Ltd.
+046D	BEGA Gantenbrink-Leuchten KG
+046E	Pambor Ltd.
+046F	Develco Products A/S
+0470	iDesign s.r.l.
+0471	TiVo Corp
+0472	Control-J Pty Ltd
+0473	Steelcase, Inc.
+0474	iApartment co., ltd.
+0475	Icom inc.
+0477	Blue Spark Technologies
+0478	FarSite Communications Limited
+0479	mywerk system GmbH
+047A	Sinosun Technology Co., Ltd.
+047B	MIYOSHI ELECTRONICS CORPORATION
+047D	Occly LLC
+047E	OurHub Dev IvS
+047F	Pro-Mark, Inc.
+0481	Quintrax Limited
+0482	POS Tuning Udo Vosshenrich GmbH & Co. KG
+0484	Revol Technologies Inc
+0485	SKIDATA AG
+0486	DEV TECNOLOGIA INDUSTRIA, COMERCIO E MANUTENCAO DE EQUIPAMENTOS LTDA. - ME
+0487	Centrica Connected Home
+0488	Automotive Data Solutions Inc
+0489	Igarashi Engineering
+048A	Taelek Oy
+048C	Vectronix AG
+048D	S-Labs Sp. z o.o.
+048E	Companion Medical, Inc.
+048F	BlueKitchen GmbH
+0490	Matting AB
+0491	SOREX - Wireless Solutions GmbH
+0492	ADC Technology, Inc.
+0493	Lynxemi Pte Ltd
+0494	SENNHEISER electronic GmbH & Co. KG
+0496	Polymorphic Labs LLC
+0497	Cochlear Limited
+0498	METER Group, Inc. USA
+0499	Ruuvi Innovations Ltd.
+049A	Situne AS
+049B	nVisti, LLC
+049C	DyOcean
+049D	Uhlmann & Zacher GmbH
+049E	AND!XOR LLC
+049F	Popper Pay AB
+04A2	ovrEngineered, LLC
+04A3	GT-tronics HK Ltd
+04A4	Herbert Waldmann GmbH & Co. KG
+04A5	Guangzhou FiiO Electronics Technology Co.,Ltd
+04A6	Vinetech Co., Ltd
+04A7	Dallas Logic Corporation
+04A8	BioTex, Inc.
+04AA	LINKIO SAS
+04AB	Harbortronics, Inc.
+04AC	Undagrid B.V.
+04AD	Shure Inc
+04AE	ERM Electronic Systems LTD
+04AF	BIOROWER Handelsagentur GmbH
+04B1	Kartographers Technologies Pvt. Ltd.
+04B2	The Shadow on the Moon
+04B3	mobike (Hong Kong) Limited
+04B4	Inuheat Group AB
+04B5	Swiftronix AB
+04B6	Diagnoptics Technologies
+04B7	Analog Devices, Inc.
+04B8	Soraa Inc.
+04B9	CSR Building Products Limited
+04BA	Crestron Electronics, Inc.
+04BB	Neatebox Ltd
+04BC	Draegerwerk AG & Co. KGaA
+04BD	AlbynMedical
+04BE	Averos FZCO
+04BF	VIT Initiative, LLC
+04C0	Statsports International
+04C1	Sospitas, s.r.o.
+04C2	Dmet Products Corp.
+04C3	Mantracourt Electronics Limited
+04C4	TeAM Hutchins AB
+04C5	Seibert Williams Glass, LLC
+04C6	Insta GmbH
+04C7	Svantek Sp. z o.o.
+04C8	Shanghai Flyco Electrical Appliance Co., Ltd.
+04C9	Thornwave Labs Inc
+04CA	Steiner-Optik GmbH
+04CB	Novo Nordisk A/S
+04CD	Safetech Products LLC
+04CE	GOOOLED S.R.L.
+04CF	DOM Sicherheitstechnik GmbH & Co. KG
+04D0	Olympus Corporation
+04D1	KTS GmbH
+04D2	Anloq Technologies Inc.
+04D3	Queercon, Inc
+04D4	TASKA PROSTHETICS LIMITED
+04D5	Gooee Limited
+04D6	LUGLOC LLC
+04D7	Blincam, Inc.
+04D8	FUJIFILM Corporation
+04D9	RM Acquisition LLC
+04DA	Franceschi Marina snc
+04DB	Engineered Audio, LLC.
+04DC	IOTTIVE (OPC) PRIVATE LIMITED
+04DD	4MOD Technology
+04DE	Lutron Electronics Co., Inc.
+04DF	Emerson Electric Co.
+04E0	Guardtec, Inc.
+04E1	REACTEC LIMITED
+04E3	Under Armour
+04E4	Woodenshark
+04E5	Avack Oy
+04E6	Smart Solution Technology, Inc.
+04E8	STABILO International
+04E9	Busch Jaeger Elektro GmbH
+04EA	Pacific Bioscience Laboratories, Inc
+04EB	Bird Home Automation GmbH
+04EC	Motorola Solutions
+04EE	Auxivia
+04EF	DaisyWorks, Inc
+04F0	Kosi Limited
+04F1	Theben AG
+04F2	InDreamer Techsol Private Limited
+04F3	Cerevast Medical
+04F4	ZanCompute Inc.
+04F5	Pirelli Tyre S.P.A.
+04F6	McLear Limited
+04F7	Shenzhen Goodix Technology Co., Ltd
+04F8	Convergence Systems Limited
+04F9	Interactio
+04FA	Androtec GmbH
+04FB	Benchmark Drives GmbH & Co. KG
+04FC	SwingLync L. L. C.
+04FD	Tapkey GmbH
+04FE	Woosim Systems Inc.
+04FF	Microsemi Corporation
+0500	Wiliot LTD.
+0501	Polaris IND
+0502	Specifi-Kali LLC
+0503	Locoroll, Inc
+0504	PHYPLUS Inc
+0505	InPlay, Inc.
+0506	Hager
+0508	Axes System sp. z o. o.
+0509	Garage Smart, Inc.
+050A	Shake-on B.V.
+050B	Vibrissa Inc.
+050C	OSRAM GmbH
+050D	TRSystems GmbH
+050E	Yichip Microelectronics (Hangzhou) Co.,Ltd.
+050F	Foundation Engineering LLC
+0510	UNI-ELECTRONICS, INC.
+0511	Brookfield Equinox LLC
+0512	Soprod SA
+0513	9974091 Canada Inc.
+0514	FIBRO GmbH
+0515	RB Controls Co., Ltd.
+0516	Footmarks
+0517	Amtronic Sverige AB
+0518	MAMORIO.inc
+0519	Tyto Life LLC
+051A	Leica Camera AG
+051C	EDPS
+051D	OFF Line Co., Ltd.
+051E	Detect Blue Limited
+051F	Setec Pty Ltd
+0520	Target Corporation
+0521	IAI Corporation
+0522	NS Tech, Inc.
+0523	MTG Co., Ltd.
+0524	Hangzhou iMagic Technology Co., Ltd
+0525	HONGKONG NANO IC TECHNOLOGIES  CO., LIMITED
+0526	Honeywell International Inc.
+0527	Albrecht JUNG
+0528	Lunera Lighting Inc.
+0529	Lumen UAB
+052A	Keynes Controls Ltd
+052B	Novartis AG
+052C	Geosatis SA
+052D	EXFO, Inc.
+052E	LEDVANCE GmbH
+052F	Center ID Corp.
+0530	Adolene, Inc.
+0531	D&M Holdings Inc.
+0532	CRESCO Wireless, Inc.
+0533	Nura Operations Pty Ltd
+0534	Frontiergadget, Inc.
+0535	Smart Component Technologies Limited
+0536	ZTR Control Systems LLC
+0537	MetaLogics Corporation
+0538	Medela AG
+0539	OPPLE Lighting Co., Ltd
+053A	Savitech Corp.,
+053B	prodigy
+053C	Screenovate Technologies Ltd
+053D	TESA SA
+053E	CLIM8 LIMITED
+053F	Silergy Corp
+0540	SilverPlus, Inc
+0541	Sharknet srl
+0542	Mist Systems, Inc.
+0543	MIWA LOCK CO.,Ltd
+0544	OrthoSensor, Inc.
+0546	Apexar Technologies S.A.
+0547	LOGICDATA Electronic & Software Entwicklungs GmbH
+0548	Knick Elektronische Messgeraete GmbH & Co. KG
+0549	Smart Technologies and Investment Limited
+054A	Linough Inc.
+054B	Advanced Electronic Designs, Inc.
+054C	Carefree Scott Fetzer Co Inc
+054D	Sensome
+054E	FORTRONIK storitve d.o.o.
+054F	Sinnoz
+0551	Sylero
+0552	Avempace SARL
+0553	Nintendo Co., Ltd.
+0554	National Instruments
+0555	KROHNE Messtechnik GmbH
+0556	Otodynamics Ltd
+0557	Arwin Technology Limited
+0558	benegear, inc.
+0559	Newcon Optik
+055A	CANDY HOUSE, Inc.
+055B	FRANKLIN TECHNOLOGY INC
+055C	Lely
+055D	Valve Corporation
+055E	Hekatron Vertriebs GmbH
+055F	PROTECH S.A.S. DI GIRARDI ANDREA & C.
+0560	Sarita CareTech APS
+0561	Finder S.p.A.
+0562	Thalmic Labs Inc.
+0563	Steinel GmbH
+0564	Beghelli Spa
+0566	CORE TRANSPORT TECHNOLOGIES NZ LIMITED
+0567	Xiamen Everesports Goods Co., Ltd
+0568	Bodyport Inc.
+056A	Flipnavi Co.,Ltd.
+056B	Rion Co., Ltd.
+056C	Long Range Systems, LLC
+056D	Redmond Industrial Group LLC
+056E	VIZPIN INC.
+056F	BikeFinder AS
+0570	Consumer Sleep Solutions LLC
+0571	PSIKICK, INC.
+0572	AntTail.com
+0573	Lighting Science Group Corp.
+0574	AFFORDABLE ELECTRONICS INC
+0575	Integral Memroy Plc
+0576	Globalstar, Inc.
+0577	True Wearables, Inc.
+0578	Wellington Drive Technologies Ltd
+057A	OMNI Remotes
+057B	Duracell U.S. Operations Inc.
+057C	Toor Technologies LLC
+057D	Instinct Performance
+057E	Beco, Inc
+057F	Scuf Gaming International, LLC
+0581	LYS TECHNOLOGIES LTD
+0582	Breakwall Analytics, LLC
+0583	Code Blue Communications
+0584	Gira Giersiepen GmbH & Co. KG
+0585	Hearing Lab Technology
+0586	LEGRAND
+0587	Derichs GmbH
+0588	ALT-TEKNIK LLC
+0589	Star Technologies
+058A	START TODAY CO.,LTD.
+058B	Maxim Integrated Products
+058C	Fracarro Radioindustrie SRL
+058D	Jungheinrich Aktiengesellschaft
+058E	Meta Platforms Technologies, LLC
+058F	HENDON SEMICONDUCTORS PTY LTD
+0590	Pur3 Ltd
+0591	Viasat Group S.p.A.
+0592	IZITHERM
+0593	Spaulding Clinical Research
+0594	Kohler Company
+0595	Inor Process AB
+0596	My Smart Blinds
+0597	RadioPulse Inc
+0598	rapitag GmbH
+0599	Lazlo326, LLC.
+059A	Teledyne Lecroy, Inc.
+059B	Dataflow Systems Limited
+059C	Macrogiga Electronics
+059D	Tandem Diabetes Care
+059E	Polycom, Inc.
+059F	Fisher & Paykel Healthcare
+05A0	Dream Devices Technologies Oy
+05A1	Shanghai Xiaoyi Technology Co.,Ltd.
+05A2	ADHERIUM(NZ) LIMITED
+05A3	Axiomware Systems Incorporated
+05A4	O. E. M. Controls, Inc.
+05A5	Kiiroo BV
+05A6	Telecon Mobile Limited
+05A7	Sonos Inc
+05A8	Tom Allebrandi Consulting
+05A9	Monidor
+05AA	Tramex Limited
+05AB	Nofence AS
+05AC	GoerTek Dynaudio Co., Ltd.
+05AD	INIA
+05AE	CARMATE MFG.CO.,LTD
+05AF	OV LOOP, INC.
+05B0	NewTec GmbH
+05B1	Medallion Instrumentation Systems
+05B2	CAREL INDUSTRIES S.P.A.
+05B3	Parabit Systems, Inc.
+05B4	White Horse Scientific ltd
+05B5	verisilicon
+05B6	Elecs Industry Co.,Ltd.
+05B7	Beijing Pinecone Electronics Co.,Ltd.
+05B8	Ambystoma Labs Inc.
+05B9	Suzhou Pairlink Network Technology
+05BA	igloohome
+05BB	Oxford Metrics plc
+05BC	Leviton Mfg. Co., Inc.
+05BD	ULC Robotics Inc.
+05BF	Real-World-Systems Corporation
+05C0	Nalu Medical, Inc.
+05C1	P.I.Engineering
+05C2	Grote Industries
+05C3	Runtime, Inc.
+05C4	Codecoup sp. z o.o. sp. k.
+05C5	SELVE GmbH & Co. KG
+05C7	Lippert Components, INC
+05C8	SOMFY SAS
+05C9	TBS Electronics B.V.
+05CA	MHL Custom Inc
+05CB	LucentWear LLC
+05CC	WATTS ELECTRONICS
+05CD	RJ Brands LLC
+05CE	V-ZUG Ltd
+05CF	Biowatch SA
+05D0	Anova Applied Electronics
+05D1	Lindab AB
+05D2	frogblue TECHNOLOGY GmbH
+05D3	Acurable Limited
+05D4	LAMPLIGHT Co., Ltd.
+05D5	TEGAM, Inc.
+05D6	Zhuhai Jieli technology Co.,Ltd
+05D7	modum.io AG
+05D8	Farm Jenny LLC
+05D9	Toyo Electronics Corporation
+05DA	Applied Neural Research Corp
+05DB	Avid Identification Systems, Inc.
+05DC	Petronics Inc.
+05DD	essentim GmbH
+05DE	QT Medical INC.
+05DF	VIRTUALCLINIC.DIRECT LIMITED
+05E0	Viper Design LLC
+05E1	Human, Incorporated
+05E2	stAPPtronics GmbH
+05E3	Elemental Machines, Inc.
+05E4	Taiyo Yuden Co., Ltd
+05E5	INEO ENERGY& SYSTEMS
+05E6	Motion Instruments Inc.
+05E7	PressurePro
+05E8	COWBOY
+05E9	iconmobile GmbH
+05EA	ACS-Control-System GmbH
+05EB	Bayerische Motoren Werke AG
+05EC	Gycom Svenska AB
+05ED	Fuji Xerox Co., Ltd
+05EF	SIKOM AS
+05F0	beken
+05F1	The Linux Foundation
+05F2	Try and E CO.,LTD.
+05F3	SeeScan
+05F4	Clearity, LLC
+05F5	GS TAG
+05F6	DPTechnics
+05F7	TRACMO, INC.
+05F8	Anki Inc.
+05F9	Hagleitner Hygiene International GmbH
+05FA	Konami Sports Life Co., Ltd.
+05FB	Arblet Inc.
+05FC	Masbando GmbH
+05FD	Innoseis
+05FE	Niko nv
+05FF	Wellnomics Ltd
+0600	iRobot Corporation
+0601	Schrader Electronics
+0602	Geberit International AG
+0603	Fourth Evolution Inc
+0605	FMW electronic Futterer u. Maier-Wolf OHG
+0606	John Deere
+0607	Rookery Technology Ltd
+0608	KeySafe-Cloud
+0609	BUCHI Labortechnik AG
+060A	IQAir AG
+060B	Triax Technologies Inc
+060C	Vuzix Corporation
+060D	TDK Corporation
+060E	Blueair AB
+060F	Signify Netherlands B.V.
+0610	ADH GUARDIAN USA LLC
+0611	Beurer GmbH
+0612	Playfinity AS
+0613	Hans Dinslage GmbH
+0614	OnAsset Intelligence, Inc.
+0615	INTER ACTION Corporation
+0616	OS42 UG (haftungsbeschraenkt)
+0618	Audio-Technica Corporation
+0619	Six Guys Labs, s.r.o.
+061A	R.W. Beckett Corporation
+061B	silex technology, inc.
+061C	Univations Limited
+061D	SENS Innovation ApS
+061E	Diamond Kinetics, Inc.
+061F	Phrame Inc.
+0620	Forciot Oy
+0621	Noordung d.o.o.
+0622	Beam Labs, LLC
+0624	Biovotion AG
+0625	Square Panda, Inc.
+0626	Amplifico
+0627	WEG S.A.
+0628	Ensto Oy
+0629	PHONEPE PVT LTD
+062B	MinebeaMitsumi Inc.
+062C	ASPion GmbH
+062D	Vossloh-Schwabe Deutschland GmbH
+062E	Procept
+062F	ONKYO Corporation
+0630	Asthrea D.O.O.
+0631	Fortiori Design LLC
+0632	Hugo Muller GmbH & Co KG
+0633	Wangi Lai PLT
+0634	Fanstel Corp
+0635	Crookwood
+0636	ELECTRONICA INTEGRAL DE SONIDO S.A.
+0637	GiP Innovation Tools GmbH
+0638	LX SOLUTIONS PTY LIMITED
+0639	Shenzhen Minew Technologies Co., Ltd.
+063A	Prolojik Limited
+063B	Kromek Group Plc
+063C	Contec Medical Systems Co., Ltd.
+063D	Xradio Technology Co.,Ltd.
+063E	The Indoor Lab, LLC
+063F	LDL TECHNOLOGY
+0640	Dish Network LLC
+0641	Revenue Collection Systems FRANCE SAS
+0642	Bluetrum Technology Co.,Ltd
+0643	makita corporation
+0644	Apogee Instruments
+0645	BM3
+0646	SGV Group Holding GmbH & Co. KG
+0647	MED-EL
+0648	Ultune Technologies
+0649	Ryeex Technology Co.,Ltd.
+064A	Open Research Institute, Inc.
+064B	Scale-Tec, Ltd
+064C	Zumtobel Group AG
+064D	iLOQ Oy
+064E	KRUXWorks Technologies Private Limited
+064F	Digital Matter Pty Ltd
+0650	Coravin, Inc.
+0651	Stasis Labs, Inc.
+0652	ITZ Innovations- und Technologiezentrum GmbH
+0653	Meggitt SA
+0654	Ledlenser GmbH & Co. KG
+0655	Renishaw PLC
+0656	ZhuHai AdvanPro Technology Company Limited
+0657	Meshtronix Limited
+0658	Payex Norge AS
+0659	UnSeen Technologies Oy
+065A	Marshall Group AB
+065B	Sesam Solutions BV
+065C	PixArt Imaging Inc.
+065D	Panduit Corp.
+065E	Alo AB
+065F	Ricoh Company Ltd
+0660	RTC Industries, Inc.
+0661	Mode Lighting Limited
+0662	Particle Industries, Inc.
+0663	Advanced Telemetry Systems, Inc.
+0664	RHA TECHNOLOGIES LTD
+0665	Pure International Limited
+0666	WTO Werkzeug-Einrichtungen GmbH
+0668	Bleb Technology srl
+0669	Livanova USA, Inc.
+066A	Brady Worldwide Inc.
+066B	DewertOkin GmbH
+066C	Ztove ApS
+066D	Venso EcoSolutions AB
+066E	Eurotronik Kranj d.o.o.
+066F	Hug Technology Ltd
+0670	Gema Switzerland GmbH
+0671	Buzz Products Ltd.
+0672	Kopi
+0673	Innova Ideas Limited
+0674	BeSpoon
+0676	Expai Solutions Private Limited
+0677	Innovation First, Inc.
+0678	SABIK Offshore GmbH
+0679	4iiii Innovations Inc.
+067A	The Energy Conservatory, Inc.
+067B	I.FARM, INC.
+067C	Tile, Inc.
+067D	Form Athletica Inc.
+067F	NETGRID S.N.C. DI BISSOLI MATTEO, CAMPOREALE SIMONE, TOGNETTI FEDERICO
+0680	Mannkind Corporation
+0681	Trade FIDES a.s.
+0682	Photron Limited
+0683	Eltako GmbH
+0684	Dermalapps, LLC
+0685	Greenwald Industries
+0686	inQs Co., Ltd.
+0687	Cherry GmbH
+0688	Amsted Digital Solutions Inc.
+0689	Tacx b.v.
+068A	Raytac Corporation
+068B	Jiangsu Teranovo Tech Co., Ltd.
+068E	Razer Inc.
+068F	JRM Group Limited
+0690	Eccrine Systems, Inc.
+0691	Curie Point AB
+0692	Georg Fischer AG
+0693	Hach - Danaher
+0694	T&A Laboratories LLC
+0695	Koki Holdings Co., Ltd.
+0696	Gunakar Private Limited
+0697	Stemco Products Inc
+0698	Wood IT Security, LLC
+0699	RandomLab SAS
+069A	Adero, Inc.
+069B	Dragonchip Limited
+069C	Noomi AB
+069E	Delta Electronics, Inc.
+069F	FlowMotion Technologies AS
+06A0	OBIQ Location Technology Inc.
+06A1	Cardo Systems, Ltd
+06A2	Globalworx GmbH
+06A3	Nymbus, LLC
+06A4	LIMNO Co. Ltd.
+06A5	TEKZITEL PTY LTD
+06A6	Roambee Corporation
+06A7	Chipsea Technologies (ShenZhen) Corp.
+06A8	GD Midea Air-Conditioning Equipment Co., Ltd.
+06A9	Soundmax Electronics Limited
+06AA	Produal Oy
+06AB	HMS Industrial Networks AB
+06AC	Ingchips Technology Co., Ltd.
+06AD	InnovaSea Systems Inc.
+06AE	SenseQ Inc.
+06AF	Shoof Technologies
+06B0	BRK Brands, Inc.
+06B1	SimpliSafe, Inc.
+06B2	Tussock Innovation 2013 Limited
+06B4	Sencilion Oy
+06B5	Wabilogic Ltd.
+06B6	Sociometric Solutions, Inc.
+06B7	iCOGNIZE GmbH
+06B8	ShadeCraft, Inc
+06B9	Beflex Inc.
+06BA	Beaconzone Ltd
+06BB	Leaftronix Analogic Solutions Private Limited
+06BC	TWS Srl
+06BD	ABB Oy
+06BE	HitSeed Oy
+06C0	CAME S.p.A.
+06C1	Alarm.com Holdings, Inc
+06C2	Measurlogic Inc.
+06C3	King I Electronics.Co.,Ltd
+06C4	Dream Labs GmbH
+06C5	Urban Compass, Inc
+06C6	Simm Tronic Limited
+06C8	Storz & Bickel GmbH & Co. KG
+06C9	MYLAPS B.V.
+06CA	Shenzhen Zhongguang Infotech Technology Development Co., Ltd
+06CB	Dyeware, LLC
+06CC	Dongguan SmartAction Technology Co.,Ltd.
+06CD	DIG Corporation
+06CE	FIOR & GENTZ
+06D0	Etekcity Corporation
+06D1	Meyer Sound Laboratories, Incorporated
+06D2	CeoTronics AG
+06D5	Sensirion AG
+06D6	JCT Healthcare Pty Ltd
+06D7	FUBA Automotive Electronics GmbH
+06D8	AW Company
+06D9	Shanghai Mountain View Silicon Co.,Ltd.
+06DA	Zliide Technologies ApS
+06DB	Automatic Labs, Inc.
+06DC	Industrial Network Controls, LLC
+06DD	Intellithings Ltd.
+06DE	Navcast, Inc.
+06DF	HLI Solutions Inc.
+06E0	Avaya Inc.
+06E1	Milestone AV Technologies LLC
+06E2	Alango Technologies Ltd
+06E3	Spinlock Ltd
+06E4	Aluna
+06E5	OPTEX CO.,LTD.
+06E6	NIHON DENGYO KOUSAKU
+06E7	VELUX A/S
+06E8	Almendo Technologies GmbH
+06E9	Zmartfun Electronics, Inc.
+06EA	SafeLine Sweden AB
+06EB	Houston Radar LLC
+06ED	J Neades Ltd
+06EF	ALCARE Co., Ltd.
+06F0	Chargy Technologies, SL
+06F1	Shibutani Co., Ltd.
+06F2	Trapper Data AB
+06F3	Alfred International Inc.
+06F4	Touché Technology Ltd
+06F5	Vigil Technologies Inc.
+06F6	Vitulo Plus BV
+06F7	WILKA Schliesstechnik GmbH
+06F8	BodyPlus Technology Co.,Ltd
+06F9	happybrush GmbH
+06FA	Enequi AB
+06FB	Sartorius AG
+06FC	Tom Communication Industrial Co.,Ltd.
+06FD	ESS Embedded System Solutions Inc.
+06FE	Mahr GmbH
+06FF	Redpine Signals Inc
+0700	TraqFreq LLC
+0701	PAFERS TECH
+0702	Akciju sabiedriba "SAF TEHNIKA
+0703	Beijing Jingdong Century Trading Co., Ltd.
+0704	JBX Designs Inc.
+0705	AB Electrolux
+0706	Wernher von Braun Center for ASdvanced Research
+0707	Essity Hygiene and Health Aktiebolag
+0708	Be Interactive Co., Ltd
+0709	Carewear Corp.
+070B	Element Products, Inc.
+070C	Beijing Winner Microelectronics Co.,Ltd
+070D	SmartSnugg Pty Ltd
+070E	FiveCo Sarl
+070F	California Things Inc.
+0710	Audiodo AB
+0711	ABAX AS
+0712	Bull Group Company Limited
+0713	Respiri Limited
+0714	MindPeace Safety LLC
+0715	MBARC LABS Inc
+0716	Altonics
+0718	IDIBAIX enginneering
+0719	COREIOT PTY LTD
+071A	REVSMART WEARABLE HK CO LTD
+071B	Precor
+071C	F5 Sports, Inc
+071D	exoTIC Systems
+071E	DONGGUAN HELE ELECTRONICS CO., LTD
+071F	Dongguan Liesheng Electronic Co.Ltd
+0720	Oculeve, Inc.
+0721	Clover Network, Inc.
+0722	Xiamen Eholder Electronics Co.Ltd
+0723	Ford Motor Company
+0724	Guangzhou SuperSound Information Technology Co.,Ltd
+0725	Tedee Sp. z o.o.
+0726	PHC Corporation
+0728	Eli Lilly and Company
+0729	SwaraLink Technologies
+072A	JMR embedded systems GmbH
+072B	Bitkey Inc.
+072C	GWA Hygiene GmbH
+072D	Safera Oy
+072E	Open Platform Systems LLC
+072F	OnePlus Electronics (Shenzhen) Co., Ltd.
+0730	Wildlife Acoustics, Inc.
+0731	ABLIC Inc.
+0732	Dairy Tech, LLC
+0733	Iguanavation, Inc.
+0734	DiUS Computing Pty Ltd
+0735	UpRight Technologies LTD
+0736	Luna XIO, Inc.
+0737	LLC Navitek
+0738	Glass Security Pte Ltd
+0739	Jiangsu Qinheng Co., Ltd.
+073A	Chandler Systems Inc.
+073B	Fantini Cosmi s.p.a.
+073D	Beijing Hao Heng Tian Tech Co., Ltd.
+073E	Bluepack S.R.L.
+073F	Beijing Unisoc Technologies Co., Ltd.
+0741	MAC SRL
+0742	DML LLC
+0743	Sanofi
+0744	SOCOMEC
+0745	WIZNOVA, Inc.
+0746	Seitec Elektronik GmbH
+0747	OR Technologies Pty Ltd
+0748	GuangZhou KuGou Computer Technology Co.Ltd
+0749	DIAODIAO (Beijing) Technology Co., Ltd.
+074A	Illusory Studios LLC
+074B	Sarvavid Software Solutions LLP
+074D	Amtech Systems, LLC
+074E	EAGLE DETECTION SA
+074F	MEDIATECH S.R.L.
+0750	Hamilton Professional Services of Canada Incorporated
+0751	Changsha JEMO IC Design Co.,Ltd
+0752	Elatec GmbH
+0753	JLG Industries, Inc.
+0754	Michael Parkin
+0755	Brother Industries, Ltd
+0756	Lumens For Less, Inc
+0757	ELA Innovation
+0758	umanSense AB
+0759	Shanghai InGeek Cyber Security Co., Ltd.
+075A	HARMAN CO.,LTD.
+075B	Smart Sensor Devices AB
+075C	Antitronics Inc.
+075D	RHOMBUS SYSTEMS, INC.
+075E	Katerra Inc.
+075F	Remote Solution Co., LTD.
+0760	Vimar SpA
+0761	Mantis Tech LLC
+0762	TerOpta Ltd
+0763	PIKOLIN S.L.
+0764	WWZN Information Technology Company Limited
+0765	Voxx International
+0766	ART AND PROGRAM, INC.
+0767	NITTO DENKO ASIA TECHNICAL CENTRE PTE. LTD.
+0768	Peloton Interactive Inc.
+0769	Force Impact Technologies
+076A	Dmac Mobile Developments, LLC
+076B	Engineered Medical Technologies
+076C	Noodle Technology inc
+076D	Graesslin GmbH
+076E	WuQi technologies, Inc.
+076F	Successful Endeavours Pty Ltd
+0770	InnoCon Medical ApS
+0771	Corvex Connected Safety
+0772	Thirdwayv Inc.
+0774	C-MAX Asia Limited
+0775	4eBusiness GmbH
+0776	Cyber Transport Control GmbH
+0777	Cue
+0778	KOAMTAC INC.
+0779	Loopshore Oy
+077A	Niruha Systems Private Limited
+077C	radius co., ltd.
+077D	Sensority, s.r.o.
+077E	Sparkage Inc.
+077F	Glenview Software Corporation
+0780	Finch Technologies Ltd.
+0781	Qingping Technology (Beijing) Co., Ltd.
+0782	DeviceDrive AS
+0783	ESEMBER LIMITED LIABILITY COMPANY
+0784	audifon GmbH & Co. KG
+0785	O2 Micro, Inc.
+0788	BubblyNet, LLC
+0789	PCB Piezotronics, Inc.
+078A	The Wildflower Foundation
+078B	Optikam Tech Inc.
+078C	MINIBREW HOLDING B.V
+078D	Cybex GmbH
+078E	FUJIMIC NIIGATA, INC.
+078F	Hanna Instruments, Inc.
+0790	KOMPAN A/S
+0791	Scosche Industries, Inc.
+0792	Cricut, Inc.
+0793	AEV spol. s r.o.
+0794	The Coca-Cola Company
+0795	GASTEC CORPORATION
+0796	StarLeaf Ltd
+0797	Water-i.d. GmbH
+0798	HoloKit, Inc.
+0799	PlantChoir Inc.
+079A	GuangDong Oppo Mobile Telecommunications Corp., Ltd.
+079B	CST ELECTRONICS (PROPRIETARY) LIMITED
+079C	Sky UK Limited
+079D	Digibale Pty Ltd
+079E	Smartloxx GmbH
+079F	Pune Scientific LLP
+07A0	Regent Beleuchtungskorper AG
+07A2	Roku, Inc.
+07A4	Xiamen Mage Information Technology Co., Ltd.
+07A5	RAB Lighting, Inc.
+07A6	Musen Connect, Inc.
+07A7	Zume, Inc.
+07A8	conbee GmbH
+07A9	Bruel & Kjaer Sound & Vibration
+07AA	The Kroger Co.
+07AB	Granite River Solutions, Inc.
+07AC	LoupeDeck Oy
+07AD	New H3C Technologies Co.,Ltd
+07AE	Aurea Solucoes Tecnologicas Ltda.
+07AF	Hong Kong Bouffalo Lab Limited
+07B0	GV Concepts Inc.
+07B1	Thomas Dynamics, LLC
+07B2	Moeco IOT Inc.
+07B3	2N TELEKOMUNIKACE a.s.
+07B4	Hormann KG Antriebstechnik
+07B5	CRONO CHIP, S.L.
+07B6	Soundbrenner Limited
+07B7	ETABLISSEMENTS GEORGES RENAULT
+07B8	iSwip
+07BA	Battery-Biz Inc.
+07BB	EPIC S.R.L.
+07BD	Genedrive Diagnostics Ltd
+07BE	Axentia Technologies AB
+07BF	REGULA Ltd.
+07C0	Biral AG
+07C2	Radinn AB
+07C3	CIMTechniques, Inc.
+07C4	Johnson Health Tech NA
+07C5	June Life, Inc.
+07C6	Bluenetics GmbH
+07C7	iaconicDesign Inc.
+07C8	WRLDS Creations AB
+07C9	Skullcandy, Inc.
+07CB	West Pharmaceutical Services, Inc.
+07CC	Barnacle Systems Inc.
+07CD	Smart Wave Technologies Canada Inc
+07CE	Shanghai Top-Chip Microelectronics Tech. Co., LTD
+07CF	NeoSensory, Inc.
+07D0	Hangzhou Tuya Information  Technology Co., Ltd
+07D1	Shanghai Panchip Microelectronics Co., Ltd
+07D2	React Accessibility Limited
+07D3	LIVNEX Co.,Ltd.
+07D4	Kano Computing Limited
+07D5	hoots classic GmbH
+07D6	ecobee Inc.
+07D7	Nanjing Qinheng Microelectronics Co., Ltd
+07D8	SOLUTIONS AMBRA INC.
+07D9	Micro-Design, Inc.
+07DA	STARLITE Co., Ltd.
+07DB	Remedee Labs
+07DC	ThingOS GmbH & Co KG
+07DD	Linear Circuits
+07DE	Unlimited Engineering SL
+07DF	Snap-on Incorporated
+07E0	Edifier International Limited
+07E2	Alfred Kaercher SE & Co. KG
+07E3	Airoha Technology Corp.
+07E4	Geeksme S.L.
+07E5	Minut, Inc.
+07E6	Waybeyond Limited
+07E7	Komfort IQ, Inc.
+07E8	Packetcraft, Inc.
+07E9	Häfele GmbH & Co KG
+07EA	ShapeLog, Inc.
+07EB	NOVABASE S.R.L.
+07EC	Frecce LLC
+07ED	Joule IQ, INC.
+07EE	KidzTek LLC
+07EF	Aktiebolaget Sandvik Coromant
+07F0	e-moola.com Pty Ltd
+07F1	Zimi Innovations Pty Ltd
+07F2	SERENE GROUP, INC
+07F3	DIGISINE ENERGYTECH CO. LTD.
+07F4	MEDIRLAB Orvosbiologiai Fejleszto Korlatolt Felelossegu Tarsasag
+07F5	Byton North America Corporation
+07F6	Shenzhen TonliScience and Technology Development Co.,Ltd
+07F7	Cesar Systems Ltd.
+07F8	quip NYC Inc.
+07FA	Klipsch Group, Inc.
+07FB	Access Co., Ltd
+07FC	Renault SA
+07FD	JSK CO., LTD.
+07FE	BIROTA
+07FF	maxon motor ltd.
+0800	Optek
+0801	CRONUS ELECTRONICS LTD
+0802	NantSound, Inc.
+0803	Domintell s.a.
+0804	Andon Health Co.,Ltd
+0805	Urbanminded Ltd
+0806	TYRI Sweden AB
+0807	ECD Electronic Components GmbH Dresden
+0808	SISTEMAS KERN, SOCIEDAD ANÓMINA
+0809	Trulli Audio
+080A	Altaneos
+080B	Nanoleaf Canada Limited
+080C	Ingy B.V.
+080D	Azbil Co.
+080E	TATTCOM LLC
+080F	Paradox Engineering SA
+0810	LECO Corporation
+0811	Becker Antriebe GmbH
+0812	Mstream Technologies., Inc.
+0813	Flextronics International USA Inc.
+0814	Ossur hf.
+0815	SKC Inc
+0816	SPICA SYSTEMS LLC
+0817	Wangs Alliance Corporation
+0818	tatwah SA
+0819	Hunter Douglas Inc
+081A	Shenzhen Conex
+081B	DIM3
+081C	Bobrick Washroom Equipment, Inc.
+081D	Potrykus Holdings and Development LLC
+081E	iNFORM Technology GmbH
+081F	eSenseLab LTD
+0820	Brilliant Home Technology, Inc.
+0821	INOVA Geophysical, Inc.
+0822	adafruit industries
+0824	8Power Limited
+0825	CME PTE. LTD.
+0826	Hyundai Motor Company
+0827	Kickmaker
+0828	Shanghai Suisheng Information Technology Co., Ltd.
+0829	HEXAGON METROLOGY DIVISION ROMER
+082A	Mitutoyo Corporation
+082B	shenzhen fitcare electronics Co.,Ltd
+082C	INGICS TECHNOLOGY CO., LTD.
+082D	INCUS PERFORMANCE LTD.
+082E	ABB S.p.A.
+082F	Blippit AB
+0831	Foxble, LLC
+0832	Intermotive,Inc.
+0833	Conneqtech B.V.
+0834	RIKEN KEIKI CO., LTD.,
+0835	Canopy Growth Corporation
+0836	Bitwards Oy
+0837	vivo Mobile Communication Co., Ltd.
+0838	Etymotic Research, Inc.
+0839	A puissance 3
+083A	BPW Bergische Achsen Kommanditgesellschaft
+083B	Piaggio Fast Forward
+083C	BeerTech LTD
+083D	Tokenize, Inc.
+083E	Zorachka LTD
+083F	D-Link Corp.
+0840	Down Range Systems LLC
+0841	General Luminaire (Shanghai) Co., Ltd.
+0842	Tangshan HongJia electronic technology co., LTD.
+0843	FRAGRANCE DELIVERY TECHNOLOGIES LTD
+0844	Pepperl + Fuchs GmbH
+0845	Dometic Corporation
+0846	USound GmbH
+0847	DNANUDGE LIMITED
+0848	JUJU JOINTS CANADA CORP.
+0849	Dopple Technologies B.V.
+084A	ARCOM
+084B	Biotechware SRL
+084C	ORSO Inc.
+084D	SafePort
+084E	Carol Cole Company
+084F	Embedded Fitness B.V.
+0850	Yealink (Xiamen) Network Technology Co.,LTD
+0851	Subeca, Inc.
+0852	Cognosos, Inc.
+0853	Pektron Group Limited
+0854	Tap Sound System
+0855	Helios Sports, Inc.
+0856	Canopy Growth Corporation
+0857	Parsyl Inc
+0858	SOUNDBOKS
+0859	BlueUp
+085A	DAKATECH
+085B	Nisshinbo Micro Devices Inc.
+085C	ACOS CO.,LTD.
+085D	Guilin Zhishen Information Technology Co.,Ltd.
+085E	Krog Systems LLC
+0860	Alflex Products B.V.
+0861	SmartSensor Labs Ltd
+0862	SmartDrive
+0863	Yo-tronics Technology Co., Ltd.
+0864	Rafaelmicro
+0865	Emergency Lighting Products Limited
+0866	LAONZ Co.,Ltd
+0867	Western Digital Techologies, Inc.
+0868	WIOsense GmbH & Co. KG
+0869	EVVA Sicherheitstechnologie GmbH
+086A	Odic Incorporated
+086B	Pacific Track, LLC
+086C	Revvo Technologies, Inc.
+086D	Biometrika d.o.o.
+086E	Vorwerk Elektrowerke GmbH & Co. KG
+086F	Trackunit A/S
+0870	Wyze Labs, Inc
+0871	Dension Elektronikai Kft.
+0872	11 Health & Technologies Limited
+0873	Innophase Incorporated
+0874	Treegreen Limited
+0875	Berner International LLC
+0876	SmartResQ ApS
+0877	Valtech
+0878	The Chamberlain Group, Inc.
+0879	MIZUNO Corporation
+087A	ZRF, LLC
+087B	BYSTAMP
+087C	Crosscan GmbH
+087D	Konftel AB
+087E	1bar.net Limited
+087F	Phillips Connect Technologies LLC
+0880	imagiLabs AB
+0881	Optalert
+0882	PSYONIC, Inc.
+0883	Wintersteiger AG
+0884	Controlid Industria, Comercio de Hardware e Servicos de Tecnologia Ltda
+0886	Movella Technologies B.V.
+0887	Hydro-Gear Limited Partnership
+0888	EnPointe Fencing Pty Ltd
+0889	XANTHIO
+088A	sclak s.r.l.
+088B	Tricorder Arraay Technologies LLC
+088C	GB Solution co.,Ltd
+088D	Soliton Systems K.K.
+088F	Tait International Limited
+0890	NICHIEI INTEC CO., LTD.
+0891	SmartWireless GmbH & Co. KG
+0892	Ingenieurbuero Birnfeld UG (haftungsbeschraenkt)
+0893	Maytronics Ltd
+0894	EPIFIT
+0895	Gimer medical
+0896	Nokian Renkaat Oyj
+0897	Current Lighting Solutions LLC
+0899	SFS unimarket AG
+089A	Private limited company "Teltonika
+089B	Saucon Technologies
+089C	Embedded Devices Co. Company
+089D	J-J.A.D.E. Enterprise LLC
+089E	i-SENS, inc.
+089F	Witschi Electronic Ltd
+08A0	Aclara Technologies LLC
+08A1	EXEO TECH CORPORATION
+08A2	Epic Systems Co., Ltd.
+08A3	Hoffmann SE
+08A4	Realme Chongqing Mobile Telecommunications Corp., Ltd.
+08A6	Intelligenceworks Inc.
+08A7	TGR 1.618 Limited
+08A8	Shanghai Kfcube Inc
+08A9	Fraunhofer IIS
+08AA	SZ DJI TECHNOLOGY CO.,LTD
+08AB	Coburn Technology, LLC
+08AC	Topre Corporation
+08AD	Kayamatics Limited
+08AE	Moticon ReGo AG
+08AF	Polidea Sp. z o.o.
+08B0	Trivedi Advanced Technologies LLC
+08B1	CORE|vision BV
+08B2	PF SCHWEISSTECHNOLOGIE GMBH
+08B3	IONIQ Skincare GmbH & Co. KG
+08B4	Sengled Co., Ltd.
+08B6	Boehringer Ingelheim Vetmedica GmbH
+08B7	ABB Inc
+08B8	Check Technology Solutions LLC
+08B9	U-Shin Ltd.
+08BA	HYPER ICE, INC.
+08BB	Tokai-rika co.,ltd.
+08BC	Prevayl Limited
+08BD	bf1systems limited
+08BE	ubisys technologies GmbH
+08BF	SIRC Co., Ltd.
+08C0	Accent Advanced Systems SLU
+08C1	Rayden.Earth LTD
+08C2	Lindinvent AB
+08C3	CHIPOLO d.o.o.
+08C5	J. Wagner GmbH
+08C7	Monadnock Systems Ltd.
+08C8	Liteboxer Technologies Inc.
+08C9	Noventa AG
+08CA	Nubia Technology Co.,Ltd.
+08CB	JT INNOVATIONS LIMITED
+08CC	TGM TECHNOLOGY CO., LTD.
+08CD	ifly
+08CE	ZIMI CORPORATION
+08CF	betternotstealmybike UG (with limited liability)
+08D0	ESTOM Infotech Kft.
+08D1	Sensovium Inc.
+08D2	Virscient Limited
+08D3	Novel Bits, LLC
+08D4	ADATA Technology Co., LTD.
+08D5	KEYes
+08D7	Inovonics Corp
+08D8	WARES
+08D9	Pointr Labs Limited
+08DA	Miridia Technology Incorporated
+08DB	Tertium Technology
+08DC	SHENZHEN AUKEY E BUSINESS CO., LTD
+08DD	code-Q
+08DE	TE Connectivity Corporation
+08DF	IRIS OHYAMA CO.,LTD.
+08E0	Philia Technology
+08E1	KOZO KEIKAKU ENGINEERING Inc.
+08E2	Shenzhen Simo Technology co. LTD
+08E3	Republic Wireless, Inc.
+08E4	Rashidov ltd
+08E5	Crowd Connected Ltd
+08E6	Eneso Tecnologia de Adaptacion S.L.
+08E7	Barrot Technology Co.,Ltd.
+08E8	Naonext
+08E9	Taiwan Intelligent Home Corp.
+08EA	COWBELL ENGINEERING CO.,LTD.
+08EB	Beijing Big Moment Technology Co., Ltd.
+08EC	Denso Corporation
+08ED	IMI Hydronic Engineering International SA
+08EE	Askey Computer Corp.
+08EF	Cumulus Digital Systems, Inc
+08F0	Joovv, Inc.
+08F1	The L.S. Starrett Company
+08F2	Microoled
+08F3	PSP - Pauli Services & Products GmbH
+08F4	Kodimo Technologies Company Limited
+08F5	Tymtix Technologies Private Limited
+08F6	Dermal Photonics Corporation
+08F7	MTD Products Inc & Affiliates
+08F8	instagrid GmbH
+08F9	Spacelabs Medical Inc.
+08FB	Darkglass Electronics Oy
+08FC	Hill-Rom
+08FD	BioIntelliSense, Inc.
+08FE	Ketronixs Sdn Bhd
+08FF	Plastimold Products, Inc
+0900	Beijing Zizai Technology Co., LTD.
+0901	Lucimed
+0902	TSC Auto-ID Technology Co., Ltd.
+0903	DATAMARS, Inc.
+0904	SUNCORPORATION
+0905	Yandex Services AG
+0906	Scope Logistical Solutions
+0907	User Hello, LLC
+0908	Pinpoint Innovations Limited
+0909	70mai Co.,Ltd.
+090A	Zhuhai Hoksi Technology CO.,LTD
+090B	EMBR labs, INC
+090C	Radiawave Technologies Co.,Ltd.
+090E	OPTIMUSIOT TECH LLP
+090F	VC Inc.
+0910	ASR Microelectronics (Shanghai) Co., Ltd.
+0911	Douglas Lighting Controls Inc.
+0912	Nerbio Medical Software Platforms Inc
+0913	Braveheart Wireless, Inc.
+0914	INEO-SENSE
+0915	Honda Motor Co., Ltd.
+0916	Ambient Sensors LLC
+0917	ASR Microelectronics(ShenZhen)Co., Ltd.
+0919	NO SMD LIMITED
+091A	Albertronic BV
+091B	Luminostics, Inc.
+091C	Oblamatik AG
+091D	Innokind, Inc.
+091E	Melbot Studios, Sociedad Limitada
+091F	Myzee Technology
+0921	KAHA PTE. LTD.
+0922	Shanghai MXCHIP Information Technology Co., Ltd.
+0923	JSB TECH PTE LTD
+0925	Yukai Engineering Inc.
+0926	Gooligum Technologies Pty Ltd
+0927	ROOQ GmbH
+0928	AiRISTA
+0929	Qingdao Haier Technology Co., Ltd.
+092A	Sappl Verwaltungs- und Betriebs GmbH
+092B	TekHome
+092C	PCI Private Limited
+092D	Leggett & Platt, Incorporated
+092E	PS GmbH
+092F	C.O.B.O. SpA
+0930	James Walker RotaBolt Limited
+0931	BREATHINGS Co., Ltd.
+0933	SRAM
+0934	KiteSpring Inc.
+0935	Reconnect, Inc.
+0936	Elekon AG
+0937	RealThingks GmbH
+0938	Henway Technologies, LTD.
+0939	ASTEM Co.,Ltd.
+093A	LinkedSemi Microelectronics (Xiamen) Co., Ltd
+093B	ENSESO LLC
+093C	Xenoma Inc.
+093D	Adolf Wuerth GmbH & Co KG
+093E	Catalyft Labs, Inc.
+093F	JEPICO Corporation
+0940	Hero Workout GmbH
+0941	Rivian Automotive, LLC
+0942	TRANSSION HOLDINGS LIMITED
+0944	Agitron d.o.o.
+0945	Globe (Jiangsu) Co., Ltd
+0946	AMC International Alfa Metalcraft Corporation AG
+0947	First Light Technologies Ltd.
+0948	Wearable Link Limited
+0949	Metronom Health Europe
+094A	Zwift, Inc.
+094B	Kindeva Drug Delivery L.P.
+094C	GimmiSys GmbH
+094D	tkLABS INC.
+094E	PassiveBolt, Inc.
+094F	Limited Liability Company "Mikrotikls
+0950	Capetech
+0951	PPRS
+0952	Apptricity Corporation
+0953	LogiLube, LLC
+0954	Julbo
+0955	Breville Group
+0956	Kerlink
+0957	Ohsung Electronics
+0958	ZTE Corporation
+0959	HerdDogg, Inc
+095B	Lismore Instruments Limited
+095C	LogiLube, LLC
+095D	Electronic Theatre Controls
+095E	BioEchoNet inc.
+095F	NUANCE HEARING LTD
+0960	Sena Technologies Inc.
+0961	Linkura AB
+0962	GL Solutions K.K.
+0963	Moonbird BV
+0964	Countrymate Technology Limited
+0965	Asahi Kasei Corporation
+0966	PointGuard, LLC
+0967	Neo Materials and Consulting Inc.
+0968	Actev Motors, Inc.
+0969	Woan Technology (Shenzhen) Co., Ltd.
+096A	dricos, Inc.
+096B	Guide ID B.V.
+096D	Gunwerks, LLC
+096E	Band Industries, inc.
+0970	IBA Dosimetry GmbH
+0971	GA
+0973	Popit Oy
+0974	ABEYE
+0975	BlueIOT(Beijing) Technology Co.,Ltd
+0976	Fauna Audio GmbH
+0977	TOYOTA motor corporation
+0978	ZifferEins GmbH & Co. KG
+0979	BIOTRONIK SE & Co. KG
+097A	CORE CORPORATION
+097B	CTEK Sweden AB
+097C	Thorley Industries, LLC
+097D	CLB B.V.
+097E	SonicSensory Inc
+097F	ISEMAR S.R.L.
+0980	DEKRA TESTING AND CERTIFICATION, S.A.U.
+0981	Bernard Krone Holding SE & Co.KG
+0982	ELPRO-BUCHS AG
+0983	Feedback Sports LLC
+0984	TeraTron GmbH
+0986	Cello Hill, LLC
+0987	TSE BRAKES, INC.
+0988	BHM-Tech Produktionsgesellschaft m.b.H
+0989	WIKA Alexander Wiegand SE & Co.KG
+098A	Biovigil
+098B	Mequonic Engineering, S.L.
+098C	bGrid B.V.
+098E	ADVEEZ
+098F	Aktiebolaget Regin
+0990	Anton Paar GmbH
+0991	Telenor ASA
+0992	Big Kaiser Precision Tooling Ltd
+0993	Absolute Audio Labs B.V.
+0994	VT42 Pty Ltd
+0995	Bronkhorst High-Tech B.V.
+0996	C. & E. Fein GmbH
+0997	NextMind
+0998	Pixie Dust Technologies, Inc.
+0999	eTactica ehf
+099A	New Audio LLC
+099B	Sendum Wireless Corporation
+099C	deister electronic GmbH
+099D	YKK AP Inc.
+099E	Step One Limited
+099F	Koya Medical, Inc.
+09A0	Proof Diagnostics, Inc.
+09A1	VOS Systems, LLC
+09A2	ENGAGENOW DATA SCIENCES PRIVATE LIMITED
+09A3	ARDUINO SA
+09A4	KUMHO ELECTRICS, INC
+09A5	Security Enhancement Systems, LLC
+09A6	BEIJING ELECTRIC VEHICLE CO.,LTD
+09A7	Paybuddy ApS
+09A8	KHN Solutions LLC
+09A9	Nippon Ceramic Co.,Ltd.
+09AA	PHOTODYNAMIC INCORPORATED
+09AB	DashLogic, Inc.
+09AC	Ambiq
+09AD	Narhwall Inc.
+09AE	Pozyx NV
+09AF	ifLink Open Community
+09B0	Deublin Company, LLC
+09B1	BLINQY
+09B2	DYPHI
+09B3	BlueX Microelectronics Corp Ltd.
+09B4	PentaLock Aps.
+09B5	AUTEC Gesellschaft fuer Automationstechnik mbH
+09B6	Pegasus Technologies, Inc.
+09B7	Bout Labs, LLC
+09B8	PlayerData Limited
+09B9	SAVOY ELECTRONIC LIGHTING
+09BA	Elimo Engineering Ltd
+09BB	SkyStream Corporation
+09BC	Aerosens LLC
+09BD	Centre Suisse d'Electronique et de Microtechnique SA
+09BE	Vessel Ltd.
+09BF	Span.IO, Inc.
+09C0	AnotherBrain inc.
+09C1	Rosewill
+09C2	Universal Audio, Inc.
+09C3	JAPAN TOBACCO INC.
+09C4	UVISIO
+09C5	HungYi Microelectronics Co.,Ltd.
+09C6	Honor Device Co., Ltd.
+09C7	Combustion, LLC
+09C8	XUNTONG
+09C9	CrowdGlow Ltd
+09CA	Mobitrace
+09CB	Hx Engineering, LLC
+09CC	Senso4s d.o.o.
+09CE	Julius Blum GmbH
+09CF	BlueStreak IoT, LLC
+09D0	Chess Wise B.V.
+09D1	ABLEPAY TECHNOLOGIES AS
+09D2	Temperature Sensitive Solutions Systems Sweden AB
+09D4	ORBIS Inc.
+09D5	GEAR RADIO ELECTRONICS CORP.
+09D6	EAR TEKNIK ISITME VE ODIOMETRI CIHAZLARI SANAYI VE TICARET ANONIM SIRKETI
+09D7	Coyotta
+09D8	Synergy Tecnologia em Sistemas Ltda
+09D9	VivoSensMedical GmbH
+09DA	Nagravision SA
+09DB	Bionic Avionics Inc.
+09DD	Innoware Development AB
+09DE	JLD Technology Solutions, LLC
+09DF	Magnus Technology Sdn Bhd
+09E1	Tag-N-Trac Inc
+09E3	Friday Home Aps
+09E4	CPS AS
+09E5	Mobilogix
+09E6	Masonite Corporation
+09E7	Kabushikigaisha HANERON
+09E8	Melange Systems Pvt. Ltd.
+09E9	LumenRadio AB
+09EA	Athlos Oy
+09EB	KEAN ELECTRONICS PTY LTD
+09EC	Yukon advanced optics worldwide, UAB
+09ED	Sibel Inc.
+09EE	OJMAR SA
+09EF	Steinel Solutions AG
+09F0	WatchGas B.V.
+09F1	OM Digital Solutions Corporation
+09F2	Audeara Pty Ltd
+09F3	Beijing Zero Zero Infinity Technology Co.,Ltd.
+09F4	Spectrum Technologies, Inc.
+09F5	OKI Electric Industry Co., Ltd
+09F6	Mobile Action Technology Inc.
+09F7	SENSATEC Co., Ltd.
+09F8	R.O. S.R.L.
+09F9	Hangzhou Yaguan Technology Co. LTD
+09FA	Listen Technologies Corporation
+09FB	TOITU CO., LTD.
+09FC	Confidex
+09FE	Lichtvision Engineering GmbH
+09FF	AIRSTAR
+0A00	Ampler Bikes OU
+0A01	Cleveron AS
+0A02	Ayxon-Dynamics GmbH
+0A03	donutrobotics Co., Ltd.
+0A04	Flosonics Medical
+0A05	Southwire Company, LLC
+0A06	Shanghai wuqi microelectronics Co.,Ltd
+0A07	Reflow Pty Ltd
+0A08	Oras Oy
+0A0A	Volan Technology Inc.
+0A0C	Shanghai Yidian Intelligent Technology Co., Ltd.
+0A0D	Blue Peacock GmbH
+0A0E	Roland Corporation
+0A0F	LIXIL Corporation
+0A10	SUBARU Corporation
+0A11	Sensolus
+0A12	Dyson Technology Limited
+0A13	Tec4med LifeScience GmbH
+0A14	CROXEL, INC.
+0A15	Syng Inc
+0A17	Plume Design Inc
+0A18	Cambridge Animal Technologies Ltd
+0A19	Maxell, Ltd.
+0A1A	Link Labs, Inc.
+0A1B	Embrava Pty Ltd
+0A1C	INPEAK sp. z o.o.
+0A1D	API-K
+0A1E	CombiQ AB
+0A1F	DeVilbiss Healthcare LLC
+0A20	Jiangxi Innotech Technology Co., Ltd
+0A21	Apollogic Sp. z o.o.
+0A22	DAIICHIKOSHO CO., LTD.
+0A23	BIXOLON CO.,LTD
+0A24	Atmosic Technologies, Inc.
+0A25	Eran Financial Services LLC
+0A26	Louis Vuitton
+0A28	NanoFlex Power Corporation
+0A29	Worthcloud Technology Co.,Ltd
+0A2A	Yamaha Corporation
+0A2B	PaceBait IVS
+0A2C	Shenzhen H&T Intelligent Control Co., Ltd
+0A2D	Shenzhen Feasycom Technology Co., Ltd.
+0A2F	Instamic, Inc.
+0A30	Air-Weigh
+0A31	Nevro Corp.
+0A32	Pinnacle Technology, Inc.
+0A33	WMF AG
+0A34	Luxer Corporation
+0A35	safectory GmbH
+0A36	NGK SPARK PLUG CO., LTD.
+0A37	2587702 Ontario Inc.
+0A38	Bouffalo Lab (Nanjing)., Ltd.
+0A39	BLUETICKETING SRL
+0A3B	Galileo Technology Limited
+0A3C	Siteco GmbH
+0A3D	DELABIE
+0A3F	Shenzhen Yopeak Optoelectronics Technology Co., Ltd.
+0A41	OPEX Corporation
+0A42	Motionalysis, Inc.
+0A43	Busch Systems International Inc.
+0A44	Novidan, Inc.
+0A45	3SI Security Systems, Inc
+0A46	Beijing HC-Infinite Technology Limited
+0A47	The Wand Company Ltd
+0A48	JRC Mobility Inc.
+0A4A	Map Large, Inc.
+0A4B	MistyWest Energy and Transport Ltd.
+0A4C	SiFli Technologies (shanghai) Inc.
+0A4D	Lockn Technologies Private Limited
+0A4E	Toytec Corporation
+0A4F	VANMOOF Global Holding B.V.
+0A50	Nextscape Inc.
+0A51	CSIRO
+0A52	Follow Sense Europe B.V.
+0A53	KKM COMPANY LIMITED
+0A54	SQL Technologies Corp.
+0A55	Inugo Systems Limited
+0A56	ambie
+0A57	Meizhou Guo Wei Electronics Co., Ltd
+0A58	Indigo Diabetes
+0A59	TourBuilt, LLC
+0A5A	Sontheim Industrie Elektronik GmbH
+0A5B	LEGIC Identsystems AG
+0A5C	Innovative Design Labs Inc.
+0A5D	MG Energy Systems B.V.
+0A5F	stryker
+0A60	DATANG SEMICONDUCTOR TECHNOLOGY CO.,LTD
+0A61	Smart Parks B.V.
+0A62	MOKO TECHNOLOGY Ltd
+0A64	Geopal system A/S
+0A65	Lytx, INC.
+0A67	Beijing SuperHexa Century Technology CO. Ltd
+0A68	Focus Ingenieria SRL
+0A69	HAPPIEST BABY, INC.
+0A6A	Scribble Design Inc.
+0A6B	Olympic Ophthalmics, Inc.
+0A6C	Pokkels
+0A6E	Pac Sane Limited
+0A6F	Warner Bros.
+0A70	Ooma
+0A71	Senquip Pty Ltd
+0A72	Jumo GmbH & Co. KG
+0A73	Innohome Oy
+0A74	MICROSON S.A.
+0A75	Delta Cycle Corporation
+0A76	Synaptics Incorporated
+0A77	AXTRO PTE. LTD.
+0A78	Shenzhen Sunricher Technology Limited
+0A79	Webasto SE
+0A7A	Emlid Limited
+0A7B	UniqAir Oy
+0A7C	WAFERLOCK
+0A7D	Freedman Electronics Pty Ltd
+0A7E	KEBA Handover Automation GmbH
+0A7F	Intuity Medical
+0A80	Cleer Limited
+0A81	Universal Biosensors Pty Ltd
+0A82	Corsair
+0A83	Rivata, Inc.
+0A84	Greennote Inc,
+0A85	Snowball Technology Co., Ltd.
+0A86	ALIZENT International
+0A87	Shanghai Smart System Technology Co., Ltd
+0A88	PSA Peugeot Citroen
+0A89	VusionGroup
+0A8A	HAINBUCH GMBH SPANNENDE TECHNIK
+0A8B	SANlight GmbH
+0A8C	DelpSys, s.r.o.
+0A8D	JCM TECHNOLOGIES S.A.
+0A8E	Perfect Company
+0A8F	TOTO LTD.
+0A90	Shenzhen Grandsun Electronic Co.,Ltd.
+0A91	Monarch International Inc.
+0A92	Carestream Dental LLC
+0A93	GiPStech S.r.l.
+0A94	OOBIK Inc.
+0A95	Pamex Inc.
+0A98	Foil, Inc.
+0A99	Shanghai high-flying electronics technology Co.,Ltd
+0A9A	TEMKIN ASSOCIATES, LLC
+0A9B	Eello LLC
+0A9C	Xi'an Fengyu Information Technology Co., Ltd.
+0A9D	Canon Finetech Nisca Inc.
+0A9F	ista International GmbH
+0AA0	Loy Tec electronics GmbH
+0AA1	LINCOGN TECHNOLOGY CO. LIMITED
+0AA2	Care Bloom, LLC
+0AA3	DIC Corporation
+0AA4	FAZEPRO LLC
+0AA5	Shenzhen Uascent Technology Co., Ltd
+0AA6	Realityworks, inc.
+0AA7	Urbanista AB
+0AA8	Zencontrol Pty Ltd
+0AA9	Spintly, Inc.
+0AAA	Computime International Ltd
+0AAB	Anhui Listenai Co
+0AAC	OSM HK Limited
+0AAD	Adevo Consulting AB
+0AAE	PS Engineering, Inc.
+0AAF	AIAIAI ApS
+0AB0	Visiontronic s.r.o.
+0AB1	InVue Security Products Inc
+0AB2	TouchTronics, Inc.
+0AB3	INNER RANGE PTY. LTD.
+0AB4	Ellenby Technologies, Inc.
+0AB5	Elstat Electronics Ltd.
+0AB6	Xenter, Inc.
+0AB7	LogTag North America Inc.
+0AB8	Sens.ai Incorporated
+0AB9	STL
+0ABA	Open Bionics Ltd.
+0ABB	R-DAS, s.r.o.
+0ABC	KCCS Mobile Engineering Co., Ltd.
+0ABD	Inventas AS
+0ABE	Robkoo Information & Technologies Co., Ltd.
+0ABF	PAUL HARTMANN AG
+0AC0	Omni-ID USA, INC.
+0AC1	Shenzhen Jingxun Technology Co., Ltd.
+0AC2	RealMega Microelectronics technology (Shanghai) Co. Ltd.
+0AC3	Kenzen, Inc.
+0AC4	CODIUM
+0AC5	Flexoptix GmbH
+0AC6	Barnes Group Inc.
+0AC7	Chengdu Aich Technology Co.,Ltd
+0AC8	Keepin Co., Ltd.
+0AC9	Swedlock AB
+0ACA	Shenzhen CoolKit Technology Co., Ltd
+0ACB	ise Individuelle Software und Elektronik GmbH
+0ACC	Nuvoton
+0ACD	Visuallex Sport International Limited
+0ACE	KOBATA GAUGE MFG. CO., LTD.
+0ACF	CACI Technologies
+0AD0	Nordic Strong ApS
+0AD2	Lautsprecher Teufel GmbH
+0AD3	SSV Software Systems GmbH
+0AD4	Zhuhai Pantum Electronisc Co., Ltd
+0AD5	Streamit B.V.
+0AD6	nymea GmbH
+0AD7	AL-KO Geraete GmbH
+0AD8	Franz Kaldewei GmbH&Co KG
+0ADA	Codefabrik GmbH
+0ADB	Reelables, Inc.
+0ADC	Duravit AG
+0ADD	Boss Audio
+0ADE	Vocera Communications, Inc.
+0ADF	Douglas Dynamics L.L.C.
+0AE3	GlobalMed
+0AE4	DALI Alliance
+0AE5	unu GmbH
+0AE6	Hexology
+0AE7	Sunplus Technology Co., Ltd.
+0AE8	LEVEL, s.r.o.
+0AE9	FLIR Systems AB
+0AEA	Borda Technology
+0AEB	Square, Inc.
+0AEC	FUTEK ADVANCED SENSOR TECHNOLOGY, INC
+0AED	Saxonar GmbH
+0AEE	Velentium, LLC
+0AEF	GLP German Light Products GmbH
+0AF0	Leupold & Stevens, Inc.
+0AF1	CRADERS,CO.,LTD
+0AF3	701x Inc.
+0AF4	Radioworks Microelectronics PTY LTD
+0AF5	Unitech Electronic Inc.
+0AF6	AMETEK, Inc.
+0AF7	Irdeto
+0AF8	First Design System Inc.
+0AF9	Unisto AG
+0AFA	Chengdu Ambit Technology Co., Ltd.
+0AFB	SMT ELEKTRONIK GmbH
+0AFC	Cerebrum Sensor Technologies Inc.
+0AFD	Weber Sensors, LLC
+0AFE	Earda Technologies Co.,Ltd
+0AFF	FUSEAWARE LIMITED
+0B00	Flaircomm Microelectronics Inc.
+0B01	RESIDEO TECHNOLOGIES, INC.
+0B02	IORA Technology Development Ltd. Sti.
+0B03	Precision Triathlon Systems Limited
+0B05	Marquardt GmbH
+0B06	FAZUA GmbH
+0B07	Workaround Gmbh
+0B08	Shenzhen Qianfenyi Intelligent Technology Co., LTD
+0B0A	Belun Technology Company Limited
+0B0B	Sanistaal A/S
+0B0C	BluPeak
+0B0D	SANYO DENKO Co.,Ltd.
+0B0E	Minebea Access Solutions Inc.
+0B0F	B.E.A. S.A.
+0B10	Alfa Laval Corporate AB
+0B11	ThermoWorks, Inc.
+0B12	ToughBuilt Industries LLC
+0B13	IOTOOLS
+0B14	Olumee
+0B15	NAOS JAPAN K.K.
+0B16	Guard RFID Solutions Inc.
+0B17	SIG SAUER, INC.
+0B18	DECATHLON SE
+0B19	WBS PROJECT H PTY LTD
+0B1A	Roca Sanitario, S.A.
+0B1C	Nanoleq AG
+0B1D	Accelerated Systems
+0B1E	PB INC.
+0B1F	Beijing ESWIN Computing Technology Co., Ltd.
+0B20	TKH Security B.V.
+0B22	Hygiene IQ, LLC.
+0B23	iRhythm Technologies, Inc.
+0B24	BeiJing ZiJie TiaoDong KeJi Co.,Ltd.
+0B25	NIBROTECH LTD
+0B26	Baracoda Daily Healthtech.
+0B27	Lumi United Technology Co., Ltd
+0B29	Tech-Venom Entertainment Private Limited
+0B2B	MAINBOT
+0B2C	ILLUMAGEAR, Inc.
+0B2D	REDARC ELECTRONICS PTY LTD
+0B2E	MOCA System Inc.
+0B2F	Duke Manufacturing Co
+0B30	ART SPA
+0B31	Silver Wolf Vehicles Inc.
+0B32	Hala Systems, Inc.
+0B33	ARMATURA LLC
+0B34	CONZUMEX INDUSTRIES PRIVATE LIMITED
+0B35	BH SENS
+0B36	SINTEF
+0B37	Omnivoltaic Energy Solutions Limited Company
+0B38	WISYCOM S.R.L.
+0B39	Red 100 Lighting Co., ltd.
+0B3A	Impact Biosystems, Inc.
+0B3B	AIC semiconductor (Shanghai) Co., Ltd.
+0B3C	Dodge Industrial, Inc.
+0B3D	REALTIMEID AS
+0B3E	ISEO Serrature S.p.a.
+0B3F	MindRhythm, Inc.
+0B40	Havells India Limited
+0B41	Sentrax GmbH
+0B42	TSI
+0B43	INCITAT ENVIRONNEMENT
+0B44	nFore Technology Co., Ltd.
+0B45	Electronic Sensors, Inc.
+0B47	Gentex Corporation
+0B48	NIO USA, Inc.
+0B49	SkyHawke Technologies
+0B4A	Nomono AS
+0B4B	EMS Integrators, LLC
+0B4C	BiosBob.Biz
+0B4D	Adam Hall GmbH
+0B4E	ICP Systems B.V.
+0B4F	Breezi.io, Inc.
+0B50	Mesh Systems LLC
+0B51	FUN FACTORY GmbH
+0B52	ZIIP Inc
+0B53	SHENZHEN KAADAS INTELLIGENT TECHNOLOGY CO.,Ltd
+0B54	Emotion Fitness GmbH & Co. KG
+0B55	H G M Automotive Electronics, Inc.
+0B56	BORA - Vertriebs GmbH & Co KG
+0B57	CONVERTRONIX TECHNOLOGIES AND SERVICES LLP
+0B58	TOKAI-DENSHI INC
+0B5B	Shenzhen ImagineVision Technology Limited
+0B5D	Fujian Newland Auto-ID Tech. Co., Ltd.
+0B5E	CELLCONTROL, INC.
+0B5F	Rivieh, Inc.
+0B60	RATOC Systems, Inc.
+0B61	Sentek Pty Ltd
+0B62	NOVEA ENERGIES
+0B63	Innolux Corporation
+0B64	NingBo klite Electric Manufacture Co.,LTD
+0B65	The Apache Software Foundation
+0B66	MITSUBISHI ELECTRIC AUTOMATION (THAILAND) COMPANY LIMITED
+0B68	Quha oy
+0B69	Addaday
+0B6A	Dymo
+0B6B	Samsara Networks, Inc
+0B6C	Sensitech, Inc.
+0B6D	SOLUM CO., LTD
+0B6E	React Mobile
+0B70	JDRF Electromag Engineering Inc
+0B71	lilbit ODM AS
+0B72	Geeknet, Inc.
+0B73	HARADA INDUSTRY CO., LTD.
+0B74	BQN
+0B75	Triple W Japan Inc.
+0B76	MAX-co., ltd
+0B77	Aixlink(Chengdu) Co., Ltd.
+0B78	FIELD DESIGN INC.
+0B79	Sankyo Air Tech Co.,Ltd.
+0B7A	Shenzhen KTC Technology Co.,Ltd.
+0B7B	Hardcoder Oy
+0B7C	Scangrip A/S
+0B7D	FoundersLane GmbH
+0B7E	Offcode Oy
+0B7F	ICU tech GmbH
+0B80	AXELIFE
+0B81	SCM Group
+0B82	Mammut Sports Group AG
+0B83	Taiga Motors Inc.
+0B84	Presidio Medical, Inc.
+0B85	VIMANA TECH PTY LTD
+0B86	Trek Bicycle
+0B87	Ampetronic Ltd
+0B88	Muguang (Guangdong) Intelligent Lighting Technology Co., Ltd
+0B89	Rotronic AG
+0B8A	Seiko Instruments Inc.
+0B8B	American Technology Components, Incorporated
+0B8C	MOTREX
+0B8D	Pertech Industries Inc
+0B8E	Gentle Energy Corp.
+0B8F	Senscomm Semiconductor Co., Ltd.
+0B91	Alfen ICU B.V.
+0B93	Hangzhou BroadLink Technology Co., Ltd.
+0B94	Dreem SAS
+0B96	Telecom Design
+0B97	SILVER TREE LABS, INC.
+0B98	Gymstory B.V.
+0B99	The Goodyear Tire & Rubber Company
+0B9A	Beijing Wisepool Infinite Intelligence Technology Co.,Ltd
+0B9C	Komatsu Ltd.
+0B9D	Sensoria Holdings LTD
+0B9E	Audio Partnership Plc
+0B9F	Group Lotus Limited
+0BA0	Data Sciences International
+0BA1	Bunn-O-Matic Corporation
+0BA2	TireCheck GmbH
+0BA3	Sonova Consumer Hearing GmbH
+0BA4	Vervent Audio Group
+0BA5	SONICOS ENTERPRISES, LLC
+0BA6	Nissan Motor Co., Ltd.
+0BA7	hearX Group (Pty) Ltd
+0BA8	GLOWFORGE INC.
+0BA9	Allterco Robotics ltd
+0BAA	Infinitegra, Inc.
+0BAB	Grandex International Corporation
+0BAC	Machfu Inc.
+0BAD	Roambotics, Inc.
+0BAE	Soma Labs LLC
+0BAF	NITTO KOGYO CORPORATION
+0BB0	Ecolab Inc.
+0BB1	Beijing ranxin intelligence technology Co.,LTD
+0BB2	Fjorden Electra AS
+0BB3	Flender GmbH
+0BB4	New Cosmos USA, Inc.
+0BB5	Xirgo Technologies, LLC
+0BB6	Build With Robots Inc.
+0BB7	IONA Tech LLC
+0BB8	INNOVAG PTY. LTD.
+0BB9	SaluStim Group Oy
+0BBA	Huso, INC
+0BBB	SWISSINNO SOLUTIONS AG
+0BBC	T2REALITY SOLUTIONS PRIVATE LIMITED
+0BBE	SAAB Aktiebolag
+0BBF	HIMSA II K/S
+0BC0	READY FOR SKY LLP
+0BC1	Miele & Cie. KG
+0BC2	EntWick Co.
+0BC3	MCOT INC.
+0BC4	TECHTICS ENGINEERING B.V.
+0BC5	Aperia Technologies, Inc.
+0BC6	TCL COMMUNICATION EQUIPMENT CO.,LTD.
+0BC7	Signtle Inc.
+0BC8	OTF Distribution, LLC
+0BC9	Neuvatek Inc.
+0BCA	Perimeter Technologies, Inc.
+0BCB	Divesoft s.r.o.
+0BCC	Sylvac sa
+0BCD	Amiko srl
+0BCE	Neurosity, Inc.
+0BCF	LL Tec Group LLC
+0BD0	Durag GmbH
+0BD1	Hubei Yuan Times Technology Co., Ltd.
+0BD2	IDEC
+0BD3	Procon Analytics, LLC
+0BD4	ndd Medizintechnik AG
+0BD5	Super B Lithium Power B.V.
+0BD6	Shenzhen Injoinic Technology Co., Ltd.
+0BD8	PURA SCENTS, INC.
+0BDA	Aardex Ltd.
+0BDB	CHAR-BROIL, LLC
+0BDC	TWINKLY SRL
+0BDD	Coroflo Limited
+0BDE	Yale
+0BDF	WINKEY ENTERPRISE (HONG KONG) LIMITED
+0BE0	Koizumi Lighting Technology corp.
+0BE2	OTC engineering
+0BE3	Comtel Systems Ltd.
+0BE4	Deepfield Connect GmbH
+0BE5	ZWILLING J.A. Henckels Aktiengesellschaft
+0BE6	Puratap Pty Ltd
+0BE7	Fresnel Technologies, Inc.
+0BE8	Sensormate AG
+0BE9	Shindengen Electric Manufacturing Co., Ltd.
+0BEA	Twenty Five Seven, prodaja in storitve, d.o.o.
+0BEB	Luna Health, Inc.
+0BED	CORAL-TAIYI Co. Ltd.
+0BEE	LINKSYS USA, INC.
+0BEF	Safetytest GmbH
+0BF0	KIDO SPORTS CO., LTD.
+0BF1	Site IQ LLC
+0BF2	Angel Medical Systems, Inc.
+0BF3	PONE BIOMETRICS AS
+0BF5	T5 tek, Inc.
+0BF6	greenTEG AG
+0BF7	Wacker Neuson SE
+0BF8	Innovacionnye Resheniya
+0BFA	CleanBands Systems Ltd.
+0BFB	Dodam Enersys Co., Ltd
+0BFC	T+A elektroakustik GmbH & Co.KG
+0BFD	Esmé Solutions
+0BFE	Media-Cartec GmbH
+0BFF	Ratio Electric BV
+0C00	MQA Limited
+0C01	NEOWRK SISTEMAS INTELIGENTES S.A.
+0C02	Loomanet, Inc.
+0C03	Puff Corp
+0C04	Happy Health, Inc.
+0C05	Montage Connect, Inc.
+0C06	LED Smart Inc.
+0C07	CONSTRUKTS, INC.
+0C08	limited liability company "Red
+0C09	Senic Inc.
+0C0A	Automated Pet Care Products, LLC
+0C0B	aconno GmbH
+0C0C	Mendeltron, Inc.
+0C0D	Mereltron bv
+0C0E	ALEX DENKO CO.,LTD.
+0C0F	AETERLINK
+0C10	Cosmed s.r.l.
+0C11	Gordon Murray Design Limited
+0C12	IoSA
+0C13	Scandinavian Health Limited
+0C14	Fasetto, Inc.
+0C15	Geva Sol B.V.
+0C16	TYKEE PTY. LTD.
+0C17	SomnoMed Limited
+0C18	CORROHM
+0C19	Arlo Technologies, Inc.
+0C1A	Catapult Group International Ltd
+0C1B	Rockchip Electronics Co., Ltd.
+0C1C	GEMU
+0C1D	OFF Line Japan Co., Ltd.
+0C1E	EC sense co., Ltd
+0C1F	LVI Co.
+0C20	COMELIT GROUP S.P.A.
+0C21	Foshan Viomi Electrical Technology Co., Ltd
+0C22	Glamo Inc.
+0C23	KEYTEC,Inc.
+0C24	SMARTD TECHNOLOGIES INC.
+0C25	JURA Elektroapparate AG
+0C26	Performance Electronics, Ltd.
+0C27	Pal Electronics
+0C28	Embecta Corp.
+0C29	DENSO AIRCOOL CORPORATION
+0C2A	Caresix Inc.
+0C2B	GigaDevice Semiconductor Inc.
+0C2C	Zeku Technology (Shanghai) Corp., Ltd.
+0C2D	OTF Product Sourcing, LLC
+0C2E	Easee AS
+0C2F	BEEHERO, INC.
+0C30	McIntosh Group Inc
+0C31	KINDOO LLP
+0C32	Xian Yisuobao Electronic Technology Co., Ltd.
+0C33	Exeger Operations AB
+0C34	BYD Company Limited
+0C35	Thermokon-Sensortechnik GmbH
+0C37	SignalQuest, LLC
+0C38	Noritz Corporation.
+0C39	TIGER CORPORATION
+0C3B	ORB Innovations Ltd
+0C3C	Classified Cycling
+0C3D	Wrmth Corp.
+0C3E	BELLDESIGN Inc.
+0C3F	Stinger Equipment, Inc.
+0C40	HORIBA, Ltd.
+0C41	Control Solutions LLC
+0C42	Heath Consultants Inc.
+0C43	Berlinger & Co. AG
+0C44	ONCELABS LLC
+0C45	Brose Verwaltung SE, Bamberg
+0C47	Epsilon Electronics,lnc
+0C48	VALEO MANAGEMENT SERVICES
+0C49	twopounds gmbh
+0C4A	atSpiro ApS
+0C4B	ADTRAN, Inc.
+0C4C	Orpyx Medical Technologies Inc.
+0C4D	Seekwave Technology Co.,ltd.
+0C4E	Tactile Engineering, Inc.
+0C4F	SharkNinja Operating LLC
+0C50	Imostar Technologies Inc.
+0C51	INNOVA S.R.L.
+0C52	ESCEA LIMITED
+0C53	Taco, Inc.
+0C54	HiViz Lighting, Inc.
+0C55	Zintouch B.V.
+0C56	Rheem Sales Company, Inc.
+0C57	UNEEG medical A/S
+0C58	Hykso Inc.
+0C59	CYBERDYNE Inc.
+0C5A	Lockswitch Sdn Bhd
+0C5B	Alban Giacomo S.P.A.
+0C5C	MGM WIRELESSS HOLDINGS PTY LTD
+0C5D	StepUp Solutions ApS
+0C5E	BlueID GmbH
+0C5F	Wuxi Linkpower Microelectronics Co.,Ltd
+0C60	KEBA Energy Automation GmbH
+0C61	NNOXX, Inc
+0C62	Phiaton Corporation
+0C63	phg Peter Hengstler GmbH + Co. KG
+0C64	dormakaba Holding AG
+0C65	WAKO CO,.LTD
+0C67	TRACKTING S.R.L.
+0C68	Emerja Corporation
+0C6A	CONSORCIO TRUST CONTROL - NETTEL
+0C6B	GILSON SAS
+0C6C	SNIFF LOGIC LTD
+0C6D	Fidure Corp.
+0C6E	Sensa LLC
+0C6F	Parakey AB
+0C70	SCARAB SOLUTIONS LTD
+0C71	BitGreen Technolabz (OPC) Private Limited
+0C72	StreetCar ORV, LLC
+0C73	Truma Gerätetechnik GmbH & Co. KG
+0C74	yupiteru
+0C75	Embedded Engineering Solutions LLC
+0C77	TEAC Corporation
+0C78	CHARGTRON IOT PRIVATE LIMITED
+0C79	Zhuhai Smartlink Technology Co., Ltd
+0C7A	Triductor Technology (Suzhou), Inc.
+0C7B	PT SADAMAYA GRAHA TEKNOLOGI
+0C7C	Mopeka Products LLC
+0C7D	3ALogics, Inc.
+0C7F	Rochester Sensors, LLC
+0C80	CARDIOID - TECHNOLOGIES, LDA
+0C81	Carrier Corporation
+0C82	NACON
+0C83	Watchdog Systems LLC
+0C84	MAXON INDUSTRIES, INC.
+0C85	Amlogic, Inc.
+0C86	Qingdao Eastsoft Communication Technology Co.,Ltd
+0C87	Weltek Technologies Company Limited
+0C88	Nextivity Inc.
+0C89	AGZZX OPTOELECTRONICS TECHNOLOGY CO., LTD
+0C8A	A.GLOBAL co.,Ltd.
+0C8B	Heavys Inc
+0C8C	T-Mobile USA
+0C8D	tonies GmbH
+0C8E	Technocon Engineering Ltd.
+0C8F	Radar Automobile Sales(Shandong)Co.,Ltd.
+0C90	WESCO AG
+0C91	Yashu Systems
+0C92	Kesseböhmer Ergonomietechnik GmbH
+0C93	Movesense Oy
+0C94	Baxter Healthcare Corporation
+0C95	Gemstone Lights Canada Ltd.
+0C96	H+B Hightech GmbH
+0C97	Deako
+0C99	Vire Health Oy
+0C9A	ALF Inc.
+0C9B	NTT sonority, Inc.
+0C9C	Sunstone-RTLS Ipari Szolgaltato Korlatolt Felelossegu Tarsasag
+0C9D	Ribbiot, INC.
+0C9F	Dragonfly Energy Corp.
+0CA0	BIGBEN
+0CA1	YAMAHA MOTOR CO.,LTD.
+0CA2	XSENSE LTD
+0CA3	MAQUET GmbH
+0CA4	MITSUBISHI ELECTRIC LIGHTING CO, LTD
+0CA5	Princess Cruise Lines, Ltd.
+0CA6	Megger Ltd
+0CA7	Verve InfoTec Pty Ltd
+0CA8	Sonas, Inc.
+0CA9	Mievo Technologies Private Limited
+0CAA	Shenzhen Poseidon Network Technology Co., Ltd
+0CAB	HERUTU ELECTRONICS CORPORATION
+0CAC	Shenzhen Shokz Co.,Ltd.
+0CAD	Shenzhen Openhearing Tech CO., LTD .
+0CAE	Evident Corporation
+0CAF	NEURINNOV
+0CB0	SwipeSense, Inc.
+0CB1	RF Creations
+0CB2	SHINKAWA Sensor Technology, Inc.
+0CB3	janova GmbH
+0CB4	Eberspaecher Climate Control Systems GmbH
+0CB5	Racketry, d. o. o.
+0CB6	THE EELECTRIC MACARON LLC
+0CB7	Cucumber Lighting Controls Limited
+0CB9	seca GmbH & Co. KG
+0CBA	Ameso Tech (OPC) Private Limited
+0CBB	Emlid Tech Kft.
+0CBD	Pricer AB
+0CBF	Forward Thinking Systems LLC.
+0CC0	Garnet Instruments Ltd.
+0CC1	CLEIO Inc.
+0CC2	Anker Innovations Limited
+0CC3	HMD Global Oy
+0CC4	ABUS August Bremicker Soehne Kommanditgesellschaft
+0CC5	Open Road Solutions, Inc.
+0CC6	Serial Technology Corporation
+0CC7	SB C&S Corp.
+0CC8	TrikThom
+0CC9	Innocent Technology Co., Ltd.
+0CCA	Cyclops Marine Ltd
+0CCB	NOTHING TECHNOLOGY LIMITED
+0CCC	Kord Defence Pty Ltd
+0CCD	YanFeng Visteon(Chongqing) Automotive Electronic Co.,Ltd
+0CCE	SENOSPACE LLC
+0CCF	Shenzhen CESI Information Technology Co., Ltd.
+0CD0	MooreSilicon Semiconductor Technology (Shanghai) Co., LTD.
+0CD1	Imagine Marketing Limited
+0CD2	EQOM SSC B.V.
+0CD3	TechSwipe
+0CD4	Reoqoo IoT Technology Co., Ltd.
+0CD5	Numa Products, LLC
+0CD6	HHO (Hangzhou) Digital Technology Co., Ltd.
+0CD7	Maztech Industries, LLC
+0CD8	SIA Mesh Group
+0CD9	Minami acoustics Limited
+0CDA	Wolf Steel ltd
+0CDB	Circus World Displays Limited
+0CDC	Ypsomed AG
+0CDD	Alif Semiconductor, Inc.
+0CDF	SHENZHEN CHENYUN ELECTRONICS  CO., LTD
+0CE0	VODALOGIC PTY LTD
+0CE1	Regal Beloit America, Inc.
+0CE2	CORVENT MEDICAL, INC.
+0CE3	Taiwan Fuhsing
+0CE4	Off-Highway Powertrain Services Germany GmbH
+0CE5	Amina Distribution AS
+0CE6	mwConnect
+0CE7	TAG HEUER SA
+0CE8	Dongguan Yougo Electronics Co.,Ltd.
+0CE9	PEAG, LLC dba JLab Audio
+0CEA	HAYWARD INDUSTRIES, INC.
+0CEB	Shenzhen Tingting Technology Co. LTD
+0CEC	Pacific Coast Fishery Services (2003) Inc.
+0CED	CV. NURI TEKNIK
+0CEE	MadgeTech, Inc
+0CEF	POGS B.V.
+0CF0	THOTAKA TEKHNOLOGIES INDIA PRIVATE LIMITED
+0CF1	Midmark
+0CF3	Radio Sound
+0CF4	SOLUX PTY LTD
+0CF5	BOS Balance of Storage Systems AG
+0CF6	OJ Electronics A/S
+0CF7	TVS Motor Company Ltd.
+0CF8	core sensing GmbH
+0CF9	Tamblue Oy
+0CFA	Protect Animals With Satellites LLC
+0CFB	Tyromotion GmbH
+0CFC	ElectronX design
+0CFE	Thule Group AB
+0D01	KEEPEN
+0D02	Rocky Mountain ATV/MC Jake Wilson
+0D03	MakuSafe Corp
+0D04	Bartec Auto Id Ltd
+0D05	Energy Technology and Control Limited
+0D06	doubleO Co., Ltd.
+0D07	Datalogic S.r.l.
+0D08	Datalogic USA, Inc.
+0D09	Leica Geosystems AG
+0D0A	CATEYE Co., Ltd.
+0D0B	Research Products Corporation
+0D0C	Planmeca Oy
+0D0D	C.Ed. Schulte GmbH Zylinderschlossfabrik
+0D0E	PetVoice Co., Ltd.
+0D0F	Timebirds Australia Pty Ltd
+0D10	JVC KENWOOD Corporation
+0D12	Spartek Systems Inc.
+0D13	MERRY ELECTRONICS CO., LTD.
+0D14	Merry Electronics (S) Pte Ltd
+0D15	Spark
+0D16	Nations Technologies Inc.
+0D17	Akix S.r.l.
+0D18	Bioliberty Ltd
+0D19	C.G. Air Systemes Inc.
+0D1A	Maturix ApS
+0D1B	RACHIO, INC.
+0D1C	LIMBOID LLC
+0D1D	Electronics4All Inc.
+0D1E	FESTINA LOTUS SA
+0D1F	Synkopi, Inc.
+0D20	SCIENTERRA LIMITED
+0D21	Cennox Group Limited
+0D22	Cedarware, Corp.
+0D23	GREE Electric Appliances, Inc. of Zhuhai
+0D24	Japan Display Inc.
+0D25	System Elite Holdings Group Limited
+0D26	Burkert Werke GmbH & Co. KG
+0D27	velocitux
+0D28	FUJITSU COMPONENT LIMITED
+0D29	MIYAKAWA ELECTRIC WORKS LTD.
+0D2A	PhysioLogic Devices, Inc.
+0D2B	Sensoryx AG
+0D2C	SIL System Integration Laboratory GmbH
+0D2D	Cooler Pro, LLC
+0D2E	Advanced Electronic Applications, Inc
+0D2F	Delta Development Team, Inc
+0D30	Laxmi Therapeutic Devices, Inc.
+0D31	SYNCHRON, INC.
+0D32	Badger Meter
+0D33	Micropower Group AB
+0D34	ZILLIOT TECHNOLOGIES PRIVATE LIMITED
+0D35	Universidad Politecnica de Madrid
+0D36	XIHAO INTELLIGENGT TECHNOLOGY CO., LTD
+0D37	Zerene Inc.
+0D38	CycLock
+0D3A	Frost Solutions, LLC
+0D3B	Lone Star Marine Pty Ltd
+0D3C	SIRONA Dental Systems GmbH
+0D3D	bHaptics Inc.
+0D3E	LUMINOAH, INC.
+0D3F	Vogels Products B.V.
+0D40	SignalFire Telemetry, Inc.
+0D41	CPAC Systems AB
+0D42	TEKTRO TECHNOLOGY CORPORATION
+0D43	Gosuncn Technology Group Co., Ltd.
+0D44	Ex Makhina Inc.
+0D45	Odeon, Inc.
+0D46	Thales Simulation & Training AG
+0D47	Shenzhen DOKE Electronic Co., Ltd
+0D48	Vemcon GmbH
+0D49	Refrigerated Transport Electronics, Inc.
+0D4A	Rockpile Solutions, LLC
+0D4B	Soundwave Hearing, LLC
+0D4D	Optec, LLC
+0D4E	NIKAT SOLUTIONS PRIVATE LIMITED
+0D4F	Movano Inc.
+0D50	NINGBO FOTILE KITCHENWARE CO., LTD.
+0D51	Genetus inc.
+0D52	DIVAN TRADING CO., LTD.
+0D53	Luxottica Group S.p.A
+0D54	ISEKI FRANCE S.A.S
+0D55	NO CLIMB PRODUCTS LTD
+0D56	Wellang.Co,.Ltd
+0D57	Nanjing Xinxiangyuan Microelectronics Co., Ltd.
+0D58	ifm electronic gmbh
+0D59	HYUPSUNG MACHINERY ELECTRIC CO., LTD.
+0D5A	Gunnebo Aktiebolag
+0D5B	Axis Communications AB
+0D5D	Stogger B.V.
+0D5E	Pella Corp
+0D5F	SiChuan Homme Intelligent Technology co.,Ltd.
+0D60	Smart Products Connection, S.A.
+0D61	F.I.P. FORMATURA INIEZIONE POLIMERI - S.P.A.
+0D62	MEBSTER s.r.o.
+0D63	SKF France
+0D64	Southco
+0D65	Molnlycke Health Care AB
+0D66	Hendrickson USA , L.L.C
+0D67	BLACK BOX NETWORK SERVICES INDIA PRIVATE LIMITED
+0D68	Status Audio LLC
+0D69	AIR AROMA INTERNATIONAL PTY LTD
+0D6A	Helge Kaiser GmbH
+0D6B	Crane Payment Innovations, Inc.
+0D6D	DYNAMOX S/A
+0D6E	Look Cycle International
+0D6F	Closed Joint Stock Company NVP BOLID
+0D70	Kindhome
+0D71	Kiteras Inc.
+0D72	Earfun Technology (HK) Limited
+0D73	iota Biosciences, Inc.
+0D74	ANUME s.r.o.
+0D75	Indistinguishable From Magic, Inc.
+0D76	i-focus Co.,Ltd
+0D77	DualNetworks SA
+0D78	MITACHI CO.,LTD.
+0D79	VIVIWARE JAPAN, Inc.
+0D7A	Xiamen Intretech Inc.
+0D7B	MindMaze SA
+0D7C	BeiJing SmartChip Microelectronics Technology Co.,Ltd
+0D7D	Taiko Audio B.V.
+0D7E	Daihatsu Motor Co., Ltd.
+0D7F	Konova
+0D80	Gravaa B.V.
+0D81	Beyerdynamic GmbH & Co. KG
+0D82	VELCO
+0D83	ATLANTIC SOCIETE FRANCAISE DE DEVELOPPEMENT THERMIQUE
+0D84	Testo SE & Co. KGaA
+0D85	SEW-EURODRIVE GmbH & Co KG
+0D86	ROCKWELL AUTOMATION, INC.
+0D87	Quectel Wireless Solutions Co., Ltd.
+0D89	Nanohex Corp
+0D8A	Simply Embedded Inc.
+0D8B	Software Development, LLC
+0D8C	Ultimea Technology (Shenzhen) Limited
+0D8D	RF Electronics Limited
+0D8E	Optivolt Labs, Inc.
+0D8F	Canon Electronics Inc.
+0D90	LAAS ApS
+0D91	Beamex Oy Ab
+0D92	TACHIKAWA CORPORATION
+0D93	HagerEnergy GmbH
+0D95	Hunter Industries Incorporated
+0D96	NEOKOHM SISTEMAS ELETRONICOS LTDA
+0D97	Zhejiang Huanfu Technology Co., LTD
+0D98	E.F. Johnson Company
+0D99	Caire Inc.
+0D9A	Yeasound (Xiamen) Hearing Technology Co., Ltd
+0D9B	Boxyz, Inc.
+0D9C	Skytech Creations Limited
+0D9D	Cear, Inc.
+0D9E	Impulse Wellness LLC
+0D9F	MML US, Inc
+0DA0	SICK AG
+0DA1	Fen Systems Ltd.
+0DA2	KIWI.KI GmbH
+0DA3	Airgraft Inc.
+0DA4	HP Tuners
+0DA5	PIXELA CORPORATION
+0DA6	Generac Corporation
+0DA7	Novoferm tormatic GmbH
+0DA8	Airwallet ApS
+0DA9	Inventronics GmbH
+0DAA	Shenzhen EBELONG Technology Co., Ltd.
+0DAB	Efento
+0DAC	ITALTRACTOR ITM S.P.A.
+0DAE	TITUM AUDIO, INC.
+0DAF	Hexagon Aura Reality AG
+0DB0	Invisalert Solutions, Inc.
+0DB1	TELE System Communications Pte. Ltd.
+0DB2	Whirlpool
+0DB3	SHENZHEN REFLYING ELECTRONIC CO., LTD
+0DB4	Franklin Control Systems
+0DB5	Djup AB
+0DB6	SAFEGUARD EQUIPMENT, INC.
+0DB7	Morningstar Corporation
+0DB8	Shenzhen Chuangyuan Digital Technology Co., Ltd
+0DB9	CompanyDeep Ltd
+0DBA	Veo Technologies ApS
+0DBB	Nexis Link Technology Co., Ltd.
+0DBC	Felion Technologies Company Limited
+0DBD	MAATEL
+0DBE	HELLA GmbH & Co. KGaA
+0DBF	HWM-Water Limited
+0DC0	Shenzhen Jahport Electronic Technology Co., Ltd.
+0DC1	NACHI-FUJIKOSHI CORP.
+0DC2	Cirrus Research plc
+0DC3	GEARBAC TECHNOLOGIES INC.
+0DC4	Hangzhou NationalChip Science & Technology Co.,Ltd
+0DC5	DHL
+0DC6	Levita
+0DC7	MORNINGSTAR FX PTE. LTD.
+0DC8	ETO GRUPPE TECHNOLOGIES GmbH
+0DC9	farmunited GmbH
+0DCA	Aptener Mechatronics Private Limited
+0DCB	GEOPH, LLC
+0DCC	Trotec GmbH
+0DCD	Astra LED AG
+0DCE	NOVAFON - Electromedical devices limited liability company
+0DCF	KUBU SMART LIMITED
+0DD0	ESNAH
+0DD1	OrangeMicro Limited
+0DD2	Fresh n Rebel B.V.
+0DD3	Global Satellite Engineering
+0DD4	KOQOON GmbH & Co.KG
+0DD5	BEEPINGS
+0DD6	MODULAR MEDICAL, INC.
+0DD7	Xiant Technologies, Inc.
+0DD9	SCHELL GmbH & Co. KG
+0DDA	Minebea Intec GmbH
+0DDB	KAGA FEI Co., Ltd.
+0DDC	AUTHOR-ALARM, razvoj in prodaja avtomobilskih sistemov proti kraji, d.o.o.
+0DDD	Tozoa LLC
+0DDE	SHENZHEN DNS INDUSTRIES CO., LTD.
+0DDF	Shenzhen Lunci Technology Co., Ltd
+0DE0	KNOG PTY. LTD.
+0DE1	Outshiny India Private Limited
+0DE2	TAMADIC Co., Ltd.
+0DE3	Shenzhen MODSEMI Co., Ltd
+0DE4	EMBEINT INC
+0DE5	Ehong Technology Co.,Ltd
+0DE6	DEXATEK Technology LTD
+0DE7	Dendro Technologies, Inc.
+0DE8	Vivint, Inc.
+0DE9	General Laser GmbH
+0DEA	Kathrein Solutions GmbH
+0DEB	Fitz Inc.
+0DEC	ATEGENOS PHARMACEUTICALS INC
+0DED	Flextronic GmbH
+0DEE	Safety Swim LLC
+0DEF	SING SUN TECHNOLOGY (INTERNATIONAL) LIMITED
+0DF0	Woncan (Hong Kong) Limited
+0DF1	iFLYTEK (Suzhou) Technology Co., Ltd.
+0DF2	Weber-Stephen Products LLC
+0DF3	hDrop Technologies Inc.
+0DF4	REEKON TOOLS INC.
+0DF5	Delta Faucet Company
+0DF6	Mutrack Co., Ltd
+0DF7	Hangzhou Zhaotong Microelectronics Co., Ltd.
+0DF8	Chengdu CSCT Microelectronics Co., Ltd.
+0DF9	Belusun Technology Ltd.
+0DFA	Shenzhen Matches IoT Technology Co., Ltd.
+0DFB	Beidou Intelligent Connected Vehicle Technology Co., Ltd.
+0DFC	SOJI ELECTRONICS JOINT STOCK COMPANY
+0DFD	BH Technologies
+0DFE	Haptech, Inc.
+0DFF	WaveRF, Corp.
+0E00	SHENZHEN SOUNDSOUL INFORMATION TECHNOLOGY CO.,LTD
+0E01	Wuhu Mengbo Technology Co., Ltd.
+0E02	PROSYS DEV LIMITED
+0E03	Shenzhen eMeet technology Co.,Ltd
+0E04	Doro AB
+0E05	SUREPULSE MEDICAL LIMITED
+0E06	iodyne, LLC
+0E07	Pinpoint GmbH
+0E08	Heinrich Kopp GmbH
+0E09	Evolutive Systems SL
+0E0B	Sounding Audio Industrial Ltd.
+0E0C	Yuanfeng Technology Co., Ltd.
+0E0D	FrontAct Co., Ltd.
+0E0F	SenseWorks Tecnologia Ltda.
+0E10	Eko Health, Inc.
+0E11	Wanzl GmbH & Co. KGaA
+0E12	CLEVER LOGGER TECHNOLOGIES PTY LIMITED
+0E13	ASYSTOM
+0E14	Heilongjiang Tianyouwei Electronics Co.,Ltd.
+0E15	Eastern Partner Limited
+0E16	Xiamen RUI YI Da Electronic Technology Co.,Ltd
+0E17	Ad Hoc Electronics, llc.
+0E18	Hangzhou Microimage Software Co.,Ltd.
+0E19	Hive-Zox International SA
+0E1A	Sensovo GmbH
+0E1B	Time Location Systems AS
+0E1C	SHENZHEN DIGITECH CO., LTD
+0E1D	Capte B.V.
+0E1E	9512-5837 QUEBEC INC.
+0E1F	Blecon Ltd
+0E20	CFLAB TEKNOLOJI TICARET LIMITED SIRKETI
+0E21	FOGO
+0E22	HITO INC
+0E23	MS kajak7 UG (limited liability)
+0E24	Avedis Zildjian Co.
+0E25	Hangzhou Hikvision Digital Technology Co., Ltd.
+0E26	LIHJOEN SPEED METER CO., LTD.
+0E27	NextSense, Inc.
+0E28	PatchRx, Inc.
+0E29	Flipper Devices Inc.
+0E2A	Huizhou Foryou General Electronics Co., Ltd.
+0E2B	JE electronic a/s
+0E2C	9313-7263 Quebec inc.
+0E2D	ECARX (Hubei) Tech Co.,Ltd.
+0E2E	NIHON KOHDEN CORPORATION
+0E2F	ONWI
+0E30	Primax Electronics Ltd.
+0E31	AlphaTheta Corporation
+0E32	PACIFIC INDUSTRIAL CO., LTD.
+0E33	Crescent NV
+0E34	Vermis, software solutions llc
+0E35	SNAPPWISH LLC
+0E36	Cousins and Sears LLC
+0E37	CESYS Gesellschaft für angewandte Mikroelektronik mbH
+0E38	SLOC GmbH
+0E39	IRES Infrarot Energie Systeme GmbH
+0E3A	OFIVE LIMITED
+0E3B	Swift IOT Tech (Shenzhen) Co., LTD.
+0E3C	Viselabs
+0E3D	Walmart Inc.
+0E3E	VANBOX
+0E3F	Wiser Devices, LLC
+0E40	WKD Labs Ltd
+0E41	Asustek Computer Inc.
+0E42	Z-ONE Technology Co., Ltd.
+0E43	InnoVision Medical Technologies, LLC
+0E44	QUANTATEC
+0E45	Filo Srl
+0E46	SOUNDUCT
+0E47	Hosiden Besson Limited
+0E48	KARLUNA MUHENDISLIK SANAYI VE TICARET ANONIM SIRKETI
+0E49	Deone (Shanghai) Communication & Technology Co., Ltd
+0E4A	Nitto Denko Corporation
+0E4B	PUDSEY DIAMOND ENGINEERING LIMITED
+0E4C	Luxshare Precision Industry Co., Ltd.
+0E4D	Brooksee, Inc.
+0E4E	QSC, LLC
+0E4F	eBet Gaming Sytems Pty Limited
+0E50	Zhejiang Desman Intelligent Technology Co., Ltd.
+0E51	Dyaco International Inc.
+0E52	Aquana, LLC
+0E53	MINIRIG
+0E54	After Technologies AS
+0E55	New Cosmos Electric Co., Ltd.
+0E56	INEPRO Metering B.V.
+0E57	Altina Inc.
+0E58	Urban Armor Gear, LLC
+0E59	Loewe Technology GmbH
+0E5A	OmniWave Microelectronics Shanghai Co., Ltd
+0E5B	Wuhu Hongjing Electronic Co.,Ltd
+0E5C	Rocoto Ltd
+0E5D	L.T.H. Electronics Limited
+0E5E	SHAPER TOOLS, INC.
+0E5F	Ruptela
+0E60	Ant Group Co., Ltd.
+0E61	Queclink Wireless Solutions Co., Ltd.
+0E62	GOKI PTY LTD
+0E63	LAST LOCK INC.
+0E64	HuiTong intelligence Company Limited
+0E65	Daikin Industries, LTD
+0E66	Shenzhen Baseus Technology Co., Ltd.
+0E67	NEXT DEVICES LTDA
+0E69	Megatronix (Beijing) Technology Co., Ltd
+0E6A	Hyena Inc.
+0E6B	Shenzhen Goodocom Information Technology Co., Ltd.
+0E6C	RIGH, INC.
+0E6F	OpConnect, Inc.
+0E70	Powerstick.com
+0E71	ENABLEWEAR LLC
+0E73	Adventures of the Persistently Impaired (and other tales) Limited
+0E74	Rocky Radios LLC
+0E75	Le Touch (Shenzhen) Electronics Co., Ltd.
+0E76	Guangdong Nanguang Photo&Video Systems Co., Ltd.
+0E77	MOBILE TECH, INC.
+0E78	HONG KONG COMMUNICATIONS COMPANY LIMITED
+0E79	Neptune First OU
+0E7A	Vivago Oy
+0E7B	Circular
+0E7C	final Inc.
+0E7D	Jiangsu XinTongda Electric Technology Co.,Ltd.
+0E7E	Archon Controls LLC
+0E7F	SZR-Dev UG
+0E80	IQNEXXT Solutions GmbH
+0E81	Guangdong Hengqin Xingtong Technology Co.,ltd.
+0E82	CHEVALIER TECH LIMITED
+0E83	SPRiNTUS GmbH
+0E84	Tymphany HK Ltd
+0E85	TigerLight, Inc.
+0E86	Mercury Marine, a division of Brunswick Corporation
+0E87	OpenTech Alliance, Inc.
+0E88	Skewered Fencing, LLC
+0E89	Brudden
+0E8A	Tele-Radio i Lysekil AB
+0E8B	Allgon AB
+0E8C	Gopod Group Holding Limited
+0E8D	Celebrities Management Private Limited
+0E8E	Nobest Inc
+0E8F	Avetos Design LLC
+0E90	RainMaker Solutions, Inc.
+0E91	Identita Inc.
+0E92	Glutz AG
+0E93	MIV ELECTRONICS, LTD
+0E94	Tactrix
+0E95	Viaanix, Inc.
+0E96	Skeed,co,Ltd.
+0E97	kokoromil Inc.
+0E98	Chromatic Inc.
+0E99	Medibound, Inc.
+0E9A	Scanbro OU
+0E9B	Panasonic Automotive Systems Co., Ltd.
+0E9C	Andrews & Arnold Ltd
+0E9D	Audinor ApS
+0E9E	Travelxp India Private Limited
+0E9F	Owlet Baby Care Inc.
+0EA0	ENLESS WIRELESS
+0EA1	Culligan International Company
+0EA2	QIKCONNEX LLC
+0EA3	OLIS ELECTRONICS, LLC
+0EA4	BiTECH Automotive (Wuhu) Co.,Ltd
+0EA6	AMG Lab LLC
+0EA7	BrickXter GmbH
+0EA8	Dongguan Trangjan Industrial Co., Ltd
+0EA9	Makichie Co., Ltd.
+0EAB	STEYR Sport GmbH
+0EAC	Dynetrex Solutions Inc.
+0EAD	OPTRON Co., Ltd.
+0EAE	BHClears Microelectronics (Shanghai) Co., Ltd.
+0EAF	Unfolded Circle ApS
+0EB0	FactorySense
+0EB1	WearNex Limited
+0EB2	PRADCO Outdoor Brands
+0EB3	Zucchetti Axess
+0EB4	BLUEFIN DATA, LLC
+0EB5	Preseed Japan Corporation
+0EB6	Server Products, Inc.
+0EB7	Embedded Solutions LLC
+0EBA	THERMY LTD
+0EBB	Asahi Denso Co.,Ltd.
+0EBC	GP Acoustics International Limited
+0EBD	Tongfang Health Technology (Beijing) Co., Ltd.
+0EBE	Deity Acoustic Technology Co.
+0EBF	Schulte-Schlagbaum AG
+0EC0	WEST inx Ltd.
+0EC1	Crossdoor
+0EC2	High Entropy, LLC
+0EC3	Herschel Infrared Ltd
+0EC4	PACIFIC MARINE BATTERIES PTY. LIMITED
+0EC5	Alibaba (China) Co., Ltd.
+0EC6	AuthGate B.V.
+0EC7	Canyon Bicycles GmbH
+0EC8	Codie LLC
+0EC9	NeuroPace Inc
+0ECA	NexRev LLC
+0ECB	Zhong Shan City Richsound Electronic Industrial Ltd.
+0ECC	Shenzhen NEOECO Technology Co., Ltd.
+0ECD	Nature Inc.
+0ECE	Guangzhou Honor Microelectronic Co.,Ltd.
+0ECF	GGEC America, Inc.
+0ED0	Gibson, Inc.
+0ED1	VINYL MATT MEDIA LIMITED
+0ED2	SHENZHEN BESTWAY ELECTRONICS CO.,LTD
+0ED3	Lichens Innovation inc.
+0ED4	Goerdyna Group Co., Ltd
+0ED5	Relish Technologies Limited
+0ED6	Quintessential Design, Inc.
+0ED7	CS INSTRUMENTS GmbH & Co.KG
+0ED8	DORAN MFG. LLC
+0ED9	Overhead Door Corporation
+0EDA	Kodira GmbH
+0EDB	ShenZhen BoYiChuangXin
+0EDC	Shenzhen Zoqin Technology Co., Ltd.
+0EDD	Ceridwen Limited
+0EDE	Sony Honda Mobility Inc.
+0EDF	Dynaudio A/S
+0EE0	MAERSK CONTAINER INDUSTRY A/S
+0EE1	MA MICRO LIMITED
+0EE2	shenzhen hongever technology Co,. Ltd
+0EE3	TAMRON Co., Ltd.
+0EE4	CAPTEMP, LDA
+0EE5	Ambient Life Inc.
+0EE6	NOCTRIX HEALTH, INC
+0EE7	RICKARD AIR DIFFUSION (PTY) LTD
+0EE8	SG Armaturen AS
+0EE9	PIXEL TI IND. E COM PROD ELETRONICOS
+0EEA	Core Devices LLC
+0EEB	Fujita Electric Works, Ltd
+0EEC	Willow Laboratories, Inc.
+0EED	BBC Bircher AG
+0EEE	ELLEA INGEGNERIA SRL UNIPERSONALE
+0EEF	Q42 Internet B.V.
+0EF0	Seaward Electronic
+0EF1	Wuxi Does IOT Co., Ltd
+0EF3	Monil AS
+0EF5	LS ELECTRIC Co., Ltd.
+0EF6	Shenzhen Cyber Innovation Technology Co., Ltd.
+0EF7	Trackonomy Systems, Inc.
+0EF8	IoT Solutions Malta Limited
+0EF9	Aseptico, Inc.
+0EFA	Sensear Pty Ltd
+0EFB	BLUEPROVIDERZ LLC
+0EFC	Jano Life Inc.
+0EFD	PRIMES GmbH
+0EFE	Teledyne Instruments, Inc.
+0EFF	Healthcare Technology Limited
+0F00	TRACERCO LIMITED
+0F01	HAPPLABS SOFTWARE PRIVATE LIMITED
+0F02	GE HEALTHCARE TECHNOLOGIES INC.
+0F03	Olibra LLC
+0F04	Lumen Labs (HK) Ltd
+0F05	SHENZHEN GWSTAI TECHNOLOGY CO.,LTD
+0F06	SHENZHEN POWEROAK NEWENER CO., LTD
+0F07	Tech OVN Private Limited
+0F08	Lezyne USA Inc.
+0F09	ANC CHINA LIMITED
+0F0A	LION GROUP, INC.
+0F0B	Brightway Innovation Intelligent Technology (Suzhou) Co., Ltd.
+0F0C	Hitachi Industrial Equipment Systems Co.,Ltd.
+0F0D	Maennl Elektronik GmbH
+0F0E	IDEATRONIK Limited Liability Company
+0F0F	caive Inc.
+0F10	ShenZhen Doctors of Intelligence & Technology Co.,Ltd
+0F11	Deep and Steep LLC
+0F12	Endur ID, Inc.
+0F13	Freshape SA
+0F14	PreEvnt, LLC
+0F15	Oval Corporation
+0F16	ADHD Friendly co.Ltd
+0F17	RORENTECH Co., Ltd.
+0F18	iKeyless, LLC
+0F19	Shenzhen SuperSound Technology Co.,Ltd
+0F1A	FLO SCIENCES, LLC
+0F1B	PalatiumCare LLC
+0F1C	Edge Semiconductors Inc.
+0F1D	ZIMMERMANN PV-Steel Group GmbH & Co. KG
+0F1E	Yolni Inc.
+0F1F	Ninebot (Changzhou) Tech Co., Ltd.
+0F20	Beijing Spring Creation Technology Co., Ltd.
+0F21	Rokk Limited
+0F22	ONESPACE TECHNOLOGIES (PTY) LTD
+0F23	Yuquan Semiconductor (Xiamen) Co., Ltd.
+0F24	Easy Measure Co., Ltd.
+0F25	Sichuan Changhong Neonet Technologies Co.,Ltd.
+0F26	Centromere Holding B.V.
+0F27	Global Link Distribution Corp.
+0F28	Amp Fit Israel LTD
+0F29	Trezor Company s.r.o.
+0F2A	KELLER Druckmesstechnik AG
+0F2B	ElitEngineering LLC
+0F2C	Vision Group Inc.
+0F2D	ClipsClips LLC
+0F2E	BRITZ INTERNATIONAL CO.,LTD
+0F2F	ThingCo Limited
+0F30	Opal Camera, Inc.
+0F31	TECHNOLOGIES FOR FREERIDE s.r.o
+0F32	FLINTEC UK LIMITED
+0F33	TETNET
+0F34	NINGBO SHARKWARD ELECTRONICS CO.,LTD
+0F35	Audeze LLC
+0F36	NODER Joint Stock Company
+0F37	Schueco International KG
+0F38	GILL INSTRUMENTS LIMITED
+0F39	Seitron Spa
+0F3A	Southern Audio Services, Inc
+0F3B	SANWA NEWTEC CO.,LTD.
+0F3C	Mobile Technology Solutions LLC
+0F3D	Vitio Medical S.L.
+0F3E	Salyx Medical Inc.
+0F3F	Landig + Lava GmbH & Co. KG
+0F40	Health Data Insight C.I.C.
+0F41	BONX INC.
+0F42	LINKEDCHIP TECHNOLOGY INC
+0F43	12mm Health Technology (Hainan) Co., Ltd.
+0F44	MAVERICK ENERGY SOLUTIONS INTERNATIONAL,INC
+0F45	Tactica Defense LLC
+0F46	Huizhou Meicanxin Electronics Technology Co.,Ltd
+0F47	Lodestar Technology Inc.
+0F49	IYO INC.
+0F4A	Mitsubishi Motors Corporation
+0F4B	desamisCo.,Ltd.
+0F4C	JL WORLD CORPORATION LIMITED
+0F4D	Qulinda AB
+0F4E	Ningbo Dooya Mechanic & Electronic Technology Co., Ltd
+0F4F	G-Vision GmbH
+0F50	Lantern Innovations Incorporated
+0F51	ebm-papst Mulfingen GmbH & Co. KGaA & Co. KG
+0F52	Shenzhen Yunke Intelligent Co.Ltd
+0F53	Fledt & Meiton Marin AB
+0F54	ContiTech Deutschland GmbH
+0F55	Sensoteq Ltd
+0F56	Astute Access Group Limited
+0F57	Silverlake Technologies
+0F58	Shenzhen Guo-link Technology Co.,Ltd.
+0F59	Silicon Vandals PTY LTD
+0F5A	Vibe Energy B.V.
+0F5B	shanghai fudan electronics group company Co. Ltd
+0F5C	Micro Technology Services, Inc.
+0F5D	Leapcraft ApS
+0F5E	WUXI WEIDA INTELLIGENT ELECTRONICS CO.,LTD.
+0F5F	ROBSON SRL
+0F61	HyolimXE Co., Ltd.
+0F62	Kehwin Technologies Co. Ltd.
+0F63	WATTER, Inc.
+0F64	SafeNow GmbH
+0F65	CZV, Inc
+0F66	BIGREDBEE, LLC
+0F67	White Eagle Sonic Technologies, Inc.
+0F68	Navico
+0F69	Ancoe Industry Corporation
+0F6A	Roam Devices LLC
+0F6B	Skywalk Inc.
+0F6C	Biogents AG
+0F6D	MODRETRO, INC.
+0F6E	iSi Wearable Safety GmbH
+0F6F	onanoff limited
+0F70	TECHFLITTER SOLUTIONS PRIVATE LIMITED
+0F71	PIRITIZ LLC
+0F72	FLORLINK, INC.
+0F73	Keycafe Inc.
+0F74	Sperry Labs LLC
+0F75	Senseonics, Incorporated
+0F76	simatec ag
+0F77	CROSS BRAIN CO.,Ltd.
+0F78	Also, Inc.
+0F79	Walter Mueller Inc. for Industrial Electronics
+0F7A	SHENZHEN GUANG QI GUO CHUANG TECHNOLOGY CO.,LTD
+0F7B	SKYROAM, INC.
+0F7C	Polk Audio
+0F7D	eQ-3 AG
+0F7E	shenzhen Holyiot Technology Co.,Ltd
+0F7F	Badass eBikes GmbH
+0F80	Hydro Electronic Devices, Inc.
+0F81	IN Phase International lTD
+0F82	Amon Co.Ltd.
+0F83	Calpeda S.p.A.
+0F84	KT Micro, Inc.
+0F85	Hangzhou Sciener Smart Technology Co., Ltd.
+0F86	Lakecrest Pty Ltd
+0F87	Anacove Inc.
+0F88	Kohler Ventures, Inc.
+0F89	STOREIO TECHNOLOGIES LTD
+0F8A	Innogando S.L.
+0F8B	A.Y. McDonald Mfg. Co.
+0F8C	ROYAL PARTS CO.,LTD
+0F8D	JUREN CO., LTD.
+0F8E	Biceek Inc
+0F8F	SIGNUM INTELLIGENCE LTD
+0F90	MOBI7 TECNOLOGIA EM MOBILIDADE S.A.
+0F91	Valostra Digital Ventures LLP
+0F92	Ethos Group, Inc.
+0F93	Aktiebolaget Ebeco
+0F94	IDX Company, Ltd.
+0F95	Dongguang Huasoo Automation Technology Company Limited
+0F96	SEIKOIST, INC
+0F97	SPX Aids to Navigation Oy
+0F98	Fitnexa Inc
+0F99	DEZINE GROUP LLC
+0F9A	Eiritsu Electronics Industry Co., Ltd.
+0F9B	Hanshow Technology Co.,Ltd.
+0F9C	WePower Technologies LLC
+0F9D	IRTrans GmbH
+0F9E	Hibino Corporation
+0F9F	Seiko Future Creation Inc.
+0FA0	DP IOT
+0FA1	PALRED RETAIL PRIVATE LIMITED
+0FA2	BIA NEUROSCIENCE INC.
+0FA3	B.E.G. Brueck Electronic GmbH
+0FA4	Nice Spa
+0FA5	Avanos Medical, Inc.
+0FA6	Ugreen Group Limited
+0FA7	spheretek japan
+0FA8	Senti Technologies Private Limited
+0FA9	Ranch Systems, Inc.
+0FAA	Suzhou Fanxi Technology Co., Ltd.
+0FAB	Geo Radar AI Private Limited
+0FAC	Flitsmeister B.V.
+0FAD	The AI Toy Company
+0FAE	Capacite
+0FAF	Terasite Technologies
+0FB0	General Resistance, LLC
+0FB1	Avivomed Inc.
+0FB2	PLAUD Inc.
+0FB3	Hooked Society Oy Ltd
+0FB4	StoneDevices
+0FB5	Hangzhou Nano IC Technologies Co,. Ltd
+0FB6	TQ-Systems GmbH
+0FB7	Hapn Holdings, LLC
+0FB8	SITERWELL ELECTRONICS CO.,LIMITED
+0FB9	Shenzhen Mutual Technology Co., Ltd
+0FBA	Cosonic Intelligent Technologies Co., Ltd.
+0FBB	Rollease Acmeda, Inc.
+0FBC	ATANS TECHNOLOGY INC.
+0FBD	Locus Robotics Corp.
+0FBE	TaigaIoT
+0FBF	Tridentify AB
+0FC0	Littlebird Connected Care, Inc.
+0FC1	Air Automotive tracking Inc.
+0FC2	ISSPRO, INC
+0FC3	Shenzhen Jimi loT Co.,Ltd
+0FC4	FulScience Automotive Electronics Co., Ltd.
+0FC5	Hypershell Co., Ltd
+0FC6	ASD Lighting PLC
+0FC7	Pharox B.V.
+0FC8	Eforthink Technology Co., Ltd.
+0FC9	Zirbel Bike GmbH
+0FCA	Legato Audio, Inc.
+0FCB	Biocorp Production
+0FCC	Neurotherapeutics Ltd
+0FCD	Wimate Technology Solutions Pvt Ltd
+0FCE	NOJA Power
+0FCF	Nestlab AS
+0FD0	Stark Future SL
+0FD1	Auranova LLC
+0FD2	Domteknika S.A
+0FD3	YDIIT Co., Ltd
+0FD4	QRITAGYA LLP
+0FD5	Telemacy Ltd
+0FD6	LIOTYS
+0FD7	Hondata, Inc.
+0FD8	SIVA Inotec Limited
+0FD9	REMDEVICE S.R.L.
+0FDA	NIVELCO PROCESS CONTROL CO.
+0FDC	Beijing Hongsi Electronic Technology Co.,Ltd.
+103A	FOSS Analytical A/S
+103D	Blahaj Ltd
+103E	Nextorage Corporation
+103F	infyni
+1040	Raspberry Pi
+1041	Shenzhen Huasheng Jiaye Technology Co., Ltd
+1042	Namara Water Technologies, Inc
+1043	Shanghai Holychip Electronic Co., Ltd.
+1044	Rotarex S.A.
+1045	VOTRONIC Elektronik-Systeme GmbH
+1046	EXELIO S.R.L.
+1047	Yamaha Motor eBike Systems GmbH
+1048	Ferrari s.p.a.
+1049	Anhui Ubico Advanced Manufacture Co., Ltd.
+104A	Mueller-BBM Rail Technologies GmbH
+104B	Yoto Limited
+104C	LAUMAS Elettronica S.r.l.
+104D	BUND MEDIA PTY. LTD.
+104E	LSC Control Systems Pty Ltd
+104F	Safety Lighting Research Pty Ltd
+1050	Hangzhou Sneuro Medical Co., Ltd.
+1051	UnlimitedIRL LLC
+1052	CHOZEN International CO., LTD.
+1053	Sensorworx, Inc.
+1054	Romcor Pty Ltd
+1055	NewNet, Inc.
+1056	CLM-Solutions
+1057	RSA Security LLC
+1058	Gravity (Shenzhen)Space Technology Co., Ltd
+1059	Shenzhen Shuye Technology Co.,Ltd.
+105A	ArjoHuntleigh AB
+105B	Fairbanks Scales Inc.
+105C	YANMAR HOLDINGS CO., LTD.
+105D	Williams Sound, LLC
+105E	Zuuka Limited
+105F	Chip-pump Microelectronics
+1060	TOMOE VALVE CO.,LTD
+1061	VCS Vision Control Solutions GmbH
+1062	Framason Audio S.A
+1063	Field Line Automation Ltd
+1064	Shearwater Research Inc.
+1065	HIGH HIT ENTERPRISE CO., LTD.
+1066	Algiz AS
+1067	Shenzhen FHX Precision Hardware & Plastic Co., Ltd.
+1068	Hotron Co., Ltd.
+1069	Remoticom B.V.
+106A	OSKEY
+106B	GORDON MURRAY GROUP LIMITED
+106C	Global Electronics
+106D	Rokstar Holdings Limited
+106E	STRYDE LIMITED
+106F	Prosaris Solutions Ltd.
+1070	TLV Co.,LTD.
+1071	IZYBAT
+1072	ALTESSA SOLUTIONS INC.
+1073	Hong Kong Future lntelligent Technology Co., Limited
+1074	CenTrak, Inc.
+1075	TM-TECHNOLOGIES, JSC
+1076	ALPHADIF
+1077	Shenzhen Muyu Technology Co., Ltd.
+1078	augment AI Inc.
+1079	Digimax Innovative Products LTD.
+107A	CodaHD LLC
+107B	E.J. Brooks Company
+107C	Martin.Care GmbH
+107D	IMPACT-BZ LTD
+107E	Belford investment holdings pty ltd
+107F	Anton Paar ConsumerTec GmbH
+1080	Knit Sound Company
+1081	Australis Scientific Pty Ltd.
+1082	AIR PRODUCTS AND CHEMICALS, INC.
+1083	SYSTEM LOCO LTD
+1084	24x8, LLC
+1085	FUTURE INTELLIGENCE TECHNOLOGY SINGAPORE PTE. LTD.
+1086	M3SH TECHNOLOGY INC.
+1087	Matisse Interactif inc.
+1088	Sesame AI, Inc.
+1089	DEER MANAGEMENT SYSTEMS, LLC
+108A	Grayhill Inc.
+108B	PERUN TECH SP. Z O.O.
+108C	Tiny Displays Inc.
+108D	DEWINE Labs GmbH
+108E	Industrial Computing Limited
+108F	SkyCell AG
+1090	NAGANO KEIKI CO., LTD.
+1091	COSEL ELEKTRONIK OTOMASYON SISTEMLERI SANAYI VE TICARET LIMITED SIRKETI
+1092	BXB DIGITAL PTY LIMITED
+1093	Mindspire Limited
+1094	Personal Products Co., Ltd.
+1095	CardiaMetrics
+1096	Aktv8 LLC
+1097	Knox Associates, Inc.
+1098	smart-TEC GmbH & Co. KG
+1099	Selco GmbH
+109A	MONNIT CORPORATION
+109B	Tensoli GmbH
+109C	KIBLE
+109D	terumo
+109E	SHIBAURA ELECTRONICS CO., LTD.
+109F	Shenzhen Hali-Power Industrial Co., Ltd.
+10A0	inContAlert GmbH
+10A1	flexlog GmbH
+10A2	Audio Research Corporation
+10A3	BQT Solutions (NZ) Limited
+10A4	RAPIDISE TECHNOLOGY PRIVATE LIMITED
+10A5	Cebreo Medical A/S
+10A6	Lightnovo ApS
+10A7	Pedigree Technologies, LLC
+10A8	Zhejiang Wanyou Intelligent Technology Co., Ltd.
+10A9	Mallow
+10AA	Sigenergy Technology Co., Ltd.
+10AB	ObjectSpectrum, LLC
+10AC	ATsens Co.,Ltd.
+10AD	CoreHW Semiconductor Oy
+10AE	Raycon Inc.
+10AF	Hangzhou SDIC Microelectronics Inc.
+10B0	VSC Synapse LLC
+10B1	Senops Tracker, LLC
+10B2	Shenzhen Xunzong Zhilian Technology Co., Ltd.
+10B3	HOSEOTELNET Co., Ltd.
+10B4	Solabs Technology (HK) Co., Limited
+10B5	SpartanLync Technologies Corp.
+10B6	SHENZHEN CHINA MICRO SEMICON CO.,LIMITED
+10B7	Fosilicon Co., Ltd
+10B8	Palarum LLC
+10B9	CYNC Labs, Inc.
+10BA	Noble HiFi, LLC
+10BB	VERGESENSE INC
+10BC	Harley-Davidson Motor Company
+10BD	Variowell Development GmbH
+10BE	UNIVERSAL REMOTE CONTROL, INC.
+10BF	All Inspire Health, Inc.
+10C0	Minda Corporation Ltd
+10C1	Shenzhen ECO-NEWLEAF CO., LTD
+10C2	SainStore Technology Co., Ltd.
+10C3	TECH FASS s.r.o.
+10C4	OPICA GmbH
+10C5	Cardinal Scale Mfg
+10C6	Piscisea Tech Inc
+10C7	CHIYODA TECHNOL CORPORATION
+10C8	mylife Diabetes Care AG
+10C9	Tractian Technologies Inc.
+10CA	FairPhone B.V
+10CB	The90, Inc.
+10CC	Linde GmbH
+10CD	Kumho Tire
+10CE	Inito Health Inc.
+10CF	Tempur World, LLC
+10D0	Band24, LLC
+10D1	Acer Inc.
+10D2	Hehku Company Oy
+10D3	AGCO Corporation
+10D4	Victor Hasselblad AB
+10D5	IntelliDesign Pty Ltd
+10D6	UltronSMART Inc.
+10D7	Arashi Vision Inc.
+10D8	Westfalen Aktiengesellschaft
+10D9	Liebherr-Hausgeraete GmbH
+10DA	SKAIChips Co.,Ltd
+10DB	SZ Avinox Innovation Co., Ltd.
+10DC	Spectra Precision (Kaiserslautern) GmbH
+10DD	Triumph Designs Ltd
+10DE	Gastron Co.,Ltd
+10DF	Hawkeye Surgical Lighting LLC
+10E0	Arnold & Richter Cine Technik GmbH & Co. Betriebs KG
+10E1	Neurable, Inc
+10E2	CAREHAWK INC.
+10E3	Vybe Audio LLC
+10E4	Smart Technologies ULC
+10E5	Durin, inc.
+10E6	KWANG YANG MOTOR CO., LTD.
+10E7	Placenet Internet of Places S.L.
+10E8	Liontron GmbH & Co. KG
+10E9	Hankook Tire & Technology Co., Ltd.
+10EA	Guangdong Youhong Medical Technology Co.,Ltd
+10EB	Fontaine Fifth Wheel Company
+10EC	ZELP LTD
+10ED	BRITA SE
+10EE	Shanghai XYLink Limited Corporation
+10EF	Keto-Check Inc.
+10F0	RFID N PRINT PTY LTD
+10F1	Ralston Instruments, LLC
+10F2	CHIGEE TECHNOLOGY CO., LTD.
+10F3	EURODIMA GmbH & CoKG
+10F4	SUPERARK LTD
+10F5	Shenzhen DeepX Technology Co., Ltd.
+10F6	Pressure Systems International, Inc.
+10F7	HEX INNOVATE (UK) LIMITED
+10F8	IONLINE INTERNET SERVICE PROVIDER
+10F9	Even Realities Ltd.
+10FA	QPlay Ltd
+10FB	Hydratune Australia Pty Ltd
+10FC	CITECH CO.,LTD.
+10FD	Neurabody Inc.
+10FE	Daisen Electronic Industrial Co., Ltd.
+10FF	Sonus Faber spa
+1100	miThings
+1101	Nearfaces UG (haftungsbeschränkt)
+1102	Temple Private Limited
+1103	BRISANT SECURE LTD
+1104	Daiichi Elektronik Sanayi ve Ticaret. A.S.
+1105	Cirrus Design Corporation
+1106	Flicfit inc.
+1107	Optrel AG
+1108	BEMER Int. AG
+1109	Hamodaz Corporation
+110A	OnRace Motorsports
+110B	SIGMA CORPORATION
+110C	rescuetrack GmbH
+110D	ARETA AI INC.
+110E	Gigawit Electronics LTD
+110F	Nylint, LLC
+1110	Hamaton Inc.,
+1111	RAPSODO PTE. LTD.
+1112	JustTec GmbH
+1113	ONXMAPS, INC
+1114	Metabowerke GmbH
+1115	Thermia Aktiebolag
+1116	ALLRA LIMITED
+1117	Tive, Inc.
+1118	Villeroy & Boch AG
+1119	TSUKURUBAI, LIMITED LIABILITY COMPANY
+111A	BOKE Drivers Co., Ltd.
+111B	DIGITANIMAL S.L.
+111C	Techavtomatica
+111D	Commodore International Corporation
+111E	DS TAGS Group B.V.
+111F	iAppliance Inc.
+1120	PI-CRYSTAL INC.
+1121	ennos ag
+1122	FUSE BLUEJAY LIMITED
+1123	Hudl, Inc.
+1124	DOLLAR JUDGE INC
+1125	Wavarts Technologies, Co., Ltd
+1126	Hakemann GmbH & Co. KG
+1127	Permobil AB

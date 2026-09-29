@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and older. The detection log can contain location history and the
+     device list reveals where you've been, so keep them out of cloud backups. -->
+<full-backup-content>
+    <exclude domain="database" path="." />
+</full-backup-content>

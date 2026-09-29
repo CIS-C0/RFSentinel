@@ -1,0 +1,343 @@
+# Bluetooth SIG appearance values (category hex, subcategory hex or -, name). Source: bitbucket.org/bluetooth-SIG/public
+000	-	Unknown
+001	-	Phone
+002	-	Computer
+002	01	Desktop Workstation
+002	02	Server-class Computer
+002	03	Laptop
+002	04	Handheld PC/PDA (clamshell)
+002	05	Palm-size PC/PDA
+002	06	Wearable computer (watch size)
+002	07	Tablet
+002	08	Docking Station
+002	09	All in One
+002	0A	Blade Server
+002	0B	Convertible
+002	0C	Detachable
+002	0D	IoT Gateway
+002	0E	Mini PC
+002	0F	Stick PC
+003	-	Watch
+003	01	Sports Watch
+003	02	Smartwatch
+004	-	Clock
+005	-	Display
+006	-	Remote Control
+007	-	Eye-glasses
+008	-	Tag
+009	-	Keyring
+00A	-	Media Player
+00B	-	Barcode Scanner
+00C	-	Thermometer
+00C	01	Ear Thermometer
+00D	-	Heart Rate Sensor
+00D	01	Heart Rate Belt
+00E	-	Blood Pressure
+00E	01	Arm Blood Pressure
+00E	02	Wrist Blood Pressure
+00F	-	Human Interface Device
+00F	01	Keyboard
+00F	02	Mouse
+00F	03	Joystick
+00F	04	Gamepad
+00F	05	Digitizer Tablet
+00F	06	Card Reader
+00F	07	Digital Pen
+00F	08	Barcode Scanner
+00F	09	Touchpad
+00F	0A	Presentation Remote
+010	-	Glucose Meter
+011	-	Running Walking Sensor
+011	01	In-Shoe Running Walking Sensor
+011	02	On-Shoe Running Walking Sensor
+011	03	On-Hip Running Walking Sensor
+012	-	Cycling
+012	01	Cycling Computer
+012	02	Speed Sensor
+012	03	Cadence Sensor
+012	04	Power Sensor
+012	05	Speed and Cadence Sensor
+013	-	Control Device
+013	01	Switch
+013	02	Multi-switch
+013	03	Button
+013	04	Slider
+013	05	Rotary Switch
+013	06	Touch Panel
+013	07	Single Switch
+013	08	Double Switch
+013	09	Triple Switch
+013	0A	Battery Switch
+013	0B	Energy Harvesting Switch
+013	0C	Push Button
+013	0D	Dial
+014	-	Network Device
+014	01	Access Point
+014	02	Mesh Device
+014	03	Mesh Network Proxy
+015	-	Sensor
+015	01	Motion Sensor
+015	02	Air quality Sensor
+015	03	Temperature Sensor
+015	04	Humidity Sensor
+015	05	Leak Sensor
+015	06	Smoke Sensor
+015	07	Occupancy Sensor
+015	08	Contact Sensor
+015	09	Carbon Monoxide Sensor
+015	0A	Carbon Dioxide Sensor
+015	0B	Ambient Light Sensor
+015	0C	Energy Sensor
+015	0D	Color Light Sensor
+015	0E	Rain Sensor
+015	0F	Fire Sensor
+015	10	Wind Sensor
+015	11	Proximity Sensor
+015	12	Multi-Sensor
+015	13	Flush Mounted Sensor
+015	14	Ceiling Mounted Sensor
+015	15	Wall Mounted Sensor
+015	16	Multisensor
+015	17	Energy Meter
+015	18	Flame Detector
+015	19	Vehicle Tire Pressure Sensor
+016	-	Light Fixtures
+016	01	Wall Light
+016	02	Ceiling Light
+016	03	Floor Light
+016	04	Cabinet Light
+016	05	Desk Light
+016	06	Troffer Light
+016	07	Pendant Light
+016	08	In-ground Light
+016	09	Flood Light
+016	0A	Underwater Light
+016	0B	Bollard with Light
+016	0C	Pathway Light
+016	0D	Garden Light
+016	0E	Pole-top Light
+016	0F	Spotlight
+016	10	Linear Light
+016	11	Street Light
+016	12	Shelves Light
+016	13	Bay Light
+016	14	Emergency Exit Light
+016	15	Light Controller
+016	16	Light Driver
+016	17	Bulb
+016	18	Low-bay Light
+016	19	High-bay Light
+017	-	Fan
+017	01	Ceiling Fan
+017	02	Axial Fan
+017	03	Exhaust Fan
+017	04	Pedestal Fan
+017	05	Desk Fan
+017	06	Wall Fan
+018	-	HVAC
+018	01	Thermostat
+018	02	Humidifier
+018	03	De-humidifier
+018	04	Heater
+018	05	Radiator
+018	06	Boiler
+018	07	Heat Pump
+018	08	Infrared Heater
+018	09	Radiant Panel Heater
+018	0A	Fan Heater
+018	0B	Air Curtain
+019	-	Air Conditioning
+01A	-	Humidifier
+01B	-	Heating
+01B	01	Radiator
+01B	02	Boiler
+01B	03	Heat Pump
+01B	04	Infrared Heater
+01B	05	Radiant Panel Heater
+01B	06	Fan Heater
+01B	07	Air Curtain
+01C	-	Access Control
+01C	01	Access Door
+01C	02	Garage Door
+01C	03	Emergency Exit Door
+01C	04	Access Lock
+01C	05	Elevator
+01C	06	Window
+01C	07	Entrance Gate
+01C	08	Door Lock
+01C	09	Locker
+01D	-	Motorized Device
+01D	01	Motorized Gate
+01D	02	Awning
+01D	03	Blinds or Shades
+01D	04	Curtains
+01D	05	Screen
+01E	-	Power Device
+01E	01	Power Outlet
+01E	02	Power Strip
+01E	03	Plug
+01E	04	Power Supply
+01E	05	LED Driver
+01E	06	Fluorescent Lamp Gear
+01E	07	HID Lamp Gear
+01E	08	Charge Case
+01E	09	Power Bank
+01F	-	Light Source
+01F	01	Incandescent Light Bulb
+01F	02	LED Lamp
+01F	03	HID Lamp
+01F	04	Fluorescent Lamp
+01F	05	LED Array
+01F	06	Multi-Color LED Array
+01F	07	Low voltage halogen
+01F	08	Organic light emitting diode (OLED)
+020	-	Window Covering
+020	01	Window Shades
+020	02	Window Blinds
+020	03	Window Awning
+020	04	Window Curtain
+020	05	Exterior Shutter
+020	06	Exterior Screen
+021	-	Audio Sink
+021	01	Standalone Speaker
+021	02	Soundbar
+021	03	Bookshelf Speaker
+021	04	Standmounted Speaker
+021	05	Speakerphone
+022	-	Audio Source
+022	01	Microphone
+022	02	Alarm
+022	03	Bell
+022	04	Horn
+022	05	Broadcasting Device
+022	06	Service Desk
+022	07	Kiosk
+022	08	Broadcasting Room
+022	09	Auditorium
+023	-	Motorized Vehicle
+023	01	Car
+023	02	Large Goods Vehicle
+023	03	2-Wheeled Vehicle
+023	04	Motorbike
+023	05	Scooter
+023	06	Moped
+023	07	3-Wheeled Vehicle
+023	08	Light Vehicle
+023	09	Quad Bike
+023	0A	Minibus
+023	0B	Bus
+023	0C	Trolley
+023	0D	Agricultural Vehicle
+023	0E	Camper / Caravan
+023	0F	Recreational Vehicle / Motor Home
+024	-	Domestic Appliance
+024	01	Refrigerator
+024	02	Freezer
+024	03	Oven
+024	04	Microwave
+024	05	Toaster
+024	06	Washing Machine
+024	07	Dryer
+024	08	Coffee maker
+024	09	Clothes iron
+024	0A	Curling iron
+024	0B	Hair dryer
+024	0C	Vacuum cleaner
+024	0D	Robotic vacuum cleaner
+024	0E	Rice cooker
+024	0F	Clothes steamer
+025	-	Wearable Audio Device
+025	01	Earbud
+025	02	Headset
+025	03	Headphones
+025	04	Neck Band
+025	05	Left Earbud
+025	06	Right Earbud
+026	-	Aircraft
+026	01	Light Aircraft
+026	02	Microlight
+026	03	Paraglider
+026	04	Large Passenger Aircraft
+027	-	AV Equipment
+027	01	Amplifier
+027	02	Receiver
+027	03	Radio
+027	04	Tuner
+027	05	Turntable
+027	06	CD Player
+027	07	DVD Player
+027	08	Bluray Player
+027	09	Optical Disc Player
+027	0A	Set-Top Box
+028	-	Display Equipment
+028	01	Television
+028	02	Monitor
+028	03	Projector
+029	-	Hearing aid
+029	01	In-ear hearing aid
+029	02	Behind-ear hearing aid
+029	03	Cochlear Implant
+02A	-	Gaming
+02A	01	Home Video Game Console
+02A	02	Portable handheld console
+02B	-	Signage
+02B	01	Digital Signage
+02B	02	Electronic Label
+031	-	Pulse Oximeter
+031	01	Fingertip Pulse Oximeter
+031	02	Wrist Worn Pulse Oximeter
+032	-	Weight Scale
+033	-	Personal Mobility Device
+033	01	Powered Wheelchair
+033	02	Mobility Scooter
+034	-	Continuous Glucose Monitor
+035	-	Insulin Pump
+035	01	Insulin Pump, durable pump
+035	04	Insulin Pump, patch pump
+035	08	Insulin Pen
+036	-	Medication Delivery
+037	-	Spirometer
+037	01	Handheld Spirometer
+051	-	Outdoor Sports Activity
+051	01	Location Display
+051	02	Location and Navigation Display
+051	03	Location Pod
+051	04	Location and Navigation Pod
+052	-	Industrial Measurement Device
+052	01	Torque Testing Device
+052	02	Caliper
+052	03	Dial Indicator
+052	04	Micrometer
+052	05	Height Gauge
+052	06	Force Gauge
+053	-	Industrial Tools
+053	01	Machine Tool Holder
+053	02	Generic Clamping Device
+053	03	Clamping Jaws/Jaw Chuck
+053	04	Clamping (Collet) Chuck
+053	05	Clamping Mandrel
+053	06	Vise
+053	07	Zero-Point Clamping System
+053	08	Torque Wrench
+053	09	Torque Screwdriver
+054	-	Cookware Device
+054	01	Pot and Jugs
+054	02	Pressure Cooker
+054	03	Slow Cooker
+054	04	Steam Cooker
+054	05	Saucepan
+054	06	Frying Pan
+054	07	Casserole
+054	08	Dutch Oven
+054	09	Grill Pan/Raclette Grill/Griddle Pan
+054	0A	Braising Pan
+054	0B	Wok Pan
+054	0C	Paella Pan
+054	0D	Crepe Pan
+054	0E	Tagine
+054	0F	Fondue
+054	10	Lid
+054	11	Wired Probe
+054	12	Wireless Probe
+054	13	Baking Molds
+054	14	Baking Tray

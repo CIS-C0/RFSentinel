@@ -1,0 +1,6 @@
+# Keep LF in the repo on every platform; Windows batch files need CRLF.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.jar binary
+*.png binary
+*.ttf binary

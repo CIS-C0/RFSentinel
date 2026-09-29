@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/action_search"
+        android:icon="@drawable/ic_search"
+        android:title="Search"
+        app:actionViewClass="androidx.appcompat.widget.SearchView"
+        app:showAsAction="ifRoom|collapseActionView" />
+    <item
+        android:id="@+id/action_map"
+        android:icon="@drawable/ic_map"
+        android:title="Map"
+        app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_mute"
+        android:icon="@drawable/ic_car_volume"
+        android:title="Mute alerts"
+        app:showAsAction="ifRoom" />
+    <item android:id="@+id/action_match_log" android:title="Match history" app:showAsAction="never" />
+    <item android:id="@+id/action_traces" android:title="Recorded traces" app:showAsAction="never" />
+    <item android:id="@+id/action_oui_list" android:title="Watchlist &amp; rules" app:showAsAction="never" />
+    <item android:id="@+id/action_whitelist" android:title="Whitelist (trusted devices)" app:showAsAction="never" />
+    <item android:id="@+id/action_settings" android:title="Settings" app:showAsAction="never" />
+    <item android:id="@+id/action_export_all" android:title="Export all devices..." app:showAsAction="never" />
+    <item android:id="@+id/action_export" android:title="Export (history, matches, everything)..." app:showAsAction="never" />
+    <item android:id="@+id/action_about" android:title="About &amp; sources" app:showAsAction="never" />
+</menu>

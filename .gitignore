@@ -1,0 +1,18 @@
+.gradle/
+.kotlin/
+build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+captures/
+
+# Release signing - never commit
+keystore/
+keystore.properties
+
+# Raw registry downloads for tools/gen_assets.py
+tools/data/
+
+# Built APKs are published as GitHub Releases, not committed (they're ~7 MB each)
+releases/*.apk

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="12dp">
+
+    <LinearLayout
+        android:id="@+id/widgetBody"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/widgetStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="RF Sentinel"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widgetCounts"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#CCFFFFFF"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widgetToggle"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="@drawable/widget_button_bg"
+        android:gravity="center"
+        android:text="&#9654;"
+        android:textColor="#FFFFFF"
+        android:textSize="20sp" />
+</LinearLayout>

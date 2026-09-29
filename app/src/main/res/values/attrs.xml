@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Colours for the custom-drawn views (radar, signal graph), set per theme. -->
+    <attr name="rfScopeColor" format="color" />
+    <attr name="rfScopeTextColor" format="color" />
+    <attr name="rfTraceColor" format="color" />
+    <!-- Action bar colours for the styled themes. -->
+    <attr name="rfBarColor" format="color" />
+    <attr name="rfTitleColor" format="color" />
+</resources>

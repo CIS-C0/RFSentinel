@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="24dp"
+    android:paddingEnd="24dp"
+    android:paddingTop="8dp">
+
+    <RadioGroup
+        android:id="@+id/scopeGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <RadioButton
+            android:id="@+id/scopeDevice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:checked="true" />
+
+        <RadioButton
+            android:id="@+id/scopePrefix"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+    </RadioGroup>
+
+    <TextView
+        android:id="@+id/warningText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:textColor="@color/match_tag_bg"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
+    <EditText
+        android:id="@+id/labelInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Label (what this device is)"
+        android:importantForAutofill="no"
+        android:inputType="text" />
+</LinearLayout>

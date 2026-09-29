@@ -1,0 +1,80 @@
+<resources>
+    <color name="brand_primary">#0B5C63</color>
+    <color name="brand_primary_dark">#073F44</color>
+    <color name="brand_accent">#E0622D</color>
+    <color name="ic_launcher_background">#0B5C63</color>
+
+    <color name="match_tag_bg">#C8431A</color>
+
+    <!-- Radar / graph ink for the standard themes (night variants in values-night). -->
+    <color name="scope">#0B5C63</color>
+    <color name="scope_text">#AA0B5C63</color>
+    <color name="trace">#E0622D</color>
+
+    <!-- DedSec-inspired hacker palette -->
+    <color name="dedsec_black">#050505</color>
+    <color name="dedsec_panel">#0E0E10</color>
+    <color name="dedsec_cyan">#00F0D8</color>
+    <color name="dedsec_magenta">#FF2E88</color>
+    <color name="dedsec_green">#39FF6A</color>
+    <color name="dedsec_text">#D8FFF9</color>
+    <color name="dedsec_dim">#7FB8B0</color>
+
+    <!-- Night Drive: red-only, keeps your night vision while driving -->
+    <color name="nd_bg">#000000</color>
+    <color name="nd_panel">#120203</color>
+    <color name="nd_red">#FF2A1A</color>
+    <color name="nd_deep">#9E1208</color>
+    <color name="nd_text">#FF5A48</color>
+    <color name="nd_dim">#A33A2E</color>
+
+    <!-- Night Vision: green phosphor image intensifier -->
+    <color name="nv_bg">#020A04</color>
+    <color name="nv_panel">#06160A</color>
+    <color name="nv_green">#6CFF5A</color>
+    <color name="nv_bright">#C8FFB8</color>
+    <color name="nv_text">#A6FF94</color>
+    <color name="nv_dim">#4E9A45</color>
+
+    <!-- Amber CRT: 1980s terminal -->
+    <color name="amber_bg">#0D0700</color>
+    <color name="amber_panel">#1A0F02</color>
+    <color name="amber_main">#FFB000</color>
+    <color name="amber_hot">#FF7A00</color>
+    <color name="amber_text">#FFC847</color>
+    <color name="amber_dim">#A8741A</color>
+
+    <!-- Synthwave: neon sunset over a wireframe grid -->
+    <color name="sw_bg">#140726</color>
+    <color name="sw_panel">#20103A</color>
+    <color name="sw_pink">#FF3CAC</color>
+    <color name="sw_cyan">#2DE2E6</color>
+    <color name="sw_orange">#FF9F1C</color>
+    <color name="sw_text">#F7E8FF</color>
+    <color name="sw_dim">#A98BC9</color>
+
+    <!-- Tactical: olive drab, coyote tan, low-glare -->
+    <color name="tac_bg">#1B1D16</color>
+    <color name="tac_panel">#262A1E</color>
+    <color name="tac_olive">#8A9A5B</color>
+    <color name="tac_tan">#C8A96B</color>
+    <color name="tac_text">#DCD6C0</color>
+    <color name="tac_dim">#8E8A74</color>
+    <color name="tac_alert">#E0763A</color>
+
+    <!-- Blueprint: drafting paper -->
+    <color name="bp_bg">#0B3A73</color>
+    <color name="bp_panel">#0E4586</color>
+    <color name="bp_line">#E8F1FF</color>
+    <color name="bp_cyan">#8FD3FF</color>
+    <color name="bp_text">#F2F7FF</color>
+    <color name="bp_dim">#9DB7DA</color>
+    <color name="bp_red">#FF6B6B</color>
+
+    <!-- Paper: newspaper ink, readable in direct sunlight -->
+    <color name="paper_bg">#F6F0E1</color>
+    <color name="paper_panel">#EFE6D0</color>
+    <color name="paper_ink">#16130E</color>
+    <color name="paper_red">#B3261E</color>
+    <color name="paper_dim">#6B6252</color>
+</resources>

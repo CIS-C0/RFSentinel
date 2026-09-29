@@ -1,0 +1,350 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- DarkActionBar (not NoActionBar): the activities rely on the window action bar
+         for their titles and MainActivity's overflow menu.
+         Light / Dark / System all use this theme; ThemeManager forces the night mode. -->
+    <style name="Theme.RFSentinel" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        <item name="colorPrimary">@color/brand_primary</item>
+        <item name="colorPrimaryVariant">@color/brand_primary_dark</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorSecondary">@color/brand_accent</item>
+        <item name="colorOnSecondary">@android:color/white</item>
+        <item name="rfScopeColor">@color/scope</item>
+        <item name="rfScopeTextColor">@color/scope_text</item>
+        <item name="rfTraceColor">@color/trace</item>
+    </style>
+
+    <!-- Material You: Material 3 components; colours come from the wallpaper
+         (DynamicColors, Android 12+), falling back to the M3 baseline palette. -->
+    <style name="Theme.RFSentinel.MaterialYou" parent="Theme.Material3.DayNight">
+        <item name="rfScopeColor">?attr/colorPrimary</item>
+        <item name="rfScopeTextColor">?attr/colorOnSurfaceVariant</item>
+        <item name="rfTraceColor">?attr/colorTertiary</item>
+        <item name="actionBarTheme">@style/ThemeOverlay.Material3.ActionBar</item>
+    </style>
+
+    <!-- DedSec-inspired hacker terminal: pure black, neon cyan / magenta, monospace. -->
+    <style name="Theme.RFSentinel.DedSec" parent="Theme.MaterialComponents">
+        <item name="colorPrimary">@color/dedsec_cyan</item>
+        <item name="colorPrimaryVariant">@color/dedsec_black</item>
+        <item name="colorOnPrimary">@color/dedsec_black</item>
+        <item name="colorSecondary">@color/dedsec_magenta</item>
+        <item name="colorOnSecondary">@color/dedsec_black</item>
+        <item name="colorSurface">@color/dedsec_panel</item>
+        <item name="colorOnSurface">@color/dedsec_text</item>
+        <item name="android:colorBackground">@color/dedsec_black</item>
+        <item name="android:windowBackground">@color/dedsec_black</item>
+        <item name="android:textColorPrimary">@color/dedsec_text</item>
+        <item name="android:textColorSecondary">@color/dedsec_dim</item>
+        <item name="android:fontFamily">@font/share_tech_mono</item>
+        <item name="fontFamily">@font/share_tech_mono</item>
+        <item name="android:statusBarColor">@color/dedsec_black</item>
+        <item name="android:navigationBarColor">@color/dedsec_black</item>
+        <item name="actionBarStyle">@style/DedSec.ActionBar</item>
+        <item name="actionBarTheme">@style/DedSec.ActionBarOverlay</item>
+        <item name="alertDialogTheme">@style/DedSec.Dialog</item>
+        <item name="materialAlertDialogTheme">@style/DedSec.Dialog</item>
+        <item name="rfScopeColor">@color/dedsec_green</item>
+        <item name="rfScopeTextColor">@color/dedsec_green</item>
+        <item name="rfTraceColor">@color/dedsec_magenta</item>
+        <!-- Cut corners on buttons, chips and cards: terminal / street-art edges. -->
+        <item name="shapeAppearanceSmallComponent">@style/DedSec.Cut</item>
+        <item name="shapeAppearanceMediumComponent">@style/DedSec.Cut</item>
+        <item name="colorAccent">@color/dedsec_magenta</item>
+    </style>
+
+    <style name="DedSec.Cut" parent="">
+        <item name="cornerFamily">cut</item>
+        <item name="cornerSize">7dp</item>
+    </style>
+
+    <style name="DedSec.ActionBar" parent="Widget.MaterialComponents.ActionBar.Solid">
+        <item name="background">@color/dedsec_black</item>
+        <item name="titleTextStyle">@style/DedSec.ActionBarTitle</item>
+        <item name="elevation">0dp</item>
+    </style>
+
+    <style name="DedSec.ActionBarTitle" parent="TextAppearance.AppCompat.Widget.ActionBar.Title">
+        <item name="android:textColor">@color/dedsec_cyan</item>
+        <item name="android:fontFamily">@font/share_tech_mono</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="DedSec.ActionBarOverlay" parent="ThemeOverlay.MaterialComponents.Dark.ActionBar">
+        <item name="colorControlNormal">@color/dedsec_cyan</item>
+        <item name="android:textColorPrimary">@color/dedsec_cyan</item>
+    </style>
+
+    <style name="DedSec.Dialog" parent="ThemeOverlay.MaterialComponents.Dialog.Alert">
+        <item name="colorPrimary">@color/dedsec_cyan</item>
+        <item name="colorSurface">@color/dedsec_panel</item>
+        <item name="android:background">@color/dedsec_panel</item>
+        <item name="android:textColorPrimary">@color/dedsec_text</item>
+        <item name="android:fontFamily">@font/share_tech_mono</item>
+    </style>
+
+    <!-- Shared pieces for the styled themes: colours come from the theme's attrs. -->
+    <style name="Styled.ActionBar" parent="Widget.MaterialComponents.ActionBar.Solid">
+        <item name="background">?attr/rfBarColor</item>
+        <item name="titleTextStyle">@style/Styled.ActionBarTitle</item>
+        <item name="elevation">0dp</item>
+    </style>
+
+    <style name="Styled.ActionBarTitle" parent="TextAppearance.AppCompat.Widget.ActionBar.Title">
+        <item name="android:textColor">?attr/rfTitleColor</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="Styled.ActionBarOverlay" parent="ThemeOverlay.MaterialComponents.Dark.ActionBar">
+        <item name="colorControlNormal">?attr/rfTitleColor</item>
+        <item name="android:textColorPrimary">?attr/rfTitleColor</item>
+    </style>
+
+    <style name="Styled.ActionBarOverlay.Light" parent="ThemeOverlay.MaterialComponents.ActionBar">
+        <item name="colorControlNormal">?attr/rfTitleColor</item>
+        <item name="android:textColorPrimary">?attr/rfTitleColor</item>
+    </style>
+
+    <style name="Styled.Dialog" parent="ThemeOverlay.MaterialComponents.Dialog.Alert">
+        <item name="android:background">?attr/colorSurface</item>
+    </style>
+
+    <style name="Styled.Dialog.Light" parent="ThemeOverlay.MaterialComponents.Dialog.Alert">
+        <item name="android:background">?attr/colorSurface</item>
+    </style>
+
+    <!-- Night Drive: red-only on black, like a cockpit - protects dark adaptation while driving. -->
+    <style name="Theme.RFSentinel.NightDrive" parent="Theme.MaterialComponents">
+        <item name="colorPrimary">@color/nd_red</item>
+        <item name="colorPrimaryVariant">@color/nd_bg</item>
+        <item name="colorOnPrimary">@color/nd_bg</item>
+        <item name="colorSecondary">@color/nd_deep</item>
+        <item name="colorOnSecondary">@color/nd_bg</item>
+        <item name="colorSurface">@color/nd_panel</item>
+        <item name="colorOnSurface">@color/nd_text</item>
+        <item name="colorOnBackground">@color/nd_text</item>
+        <item name="colorControlNormal">@color/nd_dim</item>
+        <item name="android:colorBackground">@color/nd_bg</item>
+        <item name="android:windowBackground">@color/nd_bg</item>
+        <item name="android:textColorPrimary">@color/nd_text</item>
+        <item name="android:textColorSecondary">@color/nd_dim</item>
+        <item name="android:textColorHint">@color/nd_dim</item>
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="fontFamily">sans-serif-condensed</item>
+        <item name="android:statusBarColor">@color/nd_bg</item>
+        <item name="android:navigationBarColor">@color/nd_bg</item>
+        <item name="actionBarStyle">@style/Styled.ActionBar</item>
+        <item name="actionBarTheme">@style/Styled.ActionBarOverlay</item>
+        <item name="alertDialogTheme">@style/Styled.Dialog</item>
+        <item name="materialAlertDialogTheme">@style/Styled.Dialog</item>
+        <item name="rfBarColor">@color/nd_bg</item>
+        <item name="rfTitleColor">@color/nd_red</item>
+        <item name="rfScopeColor">@color/nd_deep</item>
+        <item name="rfScopeTextColor">@color/nd_dim</item>
+        <item name="rfTraceColor">@color/nd_red</item>
+    </style>
+
+    <!-- Night Vision: green phosphor image-intensifier look. -->
+    <style name="Theme.RFSentinel.NightVision" parent="Theme.MaterialComponents">
+        <item name="colorPrimary">@color/nv_green</item>
+        <item name="colorPrimaryVariant">@color/nv_bg</item>
+        <item name="colorOnPrimary">@color/nv_bg</item>
+        <item name="colorSecondary">@color/nv_bright</item>
+        <item name="colorOnSecondary">@color/nv_bg</item>
+        <item name="colorSurface">@color/nv_panel</item>
+        <item name="colorOnSurface">@color/nv_text</item>
+        <item name="colorOnBackground">@color/nv_text</item>
+        <item name="colorControlNormal">@color/nv_dim</item>
+        <item name="android:colorBackground">@color/nv_bg</item>
+        <item name="android:windowBackground">@color/nv_bg</item>
+        <item name="android:textColorPrimary">@color/nv_text</item>
+        <item name="android:textColorSecondary">@color/nv_dim</item>
+        <item name="android:textColorHint">@color/nv_dim</item>
+        <item name="android:fontFamily">@font/share_tech_mono</item>
+        <item name="fontFamily">@font/share_tech_mono</item>
+        <item name="android:statusBarColor">@color/nv_bg</item>
+        <item name="android:navigationBarColor">@color/nv_bg</item>
+        <item name="actionBarStyle">@style/Styled.ActionBar</item>
+        <item name="actionBarTheme">@style/Styled.ActionBarOverlay</item>
+        <item name="alertDialogTheme">@style/Styled.Dialog</item>
+        <item name="materialAlertDialogTheme">@style/Styled.Dialog</item>
+        <item name="rfBarColor">@color/nv_bg</item>
+        <item name="rfTitleColor">@color/nv_green</item>
+        <item name="rfScopeColor">@color/nv_green</item>
+        <item name="rfScopeTextColor">@color/nv_dim</item>
+        <item name="rfTraceColor">@color/nv_bright</item>
+    </style>
+
+    <!-- Amber CRT: 1980s monochrome terminal. -->
+    <style name="Theme.RFSentinel.Amber" parent="Theme.MaterialComponents">
+        <item name="colorPrimary">@color/amber_main</item>
+        <item name="colorPrimaryVariant">@color/amber_bg</item>
+        <item name="colorOnPrimary">@color/amber_bg</item>
+        <item name="colorSecondary">@color/amber_hot</item>
+        <item name="colorOnSecondary">@color/amber_bg</item>
+        <item name="colorSurface">@color/amber_panel</item>
+        <item name="colorOnSurface">@color/amber_text</item>
+        <item name="colorOnBackground">@color/amber_text</item>
+        <item name="colorControlNormal">@color/amber_dim</item>
+        <item name="android:colorBackground">@color/amber_bg</item>
+        <item name="android:windowBackground">@color/amber_bg</item>
+        <item name="android:textColorPrimary">@color/amber_text</item>
+        <item name="android:textColorSecondary">@color/amber_dim</item>
+        <item name="android:textColorHint">@color/amber_dim</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="fontFamily">monospace</item>
+        <item name="android:statusBarColor">@color/amber_bg</item>
+        <item name="android:navigationBarColor">@color/amber_bg</item>
+        <item name="actionBarStyle">@style/Styled.ActionBar</item>
+        <item name="actionBarTheme">@style/Styled.ActionBarOverlay</item>
+        <item name="alertDialogTheme">@style/Styled.Dialog</item>
+        <item name="materialAlertDialogTheme">@style/Styled.Dialog</item>
+        <item name="rfBarColor">@color/amber_bg</item>
+        <item name="rfTitleColor">@color/amber_main</item>
+        <item name="rfScopeColor">@color/amber_main</item>
+        <item name="rfScopeTextColor">@color/amber_dim</item>
+        <item name="rfTraceColor">@color/amber_hot</item>
+    </style>
+
+    <!-- Synthwave: neon pink and cyan over a purple night. -->
+    <style name="Theme.RFSentinel.Synthwave" parent="Theme.MaterialComponents">
+        <item name="colorPrimary">@color/sw_pink</item>
+        <item name="colorPrimaryVariant">@color/sw_bg</item>
+        <item name="colorOnPrimary">@color/sw_bg</item>
+        <item name="colorSecondary">@color/sw_cyan</item>
+        <item name="colorOnSecondary">@color/sw_bg</item>
+        <item name="colorSurface">@color/sw_panel</item>
+        <item name="colorOnSurface">@color/sw_text</item>
+        <item name="colorOnBackground">@color/sw_text</item>
+        <item name="colorControlNormal">@color/sw_dim</item>
+        <item name="android:colorBackground">@color/sw_bg</item>
+        <item name="android:windowBackground">@color/sw_bg</item>
+        <item name="android:textColorPrimary">@color/sw_text</item>
+        <item name="android:textColorSecondary">@color/sw_dim</item>
+        <item name="android:textColorHint">@color/sw_dim</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="fontFamily">sans-serif-medium</item>
+        <item name="android:statusBarColor">@color/sw_bg</item>
+        <item name="android:navigationBarColor">@color/sw_bg</item>
+        <item name="actionBarStyle">@style/Styled.ActionBar</item>
+        <item name="actionBarTheme">@style/Styled.ActionBarOverlay</item>
+        <item name="alertDialogTheme">@style/Styled.Dialog</item>
+        <item name="materialAlertDialogTheme">@style/Styled.Dialog</item>
+        <item name="rfBarColor">@color/sw_bg</item>
+        <item name="rfTitleColor">@color/sw_pink</item>
+        <item name="rfScopeColor">@color/sw_cyan</item>
+        <item name="rfScopeTextColor">@color/sw_dim</item>
+        <item name="rfTraceColor">@color/sw_pink</item>
+    </style>
+
+    <!-- Tactical: olive drab and coyote tan, low glare. -->
+    <style name="Theme.RFSentinel.Tactical" parent="Theme.MaterialComponents">
+        <item name="colorPrimary">@color/tac_olive</item>
+        <item name="colorPrimaryVariant">@color/tac_bg</item>
+        <item name="colorOnPrimary">@color/tac_bg</item>
+        <item name="colorSecondary">@color/tac_alert</item>
+        <item name="colorOnSecondary">@color/tac_bg</item>
+        <item name="colorSurface">@color/tac_panel</item>
+        <item name="colorOnSurface">@color/tac_text</item>
+        <item name="colorOnBackground">@color/tac_text</item>
+        <item name="colorControlNormal">@color/tac_dim</item>
+        <item name="android:colorBackground">@color/tac_bg</item>
+        <item name="android:windowBackground">@color/tac_bg</item>
+        <item name="android:textColorPrimary">@color/tac_text</item>
+        <item name="android:textColorSecondary">@color/tac_dim</item>
+        <item name="android:textColorHint">@color/tac_dim</item>
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="fontFamily">sans-serif-condensed</item>
+        <item name="android:statusBarColor">@color/tac_panel</item>
+        <item name="android:navigationBarColor">@color/tac_panel</item>
+        <item name="actionBarStyle">@style/Styled.ActionBar</item>
+        <item name="actionBarTheme">@style/Styled.ActionBarOverlay</item>
+        <item name="alertDialogTheme">@style/Styled.Dialog</item>
+        <item name="materialAlertDialogTheme">@style/Styled.Dialog</item>
+        <item name="rfBarColor">@color/tac_panel</item>
+        <item name="rfTitleColor">@color/tac_tan</item>
+        <item name="rfScopeColor">@color/tac_olive</item>
+        <item name="rfScopeTextColor">@color/tac_dim</item>
+        <item name="rfTraceColor">@color/tac_tan</item>
+    </style>
+
+    <!-- Blueprint: white technical drawing on drafting blue. -->
+    <style name="Theme.RFSentinel.Blueprint" parent="Theme.MaterialComponents">
+        <item name="colorPrimary">@color/bp_line</item>
+        <item name="colorPrimaryVariant">@color/bp_bg</item>
+        <item name="colorOnPrimary">@color/bp_bg</item>
+        <item name="colorSecondary">@color/bp_cyan</item>
+        <item name="colorOnSecondary">@color/bp_bg</item>
+        <item name="colorSurface">@color/bp_panel</item>
+        <item name="colorOnSurface">@color/bp_text</item>
+        <item name="colorOnBackground">@color/bp_text</item>
+        <item name="colorControlNormal">@color/bp_dim</item>
+        <item name="android:colorBackground">@color/bp_bg</item>
+        <item name="android:windowBackground">@color/bp_bg</item>
+        <item name="android:textColorPrimary">@color/bp_text</item>
+        <item name="android:textColorSecondary">@color/bp_dim</item>
+        <item name="android:textColorHint">@color/bp_dim</item>
+        <item name="android:fontFamily">serif-monospace</item>
+        <item name="fontFamily">serif-monospace</item>
+        <item name="android:statusBarColor">@color/bp_bg</item>
+        <item name="android:navigationBarColor">@color/bp_bg</item>
+        <item name="actionBarStyle">@style/Styled.ActionBar</item>
+        <item name="actionBarTheme">@style/Styled.ActionBarOverlay</item>
+        <item name="alertDialogTheme">@style/Styled.Dialog</item>
+        <item name="materialAlertDialogTheme">@style/Styled.Dialog</item>
+        <item name="rfBarColor">@color/bp_bg</item>
+        <item name="rfTitleColor">@color/bp_line</item>
+        <item name="rfScopeColor">@color/bp_line</item>
+        <item name="rfScopeTextColor">@color/bp_dim</item>
+        <item name="rfTraceColor">@color/bp_red</item>
+    </style>
+
+    <!-- Paper: newspaper ink on newsprint - maximum contrast in direct sunlight. -->
+    <style name="Theme.RFSentinel.Paper" parent="Theme.MaterialComponents.Light">
+        <item name="colorPrimary">@color/paper_ink</item>
+        <item name="colorPrimaryVariant">@color/paper_bg</item>
+        <item name="colorOnPrimary">@color/paper_bg</item>
+        <item name="colorSecondary">@color/paper_red</item>
+        <item name="colorOnSecondary">@color/paper_bg</item>
+        <item name="colorSurface">@color/paper_panel</item>
+        <item name="colorOnSurface">@color/paper_ink</item>
+        <item name="colorOnBackground">@color/paper_ink</item>
+        <item name="colorControlNormal">@color/paper_dim</item>
+        <item name="android:colorBackground">@color/paper_bg</item>
+        <item name="android:windowBackground">@color/paper_bg</item>
+        <item name="android:textColorPrimary">@color/paper_ink</item>
+        <item name="android:textColorSecondary">@color/paper_dim</item>
+        <item name="android:textColorHint">@color/paper_dim</item>
+        <item name="android:fontFamily">serif</item>
+        <item name="fontFamily">serif</item>
+        <item name="android:statusBarColor">@color/paper_bg</item>
+        <item name="android:navigationBarColor">@color/paper_bg</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
+        <item name="actionBarStyle">@style/Styled.ActionBar</item>
+        <item name="actionBarTheme">@style/Styled.ActionBarOverlay.Light</item>
+        <item name="alertDialogTheme">@style/Styled.Dialog.Light</item>
+        <item name="materialAlertDialogTheme">@style/Styled.Dialog.Light</item>
+        <item name="rfBarColor">@color/paper_bg</item>
+        <item name="rfTitleColor">@color/paper_ink</item>
+        <item name="rfScopeColor">@color/paper_ink</item>
+        <item name="rfScopeTextColor">@color/paper_dim</item>
+        <item name="rfTraceColor">@color/paper_red</item>
+    </style>
+
+    <style name="SettingsHeader">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:paddingTop">20dp</item>
+        <item name="android:paddingBottom">4dp</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">?attr/colorSecondary</item>
+    </style>
+
+    <style name="SettingsLabel">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:paddingTop">10dp</item>
+        <item name="android:textSize">13sp</item>
+    </style>
+</resources>

@@ -1,0 +1,73 @@
+package com.rfsentinel.app.ui
+
+import com.rfsentinel.app.detect.AddressType
+import com.rfsentinel.app.detect.Advert
+import com.rfsentinel.app.detect.DeviceIntel
+import com.rfsentinel.app.detect.EvidenceFusion
+import com.rfsentinel.app.detect.SignatureEngine
+import com.rfsentinel.app.detect.VendorDb
+import com.rfsentinel.app.oui.OuiWatchlist
+import com.rfsentinel.app.service.DeviceRegistry
+import kotlin.math.sin
+
+/**
+ * DEBUG BUILDS ONLY: fills the live list with made-up devices so screenshots
+ * show what real detections look like. Every address suffix and name is
+ * invented, there is no location data, and the adverts go through the real
+ * detection pipeline (signatures, watchlist, fusion, patrol-cluster).
+ * Started with: am start -n com.rfsentinel.app/.MainActivity --ez demo true
+ */
+object DemoData {
+
+    private fun b(vararg v: Int) = ByteArray(v.size) { v[it].toByte() }
+
+    private fun ble(mac: String, name: String? = null, mfg: Map<Int, ByteArray> = emptyMap(), uuids: List<Int> = emptyList(),
+                    data: Map<Int, ByteArray> = emptyMap(), type: AddressType = AddressType.PUBLIC) = { rssi: Int, t: Long ->
+        Advert(mac, Advert.Source.BLE, rssi, name, mfg, uuids.map { Advert.uuid16(it) },
+            data.mapKeys { Advert.uuid16(it.key) }, null, null, type, true, "LE 1M (legacy)", null, t)
+    }
+
+    private fun wifi(mac: String, ssid: String?, mhz: Int = 5180) = { rssi: Int, t: Long ->
+        Advert(mac, Advert.Source.WIFI, rssi, ssid, addressType = AddressType.ofWifi(mac),
+            wifi = Advert.WifiInfo(mhz, "[WPA2-PSK-CCMP][ESS]", "WiFi 6 (802.11ax)", emptyList()), timestamp = t)
+    }
+
+    /** (advert factory, base RSSI, moves with the "patrol car" group). */
+    private val devices: List<Triple<(Int, Long) -> Advert, Int, Boolean>> = listOf(
+        Triple(ble("00:25:DF:4A:19:C2", mfg = mapOf(0x034D to "AXJANUSBWCDEVICE".reversed().toByteArray())), -61, true),
+        Triple(ble("F4:60:77:5B:21:9E", "XXRBJ224511452", uuids = listOf(0xFE79)), -66, true),
+        Triple(ble("4C:CC:34:12:7F:03", mfg = mapOf(0x04EC to b(1, 0, 3))), -72, true),
+        Triple(wifi("00:30:44:4F:21:A0", "IBR900-21A"), -69, true),
+        Triple(wifi("B4:1E:52:3C:88:10", "Flock-3C8810", 2437), -77, false),
+        Triple(ble("60:60:1F:A2:44:18"), -80, false),
+        Triple(ble("7A:31:C4:0B:9E:22", mfg = mapOf(0x004C to (b(0x12, 0x19) + ByteArray(25))), type = AddressType.NON_RESOLVABLE), -63, false),
+        Triple(ble("D2:5E:91:3A:07:BC", mfg = mapOf(0x0D53 to b(1, 2, 3)), type = AddressType.RANDOM_STATIC), -75, false),
+        Triple(ble("5C:1B:2E:88:40:11", mfg = mapOf(0x004C to (b(0x07, 0x19, 0x01, 0x14, 0x20) + ByteArray(22))), type = AddressType.RESOLVABLE_PRIVATE), -55, false),
+        Triple(ble("6E:0A:77:12:C3:95", "Pixel 9", mfg = mapOf(0x00E0 to b(0, 1)), type = AddressType.RESOLVABLE_PRIVATE), -68, false),
+        Triple(ble("C8:3F:26:77:10:04", "Forerunner 265", uuids = listOf(0x180D)), -79, false),
+        Triple(ble("D8:E0:E1:5A:61:2F", "JBL Flip 6"), -84, false),
+        Triple(wifi("9C:3D:CF:61:0A:44", "NETGEAR-5G"), -73, false),
+        Triple(wifi("9E:3D:CF:61:0A:45", null), -74, false),
+        Triple(wifi("E4:5F:01:2B:3C:4D", "Cafe_Guest", 2437), -86, false)
+    )
+
+    fun populate() {
+        if (!VendorDb.loaded) Thread.sleep(1500)
+        DeviceRegistry.startSession()
+        val now = System.currentTimeMillis()
+        // 45 s of history so the signal graphs, radar and co-location analysis have data.
+        for (s in 45 downTo 0) {
+            val t = now - s * 1000L
+            devices.forEachIndexed { i, (make, base, group) ->
+                // The group rises and falls together; everything else moves out of step with it.
+                val wobble = if (group) 7 * sin(s / 4.0) else -6 * sin(s / 4.0 + i * 0.3)
+                val a = make(base + wobble.toInt(), t)
+                val vendor = VendorDb.macVendor(a.mac) ?: a.manufacturerData.keys.firstNotNullOfOrNull { VendorDb.company(it) }
+                val raw = SignatureEngine.classify(a) +
+                    OuiWatchlist.hits(a.mac, a.name, listOfNotNull(vendor)) +
+                    listOfNotNull(DeviceRegistry.clusterHit(a.mac, t))
+                DeviceRegistry.report(a, EvidenceFusion.fuse(raw), DeviceIntel.identify(a, VendorDb.macVendor(a.mac)), vendor, null, null, t)
+            }
+        }
+    }
+}
