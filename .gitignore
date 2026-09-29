@@ -16,3 +16,6 @@ tools/data/
 
 # Built APKs are published as GitHub Releases, not committed (they're ~7 MB each)
 releases/*.apk
+
+# Private working notes (not for the public repo)
+HANDOFF.md
