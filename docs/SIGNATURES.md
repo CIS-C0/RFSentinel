@@ -165,6 +165,16 @@ These are editable and can be switched on or off in Settings.
 | `00:22:9F` | Sensys Traffic (traffic enforcement cameras) | ALPR | 55 |
 | `00:1D:4D` | Adaptive Recognition (ANPR / ALPR cameras) | ALPR | 55 |
 | `00:17:3D` | Neology (ALPR, mostly RFID tolling) | ALPR | 40 |
+| `00:24:AE` | Idemia Public Security (French Mesta Fusion speed cameras, police biometric terminals) | ALPR | 50 |
+| `00:0A:3E` | EADS Telecom (TETRAPOL: French police ACROPOL and gendarmerie RUBIS networks) | Public safety | 45 |
+| `00:23:B9` | Airbus Defence and Space Deutschland (TETRA / TETRAPOL radios) | Public safety | 40 |
+
+France: the national police and gendarmerie body cameras (2021 contract) are Motorola
+Solutions VB400s (WiFi, Bluetooth LE 4.2 for holster sensors and peer-assisted
+recording). They are covered only by the generic Motorola identifiers above, because
+no public source documents their Bluetooth name. The earlier Hikvision cameras aren't
+matched: Hikvision's 84 blocks are ordinary CCTV everywhere. The new Réseau Radio du
+Futur uses Samsung rugged phones, indistinguishable from consumer ones.
 
 Same-name registrants that are *not* public-safety vendors are deliberately left out:
 Axon Networks (unrelated to Axon Enterprise), WatchGuard Technologies (firewalls),

@@ -286,5 +286,29 @@
     "confidence": "candidate",
     "score": 40,
     "category": "ALPR"
+  },
+  {
+    "prefix": "00:24:AE",
+    "label": "Idemia Public Security (speed cameras, plate readers, police biometric terminals)",
+    "source": "IEEE MA-L registry (Idemia Public Security France); maker of the Mesta Fusion speed cameras used in France and of police fingerprint / ID terminals. Fixed speed cameras mostly use cellular - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:0A:3E",
+    "label": "EADS / Airbus TETRAPOL radio (police and gendarmerie networks)",
+    "source": "IEEE MA-L registry (EADS Telecom); TETRAPOL maker behind the French police (ACROPOL) and gendarmerie (RUBIS) radio networks. Weak: also other TETRAPOL users",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:23:B9",
+    "label": "Airbus Defence and Space (TETRA / TETRAPOL radios)",
+    "source": "IEEE MA-L registry (Airbus Defence and Space Deutschland GmbH); public-safety radio maker. Weak: also defence equipment",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
   }
 ]
