@@ -12,6 +12,7 @@
   <img src="https://img.shields.io/badge/Kotlin-100%25-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin" />
   <img src="https://img.shields.io/badge/Android%20Auto-supported-4285F4?logo=androidauto&logoColor=white" alt="Android Auto supported" />
   <img src="https://img.shields.io/badge/tracking-none-555555" alt="No tracking" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0" /></a>
   <a href="https://github.com/CIS-C0/RFSentinel/stargazers"><img src="https://img.shields.io/github/stars/CIS-C0/RFSentinel?style=flat&color=FFB000" alt="GitHub stars" /></a>
 </p>
 
@@ -45,6 +46,7 @@
 - [Building from source](#building-from-source)
 - [Signatures and sources](#signatures-and-sources)
 - [Acknowledgements](#acknowledgements)
+- [License](#license)
 - [Disclaimer](#disclaimer)
 
 ## Overview
@@ -311,6 +313,20 @@ Some feature ideas come from SØPHIA and BLE Radar (MetaRadar). No code from
 those projects is included. The DedSec theme font is Share Tech Mono (SIL Open
 Font License 1.1). The DedSec theme is an unofficial, original homage and
 contains no Ubisoft artwork.
+
+## License
+
+Copyright © 2026 CIS-C0
+
+RF Sentinel is free software: you can redistribute it and/or modify it under
+the terms of the **GNU General Public License v3.0** as published by the Free
+Software Foundation. It is distributed in the hope that it will be useful, but
+**without any warranty**; see the [LICENSE](LICENSE) file for the full text.
+
+Any modified version you distribute must also be released under GPL-3.0 with
+its source code. Bundled third-party material keeps its own license: the Share
+Tech Mono font (SIL Open Font License 1.1, `app/src/main/assets/licenses/`), and
+the signature and Remote ID references credited above (Apache-2.0).
 
 ## Disclaimer
 

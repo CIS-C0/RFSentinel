@@ -12,6 +12,9 @@ object AboutDialog {
     fun show(activity: AppCompatActivity) {
         val html = """
             <b>RF Sentinel ${BuildConfig.VERSION_NAME}</b><br/>
+            Copyright &copy; 2026 CIS-C0. Free software under the GNU General Public
+            License v3.0: you may share and modify it under its terms. It comes with
+            ABSOLUTELY NO WARRANTY. Source code: github.com/CIS-C0/RFSentinel<br/><br/>
             Passive, receive-only Bluetooth LE and WiFi scanner. It never transmits to,
             connects to, jams or spoofs any device. Scans, detections, history and traces stay
             on this phone. The only internet use is downloading OpenStreetMap tiles while the
