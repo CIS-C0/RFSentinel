@@ -125,7 +125,7 @@ class SetupActivity : AppCompatActivity() {
         header("Where do you use it?", "Adds watchlists of equipment known to be used by police in that region. The built-in detection (body cams, Flock, drones, trackers, glasses) works everywhere.")
         val enabled = OuiWatchlist.getEnabledPresets(this).toMutableSet()
         listOf(
-            "global" to "Global - Axon, Flock, i-PRO, Utility, Motorola Solutions",
+            "global" to "Global - Axon, Flock, Zepcam, i-PRO, Utility, Motorola Solutions",
             "canada" to "Canada - adds Cyberkar in-car systems, Getac body cams, Genetec plate readers",
             "us" to "United States"
         ).forEach { (key, label) ->

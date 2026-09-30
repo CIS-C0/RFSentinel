@@ -46,7 +46,7 @@ object PatrolCluster {
         Regex("cyberkar", RegexOption.IGNORE_CASE) to "in-car computer / console",
         Regex("getac", RegexOption.IGNORE_CASE) to "rugged laptop / body cam",
         Regex("genetec", RegexOption.IGNORE_CASE) to "plate reader",
-        Regex("utility,? inc|digital ally|watchguard|i-pro", RegexOption.IGNORE_CASE) to "police camera"
+        Regex("utility,? inc|digital ally|watchguard|i-pro|zepcam", RegexOption.IGNORE_CASE) to "police camera"
     )
 
     private val ROLE_BY_NAME = listOf(

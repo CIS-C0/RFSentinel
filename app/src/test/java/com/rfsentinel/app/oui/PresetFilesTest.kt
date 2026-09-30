@@ -37,6 +37,17 @@ class PresetFilesTest {
     }
 
     @Test
+    fun globalPresetFlagsZepcamBodyCams() {
+        val entries: List<OuiEntry> = Gson().fromJson(File("src/main/assets/oui_presets/global.json").readText(), type)
+        val zepcam = entries.single { it.prefix == "48:46:8D" }
+        assertEquals(Category.BODY_CAM.name, zepcam.category)
+        assertEquals(75, zepcam.score)
+        // The IEEE table must agree that this block really is Zepcam's.
+        val oui = File("src/main/assets/vendors/oui.tsv").readLines().first { it.startsWith("48468D	") }
+        assertTrue(oui.contains("Zepcam", ignoreCase = true))
+    }
+
+    @Test
     fun canadaPresetHasResearchedEntries() {
         val entries: List<OuiEntry> = Gson().fromJson(File("src/main/assets/oui_presets/canada.json").readText(), type)
         val byKey = entries.associateBy { it.prefix }

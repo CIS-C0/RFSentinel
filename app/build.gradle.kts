@@ -6,8 +6,8 @@ plugins {
 }
 
 // Bump both for every release. versionName ends up in the APK file name.
-val appVersionCode = 17
-val appVersionName = "2.8.3"
+val appVersionCode = 18
+val appVersionName = "2.8.4"
 
 // Release signing credentials live in keystore.properties (git-ignored).
 // Without that file, release builds are produced unsigned.

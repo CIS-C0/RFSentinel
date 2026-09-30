@@ -146,6 +146,7 @@ These are editable and can be switched on or off in Settings.
 | `B4:1E:52` | Flock Safety | ALPR | 75 |
 | `D4:2D:C5` | i-PRO Co., Ltd. | Public safety | 55 |
 | `00:09:BC`, `00:16:ED` | Utility, Inc. | Body cam | 45 |
+| `48:46:8D` | Zepcam B.V. (dedicated body-worn camera maker) | Body cam | 75 |
 | `00:1F:92`, `4C:CC:34`, `00:18:85`, `00:04:7D`, `10:74:6F`, `B8:E2:8C`, `9C:86:2B` | Motorola Solutions | Public safety | 45 |
 
 The Motorola entries are weak on purpose. In ACAB's field capture, all 27 of 27

@@ -86,6 +86,7 @@ object DeviceIntel {
         Regex("garmin", RegexOption.IGNORE_CASE) to "Garmin wearable / GPS",
         Regex("motorola solutions|harris corp|kenwood", RegexOption.IGNORE_CASE) to "Two-way radio / public-safety gear",
         Regex("axon", RegexOption.IGNORE_CASE) to "Axon body cam / TASER",
+        Regex("zepcam", RegexOption.IGNORE_CASE) to "Zepcam body camera",
         Regex("apple", RegexOption.IGNORE_CASE) to "Apple device",
         Regex("samsung", RegexOption.IGNORE_CASE) to "Samsung device",
         Regex("sonos|bose|harman|jbl|sennheiser|jabra|gn audio", RegexOption.IGNORE_CASE) to "Audio device",

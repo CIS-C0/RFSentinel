@@ -16,6 +16,14 @@
     "category": "BODY_CAM"
   },
   {
+    "prefix": "48:46:8D",
+    "label": "Zepcam body camera",
+    "source": "IEEE MA-L registry (Zepcam B.V.): a dedicated body-worn camera manufacturer for police, security and transit, so the whole block is body-cam equipment",
+    "confidence": "confirmed",
+    "score": 75,
+    "category": "BODY_CAM"
+  },
+  {
     "prefix": "D4:2D:C5",
     "label": "i-PRO Co., Ltd. (body cams / surveillance cameras, ex-Panasonic)",
     "source": "IEEE MA-L registry (i-PRO Co., Ltd., reg. 2019-08-24)",
