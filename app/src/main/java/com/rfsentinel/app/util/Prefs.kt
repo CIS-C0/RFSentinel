@@ -89,6 +89,12 @@ object Prefs {
     fun setFollowerAlerts(context: Context, value: Boolean) = setBool(context, "follower_alerts", value)
 
     /** Start recording a trace automatically whenever scanning starts. */
+    /** Warn when approaching a plate reader mapped in OpenStreetMap (needs downloaded data). */
+    fun knownAlprAlerts(context: Context): Boolean = bool(context, "known_alpr_alerts", true)
+    fun setKnownAlprAlerts(context: Context, value: Boolean) = setBool(context, "known_alpr_alerts", value)
+    fun showKnownAlpr(context: Context): Boolean = bool(context, "show_known_alpr", true)
+    fun setShowKnownAlpr(context: Context, value: Boolean) = setBool(context, "show_known_alpr", value)
+
     fun autoRecordTrace(context: Context): Boolean = bool(context, "auto_record_trace", false)
     fun setAutoRecordTrace(context: Context, value: Boolean) = setBool(context, "auto_record_trace", value)
 

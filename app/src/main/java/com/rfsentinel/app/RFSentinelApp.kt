@@ -26,6 +26,7 @@ class RFSentinelApp : Application() {
         // ~60k vendor rows: load off the main thread; lookups return null until ready.
         // A trace left "recording" by a crash / force-stop gets closed.
         appScope.launch { runCatching { com.rfsentinel.app.service.TripRecorder.closeStale(this@RFSentinelApp) } }
+        appScope.launch(Dispatchers.IO) { runCatching { com.rfsentinel.app.alpr.AlprStore.load(this@RFSentinelApp) } }
         appScope.launch(Dispatchers.IO) {
             runCatching { VendorDb.load { assets.open(it) } }
                 .onFailure { Log.e("RFSentinelApp", "Vendor database failed to load", it) }

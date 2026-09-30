@@ -135,6 +135,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.followMetersInput.setText(Prefs.followMinMeters(this).toString())
         binding.gpsSwitch.isChecked = Prefs.gpsTaggingEnabled(this)
         binding.autoRecordSwitch.isChecked = Prefs.autoRecordTrace(this)
+        binding.knownAlprSwitch.isChecked = Prefs.knownAlprAlerts(this)
 
         // Data
         binding.retentionInput.setText(Prefs.retentionDays(this).toString())
@@ -261,6 +262,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setFollowMinMeters(this, (binding.followMetersInput.text.toString().toIntOrNull() ?: 800).coerceIn(100, 50_000))
         Prefs.setGpsTaggingEnabled(this, binding.gpsSwitch.isChecked)
         Prefs.setAutoRecordTrace(this, binding.autoRecordSwitch.isChecked)
+        Prefs.setKnownAlprAlerts(this, binding.knownAlprSwitch.isChecked)
 
         Prefs.setRetentionDays(this, (binding.retentionInput.text.toString().toIntOrNull() ?: 90).coerceAtLeast(0))
 

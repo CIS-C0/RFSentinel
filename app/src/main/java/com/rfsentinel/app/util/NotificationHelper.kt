@@ -92,6 +92,45 @@ object NotificationHelper {
         }
     }
 
+    /**
+     * Posts an alert about a mapped place rather than a device (e.g. a known plate
+     * camera): tapping it opens the map. Sound/vibration/voice are played by the caller.
+     */
+    fun sendMapAlert(context: Context, key: String, hit: Hit) {
+        val nm = context.getSystemService(NotificationManager::class.java)
+        val discreet = Prefs.discreetMode(context)
+        val open = PendingIntent.getActivity(
+            context, key.hashCode(),
+            Intent(context, com.rfsentinel.app.ui.MapActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val builder = NotificationCompat.Builder(context, CHANNEL_ALERTS)
+            .setContentTitle(if (discreet) "RF Sentinel" else hit.label)
+            .setContentText(if (discreet) "New alert - tap to view" else hit.evidence)
+            .setStyle(if (discreet) null else NotificationCompat.BigTextStyle().bigText(hit.evidence))
+            .setSmallIcon(R.drawable.ic_tile_scan)
+            .setColor(hit.category.colorArgb)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(true)
+            .setSilent(true)
+            .setContentIntent(open)
+            .setVisibility(if (discreet) NotificationCompat.VISIBILITY_SECRET else NotificationCompat.VISIBILITY_PRIVATE)
+            .extend(
+                CarAppExtender.Builder()
+                    .setContentTitle(if (discreet) "RF Sentinel" else hit.label)
+                    .setContentText(if (discreet) "New alert" else hit.evidence)
+                    .setSmallIcon(R.drawable.ic_tile_scan)
+                    .setImportance(NotificationManagerCompat.IMPORTANCE_HIGH)
+                    .build()
+            )
+        try {
+            nm.notify(ALERT_NOTIFICATION_ID_BASE + key.hashCode(), builder.build())
+        } catch (e: SecurityException) {
+            // POST_NOTIFICATIONS denied - sound and voice still alert.
+        }
+    }
+
     /** Posts the match notification; sound/vibration/voice are played by the caller. */
     fun sendAlert(context: Context, mac: String, hit: Hit, rssi: Int, following: Boolean = false) {
         val nm = context.getSystemService(NotificationManager::class.java)

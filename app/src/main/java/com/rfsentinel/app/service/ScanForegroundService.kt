@@ -26,6 +26,8 @@ import androidx.annotation.VisibleForTesting
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.rfsentinel.app.RFSentinelApp
+import com.rfsentinel.app.alpr.AlprStore
+import com.rfsentinel.app.alpr.KnownCameras
 import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.DetectionEntity
 import com.rfsentinel.app.data.KnownDeviceEntity
@@ -81,6 +83,7 @@ class ScanForegroundService : Service() {
         private const val WAKE_SLICE_MS = 10_000L
         private const val HISTORY_FLUSH_MS = 60_000L
         private const val DRONE_OVERHEAD_REPEAT_MS = 5 * 60_000L
+        private const val KNOWN_ALPR_REPEAT_MS = 30 * 60_000L
 
         /** True while an instance is alive in this process. Source of truth for the UI. */
         @Volatile
@@ -128,7 +131,12 @@ class ScanForegroundService : Service() {
     private val locationListener = LocationListener {
         lastLocation = it
         TripRecorder.onLocation(it)
+        checkKnownAlpr(it)
     }
+
+    /** Known plate cameras: distance at the previous fix, and when each last alerted. */
+    private val alprLastDistance = HashMap<String, Double>()
+    private val alprLastAlert = HashMap<String, Long>()
 
     /** Starts BLE scanning if the user turns Bluetooth on after the service started. */
     private val btStateReceiver = object : BroadcastReceiver() {
@@ -162,7 +170,9 @@ class ScanForegroundService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        if (intent?.action == ACTION_REFRESH_LOCATION && isRunning) {
+        if (intent?.action == ACTION_REFRESH_LOCATION) {
+            // A settings refresh must never start a scan by itself.
+            if (!isRunning) { stopSelf(); return START_NOT_STICKY }
             updateLocationUpdates()
             return START_STICKY
         }
@@ -279,8 +289,10 @@ class ScanForegroundService : Service() {
     @SuppressLint("MissingPermission") // checked by hasFineLocation()
     fun updateLocationUpdates() {
         val wanted = hasFineLocation() &&
-            (Prefs.gpsTaggingEnabled(this) || Prefs.followerAlerts(this) || TripRecorder.isRecording)
-        val fast = TripRecorder.isRecording
+            (Prefs.gpsTaggingEnabled(this) || Prefs.followerAlerts(this) || TripRecorder.isRecording || knownAlprActive())
+        // Frequent fixes while recording a trace or watching for known plate cameras
+        // (at highway speed a 20 s interval could skip right past one).
+        val fast = TripRecorder.isRecording || knownAlprActive()
         val lm = getSystemService(LOCATION_SERVICE) as LocationManager
         if (locationListening && (!wanted || fast != locationFastMode)) {
             lm.removeUpdates(locationListener)
@@ -412,6 +424,39 @@ class ScanForegroundService : Service() {
         lastAlerted[a.mac] = now
         NotificationHelper.sendAlert(this, a.mac, best, a.rssi)
         AlertPlayer.play(this, best.tier, "${best.label} nearby")
+    }
+
+    private fun knownAlprActive() = Prefs.knownAlprAlerts(this) &&
+        Prefs.categoryEnabled(this, Category.ALPR) && AlprStore.cameras.isNotEmpty()
+
+    /**
+     * Warns once (per camera, per 30 minutes) when you're approaching a plate
+     * reader mapped in OpenStreetMap: within ~20 s of travel and getting closer.
+     * Runs on the main thread with each location fix; the lookup is a cheap
+     * bounding-box filter.
+     */
+    private fun checkKnownAlpr(loc: Location) {
+        if (!knownAlprActive()) return
+        val now = System.currentTimeMillis()
+        val radius = KnownCameras.warnRadius(if (loc.hasSpeed()) loc.speed else null)
+        val near = KnownCameras.near(AlprStore.cameras, loc.latitude, loc.longitude, radius)
+        val nearIds = near.map { it.first.osmId }.toSet()
+        alprLastDistance.keys.retainAll(nearIds)
+        for ((cam, d) in near) {
+            val prev = alprLastDistance.put(cam.osmId, d)
+            val approaching = prev == null || d < prev - 3
+            if (!approaching || now - (alprLastAlert[cam.osmId] ?: 0L) < KNOWN_ALPR_REPEAT_MS) continue
+            alprLastAlert[cam.osmId] = now
+            val hit = Hit(
+                Category.ALPR, "Known plate camera ahead", 80,
+                "${cam.label}, ~${d.toInt()} m away" + (cam.operator?.let { ", operated by $it" } ?: "") +
+                    ". Mapped in OpenStreetMap - it may not broadcast any signal.",
+                "OpenStreetMap (surveillance:type=ALPR), ODbL"
+            )
+            NotificationHelper.sendMapAlert(this, "alpr:" + cam.osmId, hit)
+            AlertPlayer.play(this, hit.tier, "Plate camera ahead")
+            break // one warning per fix is enough
+        }
     }
 
     /** Remote ID puts the drone within ~200 m of you: alert once per drone per 5 minutes. */

@@ -268,6 +268,12 @@
         </LinearLayout>
 
         <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/knownAlprSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Warn when approaching a known plate-reader camera (download them on the map: menu, Known plate cameras)" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/autoRecordSwitch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
