@@ -93,7 +93,10 @@ publicly.
 - OpenStreetMap map with recorded GPS traces and the devices heard along them
 - **History map & timeline:** a heatmap of where flagged equipment showed up, and when (hour of day, day of week)
 - Alerts with sound, vibration patterns and spoken announcements, plus a discreet mode
-- Android Auto app, Quick Settings tile and home-screen widget
+- **Floating threat bubble** over Waze, Google Maps or any other app while scanning
+- **Starts by itself in the car** (your car's Bluetooth or Android Auto) and stops when you leave
+- Android Auto app with a map of nearby plate cameras and drones, Quick Settings tile and home-screen widget
+- **Report unknown device:** share a privacy-safe signature (no full address, serials, location or times) so new equipment can be added
 - 12 themes, each styled theme with its own animated header
 
 **Data**
@@ -130,7 +133,16 @@ permission is optional; without it, alerts still play and show in the app.
 - **Filters and search:** All, Flagged, Trackers, Drones, New, Favorites,
   Bluetooth, WiFi. Search matches name, address, vendor and type.
 - **Tap** a device for details. **Long-press** for quick actions: watchlist,
-  whitelist, favorite, copy.
+  whitelist, favorite, copy, and **Report unknown device** for devices with no
+  match. The report shows exactly what is shared (vendor prefix, name pattern
+  with serial digits hidden, service and manufacturer IDs) before you send it;
+  paste it into a [new issue](https://github.com/CIS-C0/RFSentinel/issues/new).
+- **Floating bubble** (Settings, needs *Display over other apps*): green when
+  clear, orange for a probable match, red for a strong match or a follower,
+  with the number of flagged devices. Tap to open the app, drag to move.
+- **In the car** (Settings → *Start scanning automatically in the car*): pick
+  your car's Bluetooth; scanning starts when the phone connects to it or to
+  Android Auto, and stops when you leave if the car started it.
 
 ### Device details
 
@@ -176,6 +188,9 @@ RF Sentinel runs in Android Auto as a driver-safe, template-based app:
 - **Device lists** (flagged, drones & trackers, all nearby) and **device details**
   with Whitelist, Watch and Favorite actions. **Navigate** opens your car's
   navigation app for drones with a known position.
+- **Plate cameras & drones map:** the closest known plate cameras (downloaded
+  on the phone from OpenStreetMap) and Remote ID drones, on the car's map
+  with distances.
 - **Alerts** appear as a heads-up on the car screen. While connected, they play
   through the car speakers as navigation-guidance audio, briefly lowering your
   music.
@@ -230,7 +245,10 @@ Pick a theme in the setup wizard or under **Settings → Appearance**.
   only when you tap *Download known plate cameras*, the camera list for the area on
   screen. Those servers see your IP address and that area, never your scans. Map data
   © OpenStreetMap contributors (ODbL).
-- **Data leaves the phone only when you export it.**
+- **Data leaves the phone only when you export or share it.**
+- **Optional permissions:** *Nearby devices → connect* is asked only to read the
+  names of your paired Bluetooth devices when you pick your car; *Display over
+  other apps* only for the floating bubble.
 
 ## Limitations
 

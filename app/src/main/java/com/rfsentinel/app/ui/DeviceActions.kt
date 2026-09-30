@@ -3,16 +3,23 @@ package com.rfsentinel.app.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
+import android.graphics.Typeface
 import android.view.View
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.rfsentinel.app.BuildConfig
 import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.Favorites
 import com.rfsentinel.app.data.WhitelistCache
 import com.rfsentinel.app.data.WhitelistEntity
 import com.rfsentinel.app.databinding.DialogAddWatchlistBinding
+import com.rfsentinel.app.detect.SignatureReport
 import com.rfsentinel.app.oui.OuiEntry
 import com.rfsentinel.app.oui.OuiWatchlist
 import com.rfsentinel.app.service.DeviceRegistry
@@ -53,6 +60,9 @@ object DeviceActions {
                 toast(activity, if (favorite) "Removed from favorites" else "Added to favorites")
             }
         }
+        if (snap?.advert != null && snap.best == null) {
+            items += "Report unknown device..." to { reportUnknown(activity, mac) }
+        }
         items += "Copy address" to { copy(activity, mac) }
 
         AlertDialog.Builder(activity)
@@ -90,6 +100,51 @@ object DeviceActions {
                 OuiWatchlist.addCustomEntry(activity, OuiEntry(key, label, "user-added from live list", "custom"))
                 toast(activity, "Added $key to the watchlist")
             }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    /**
+     * Shares a signature report (see [SignatureReport]) so a device RF Sentinel
+     * doesn't know can be added. The user sees exactly what is shared first.
+     */
+    fun reportUnknown(activity: AppCompatActivity, mac: String) {
+        val snap = DeviceRegistry.get(mac)
+        val advert = snap?.advert ?: run { toast(activity, "Device no longer in range"); return }
+        val d = activity.resources.displayMetrics.density
+        val note = EditText(activity).apply { hint = "What do you think it is? (optional)"; setSingleLine(false) }
+        val preview = TextView(activity).apply {
+            typeface = Typeface.MONOSPACE
+            textSize = 11f
+            setTextIsSelectable(true)
+        }
+        fun report() = SignatureReport.build(advert, snap.vendor, snap.deviceType, MacUtil.isRandomized(mac),
+            note.text.toString(), BuildConfig.VERSION_NAME)
+        preview.text = report()
+        val box = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            val p = (20 * d).toInt()
+            setPadding(p, (8 * d).toInt(), p, 0)
+            addView(TextView(activity).apply {
+                text = "Shares only what a signature needs: vendor prefix, name pattern (serial digits hidden), " +
+                    "service and manufacturer IDs. No full address, location or times."
+            })
+            addView(note)
+            addView(preview)
+        }
+        AlertDialog.Builder(activity)
+            .setTitle("Report unknown device")
+            .setView(ScrollView(activity).apply { addView(box) })
+            .setPositiveButton("Share") { _, _ ->
+                val text = "RF Sentinel signature report - please open an issue at\n" +
+                    SignatureReport.ISSUE_URL + "\n\n" + report()
+                activity.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_SUBJECT, "New device signature")
+                    putExtra(Intent.EXTRA_TEXT, text)
+                }, "Share signature report"))
+            }
+            .setNeutralButton("Copy") { _, _ -> copy(activity, report()) }
             .setNegativeButton("Cancel", null)
             .show()
     }

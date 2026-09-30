@@ -364,6 +364,19 @@ class DeviceDetailActivity : AppCompatActivity() {
 
     private fun share() {
         val s = DeviceRegistry.get(mac)
+        if (s?.advert != null && s.best == null) {
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Share")
+                .setItems(arrayOf("Full device report", "Report unknown device (signature only)")) { _, which ->
+                    if (which == 0) shareFull(s) else DeviceActions.reportUnknown(this, mac)
+                }
+                .show()
+            return
+        }
+        shareFull(s)
+    }
+
+    private fun shareFull(s: DeviceRegistry.Snapshot?) {
         val text = buildString {
             appendLine("RF Sentinel device report")
             appendLine(binding.titleText.text)
