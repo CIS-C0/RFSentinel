@@ -93,6 +93,16 @@ class SettingsActivity : AppCompatActivity() {
         )
         binding.intervalInput.setText((Prefs.scanIntervalMs(this) / 1000).toString())
         binding.wifiThrottleButton.setOnClickListener { openWifiThrottleSetting() }
+        binding.disable2gButton.setOnClickListener {
+            val opened = runCatching { startActivity(Intent(Settings.ACTION_NETWORK_OPERATOR_SETTINGS)) }.isSuccess ||
+                runCatching { startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS)) }.isSuccess
+            Toast.makeText(
+                this,
+                if (opened) "Look for \"Allow 2G\" and turn it off (on some phones: SIMs > your SIM)"
+                else "Open Settings > Network > SIMs and turn off \"Allow 2G\"",
+                Toast.LENGTH_LONG
+            ).show()
+        }
         updateWifiThrottleHint()
         binding.bootSwitch.isChecked = Prefs.autoStartOnBoot(this)
         binding.batteryButton.setOnClickListener {

@@ -176,7 +176,10 @@ class MainActivity : AppCompatActivity() {
             !running -> "Idle - tap Start to listen for nearby devices"
             !bluetoothOn() && !demoMode -> "Scanning WiFi only - turn on Bluetooth for BLE (picked up automatically)"
             else -> "Scanning · $deviceCount ${plural(deviceCount, "device", "devices")} nearby" +
-                if (flaggedCount > 0) " · $flaggedCount flagged" else ""
+                (if (flaggedCount > 0) " · $flaggedCount flagged" else "") +
+                (com.rfsentinel.app.service.CellMonitor.lastAnomaly
+                    ?.takeIf { System.currentTimeMillis() - it.first < 15 * 60_000L }
+                    ?.let { " · ⚠ ${it.second.title}" } ?: "")
         }
     }
 

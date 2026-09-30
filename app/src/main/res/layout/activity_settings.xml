@@ -137,6 +137,17 @@
             android:layout_height="wrap_content"
             android:orientation="vertical" />
 
+        <TextView
+            style="@style/SettingsLabel"
+            android:text="Strongest protection against fake cell towers: turn off &quot;Allow 2G&quot; in your SIM settings (Android 12+). 2G has no network authentication, which is what IMSI catchers exploit." />
+
+        <Button
+            android:id="@+id/disable2gButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Open SIM settings" />
+
         <TextView style="@style/SettingsLabel" android:text="Watchlist presets (MAC prefixes)" />
 
         <CheckBox

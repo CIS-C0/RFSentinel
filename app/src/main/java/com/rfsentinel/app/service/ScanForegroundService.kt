@@ -84,6 +84,8 @@ class ScanForegroundService : Service() {
         private const val HISTORY_FLUSH_MS = 60_000L
         private const val DRONE_OVERHEAD_REPEAT_MS = 5 * 60_000L
         private const val KNOWN_ALPR_REPEAT_MS = 30 * 60_000L
+        private const val CELL_CHECK_MS = 15_000L
+        private const val CELL_REPEAT_MS = 30 * 60_000L
 
         /** True while an instance is alive in this process. Source of truth for the UI. */
         @Volatile
@@ -122,6 +124,9 @@ class ScanForegroundService : Service() {
     private var wifiPollJob: Job? = null
     private var bleRestartJob: Job? = null
     private var housekeepingJob: Job? = null
+    private var cellJob: Job? = null
+    private var cellMonitor: CellMonitor? = null
+    private val lastCellAlert = HashMap<String, Long>()
     private var btStateReceiverRegistered = false
     private var lastHistoryFlush = 0L
 
@@ -132,6 +137,7 @@ class ScanForegroundService : Service() {
         lastLocation = it
         TripRecorder.onLocation(it)
         checkKnownAlpr(it)
+        cellMonitor?.onLocation(it)
     }
 
     /** Known plate cameras: distance at the previous fix, and when each last alerted. */
@@ -203,6 +209,7 @@ class ScanForegroundService : Service() {
         if (Prefs.wifiEnabled(this)) startWifiPolling() else stopWifiPolling()
         updateLocationUpdates()
         startHousekeeping()
+        startCellChecks()
 
         isRunning = true
         refreshTile()
@@ -556,6 +563,47 @@ class ScanForegroundService : Service() {
         }
     }
 
+    /**
+     * Fake-cell-tower check every 15 s: reads the cells the phone already sees
+     * (passive, no extra permission beyond location). Probable signs alert like a
+     * device match; weak ones are only written to the match history.
+     */
+    private fun startCellChecks() {
+        cellJob?.cancel()
+        if (!Prefs.categoryEnabled(this, Category.CELL_ANOMALY) || !hasFineLocation()) return
+        val monitor = cellMonitor ?: CellMonitor(this).also { cellMonitor = it }
+        cellJob = serviceScope.launch {
+            while (isActive) {
+                runCatching { monitor.check() }.getOrNull().orEmpty().forEach { onCellAnomaly(it) }
+                delay(CELL_CHECK_MS)
+            }
+        }
+    }
+
+    private fun onCellAnomaly(a: com.rfsentinel.app.detect.CellAnalyzer.Anomaly) {
+        val now = System.currentTimeMillis()
+        if (now - (lastCellAlert[a.key] ?: 0L) < CELL_REPEAT_MS) return
+        lastCellAlert[a.key] = now
+        CellMonitor.lastAnomaly = now to a
+        val hit = Hit(Category.CELL_ANOMALY, a.title, a.confidence, a.detail, "Android cell info (heuristic, not proof)")
+        val loc = lastLocation
+        val tag = Prefs.gpsTaggingEnabled(this)
+        serviceScope.launch {
+            AppDatabase.getInstance(this@ScanForegroundService).detectionDao().insert(
+                DetectionEntity(
+                    mac = "CELL " + a.key.substringAfter(':'), label = a.title, source = "CELL", rssi = 0,
+                    timestamp = now,
+                    latitude = if (tag) loc?.latitude else null, longitude = if (tag) loc?.longitude else null,
+                    category = Category.CELL_ANOMALY.name, confidence = a.confidence, evidence = a.detail
+                )
+            )
+        }
+        if (a.confidence >= Prefs.alertThreshold(this)) {
+            NotificationHelper.sendMapAlert(this, "cell:" + a.key, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java)
+            AlertPlayer.play(this, hit.tier, "Cell network warning")
+        }
+    }
+
     private fun updateLocationOnMain() {
         android.os.Handler(Looper.getMainLooper()).post { updateLocationUpdates() }
     }
@@ -577,6 +625,7 @@ class ScanForegroundService : Service() {
         }
         serviceScope.cancel()
         pipelineThread.quitSafely()
+        cellMonitor?.close()
         // Take the final history and trace synchronously, so a scan restarted right
         // away (new session, new trace) can't clear or reuse them; write them after.
         val history = takeHistory()

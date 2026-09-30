@@ -96,12 +96,15 @@ object NotificationHelper {
      * Posts an alert about a mapped place rather than a device (e.g. a known plate
      * camera): tapping it opens the map. Sound/vibration/voice are played by the caller.
      */
-    fun sendMapAlert(context: Context, key: String, hit: Hit) {
+    fun sendMapAlert(
+        context: Context, key: String, hit: Hit,
+        target: Class<out android.app.Activity> = com.rfsentinel.app.ui.MapActivity::class.java
+    ) {
         val nm = context.getSystemService(NotificationManager::class.java)
         val discreet = Prefs.discreetMode(context)
         val open = PendingIntent.getActivity(
             context, key.hashCode(),
-            Intent(context, com.rfsentinel.app.ui.MapActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            Intent(context, target).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val builder = NotificationCompat.Builder(context, CHANNEL_ALERTS)
