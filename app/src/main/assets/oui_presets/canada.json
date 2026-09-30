@@ -144,6 +144,14 @@
     "category": "ALPR"
   },
   {
+    "prefix": "00:0A:B1",
+    "label": "Genetec - AutoVu license-plate readers / security systems",
+    "source": "IEEE MA-L (GENETEC Corporation). Weak registry-only match",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "ALPR"
+  },
+  {
     "prefix": "F4:60:77",
     "label": "Texas Instruments Bluetooth chip block (used in Zebra mobile printers)",
     "source": "IEEE MA-L (Texas Instruments); seen on Zebra ZQ-series mobile printers. Very weak: TI chips are in countless products - listed so these devices are highlighted, not alerted",

@@ -12,8 +12,8 @@ enum class Category(
     val defaultEnabled: Boolean
 ) {
     BODY_CAM("Body camera / Axon equipment", "BODY CAM", 0xFFC8431A.toInt(), true),
-    ALPR("License-plate camera (Flock)", "ALPR", 0xFFB3261E.toInt(), true),
-    AUDIO_SENSOR("Audio sensor (Flock Raven)", "RAVEN", 0xFF9C2A6B.toInt(), true),
+    ALPR("License-plate / traffic enforcement camera", "ALPR", 0xFFB3261E.toInt(), true),
+    AUDIO_SENSOR("Audio / gunshot sensor (Flock Raven, ShotSpotter)", "AUDIO", 0xFF9C2A6B.toInt(), true),
     PUBLIC_SAFETY("Public-safety vendor gear (Motorola, i-PRO...)", "PUBLIC SAFETY", 0xFFB26A00.toInt(), true),
     DRONE("Drone (Remote ID / drone maker)", "DRONE", 0xFF1F5FBF.toInt(), true),
     TRACKER("Item tracker away from its owner", "TRACKER", 0xFF6A3FB5.toInt(), true),

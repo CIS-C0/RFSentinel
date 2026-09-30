@@ -110,5 +110,181 @@
     "confidence": "candidate",
     "score": 45,
     "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:1D:96",
+    "label": "WatchGuard Video (police in-car and body cameras, now Motorola Solutions)",
+    "source": "IEEE MA-L registry (WatchGuard Video); maker of law-enforcement in-car and body-worn video systems",
+    "confidence": "confirmed",
+    "score": 70,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "00:23:BD",
+    "label": "Digital Ally (police body and in-car cameras)",
+    "source": "IEEE MA-L registry (Digital Ally, Inc.); maker of law-enforcement body-worn and in-car video",
+    "confidence": "confirmed",
+    "score": 70,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "9C:83:BF",
+    "label": "Pro-Vision (body cameras and fleet video)",
+    "source": "IEEE MA-L registry (PRO-VISION, Inc.); body-worn and vehicle video for police, transit and school buses - verify",
+    "confidence": "candidate",
+    "score": 55,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "58:E8:76:C",
+    "label": "Kustom Signals (police radar and in-car video)",
+    "source": "IEEE MA-M registry (Kustom Signals Inc); maker of police speed radar and in-car video. Match all 28 bits",
+    "confidence": "confirmed",
+    "score": 70,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:22:AF",
+    "label": "Safety Vision (mobile video for police and transit)",
+    "source": "IEEE MA-L registry (Safety Vision, LLC); mobile video for police cars, transit and school buses - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "E4:1E:0A:B",
+    "label": "Safety Vision (mobile video for police and transit)",
+    "source": "IEEE MA-M registry (Safety Vision, LLC). Match all 28 bits - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "D4:11:D6",
+    "label": "ShotSpotter / SoundThinking (gunshot detection sensor)",
+    "source": "IEEE MA-L registry (ShotSpotter, Inc.); dedicated acoustic gunshot-detection sensors",
+    "confidence": "confirmed",
+    "score": 75,
+    "category": "AUDIO_SENSOR"
+  },
+  {
+    "prefix": "00:16:00",
+    "label": "Cellebrite (phone forensic extraction device)",
+    "source": "IEEE MA-L registry (CelleBrite Mobile Synchronization); maker of phone extraction kits used by police",
+    "confidence": "confirmed",
+    "score": 60,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "70:B3:D5:71:F",
+    "label": "Grayshift / GrayKey (phone unlocking device)",
+    "source": "IEEE MA-S registry (Grayshift); maker of the GrayKey phone-unlocking device sold to law enforcement. Match all 36 bits",
+    "confidence": "confirmed",
+    "score": 70,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:1E:96",
+    "label": "Sepura (TETRA police radios)",
+    "source": "IEEE MA-L registry (Sepura Limited); TETRA radios used by police in Europe and elsewhere. Weak: also used by transport and utilities",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "C4:7C:8D:9",
+    "label": "Airbus Secure Land Communications (TETRA police radios)",
+    "source": "IEEE MA-M registry (Airbus DS - SLC); TETRA radio networks and terminals for police. Match all 28 bits",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "54:02:37",
+    "label": "Teltronic (TETRA radios)",
+    "source": "IEEE MA-L registry (Teltronic AG); TETRA radios for public safety. Weak: also transport",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:04:18",
+    "label": "Teltronic (TETRA radios)",
+    "source": "IEEE MA-L registry (Teltronic S.A.U.). Weak: also transport",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "64:69:BC",
+    "label": "Hytera (two-way radios and body cameras)",
+    "source": "IEEE MA-L registry (Hytera Communications Co.,ltd). Weak: mostly commercial two-way radios",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "9C:06:6E",
+    "label": "Hytera (two-way radios and body cameras)",
+    "source": "IEEE MA-L registry (Hytera Communications Corporation Limited). Weak: mostly commercial two-way radios",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "8C:1F:64:A7:8",
+    "label": "Tait (two-way radios)",
+    "source": "IEEE MA-S registry (TAIT Global LLC). Weak: police, utilities and transport radios. Match all 36 bits",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:0D:CA",
+    "label": "Tait (two-way radios)",
+    "source": "IEEE MA-L registry (Tait Electronics). Weak: police, utilities and transport radios",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:18:29",
+    "label": "Gatso (speed and traffic enforcement camera)",
+    "source": "IEEE MA-L registry (Gatsometer); dedicated traffic-enforcement camera maker",
+    "confidence": "confirmed",
+    "score": 60,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:30:7E",
+    "label": "Redflex (red-light and speed camera)",
+    "source": "IEEE MA-L registry (Redflex Communication Systems); dedicated traffic-enforcement camera maker",
+    "confidence": "confirmed",
+    "score": 60,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:22:9F",
+    "label": "Sensys Gatso (traffic enforcement camera)",
+    "source": "IEEE MA-L registry (Sensys Traffic AB); traffic-enforcement cameras",
+    "confidence": "candidate",
+    "score": 55,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:1D:4D",
+    "label": "Adaptive Recognition (plate-reader camera)",
+    "source": "IEEE MA-L registry (Adaptive Recognition Hungary); maker of ANPR/ALPR cameras and engines",
+    "confidence": "candidate",
+    "score": 55,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:17:3D",
+    "label": "Neology (plate reader / tolling)",
+    "source": "IEEE MA-L registry (Neology); ALPR and RFID tolling equipment. Weak: mostly tolling",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "ALPR"
   }
 ]

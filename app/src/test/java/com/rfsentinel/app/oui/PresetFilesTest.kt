@@ -36,6 +36,34 @@ class PresetFilesTest {
         }
     }
 
+    /**
+     * Every address block in the presets must belong, per the bundled IEEE table,
+     * to the company its label names - so a typo can't silently flag the wrong vendor.
+     */
+    @Test
+    fun presetBlocksMatchTheirIeeeRegistrant() {
+        val ieee = File("src/main/assets/vendors/oui.tsv").readLines()
+            .filter { '	' in it && !it.startsWith("#") }
+            .associate { it.substringBefore('	') to it.substringAfter('	') }
+        // Registrant word expected in the IEEE name, for entries whose label brand differs.
+        val alias = mapOf("Sensys Gatso" to "Sensys", "ShotSpotter" to "ShotSpotter", "Grayshift" to "Grayshift",
+            "Airbus" to "Airbus", "Axon equipment" to "Private")
+        for (name in OuiWatchlist.availablePresets) {
+            val entries: List<OuiEntry> = Gson().fromJson(File("src/main/assets/oui_presets/$name.json").readText(), type)
+            for (e in entries.filter { !it.isNameRule && !it.isVendorRule && it.prefix.length < 17 }) {
+                val hex = e.prefix.replace(":", "").uppercase()
+                val registrant = ieee[hex]
+                if (e.prefix == "D8:1F:65") continue // IEEE "Private"; field-attributed to Axon (documented)
+                if (e.prefix == "F4:60:77") continue // Texas Instruments chip block, labelled by what uses it
+                assertNotNull("$name: ${e.prefix} is not an IEEE block", registrant)
+                val brand = alias.entries.firstOrNull { e.label.startsWith(it.key) }?.value
+                    ?: e.label.substringBefore(" (").substringBefore(" -").substringBefore(" /").split(" ").first()
+                assertTrue("$name: ${e.prefix} label '${e.label}' vs IEEE '$registrant'",
+                    registrant!!.contains(brand, ignoreCase = true))
+            }
+        }
+    }
+
     @Test
     fun globalPresetFlagsZepcamBodyCams() {
         val entries: List<OuiEntry> = Gson().fromJson(File("src/main/assets/oui_presets/global.json").readText(), type)

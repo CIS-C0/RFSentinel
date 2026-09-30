@@ -147,6 +147,30 @@ These are editable and can be switched on or off in Settings.
 | `D4:2D:C5` | i-PRO Co., Ltd. | Public safety | 55 |
 | `00:09:BC`, `00:16:ED` | Utility, Inc. | Body cam | 45 |
 | `48:46:8D` | Zepcam B.V. (dedicated body-worn camera maker) | Body cam | 75 |
+| `00:1D:96` | WatchGuard Video (police in-car and body cameras) | Body cam | 70 |
+| `00:23:BD` | Digital Ally (police body and in-car cameras) | Body cam | 70 |
+| `9C:83:BF` | PRO-VISION (body and fleet cameras; also school buses) | Body cam | 55 |
+| `58:E8:76:C` (28-bit) | Kustom Signals (police radar, in-car video) | Public safety | 70 |
+| `00:22:AF`, `E4:1E:0A:B` (28-bit) | Safety Vision (police and transit mobile video) | Public safety | 50 |
+| `D4:11:D6` | ShotSpotter / SoundThinking (gunshot-detection sensor) | Audio sensor | 75 |
+| `00:16:00` | Cellebrite (phone forensic extraction) | Public safety | 60 |
+| `70:B3:D5:71:F` (36-bit) | Grayshift / GrayKey (phone unlocking) | Public safety | 70 |
+| `00:1E:96` | Sepura (TETRA police radios) | Public safety | 45 |
+| `C4:7C:8D:9` (28-bit) | Airbus Secure Land Communications (TETRA) | Public safety | 45 |
+| `54:02:37`, `00:04:18` | Teltronic (TETRA radios) | Public safety | 40 |
+| `64:69:BC`, `9C:06:6E` | Hytera (radios, body cams; mostly commercial) | Public safety | 40 |
+| `8C:1F:64:A7:8` (36-bit), `00:0D:CA` | Tait (two-way radios) | Public safety | 40 |
+| `00:18:29` | Gatsometer (speed / traffic enforcement cameras) | ALPR | 60 |
+| `00:30:7E` | Redflex (red-light / speed cameras) | ALPR | 60 |
+| `00:22:9F` | Sensys Traffic (traffic enforcement cameras) | ALPR | 55 |
+| `00:1D:4D` | Adaptive Recognition (ANPR / ALPR cameras) | ALPR | 55 |
+| `00:17:3D` | Neology (ALPR, mostly RFID tolling) | ALPR | 40 |
+
+Same-name registrants that are *not* public-safety vendors are deliberately left out:
+Axon Networks (unrelated to Axon Enterprise), WatchGuard Technologies (firewalls),
+Coban Srl (not the US Coban), and general CCTV makers (Axis, Verkada). A unit test
+checks that every preset block belongs, per the IEEE table, to the company its
+label names.
 | `00:1F:92`, `4C:CC:34`, `00:18:85`, `00:04:7D`, `10:74:6F`, `B8:E2:8C`, `9C:86:2B` | Motorola Solutions | Public safety | 45 |
 
 The Motorola entries are weak on purpose. In ACAB's field capture, all 27 of 27
