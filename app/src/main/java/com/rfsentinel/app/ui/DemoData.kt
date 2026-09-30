@@ -75,6 +75,44 @@ object DemoData {
      * Remote ID position is placed relative to it at runtime, so no coordinates
      * are stored in the code.
      */
+    /**
+     * Two weeks of made-up match history around [anchor] (only if the log is
+     * empty), so the history map and timeline have something to show. Weighted
+     * toward weekday rush hours like a real commute would be.
+     */
+    suspend fun seedHistory(context: android.content.Context, anchor: Pair<Double, Double>) {
+        val dao = com.rfsentinel.app.data.AppDatabase.getInstance(context).detectionDao()
+        if (dao.count() > 0) return
+        val rnd = kotlin.random.Random(42)
+        val kinds = listOf(
+            Triple("B4:1E:52:3C:88:10", "Flock Safety camera", "ALPR"),
+            Triple("00:25:DF:4A:19:C2", "Axon body camera", "BODY_CAM"),
+            Triple("4C:CC:34:12:7F:03", "Motorola Solutions equipment", "PUBLIC_SAFETY"),
+            Triple("60:60:1F:A2:44:18", "DJI equipment (drone or controller)", "DRONE")
+        )
+        // A few "hot spots" (e.g. a camera on a commute route) plus scattered encounters.
+        val spots = List(4) { anchor.first + rnd.nextDouble(-0.02, 0.02) to anchor.second + rnd.nextDouble(-0.03, 0.03) }
+        val now = System.currentTimeMillis()
+        repeat(90) { i ->
+            val day = rnd.nextInt(14)
+            val hour = if (rnd.nextFloat() < 0.6f) listOf(7, 8, 16, 17).random(rnd) else rnd.nextInt(6, 23)
+            val cal = java.util.Calendar.getInstance().apply {
+                timeInMillis = now - day * 86_400_000L
+                set(java.util.Calendar.HOUR_OF_DAY, hour); set(java.util.Calendar.MINUTE, rnd.nextInt(60))
+            }
+            val (mac, label, cat) = if (i % 3 == 0) kinds[0] else kinds.random(rnd)
+            val base = if (rnd.nextFloat() < 0.7f) spots.random(rnd) else
+                anchor.first + rnd.nextDouble(-0.04, 0.04) to anchor.second + rnd.nextDouble(-0.06, 0.06)
+            dao.insert(com.rfsentinel.app.data.DetectionEntity(
+                mac = mac.dropLast(2) + String.format("%02X", i % 256), label = label, source = "BLE", rssi = -70,
+                timestamp = cal.timeInMillis,
+                latitude = base.first + rnd.nextDouble(-0.0015, 0.0015),
+                longitude = base.second + rnd.nextDouble(-0.002, 0.002),
+                category = cat, confidence = 80, evidence = "Demo data"
+            ))
+        }
+    }
+
     fun populate(anchor: Pair<Double, Double>? = null) {
         if (!VendorDb.loaded) Thread.sleep(1500)
         DeviceRegistry.startSession()

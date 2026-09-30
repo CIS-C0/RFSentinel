@@ -70,6 +70,10 @@
             android:exported="false"
             android:parentActivityName=".MainActivity" />
         <activity
+            android:name=".ui.HistoryActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity" />
+        <activity
             android:name=".ui.DeviceDetailActivity"
             android:exported="false"
             android:parentActivityName=".MainActivity" />

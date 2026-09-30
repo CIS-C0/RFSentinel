@@ -121,7 +121,10 @@ class MainActivity : AppCompatActivity() {
                     .getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
                     ?.let { it.latitude to it.longitude }
             }.getOrNull()
-            lifecycleScope.launch(kotlinx.coroutines.Dispatchers.Default) { com.rfsentinel.app.ui.DemoData.populate(anchor) }
+            lifecycleScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+                com.rfsentinel.app.ui.DemoData.populate(anchor)
+                anchor?.let { com.rfsentinel.app.ui.DemoData.seedHistory(this@MainActivity, it) }
+            }
         }
         applyViewMode()
         observeDevices()
@@ -387,6 +390,7 @@ class MainActivity : AppCompatActivity() {
             R.id.action_export_all -> { Exporter.showExportAll(this); true }
             R.id.action_map -> { startActivity(Intent(this, com.rfsentinel.app.ui.MapActivity::class.java)); true }
             R.id.action_traces -> { startActivity(Intent(this, com.rfsentinel.app.ui.TripsActivity::class.java)); true }
+            R.id.action_history -> { startActivity(Intent(this, com.rfsentinel.app.ui.HistoryActivity::class.java)); true }
             R.id.action_about -> { AboutDialog.show(this); true }
             R.id.action_mute -> {
                 val muted = !Prefs.alertsMuted(this)

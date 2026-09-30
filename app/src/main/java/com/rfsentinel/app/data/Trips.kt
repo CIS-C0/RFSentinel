@@ -106,4 +106,8 @@ interface TripDao {
 
     @Query("SELECT * FROM trip_devices WHERE tripId = :tripId ORDER BY (category IS NULL), confidence DESC, bestRssi DESC")
     suspend fun devices(tripId: Long): List<TripDeviceEntity>
+
+    /** Flagged devices with a position from every recorded trace, for the history map. */
+    @Query("SELECT * FROM trip_devices WHERE category IS NOT NULL AND lat IS NOT NULL AND lastSeen >= :since")
+    suspend fun flaggedDevicesSince(since: Long): List<TripDeviceEntity>
 }

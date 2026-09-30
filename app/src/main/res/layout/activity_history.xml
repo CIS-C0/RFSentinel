@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/rangeChips"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:selectionRequired="true"
+            app:singleLine="true"
+            app:singleSelection="true">
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/range24h"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="24 h" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/range7d"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="7 days" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/range30d"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                android:text="30 days" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/rangeAll"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="All" />
+
+        </com.google.android.material.chip.ChipGroup>
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/heatChip"
+                style="@style/Widget.MaterialComponents.Chip.Filter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:checkable="true"
+                android:checked="true"
+                android:text="Heatmap" />
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <org.osmdroid.views.MapView
+        android:id="@+id/map"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <LinearLayout
+        android:id="@+id/panel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/summaryText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/detailText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="2dp"
+            android:textSize="12sp" />
+
+        <TextView
+            style="@style/SettingsLabel"
+            android:paddingTop="8dp"
+            android:text="By hour of day" />
+
+        <com.rfsentinel.app.ui.BarChartView
+            android:id="@+id/hourChart"
+            android:layout_width="match_parent"
+            android:layout_height="64dp" />
+
+        <TextView
+            style="@style/SettingsLabel"
+            android:paddingTop="6dp"
+            android:text="By day of week" />
+
+        <com.rfsentinel.app.ui.BarChartView
+            android:id="@+id/dayChart"
+            android:layout_width="match_parent"
+            android:layout_height="52dp" />
+    </LinearLayout>
+</LinearLayout>

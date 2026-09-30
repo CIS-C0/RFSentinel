@@ -20,6 +20,9 @@ interface DetectionDao {
     @Query("SELECT * FROM detections ORDER BY timestamp DESC")
     suspend fun allForExport(): List<DetectionEntity>
 
+    @Query("SELECT * FROM detections WHERE timestamp >= :since ORDER BY timestamp DESC")
+    suspend fun since(since: Long): List<DetectionEntity>
+
     @Query("SELECT COUNT(*) FROM detections")
     suspend fun count(): Int
 
