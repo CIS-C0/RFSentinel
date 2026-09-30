@@ -4,6 +4,7 @@ import com.rfsentinel.app.detect.AddressType
 import com.rfsentinel.app.detect.Advert
 import com.rfsentinel.app.detect.DeviceIntel
 import com.rfsentinel.app.detect.EvidenceFusion
+import com.rfsentinel.app.detect.RemoteId
 import com.rfsentinel.app.detect.SignatureEngine
 import com.rfsentinel.app.detect.VendorDb
 import com.rfsentinel.app.oui.OuiWatchlist
@@ -18,6 +19,24 @@ import kotlin.math.sin
  * Started with: am start -n com.rfsentinel.app/.MainActivity --ez demo true
  */
 object DemoData {
+
+    private const val DEMO_DRONE = "60:60:1F:A2:44:18"
+
+    /** A drone circling ~120 m from [anchor], with its operator ~80 m the other way. */
+    private fun demoRemoteId(anchor: Pair<Double, Double>, secondsAgo: Int): RemoteId.Info {
+        val angle = Math.toRadians(135.0 + secondsAgo * 2.0)
+        val dLat = 0.00108 * kotlin.math.cos(angle)   // ~120 m
+        val dLon = 0.00108 * kotlin.math.sin(angle) / kotlin.math.cos(Math.toRadians(anchor.first))
+        return RemoteId.Info(
+            uasId = "1581F5FJDEMO00042", idType = "Serial number (ANSI/CTA-2063-A)",
+            uaType = "Helicopter / multirotor", status = "Airborne",
+            latitude = anchor.first + dLat, longitude = anchor.second + dLon,
+            heightM = 62.0, altitudeGeoM = 95.0, speedMs = 7.5, verticalSpeedMs = 0.0,
+            directionDeg = ((Math.toDegrees(angle) + 90) % 360).toInt(),
+            operatorLatitude = anchor.first - 0.0007, operatorLongitude = anchor.second - 0.0004,
+            operatorId = "DEMO-OP-0001"
+        )
+    }
 
     private fun b(vararg v: Int) = ByteArray(v.size) { v[it].toByte() }
 
@@ -51,7 +70,12 @@ object DemoData {
         Triple(wifi("E4:5F:01:2B:3C:4D", "Cafe_Guest", 2437), -86, false)
     )
 
-    fun populate() {
+    /**
+     * @param anchor your phone's current position, if known: the demo drone's
+     * Remote ID position is placed relative to it at runtime, so no coordinates
+     * are stored in the code.
+     */
+    fun populate(anchor: Pair<Double, Double>? = null) {
         if (!VendorDb.loaded) Thread.sleep(1500)
         DeviceRegistry.startSession()
         val now = System.currentTimeMillis()
@@ -66,7 +90,8 @@ object DemoData {
                 val raw = SignatureEngine.classify(a) +
                     OuiWatchlist.hits(a.mac, a.name, listOfNotNull(vendor)) +
                     listOfNotNull(DeviceRegistry.clusterHit(a.mac, t))
-                DeviceRegistry.report(a, EvidenceFusion.fuse(raw), DeviceIntel.identify(a, VendorDb.macVendor(a.mac)), vendor, null, null, t)
+                val rid = if (a.mac == DEMO_DRONE && anchor != null) demoRemoteId(anchor, s) else null
+                DeviceRegistry.report(a, EvidenceFusion.fuse(raw), DeviceIntel.identify(a, VendorDb.macVendor(a.mac)), vendor, rid, null, t)
             }
         }
     }

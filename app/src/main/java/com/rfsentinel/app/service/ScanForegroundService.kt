@@ -33,6 +33,7 @@ import com.rfsentinel.app.data.WhitelistCache
 import com.rfsentinel.app.detect.Advert
 import com.rfsentinel.app.detect.Category
 import com.rfsentinel.app.detect.DeviceIntel
+import com.rfsentinel.app.detect.DroneProximity
 import com.rfsentinel.app.detect.EvidenceFusion
 import com.rfsentinel.app.detect.Hit
 import com.rfsentinel.app.detect.RemoteId
@@ -79,6 +80,7 @@ class ScanForegroundService : Service() {
         /** Each periodic job holds a short wake lock only while it runs. */
         private const val WAKE_SLICE_MS = 10_000L
         private const val HISTORY_FLUSH_MS = 60_000L
+        private const val DRONE_OVERHEAD_REPEAT_MS = 5 * 60_000L
 
         /** True while an instance is alive in this process. Source of truth for the UI. */
         @Volatile
@@ -113,6 +115,7 @@ class ScanForegroundService : Service() {
     private val classified = ConcurrentHashMap<String, Classified>()
     private val lastAlerted = ConcurrentHashMap<String, Long>()
     private val lastLogged = ConcurrentHashMap<String, Long>()
+    private val lastDroneOverhead = ConcurrentHashMap<String, Long>()
     private var wifiPollJob: Job? = null
     private var bleRestartJob: Job? = null
     private var housekeepingJob: Job? = null
@@ -339,6 +342,8 @@ class ScanForegroundService : Service() {
             )
         }
 
+        remoteId?.let { info -> if (loc != null) maybeAlertDroneOverhead(a, info, loc, now) }
+
         val best = c.hits.firstOrNull() ?: return
         if (WhitelistCache.contains(mac)) return
 
@@ -407,6 +412,17 @@ class ScanForegroundService : Service() {
         lastAlerted[a.mac] = now
         NotificationHelper.sendAlert(this, a.mac, best, a.rssi)
         AlertPlayer.play(this, best.tier, "${best.label} nearby")
+    }
+
+    /** Remote ID puts the drone within ~200 m of you: alert once per drone per 5 minutes. */
+    private fun maybeAlertDroneOverhead(a: Advert, info: RemoteId.Info, loc: Location, now: Long) {
+        if (!Prefs.categoryEnabled(this, Category.DRONE) || WhitelistCache.contains(a.mac)) return
+        val hit = DroneProximity.overheadHit(info, loc.latitude, loc.longitude) ?: return
+        val last = lastDroneOverhead[a.mac] ?: 0L
+        if (now - last < DRONE_OVERHEAD_REPEAT_MS) return
+        lastDroneOverhead[a.mac] = now
+        NotificationHelper.sendAlert(this, a.mac, hit, a.rssi)
+        AlertPlayer.play(this, hit.tier, "Drone overhead")
     }
 
     // ---- History & housekeeping -----------------------------------------------

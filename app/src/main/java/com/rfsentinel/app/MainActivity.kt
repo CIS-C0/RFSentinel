@@ -115,7 +115,13 @@ class MainActivity : AppCompatActivity() {
         if (BuildConfig.DEBUG && intent.getBooleanExtra("demo", false)) {
             demoMode = true
             intent.getStringExtra("view")?.let { Prefs.setRadarView(this, it == "radar") }
-            lifecycleScope.launch(kotlinx.coroutines.Dispatchers.Default) { com.rfsentinel.app.ui.DemoData.populate() }
+            val anchor = runCatching {
+                @Suppress("MissingPermission")
+                (getSystemService(LOCATION_SERVICE) as android.location.LocationManager)
+                    .getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+                    ?.let { it.latitude to it.longitude }
+            }.getOrNull()
+            lifecycleScope.launch(kotlinx.coroutines.Dispatchers.Default) { com.rfsentinel.app.ui.DemoData.populate(anchor) }
         }
         applyViewMode()
         observeDevices()

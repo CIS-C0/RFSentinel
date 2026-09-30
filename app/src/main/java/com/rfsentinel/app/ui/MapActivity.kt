@@ -64,6 +64,7 @@ class MapActivity : AppCompatActivity() {
         private const val ORDINARY_COLOR = 0xFF607D8B.toInt()
         private const val TRACE_COLOR = 0xFFE0622D.toInt()
         private const val PAST_TRACE_COLOR = 0xFF1F5FBF.toInt()
+        private const val DRONE_COLOR = 0xFF1F5FBF.toInt()
     }
 
     /** One device to draw, from the live registry or a saved trip. */
@@ -80,6 +81,8 @@ class MapActivity : AppCompatActivity() {
 
     private val trace = Polyline()
     private val pins = FolderOverlay()
+    /** Live drones from Remote ID: aircraft, operator and the line between them. */
+    private val drones = FolderOverlay()
     private lateinit var myLocation: MyLocationNewOverlay
     private val dateFmt = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
 
@@ -145,6 +148,7 @@ class MapActivity : AppCompatActivity() {
         }
         map.overlays.add(trace)
         map.overlays.add(pins)
+        map.overlays.add(drones)
 
         myLocation = MyLocationNewOverlay(GpsMyLocationProvider(this), map)
         if (Permissions.granted(this, android.Manifest.permission.ACCESS_FINE_LOCATION)) {
@@ -192,7 +196,8 @@ class MapActivity : AppCompatActivity() {
 
         trace.setPoints(TripRecorder.livePoints().map { GeoPoint(it.lat, it.lon) })
 
-        val devices = if (ScanForegroundService.isRunning) DeviceRegistry.snapshot() else emptyList()
+        // Includes devices from a scan that just stopped: the registry drops them after 3 minutes.
+        val devices = DeviceRegistry.snapshot()
         val drawn = devices.mapNotNull { s ->
             val pos = s.bestPosition ?: return@mapNotNull null
             val flagged = s.best != null && !WhitelistCache.contains(s.mac)
@@ -212,6 +217,7 @@ class MapActivity : AppCompatActivity() {
             )
         }
         drawPins(drawn)
+        drawDrones(devices.filter { it.remoteId?.hasPosition == true })
 
         val positioned = devices.count { it.bestPosition != null }
         binding.statusText.text = when {
@@ -352,6 +358,90 @@ class MapActivity : AppCompatActivity() {
                 setOnMarkerClickListener { _, _ -> showPin(p); true }
             })
         }
+    }
+
+    /**
+     * Drones place themselves: Remote ID broadcasts the aircraft's own GPS fix
+     * (and usually the operator's / take-off point), so these markers are real
+     * positions, unlike RSSI-based device pins.
+     */
+    private fun drawDrones(list: List<DeviceRegistry.Snapshot>) {
+        drones.items.clear()
+        val dp = resources.displayMetrics.density
+        for (s in list) {
+            val r = s.remoteId ?: continue
+            val aircraft = GeoPoint(r.latitude!!, r.longitude!!)
+            val details = droneDetails(s, r)
+            if (r.hasOperatorPosition) {
+                val operator = GeoPoint(r.operatorLatitude!!, r.operatorLongitude!!)
+                drones.add(Polyline().apply {
+                    setPoints(listOf(operator, aircraft))
+                    outlinePaint.apply {
+                        color = DRONE_COLOR
+                        strokeWidth = 2.5f * dp
+                        pathEffect = android.graphics.DashPathEffect(floatArrayOf(10 * dp, 6 * dp), 0f)
+                    }
+                })
+                drones.add(Marker(binding.map).apply {
+                    position = operator
+                    icon = GradientDrawable().apply {
+                        shape = GradientDrawable.RECTANGLE
+                        setColor(0xFFF5E100.toInt())
+                        setStroke((2 * dp).toInt(), DRONE_COLOR)
+                        setSize((14 * dp).toInt(), (14 * dp).toInt())
+                    }
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    title = "Drone operator / take-off point"
+                    setOnMarkerClickListener { _, _ -> showDrone(s, "Operator of this drone (or its take-off point)\n\n$details"); true }
+                })
+            }
+            drones.add(Marker(binding.map).apply {
+                position = aircraft
+                icon = android.graphics.drawable.BitmapDrawable(resources, droneArrow(dp))
+                rotation = -(r.directionDeg ?: 0).toFloat() // osmdroid rotates counter-clockwise
+                isFlat = true
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                title = "Drone"
+                setOnMarkerClickListener { _, _ -> showDrone(s, details); true }
+            })
+        }
+    }
+
+    private fun droneDetails(s: DeviceRegistry.Snapshot, r: com.rfsentinel.app.detect.RemoteId.Info) = buildString {
+        r.uasId?.let { append("ID: $it\n") }
+        r.uaType?.let { append("Type: $it\n") }
+        r.status?.let { append("Status: $it\n") }
+        r.heightM?.let { append(String.format(Locale.US, "Height: %.0f m\n", it)) }
+        r.altitudeGeoM?.let { append(String.format(Locale.US, "Altitude (GPS): %.0f m\n", it)) }
+        r.speedMs?.let { append(String.format(Locale.US, "Speed: %.0f km/h\n", it * 3.6)) }
+        r.directionDeg?.let { append("Heading: $it°\n") }
+        r.operatorId?.let { append("Operator ID: $it\n") }
+        r.selfIdDescription?.let { append("Description: $it\n") }
+        append("Radio: ${s.mac} · ${s.rssi} dBm")
+    }
+
+    private fun showDrone(s: DeviceRegistry.Snapshot, text: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Drone (Remote ID)")
+            .setMessage(text + "\n\nPositions are broadcast by the drone itself (ASTM F3411 Remote ID).")
+            .setPositiveButton("Details") { _, _ -> DeviceActions.openDetails(this, s.mac) }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    /** A blue arrow pointing north; the marker rotation turns it to the drone's heading. */
+    private fun droneArrow(dp: Float): android.graphics.Bitmap {
+        val size = (30 * dp).toInt()
+        val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        val c = android.graphics.Canvas(bmp)
+        val path = android.graphics.Path().apply {
+            moveTo(size / 2f, 2 * dp); lineTo(size - 5 * dp, size - 4 * dp)
+            lineTo(size / 2f, size * 0.68f); lineTo(5 * dp, size - 4 * dp); close()
+        }
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        c.drawPath(path, paint.apply { color = DRONE_COLOR; style = android.graphics.Paint.Style.FILL })
+        c.drawPath(path, paint.apply { color = Color.WHITE; style = android.graphics.Paint.Style.STROKE; strokeWidth = 2 * dp })
+        return bmp
     }
 
     private fun showPin(p: Pin) {
