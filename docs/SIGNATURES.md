@@ -234,6 +234,7 @@ registrants are left out on purpose.
 | Jenoptik | 1 | Traffic enforcement (also optics) | ALPR | 45 |
 | Q-Free | 3 | Tolling and ANPR | ALPR | 40 |
 | Genetec | 4 | AutoVu ALPR (also servers, access control) | ALPR | 40 |
+| Ubicquia | 1 | UbiHub smart streetlights powering police ALPR / video | ALPR | 55 |
 | Cradlepoint | 2 | Vehicle routers (police cars, buses, stores) | Public safety | 35 |
 
 Left out on purpose:

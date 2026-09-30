@@ -95,6 +95,20 @@ object Prefs {
     fun showKnownAlpr(context: Context): Boolean = bool(context, "show_known_alpr", true)
     fun setShowKnownAlpr(context: Context, value: Boolean) = setBool(context, "show_known_alpr", value)
 
+    /** Start scanning when the phone connects to the car (chosen Bluetooth devices, or Android Auto). */
+    fun carAutoStart(context: Context): Boolean = bool(context, "car_auto_start", false)
+    fun setCarAutoStart(context: Context, value: Boolean) = setBool(context, "car_auto_start", value)
+    /** Bluetooth addresses of the user's car(s). */
+    fun carDevices(context: Context): Set<String> = sp(context).getStringSet("car_devices", emptySet()) ?: emptySet()
+    fun setCarDevices(context: Context, value: Set<String>) = sp(context).edit { putStringSet("car_devices", value) }
+    /** True while the running scan was started by the car (so leaving the car may stop it). */
+    fun startedByCar(context: Context): Boolean = bool(context, "started_by_car", false)
+    fun setStartedByCar(context: Context, value: Boolean) = setBool(context, "started_by_car", value)
+
+    /** Floating threat bubble over other apps while scanning. */
+    fun threatBubble(context: Context): Boolean = bool(context, "threat_bubble", false)
+    fun setThreatBubble(context: Context, value: Boolean) = setBool(context, "threat_bubble", value)
+
     fun autoRecordTrace(context: Context): Boolean = bool(context, "auto_record_trace", false)
     fun setAutoRecordTrace(context: Context, value: Boolean) = setBool(context, "auto_record_trace", value)
 

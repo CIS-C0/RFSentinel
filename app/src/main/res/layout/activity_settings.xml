@@ -116,6 +116,25 @@
             android:text="Open Developer options" />
 
         <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/carAutoSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Start scanning automatically in the car (and stop when you leave)" />
+
+        <TextView
+            android:id="@+id/carDevicesText"
+            style="@style/SettingsLabel"
+            android:paddingTop="2dp"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/carDevicesButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Choose your car's Bluetooth" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/bootSwitch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -213,6 +232,12 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Spoken alerts (e.g. while driving)" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/bubbleSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Floating threat bubble over other apps (e.g. Waze, Maps) while scanning" />
 
         <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/discreetSwitch"

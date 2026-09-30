@@ -125,6 +125,7 @@ class ScanForegroundService : Service() {
     private var bleRestartJob: Job? = null
     private var housekeepingJob: Job? = null
     private var cellJob: Job? = null
+    private var bubbleJob: Job? = null
     private var cellMonitor: CellMonitor? = null
     private val lastCellAlert = HashMap<String, Long>()
     private var btStateReceiverRegistered = false
@@ -210,6 +211,7 @@ class ScanForegroundService : Service() {
         updateLocationUpdates()
         startHousekeeping()
         startCellChecks()
+        startBubble()
 
         isRunning = true
         refreshTile()
@@ -604,6 +606,32 @@ class ScanForegroundService : Service() {
         }
     }
 
+    /** Keeps the floating threat bubble in sync (hidden while our own screens are visible). */
+    private fun startBubble() {
+        bubbleJob?.cancel()
+        if (!Prefs.threatBubble(this)) { com.rfsentinel.app.ui.ThreatBubble.hide(this); return }
+        bubbleJob = serviceScope.launch {
+            while (isActive) {
+                if (RFSentinelApp.inForeground || !com.rfsentinel.app.ui.ThreatBubble.canShow(this@ScanForegroundService)) {
+                    com.rfsentinel.app.ui.ThreatBubble.hide(this@ScanForegroundService)
+                } else {
+                    val flagged = DeviceRegistry.snapshot().filter { it.best != null && !WhitelistCache.contains(it.mac) }
+                    val threshold = Prefs.alertThreshold(this@ScanForegroundService)
+                    val top = flagged.maxOfOrNull { it.best!!.confidence } ?: 0
+                    val cellWarning = CellMonitor.lastAnomaly?.takeIf { System.currentTimeMillis() - it.first < 15 * 60_000L }
+                    val level = when {
+                        flagged.any { it.following } || top >= 80 -> com.rfsentinel.app.ui.ThreatBubble.Level.DANGER
+                        top >= threshold || cellWarning != null -> com.rfsentinel.app.ui.ThreatBubble.Level.PROBABLE
+                        flagged.isNotEmpty() -> com.rfsentinel.app.ui.ThreatBubble.Level.WEAK
+                        else -> com.rfsentinel.app.ui.ThreatBubble.Level.CLEAR
+                    }
+                    com.rfsentinel.app.ui.ThreatBubble.update(this@ScanForegroundService, level, flagged.size)
+                }
+                delay(2_000)
+            }
+        }
+    }
+
     private fun updateLocationOnMain() {
         android.os.Handler(Looper.getMainLooper()).post { updateLocationUpdates() }
     }
@@ -626,6 +654,7 @@ class ScanForegroundService : Service() {
         serviceScope.cancel()
         pipelineThread.quitSafely()
         cellMonitor?.close()
+        com.rfsentinel.app.ui.ThreatBubble.hide(this)
         // Take the final history and trace synchronously, so a scan restarted right
         // away (new session, new trace) can't clear or reuse them; write them after.
         val history = takeHistory()
@@ -636,6 +665,7 @@ class ScanForegroundService : Service() {
             trip?.let { runCatching { TripRecorder.persist(app, it) }.onFailure { e -> Log.w(TAG, "Trace save failed", e) } }
         }
         wakeLock?.let { if (it.isHeld) it.release() }
+        Prefs.setStartedByCar(this, false)
         isRunning = false
         refreshTile()
         StatusWidget.updateAll(this)

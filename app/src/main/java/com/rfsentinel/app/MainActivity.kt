@@ -333,6 +333,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startScanning() {
+        Prefs.setStartedByCar(this, false) // started by hand: leaving the car must not stop it
         try {
             ScanForegroundService.start(this)
         } catch (e: Exception) {
@@ -343,6 +344,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun stopScanning() {
+        Prefs.setStartedByCar(this, false) // a manual choice: leaving the car must not override it
         ScanForegroundService.stop(this)
         binding.root.postDelayed({ updateStatus() }, 300)
     }

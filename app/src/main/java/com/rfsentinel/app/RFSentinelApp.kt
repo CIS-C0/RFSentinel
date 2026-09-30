@@ -13,12 +13,28 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 class RFSentinelApp : Application() {
+    companion object {
+        /** Number of this app's activities currently started (visible). */
+        @Volatile var visibleActivities = 0
+            private set
+        val inForeground get() = visibleActivities > 0
+    }
+
     /** Lives as long as the process. */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
         super.onCreate()
         com.rfsentinel.app.ui.ThemeManager.install(this)
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            override fun onActivityStarted(a: android.app.Activity) { visibleActivities++ }
+            override fun onActivityStopped(a: android.app.Activity) { visibleActivities = (visibleActivities - 1).coerceAtLeast(0) }
+            override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) {}
+            override fun onActivityResumed(a: android.app.Activity) {}
+            override fun onActivityPaused(a: android.app.Activity) {}
+            override fun onActivitySaveInstanceState(a: android.app.Activity, b: android.os.Bundle) {}
+            override fun onActivityDestroyed(a: android.app.Activity) {}
+        })
         NotificationHelper.createChannels(this)
         OuiWatchlist.load(this)
         WhitelistCache.start(this, appScope)

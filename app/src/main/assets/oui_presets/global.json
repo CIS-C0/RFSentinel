@@ -1278,5 +1278,13 @@
     "confidence": "candidate",
     "score": 35,
     "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "94:7B:BE",
+    "label": "Ubicquia smart streetlight hub (powers police plate readers and cameras)",
+    "source": "IEEE MA-L registry (Ubicquia LLC); UbiHub streetlight nodes power ALPR and video for police in 50+ US cities (e.g. San Diego PD contract). Also plain smart-streetlight controllers",
+    "confidence": "candidate",
+    "score": 55,
+    "category": "ALPR"
   }
 ]

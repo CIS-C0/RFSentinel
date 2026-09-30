@@ -16,9 +16,13 @@ object CarState {
     /** Call once from the main thread (Application.onCreate). */
     fun start(context: Context) {
         runCatching {
-            CarConnection(context.applicationContext).type.observeForever { type ->
-                connected = type == CarConnection.CONNECTION_TYPE_PROJECTION ||
+            val app = context.applicationContext
+            CarConnection(app).type.observeForever { type ->
+                val now = type == CarConnection.CONNECTION_TYPE_PROJECTION ||
                     type == CarConnection.CONNECTION_TYPE_NATIVE
+                if (now && !connected) com.rfsentinel.app.receiver.CarAutoStart.onCarConnected(app, "Android Auto connected")
+                if (!now && connected) com.rfsentinel.app.receiver.CarAutoStart.onCarDisconnected(app, "Android Auto disconnected")
+                connected = now
             }
         }
     }

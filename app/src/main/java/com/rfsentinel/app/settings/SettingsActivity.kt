@@ -39,6 +39,64 @@ class SettingsActivity : AppCompatActivity() {
         updateBannerButtons()
     }
 
+    private val connectPermission = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) chooseCarDevices()
+        else Toast.makeText(this, "Needed to recognise your car's Bluetooth", Toast.LENGTH_LONG).show()
+    }
+
+    private fun hasConnectPermission() = android.os.Build.VERSION.SDK_INT < 31 ||
+        checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    /** Lists paired Bluetooth devices so the user can tick their car(s). */
+    @android.annotation.SuppressLint("MissingPermission") // checked by hasConnectPermission()
+    private fun chooseCarDevices() {
+        if (!hasConnectPermission()) {
+            connectPermission.launch(android.Manifest.permission.BLUETOOTH_CONNECT); return
+        }
+        val adapter = (getSystemService(BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager)?.adapter
+        val paired = runCatching { adapter?.bondedDevices?.toList() }.getOrNull().orEmpty()
+            .sortedBy { runCatching { it.name }.getOrNull() ?: it.address }
+        if (paired.isEmpty()) {
+            Toast.makeText(this, "No paired Bluetooth devices - pair your car first", Toast.LENGTH_LONG).show(); return
+        }
+        val chosen = Prefs.carDevices(this).toMutableSet()
+        val labels = paired.map { d ->
+            val car = d.bluetoothClass?.deviceClass.let {
+                it == android.bluetooth.BluetoothClass.Device.AUDIO_VIDEO_CAR_AUDIO ||
+                    it == android.bluetooth.BluetoothClass.Device.AUDIO_VIDEO_HANDSFREE
+            }
+            (runCatching { d.name }.getOrNull() ?: d.address) + if (car) "  (car audio)" else ""
+        }.toTypedArray()
+        val checked = paired.map { it.address in chosen }.toBooleanArray()
+        AlertDialog.Builder(this)
+            .setTitle("Which Bluetooth is your car?")
+            .setMultiChoiceItems(labels, checked) { _, i, on ->
+                if (on) chosen += paired[i].address else chosen -= paired[i].address
+            }
+            .setPositiveButton("Save") { _, _ ->
+                Prefs.setCarDevices(this, chosen)
+                updateCarDevicesText()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    @android.annotation.SuppressLint("MissingPermission")
+    private fun updateCarDevicesText() {
+        val chosen = Prefs.carDevices(this)
+        val names = if (hasConnectPermission()) {
+            val bonded = runCatching {
+                (getSystemService(BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager)?.adapter?.bondedDevices
+            }.getOrNull().orEmpty()
+            chosen.map { a -> bonded.firstOrNull { it.address == a }?.let { runCatching { it.name }.getOrNull() } ?: a }
+        } else chosen.toList()
+        binding.carDevicesText.text = if (names.isEmpty())
+            "No car chosen yet. Android Auto also starts it when the app opens on the car screen."
+        else "Car: " + names.joinToString() + ". Android Auto also starts it."
+    }
+
     private fun updateBannerButtons() {
         binding.bannerClearButton.isEnabled = ThemeManager.hasBanner(this)
     }
@@ -105,6 +163,12 @@ class SettingsActivity : AppCompatActivity() {
         }
         updateWifiThrottleHint()
         binding.bootSwitch.isChecked = Prefs.autoStartOnBoot(this)
+        binding.carAutoSwitch.isChecked = Prefs.carAutoStart(this)
+        binding.carAutoSwitch.setOnCheckedChangeListener { _, on ->
+            if (on && Prefs.carDevices(this).isEmpty()) chooseCarDevices()
+        }
+        binding.carDevicesButton.setOnClickListener { chooseCarDevices() }
+        updateCarDevicesText()
         binding.batteryButton.setOnClickListener {
             runCatching { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
                 .onFailure { Toast.makeText(this, "Open Android Settings > Apps > RF Sentinel > Battery", Toast.LENGTH_LONG).show() }
@@ -137,6 +201,23 @@ class SettingsActivity : AppCompatActivity() {
         binding.vibrateSwitch.isChecked = Prefs.vibrateEnabled(this)
         binding.voiceSwitch.isChecked = Prefs.voiceEnabled(this)
         binding.discreetSwitch.isChecked = Prefs.discreetMode(this)
+        binding.bubbleSwitch.isChecked = Prefs.threatBubble(this) && Settings.canDrawOverlays(this)
+        binding.bubbleSwitch.setOnCheckedChangeListener { sw, on ->
+            if (on && !Settings.canDrawOverlays(this)) {
+                sw.isChecked = false
+                AlertDialog.Builder(this)
+                    .setTitle("Allow the floating bubble")
+                    .setMessage("Android needs the \"Display over other apps\" permission for the bubble. " +
+                        "Turn it on for RF Sentinel on the next screen, then come back and switch the bubble on.")
+                    .setPositiveButton("Open settings") { _, _ ->
+                        runCatching {
+                            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName")))
+                        }
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+        }
         binding.dedupeInput.setText((Prefs.dedupeWindowMs(this) / 60000).toString())
 
         // Location
@@ -244,6 +325,7 @@ class SettingsActivity : AppCompatActivity() {
         val intervalSec = binding.intervalInput.text.toString().toLongOrNull() ?: 30L
         Prefs.setScanIntervalMs(this, intervalSec.coerceAtLeast(5) * 1000L)
         Prefs.setAutoStartOnBoot(this, binding.bootSwitch.isChecked)
+        Prefs.setCarAutoStart(this, binding.carAutoSwitch.isChecked)
 
         categorySwitches.forEach { (c, sw) -> Prefs.setCategoryEnabled(this, c, sw.isChecked) }
         val presets = mutableSetOf<String>()
@@ -264,6 +346,8 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setVibrateEnabled(this, binding.vibrateSwitch.isChecked)
         Prefs.setVoiceEnabled(this, binding.voiceSwitch.isChecked)
         Prefs.setDiscreetMode(this, binding.discreetSwitch.isChecked)
+        Prefs.setThreatBubble(this, binding.bubbleSwitch.isChecked)
+        if (!binding.bubbleSwitch.isChecked) com.rfsentinel.app.ui.ThreatBubble.hide(this)
         val dedupeMin = binding.dedupeInput.text.toString().toLongOrNull() ?: 5L
         Prefs.setDedupeWindowMs(this, dedupeMin.coerceAtLeast(1) * 60000L)
 
