@@ -14,6 +14,7 @@ import java.util.ArrayDeque
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -35,6 +36,9 @@ object DeviceRegistry {
     private const val ROTATION_SILENCE_MS = 1_500L
     /** How long a device keeps a match after the evidence was last observed. */
     const val HIT_HOLD_MS = 120_000L
+    /** Weight of each new RSSI reading (0..1): 0.3 settles in about a second of adverts. */
+    private const val RSSI_SMOOTHING = 0.3
+    private const val SMOOTH_RESET_MS = 10_000L
     private const val ROTATION_WINDOW_MS = 30_000L
 
     data class Sample(val time: Long, val rssi: Int)
@@ -84,6 +88,8 @@ object DeviceRegistry {
         var identity = DeviceIntel.Identity("Device", emptyList())
         var hits: List<Hit> = emptyList()
         var rssi = -127
+        /** Exponentially smoothed RSSI; raw readings jump by 10 dB between packets. */
+        var smoothRssi = Double.NaN
         var bestRssi = -127
         var distance = 0.0
         val firstSeen = now
@@ -142,10 +148,13 @@ object DeviceRegistry {
             if (identity.facts.size >= t.identity.facts.size || t.identity.type == "Device") t.identity = identity
             t.hits = mergeHits(t, hits, now)
             remoteId?.let { t.remoteId = it }
-            t.rssi = a.rssi
+            // Smooth for the displayed signal, distance and radar; a jump after a pause is taken as is.
+            t.smoothRssi = if (t.smoothRssi.isNaN() || now - t.lastSeen > SMOOTH_RESET_MS) a.rssi.toDouble()
+                else t.smoothRssi + RSSI_SMOOTHING * (a.rssi - t.smoothRssi)
+            t.rssi = t.smoothRssi.roundToInt()
             if (location != null && (a.rssi >= t.bestRssi || t.bestPosition == null)) t.bestPosition = location
             if (a.rssi > t.bestRssi) t.bestRssi = a.rssi
-            t.distance = DeviceIntel.distanceMeters(a)
+            t.distance = DeviceIntel.distanceMeters(a, t.smoothRssi)
             t.lastSeen = now
             t.sightings++
             if (t.history.isEmpty() || now - t.history.last.time >= HISTORY_MIN_SPACING_MS) {

@@ -68,9 +68,18 @@ class BleScanEngine(
 
         // Extended advertising (BT5) carries Remote ID message packs on newer drones.
         val extended = runCatching { adapter.isLeExtendedAdvertisingSupported }.getOrDefault(false)
-        fun settings(mode: Int) = ScanSettings.Builder().setScanMode(mode).apply {
-            if (extended) setLegacy(false).setPhy(ScanSettings.PHY_LE_ALL_SUPPORTED)
-        }.build()
+        // Deliver every advert immediately (no batching). For the filtered scan, aggressive
+        // matching reports a device from a single, even faint, advert instead of waiting
+        // for several strong ones - that's what extends screen-off detection range.
+        fun settings(mode: Int) = ScanSettings.Builder().setScanMode(mode)
+            .setReportDelay(0)
+            .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+            .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
+            .setNumOfMatches(ScanSettings.MATCH_NUM_ONE_ADVERTISEMENT)
+            .apply {
+                // Extended advertising (BT5) and LE Coded (long-range) PHY where the radio supports it.
+                if (extended) setLegacy(false).setPhy(ScanSettings.PHY_LE_ALL_SUPPORTED)
+            }.build()
 
         try {
             scanner?.startScan(null, settings(scanMode), callback)
@@ -84,7 +93,9 @@ class BleScanEngine(
             return
         }
         try {
-            scanner?.startScan(buildFilters(watchedMacs), settings(ScanSettings.SCAN_MODE_BALANCED), filteredCallback)
+            // Same intensity as the main scan: this is the only scan Android keeps running with
+            // the screen off, so a lower duty cycle here is where passing devices get missed.
+            scanner?.startScan(buildFilters(watchedMacs), settings(scanMode), filteredCallback)
             filteredScanning = true
         } catch (e: Exception) {
             Log.w(TAG, "Filtered scan unavailable", e)
@@ -121,11 +132,13 @@ class BleScanEngine(
         for (short in intArrayOf(0xFFFA, 0xFEAA, 0xFD5A, 0xFEED)) {
             out += ScanFilter.Builder().setServiceData(ParcelUuid(Advert.uuid16(short)), ByteArray(0)).build()
         }
-        // Advertised services: Axon/TASER UUIDs and the Flock Raven GPS service.
-        for (short in intArrayOf(0xFC81, 0xFE6B, 0xFE6C, 0x3100)) {
+        // Advertised services: Axon/TASER, Flock Raven GPS, Motorola Solutions, Zebra printers,
+        // Snap Spectacles and Meta glasses.
+        for (short in intArrayOf(0xFC81, 0xFE6B, 0xFE6C, 0x3100, 0xFD8E, 0xFE04, 0xFE79, 0xFD66, 0xFE45, 0xFEB7, 0xFEB8)) {
             out += ScanFilter.Builder().setServiceUuid(ParcelUuid(Advert.uuid16(short))).build()
         }
-        watchedMacs.take(10).forEach { mac ->
+        // Controllers offload a limited number of filters; keep the total around 30.
+        watchedMacs.take(8).forEach { mac ->
             runCatching { out += ScanFilter.Builder().setDeviceAddress(mac).build() }
         }
         return out

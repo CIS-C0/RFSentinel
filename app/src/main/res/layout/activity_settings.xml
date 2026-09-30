@@ -102,6 +102,12 @@
             android:importantForAutofill="no"
             android:inputType="number" />
 
+        <TextView
+            android:id="@+id/wifiThrottleText"
+            style="@style/SettingsLabel"
+            android:paddingTop="2dp"
+            android:textSize="12sp" />
+
         <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/bootSwitch"
             android:layout_width="match_parent"

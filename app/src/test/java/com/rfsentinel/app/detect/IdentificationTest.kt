@@ -140,6 +140,20 @@ class IdentificationTest {
     }
 
     @Test
+    fun signalIsSmoothedButResetsAfterAPause() {
+        DeviceRegistry.startSession(0)
+        val mac = "C0:00:00:00:00:77"
+        val id = DeviceIntel.Identity("x", emptyList())
+        fun at(t: Long, rssi: Int) =
+            DeviceRegistry.report(Advert(mac, Advert.Source.BLE, rssi, null, timestamp = t), emptyList(), id, null, null, null, t)
+        at(1_000, -60)
+        at(1_100, -80) // one outlier packet moves the reading, but only part of the way
+        assertEquals(-66, DeviceRegistry.get(mac)!!.rssi)
+        at(60_000, -90) // heard again after a long gap: take the new value as is
+        assertEquals(-90, DeviceRegistry.get(mac)!!.rssi)
+    }
+
+    @Test
     fun flatSignalsFallBackToArrivalTime() {
         val flat = (0 until 30).map { it * 1000L to -60 }
         val now = 30_000L

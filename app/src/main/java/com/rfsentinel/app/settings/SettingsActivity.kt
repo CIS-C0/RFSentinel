@@ -92,6 +92,11 @@ class SettingsActivity : AppCompatActivity() {
             }
         )
         binding.intervalInput.setText((Prefs.scanIntervalMs(this) / 1000).toString())
+        binding.wifiThrottleText.text = if (wifiScanThrottled())
+            "Android limits apps to 4 WiFi scans per 2 minutes, so values under 30 s are wasted. " +
+                "To scan faster: Developer options → turn off \"Wi-Fi scan throttling\"."
+        else
+            "Wi-Fi scan throttling is off (Developer options): intervals down to 5 s work, at some battery cost."
         binding.bootSwitch.isChecked = Prefs.autoStartOnBoot(this)
         binding.batteryButton.setOnClickListener {
             runCatching { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
@@ -157,6 +162,10 @@ class SettingsActivity : AppCompatActivity() {
         binding.saveButton.setOnClickListener { save() }
     }
 
+    /** Android's WiFi scan throttle (Developer options), on unless the user disabled it. */
+    private fun wifiScanThrottled(): Boolean =
+        runCatching { Settings.Global.getInt(contentResolver, "wifi_scan_throttle_enabled", 1) != 0 }.getOrDefault(true)
+
     private fun confirm(title: String, message: String, action: () -> Unit) {
         AlertDialog.Builder(this)
             .setTitle(title)
@@ -178,7 +187,7 @@ class SettingsActivity : AppCompatActivity() {
             }
         )
         val intervalSec = binding.intervalInput.text.toString().toLongOrNull() ?: 30L
-        Prefs.setScanIntervalMs(this, intervalSec.coerceAtLeast(3) * 1000L)
+        Prefs.setScanIntervalMs(this, intervalSec.coerceAtLeast(5) * 1000L)
         Prefs.setAutoStartOnBoot(this, binding.bootSwitch.isChecked)
 
         categorySwitches.forEach { (c, sw) -> Prefs.setCategoryEnabled(this, c, sw.isChecked) }

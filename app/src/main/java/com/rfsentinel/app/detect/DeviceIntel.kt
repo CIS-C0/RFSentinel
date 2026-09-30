@@ -303,14 +303,14 @@ object DeviceIntel {
      * else a typical -59 dBm at 1 m. WiFi: free-space loss assuming a 20 dBm AP.
      * Walls, bodies and antenna orientation easily cause 2-3x errors.
      */
-    fun distanceMeters(a: Advert): Double {
+    fun distanceMeters(a: Advert, rssi: Double = a.rssi.toDouble()): Double {
         if (a.isWifi) {
             val f = a.wifi?.frequencyMhz?.takeIf { it > 0 } ?: 2437
-            val exp = (20.0 - a.rssi - 20 * log10(f.toDouble()) + 27.55) / 20.0
+            val exp = (20.0 - rssi - 20 * log10(f.toDouble()) + 27.55) / 20.0
             return 10.0.pow(exp).coerceIn(0.5, 500.0)
         }
         val measuredAt1m = a.txPower?.let { it - 41 } ?: -59
-        return 10.0.pow((measuredAt1m - a.rssi) / 25.0).coerceIn(0.1, 300.0)
+        return 10.0.pow((measuredAt1m - rssi) / 25.0).coerceIn(0.1, 300.0)
     }
 
     fun formatDistance(m: Double): String = when {
