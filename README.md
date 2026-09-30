@@ -77,6 +77,9 @@ publicly.
 - Patrol-vehicle detection: several kinds of police-type equipment whose signals move together are flagged as a possible police vehicle
 - Address-rotation linking: follows a device when its Bluetooth address changes
 - Follower alerts: a warning when a tracker or flagged device keeps moving with you
+- **Known plate cameras:** download the license-plate readers mapped in OpenStreetMap (e.g. by DeFlock) and get warned as you approach one - even the cellular-only cameras no radio scan can detect
+- **Drones:** live map of each Remote ID drone with its heading, altitude, speed and operator, plus a "drone overhead" alert
+- **Fake cell tower signs (IMSI catchers):** warnings for test network codes, forced 2G downgrades, unexpected networks and other classic signs (heuristic, no root needed)
 - Editable watchlist with exact addresses, vendor prefixes, and name or vendor rules, plus regional presets (Global, Canada, US)
 
 **Identification**
@@ -88,6 +91,7 @@ publicly.
 - Live list and radar view, with filters and search
 - Device details: evidence, identity, signal graph, **Locate** mode, history and raw advertisement
 - OpenStreetMap map with recorded GPS traces and the devices heard along them
+- **History map & timeline:** a heatmap of where flagged equipment showed up, and when (hour of day, day of week)
 - Alerts with sound, vibration patterns and spoken announcements, plus a discreet mode
 - Android Auto app, Quick Settings tile and home-screen widget
 - 12 themes, each styled theme with its own animated header
@@ -222,9 +226,10 @@ Pick a theme in the setup wizard or under **Settings → Appearance**.
 - **Receive-only.** Nothing is transmitted, jammed, spoofed or connected to.
 - **No accounts, no cloud, no analytics.** Detections are stored in a local
   database and excluded from cloud backup.
-- **One network use:** OpenStreetMap tiles, only while the map is open. The tile
-  server sees your IP address and the area you view, never your scans. Map data
-  © OpenStreetMap contributors.
+- **Network use is limited to OpenStreetMap:** map tiles while the map is open, and,
+  only when you tap *Download known plate cameras*, the camera list for the area on
+  screen. Those servers see your IP address and that area, never your scans. Map data
+  © OpenStreetMap contributors (ODbL).
 - **Data leaves the phone only when you export it.**
 
 ## Limitations
@@ -243,8 +248,12 @@ Pick a theme in the setup wizard or under **Settings → Appearance**.
 - **Screen-off coverage is partial.** With the screen off, Android keeps only a
   filtered scan. That covers payload signatures, trackers, drones, glasses and
   exact-address watchlist entries, but not prefix-only matches.
-- **Cellular-only devices are undetectable.** This includes most non-Flock
-  license-plate readers and LTE GPS trackers.
+- **Cellular-only devices are undetectable by radio.** This includes most non-Flock
+  license-plate readers and LTE GPS trackers. The known-camera map layer covers plate
+  readers that someone has mapped in OpenStreetMap.
+- **Fake cell tower checks are heuristic.** Without root, Android shows the cells the
+  phone sees but not ciphering or signalling, so each sign has innocent explanations.
+  The strongest protection is turning off *Allow 2G* in your SIM settings (Android 12+).
 - **Randomized addresses** defeat vendor-prefix matching. Payload signatures and
   address-rotation linking partly compensate.
 

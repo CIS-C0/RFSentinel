@@ -135,6 +135,34 @@ octets 2–5 are equal, the last octet is within 16, and the first octet is equa
 or locally administered (virtual BSSID). The detail screen then links a hidden
 network to the visible network on the same router and borrows its make/model.
 
+### Known plate cameras (`alpr/`)
+
+Downloaded on request from OpenStreetMap through the Overpass API: every element
+tagged `surveillance:type=ALPR` in the area on screen (DeFlock maps Flock cameras this
+way), with `manufacturer`/`brand`, `operator` and `direction`/`camera:direction`. They
+are cached in the app's private storage. While scanning, the app warns once per camera
+per 30 minutes when one is within ~20 s of travel (150 m minimum, 600 m maximum) and
+the distance is shrinking. Data © OpenStreetMap contributors, ODbL.
+
+### Drone overhead (`detect/DroneProximity.kt`)
+
+Remote ID broadcasts the aircraft's own GPS position, so the app can say a drone is
+within 200 m of you (horizontal) with confidence 95, once per drone per 5 minutes.
+
+### Fake cell tower signs (`detect/CellAnalyzer.kt`)
+
+Read every 15 s from the cells Android reports (no root, location permission only):
+
+| Sign | Confidence |
+|---|---|
+| Serving cell uses a test / reserved MCC (001, 002, 999) | 85 |
+| Dropped to 2G/CDMA after 4G/5G while 4G/5G cells are still visible (40 if none are) | 65 |
+| Serving cell's MCC differs from the SIM's while not roaming (US 310-316 and India 404/405 are treated as one country) | 55 |
+| Location / tracking area changed while GPS shows you standing still for 2+ minutes | 40 |
+| Switched to a cell with no neighbours where several were visible moments ago | 35 |
+
+Signs at or above the alert threshold alert; the rest go to the match history.
+
 ## MAC-prefix watchlist presets (`assets/oui_presets/*.json`)
 
 These are editable and can be switched on or off in Settings.

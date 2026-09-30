@@ -17,9 +17,10 @@ object AboutDialog {
             ABSOLUTELY NO WARRANTY. Source code: github.com/CIS-C0/RFSentinel<br/><br/>
             Passive, receive-only Bluetooth LE and WiFi scanner. It never transmits to,
             connects to, jams or spoofs any device. Scans, detections, history and traces stay
-            on this phone. The only internet use is downloading OpenStreetMap tiles while the
-            map is open (the tile server sees your IP and the area viewed, never detections).
-            Map data &copy; OpenStreetMap contributors.<br/><br/>
+            on this phone. Internet is used only for OpenStreetMap: map tiles while the map is
+            open, and - only when you ask - the list of known plate cameras for the area on
+            screen. Those servers see your IP and that area, never your scans or detections.
+            Map data &copy; OpenStreetMap contributors (ODbL).<br/><br/>
 
             <b>What a match means</b><br/>
             A device with that vendor or payload signature is broadcasting nearby. It is not
@@ -45,7 +46,7 @@ object AboutDialog {
             <b>Limits</b><br/>
             Phone radios hear less than dedicated hardware; Android throttles WiFi scans;
             WiFi only sees access points, not client devices; randomized addresses defeat
-            prefix matching; most license-plate cameras other than Flock use cellular only
+            prefix matching; most license-plate cameras other than Flock use cellular only (the known-camera map layer covers the mapped ones)
             and cannot be detected this way.<br/><br/>
 
             Check your local laws before use. This is not legal advice.
