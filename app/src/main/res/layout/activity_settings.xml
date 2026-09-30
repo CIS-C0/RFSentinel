@@ -108,6 +108,13 @@
             android:paddingTop="2dp"
             android:textSize="12sp" />
 
+        <Button
+            android:id="@+id/wifiThrottleButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Open Developer options" />
+
         <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/bootSwitch"
             android:layout_width="match_parent"

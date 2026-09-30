@@ -92,11 +92,8 @@ class SettingsActivity : AppCompatActivity() {
             }
         )
         binding.intervalInput.setText((Prefs.scanIntervalMs(this) / 1000).toString())
-        binding.wifiThrottleText.text = if (wifiScanThrottled())
-            "Android limits apps to 4 WiFi scans per 2 minutes, so values under 30 s are wasted. " +
-                "To scan faster: Developer options → turn off \"Wi-Fi scan throttling\"."
-        else
-            "Wi-Fi scan throttling is off (Developer options): intervals down to 5 s work, at some battery cost."
+        binding.wifiThrottleButton.setOnClickListener { openWifiThrottleSetting() }
+        updateWifiThrottleHint()
         binding.bootSwitch.isChecked = Prefs.autoStartOnBoot(this)
         binding.batteryButton.setOnClickListener {
             runCatching { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
@@ -160,6 +157,53 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         binding.saveButton.setOnClickListener { save() }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // The user may be coming back from Developer options.
+        updateWifiThrottleHint()
+    }
+
+    private fun updateWifiThrottleHint() {
+        val throttled = wifiScanThrottled()
+        binding.wifiThrottleText.text = if (throttled)
+            "Android limits apps to 4 WiFi scans per 2 minutes, so values under 30 s are wasted. " +
+                "To scan faster, turn off \"Wi-Fi scan throttling\" in Developer options."
+        else
+            "Wi-Fi scan throttling is off: intervals down to 5 s work, at some battery cost."
+        binding.wifiThrottleButton.visibility = if (throttled) View.VISIBLE else View.GONE
+    }
+
+    /**
+     * Opens Developer options, where "Wi-Fi scan throttling" lives (Networking
+     * section). If they aren't unlocked yet, opens About phone instead and says how.
+     */
+    private fun openWifiThrottleSetting() {
+        val devEnabled = runCatching {
+            Settings.Global.getInt(contentResolver, Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) != 0
+        }.getOrDefault(false)
+        if (devEnabled && runCatching {
+                startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))
+            }.isSuccess
+        ) {
+            Toast.makeText(this, "Scroll to Networking and turn off \"Wi-Fi scan throttling\"", Toast.LENGTH_LONG).show()
+            return
+        }
+        // Explain first, then open About phone: a dialog shown behind it would go unseen.
+        AlertDialog.Builder(this)
+            .setTitle("Unlock Developer options first")
+            .setMessage(
+                "1. In About phone, tap \"Build number\" 7 times (enter your PIN if asked).\n" +
+                    "2. Come back here and tap \"Open Developer options\" again.\n" +
+                    "3. Under Networking, turn off \"Wi-Fi scan throttling\"."
+            )
+            .setPositiveButton("Open About phone") { _, _ ->
+                runCatching { startActivity(Intent(Settings.ACTION_DEVICE_INFO_SETTINGS)) }
+                    .onFailure { Toast.makeText(this, "Open Settings → About phone", Toast.LENGTH_LONG).show() }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     /** Android's WiFi scan throttle (Developer options), on unless the user disabled it. */
