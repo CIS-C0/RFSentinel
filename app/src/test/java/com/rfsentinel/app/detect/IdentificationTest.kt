@@ -69,6 +69,8 @@ class IdentificationTest {
         assertEquals("body camera", PatrolCluster.roleOf(listOf(hit(Category.BODY_CAM, "Axon body camera", 90)), null, null))
         assertEquals("mobile printer", PatrolCluster.roleOf(emptyList(), null, "RJ-4250WB_1234"))
         assertNull(PatrolCluster.roleOf(emptyList(), "Apple, Inc.", "iPhone"))
+        assertEquals("police radar", PatrolCluster.roleOf(listOf(hit(Category.PUBLIC_SAFETY, "Applied Concepts Stalker police speed radar", 70)), null, null))
+        assertEquals("emergency-vehicle equipment", PatrolCluster.roleOf(listOf(hit(Category.PUBLIC_SAFETY, "Federal Signal police lightbar / siren controller", 55)), null, null))
         // The cluster's own hit never counts as a role (no self-reinforcement).
         assertNull(PatrolCluster.roleOf(listOf(hit(Category.PUBLIC_SAFETY, "Possible police vehicle", 60, PatrolCluster.SOURCE)), null, null))
     }

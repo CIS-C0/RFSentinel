@@ -58,10 +58,10 @@ equipment:
 
 | Category | Examples |
 |---|---|
-| Body cameras | Axon body cams and TASER equipment, Getac, Utility |
-| License-plate readers | Flock Safety cameras, Genetec |
+| Body cameras | Axon, Motorola / WatchGuard, Digital Ally, Zepcam, Vievu, Utility, Getac, police in-car video |
+| License-plate readers | Flock Safety, Genetec, Perceptics, Quercus, Tattile, speed and red-light cameras |
 | Audio sensors | Flock Raven |
-| Public-safety gear | Motorola Solutions radios, in-car routers, e-ticket printers |
+| Public-safety gear | P25 / TETRA radios, police radar, vehicle upfit, e-ticket printers, cell-site simulator and forensic makers |
 | Drones | Remote ID decoded (serial, position, altitude, operator location) |
 | Trackers | AirTags and other Find My / Find Hub trackers that follow you |
 | Camera glasses | Ray-Ban Meta, Snap Spectacles, Vuzix and others |

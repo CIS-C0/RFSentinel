@@ -46,6 +46,8 @@ object PatrolCluster {
         Regex("cyberkar", RegexOption.IGNORE_CASE) to "in-car computer / console",
         Regex("getac", RegexOption.IGNORE_CASE) to "rugged laptop / body cam",
         Regex("genetec", RegexOption.IGNORE_CASE) to "plate reader",
+        Regex("stalker|decatur|police speed radar", RegexOption.IGNORE_CASE) to "police radar",
+        Regex("lightbar|siren controller|patrol products|police vehicle upfit", RegexOption.IGNORE_CASE) to "emergency-vehicle equipment",
         Regex("utility,? inc|digital ally|watchguard|i-pro|zepcam", RegexOption.IGNORE_CASE) to "police camera"
     )
 

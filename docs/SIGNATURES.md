@@ -197,6 +197,51 @@ These are editable and can be switched on or off in Settings.
 | `00:0A:3E` | EADS Telecom (TETRAPOL: French police ACROPOL and gendarmerie RUBIS networks) | Public safety | 45 |
 | `00:23:B9` | Airbus Defence and Space Deutschland (TETRA / TETRAPOL radios) | Public safety | 40 |
 
+### North America and Europe sweep (2026-09)
+
+A systematic sweep of the IEEE registry (MA-L, MA-M, MA-S) for makers of law-enforcement
+and surveillance equipment. Prefixes are pulled from the registry by exact registrant name,
+and a unit test re-checks every block against its registrant. Ambiguous or consumer
+registrants are left out on purpose.
+
+| Registrant(s) | Blocks | What they make | Category | Score |
+|---|---|---|---|---|
+| Vievu | 1 | Police body cameras (Axon since 2018) | Body cam | 75 |
+| International Police Technologies | 1 | Police in-car video (VisionHawk) | Body cam | 75 |
+| ICOP Digital | 1 | Police in-car video | Body cam | 70 |
+| L-3 Communications Mobile-Vision | 3 | Police in-car and body video | Body cam | 70 |
+| Applied Concepts | 1 | Stalker police radar / lidar | Public safety | 70 |
+| Decatur Electronics | 1 | Police speed radar | Public safety | 65 |
+| Patrol Products Consortium | 1 | Police vehicle upfit (tablets, control systems) | Public safety | 60 |
+| Federal Signal SSG | 1 | Emergency-vehicle lightbars and sirens | Public safety | 55 |
+| Havis | 2 | Vehicle consoles and computer docks | Public safety | 45 |
+| Gamber-Johnson | 10 | Vehicle computer mounts and docks | Public safety | 40 |
+| Global Traffic Technologies | 1 | Opticom emergency-vehicle signal priority | Public safety | 45 |
+| Fusus | 2 | Real-time crime center hubs (Axon) | Public safety | 70 |
+| 3SI Security Systems | 1 | Covert GPS bait trackers (police and bank stings) | Public safety | 55 |
+| Digital Receiver Technology | 1 | Cell-site simulators ("DRTbox") | Public safety | 70 |
+| Septier Communication | 1 | Cellular interception and location | Public safety | 55 |
+| Amesys Defense | 1 | Lawful interception | Public safety | 40 |
+| Domo Tactical Communications | 1 | Covert / body-worn COFDM video | Public safety | 55 |
+| Persistent Systems, Silvus, TrellisWare | 3 | Tactical mesh radio (SWAT, robots, drones) | Public safety | 40-45 |
+| Harris, E.F. Johnson, Daniels (Codan) | 6 | P25 public-safety radio | Public safety | 40-45 |
+| Airbus DS Oy, Selex, Simoco, Damm, Thales Communications | 9 | TETRA / public-safety radio | Public safety | 35-45 |
+| Perceptics | 2 | Plate readers (border and police) | ALPR | 65 |
+| Quercus Technologies | 11 | ANPR cameras (SmartLPR) | ALPR | 60 |
+| Robot Visual Systems | 1 | Speed / red-light cameras (Jenoptik) | ALPR | 60 |
+| Vitronic | 1 | PoliScan lidar speed enforcement | ALPR | 55 |
+| Tattile | 48 | ANPR and traffic cameras (also machine vision) | ALPR | 50 |
+| Jenoptik | 1 | Traffic enforcement (also optics) | ALPR | 45 |
+| Q-Free | 3 | Tolling and ANPR | ALPR | 40 |
+| Genetec | 4 | AutoVu ALPR (also servers, access control) | ALPR | 40 |
+| Cradlepoint | 2 | Vehicle routers (police cars, buses, stores) | Public safety | 35 |
+
+Left out on purpose:
+- **Consumer or general-purpose makers:** Sierra Wireless and Inseego routers (ACAB), Panasonic Connect laptops, GoPro and Transcend cameras, Axis / Hanwha / Verkada / Avigilon CCTV, Zebra printers (covered by the Zebra service rule instead), Icom and Kenwood radios, FLIR thermal.
+- **Offender-monitoring devices** (SCRAM and other ankle monitors, breath interlocks): these identify private people on probation, not police.
+- **Fixed installations with nothing to detect on the move:** Zetron and Frequentis dispatch consoles, Positron 911 systems, Rohde & Schwarz test gear, Verint and NICE recorders.
+- **Look-alike names:** Teltronics Inc. (telecom, not Teltronic TETRA), Axon Networks, WatchGuard Technologies, Codan Argus (invalid address block).
+
 France: the national police and gendarmerie body cameras (2021 contract) are Motorola
 Solutions VB400s (WiFi, Bluetooth LE 4.2 for holster sensors and peer-assisted
 recording). They are covered only by the generic Motorola identifiers above, because

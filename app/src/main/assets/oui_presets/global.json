@@ -310,5 +310,973 @@
     "confidence": "candidate",
     "score": 40,
     "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "FC:01:9E",
+    "label": "Vievu police body camera (now Axon)",
+    "source": "IEEE registry (Vievu); body-worn cameras sold to police, acquired by Axon in 2018",
+    "confidence": "confirmed",
+    "score": 75,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "00:1C:3F",
+    "label": "International Police Technologies in-car police video (VisionHawk)",
+    "source": "IEEE registry; IPT makes digital in-car video systems for police - its sole business (officer.com company profile)",
+    "confidence": "confirmed",
+    "score": 75,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "00:1B:BE",
+    "label": "ICOP Digital in-car police video",
+    "source": "IEEE registry (ICOP Digital); maker of police in-car video systems (later part of Safety Vision)",
+    "confidence": "confirmed",
+    "score": 70,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "00:50:C2:6D:C",
+    "label": "L-3 Mobile-Vision police in-car and body video",
+    "source": "IEEE registry (L-3 Communications Mobile-Vision); police in-car (Flashback) and body-worn video",
+    "confidence": "confirmed",
+    "score": 70,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "00:50:C2:A4:B",
+    "label": "L-3 Mobile-Vision police in-car and body video",
+    "source": "IEEE registry (L-3 Communications Mobile-Vision); police in-car (Flashback) and body-worn video",
+    "confidence": "confirmed",
+    "score": 70,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "38:73:EA:0",
+    "label": "L-3 Mobile-Vision police in-car and body video",
+    "source": "IEEE registry (L-3 Communications Mobile-Vision); police in-car (Flashback) and body-worn video",
+    "confidence": "confirmed",
+    "score": 70,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "38:43:69",
+    "label": "Patrol Products Consortium police vehicle upfit (tablets, control systems)",
+    "source": "IEEE registry; police and emergency vehicle upfitter selling in-car tablets and integrated control systems (BBB, Global Public Safety)",
+    "confidence": "confirmed",
+    "score": 60,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "08:3C:03:0",
+    "label": "Federal Signal police lightbar / siren controller",
+    "source": "IEEE MA-M registry (Federal Signal Safety and Security Group); emergency-vehicle lighting and sirens. Also industrial signalling - verify",
+    "confidence": "candidate",
+    "score": 55,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:1F:9C",
+    "label": "Havis in-vehicle console / docking station",
+    "source": "IEEE registry (Havis Inc.); police and fleet vehicle consoles and computer docks. Weak: also utility fleets",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "70:B3:D5:98:3",
+    "label": "Havis in-vehicle console / docking station",
+    "source": "IEEE registry (Havis Inc.); police and fleet vehicle consoles and computer docks. Weak: also utility fleets",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:50:C2:84:F",
+    "label": "Gamber Johnson vehicle computer mount / dock",
+    "source": "IEEE registry (Gamber-Johnson); police and fleet vehicle computer mounts and docks. Weak: also forklifts and fleets",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:50:C2:A7:2",
+    "label": "Gamber Johnson vehicle computer mount / dock",
+    "source": "IEEE registry (Gamber-Johnson); police and fleet vehicle computer mounts and docks. Weak: also forklifts and fleets",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:50:C2:D9:C",
+    "label": "Gamber Johnson vehicle computer mount / dock",
+    "source": "IEEE registry (Gamber-Johnson); police and fleet vehicle computer mounts and docks. Weak: also forklifts and fleets",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "68:DA:73:B",
+    "label": "Gamber Johnson vehicle computer mount / dock",
+    "source": "IEEE registry (Gamber-Johnson); police and fleet vehicle computer mounts and docks. Weak: also forklifts and fleets",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "70:B3:D5:17:8",
+    "label": "Gamber Johnson vehicle computer mount / dock",
+    "source": "IEEE registry (Gamber-Johnson); police and fleet vehicle computer mounts and docks. Weak: also forklifts and fleets",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "70:B3:D5:DB:C",
+    "label": "Gamber Johnson vehicle computer mount / dock",
+    "source": "IEEE registry (Gamber-Johnson); police and fleet vehicle computer mounts and docks. Weak: also forklifts and fleets",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "70:B3:D5:E3:4",
+    "label": "Gamber Johnson vehicle computer mount / dock",
+    "source": "IEEE registry (Gamber-Johnson); police and fleet vehicle computer mounts and docks. Weak: also forklifts and fleets",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "8C:1F:64:04:C",
+    "label": "Gamber Johnson vehicle computer mount / dock",
+    "source": "IEEE registry (Gamber-Johnson); police and fleet vehicle computer mounts and docks. Weak: also forklifts and fleets",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "8C:1F:64:42:B",
+    "label": "Gamber Johnson vehicle computer mount / dock",
+    "source": "IEEE registry (Gamber-Johnson); police and fleet vehicle computer mounts and docks. Weak: also forklifts and fleets",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "8C:1F:64:CB:5",
+    "label": "Gamber Johnson vehicle computer mount / dock",
+    "source": "IEEE registry (Gamber-Johnson); police and fleet vehicle computer mounts and docks. Weak: also forklifts and fleets",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "CC:69:B0",
+    "label": "Global Traffic Technologies Opticom (emergency-vehicle signal priority)",
+    "source": "IEEE registry; Opticom preemption units on police, fire and EMS vehicles. Also installed at intersections",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "1C:82:59:D",
+    "label": "Applied Concepts Stalker police speed radar",
+    "source": "IEEE MA-M registry (Applied Concepts, Inc., maker of Stalker police radar and lidar)",
+    "confidence": "confirmed",
+    "score": 70,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "6C:18:11",
+    "label": "Decatur Electronics police speed radar",
+    "source": "IEEE registry (Decatur Electronics); police speed radar guns and in-car radar",
+    "confidence": "confirmed",
+    "score": 65,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:50:C2:10:F",
+    "label": "Perceptics plate reader (border and law enforcement)",
+    "source": "IEEE registry (Perceptics); license-plate readers used at US border crossings and by police",
+    "confidence": "confirmed",
+    "score": 65,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:88:A",
+    "label": "Perceptics plate reader (border and law enforcement)",
+    "source": "IEEE registry (Perceptics); license-plate readers used at US border crossings and by police",
+    "confidence": "confirmed",
+    "score": 65,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:C0:1",
+    "label": "Quercus plate-reader camera (SmartLPR)",
+    "source": "IEEE registry (Quercus Technologies, Spain); ANPR/LPR camera maker",
+    "confidence": "confirmed",
+    "score": 60,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:FD:C",
+    "label": "Quercus plate-reader camera (SmartLPR)",
+    "source": "IEEE registry (Quercus Technologies, Spain); ANPR/LPR camera maker",
+    "confidence": "confirmed",
+    "score": 60,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:03:D",
+    "label": "Quercus plate-reader camera (SmartLPR)",
+    "source": "IEEE registry (Quercus Technologies, Spain); ANPR/LPR camera maker",
+    "confidence": "confirmed",
+    "score": 60,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:40:B",
+    "label": "Quercus plate-reader camera (SmartLPR)",
+    "source": "IEEE registry (Quercus Technologies, Spain); ANPR/LPR camera maker",
+    "confidence": "confirmed",
+    "score": 60,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:4C:1",
+    "label": "Quercus plate-reader camera (SmartLPR)",
+    "source": "IEEE registry (Quercus Technologies, Spain); ANPR/LPR camera maker",
+    "confidence": "confirmed",
+    "score": 60,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:77:7",
+    "label": "Quercus plate-reader camera (SmartLPR)",
+    "source": "IEEE registry (Quercus Technologies, Spain); ANPR/LPR camera maker",
+    "confidence": "confirmed",
+    "score": 60,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:A1:2",
+    "label": "Quercus plate-reader camera (SmartLPR)",
+    "source": "IEEE registry (Quercus Technologies, Spain); ANPR/LPR camera maker",
+    "confidence": "confirmed",
+    "score": 60,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:FF:B",
+    "label": "Quercus plate-reader camera (SmartLPR)",
+    "source": "IEEE registry (Quercus Technologies, Spain); ANPR/LPR camera maker",
+    "confidence": "confirmed",
+    "score": 60,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "8C:1F:64:9B:9",
+    "label": "Quercus plate-reader camera (SmartLPR)",
+    "source": "IEEE registry (Quercus Technologies, Spain); ANPR/LPR camera maker",
+    "confidence": "confirmed",
+    "score": 60,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "8C:1F:64:B9:A",
+    "label": "Quercus plate-reader camera (SmartLPR)",
+    "source": "IEEE registry (Quercus Technologies, Spain); ANPR/LPR camera maker",
+    "confidence": "confirmed",
+    "score": 60,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "8C:1F:64:D7:C",
+    "label": "Quercus plate-reader camera (SmartLPR)",
+    "source": "IEEE registry (Quercus Technologies, Spain); ANPR/LPR camera maker",
+    "confidence": "confirmed",
+    "score": 60,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:00:A5",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:20:31",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:20:B3",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:40:75",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:40:8E",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:0B:D",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:1F:2",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:26:1",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:28:E",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:36:4",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:46:1",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:52:8",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:61:3",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:73:9",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:7B:7",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:8C:7",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:9C:1",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:BE:1",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:D8:1",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:E5:0",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:F7:9",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:60:4F",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:80:46",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:90:43",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:90:8B",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:A0:80",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "40:D8:55:07:1",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "40:D8:55:13:3",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:0D:6",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:2C:A",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:2F:6",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:32:3",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:41:2",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:48:B",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:5C:4",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:82:5",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:88:1",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:8A:A",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:8F:3",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:93:7",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:96:7",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:AC:B",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:AF:4",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:B2:1",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:C7:F",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:EC:5",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:B3:D5:EE:F",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "DC:4A:9E:6",
+    "label": "Tattile plate-reader / traffic camera",
+    "source": "IEEE registry (Tattile, Italy); ANPR and traffic-enforcement cameras. Also machine vision - verify",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:82:3",
+    "label": "Robot Visual Systems speed / red-light camera (Jenoptik)",
+    "source": "IEEE registry (Robot Visual Systems, now Jenoptik); traffic-enforcement cameras",
+    "confidence": "confirmed",
+    "score": 60,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "98:6D:35:6",
+    "label": "Vitronic PoliScan speed enforcement",
+    "source": "IEEE MA-M registry (Vitronic); PoliScan lidar speed enforcement. Also industrial vision - verify",
+    "confidence": "candidate",
+    "score": 55,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:04:4C",
+    "label": "Jenoptik traffic enforcement camera",
+    "source": "IEEE registry (Jenoptik); speed and red-light enforcement (TraffiStar, VECTOR). Weak: also optics and industry",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:12:8E",
+    "label": "Q-Free tolling / plate reader",
+    "source": "IEEE registry (Q-Free); tolling, ANPR and traffic management. Weak: mostly tolling",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:81:6",
+    "label": "Q-Free tolling / plate reader",
+    "source": "IEEE registry (Q-Free); tolling, ANPR and traffic management. Weak: mostly tolling",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "64:55:63",
+    "label": "Q-Free tolling / plate reader",
+    "source": "IEEE registry (Q-Free); tolling, ANPR and traffic management. Weak: mostly tolling",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:0A:B1",
+    "label": "Genetec - AutoVu license-plate readers / security systems",
+    "source": "IEEE registry (Genetec); AutoVu ALPR used by police in North America and Europe. Weak: blocks also cover Genetec servers and access control",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:50:C2:BE:7",
+    "label": "Genetec - AutoVu license-plate readers / security systems",
+    "source": "IEEE registry (Genetec); AutoVu ALPR used by police in North America and Europe. Weak: blocks also cover Genetec servers and access control",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:BF:15",
+    "label": "Genetec - AutoVu license-plate readers / security systems",
+    "source": "IEEE registry (Genetec); AutoVu ALPR used by police in North America and Europe. Weak: blocks also cover Genetec servers and access control",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "0C:BF:15",
+    "label": "Genetec - AutoVu license-plate readers / security systems",
+    "source": "IEEE registry (Genetec); AutoVu ALPR used by police in North America and Europe. Weak: blocks also cover Genetec servers and access control",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "7C:83:34:4",
+    "label": "Fusus real-time crime center hub (Axon)",
+    "source": "IEEE MA-M registry (Fusus); FususCORE hubs stream business and city cameras to police real-time crime centers",
+    "confidence": "confirmed",
+    "score": 70,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "84:B3:86:5",
+    "label": "Fusus real-time crime center hub (Axon)",
+    "source": "IEEE MA-M registry (Fusus); FususCORE hubs stream business and city cameras to police real-time crime centers",
+    "confidence": "confirmed",
+    "score": 70,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "F8:B5:68:C",
+    "label": "3SI GPS bait tracker (police / bank sting)",
+    "source": "IEEE MA-M registry (3SI Security Systems); covert GPS trackers hidden in bait property and cash, used by 10,000+ police agencies",
+    "confidence": "confirmed",
+    "score": 55,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:50:C2:36:0",
+    "label": "Digital Receiver Technology (cell-site simulator maker)",
+    "source": "IEEE registry (Digital Receiver Technology, Boeing subsidiary); maker of 'DRTbox' cell-site simulators used by US federal agencies",
+    "confidence": "confirmed",
+    "score": 70,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:50:C2:2A:5",
+    "label": "Septier interception equipment",
+    "source": "IEEE registry (Septier Communication); cellular interception and location systems for law enforcement",
+    "confidence": "candidate",
+    "score": 55,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:0D:1C",
+    "label": "Amesys interception equipment",
+    "source": "IEEE registry (Amesys Defense, France); lawful-interception systems. Mostly fixed installations",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "98:49:9F",
+    "label": "Domo Tactical covert video / mesh radio",
+    "source": "IEEE registry (Domo Tactical Communications); body-worn and covert COFDM video for police and military",
+    "confidence": "confirmed",
+    "score": 55,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:18:A6",
+    "label": "Persistent Systems MPU5 tactical mesh radio",
+    "source": "IEEE registry; MPU5 mesh radios used by SWAT teams and the military",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "C4:7C:8D:A",
+    "label": "Silvus tactical mesh radio",
+    "source": "IEEE MA-M registry (Silvus Technologies); MANET radios for police robots, drones and SWAT. Also military and industry",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:1E:3F",
+    "label": "TrellisWare tactical mesh radio",
+    "source": "IEEE registry; tactical MANET radios. Mostly military",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:00:C3",
+    "label": "Harris / L3Harris public-safety radio",
+    "source": "IEEE registry (Harris); P25 radios used by police and fire. Weak: also broadcast and defence gear",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:02:68",
+    "label": "Harris / L3Harris public-safety radio",
+    "source": "IEEE registry (Harris); P25 radios used by police and fire. Weak: also broadcast and defence gear",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:06:EC",
+    "label": "Harris / L3Harris public-safety radio",
+    "source": "IEEE registry (Harris); P25 radios used by police and fire. Weak: also broadcast and defence gear",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:17:F3",
+    "label": "Harris / L3Harris public-safety radio",
+    "source": "IEEE registry (Harris); P25 radios used by police and fire. Weak: also broadcast and defence gear",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:08:B8",
+    "label": "E.F. Johnson P25 police radio",
+    "source": "IEEE registry (E.F. Johnson); P25 portable and mobile radios for public safety",
+    "confidence": "confirmed",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:14:91",
+    "label": "Daniels Electronics / Codan P25 radio",
+    "source": "IEEE registry; Canadian P25 radio infrastructure and repeaters for public safety",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "28:FD:80:C",
+    "label": "Airbus TETRA radio (Finland)",
+    "source": "IEEE MA-M registry (Airbus Defence and Space Oy); TETRA terminals and networks for police",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:17:28",
+    "label": "Selex (Leonardo) TETRA / public-safety radio",
+    "source": "IEEE registry (Selex); TETRA and public-safety radios. Weak: also defence",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "70:B3:D5:52:1",
+    "label": "Selex (Leonardo) TETRA / public-safety radio",
+    "source": "IEEE registry (Selex); TETRA and public-safety radios. Weak: also defence",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "70:B3:D5:F5:E",
+    "label": "Selex (Leonardo) TETRA / public-safety radio",
+    "source": "IEEE registry (Selex); TETRA and public-safety radios. Weak: also defence",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:0E:06",
+    "label": "Simoco public-safety radio",
+    "source": "IEEE registry (Simoco); DMR, TETRA and P25 radio for emergency services and utilities",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:1A:08",
+    "label": "Simoco public-safety radio",
+    "source": "IEEE registry (Simoco); DMR, TETRA and P25 radio for emergency services and utilities",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:0F:E3",
+    "label": "Damm TETRA radio infrastructure",
+    "source": "IEEE registry (Damm Cellular Systems); TETRA base stations for public-safety networks. Mostly fixed sites",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:26:B3",
+    "label": "Thales tactical / public-safety radio",
+    "source": "IEEE registry (Thales Communications Inc, US); tactical and P25 radios. Mostly military",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:50:C2:8A:D",
+    "label": "Thales tactical / public-safety radio",
+    "source": "IEEE registry (Thales Communications Inc, US); tactical and P25 radios. Mostly military",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:30:44",
+    "label": "Cradlepoint vehicle router - police cars, buses, stores",
+    "source": "IEEE registry (CradlePoint); in-vehicle routers widely installed in police cars. Weak: also transit and retail",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:E0:1C",
+    "label": "Cradlepoint vehicle router - police cars, buses, stores",
+    "source": "IEEE registry (CradlePoint); in-vehicle routers widely installed in police cars. Weak: also transit and retail",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "PUBLIC_SAFETY"
   }
 ]
