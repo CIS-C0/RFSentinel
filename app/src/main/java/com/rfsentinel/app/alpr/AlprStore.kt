@@ -68,6 +68,10 @@ object AlprStore {
             }
         }
 
+    /** Tests only: set the cache without files or network. */
+    @androidx.annotation.VisibleForTesting
+    fun setForTest(list: List<KnownCamera>) { cameras = list }
+
     fun clear(context: Context) {
         file(context).delete()
         cameras = emptyList()

@@ -87,6 +87,11 @@ class ScanForegroundService : Service() {
         private const val CELL_CHECK_MS = 15_000L
         private const val CELL_REPEAT_MS = 30 * 60_000L
 
+        /** Latest location fix while scanning (for the car map), or null. */
+        @Volatile
+        var lastFix: Location? = null
+            private set
+
         /** True while an instance is alive in this process. Source of truth for the UI. */
         @Volatile
         var isRunning = false
@@ -136,6 +141,7 @@ class ScanForegroundService : Service() {
     private var locationFastMode = false
     private val locationListener = LocationListener {
         lastLocation = it
+        lastFix = it
         TripRecorder.onLocation(it)
         checkKnownAlpr(it)
         cellMonitor?.onLocation(it)

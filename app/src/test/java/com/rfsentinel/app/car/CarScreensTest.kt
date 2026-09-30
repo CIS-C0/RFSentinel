@@ -74,11 +74,12 @@ class CarScreensTest {
     fun homeScreenShowsStatusNavigationAndButtons() {
         val t = HomeScreen(car).onGetTemplate() as ListTemplate
         val rows = t.singleList!!.items.map { it as Row }
-        assertEquals(5, rows.size)
+        assertEquals(6, rows.size)
         assertTrue(rows[0].title.toString().startsWith("Strong match"))              // threat headline
         assertTrue(rows[1].title.toString().startsWith("Flagged nearby (2)"))
         assertTrue(rows[2].title.toString().startsWith("Drones & trackers (1)"))
         assertTrue(rows[3].title.toString().startsWith("All nearby devices (14)"))
+        assertEquals("Plate cameras & drones on the map", rows[4].title.toString())
         val actions = t.actionStrip!!.actions
         assertEquals(2, actions.size)
         assertEquals("Stop", actions[0].title.toString())
@@ -92,7 +93,7 @@ class CarScreensTest {
         mute.onClickDelegate!!.sendClick(object : OnDoneCallback {})
         assertTrue(Prefs.alertsMuted(car))
         val t = screen.onGetTemplate() as ListTemplate
-        assertTrue((t.singleList!!.items[4] as Row).texts[0].toString().contains("muted"))
+        assertTrue((t.singleList!!.items[5] as Row).texts[0].toString().contains("muted"))
         val relabeled = t.actionStrip!!.actions[1]
         relabeled.onClickDelegate!!.sendClick(object : OnDoneCallback {})
         assertTrue(!Prefs.alertsMuted(car))
@@ -118,6 +119,27 @@ class CarScreensTest {
 
         val drone = DeviceDetailScreen(car, droneMac).onGetTemplate() as PaneTemplate
         assertTrue(drone.actionStrip!!.actions.any { it.title?.toString() == "Navigate" })
+    }
+
+    @Test
+    fun nearbyMapListsDronesThenClosestCameras() {
+        // Synthetic positions: you at 10.5, -20.5; the test drone is at the same point.
+        com.rfsentinel.app.alpr.AlprStore.setForTest(listOf(
+            com.rfsentinel.app.alpr.KnownCamera("node/1", 10.503, -20.5, "Flock Safety", "Example PD", 90),
+            com.rfsentinel.app.alpr.KnownCamera("node/2", 10.51, -20.5, "Motorola", null, null),
+            com.rfsentinel.app.alpr.KnownCamera("node/3", 11.5, -20.5, "Far away", null, null)
+        ))
+        val items = NearbyMapScreen.nearby(10.5, -20.5, 6)
+        assertEquals(3, items.size)                           // the far camera is outside 5 km
+        assertTrue(items[0].drone)
+        assertEquals("Flock Safety (ALPR)", items[1].title)
+        assertEquals("330 m", NearbyMapScreen.distanceText(items[1].distanceM))
+        assertEquals("1.1 km", NearbyMapScreen.distanceText(items[2].distanceM))
+
+        // The template (host-drawn map + places) builds within Android Auto's limits.
+        val t = NearbyMapScreen(car).onGetTemplate() as androidx.car.app.model.PlaceListMapTemplate
+        assertTrue(t.itemList!!.items.size <= CarUi.listLimit(car))
+        com.rfsentinel.app.alpr.AlprStore.setForTest(emptyList())
     }
 
     @Test

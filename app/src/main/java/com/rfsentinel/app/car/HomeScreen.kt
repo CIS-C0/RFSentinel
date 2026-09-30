@@ -56,6 +56,14 @@ class HomeScreen(carContext: CarContext) : LiveScreen(carContext) {
         items.addItem(navRow("Flagged nearby", flagged, R.drawable.ic_car_warning, DeviceListScreen.Filter.FLAGGED))
         items.addItem(navRow("Drones & trackers", dronesTrackers, R.drawable.ic_car_drone, DeviceListScreen.Filter.DRONES_TRACKERS))
         items.addItem(navRow("All nearby devices", devices.size, R.drawable.ic_car_list, DeviceListScreen.Filter.ALL))
+        items.addItem(
+            Row.Builder()
+                .setTitle("Plate cameras & drones on the map")
+                .setImage(CarUi.icon(carContext, R.drawable.ic_car_navigate))
+                .setBrowsable(true)
+                .setOnClickListener { screenManager.push(NearbyMapScreen(carContext)) }
+                .build()
+        )
 
         // 5. Spoken announcements in the car (alongside the alert tone)
         val voice = Prefs.carVoice(carContext)
