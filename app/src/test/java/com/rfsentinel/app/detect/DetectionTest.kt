@@ -78,6 +78,17 @@ class DetectionTest {
     // ---- Flock ---------------------------------------------------------------
 
     @Test
+    fun cameraBlocksFromCommunityLists() {
+        // Hikvision, Ring and Uniview blocks added from Flock-You-Android / OUI-Spy / Fieldwatch.
+        for ((mac, vendor) in listOf("B4:A3:82:11:22:33" to "Hikvision", "18:7F:88:11:22:33" to "Ring (Amazon)",
+            "48:EA:63:11:22:33" to "Uniview")) {
+            val h = best(wifi(mac, "cam"))
+            assertEquals(Category.NETWORK_CAMERA, h?.category)
+            assertEquals("$vendor camera, hub or recorder", h?.label)
+        }
+    }
+
+    @Test
     fun flockSignatures() {
         assertEquals(88, best(wifi("B4:1E:52:00:00:01", "Flock-3F2A1B"))?.confidence)
         assertEquals(80, best(ble(name = "FS Ext Battery"))?.confidence)

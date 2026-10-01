@@ -1286,5 +1286,405 @@
     "confidence": "candidate",
     "score": 55,
     "category": "ALPR"
+  },
+  {
+    "prefix": "70:C9:4E",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "3C:91:80",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "D8:F3:BC",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "80:30:49",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "14:5A:FC",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "74:4C:A1",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "08:3A:88",
+    "label": "Universal Global Scientific (USI) module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Universal Global Scientific Industrial., Ltd); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "9C:2F:9D",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "C0:35:32",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "94:08:53",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "E4:AA:EA",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "F4:6A:DD",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "E0:0A:F6",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "24:B2:B9",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:F4:8D",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "D0:39:57",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "E8:D0:FC",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "E0:4F:43",
+    "label": "Universal Global Scientific (USI) module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Universal Global Scientific Industrial., Ltd); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "B8:1E:A4",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "70:08:94",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "58:8E:81",
+    "label": "Silicon Labs module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Silicon Laboratories); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "EC:1B:BD",
+    "label": "Silicon Labs module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Silicon Laboratories); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "3C:71:BF",
+    "label": "Espressif module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Espressif Inc.); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "58:00:E3",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "90:35:EA",
+    "label": "Silicon Labs module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Silicon Laboratories); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "5C:93:A2",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "64:6E:69",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "48:27:EA",
+    "label": "Samsung module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Samsung Electronics Co.,Ltd); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "A4:CF:12",
+    "label": "Espressif module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Espressif Inc.); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "14:B5:CD",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "F8:A2:D6",
+    "label": "Liteon module seen on Flock cameras (community list)",
+    "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "04:0D:84",
+    "label": "Silicon Labs radio seen on Flock camera-pole external batteries (community list)",
+    "source": "IEEE MA-L (Silicon Laboratories); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "1C:34:F1",
+    "label": "Silicon Labs radio seen on Flock camera-pole external batteries (community list)",
+    "source": "IEEE MA-L (Silicon Laboratories); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "38:5B:44",
+    "label": "Silicon Labs radio seen on Flock camera-pole external batteries (community list)",
+    "source": "IEEE MA-L (Silicon Laboratories); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "94:34:69",
+    "label": "Silicon Labs radio seen on Flock camera-pole external batteries (community list)",
+    "source": "IEEE MA-L (Silicon Laboratories); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "B4:E3:F9",
+    "label": "Silicon Labs radio seen on Flock camera-pole external batteries (community list)",
+    "source": "IEEE MA-L (Silicon Laboratories); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "F0:82:C0",
+    "label": "Silicon Labs radio seen on Flock camera-pole external batteries (community list)",
+    "source": "IEEE MA-L (Silicon Laboratories); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:14:7B",
+    "label": "Iteris - BlueTOAD / Vantage Velocity roadside Bluetooth travel-time reader",
+    "source": "IEEE MA-L (Iteris, Inc.); listed by OffGridPete/Fieldwatch",
+    "confidence": "candidate",
+    "score": 60,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:0E:A5",
+    "label": "BLIP Systems - BlipTrack roadside Bluetooth / WiFi travel-time sensor",
+    "source": "IEEE MA-L (BLIP Systems); listed by OffGridPete/Fieldwatch",
+    "confidence": "candidate",
+    "score": 60,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:A0:D5",
+    "label": "Sierra Wireless - AirLink vehicle gateway (police / EMS / fleet)",
+    "source": "IEEE MA-L (Sierra Wireless, ULC); listed by MaxwellDPS/Flock-You-Android; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "28:A3:31",
+    "label": "Sierra Wireless - AirLink vehicle gateway (police / EMS / fleet)",
+    "source": "IEEE MA-L (Sierra Wireless, ULC); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "50:13:9D",
+    "label": "Sierra Wireless - AirLink vehicle gateway (police / EMS / fleet)",
+    "source": "IEEE MA-L (Sierra Wireless, ULC); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "64:CE:6E",
+    "label": "Sierra Wireless - AirLink vehicle gateway (police / EMS / fleet)",
+    "source": "IEEE MA-L (Sierra Wireless, ULC); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "84:DB:2F",
+    "label": "Sierra Wireless - AirLink vehicle gateway (police / EMS / fleet)",
+    "source": "IEEE MA-L (Sierra Wireless, ULC); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "CC:93:4A",
+    "label": "Sierra Wireless - AirLink vehicle gateway (police / EMS / fleet)",
+    "source": "IEEE MA-L (Sierra Wireless, ULC); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:40:29",
+    "label": "Compex vehicle / agency WiFi access point",
+    "source": "IEEE MA-L (Compex); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:80:48",
+    "label": "Compex vehicle / agency WiFi access point",
+    "source": "IEEE MA-L (Compex Incorporated); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "04:F0:21",
+    "label": "Compex vehicle / agency WiFi access point",
+    "source": "IEEE MA-L (Compex Systems Pte Ltd); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:40:9D",
+    "label": "DigiBoard (Digi) fleet telematics gateway",
+    "source": "IEEE MA-L (DigiBoard); listed by MaxwellDPS/Flock-You-Android. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 35,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "28:80:A2",
+    "label": "Inseego (Novatel) vehicle radio / MiFi (reported in public-safety vehicles)",
+    "source": "IEEE MA-L (Inseego Wireless, Inc); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
   }
 ]

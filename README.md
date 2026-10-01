@@ -391,7 +391,17 @@ Please don't guess.
 Inspired by the nyanBOX hardware device and the RF Party app, which was based
 on Alan Meekins' DEF CON 31 talk *"Snoop Unto Them As They Snoop Unto Us"*.
 Some feature ideas come from SØPHIA and BLE Radar (MetaRadar). No code from
-those projects is included. The DedSec theme font is Share Tech Mono (SIL Open
+those projects is included.
+
+Part of the MAC-prefix data was cross-checked with, and extended from, the lists
+in [Flock You](https://github.com/colonelpanichacks/flock-you) and
+[OUI-Spy](https://github.com/colonelpanichacks/oui-spy-unified-blue) (with
+@NitekryDPaul's [nite-oui-collection](https://github.com/nitekry/nite-oui-collection)),
+[Wardrive Go](https://github.com/RocketGod-git/wardrive-go),
+[Flock-You-Android](https://github.com/MaxwellDPS/Flock-You-Android) and
+[Fieldwatch](https://github.com/OffGridPete/Fieldwatch) - thank you. Every prefix
+was re-checked against its IEEE registrant; see
+[docs/SIGNATURES.md](docs/SIGNATURES.md#community-lists-compared-2026-10). The DedSec theme font is Share Tech Mono (SIL Open
 Font License 1.1). The DedSec theme is an unofficial, original homage and
 contains no Ubisoft artwork.
 

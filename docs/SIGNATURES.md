@@ -260,6 +260,33 @@ label names.
 The Motorola entries are weak on purpose. In ACAB's field capture, all 27 of 27
 hits on Motorola WiFi prefixes turned out *not* to be body cams.
 
+### Community lists compared (2026-10)
+
+The prefix lists of five open projects were compared with ours, and every
+candidate's IEEE registrant was checked against the maker the project names.
+
+| Project | What was added |
+|---|---|
+| [Flock You](https://github.com/colonelpanichacks/flock-you) (list by @NitekryDPaul, [nite-oui-collection](https://github.com/nitekry/nite-oui-collection); 82:6B:F2 by DeflockJoplin) | 31 radio-module prefixes seen on Flock cameras, as **weak** ALPR entries (score 35) |
+| [OUI-Spy](https://github.com/colonelpanichacks/oui-spy-unified-blue) | 11 Ring (Amazon) blocks, as home cameras (off by default) |
+| [Wardrive Go](https://github.com/RocketGod-git/wardrive-go) | Same Flock list; its traffic-camera and drone blocks were already here |
+| [Flock-You-Android](https://github.com/MaxwellDPS/Flock-You-Android) | Hikvision, Dahua, Axis, Vivotek, Amcrest, Reolink, Wyze, TVT, Reecam camera blocks; Sierra Wireless and Digi fleet gateways |
+| [Fieldwatch](https://github.com/OffGridPete/Fieldwatch) | BlueTOAD (Iteris) and BlipTrack roadside travel-time sensors; Flock-pole battery radios (weak); Hanwha, Uniview, Rhombus cameras; Sierra AirLink, Compex and Inseego (Novatel) vehicle radios |
+
+The Flock radio list is mostly Liteon, Silicon Labs, Espressif and USI module
+blocks that are also in many laptops, smart plugs and IoT devices, so those
+entries stay weak: they show up amber and only alert when the threshold is set
+to "every match". The Flock SSID, Flock's own block (B4:1E:52) and Raven UUIDs
+remain the strong signals.
+
+Left out on purpose: 42 prefixes whose IEEE registrant doesn't match the claim -
+most of Flock-You-Android's DJI, Autel, Yuneec, Skydio, 3DR and extra Parrot
+blocks are registered to Texas Instruments, Intel, ASUS, Google, Espressif and
+others, and would flag ordinary phones and laptops as drones; several more aren't
+IEEE blocks at all. Generic chip makers listed as "body cam" or "spy camera"
+sources (Nordic, Texas Instruments, Raspberry Pi, Ralink, Apple) and DJI's Osmo
+/ Ronin gimbal blocks were also left out.
+
 ## Canada preset (`assets/oui_presets/canada.json`), researched 2026-09
 
 Built only from public records: police pilot reports, public procurement

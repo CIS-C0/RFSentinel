@@ -70,6 +70,20 @@ object SignatureEngine {
     private val CAMERA_PREFIXES = PrefixTable(
         listOf("A41162", "FC9C98", "486264").associateWith { "Arlo" } +
             listOf("3CA070", "70AD43", "741348", "74AB93", "C819D8", "F074C1").associateWith { "Blink (Amazon)" } +
+            // From Flock-You-Android / Fieldwatch / OUI-Spy lists, registrant checked against IEEE.
+            listOf("CC47BD").associateWith { "Rhombus" } +
+            listOf("B4A382", "4419B6", "54C415", "2857BE", "C056E3", "4CBD8F", "1868CB", "C42F90").associateWith { "Hikvision" } +
+            listOf("E0508B", "3CEF8C", "4C11BF", "A0BD1D", "9002A9").associateWith { "Dahua" } +
+            listOf("00408C", "ACCC8E", "B8A44F", "E82725").associateWith { "Axis" } +
+            listOf("000918").associateWith { "Hanwha Vision (Wisenet)" } +
+            listOf("48EA63", "6CF17E", "88263F", "C47905").associateWith { "Uniview" } +
+            listOf("0002D1").associateWith { "Vivotek" } +
+            listOf("9C8ECD").associateWith { "Amcrest" } +
+            listOf("EC71DB").associateWith { "Reolink" } +
+            listOf("2CAA8E", "D03F27").associateWith { "Wyze" } +
+            listOf("0018AE").associateWith { "TVT" } +
+            listOf("E8ABFA").associateWith { "Reecam" } +
+            listOf("187F88", "242BD6", "343EA4", "54E019", "5C475E", "649A63", "90486C", "9C7613", "AC9FC3", "C4DBAD", "CC3BFB").associateWith { "Ring (Amazon)" } +
             mapOf(
                 "38F25D" to "Ezviz", "14BA88" to "Uniview", "3446632" to "Amcrest", "A4DA222" to "Wyze",
                 "0C0EC14" to "Swann", "542B57" to "Night Owl", "D0C193" to "SkyBell", "B0B3537" to "WUUK"
