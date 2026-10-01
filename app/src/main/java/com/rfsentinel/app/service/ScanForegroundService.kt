@@ -305,7 +305,7 @@ class ScanForegroundService : Service() {
     fun updateLocationUpdates() {
         val wanted = hasFineLocation() &&
             (Prefs.gpsTaggingEnabled(this) || Prefs.followerAlerts(this) || TripRecorder.isRecording || knownAlprActive())
-        // Frequent fixes while recording a trace or watching for known plate cameras
+        // Frequent fixes while recording a trace or watching for known cameras
         // (at highway speed a 20 s interval could skip right past one).
         val fast = TripRecorder.isRecording || knownAlprActive()
         val lm = getSystemService(LOCATION_SERVICE) as LocationManager
@@ -441,20 +441,27 @@ class ScanForegroundService : Service() {
         AlertPlayer.play(this, best.tier, "${best.label} nearby")
     }
 
-    private fun knownAlprActive() = Prefs.knownAlprAlerts(this) &&
+    private fun knownAlprActive() = (Prefs.knownAlprAlerts(this) || Prefs.speedCameraAlerts(this)) &&
         Prefs.categoryEnabled(this, Category.ALPR) && AlprStore.cameras.isNotEmpty()
+
+    private fun wantsAlert(kind: com.rfsentinel.app.alpr.KnownCamera.Kind) =
+        if (kind == com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR) Prefs.knownAlprAlerts(this) else Prefs.speedCameraAlerts(this)
 
     /**
      * Warns once (per camera, per 30 minutes) when you're approaching a plate
-     * reader mapped in OpenStreetMap: within ~20 s of travel and getting closer.
+     * reader (~20 s of travel) or a speed / red-light camera (~30 s) mapped in
+     * OpenStreetMap, and getting closer.
      * Runs on the main thread with each location fix; the lookup is a cheap
      * bounding-box filter.
      */
     private fun checkKnownAlpr(loc: Location) {
         if (!knownAlprActive()) return
         val now = System.currentTimeMillis()
-        val radius = KnownCameras.warnRadius(if (loc.hasSpeed()) loc.speed else null)
+        val speed = if (loc.hasSpeed()) loc.speed else null
+        // Search out to the larger (speed camera) radius, then apply each kind's own.
+        val radius = KnownCameras.warnRadius(speed, com.rfsentinel.app.alpr.KnownCamera.Kind.SPEED)
         val near = KnownCameras.near(AlprStore.cameras, loc.latitude, loc.longitude, radius)
+            .filter { (cam, d) -> wantsAlert(cam.type) && d <= KnownCameras.warnRadius(speed, cam.type) }
         val nearIds = near.map { it.first.osmId }.toSet()
         alprLastDistance.keys.retainAll(nearIds)
         for ((cam, d) in near) {
@@ -462,14 +469,15 @@ class ScanForegroundService : Service() {
             val approaching = prev == null || d < prev - 3
             if (!approaching || now - (alprLastAlert[cam.osmId] ?: 0L) < KNOWN_ALPR_REPEAT_MS) continue
             alprLastAlert[cam.osmId] = now
+            val alpr = cam.type == com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR
             val hit = Hit(
-                Category.ALPR, "Known plate camera ahead", 80,
+                Category.ALPR, if (alpr) "Known plate camera ahead" else "${cam.label} ahead", 80,
                 "${cam.label}, ~${d.toInt()} m away" + (cam.operator?.let { ", operated by $it" } ?: "") +
-                    ". Mapped in OpenStreetMap - it may not broadcast any signal.",
-                "OpenStreetMap (surveillance:type=ALPR), ODbL"
+                    ". Mapped in OpenStreetMap" + (if (alpr) " - it may not broadcast any signal." else "."),
+                "OpenStreetMap (" + (if (alpr) "surveillance:type=ALPR" else "highway=speed_camera / enforcement") + "), ODbL"
             )
             NotificationHelper.sendMapAlert(this, "alpr:" + cam.osmId, hit)
-            AlertPlayer.play(this, hit.tier, "Plate camera ahead")
+            AlertPlayer.play(this, hit.tier, cam.spoken)
             break // one warning per fix is enough
         }
     }

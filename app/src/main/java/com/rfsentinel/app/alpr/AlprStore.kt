@@ -19,7 +19,15 @@ import java.net.URLEncoder
 object AlprStore {
 
     private const val FILE = "known_alpr.json"
-    private const val ENDPOINT = "https://overpass-api.de/api/interpreter"
+    /**
+     * The main Overpass server, then public mirrors for when it's overloaded
+     * (it answers with a runtime error under load). Mirrors may lag a few months.
+     */
+    val ENDPOINTS = listOf(
+        "https://overpass-api.de/api/interpreter",
+        "https://overpass.kumi.systems/api/interpreter",
+        "https://overpass.private.coffee/api/interpreter"
+    )
     /** Largest area one download may cover (degrees of latitude / longitude). */
     const val MAX_SPAN_DEG = 2.0
 
@@ -46,27 +54,45 @@ object AlprStore {
         withContext(Dispatchers.IO) {
             require(north - south <= MAX_SPAN_DEG && east - west <= MAX_SPAN_DEG) { "Area too large - zoom in" }
             val body = "data=" + URLEncoder.encode(KnownCameras.query(south, west, north, east), "UTF-8")
-            val conn = (URL(ENDPOINT).openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                doOutput = true
-                connectTimeout = 20_000
-                readTimeout = 120_000
-                setRequestProperty("User-Agent", "${BuildConfig.APPLICATION_ID}/${BuildConfig.VERSION_NAME}")
-                setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-            }
-            try {
-                conn.outputStream.use { it.write(body.toByteArray()) }
-                if (conn.responseCode != 200) error("OpenStreetMap server busy (HTTP ${conn.responseCode}) - try again later")
-                val found = KnownCameras.parse(conn.inputStream.bufferedReader().use { it.readText() })
+            var lastError: Exception? = null
+            for (endpoint in ENDPOINTS) {
+                val json = try {
+                    fetch(endpoint, body)
+                } catch (e: Exception) {
+                    lastError = e
+                    continue
+                }
+                val found = KnownCameras.parse(json)
                 val inBox = { c: KnownCamera -> c.lat in south..north && c.lon in west..east }
                 val merged = cameras.filterNot(inBox) + found
                 file(context).writeText(gson.toJson(merged))
                 cameras = merged
-                found.size
-            } finally {
-                conn.disconnect()
+                return@withContext found.size
             }
+            error("OpenStreetMap servers busy (${lastError?.message ?: "no answer"}) - try again later")
         }
+
+    /** One Overpass request; throws unless the answer is a JSON result. */
+    private fun fetch(endpoint: String, body: String): String {
+        val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            doOutput = true
+            connectTimeout = 15_000
+            readTimeout = 100_000
+            setRequestProperty("User-Agent", "${BuildConfig.APPLICATION_ID}/${BuildConfig.VERSION_NAME}")
+            setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+        }
+        try {
+            conn.outputStream.use { it.write(body.toByteArray()) }
+            if (conn.responseCode != 200) error("HTTP ${conn.responseCode}")
+            val text = conn.inputStream.bufferedReader().use { it.readText() }
+            // An overloaded server can answer 200 with an HTML error page.
+            if (!text.trimStart().startsWith("{")) error("server error")
+            return text
+        } finally {
+            conn.disconnect()
+        }
+    }
 
     /** Tests only: set the cache without files or network. */
     @androidx.annotation.VisibleForTesting

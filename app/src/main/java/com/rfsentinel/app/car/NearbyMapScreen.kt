@@ -23,7 +23,7 @@ import com.rfsentinel.app.util.Permissions
 import kotlin.math.roundToInt
 
 /**
- * Android Auto: the closest known plate cameras (OpenStreetMap, downloaded on
+ * Android Auto: the closest known plate, speed and red-light cameras (OpenStreetMap, downloaded on
  * the phone) and the drones broadcasting a Remote ID position, on the car's own
  * map with distances. The car host draws the map; we only supply places.
  */
@@ -31,7 +31,7 @@ class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs 
 
     /** One row: a camera or a drone. */
     data class Item(val title: String, val detail: String, val lat: Double, val lon: Double, val distanceM: Double,
-                    val drone: Boolean, val mac: String?)
+                    val drone: Boolean, val mac: String?, val kind: com.rfsentinel.app.alpr.KnownCamera.Kind? = null)
 
     override fun onGetTemplate(): Template {
         val me = myLocation()
@@ -43,14 +43,14 @@ class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs 
             list.setNoItemsMessage("Waiting for your location...")
         } else if (items.isEmpty()) {
             list.setNoItemsMessage(
-                if (AlprStore.cameras.isEmpty()) "No known cameras downloaded - on your phone: Map > menu > Download known plate cameras"
-                else "No known plate cameras or drones within ${SEARCH_RADIUS_M / 1000} km"
+                if (AlprStore.cameras.isEmpty()) "No known cameras downloaded - on your phone: Map > menu > Download known cameras"
+                else "No known cameras or drones within ${(SEARCH_RADIUS_M / 1000).toInt()} km"
             )
         }
         items.forEach { it -> list.addItem(row(it)) }
 
         val template = PlaceListMapTemplate.Builder()
-            .setTitle("Plate cameras & drones")
+            .setTitle("Cameras & drones")
             .setHeaderAction(Action.BACK)
             .setCurrentLocationEnabled(me != null)
             .setItemList(list.build())
@@ -63,8 +63,13 @@ class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs 
         val place = Place.Builder(CarLocation.create(it.lat, it.lon))
             .setMarker(
                 PlaceMarker.Builder()
-                    .setColor(if (it.drone) CarColor.BLUE else CarColor.RED)
-                    .setLabel(if (it.drone) "D" else "P")
+                    .setColor(if (it.drone) CarColor.BLUE else if (it.kind == com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR) CarColor.RED else CarColor.YELLOW)
+                    .setLabel(when (it.kind) {
+                        null -> "D"
+                        com.rfsentinel.app.alpr.KnownCamera.Kind.SPEED -> "S"
+                        com.rfsentinel.app.alpr.KnownCamera.Kind.RED_LIGHT -> "R"
+                        com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR -> "P"
+                    })
                     .build()
             ).build()
         return Row.Builder()
@@ -95,7 +100,7 @@ class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs 
         fun nearby(lat: Double, lon: Double, limit: Int): List<Item> {
             val cams = KnownCameras.near(AlprStore.cameras, lat, lon, SEARCH_RADIUS_M).map { (c, d) ->
                 Item(c.label, c.operator ?: (c.direction?.let { "faces $it°" } ?: "mapped in OpenStreetMap"),
-                    c.lat, c.lon, d, drone = false, mac = null)
+                    c.lat, c.lon, d, drone = false, mac = null, kind = c.type)
             }
             val drones = DeviceRegistry.snapshot().mapNotNull { s ->
                 val r = s.remoteId ?: return@mapNotNull null

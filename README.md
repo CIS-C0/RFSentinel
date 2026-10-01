@@ -77,7 +77,7 @@ publicly.
 - Patrol-vehicle detection: several kinds of police-type equipment whose signals move together are flagged as a possible police vehicle
 - Address-rotation linking: follows a device when its Bluetooth address changes
 - Follower alerts: a warning when a tracker or flagged device keeps moving with you
-- **Known plate cameras:** download the license-plate readers mapped in OpenStreetMap (e.g. by DeFlock) and get warned as you approach one - even the cellular-only cameras no radio scan can detect
+- **Known plate, speed and red-light cameras:** download the cameras mapped in OpenStreetMap (plate readers e.g. by DeFlock, fixed speed and red-light cameras) and get warned as you approach one - even the cellular-only cameras no radio scan can detect. Speed cameras warn about 30 seconds ahead, with the limit when it's mapped
 - **Drones:** live map of each Remote ID drone with its heading, altitude, speed and operator, plus a "drone overhead" alert
 - **Fake cell tower signs (IMSI catchers):** warnings for test network codes, forced 2G downgrades, unexpected networks and other classic signs (heuristic, no root needed)
 - Editable watchlist with exact addresses, vendor prefixes, and name or vendor rules, plus regional presets (Global, Canada, US)
@@ -95,7 +95,7 @@ publicly.
 - Alerts with sound, vibration patterns and spoken announcements, plus a discreet mode
 - **Floating threat bubble** over Waze, Google Maps or any other app while scanning
 - **Starts by itself in the car** (your car's Bluetooth or Android Auto) and stops when you leave
-- Android Auto app with a map of nearby plate cameras and drones, Quick Settings tile and home-screen widget
+- Android Auto app with a map of nearby cameras and drones, Quick Settings tile and home-screen widget
 - **Report unknown device:** share a privacy-safe signature (no full address, serials, location or times) so new equipment can be added
 - 12 themes, each styled theme with its own animated header
 
@@ -188,7 +188,7 @@ RF Sentinel runs in Android Auto as a driver-safe, template-based app:
 - **Device lists** (flagged, drones & trackers, all nearby) and **device details**
   with Whitelist, Watch and Favorite actions. **Navigate** opens your car's
   navigation app for drones with a known position.
-- **Plate cameras & drones map:** the closest known plate cameras (downloaded
+- **Cameras & drones map:** the closest known plate, speed and red-light cameras (downloaded
   on the phone from OpenStreetMap) and Remote ID drones, on the car's map
   with distances.
 - **Alerts** appear as a heads-up on the car screen. While connected, they play
@@ -247,8 +247,10 @@ Pick a theme in the setup wizard or under **Settings → Appearance**.
 - **No accounts, no cloud, no analytics.** Detections are stored in a local
   database and excluded from cloud backup.
 - **Network use is limited to OpenStreetMap:** map tiles while the map is open, and,
-  only when you tap *Download known plate cameras*, the camera list for the area on
-  screen. Those servers see your IP address and that area, never your scans. Map data
+  only when you tap *Download known cameras*, the camera list for the area on
+  screen (from overpass-api.de, or the public mirrors overpass.kumi.systems and
+  overpass.private.coffee when it's busy). Those servers see your IP address and
+  that area, never your scans. Map data
   © OpenStreetMap contributors (ODbL).
 - **Data leaves the phone only when you export or share it.**
 - **Optional permissions:** *Nearby devices → connect* is asked only to read the

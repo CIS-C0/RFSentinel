@@ -49,6 +49,50 @@ class KnownCamerasTest {
         assertEquals(600.0, KnownCameras.warnRadius(40f), 0.0)   // capped
     }
 
+    // Synthetic: a speed camera mapped twice (node + enforcement relation), a red-light
+    // relation, an mph camera elsewhere, and an unrelated element.
+    private val enforcement = """
+        {"elements":[
+          {"type":"node","id":1,"lat":10.5000,"lon":-20.5000,"tags":{"highway":"speed_camera"}},
+          {"type":"relation","id":2,"center":{"lat":10.5009,"lon":-20.5000},
+           "tags":{"type":"enforcement","enforcement":"maxspeed","maxspeed":"50"}},
+          {"type":"relation","id":3,"center":{"lat":10.5000,"lon":-20.5000},
+           "tags":{"type":"enforcement","enforcement":"traffic_signals"}},
+          {"type":"node","id":4,"lat":11.0,"lon":-21.0,"tags":{"highway":"speed_camera","maxspeed":"30 mph"}},
+          {"type":"node","id":5,"lat":11.5,"lon":-21.5,"tags":{"highway":"traffic_signals"}}
+        ]}
+    """.trimIndent()
+
+    @Test
+    fun speedAndRedLightCameras() {
+        val cams = KnownCameras.parse(enforcement)
+        assertEquals(3, cams.size) // duplicate speed camera merged, traffic light ignored
+        val speed = cams.first { it.type == KnownCamera.Kind.SPEED && it.lat < 10.6 }
+        assertEquals(50, speed.maxspeed) // kept the copy that has the limit (relation ~100 m away)
+        assertEquals(10.5000, speed.lat, 1e-9) // ...at the camera node's exact position
+        assertEquals("Speed camera (50 km/h)", speed.label)
+        assertEquals("Speed camera ahead, 50", speed.spoken)
+        assertEquals(48, cams.first { it.osmId == "node/4" }.maxspeed) // 30 mph
+        assertEquals("Red-light camera", cams.first { it.type == KnownCamera.Kind.RED_LIGHT }.label)
+        val q = KnownCameras.query(1.0, 2.0, 3.0, 4.0)
+        assertTrue(q.contains("\"highway\"=\"speed_camera\"") && q.contains("traffic_signals"))
+    }
+
+    @Test
+    fun oldCacheEntriesArePlateReaders() {
+        val old = com.google.gson.Gson().fromJson(
+            """{"osmId":"node/9","lat":1.0,"lon":2.0}""", KnownCamera::class.java
+        )
+        assertEquals(KnownCamera.Kind.ALPR, old.type)
+    }
+
+    @Test
+    fun speedCamerasWarnEarlier() {
+        assertEquals(300.0, KnownCameras.warnRadius(null, KnownCamera.Kind.SPEED), 0.0)
+        assertEquals(840.0, KnownCameras.warnRadius(28f, KnownCamera.Kind.SPEED), 0.01) // ~100 km/h
+        assertEquals(900.0, KnownCameras.warnRadius(40f, KnownCamera.Kind.RED_LIGHT), 0.0)
+    }
+
     @Test
     fun nearFindsCamerasInRadiusNearestFirst() {
         val cams = KnownCameras.parse(sample)

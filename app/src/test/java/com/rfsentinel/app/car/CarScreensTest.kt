@@ -79,7 +79,7 @@ class CarScreensTest {
         assertTrue(rows[1].title.toString().startsWith("Flagged nearby (2)"))
         assertTrue(rows[2].title.toString().startsWith("Drones & trackers (1)"))
         assertTrue(rows[3].title.toString().startsWith("All nearby devices (14)"))
-        assertEquals("Plate cameras & drones on the map", rows[4].title.toString())
+        assertEquals("Cameras & drones on the map", rows[4].title.toString())
         val actions = t.actionStrip!!.actions
         assertEquals(2, actions.size)
         assertEquals("Stop", actions[0].title.toString())

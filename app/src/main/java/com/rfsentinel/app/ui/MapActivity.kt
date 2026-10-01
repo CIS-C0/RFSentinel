@@ -456,7 +456,7 @@ class MapActivity : AppCompatActivity() {
         return bmp
     }
 
-    // ---- Known plate cameras (OpenStreetMap) --------------------------------------------
+    // ---- Known plate, speed and red-light cameras (OpenStreetMap) --------------------------------------------
 
     private val redrawKnownAlpr = Runnable { drawKnownAlpr() }
 
@@ -477,11 +477,13 @@ class MapActivity : AppCompatActivity() {
             it.lat in box.latSouth..box.latNorth && it.lon in box.lonWest..box.lonEast
         }.take(1500)
         val dp = resources.displayMetrics.density
-        val icon = android.graphics.drawable.BitmapDrawable(resources, cameraIcon(dp))
+        val icons = com.rfsentinel.app.alpr.KnownCamera.Kind.entries.associateWith {
+            android.graphics.drawable.BitmapDrawable(resources, cameraIcon(dp, it))
+        }
         for (cam in inView) {
             knownAlpr.add(Marker(map).apply {
                 position = GeoPoint(cam.lat, cam.lon)
-                this.icon = icon
+                this.icon = icons.getValue(cam.type)
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                 title = cam.label
                 setOnMarkerClickListener { _, _ -> showKnownCamera(cam); true }
@@ -491,14 +493,19 @@ class MapActivity : AppCompatActivity() {
         map.invalidate()
     }
 
-    /** A small red camera glyph, distinct from the round device dots. */
-    private fun cameraIcon(dp: Float): android.graphics.Bitmap {
+    /** A small camera glyph, distinct from the round device dots: red plate reader, amber speed, purple red-light. */
+    private fun cameraIcon(dp: Float, kind: com.rfsentinel.app.alpr.KnownCamera.Kind): android.graphics.Bitmap {
         val w = (22 * dp).toInt(); val h = (16 * dp).toInt()
         val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
         val c = android.graphics.Canvas(bmp)
         val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
         val body = android.graphics.RectF(1 * dp, 3 * dp, w - 1 * dp, h - 1 * dp)
-        p.color = 0xFFB3261E.toInt(); c.drawRoundRect(body, 3 * dp, 3 * dp, p)
+        p.color = when (kind) {
+            com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR -> 0xFFB3261E.toInt()
+            com.rfsentinel.app.alpr.KnownCamera.Kind.SPEED -> 0xFFE08A00.toInt()
+            com.rfsentinel.app.alpr.KnownCamera.Kind.RED_LIGHT -> 0xFF7B1FA2.toInt()
+        }
+        c.drawRoundRect(body, 3 * dp, 3 * dp, p)
         p.style = android.graphics.Paint.Style.STROKE; p.strokeWidth = 1.5f * dp; p.color = Color.WHITE
         c.drawRoundRect(body, 3 * dp, 3 * dp, p)
         c.drawCircle(w / 2f, (h + 2 * dp) / 2f, 3.5f * dp, p)
@@ -507,12 +514,16 @@ class MapActivity : AppCompatActivity() {
 
     private fun showKnownCamera(cam: com.rfsentinel.app.alpr.KnownCamera) {
         val text = buildString {
-            append("A license-plate reader mapped in OpenStreetMap.\n\n")
+            append(when (cam.type) {
+                com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR -> "A license-plate reader mapped in OpenStreetMap.\n\n"
+                com.rfsentinel.app.alpr.KnownCamera.Kind.SPEED -> "A speed camera mapped in OpenStreetMap.\n\n"
+                com.rfsentinel.app.alpr.KnownCamera.Kind.RED_LIGHT -> "A red-light camera mapped in OpenStreetMap.\n\n"
+            })
             cam.brand?.let { append("Maker: $it\n") }
             cam.operator?.let { append("Operator: $it\n") }
             cam.direction?.let { append("Faces: $it°\n") }
             append("OSM: ${cam.osmId}\n\n")
-            append("Most plate readers send their data over cellular and have no Bluetooth/WiFi signature, so they can't be detected by radio - this map is the only warning.\n\nMap data © OpenStreetMap contributors (ODbL).")
+            append("These cameras send their data over cellular or wire and have no Bluetooth/WiFi signature, so they can't be detected by radio - this map is the only warning. Mobile speed cameras move and are rarely mapped.\n\nMap data © OpenStreetMap contributors (ODbL).")
         }
         AlertDialog.Builder(this)
             .setTitle(cam.label)
@@ -533,22 +544,23 @@ class MapActivity : AppCompatActivity() {
             return
         }
         AlertDialog.Builder(this)
-            .setTitle("Download known plate cameras?")
+            .setTitle("Download known cameras?")
             .setMessage(
-                "Fetches the license-plate readers mapped in OpenStreetMap for the area on screen, " +
+                "Fetches the license-plate readers, speed cameras and red-light cameras mapped in " +
+                    "OpenStreetMap for the area on screen, " +
                     "then keeps them on this phone for offline warnings.\n\n" +
-                    "Privacy: the OpenStreetMap server (overpass-api.de) sees this area and your IP address, " +
+                    "Privacy: the OpenStreetMap Overpass server (overpass-api.de, or a public mirror when it is busy: overpass.kumi.systems, overpass.private.coffee) sees this area and your IP address, " +
                     "like when loading map tiles. Nothing about your scans is sent."
             )
             .setPositiveButton("Download") { _, _ ->
-                binding.statusText.text = "Downloading known plate cameras..."
+                binding.statusText.text = "Downloading known cameras..."
                 lifecycleScope.launch {
                     val result = runCatching {
                         com.rfsentinel.app.alpr.AlprStore.download(this@MapActivity, box.latSouth, box.lonWest, box.latNorth, box.lonEast)
                     }
                     result.onSuccess { n ->
                         val total = com.rfsentinel.app.alpr.AlprStore.cameras.size
-                        Toast.makeText(this@MapActivity, "$n plate cameras in this area ($total saved in total)", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@MapActivity, "$n cameras in this area ($total saved in total)", Toast.LENGTH_LONG).show()
                         com.rfsentinel.app.util.Prefs.setShowKnownAlpr(this@MapActivity, true)
                         drawKnownAlpr()
                         refreshServiceLocation() // start watching for them while scanning
@@ -579,11 +591,11 @@ class MapActivity : AppCompatActivity() {
             menu.add(0, 3, 2, "Delete")
         } else {
             menu.add(0, 4, 0, "Recorded traces")
-            menu.add(0, 5, 1, "Download known plate cameras here")
-            menu.add(0, 6, 2, "Show known plate cameras").apply {
+            menu.add(0, 5, 1, "Download known cameras here")
+            menu.add(0, 6, 2, "Show known cameras").apply {
                 isCheckable = true; isChecked = com.rfsentinel.app.util.Prefs.showKnownAlpr(this@MapActivity)
             }
-            menu.add(0, 7, 3, "Delete downloaded plate cameras")
+            menu.add(0, 7, 3, "Delete downloaded cameras")
         }
         return true
     }
@@ -605,7 +617,7 @@ class MapActivity : AppCompatActivity() {
             7 -> {
                 com.rfsentinel.app.alpr.AlprStore.clear(this)
                 drawKnownAlpr(); refreshServiceLocation()
-                Toast.makeText(this, "Downloaded plate cameras deleted", Toast.LENGTH_SHORT).show(); true
+                Toast.makeText(this, "Downloaded cameras deleted", Toast.LENGTH_SHORT).show(); true
             }
             android.R.id.home -> { finish(); true }
             else -> super.onOptionsItemSelected(item)
