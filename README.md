@@ -201,6 +201,11 @@ Sideloaded apps only appear in Android Auto after one-time setup:
 3. Open **⋮ → Developer settings** and enable **Unknown sources**.
 4. Reconnect to the car.
 
+Still missing? Android Auto only refreshes its app list when an app is installed
+or updated. Enable *Unknown sources* first, then install (or reinstall) the APK,
+open RF Sentinel once on the phone, and reconnect. Also check **Android Auto
+settings → Customize launcher** in case it's listed under hidden apps.
+
 ## Themes
 
 Pick a theme in the setup wizard or under **Settings → Appearance**.

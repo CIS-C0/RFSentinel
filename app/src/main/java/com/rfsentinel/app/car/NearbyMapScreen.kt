@@ -49,12 +49,14 @@ class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs 
         }
         items.forEach { it -> list.addItem(row(it)) }
 
-        return PlaceListMapTemplate.Builder()
+        val template = PlaceListMapTemplate.Builder()
             .setTitle("Plate cameras & drones")
             .setHeaderAction(Action.BACK)
             .setCurrentLocationEnabled(me != null)
             .setItemList(list.build())
-            .build()
+        // Centre on the driver, not on 0°,0°, when there is nothing to show.
+        if (me != null) template.setAnchor(Place.Builder(CarLocation.create(me.latitude, me.longitude)).build())
+        return template.build()
     }
 
     private fun row(it: Item): Row {

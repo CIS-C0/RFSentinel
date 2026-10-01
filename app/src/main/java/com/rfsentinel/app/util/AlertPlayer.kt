@@ -6,7 +6,6 @@ import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
-import android.media.RingtoneManager
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -17,19 +16,23 @@ import com.rfsentinel.app.detect.Tier
 import java.util.Locale
 
 /**
- * Plays match alerts directly (default notification sound, a vibration pattern
+ * Plays match alerts directly (synthesized beeps, a vibration pattern
  * that encodes the confidence tier, optional spoken announcement) instead of
  * relying on the notification, so alerts still work when notifications are
- * denied or muted. Honors the ringer mode and Do Not Disturb like any
- * notification sound.
+ * denied or muted. On the phone, silent and vibrate ringer modes mute the
+ * beeps; in the car they always play.
  *
  * Vibration: one pulse = weak, two = probable, three = strong, long-short-long
  * = something is following you.
  */
 object AlertPlayer {
 
-    private val phoneAttributes = AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
+    /**
+     * Phone beeps use the navigation-guidance usage too: it follows the media
+     * volume (like Locate), which is usually up while driving, and dips music.
+     */
+    private val phoneToneAttributes = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
         .build()
 
@@ -61,17 +64,14 @@ object AlertPlayer {
         val muted = Prefs.alertsMuted(context)
         val willSpeak = !muted && spoken != null && (Prefs.voiceEnabled(context) || (inCar && Prefs.carVoice(context)))
         if (!muted && (Prefs.soundEnabled(context) || willSpeak)) {
-            if (inCar) duckOthers(context, if (willSpeak) 6_000L else 2_500L)
+            duckOthers(context, if (willSpeak) 6_000L else 2_500L)
         }
-        if (!muted && Prefs.soundEnabled(context)) {
-            try {
-                val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                RingtoneManager.getRingtone(context, uri)
-                    ?.apply { audioAttributes = if (inCar) carToneAttributes else phoneAttributes }
-                    ?.play()
-            } catch (e: Exception) {
-                // No default sound configured / audio unavailable - vibration still runs.
-            }
+        var beepMs = 0
+        if (!muted && Prefs.soundEnabled(context) && (inCar || ringerAllowsSound(context))) {
+            // Our own beeps (1 weak, 2 probable, 3 strong, long-short-long following) at
+            // media volume, like Locate: the notification chime was too soft and too quiet.
+            val beeps = when (tier) { Tier.STRONG -> 3; Tier.MEDIUM -> 2; else -> 1 }
+            beepMs = Beeper.play(if (inCar) carToneAttributes else phoneToneAttributes, Beeper.pattern(beeps, following))
         }
         if (Prefs.vibrateEnabled(context)) {
             val pattern = when {
@@ -82,8 +82,19 @@ object AlertPlayer {
             }
             vibrate(context, pattern)
         }
-        if (willSpeak) speak(context.applicationContext, spoken!!, if (inCar) carSpeechAttributes else phoneSpeechAttributes)
+        if (willSpeak) {
+            val app = context.applicationContext
+            val attrs = if (inCar) carSpeechAttributes else phoneSpeechAttributes
+            // Speak after the beeps, not over them.
+            if (beepMs > 0) main.postDelayed({ speak(app, spoken!!, attrs) }, beepMs + 150L)
+            else speak(app, spoken!!, attrs)
+        }
     }
+
+    /** Silent and vibrate ringer modes mute the beeps on the phone (vibration still runs). */
+    private fun ringerAllowsSound(context: Context): Boolean =
+        context.getSystemService(AudioManager::class.java)?.ringerMode != AudioManager.RINGER_MODE_SILENT &&
+            context.getSystemService(AudioManager::class.java)?.ringerMode != AudioManager.RINGER_MODE_VIBRATE
 
     /** Short "may duck" focus so music dips under the alert, then comes back. */
     @Synchronized
