@@ -58,10 +58,10 @@ class HomeScreen(carContext: CarContext) : LiveScreen(carContext) {
         items.addItem(navRow("All nearby devices", devices.size, R.drawable.ic_car_list, DeviceListScreen.Filter.ALL))
         items.addItem(
             Row.Builder()
-                .setTitle("Map: cameras, devices & drones")
+                .setTitle("Map: devices & cameras around me")
                 .setImage(CarUi.icon(carContext, R.drawable.ic_car_navigate))
                 .setBrowsable(true)
-                .setOnClickListener { screenManager.push(NearbyMapScreen(carContext)) }
+                .setOnClickListener { screenManager.push(DevicesMapScreen(carContext)) }
                 .build()
         )
 

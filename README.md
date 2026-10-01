@@ -204,9 +204,12 @@ RF Sentinel runs in Android Auto as a driver-safe, template-based app:
 - **Device lists** (flagged, drones & trackers, all nearby) and **device details**
   with Whitelist, Watch and Favorite actions. **Navigate** opens your car's
   navigation app for drones with a known position.
-- **Cameras & drones map:** the closest known plate, speed and red-light cameras (downloaded
-  on the phone from OpenStreetMap) and Remote ID drones, on the car's map
-  with distances.
+- **Devices around me map:** the devices heard around you on the car's map, like
+  the phone map, in the list and radar colours - flagged ones first, then the
+  strongest ordinary ones (Android Auto shows about six places at a time).
+  Tap one for its details.
+- **Cameras map** (the *Cameras* button): the closest known plate, speed and
+  red-light cameras (OpenStreetMap) and Remote ID drones, with distances.
 - **Alerts** appear as a heads-up on the car screen. While connected, they play
   through the car speakers as navigation-guidance audio, briefly lowering your
   music.

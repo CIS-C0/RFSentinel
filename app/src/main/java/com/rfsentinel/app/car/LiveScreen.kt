@@ -13,8 +13,19 @@ import kotlinx.coroutines.launch
  * refresh of the same template type and title as an update, not a new step, so
  * this doesn't use up the driver's navigation-depth budget.
  */
-abstract class LiveScreen(carContext: CarContext, private val periodMs: Long = 3_000L) : Screen(carContext) {
+abstract class LiveScreen(
+    carContext: CarContext,
+    private val periodMs: Long = 3_000L,
+    /** Map screens: precise GPS while shown, so devices are placed where they were heard. */
+    preciseLocation: Boolean = false
+) : Screen(carContext) {
     init {
+        if (preciseLocation) lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
+            override fun onStart(owner: androidx.lifecycle.LifecycleOwner) =
+                com.rfsentinel.app.service.ScanForegroundService.mapShown(carContext)
+            override fun onStop(owner: androidx.lifecycle.LifecycleOwner) =
+                com.rfsentinel.app.service.ScanForegroundService.mapHidden(carContext)
+        })
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 while (true) {

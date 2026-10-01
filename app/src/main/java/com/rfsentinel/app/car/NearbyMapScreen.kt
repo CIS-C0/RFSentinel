@@ -29,7 +29,11 @@ import kotlin.math.roundToInt
  * the phone) and the drones broadcasting a Remote ID position, on the car's own
  * map with distances. The car host draws the map; we only supply places.
  */
-class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs = 5_000L) {
+class NearbyMapScreen(
+    carContext: CarContext,
+    /** Opened from the devices map: its "Devices" button goes back instead of stacking another. */
+    private val fromDevicesMap: Boolean = false
+) : LiveScreen(carContext, periodMs = 5_000L, preciseLocation = true) {
 
     /** One row: a camera or a drone. */
     data class Item(val title: String, val detail: String, val lat: Double, val lon: Double, val distanceM: Double,
@@ -38,7 +42,7 @@ class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs 
                     val deviceColor: Int? = null)
 
     override fun onGetTemplate(): Template {
-        val me = myLocation()
+        val me = CarUi.currentLocation(carContext)
         if (me != null) autoDownloadAround(me)
         val limit = CarUi.listLimit(carContext).coerceAtMost(6)
         val items = if (me == null) emptyList() else nearby(me.latitude, me.longitude, limit)
@@ -55,8 +59,15 @@ class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs 
         items.forEach { it -> list.addItem(row(it)) }
 
         val template = PlaceListMapTemplate.Builder()
-            .setTitle("Cameras & devices")
+            .setTitle("Cameras nearby")
             .setHeaderAction(Action.BACK)
+            .setActionStrip(
+                androidx.car.app.model.ActionStrip.Builder().addAction(
+                    Action.Builder().setTitle("Devices").setOnClickListener {
+                        if (fromDevicesMap) screenManager.pop() else screenManager.push(DevicesMapScreen(carContext))
+                    }.build()
+                ).build()
+            )
             .setCurrentLocationEnabled(me != null)
             .setItemList(list.build())
         // Centre on the driver, not on 0°,0°, when there is nothing to show.
@@ -108,16 +119,6 @@ class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs 
         lifecycleScope.launch {
             if (AlprStore.autoDownload(carContext, s, w, n, e)) invalidate()
         }
-    }
-
-    @SuppressLint("MissingPermission") // checked via Permissions
-    private fun myLocation(): Location? {
-        ScanForegroundService.lastFix?.let { return it }
-        if (!Permissions.granted(carContext, android.Manifest.permission.ACCESS_FINE_LOCATION)) return null
-        val lm = carContext.getSystemService(LocationManager::class.java) ?: return null
-        return listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
-            .mapNotNull { p -> runCatching { lm.getLastKnownLocation(p) }.getOrNull() }
-            .maxByOrNull { it.time }
     }
 
     companion object {

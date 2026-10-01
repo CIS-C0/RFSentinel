@@ -27,6 +27,17 @@ object CarUi {
     }
 
     /** Max rows the car allows in a list (typically 6 while driving). */
+    /** Where the driver is: the scanner's latest fix, else the phone's last known position. */
+    @android.annotation.SuppressLint("MissingPermission") // checked via Permissions
+    fun currentLocation(context: CarContext): android.location.Location? {
+        com.rfsentinel.app.service.ScanForegroundService.lastFix?.let { return it }
+        if (!com.rfsentinel.app.util.Permissions.granted(context, android.Manifest.permission.ACCESS_FINE_LOCATION)) return null
+        val lm = context.getSystemService(android.location.LocationManager::class.java) ?: return null
+        return listOf(android.location.LocationManager.GPS_PROVIDER, android.location.LocationManager.NETWORK_PROVIDER)
+            .mapNotNull { p -> runCatching { lm.getLastKnownLocation(p) }.getOrNull() }
+            .maxByOrNull { it.time }
+    }
+
     fun listLimit(context: CarContext): Int = runCatching {
         context.getCarService(ConstraintManager::class.java)
             .getContentLimit(ConstraintManager.CONTENT_LIMIT_TYPE_LIST)

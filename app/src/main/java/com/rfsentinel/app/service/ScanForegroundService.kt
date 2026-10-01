@@ -90,11 +90,22 @@ class ScanForegroundService : Service() {
         private const val PLACING_MAX_ACCURACY_M = 50f
 
         /**
-         * True while the map is on screen: location switches to precise GPS so the
-         * devices it shows are placed where they really were heard.
+         * Maps on screen (phone or car). While any is, location switches to precise
+         * GPS so the devices they show are placed where they really were heard.
          */
-        @Volatile
-        var mapVisible = false
+        private val mapViewers = java.util.concurrent.atomic.AtomicInteger(0)
+        val mapVisible: Boolean get() = mapViewers.get() > 0
+
+        fun mapShown(context: Context) { mapViewers.incrementAndGet(); refreshLocation(context) }
+        fun mapHidden(context: Context) { mapViewers.updateAndGet { (it - 1).coerceAtLeast(0) }; refreshLocation(context) }
+
+        /** Re-applies the location mode of a running scan (never starts one). */
+        private fun refreshLocation(context: Context) {
+            if (!isRunning) return
+            runCatching {
+                context.startService(Intent(context, ScanForegroundService::class.java).setAction(ACTION_REFRESH_LOCATION))
+            }
+        }
 
         /** Latest location fix while scanning (for the car map), or null. */
         @Volatile

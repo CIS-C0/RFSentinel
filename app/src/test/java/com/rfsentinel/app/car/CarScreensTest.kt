@@ -79,7 +79,7 @@ class CarScreensTest {
         assertTrue(rows[1].title.toString().startsWith("Flagged nearby (2)"))
         assertTrue(rows[2].title.toString().startsWith("Drones & trackers (1)"))
         assertTrue(rows[3].title.toString().startsWith("All nearby devices (14)"))
-        assertEquals("Map: cameras, devices & drones", rows[4].title.toString())
+        assertEquals("Map: devices & cameras around me", rows[4].title.toString())
         val actions = t.actionStrip!!.actions
         assertEquals(2, actions.size)
         assertEquals("Stop", actions[0].title.toString())
@@ -119,6 +119,34 @@ class CarScreensTest {
 
         val drone = DeviceDetailScreen(car, droneMac).onGetTemplate() as PaneTemplate
         assertTrue(drone.actionStrip!!.actions.any { it.title?.toString() == "Navigate" })
+    }
+
+    @Test
+    fun devicesMapShowsFlaggedFirstInListColours() {
+        // Synthetic positions around you at 10.5, -20.5: the Axon was heard 100 m north,
+        // an ordinary phone 50 m east; the drone has its own Remote ID position.
+        val here = DeviceRegistry.GeoSample(System.currentTimeMillis(), 10.5009, -20.5)
+        DeviceRegistry.report(
+            Advert(axonMac, Advert.Source.BLE, -50, "Axon Body 4"),
+            listOf(Hit(Category.BODY_CAM, "Axon body camera", 90, "BWCDEVICE tag in advert payload", "test")),
+            DeviceIntel.Identity("Body camera", emptyList()), "Axon Enterprise, Inc.", null, here
+        )
+        DeviceRegistry.report(
+            Advert("C0:00:00:00:00:00", Advert.Source.BLE, -60, "Device 0"), emptyList(),
+            DeviceIntel.Identity("Phone", emptyList()), null, null,
+            DeviceRegistry.GeoSample(System.currentTimeMillis(), 10.5, -20.49954)
+        )
+        val items = DevicesMapScreen.around(10.5, -20.5, 6)
+        assertEquals(listOf(droneMac, axonMac, "C0:00:00:00:00:00"), items.map { it.mac }) // flagged by evidence, then ordinary
+        assertEquals(Category.BODY_CAM.colorArgb, items[1].color)
+        assertEquals(DevicesMapScreen.ORDINARY_COLOR, items[2].color)
+        assertEquals(100.0, items[1].distanceM, 5.0)
+
+        ScanForegroundService.setLastFixForTest(android.location.Location("test").apply { latitude = 10.5; longitude = -20.5 })
+        val t = DevicesMapScreen(car).onGetTemplate() as androidx.car.app.model.PlaceListMapTemplate
+        assertEquals(3, t.itemList!!.items.size) // rows really present (each needs a DistanceSpan)
+        assertEquals("Cameras", t.actionStrip!!.actions.single().title.toString())
+        ScanForegroundService.setLastFixForTest(null)
     }
 
     @Test

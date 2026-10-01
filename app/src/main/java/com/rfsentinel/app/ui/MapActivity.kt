@@ -181,11 +181,11 @@ class MapActivity : AppCompatActivity() {
         super.onResume()
         binding.map.onResume()
         // Precise GPS while the map is on screen, so devices land where they were heard.
-        if (tripId == null) { ScanForegroundService.mapVisible = true; refreshServiceLocation() }
+        if (tripId == null) ScanForegroundService.mapShown(this)
     }
 
     override fun onPause() {
-        if (tripId == null) { ScanForegroundService.mapVisible = false; refreshServiceLocation() }
+        if (tripId == null) ScanForegroundService.mapHidden(this)
         binding.map.onPause()
         super.onPause()
     }
