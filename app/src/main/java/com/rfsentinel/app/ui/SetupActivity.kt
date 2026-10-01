@@ -43,6 +43,7 @@ class SetupActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySetupBinding
     private var step = 0
     private var startAfter = true
+    private var prefetchOnFinish = true
     private var stopObservingPrefetch: (() -> Unit)? = null
 
     private val permissionLauncher = registerForActivityResult(
@@ -215,8 +216,11 @@ class SetupActivity : AppCompatActivity() {
         label("Known cameras near you")
         para("Download the plate, speed and red-light cameras mapped in OpenStreetMap within about 100 km of you, " +
             "so they're on the map and warn you offline right away. Only that area is sent to the OpenStreetMap server.", small = true)
-        val btn = button("Download cameras around me") { com.rfsentinel.app.alpr.CameraPrefetch.start(this) }
+        para("No need to wait for it: tap Finish whenever you like - it keeps downloading in the background, " +
+            "with its progress in your notifications.", small = true)
+        val btn = button("Download cameras around me now") { com.rfsentinel.app.alpr.CameraPrefetch.start(this) }
         val status = para("", small = true)
+        check("Download them when I tap Finish (if not started yet)", prefetchOnFinish) { prefetchOnFinish = it }
         stopObservingPrefetch = com.rfsentinel.app.alpr.CameraPrefetch.observe { s ->
             val located = com.rfsentinel.app.alpr.CameraPrefetch.canRun(this)
             btn.isEnabled = located && s !is com.rfsentinel.app.alpr.CameraPrefetch.State.Locating &&
@@ -227,6 +231,12 @@ class SetupActivity : AppCompatActivity() {
 
     private fun finishSetup() {
         Prefs.setOnboardingDone(this)
+        val prefetch = com.rfsentinel.app.alpr.CameraPrefetch
+        if (step == STEPS - 1 && prefetchOnFinish && prefetch.canRun(this) && !prefetch.isRunning &&
+            prefetch.state !is com.rfsentinel.app.alpr.CameraPrefetch.State.Done
+        ) {
+            prefetch.start(this) // carries on in the background; progress in the notification
+        }
         if (step == STEPS - 1 && startAfter && Permissions.missingRequired(this).isEmpty() && !ScanForegroundService.isRunning) {
             runCatching { ScanForegroundService.start(this) }
                 .onFailure { Toast.makeText(this, "Couldn't start scanning - tap Start on the main screen", Toast.LENGTH_LONG).show() }

@@ -6,7 +6,10 @@ import com.rfsentinel.app.alpr.CameraPrefetch
 fun cameraPrefetchText(s: CameraPrefetch.State, located: Boolean): String = when (s) {
     CameraPrefetch.State.Idle -> if (located) "" else "Grant location access first (above)."
     CameraPrefetch.State.Locating -> "Finding your position..."
-    is CameraPrefetch.State.Downloading -> "Downloading cameras around you... ${s.done}/${s.total}"
-    is CameraPrefetch.State.Done -> "✓ ${s.cameras} known cameras saved within ~100 km of you."
+    is CameraPrefetch.State.Downloading ->
+        "Downloading... ${s.done}/${s.total} areas, ${s.found} cameras so far\n${s.detail}\n" +
+            "No need to wait - it keeps going in the background (see your notifications)."
+    is CameraPrefetch.State.Done -> "✓ ${s.cameras} known cameras saved within ~100 km of you." +
+        (if (s.failedAreas > 0) " ${s.failedAreas} area(s) failed - the map fetches them when you look there." else "")
     is CameraPrefetch.State.Failed -> "Couldn't download: ${s.reason}"
 }

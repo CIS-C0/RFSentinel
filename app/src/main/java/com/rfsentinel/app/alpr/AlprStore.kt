@@ -103,24 +103,30 @@ object AlprStore {
      * that fail are skipped - the map fetches them later. Returns how many
      * cameras were found, or throws when no tile could be downloaded.
      */
+    /** Where a [downloadAround] is: [done] of [total] areas finished, [found] cameras so far. */
+    data class Progress(val area: Int, val done: Int, val total: Int, val found: Int, val failed: Int, val detail: String)
+
     suspend fun downloadAround(
         context: Context, lat: Double, lon: Double, radiusKm: Double = 100.0,
-        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> }
+        onProgress: (Progress) -> Unit = {}
     ): Int {
         val tiles = CameraArea.tilesAround(lat, lon, radiusKm, MAX_SPAN_DEG / 2)
+        val names = listOf("south-west", "south-east", "north-west", "north-east")
         var found = 0
         var ok = 0
         var lastError: Exception? = null
         tiles.forEachIndexed { i, t ->
+            val report = { detail: String -> onProgress(Progress(i + 1, i, tiles.size, found, i - ok, "${names[i]} area: $detail")) }
             try {
-                found += download(context, t[0], t[1], t[2], t[3])
+                found += download(context, t[0], t[1], t[2], t[3], report)
                 ok++
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
                 lastError = e
             }
-            onProgress(i + 1, tiles.size)
+            onProgress(Progress(i + 1, i + 1, tiles.size, found, i + 1 - ok,
+                if (ok == i + 1) "${names[i]} area done" else "${names[i]} area failed - the map will fetch it later"))
         }
         if (ok == 0) throw lastError ?: java.io.IOException("No answer")
         return found
@@ -131,17 +137,22 @@ object AlprStore {
      * (cameras deleted from OSM inside the box are dropped). Returns how many
      * cameras the box contains.
      */
-    suspend fun download(context: Context, south: Double, west: Double, north: Double, east: Double): Int =
+    suspend fun download(
+        context: Context, south: Double, west: Double, north: Double, east: Double,
+        status: (String) -> Unit = {}
+    ): Int =
         withContext(Dispatchers.IO) {
             require(north - south <= MAX_SPAN_DEG + 1e-9 && east - west <= MAX_SPAN_DEG + 1e-9) { "Area too large - zoom in" }
             val body = "data=" + URLEncoder.encode(KnownCameras.query(south, west, north, east), "UTF-8")
             // Public servers often answer 429/504 under load: one more round after a pause.
             val json = try {
-                fetchFirst(body)
+                fetchFirst(body, status)
             } catch (e: java.io.IOException) {
+                status("every server busy - retrying in ${RETRY_PAUSE_MS / 1000} s")
                 kotlinx.coroutines.delay(RETRY_PAUSE_MS)
-                fetchFirst(body)
+                fetchFirst(body, status)
             }
+            status("reading the answer")
             val found = KnownCameras.parse(json)
             synchronized(this@AlprStore) {
                 val inBox = { c: KnownCamera -> c.lat in south..north && c.lon in west..east }
@@ -163,7 +174,7 @@ object AlprStore {
      * if the earlier ones already failed); the first JSON answer wins and the
      * others are abandoned. Throws an IOException when every server failed.
      */
-    private suspend fun fetchFirst(body: String): String {
+    private suspend fun fetchFirst(body: String, status: (String) -> Unit): String {
         val requests = kotlinx.coroutines.CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
         val result = kotlinx.coroutines.CompletableDeferred<String>()
         val failures = kotlinx.coroutines.flow.MutableStateFlow(0)
@@ -173,12 +184,19 @@ object AlprStore {
             requests.launch {
                 if (i > 0) kotlinx.coroutines.withTimeoutOrNull(STAGGER_MS * i) { failures.first { it >= i } }
                 if (result.isCompleted) return@launch
+                val host = URL(endpoint).host
+                status("asking $host")
                 try {
-                    result.complete(fetch(endpoint, body) { open += it })
+                    val text = fetch(endpoint, body, { open += it }) { kb -> if (!result.isCompleted) status("receiving from $host: $kb KB") }
+                    result.complete(text)
                 } catch (e: Exception) {
-                    errors += "${URL(endpoint).host}: ${e.message}"
-                    if (failures.updateAndGet { it + 1 } == ENDPOINTS.size) {
+                    val why = describe(e)
+                    errors += "$host: $why"
+                    val failed = failures.updateAndGet { it + 1 }
+                    if (failed == ENDPOINTS.size) {
                         result.completeExceptionally(java.io.IOException("OpenStreetMap servers busy - try again later"))
+                    } else if (!result.isCompleted) {
+                        status("$host $why - trying another server")
                     }
                 }
             }
@@ -192,8 +210,18 @@ object AlprStore {
         }
     }
 
-    /** One Overpass request; throws unless the answer is a JSON result. */
-    private fun fetch(endpoint: String, body: String, onOpen: (HttpURLConnection) -> Unit): String {
+    /** A short, human reason for a failed request. */
+    private fun describe(e: Exception): String = when {
+        e is java.net.SocketTimeoutException -> "didn't answer in time"
+        e is java.net.UnknownHostException -> "unreachable (no internet?)"
+        e.message == "HTTP 429" -> "is rate-limiting (HTTP 429)"
+        e.message == "HTTP 504" || e.message == "HTTP 503" -> "is overloaded (${e.message})"
+        e.message == "server error" -> "returned an error page"
+        else -> "failed (${e.message ?: e.javaClass.simpleName})"
+    }
+
+    /** One Overpass request; throws unless the answer is a JSON result. Reports KB received. */
+    private fun fetch(endpoint: String, body: String, onOpen: (HttpURLConnection) -> Unit, onKb: (Int) -> Unit = {}): String {
         val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             doOutput = true
@@ -206,7 +234,19 @@ object AlprStore {
         try {
             conn.outputStream.use { it.write(body.toByteArray()) }
             if (conn.responseCode != 200) error("HTTP ${conn.responseCode}")
-            val text = conn.inputStream.bufferedReader().use { it.readText() }
+            val out = java.io.ByteArrayOutputStream()
+            conn.inputStream.use { input ->
+                val buf = ByteArray(16 * 1024)
+                var lastKb = 0
+                while (true) {
+                    val n = input.read(buf)
+                    if (n < 0) break
+                    out.write(buf, 0, n)
+                    val kb = out.size() / 1024
+                    if (kb - lastKb >= 16) { lastKb = kb; onKb(kb) }
+                }
+            }
+            val text = out.toString("UTF-8")
             // An overloaded server can answer 200 with an HTML error page.
             if (!text.trimStart().startsWith("{")) error("server error")
             return text

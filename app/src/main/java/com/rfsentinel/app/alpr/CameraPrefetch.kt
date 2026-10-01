@@ -32,8 +32,8 @@ object CameraPrefetch {
     sealed interface State {
         data object Idle : State
         data object Locating : State
-        data class Downloading(val done: Int, val total: Int) : State
-        data class Done(val cameras: Int) : State
+        data class Downloading(val done: Int, val total: Int, val found: Int = 0, val detail: String = "") : State
+        data class Done(val cameras: Int, val failedAreas: Int = 0) : State
         data class Failed(val reason: String) : State
     }
 
@@ -56,21 +56,65 @@ object CameraPrefetch {
         return { listeners -= listener }
     }
 
-    private fun set(s: State) = main.post { state = s; listeners.toList().forEach { it(s) } }
+    private var appContext: Context? = null
+    private var lastNotified = 0L
+    private val trailingNotify = Runnable { lastNotified = 0L; notify(state) }
+
+    val isRunning: Boolean get() = job?.isActive == true
+
+    private fun set(s: State) = main.post {
+        state = s
+        listeners.toList().forEach { it(s) }
+        notify(s)
+    }
+
+    /** Mirrors the state in a notification, so you can leave the app while it downloads. */
+    private fun notify(s: State) {
+        val ctx = appContext ?: return
+        val now = System.currentTimeMillis()
+        val final = s is State.Done || s is State.Failed
+        main.removeCallbacks(trailingNotify)
+        if (!final && now - lastNotified < 400) {
+            // Android drops too-frequent updates: show the latest one a moment later instead.
+            main.postDelayed(trailingNotify, 400)
+            return
+        }
+        lastNotified = now
+        val h = com.rfsentinel.app.util.NotificationHelper
+        when (s) {
+            State.Idle -> Unit
+            State.Locating -> h.showCameraDownload(ctx, "Downloading known cameras", "Finding your position...", 0, 0, true)
+            is State.Downloading -> h.showCameraDownload(
+                ctx, "Downloading known cameras \u00b7 ${s.done}/${s.total} areas",
+                "${s.detail.replaceFirstChar { it.uppercase() }}\n${s.found} cameras so far \u00b7 you can keep using your phone",
+                s.done, s.total, true
+            )
+            is State.Done -> h.showCameraDownload(
+                ctx, "Known cameras ready",
+                "${s.cameras} plate, speed and red-light cameras saved within ~100 km - they work offline." +
+                    (if (s.failedAreas > 0) " ${s.failedAreas} area(s) failed; the map will fetch them when you look there." else ""),
+                0, 0, false
+            )
+            is State.Failed -> h.showCameraDownload(ctx, "Couldn't download known cameras", s.reason, 0, 0, false)
+        }
+    }
 
     fun start(context: Context) {
         if (job?.isActive == true) return
         val app = context.applicationContext
+        appContext = app
         job = scope.launch {
             set(State.Locating)
             val here = currentLocation(app)
             if (here == null) { set(State.Failed("No location yet - try again outdoors, or open the map later")); return@launch }
-            set(State.Downloading(0, 4))
+            set(State.Downloading(0, 4, detail = "starting"))
             try {
-                val n = AlprStore.downloadAround(app, here.latitude, here.longitude) { done, total ->
-                    set(State.Downloading(done, total))
+                var failed = 0
+                val n = AlprStore.downloadAround(app, here.latitude, here.longitude) { p ->
+                    failed = p.failed
+                    set(State.Downloading(p.done, p.total, p.found, p.detail))
                 }
-                set(State.Done(n))
+                set(State.Done(n, failed))
                 // A running scan starts watching for the new cameras.
                 if (ScanForegroundService.isRunning) runCatching {
                     app.startService(Intent(app, ScanForegroundService::class.java).setAction(ScanForegroundService.ACTION_REFRESH_LOCATION))

@@ -7,6 +7,11 @@
 </p>
 
 <p align="center">
+  <b>A free, open-source alternative to SØPHIA (s0phia ops / SophiaOps)</b> -
+  a regular Android app, no Termux, no account, no subscription.
+</p>
+
+<p align="center">
   <a href="https://github.com/CIS-C0/RFSentinel/releases/latest"><img src="https://img.shields.io/github/v/release/CIS-C0/RFSentinel?label=release&color=00BFAE" alt="Latest release" /></a>
   <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white" alt="Android 8.0+" />
   <img src="https://img.shields.io/badge/Kotlin-100%25-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin" />
@@ -54,7 +59,15 @@
 RF Sentinel is a non-rooted Android app that listens to Bluetooth LE
 advertisements and WiFi beacons. It lists every device around you with its
 vendor, type and signal strength, and flags law-enforcement and surveillance
-equipment:
+equipment.
+
+Looking for a **free SØPHIA / s0phia ops alternative**? RF Sentinel does the same
+kind of passive BLE and WiFi signal scanning (police gear, hidden cameras,
+trackers, drones) as a normal installable APK: open source under GPL-3.0, fully
+offline apart from optional map data, with Android Auto support. *RF Sentinel is
+an independent project, not affiliated with SØPHIA or DetecX.*
+
+What it flags:
 
 | Category | Examples |
 |---|---|

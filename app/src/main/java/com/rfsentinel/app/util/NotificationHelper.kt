@@ -40,8 +40,42 @@ object NotificationHelper {
             enableVibration(false)
         }
 
+        val downloadChannel = NotificationChannel(
+            CHANNEL_DOWNLOADS, "Camera downloads", NotificationManager.IMPORTANCE_LOW
+        ).apply { description = "Progress while known cameras are downloaded from OpenStreetMap" }
+
         nm.createNotificationChannel(serviceChannel)
         nm.createNotificationChannel(alertChannel)
+        nm.createNotificationChannel(downloadChannel)
+    }
+
+    const val CHANNEL_DOWNLOADS = "rf_sentinel_downloads"
+    private const val DOWNLOAD_NOTIFICATION_ID = 2
+
+    /**
+     * Progress of a camera download: a bar while [ongoing] (silent, can't be
+     * swiped away), then the result, which can. Tapping opens the map.
+     */
+    fun showCameraDownload(context: Context, title: String, text: String, done: Int, total: Int, ongoing: Boolean) {
+        val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        val open = PendingIntent.getActivity(
+            context, DOWNLOAD_NOTIFICATION_ID,
+            Intent(context, com.rfsentinel.app.ui.MapActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val b = NotificationCompat.Builder(context, CHANNEL_DOWNLOADS)
+            .setSmallIcon(if (ongoing) android.R.drawable.stat_sys_download else android.R.drawable.stat_sys_download_done)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setContentIntent(open)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setOngoing(ongoing)
+            .setAutoCancel(!ongoing)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+        if (ongoing) b.setProgress(total, done, total == 0)
+        runCatching { nm.notify(DOWNLOAD_NOTIFICATION_ID, b.build()) } // no-op without the notification permission
     }
 
     /**
