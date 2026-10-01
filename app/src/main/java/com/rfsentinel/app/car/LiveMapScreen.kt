@@ -80,7 +80,7 @@ class LiveMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs = 
     private fun summaryRows(list: ItemList.Builder) {
         val (devices, cameras) = renderer.counts()
         list.addItem(Row.Builder()
-            .setTitle(if (ScanForegroundService.isRunning) "$devices devices · $cameras cameras on the map" else "Not scanning")
+            .setTitle(if (ScanForegroundService.isRunning) "$devices device${if (devices == 1) "" else "s"} · $cameras camera${if (cameras == 1) "" else "s"} on the map" else "Not scanning")
             .addText(if (renderer.following) "Drag or pinch the map to look around" else "Tap ◎ to follow the car again")
             .build())
         list.addItem(Row.Builder()

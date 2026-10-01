@@ -208,7 +208,7 @@ class CarMapRenderer(private val carContext: CarContext, private val scope: Coro
             }
             devices.add(Marker(m).apply {
                 position = GeoPoint(lat, lon)
-                icon = MapIcons.dot(dp, color, if (DeviceColors.isFlagged(s)) 16 else 9)
+                icon = MapIcons.dot(dp, color, if (DeviceColors.isFlagged(s)) 18 else 11)
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                 setInfoWindow(null)
             })
@@ -217,7 +217,7 @@ class CarMapRenderer(private val carContext: CarContext, private val scope: Coro
         cameras.items.clear()
         if (m.zoomLevelDouble >= 9.0) {
             val box = m.boundingBox.increaseByScale(1.4f)
-            val icons = KnownCamera.Kind.entries.associateWith { BitmapDrawable(m.context.resources, MapIcons.cameraIcon(dp, it)) }
+            val icons = KnownCamera.Kind.entries.associateWith { BitmapDrawable(m.context.resources, MapIcons.cameraIcon(dp * 1.6f, it)) } // car screens sit further away
             AlprStore.cameras.asSequence()
                 .filter { it.lat in box.latSouth..box.latNorth && it.lon in box.lonWest..box.lonEast }
                 .take(600)

@@ -45,6 +45,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Installs next to the release app (demo data, screenshots) without touching it.
+            applicationIdSuffix = ".debug"
+        }
         release {
             signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = false

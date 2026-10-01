@@ -19,7 +19,8 @@ object AboutDialog {
             connects to, jams or spoofs any device. Scans, detections, history and traces stay
             on this phone. Internet is used only for OpenStreetMap: map tiles while the map is
             open, and the list of known plate, speed and red-light cameras for the area you look at on
-            screen. Those servers see your IP and that area, never your scans or detections.
+            screen; in Android Auto, destination search (Nominatim) and routes (OSRM) when you
+            navigate. Those servers see your IP and that area or trip, never your scans or detections.
             Map data &copy; OpenStreetMap contributors (ODbL).<br/><br/>
 
             <b>What a match means</b><br/>

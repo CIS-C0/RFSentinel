@@ -124,6 +124,8 @@ class MainActivity : AppCompatActivity() {
         // Debug builds only: made-up devices for screenshots (see DemoData).
         if (BuildConfig.DEBUG && intent.getBooleanExtra("demo", false)) {
             demoMode = true
+            // So the Android Auto screens show the demo as a running scan too.
+            ScanForegroundService.isRunning = true
             intent.getStringExtra("view")?.let { Prefs.setRadarView(this, it == "radar") }
             val anchor = runCatching {
                 @Suppress("MissingPermission")

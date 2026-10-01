@@ -30,7 +30,10 @@
   &nbsp;&nbsp;
   <img src="docs/screenshots/radar-dedsec.jpg" width="270" alt="Radar view with demo detections (DedSec theme)" />
 </p>
-<p align="center"><sub>List and radar views (DedSec theme, demo data). <a href="#themes">See all 12 themes</a>.</sub></p>
+<p align="center">
+  <img src="docs/screenshots/android-auto/navigation.jpg" width="560" alt="Android Auto: live map with nearby devices and OpenStreetMap navigation" />
+</p>
+<p align="center"><sub>List and radar views (DedSec theme), and the Android Auto live map with navigation. Demo data. <a href="#themes">See all 12 themes</a> · <a href="#android-auto">Android Auto</a>.</sub></p>
 
 <p align="center">
   <a href="https://github.com/CIS-C0/RFSentinel/stargazers"><img src="docs/star-banner.svg" width="560" alt="Like RF Sentinel? Give it a star on GitHub - it's free, takes one click and helps others find it" /></a>
@@ -199,17 +202,38 @@ Menu → **Export all devices...** or **Export...**:
 
 RF Sentinel runs in Android Auto as a driver-safe, template-based app:
 
+<p align="center">
+  <img src="docs/screenshots/android-auto/home.jpg" width="400" alt="Android Auto home screen with the threat headline" />
+  <img src="docs/screenshots/android-auto/flagged.jpg" width="400" alt="Android Auto list of flagged devices" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/android-auto/live-map.jpg" width="400" alt="Android Auto live map with the devices around you" />
+  <img src="docs/screenshots/android-auto/cameras.jpg" width="400" alt="Android Auto live map zoomed out with known cameras" />
+</p>
+<p align="center"><sub>Home, flagged devices, live map, and known cameras (demo data).</sub></p>
+
 - **Home screen:** the threat headline, live counts, Start/Stop, and a speaker
   button that mutes or unmutes all alert sound.
 - **Device lists** (flagged, drones & trackers, all nearby) and **device details**
   with Whitelist, Watch and Favorite actions. **Navigate** opens your car's
   navigation app for drones with a known position.
-- **Devices around me map:** the devices heard around you on the car's map, like
-  the phone map, in the list and radar colours - flagged ones first, then the
-  strongest ordinary ones (Android Auto shows about six places at a time).
-  Tap one for its details.
-- **Cameras map** (the *Cameras* button): the closest known plate, speed and
-  red-light cameras (OpenStreetMap) and Remote ID drones, with distances.
+- **Live map:** RF Sentinel's own OpenStreetMap map on the car screen, with
+  every device heard around you in the list and radar colours, the known plate,
+  speed and red-light cameras, and your position. Drag, pinch or use **+ / −** to
+  look around; **◎** follows the car again. Needs Android Auto with car API
+  level 7 (recent versions); older ones get the car-drawn maps below.
+- **Navigation (OpenStreetMap):** *Navigate to...* searches a destination with
+  [Nominatim](https://nominatim.org) (only when you submit or tap the search -
+  no search-as-you-type), keeps your recent destinations on the phone, and
+  plans a driving route with the [OSRM](https://project-osrm.org) demo server.
+  The route is drawn on the live map with the next turn, arrival time and
+  distance left; turns are spoken, and it re-routes when you leave the route.
+  Those servers see the search, your position and destination, and your IP
+  address - never your scans.
+- **Device and camera lists on the car's map** (also for older Android Auto):
+  the devices around you (flagged first) and the closest cameras and drones,
+  with distances; tap a camera to centre on it, with **Navigate** to hand it to
+  your navigation app.
 - **Alerts** appear as a heads-up on the car screen. While connected, they play
   through the car speakers as navigation-guidance audio, briefly lowering your
   music.
@@ -272,8 +296,9 @@ Pick a theme in the setup wizard or under **Settings → Appearance**.
   overpass.private.coffee when it's busy. Those servers see your IP address and
   that area - like the map tiles - never your scans. Turn off *Show known cameras
   automatically* in Settings to fetch only when you tap *Download known cameras*.
-  Map data
-  © OpenStreetMap contributors (ODbL).
+  In Android Auto, navigation also uses OpenStreetMap's Nominatim (destination
+  search) and the OSRM routing server, only when you search or start a route.
+  Map data © OpenStreetMap contributors (ODbL).
 - **Data leaves the phone only when you export or share it.**
 - **Optional permissions:** *Nearby devices → connect* is asked only to read the
   names of your paired Bluetooth devices when you pick your car; *Display over
