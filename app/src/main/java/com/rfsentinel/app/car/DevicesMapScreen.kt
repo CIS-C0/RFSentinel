@@ -70,7 +70,7 @@ class DevicesMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs
 
     private fun row(it: Item): Row {
         val marker = PlaceMarker.Builder().setColor(CarColor.createCustom(it.color, it.color))
-        it.tag?.let { t -> marker.setLabel(t) }
+        it.tag?.let { t -> marker.setLabel(t) } // W = WiFi, B = Bluetooth, else the category's first letter
         val place = Place.Builder(CarLocation.create(it.lat, it.lon)).setMarker(marker.build()).build()
         // Map rows must carry their distance as a DistanceSpan (the car formats it).
         val text = SpannableString("  · " + it.detail)
@@ -136,7 +136,10 @@ class DevicesMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs
                         best.tier == Tier.WEAK -> DeviceColors.WEAK
                         else -> best.category.colorArgb
                     },
+                    // Without a label Android Auto numbers markers by row, which reads like a
+                    // count when several sit on the same spot: say what each one is instead.
                     tag = best?.category?.shortTag?.take(1)
+                        ?: if (s.source == com.rfsentinel.app.detect.Advert.Source.WIFI) "W" else "B"
                 )
                 val wifi = s.source == com.rfsentinel.app.detect.Advert.Source.WIFI
                 Candidate(
