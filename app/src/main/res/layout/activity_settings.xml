@@ -315,6 +315,19 @@
             android:layout_height="wrap_content"
             android:text="Show known cameras automatically: download them from OpenStreetMap for the map area you look at (the Overpass server sees that area, like map tiles)" />
 
+        <Button
+            android:id="@+id/prefetchCamerasButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Download cameras around me (~100 km)" />
+
+        <TextView
+            android:id="@+id/prefetchCamerasText"
+            style="@style/SettingsLabel"
+            android:paddingTop="0dp"
+            android:textSize="12sp" />
+
         <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/speedCameraSwitch"
             android:layout_width="match_parent"

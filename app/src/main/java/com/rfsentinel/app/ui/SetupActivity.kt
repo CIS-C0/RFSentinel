@@ -43,6 +43,7 @@ class SetupActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySetupBinding
     private var step = 0
     private var startAfter = true
+    private var stopObservingPrefetch: (() -> Unit)? = null
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -69,6 +70,11 @@ class SetupActivity : AppCompatActivity() {
         render()
     }
 
+    override fun onDestroy() {
+        stopObservingPrefetch?.invoke()
+        super.onDestroy()
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putInt(KEY_STEP, step)
@@ -84,6 +90,7 @@ class SetupActivity : AppCompatActivity() {
             else -> "Next"
         }
         binding.page.removeAllViews()
+        stopObservingPrefetch?.invoke(); stopObservingPrefetch = null
         when (step) {
             0 -> welcome()
             1 -> theme()
@@ -199,7 +206,23 @@ class SetupActivity : AppCompatActivity() {
             button("Allow notifications") { permissionLauncher.launch(optionalMissing.toTypedArray()) }
         }
         para("Tip: in Android's battery settings, set RF Sentinel to \"Unrestricted\" so scanning keeps running in your pocket.", small = true)
+        knownCamerasNearMe()
         check("Start scanning when I tap Finish", startAfter) { startAfter = it }
+    }
+
+    /** Pre-downloads the known cameras around you, so the map and warnings work offline from the start. */
+    private fun knownCamerasNearMe() {
+        label("Known cameras near you")
+        para("Download the plate, speed and red-light cameras mapped in OpenStreetMap within about 100 km of you, " +
+            "so they're on the map and warn you offline right away. Only that area is sent to the OpenStreetMap server.", small = true)
+        val btn = button("Download cameras around me") { com.rfsentinel.app.alpr.CameraPrefetch.start(this) }
+        val status = para("", small = true)
+        stopObservingPrefetch = com.rfsentinel.app.alpr.CameraPrefetch.observe { s ->
+            val located = com.rfsentinel.app.alpr.CameraPrefetch.canRun(this)
+            btn.isEnabled = located && s !is com.rfsentinel.app.alpr.CameraPrefetch.State.Locating &&
+                s !is com.rfsentinel.app.alpr.CameraPrefetch.State.Downloading
+            status.text = cameraPrefetchText(s, located)
+        }
     }
 
     private fun finishSetup() {
@@ -220,16 +243,15 @@ class SetupActivity : AppCompatActivity() {
         binding.subtitleText.text = subtitle
     }
 
-    private fun para(text: String, small: Boolean = false) {
-        binding.page.addView(TextView(this).apply {
+    private fun para(text: String, small: Boolean = false): TextView =
+        TextView(this).apply {
             this.text = text
             setTextSize(TypedValue.COMPLEX_UNIT_SP, if (small) 12f else 15f)
             setPadding(0, (6 * dp).toInt(), 0, (6 * dp).toInt())
             if (small) alpha = 0.75f
-        })
-    }
+        }.also { binding.page.addView(it) }
 
-    private fun bullet(text: String) = para("• $text")
+    private fun bullet(text: String) { para("• $text") }
 
     private fun label(text: String) {
         binding.page.addView(TextView(this).apply {
@@ -256,12 +278,11 @@ class SetupActivity : AppCompatActivity() {
         })
     }
 
-    private fun button(text: String, onClick: () -> Unit) {
-        binding.page.addView(com.google.android.material.button.MaterialButton(this).apply {
+    private fun button(text: String, onClick: () -> Unit): android.widget.Button =
+        com.google.android.material.button.MaterialButton(this).apply {
             this.text = text
             setOnClickListener { onClick() }
-        })
-    }
+        }.also { binding.page.addView(it) }
 
     private fun card(title: String, desc: String, selected: Boolean, onClick: () -> Unit) {
         val card = MaterialCardView(this).apply {

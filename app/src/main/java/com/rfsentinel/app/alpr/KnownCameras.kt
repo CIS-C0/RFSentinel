@@ -49,13 +49,20 @@ data class KnownCamera(
 
 object KnownCameras {
 
-    /** Overpass QL for every mapped plate reader, speed and red-light camera in a bounding box. */
+    /**
+     * Overpass QL for every mapped plate reader, speed and red-light camera in
+     * a bounding box. Kept cheap on purpose - simple per-type key lookups and a
+     * short declared timeout - because busy public servers turn away heavy or
+     * long requests first (HTTP 429 / 504). [parse] sorts out the kinds.
+     */
     fun query(south: Double, west: Double, north: Double, east: Double): String {
         val b = "($south,$west,$north,$east)"
-        return "[out:json][timeout:90];(" +
-            "nwr[\"surveillance:type\"=\"ALPR\"]$b;" +
+        return "[out:json][timeout:25];(" +
+            "node[\"surveillance:type\"=\"ALPR\"]$b;" +
+            "way[\"surveillance:type\"=\"ALPR\"]$b;" +
             "node[\"highway\"=\"speed_camera\"]$b;" +
-            "nwr[\"enforcement\"~\"^(maxspeed|average_speed|traffic_signals)$\"]$b;" +
+            "node[\"enforcement\"]$b;" +
+            "relation[\"type\"=\"enforcement\"]$b;" +
             ");out center tags;"
     }
 

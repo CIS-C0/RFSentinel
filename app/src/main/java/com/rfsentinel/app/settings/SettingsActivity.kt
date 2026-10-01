@@ -24,6 +24,7 @@ import kotlinx.coroutines.launch
 
 class SettingsActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySettingsBinding
+    private var stopObservingPrefetch: (() -> Unit)? = null
     private val categorySwitches = mutableMapOf<Category, SwitchMaterial>()
 
     private val bannerPicker = registerForActivityResult(
@@ -99,6 +100,11 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun updateBannerButtons() {
         binding.bannerClearButton.isEnabled = ThemeManager.hasBanner(this)
+    }
+
+    override fun onDestroy() {
+        stopObservingPrefetch?.invoke()
+        super.onDestroy()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -229,6 +235,13 @@ class SettingsActivity : AppCompatActivity() {
         binding.knownAlprSwitch.isChecked = Prefs.knownAlprAlerts(this)
         binding.speedCameraSwitch.isChecked = Prefs.speedCameraAlerts(this)
         binding.autoCamerasSwitch.isChecked = Prefs.autoCameras(this)
+        binding.prefetchCamerasButton.setOnClickListener { com.rfsentinel.app.alpr.CameraPrefetch.start(this) }
+        stopObservingPrefetch = com.rfsentinel.app.alpr.CameraPrefetch.observe { s ->
+            val located = com.rfsentinel.app.alpr.CameraPrefetch.canRun(this)
+            binding.prefetchCamerasButton.isEnabled = located &&
+                s !is com.rfsentinel.app.alpr.CameraPrefetch.State.Locating && s !is com.rfsentinel.app.alpr.CameraPrefetch.State.Downloading
+            binding.prefetchCamerasText.text = com.rfsentinel.app.ui.cameraPrefetchText(s, located)
+        }
 
         // Data
         binding.retentionInput.setText(Prefs.retentionDays(this).toString())

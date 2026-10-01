@@ -20,6 +20,18 @@ class CameraAreaTest {
     }
 
     @Test
+    fun tilesTogetherCoverABox() {
+        val tiles = CameraArea.tilesAround(10.5, -20.5, radiusKm = 100.0, maxTileDeg = 1.0)
+        assertEquals(4, tiles.size)
+        tiles.forEach { assertTrue(it[2] - it[0] <= 1.0 + 1e-9 && it[3] - it[1] <= 1.0 + 1e-9) }
+        val areas = tiles.map { CameraArea(it[0], it[1], it[2], it[3], time = 0L) }
+        // A view straddling all four tiles is covered by them together...
+        assertFalse(CameraArea.needsDownload(areas, 10.3, -20.7, 10.7, -20.3, now = day, maxAgeMs = 7 * day))
+        // ...but one reaching past them is not.
+        assertTrue(CameraArea.needsDownload(areas, 10.3, -20.7, 11.9, -20.3, now = day, maxAgeMs = 7 * day))
+    }
+
+    @Test
     fun expandDoublesWithinLimits() {
         // A small zoomed-in box grows to the minimum span.
         val (s, w, n, e) = CameraArea.expand(10.0, -20.05, 10.1, -19.95, maxSpan = 2.0)

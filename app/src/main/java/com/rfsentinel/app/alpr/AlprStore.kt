@@ -5,6 +5,10 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.rfsentinel.app.BuildConfig
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.updateAndGet
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.HttpURLConnection
@@ -94,23 +98,52 @@ object AlprStore {
     }
 
     /**
+     * Downloads every known camera within about [radiusKm] of a point, in up to
+     * four tiles (small requests get through busy servers more easily). Tiles
+     * that fail are skipped - the map fetches them later. Returns how many
+     * cameras were found, or throws when no tile could be downloaded.
+     */
+    suspend fun downloadAround(
+        context: Context, lat: Double, lon: Double, radiusKm: Double = 100.0,
+        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> }
+    ): Int {
+        val tiles = CameraArea.tilesAround(lat, lon, radiusKm, MAX_SPAN_DEG / 2)
+        var found = 0
+        var ok = 0
+        var lastError: Exception? = null
+        tiles.forEachIndexed { i, t ->
+            try {
+                found += download(context, t[0], t[1], t[2], t[3])
+                ok++
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                lastError = e
+            }
+            onProgress(i + 1, tiles.size)
+        }
+        if (ok == 0) throw lastError ?: java.io.IOException("No answer")
+        return found
+    }
+
+    /**
      * Downloads the cameras in a bounding box and merges them into the cache
      * (cameras deleted from OSM inside the box are dropped). Returns how many
      * cameras the box contains.
      */
     suspend fun download(context: Context, south: Double, west: Double, north: Double, east: Double): Int =
         withContext(Dispatchers.IO) {
-            require(north - south <= MAX_SPAN_DEG && east - west <= MAX_SPAN_DEG) { "Area too large - zoom in" }
+            require(north - south <= MAX_SPAN_DEG + 1e-9 && east - west <= MAX_SPAN_DEG + 1e-9) { "Area too large - zoom in" }
             val body = "data=" + URLEncoder.encode(KnownCameras.query(south, west, north, east), "UTF-8")
-            var lastError: Exception? = null
-            for (endpoint in ENDPOINTS) {
-                val json = try {
-                    fetch(endpoint, body)
-                } catch (e: Exception) {
-                    lastError = e
-                    continue
-                }
-                val found = KnownCameras.parse(json)
+            // Public servers often answer 429/504 under load: one more round after a pause.
+            val json = try {
+                fetchFirst(body)
+            } catch (e: java.io.IOException) {
+                kotlinx.coroutines.delay(RETRY_PAUSE_MS)
+                fetchFirst(body)
+            }
+            val found = KnownCameras.parse(json)
+            synchronized(this@AlprStore) {
                 val inBox = { c: KnownCamera -> c.lat in south..north && c.lon in west..east }
                 val merged = cameras.filterNot(inBox) + found
                 file(context).writeText(gson.toJson(merged))
@@ -118,21 +151,58 @@ object AlprStore {
                 val area = CameraArea(south, west, north, east, System.currentTimeMillis())
                 areas = areas.filterNot { area.contains(it) } + area
                 runCatching { areasFile(context).writeText(gson.toJson(areas)) }
-                return@withContext found.size
             }
-            error("OpenStreetMap servers busy (${lastError?.message ?: "no answer"}) - try again later")
+            found.size
         }
 
+    private const val STAGGER_MS = 4_000L
+    private const val RETRY_PAUSE_MS = 5_000L
+
+    /**
+     * Asks the main server first and each mirror a few seconds later (at once
+     * if the earlier ones already failed); the first JSON answer wins and the
+     * others are abandoned. Throws an IOException when every server failed.
+     */
+    private suspend fun fetchFirst(body: String): String {
+        val requests = kotlinx.coroutines.CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
+        val result = kotlinx.coroutines.CompletableDeferred<String>()
+        val failures = kotlinx.coroutines.flow.MutableStateFlow(0)
+        val errors = java.util.Collections.synchronizedList(mutableListOf<String>())
+        val open = java.util.Collections.synchronizedList(mutableListOf<HttpURLConnection>())
+        ENDPOINTS.forEachIndexed { i, endpoint ->
+            requests.launch {
+                if (i > 0) kotlinx.coroutines.withTimeoutOrNull(STAGGER_MS * i) { failures.first { it >= i } }
+                if (result.isCompleted) return@launch
+                try {
+                    result.complete(fetch(endpoint, body) { open += it })
+                } catch (e: Exception) {
+                    errors += "${URL(endpoint).host}: ${e.message}"
+                    if (failures.updateAndGet { it + 1 } == ENDPOINTS.size) {
+                        result.completeExceptionally(java.io.IOException("OpenStreetMap servers busy - try again later"))
+                    }
+                }
+            }
+        }
+        return try {
+            result.await()
+        } finally {
+            requests.cancel()
+            synchronized(open) { open.forEach { runCatching { it.disconnect() } } }
+            if (!result.isCompleted || errors.isNotEmpty()) android.util.Log.i("AlprStore", "Overpass: $errors")
+        }
+    }
+
     /** One Overpass request; throws unless the answer is a JSON result. */
-    private fun fetch(endpoint: String, body: String): String {
+    private fun fetch(endpoint: String, body: String, onOpen: (HttpURLConnection) -> Unit): String {
         val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             doOutput = true
-            connectTimeout = 15_000
-            readTimeout = 100_000
+            connectTimeout = 10_000
+            readTimeout = 60_000
             setRequestProperty("User-Agent", "${BuildConfig.APPLICATION_ID}/${BuildConfig.VERSION_NAME}")
             setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
         }
+        onOpen(conn)
         try {
             conn.outputStream.use { it.write(body.toByteArray()) }
             if (conn.responseCode != 200) error("HTTP ${conn.responseCode}")
@@ -166,8 +236,36 @@ data class CameraArea(val south: Double, val west: Double, val north: Double, va
         s >= south && w >= west && n <= north && e <= east
 
     companion object {
-        fun needsDownload(areas: List<CameraArea>, s: Double, w: Double, n: Double, e: Double, now: Long, maxAgeMs: Long) =
-            areas.none { now - it.time < maxAgeMs && it.contains(s, w, n, e) }
+        /**
+         * True unless the box is covered by fresh areas. Several areas together
+         * count (e.g. the tiles downloaded around you at setup): a 3x3 grid of
+         * points across the box must each fall inside one of them.
+         */
+        fun needsDownload(areas: List<CameraArea>, s: Double, w: Double, n: Double, e: Double, now: Long, maxAgeMs: Long): Boolean {
+            val fresh = areas.filter { now - it.time < maxAgeMs }
+            if (fresh.any { it.contains(s, w, n, e) }) return false
+            for (i in 0..2) for (j in 0..2) {
+                val lat = s + (n - s) * i / 2
+                val lon = w + (e - w) * j / 2
+                if (fresh.none { it.contains(lat, lon, lat, lon) }) return true
+            }
+            return false
+        }
+
+        /**
+         * The box within [radiusKm] of a point, split into 2x2 tiles no larger
+         * than [maxTileDeg] on a side: [[south, west, north, east], ...].
+         */
+        fun tilesAround(lat: Double, lon: Double, radiusKm: Double, maxTileDeg: Double): List<DoubleArray> {
+            val dLat = (radiusKm / 111.0).coerceAtMost(maxTileDeg)
+            val dLon = (radiusKm / (111.0 * kotlin.math.max(0.05, kotlin.math.cos(Math.toRadians(lat))))).coerceAtMost(maxTileDeg)
+            val s = (lat - dLat).coerceAtLeast(-90.0); val n = (lat + dLat).coerceAtMost(90.0)
+            val w = (lon - dLon).coerceAtLeast(-180.0); val e = (lon + dLon).coerceAtMost(180.0)
+            return listOf(
+                doubleArrayOf(s, w, lat, lon), doubleArrayOf(s, lon, lat, e),
+                doubleArrayOf(lat, w, n, lon), doubleArrayOf(lat, lon, n, e)
+            )
+        }
 
         /** Smallest box one automatic download covers (degrees, ~40 km). */
         const val MIN_SPAN_DEG = 0.4

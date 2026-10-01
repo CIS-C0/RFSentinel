@@ -77,7 +77,7 @@ publicly.
 - Patrol-vehicle detection: several kinds of police-type equipment whose signals move together are flagged as a possible police vehicle
 - Address-rotation linking: follows a device when its Bluetooth address changes
 - Follower alerts: a warning when a tracker or flagged device keeps moving with you
-- **Known plate, speed and red-light cameras:** the cameras mapped in OpenStreetMap (plate readers e.g. by DeFlock, fixed speed and red-light cameras) appear on the map by themselves for the area you look at, and you're warned as you approach one - even the cellular-only cameras no radio scan can detect. Speed cameras warn about 30 seconds ahead, with the limit when it's mapped. Areas are kept offline and refreshed weekly
+- **Known plate, speed and red-light cameras:** the cameras mapped in OpenStreetMap (plate readers e.g. by DeFlock, fixed speed and red-light cameras) appear on the map by themselves for the area you look at, and you're warned as you approach one - even the cellular-only cameras no radio scan can detect. Speed cameras warn about 30 seconds ahead, with the limit when it's mapped. Areas are kept offline and refreshed weekly; the setup wizard (and Settings) can pre-download everything within ~100 km of you
 - **Drones:** live map of each Remote ID drone with its heading, altitude, speed and operator, plus a "drone overhead" alert
 - **Fake cell tower signs (IMSI catchers):** warnings for test network codes, forced 2G downgrades, unexpected networks and other classic signs (heuristic, no root needed)
 - Editable watchlist with exact addresses, vendor prefixes, and name or vendor rules, plus regional presets (Global, Canada, US)

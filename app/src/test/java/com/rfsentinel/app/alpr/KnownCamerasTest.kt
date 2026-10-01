@@ -75,7 +75,8 @@ class KnownCamerasTest {
         assertEquals(48, cams.first { it.osmId == "node/4" }.maxspeed) // 30 mph
         assertEquals("Red-light camera", cams.first { it.type == KnownCamera.Kind.RED_LIGHT }.label)
         val q = KnownCameras.query(1.0, 2.0, 3.0, 4.0)
-        assertTrue(q.contains("\"highway\"=\"speed_camera\"") && q.contains("traffic_signals"))
+        assertTrue(q.contains("\"highway\"=\"speed_camera\"") && q.contains("relation[\"type\"=\"enforcement\"]"))
+        assertTrue(q.startsWith("[out:json][timeout:25]")) // short timeout: busy servers refuse long ones first
     }
 
     @Test
