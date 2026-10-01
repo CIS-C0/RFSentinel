@@ -122,7 +122,7 @@ class DeviceDetailScreen(carContext: CarContext, private val mac: String) : Live
                     Action.Builder()
                         .setTitle("Navigate")
                         .setIcon(CarUi.icon(carContext, R.drawable.ic_car_navigate))
-                        .setOnClickListener { navigateTo(lat, lon) }
+                        .setOnClickListener { CarUi.navigateTo(carContext, lat, lon) }
                         .build()
                 )
             }
@@ -158,15 +158,5 @@ class DeviceDetailScreen(carContext: CarContext, private val mac: String) : Live
     }
 
     /** Hands the point to the car's navigation app. */
-    private fun navigateTo(lat: Double, lon: Double) {
-        try {
-            carContext.startCarApp(
-                Intent(CarContext.ACTION_NAVIGATE, Uri.parse(String.format(Locale.US, "geo:%.7f,%.7f", lat, lon)))
-            )
-        } catch (e: Exception) {
-            toast("No navigation app available")
-        }
-    }
-
     private fun toast(msg: String) = CarToast.makeText(carContext, msg, CarToast.LENGTH_SHORT).show()
 }

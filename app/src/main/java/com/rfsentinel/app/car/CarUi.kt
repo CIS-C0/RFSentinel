@@ -38,6 +38,18 @@ object CarUi {
             .maxByOrNull { it.time }
     }
 
+    /** Hands a spot to the car's navigation app (Google Maps, Waze...). */
+    fun navigateTo(context: CarContext, lat: Double, lon: Double) {
+        try {
+            context.startCarApp(
+                android.content.Intent(CarContext.ACTION_NAVIGATE,
+                    android.net.Uri.parse(String.format(java.util.Locale.US, "geo:%.7f,%.7f", lat, lon)))
+            )
+        } catch (e: Exception) {
+            androidx.car.app.CarToast.makeText(context, "No navigation app available", androidx.car.app.CarToast.LENGTH_SHORT).show()
+        }
+    }
+
     fun listLimit(context: CarContext): Int = runCatching {
         context.getCarService(ConstraintManager::class.java)
             .getContentLimit(ConstraintManager.CONTENT_LIMIT_TYPE_LIST)

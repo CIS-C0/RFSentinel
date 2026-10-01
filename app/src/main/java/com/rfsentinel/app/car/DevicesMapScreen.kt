@@ -89,10 +89,32 @@ class DevicesMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs
 
         /**
          * Devices with a position, most relevant first: flagged (strongest
-         * evidence first), then ordinary by signal strength. Drones use their
-         * own Remote ID position. Pure apart from the registry; unit-tested.
+         * evidence first), then ordinary ones alternating Bluetooth and WiFi
+         * (each by signal strength), with the access points of one WiFi network
+         * (2.4 / 5 GHz, mesh) merged - otherwise a home router fills every slot.
+         * Drones use their own Remote ID position. Pure apart from the registry;
+         * unit-tested.
          */
-        fun around(lat: Double, lon: Double, limit: Int): List<Item> =
+        fun around(lat: Double, lon: Double, limit: Int): List<Item> {
+            val all = candidates(lat, lon)
+            val flagged = all.filter { it.item.flagged }.sortedByDescending { it.rank }
+            val ordinary = all.filterNot { it.item.flagged }.sortedByDescending { it.rank }
+            val wifi = ordinary.filter { it.wifi }
+                .distinctBy { c -> c.network?.lowercase() ?: c.item.mac } // strongest AP of each network
+            val ble = ordinary.filterNot { it.wifi }
+            val mixed = ArrayList<Candidate>()
+            var i = 0
+            while (i < maxOf(ble.size, wifi.size)) {
+                ble.getOrNull(i)?.let { mixed += it }
+                wifi.getOrNull(i)?.let { mixed += it }
+                i++
+            }
+            return (flagged + mixed).take(limit).map { it.item }
+        }
+
+        private class Candidate(val item: Item, val rank: Int, val wifi: Boolean, val network: String?)
+
+        private fun candidates(lat: Double, lon: Double): List<Candidate> =
             DeviceRegistry.snapshot().mapNotNull { s ->
                 if (WhitelistCache.contains(s.mac)) return@mapNotNull null
                 val rid = s.remoteId?.takeIf { it.hasPosition }
@@ -100,7 +122,7 @@ class DevicesMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs
                 val pLon = rid?.longitude ?: s.bestPosition?.lon ?: return@mapNotNull null
                 val best = s.best
                 val flagged = DeviceColors.isFlagged(s)
-                Item(
+                val item = Item(
                     mac = s.mac,
                     title = best?.label ?: s.name ?: s.deviceType,
                     // Short enough for one line on a car screen.
@@ -115,10 +137,14 @@ class DevicesMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs
                         else -> best.category.colorArgb
                     },
                     tag = best?.category?.shortTag?.take(1)
-                ) to (if (flagged) 1_000 + (best?.confidence ?: 0) else 0) * 1_000 + (s.rssi + 200)
+                )
+                val wifi = s.source == com.rfsentinel.app.detect.Advert.Source.WIFI
+                Candidate(
+                    item,
+                    rank = (if (flagged) (best?.confidence ?: 0) else 0) * 1_000 + (s.rssi + 200),
+                    wifi = wifi,
+                    network = if (wifi) s.name?.takeIf { it.isNotBlank() } else null
+                )
             }
-                .sortedByDescending { it.second }
-                .take(limit)
-                .map { it.first }
     }
 }

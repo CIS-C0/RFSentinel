@@ -76,23 +76,21 @@ class NearbyMapScreen(
     }
 
     private fun row(it: Item): Row {
+        val color = when {
+            it.drone -> CarColor.BLUE
+            it.deviceColor != null -> CarColor.createCustom(it.deviceColor, it.deviceColor)
+            it.kind == com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR -> CarColor.RED
+            else -> CarColor.YELLOW
+        }
+        val label = when (it.kind) {
+            null -> if (it.drone) "D" else "!"
+            com.rfsentinel.app.alpr.KnownCamera.Kind.SPEED -> "S"
+            com.rfsentinel.app.alpr.KnownCamera.Kind.RED_LIGHT -> "R"
+            com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR -> "P"
+        }
         val place = Place.Builder(CarLocation.create(it.lat, it.lon))
-            .setMarker(
-                PlaceMarker.Builder()
-                    .setColor(when {
-                        it.drone -> CarColor.BLUE
-                        it.deviceColor != null -> CarColor.createCustom(it.deviceColor, it.deviceColor)
-                        it.kind == com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR -> CarColor.RED
-                        else -> CarColor.YELLOW
-                    })
-                    .setLabel(when (it.kind) {
-                        null -> if (it.drone) "D" else "!"
-                        com.rfsentinel.app.alpr.KnownCamera.Kind.SPEED -> "S"
-                        com.rfsentinel.app.alpr.KnownCamera.Kind.RED_LIGHT -> "R"
-                        com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR -> "P"
-                    })
-                    .build()
-            ).build()
+            .setMarker(PlaceMarker.Builder().setColor(color).setLabel(label).build())
+            .build()
         // Android Auto requires every place row on a map template to carry its distance
         // as a DistanceSpan (the host formats it in the driver's units); plain text throws.
         val text = android.text.SpannableString("  · " + it.detail)
@@ -104,7 +102,7 @@ class NearbyMapScreen(
             .setMetadata(Metadata.Builder().setPlace(place).build())
             .setOnClickListener {
                 if (it.mac != null) screenManager.push(DeviceDetailScreen(carContext, it.mac))
-                else CarToast.makeText(carContext, "${it.title}: ${distanceText(it.distanceM)} away", CarToast.LENGTH_LONG).show()
+                else screenManager.push(PlaceFocusScreen(carContext, it.title, it.detail, it.lat, it.lon, color, label))
             }
             .build()
     }

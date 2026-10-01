@@ -150,6 +150,42 @@ class CarScreensTest {
     }
 
     @Test
+    fun devicesMapMixesBluetoothAndWifiAndMergesOneNetwork() {
+        DeviceRegistry.clear(); DeviceRegistry.startSession()
+        val at = DeviceRegistry.GeoSample(System.currentTimeMillis(), 10.5, -20.5)
+        fun wifi(mac: String, ssid: String, rssi: Int) = Advert(mac, Advert.Source.WIFI, rssi, ssid,
+            wifi = Advert.WifiInfo(2437, "[WPA2-PSK-CCMP]", null, emptyList()))
+        // One home network seen as three access points, all stronger than the Bluetooth devices.
+        listOf(wifi("A0:00:00:00:00:01", "home", -40), wifi("A0:00:00:00:00:02", "home", -42),
+            wifi("A0:00:00:00:00:03", "home", -45), wifi("A0:00:00:00:00:04", "cafe", -70)).forEach {
+            DeviceRegistry.report(it, emptyList(), DeviceIntel.Identity("WiFi access point", emptyList()), null, null, at)
+        }
+        listOf(-60, -65, -75).forEachIndexed { i, rssi ->
+            DeviceRegistry.report(Advert("B0:00:00:00:00:0$i", Advert.Source.BLE, rssi, "Watch $i"), emptyList(),
+                DeviceIntel.Identity("Watch", emptyList()), null, null, at)
+        }
+        val macs = DevicesMapScreen.around(10.5, -20.5, 6).map { it.mac }
+        assertEquals(
+            listOf("B0:00:00:00:00:00", "A0:00:00:00:00:01", "B0:00:00:00:00:01", "A0:00:00:00:00:04", "B0:00:00:00:00:02"),
+            macs // Bluetooth / WiFi alternate; "home" appears once (its strongest AP)
+        )
+    }
+
+    @Test
+    fun cameraFocusScreenCentresOnOnePlaceWithNavigate() {
+        fun build() = PlaceFocusScreen(car, "Speed camera (50 km/h)", "Mapped in OpenStreetMap", 10.51, -20.5,
+            androidx.car.app.model.CarColor.YELLOW, "S").onGetTemplate() as androidx.car.app.model.PlaceListMapTemplate
+        // Without a position yet (no distance) and with one (DistanceSpan): both must build.
+        ScanForegroundService.setLastFixForTest(null)
+        assertEquals(1, build().itemList!!.items.size)
+        ScanForegroundService.setLastFixForTest(android.location.Location("test").apply { latitude = 10.5; longitude = -20.5 })
+        val t = build()
+        assertEquals(1, t.itemList!!.items.size)
+        assertEquals("Navigate", t.actionStrip!!.actions.single().title.toString())
+        ScanForegroundService.setLastFixForTest(null)
+    }
+
+    @Test
     fun nearbyMapListsDronesThenClosestCameras() {
         // Synthetic positions: you at 10.5, -20.5; the test drone is at the same point.
         com.rfsentinel.app.alpr.AlprStore.setForTest(listOf(
