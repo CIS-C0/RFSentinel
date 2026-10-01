@@ -33,7 +33,9 @@ class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs 
 
     /** One row: a camera or a drone. */
     data class Item(val title: String, val detail: String, val lat: Double, val lon: Double, val distanceM: Double,
-                    val drone: Boolean, val mac: String?, val kind: com.rfsentinel.app.alpr.KnownCamera.Kind? = null)
+                    val drone: Boolean, val mac: String?, val kind: com.rfsentinel.app.alpr.KnownCamera.Kind? = null,
+                    /** Flagged device: its list / radar colour (category, or amber when weak). */
+                    val deviceColor: Int? = null)
 
     override fun onGetTemplate(): Template {
         val me = myLocation()
@@ -53,7 +55,7 @@ class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs 
         items.forEach { it -> list.addItem(row(it)) }
 
         val template = PlaceListMapTemplate.Builder()
-            .setTitle("Cameras & drones")
+            .setTitle("Map: cameras, devices, drones")
             .setHeaderAction(Action.BACK)
             .setCurrentLocationEnabled(me != null)
             .setItemList(list.build())
@@ -66,9 +68,14 @@ class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs 
         val place = Place.Builder(CarLocation.create(it.lat, it.lon))
             .setMarker(
                 PlaceMarker.Builder()
-                    .setColor(if (it.drone) CarColor.BLUE else if (it.kind == com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR) CarColor.RED else CarColor.YELLOW)
+                    .setColor(when {
+                        it.drone -> CarColor.BLUE
+                        it.deviceColor != null -> CarColor.createCustom(it.deviceColor, it.deviceColor)
+                        it.kind == com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR -> CarColor.RED
+                        else -> CarColor.YELLOW
+                    })
                     .setLabel(when (it.kind) {
-                        null -> "D"
+                        null -> if (it.drone) "D" else "!"
                         com.rfsentinel.app.alpr.KnownCamera.Kind.SPEED -> "S"
                         com.rfsentinel.app.alpr.KnownCamera.Kind.RED_LIGHT -> "R"
                         com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR -> "P"
@@ -80,7 +87,7 @@ class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs 
             .addText(distanceText(it.distanceM) + " · " + it.detail)
             .setMetadata(Metadata.Builder().setPlace(place).build())
             .setOnClickListener {
-                if (it.drone && it.mac != null) screenManager.push(DeviceDetailScreen(carContext, it.mac))
+                if (it.mac != null) screenManager.push(DeviceDetailScreen(carContext, it.mac))
                 else CarToast.makeText(carContext, "${it.title}: ${distanceText(it.distanceM)} away", CarToast.LENGTH_LONG).show()
             }
             .build()
@@ -109,7 +116,8 @@ class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs 
     }
 
     companion object {
-        const val SEARCH_RADIUS_M = 5_000.0
+        /** The list shows only the nearest few, so look well ahead along the road. */
+        const val SEARCH_RADIUS_M = 20_000.0
 
         /** Nearest known cameras and positioned drones, closest first (pure; unit-tested). */
         fun nearby(lat: Double, lon: Double, limit: Int): List<Item> {
@@ -127,8 +135,18 @@ class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs 
                         .joinToString(" · ").ifEmpty { "Remote ID" },
                     dLat, dLon, d, drone = true, mac = s.mac)
             }
-            // Drones first (they move and matter now), then cameras by distance.
-            return (drones.sortedBy { it.distanceM } + cams).take(limit)
+            // Flagged devices where your phone heard them best (the same spot as on the phone map).
+            val devices = DeviceRegistry.snapshot().mapNotNull { s ->
+                val best = s.best ?: return@mapNotNull null
+                if (com.rfsentinel.app.data.WhitelistCache.contains(s.mac) || s.remoteId?.hasPosition == true) return@mapNotNull null
+                val pos = s.bestPosition ?: return@mapNotNull null
+                val d = DeviceRegistry.metersBetween(lat, lon, pos.lat, pos.lon)
+                if (d > SEARCH_RADIUS_M) return@mapNotNull null
+                Item(best.label, best.category.shortTag + " \u00b7 heard here", pos.lat, pos.lon, d, drone = false, mac = s.mac,
+                    deviceColor = if (best.tier == com.rfsentinel.app.detect.Tier.WEAK) com.rfsentinel.app.ui.DeviceColors.WEAK else best.category.colorArgb)
+            }
+            // Drones first (they move and matter now), then flagged devices, then cameras by distance.
+            return (drones.sortedBy { it.distanceM } + devices.sortedBy { it.distanceM } + cams).take(limit)
         }
 
         fun distanceText(m: Double) = if (m < 1000) "${(m / 10).roundToInt() * 10} m" else String.format(java.util.Locale.US, "%.1f km", m / 1000)

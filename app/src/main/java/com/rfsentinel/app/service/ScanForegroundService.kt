@@ -86,6 +86,15 @@ class ScanForegroundService : Service() {
         private const val KNOWN_ALPR_REPEAT_MS = 30 * 60_000L
         private const val CELL_CHECK_MS = 15_000L
         private const val CELL_REPEAT_MS = 30 * 60_000L
+        private const val PLACING_MAX_AGE_MS = 30_000L
+        private const val PLACING_MAX_ACCURACY_M = 50f
+
+        /**
+         * True while the map is on screen: location switches to precise GPS so the
+         * devices it shows are placed where they really were heard.
+         */
+        @Volatile
+        var mapVisible = false
 
         /** Latest location fix while scanning (for the car map), or null. */
         @Volatile
@@ -258,6 +267,12 @@ class ScanForegroundService : Service() {
         this, Manifest.permission.ACCESS_FINE_LOCATION
     ) == PackageManager.PERMISSION_GRANTED
 
+    /** A fix good enough to pin a device on the map: under 30 s old and within ~50 m. */
+    private fun usableForPlacing(l: Location): Boolean {
+        val ageMs = (android.os.SystemClock.elapsedRealtimeNanos() - l.elapsedRealtimeNanos) / 1_000_000
+        return ageMs in 0..PLACING_MAX_AGE_MS && (!l.hasAccuracy() || l.accuracy <= PLACING_MAX_ACCURACY_M)
+    }
+
     // ---- Scanning -----------------------------------------------------------
 
     private fun startBle() {
@@ -297,17 +312,17 @@ class ScanForegroundService : Service() {
     }
 
     /**
-     * Location is needed for GPS tagging, follower alerts and trace recording.
-     * While recording, fixes come every ~3 s / 5 m for a smooth trace; otherwise
-     * every ~20 s / 25 m to save battery.
+     * Location is needed for GPS tagging, follower alerts, trace recording and
+     * known-camera warnings. While recording or watching for cameras, GPS fixes
+     * come every ~3 s / 5 m; otherwise balanced fixes every ~20 s / 25 m to save battery.
      */
     @SuppressLint("MissingPermission") // checked by hasFineLocation()
     fun updateLocationUpdates() {
         val wanted = hasFineLocation() &&
-            (Prefs.gpsTaggingEnabled(this) || Prefs.followerAlerts(this) || TripRecorder.isRecording || knownAlprActive())
+            (Prefs.gpsTaggingEnabled(this) || Prefs.followerAlerts(this) || TripRecorder.isRecording || knownAlprActive() || mapVisible)
         // Frequent fixes while recording a trace or watching for known cameras
         // (at highway speed a 20 s interval could skip right past one).
-        val fast = TripRecorder.isRecording || knownAlprActive()
+        val fast = TripRecorder.isRecording || knownAlprActive() || mapVisible
         val lm = getSystemService(LOCATION_SERVICE) as LocationManager
         if (locationListening && (!wanted || fast != locationFastMode)) {
             lm.removeUpdates(locationListener)
@@ -324,7 +339,19 @@ class ScanForegroundService : Service() {
             }
             providers.forEach { p ->
                 try {
-                    if (fast) lm.requestLocationUpdates(p, 3_000L, 5f, locationListener, Looper.getMainLooper())
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        // Fused location defaults to "balanced" (often WiFi/cell, ~100 m, and
+                        // paused while it thinks you're stationary): too coarse to warn about a
+                        // camera a few hundred metres ahead. Fast mode asks for real GPS.
+                        val request = android.location.LocationRequest.Builder(if (fast) 3_000L else 20_000L)
+                            .setQuality(
+                                if (fast) android.location.LocationRequest.QUALITY_HIGH_ACCURACY
+                                else android.location.LocationRequest.QUALITY_BALANCED_POWER_ACCURACY
+                            )
+                            .setMinUpdateDistanceMeters(if (fast) 5f else 25f)
+                            .build()
+                        lm.requestLocationUpdates(p, request, mainExecutor, locationListener)
+                    } else if (fast) lm.requestLocationUpdates(p, 3_000L, 5f, locationListener, Looper.getMainLooper())
                     else lm.requestLocationUpdates(p, 20_000L, 25f, locationListener, Looper.getMainLooper())
                     lm.getLastKnownLocation(p)?.let { if (lastLocation == null) lastLocation = it }
                 } catch (e: Exception) {
@@ -357,7 +384,9 @@ class ScanForegroundService : Service() {
             prev
         }
 
-        val loc = lastLocation
+        // Place devices only with a fresh, precise fix: a stale or WiFi/cell-based one
+        // (often 100 m+ off) would put the dot far from where the device really was.
+        val loc = lastLocation?.takeIf { usableForPlacing(it) }
         val geo = loc?.let { DeviceRegistry.GeoSample(now, it.latitude, it.longitude) }
         val isFirst = DeviceRegistry.report(a, c.hits, c.identity, c.vendor, remoteId, geo, now)
         if (isFirst) serviceScope.launch { loadHistory(mac) }

@@ -36,6 +36,8 @@ class RFSentinelApp : Application() {
             override fun onActivityDestroyed(a: android.app.Activity) {}
         })
         NotificationHelper.createChannels(this)
+        // A fresh process means no camera download is running: drop any leftover progress.
+        NotificationHelper.clearStaleCameraDownload(this)
         OuiWatchlist.load(this)
         WhitelistCache.start(this, appScope)
         CarState.start(this)

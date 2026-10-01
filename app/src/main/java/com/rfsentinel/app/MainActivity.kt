@@ -177,6 +177,7 @@ class MainActivity : AppCompatActivity() {
         binding.radarView.visibility = if (radar) View.VISIBLE else View.GONE
         binding.recyclerView.visibility = if (radar) View.GONE else View.VISIBLE
         binding.viewToggleButton.text = if (radar) "List view" else "Radar view"
+        if (!binding.mapButton.isExtended) binding.mapButton.extend()
     }
 
     private fun updateStatus() {

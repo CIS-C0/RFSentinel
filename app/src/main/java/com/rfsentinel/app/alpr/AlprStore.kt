@@ -97,15 +97,15 @@ object AlprStore {
         }
     }
 
+    /** Where a [downloadAround] is: [done] of [total] areas finished, [found] cameras so far. */
+    data class Progress(val area: Int, val done: Int, val total: Int, val found: Int, val failed: Int, val detail: String)
+
     /**
      * Downloads every known camera within about [radiusKm] of a point, in up to
      * four tiles (small requests get through busy servers more easily). Tiles
      * that fail are skipped - the map fetches them later. Returns how many
      * cameras were found, or throws when no tile could be downloaded.
      */
-    /** Where a [downloadAround] is: [done] of [total] areas finished, [found] cameras so far. */
-    data class Progress(val area: Int, val done: Int, val total: Int, val found: Int, val failed: Int, val detail: String)
-
     suspend fun downloadAround(
         context: Context, lat: Double, lon: Double, radiusKm: Double = 100.0,
         onProgress: (Progress) -> Unit = {}
@@ -159,8 +159,10 @@ object AlprStore {
                 val merged = cameras.filterNot(inBox) + found
                 file(context).writeText(gson.toJson(merged))
                 cameras = merged
-                val area = CameraArea(south, west, north, east, System.currentTimeMillis())
-                areas = areas.filterNot { area.contains(it) } + area
+                val now = System.currentTimeMillis()
+                val area = CameraArea(south, west, north, east, now)
+                // Long-stale areas only cost space (their cameras stay cached for offline warnings).
+                areas = areas.filterNot { area.contains(it) || now - it.time > 4 * REFRESH_MS } + area
                 runCatching { areasFile(context).writeText(gson.toJson(areas)) }
             }
             found.size

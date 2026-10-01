@@ -78,6 +78,13 @@ object NotificationHelper {
         runCatching { nm.notify(DOWNLOAD_NOTIFICATION_ID, b.build()) } // no-op without the notification permission
     }
 
+    /** Clears a progress notification left behind when the app was killed mid-download. */
+    fun clearStaleCameraDownload(context: Context) {
+        val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        val stale = runCatching { nm.activeNotifications.any { it.id == DOWNLOAD_NOTIFICATION_ID && it.isOngoing } }.getOrDefault(false)
+        if (stale) nm.cancel(DOWNLOAD_NOTIFICATION_ID)
+    }
+
     /**
      * Brings the app back exactly like tapping its launcher icon: the existing
      * task comes to the front on whatever screen you left, or MainActivity

@@ -129,7 +129,15 @@ object DemoData {
                     OuiWatchlist.hits(a.mac, a.name, listOfNotNull(vendor)) +
                     listOfNotNull(DeviceRegistry.clusterHit(a.mac, t))
                 val rid = if (a.mac == DEMO_DRONE && anchor != null) demoRemoteId(anchor, s) else null
-                DeviceRegistry.report(a, EvidenceFusion.fuse(raw), DeviceIntel.identify(a, VendorDb.macVendor(a.mac)), vendor, rid, null, t)
+                // Made-up spots around you within real Bluetooth / WiFi range (5-60 m),
+                // so the map shows the devices too.
+                val spot = anchor?.let {
+                    val angle = Math.toRadians(i * 137.5)
+                    val m = 5.0 + (i * 17 % 56)
+                    DeviceRegistry.GeoSample(t, it.first + m / 111_000.0 * kotlin.math.cos(angle),
+                        it.second + m / (111_000.0 * kotlin.math.cos(Math.toRadians(it.first))) * kotlin.math.sin(angle))
+                }
+                DeviceRegistry.report(a, EvidenceFusion.fuse(raw), DeviceIntel.identify(a, VendorDb.macVendor(a.mac)), vendor, rid, spot, t)
             }
         }
     }

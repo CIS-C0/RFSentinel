@@ -98,6 +98,9 @@ object Prefs {
     /** Fetch known cameras for the map area on screen (and around you in the car) automatically. */
     fun autoCameras(context: Context): Boolean = bool(context, "auto_cameras", true)
     fun setAutoCameras(context: Context, value: Boolean) = setBool(context, "auto_cameras", value)
+    /** Map: every device heard (true) or flagged ones only. */
+    fun mapShowAll(context: Context): Boolean = bool(context, "map_show_all", true)
+    fun setMapShowAll(context: Context, value: Boolean) = setBool(context, "map_show_all", value)
     fun showKnownAlpr(context: Context): Boolean = bool(context, "show_known_alpr", true)
     fun setShowKnownAlpr(context: Context, value: Boolean) = setBool(context, "show_known_alpr", value)
 

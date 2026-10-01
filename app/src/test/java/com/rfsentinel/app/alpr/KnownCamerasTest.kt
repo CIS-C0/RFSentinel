@@ -80,6 +80,18 @@ class KnownCamerasTest {
     }
 
     @Test
+    fun dedupeStaysFastWithThousandsOfPlateReaders() {
+        // Synthetic grid: 6000 plate readers and 600 speed cameras (a dense metro area).
+        val cams = (0 until 6000).map { KnownCamera("node/$it", 10.0 + (it % 80) * 0.01, -21.0 + (it / 80) * 0.01, null, null, null, KnownCamera.Kind.ALPR) } +
+            (0 until 600).map { KnownCamera("node/s$it", 10.0 + (it % 30) * 0.03, -21.0 + (it / 30) * 0.03, null, null, null, KnownCamera.Kind.SPEED, 50) }
+        val t = System.nanoTime()
+        val out = KnownCameras.dedupe(cams)
+        val ms = (System.nanoTime() - t) / 1_000_000
+        assertEquals(6600, out.size) // nothing here is a duplicate
+        assertTrue("dedupe took $ms ms", ms < 1500)
+    }
+
+    @Test
     fun oldCacheEntriesArePlateReaders() {
         val old = com.google.gson.Gson().fromJson(
             """{"osmId":"node/9","lat":1.0,"lon":2.0}""", KnownCamera::class.java

@@ -91,10 +91,17 @@ object AlertPlayer {
         }
     }
 
-    /** Silent and vibrate ringer modes mute the beeps on the phone (vibration still runs). */
-    private fun ringerAllowsSound(context: Context): Boolean =
-        context.getSystemService(AudioManager::class.java)?.ringerMode != AudioManager.RINGER_MODE_SILENT &&
-            context.getSystemService(AudioManager::class.java)?.ringerMode != AudioManager.RINGER_MODE_VIBRATE
+    /**
+     * Silent and vibrate ringer modes, and Do Not Disturb, mute the beeps on the
+     * phone (vibration still runs) - like the notification sound they replace.
+     */
+    private fun ringerAllowsSound(context: Context): Boolean {
+        val mode = context.getSystemService(AudioManager::class.java)?.ringerMode
+        if (mode == AudioManager.RINGER_MODE_SILENT || mode == AudioManager.RINGER_MODE_VIBRATE) return false
+        val filter = context.getSystemService(android.app.NotificationManager::class.java)?.currentInterruptionFilter
+        return filter == null || filter == android.app.NotificationManager.INTERRUPTION_FILTER_ALL ||
+            filter == android.app.NotificationManager.INTERRUPTION_FILTER_UNKNOWN
+    }
 
     /** Short "may duck" focus so music dips under the alert, then comes back. */
     @Synchronized

@@ -79,7 +79,7 @@ class CarScreensTest {
         assertTrue(rows[1].title.toString().startsWith("Flagged nearby (2)"))
         assertTrue(rows[2].title.toString().startsWith("Drones & trackers (1)"))
         assertTrue(rows[3].title.toString().startsWith("All nearby devices (14)"))
-        assertEquals("Cameras & drones on the map", rows[4].title.toString())
+        assertEquals("Map: cameras, devices & drones", rows[4].title.toString())
         val actions = t.actionStrip!!.actions
         assertEquals(2, actions.size)
         assertEquals("Stop", actions[0].title.toString())
@@ -130,7 +130,7 @@ class CarScreensTest {
             com.rfsentinel.app.alpr.KnownCamera("node/3", 11.5, -20.5, "Far away", null, null)
         ))
         val items = NearbyMapScreen.nearby(10.5, -20.5, 6)
-        assertEquals(3, items.size)                           // the far camera is outside 5 km
+        assertEquals(3, items.size)                           // the far camera (~110 km) is outside the search radius
         assertTrue(items[0].drone)
         assertEquals("Flock Safety (ALPR)", items[1].title)
         assertEquals("330 m", NearbyMapScreen.distanceText(items[1].distanceM))

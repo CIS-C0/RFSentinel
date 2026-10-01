@@ -172,9 +172,12 @@ The app never connects to a device. The details screen shows:
 
 ### Map and traces
 
-- The **map** shows your position, the trace being recorded, and devices placed
-  where your phone was when their signal was strongest. That approximates the
-  device's position, not a fix.
+- The **map** (the floating **Map** button on the main screen) shows your
+  position, the trace being recorded, and every device heard around you as a dot
+  in the same colours as the list and radar, placed where your phone was when its
+  signal was strongest. That approximates the device's position, not a fix: only
+  precise, fresh GPS fixes are used, and the map switches to GPS while it's open.
+  Tap *All devices* to show flagged ones only.
 - **Record trace** saves your GPS route and every device heard along it. It
   keeps running with the screen off, and can start automatically with each scan.
 - Traces export as **GPX**, **KML**, **GeoJSON** or **CSV**, with all devices or

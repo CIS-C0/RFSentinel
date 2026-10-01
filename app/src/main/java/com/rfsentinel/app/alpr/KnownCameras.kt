@@ -88,21 +88,25 @@ object KnownCameras {
      * prefer the copy that has the speed limit, then the node (exact position).
      */
     fun dedupe(cameras: List<KnownCamera>): List<KnownCamera> {
-        val kept = ArrayList<KnownCamera>()
         fun isNode(c: KnownCamera) = c.osmId.startsWith("node")
-        for (c in cameras.sortedByDescending { (if (it.maxspeed != null) 2 else 0) + (if (isNode(it)) 1 else 0) }) {
-            val dup = c.type != KnownCamera.Kind.ALPR && kept.any {
-                it.type == c.type &&
-                    DeviceRegistry.metersBetween(it.lat, it.lon, c.lat, c.lon) < (if (isNode(it) && isNode(c)) 40.0 else 150.0)
-            }
-            if (!dup) kept += c
+        // ~150 m in degrees, generously (longitude degrees shrink away from the equator).
+        fun close(a: KnownCamera, b: KnownCamera, m: Double) =
+            kotlin.math.abs(a.lat - b.lat) < 0.0015 && kotlin.math.abs(a.lon - b.lon) < 0.0015 / max(0.05, cos(Math.toRadians(a.lat))) &&
+                DeviceRegistry.metersBetween(a.lat, a.lon, b.lat, b.lon) < m
+        // Plate readers are never merged (several often share a pole), so only speed
+        // and red-light cameras - a few per city - go through the pairwise check.
+        val (plates, enforcement) = cameras.partition { it.type == KnownCamera.Kind.ALPR }
+        val kept = ArrayList<KnownCamera>()
+        for (c in enforcement.sortedByDescending { (if (it.maxspeed != null) 2 else 0) + (if (isNode(it)) 1 else 0) }) {
+            if (kept.none { it.type == c.type && close(it, c, if (isNode(it) && isNode(c)) 40.0 else 150.0) }) kept += c
         }
         // Keep the exact node position when a relation won only because it had the limit.
-        return kept.map { k ->
-            if (isNode(k) || k.type == KnownCamera.Kind.ALPR) k
-            else cameras.firstOrNull { isNode(it) && it.type == k.type && DeviceRegistry.metersBetween(it.lat, it.lon, k.lat, k.lon) < 150.0 }
+        val merged = kept.map { k ->
+            if (isNode(k)) k
+            else enforcement.firstOrNull { isNode(it) && it.type == k.type && close(it, k, 150.0) }
                 ?.let { n -> k.copy(lat = n.lat, lon = n.lon) } ?: k
         }
+        return plates + merged
     }
 
     /** Parses an Overpass JSON response (nodes, and ways/relations via their centre). */

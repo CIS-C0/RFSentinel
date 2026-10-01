@@ -61,7 +61,6 @@ class MapActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_TRIP_ID = "trip_id"
-        private const val ORDINARY_COLOR = 0xFF607D8B.toInt()
         private const val TRACE_COLOR = 0xFFE0622D.toInt()
         private const val PAST_TRACE_COLOR = 0xFF1F5FBF.toInt()
         private const val DRONE_COLOR = 0xFF1F5FBF.toInt()
@@ -76,7 +75,7 @@ class MapActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMapBinding
     private var tripId: Long? = null
     private var trip: TripEntity? = null
-    private var showAll = false
+    private var showAll = true
     private var centeredOnce = false
 
     private val trace = Polyline()
@@ -114,8 +113,12 @@ class MapActivity : AppCompatActivity() {
 
         setupMap()
         binding.map.post { drawKnownAlpr() }
+        // Every device heard around you by default (same colours as the list and radar).
+        showAll = com.rfsentinel.app.util.Prefs.mapShowAll(this)
+        binding.showAllChip.isChecked = showAll
         binding.showAllChip.setOnCheckedChangeListener { _, checked ->
             showAll = checked
+            com.rfsentinel.app.util.Prefs.setMapShowAll(this, checked)
             if (tripId != null) loadTrip() else renderLive()
         }
         binding.centerButton.setOnClickListener { centerOnMe() }
@@ -177,15 +180,20 @@ class MapActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         binding.map.onResume()
+        // Precise GPS while the map is on screen, so devices land where they were heard.
+        if (tripId == null) { ScanForegroundService.mapVisible = true; refreshServiceLocation() }
     }
 
     override fun onPause() {
+        if (tripId == null) { ScanForegroundService.mapVisible = false; refreshServiceLocation() }
         binding.map.onPause()
         super.onPause()
     }
 
     override fun onDestroy() {
         myLocation.disableMyLocation()
+        binding.map.removeCallbacks(autoDownloadCameras)
+        binding.map.removeCallbacks(redrawKnownAlpr)
         binding.map.onDetach()
         super.onDestroy()
     }
@@ -210,14 +218,14 @@ class MapActivity : AppCompatActivity() {
         val devices = DeviceRegistry.snapshot()
         val drawn = devices.mapNotNull { s ->
             val pos = s.bestPosition ?: return@mapNotNull null
-            val flagged = s.best != null && !WhitelistCache.contains(s.mac)
+            val flagged = DeviceColors.isFlagged(s)
             if (!flagged && !showAll) return@mapNotNull null
             val best = s.best
             Pin(
                 s.mac, pos.lat, pos.lon,
                 best?.label ?: s.name ?: s.deviceType,
                 flagged,
-                if (!flagged) ORDINARY_COLOR else if (best!!.tier == Tier.WEAK) 0xFFB26A00.toInt() else best.category.colorArgb,
+                DeviceColors.forDevice(this, s),
                 buildString {
                     append(s.mac)
                     s.vendor?.let { append("\n").append(it) }
@@ -332,11 +340,7 @@ class MapActivity : AppCompatActivity() {
         val cat = Category.parse(category)
         return Pin(
             mac, lat!!, lon!!, label, flagged,
-            when {
-                cat == null -> ORDINARY_COLOR
-                confidence < Tier.MEDIUM.min -> 0xFFB26A00.toInt()
-                else -> cat.colorArgb
-            },
+            DeviceColors.forMatch(this@MapActivity, if (flagged) cat else null, confidence),
             buildString {
                 append(mac)
                 vendor?.let { append("\n").append(it) }
