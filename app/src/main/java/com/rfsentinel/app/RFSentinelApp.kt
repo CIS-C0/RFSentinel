@@ -40,6 +40,7 @@ class RFSentinelApp : Application() {
         NotificationHelper.clearStaleCameraDownload(this)
         OuiWatchlist.load(this)
         WhitelistCache.start(this, appScope)
+        appScope.launch(Dispatchers.IO) { com.rfsentinel.app.data.TrackerMutes.load(this@RFSentinelApp) }
         CarState.start(this)
         // ~60k vendor rows: load off the main thread; lookups return null until ready.
         // A trace left "recording" by a crash / force-stop gets closed.

@@ -303,6 +303,19 @@
             </LinearLayout>
         </LinearLayout>
 
+        <TextView
+            android:id="@+id/trackerIgnoreText"
+            style="@style/SettingsLabel"
+            android:paddingTop="4dp"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/trackerIgnoreButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Clear ignored trackers" />
+
         <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/knownAlprSwitch"
             android:layout_width="match_parent"

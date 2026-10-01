@@ -416,12 +416,16 @@ class ScanForegroundService : Service() {
         remoteId?.let { info -> if (loc != null) maybeAlertDroneOverhead(a, info, loc, now) }
 
         val best = c.hits.firstOrNull() ?: return
+        // Ignored trackers (their address changes, so they can't be whitelisted); this is
+        // also where an ignored "it's mine" tag carries its mute over to a new address.
+        if (best.category == Category.TRACKER && com.rfsentinel.app.data.TrackerMutes.onSeen(this, mac, best.label, a.rssi, now)) return
         if (WhitelistCache.contains(mac)) return
 
         maybeLog(a, best, c.vendor, loc, now)
         maybeAlert(a, best, now)
 
-        if (loc != null && Prefs.followerAlerts(this) &&
+        val trackerPaused = best.category == Category.TRACKER && now < Prefs.trackerFollowPausedUntil(this)
+        if (loc != null && Prefs.followerAlerts(this) && !trackerPaused &&
             DeviceRegistry.checkFollowing(
                 mac,
                 Prefs.followMinMinutes(this) * 60_000L,

@@ -83,11 +83,25 @@ class DeviceDetailScreen(carContext: CarContext, private val mac: String) : Live
         rows.take(CarUi.paneLimit(carContext)).forEach { pane.addRow(it) }
 
         // Primary buttons (a pane allows two).
-        val whitelisted = WhitelistCache.contains(mac)
+        val whitelisted = WhitelistCache.inTable(mac)
+        val ignored = com.rfsentinel.app.data.TrackerMutes.isMuted(mac)
+        val tracker = best?.category == com.rfsentinel.app.detect.Category.TRACKER &&
+            s.addressType != com.rfsentinel.app.detect.AddressType.PUBLIC
         pane.addAction(
             Action.Builder()
-                .setTitle(if (whitelisted) "Un-whitelist" else "Whitelist")
-                .setOnClickListener { toggleWhitelist(whitelisted, best?.label ?: s.name ?: "") }
+                .setTitle(when { ignored -> "Stop ignoring"; whitelisted -> "Un-whitelist"; tracker -> "Ignore today"; else -> "Whitelist" })
+                .setOnClickListener {
+                    when {
+                        ignored -> com.rfsentinel.app.data.TrackerMutes.unmute(carContext, mac)
+                        tracker && !whitelisted -> {
+                            // Address changes daily: ignore until then (the phone offers "it's mine").
+                            com.rfsentinel.app.data.TrackerMutes.mute(carContext, mac, best!!.label, s.rssi, follow = false)
+                            toast("Ignored until its address changes (at most 24 h)")
+                        }
+                        else -> toggleWhitelist(whitelisted, best?.label ?: s.name ?: "")
+                    }
+                    invalidate()
+                }
                 .build()
         )
         val watched = OuiWatchlist.customEntry(mac) != null

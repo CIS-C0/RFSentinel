@@ -39,7 +39,11 @@ object DeviceActions {
     fun showQuickActions(activity: AppCompatActivity, mac: String) {
         val snap = DeviceRegistry.get(mac)
         val custom = OuiWatchlist.customEntry(mac) ?: OuiWatchlist.customEntry(MacUtil.oui(mac))
-        val whitelisted = WhitelistCache.contains(mac)
+        val whitelisted = WhitelistCache.inTable(mac)
+        val ignoredTracker = com.rfsentinel.app.data.TrackerMutes.isMuted(mac)
+        // Trackers that change their address can't be whitelisted: offer ignoring instead.
+        val rotatingTracker = snap?.best?.category == com.rfsentinel.app.detect.Category.TRACKER &&
+            snap.addressType != com.rfsentinel.app.detect.AddressType.PUBLIC
         val favorite = Favorites.contains(mac)
         val items = mutableListOf<Pair<String, () -> Unit>>()
         items += "Show details" to { openDetails(activity, mac) }
@@ -51,8 +55,15 @@ object DeviceActions {
         } else {
             items += "Add to watchlist..." to { addToWatchlist(activity, mac, snap?.name) }
         }
-        items += (if (whitelisted) "Remove from whitelist" else "Whitelist (trust & ignore)") to {
-            if (whitelisted) unwhitelist(activity, mac) else whitelist(activity, mac, snap?.best?.label ?: snap?.name ?: "")
+        when {
+            ignoredTracker -> items += "Stop ignoring this tracker" to {
+                com.rfsentinel.app.data.TrackerMutes.unmute(activity, mac)
+                toast(activity, "Tracker no longer ignored")
+            }
+            rotatingTracker && !whitelisted -> items += "Ignore this tracker..." to { ignoreTracker(activity, mac) }
+            else -> items += (if (whitelisted) "Remove from whitelist" else "Whitelist (trust & ignore)") to {
+                if (whitelisted) unwhitelist(activity, mac) else whitelist(activity, mac, snap?.best?.label ?: snap?.name ?: "")
+            }
         }
         items += (if (favorite) "Remove from favorites" else "Add to favorites ★") to {
             activity.lifecycleScope.launch {
@@ -145,6 +156,49 @@ object DeviceActions {
                 }, "Share signature report"))
             }
             .setNeutralButton("Copy") { _, _ -> copy(activity, report()) }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    /**
+     * AirTags and other Find My / Find Hub tags change their address (about daily
+     * away from their owner), so a MAC whitelist can't hold them. Offers ignoring
+     * it as your own tag (followed through address changes), for today, or
+     * pausing tracker follow warnings.
+     */
+    fun ignoreTracker(activity: AppCompatActivity, mac: String) {
+        val snap = DeviceRegistry.get(mac) ?: run { toast(activity, "Tracker no longer in range"); return }
+        val kind = snap.best?.label ?: return
+        val choices = arrayOf(
+            "It's mine - keep ignoring it\n(follows it when its address changes; best effort)",
+            "Ignore it today only\n(until its address changes, at most 24 h)",
+            "Pause all tracker follow warnings for 24 h"
+        )
+        val title = android.widget.TextView(activity).apply {
+            val d = resources.displayMetrics.density
+            setPadding((24 * d).toInt(), (20 * d).toInt(), (24 * d).toInt(), (8 * d).toInt())
+            textSize = 15f
+            text = "Ignore this tracker?\n\nIts Bluetooth address changes about once a day, so it can't be " +
+                "whitelisted like other devices. Only ignore a tag you know - a hidden tracker would stay silent too."
+        }
+        AlertDialog.Builder(activity)
+            .setCustomTitle(title)
+            .setItems(choices) { _, which ->
+                when (which) {
+                    0 -> {
+                        com.rfsentinel.app.data.TrackerMutes.mute(activity, mac, kind, snap.rssi, follow = true)
+                        toast(activity, "Ignored - RF Sentinel follows it when its address changes")
+                    }
+                    1 -> {
+                        com.rfsentinel.app.data.TrackerMutes.mute(activity, mac, kind, snap.rssi, follow = false)
+                        toast(activity, "Ignored until its address changes (at most 24 h)")
+                    }
+                    else -> {
+                        com.rfsentinel.app.util.Prefs.setTrackerFollowPausedUntil(activity, System.currentTimeMillis() + 24 * 3600_000L)
+                        toast(activity, "Tracker follow warnings paused for 24 hours")
+                    }
+                }
+            }
             .setNegativeButton("Cancel", null)
             .show()
     }

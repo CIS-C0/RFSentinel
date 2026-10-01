@@ -98,6 +98,20 @@ class SettingsActivity : AppCompatActivity() {
         else "Car: " + names.joinToString() + ". Android Auto also starts it."
     }
 
+    /** Ignored trackers (long-press a tracker > Ignore this tracker) and a paused follow warning. */
+    private fun updateTrackerIgnoreText() {
+        val n = com.rfsentinel.app.data.TrackerMutes.count(this)
+        val until = Prefs.trackerFollowPausedUntil(this)
+        val paused = until > System.currentTimeMillis()
+        val parts = buildList {
+            add(if (n == 0) "No ignored trackers (long-press a tracker to ignore your own tag)" else "$n ignored tracker${if (n == 1) "" else "s"}")
+            if (paused) add("tracker follow warnings paused until " +
+                java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(until)))
+        }
+        binding.trackerIgnoreText.text = parts.joinToString("; ")
+        binding.trackerIgnoreButton.visibility = if (n > 0 || paused) android.view.View.VISIBLE else android.view.View.GONE
+    }
+
     private fun updateBannerButtons() {
         binding.bannerClearButton.isEnabled = ThemeManager.hasBanner(this)
     }
@@ -228,6 +242,13 @@ class SettingsActivity : AppCompatActivity() {
 
         // Location
         binding.followSwitch.isChecked = Prefs.followerAlerts(this)
+        updateTrackerIgnoreText()
+        binding.trackerIgnoreButton.setOnClickListener {
+            com.rfsentinel.app.data.TrackerMutes.clear(this)
+            Prefs.setTrackerFollowPausedUntil(this, 0L)
+            updateTrackerIgnoreText()
+            Toast.makeText(this, "Tracker warnings back to normal", Toast.LENGTH_SHORT).show()
+        }
         binding.followMinutesInput.setText(Prefs.followMinMinutes(this).toString())
         binding.followMetersInput.setText(Prefs.followMinMeters(this).toString())
         binding.gpsSwitch.isChecked = Prefs.gpsTaggingEnabled(this)

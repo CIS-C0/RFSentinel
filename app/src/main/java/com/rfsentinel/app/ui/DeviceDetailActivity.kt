@@ -74,8 +74,13 @@ class DeviceDetailActivity : AppCompatActivity() {
         binding.locateButton.setOnClickListener { toggleLocate() }
         binding.actionWatchlist.setOnClickListener { onWatchlistAction() }
         binding.actionWhitelist.setOnClickListener {
-            if (WhitelistCache.contains(mac)) DeviceActions.unwhitelist(this, mac)
-            else DeviceActions.whitelist(this, mac, DeviceRegistry.get(mac)?.let { it.best?.label ?: it.name } ?: "")
+            val s = DeviceRegistry.get(mac)
+            when {
+                com.rfsentinel.app.data.TrackerMutes.isMuted(mac) -> com.rfsentinel.app.data.TrackerMutes.unmute(this, mac)
+                WhitelistCache.inTable(mac) -> DeviceActions.unwhitelist(this, mac)
+                isRotatingTracker(s) -> DeviceActions.ignoreTracker(this, mac)
+                else -> DeviceActions.whitelist(this, mac, s?.let { it.best?.label ?: it.name } ?: "")
+            }
         }
         binding.actionFavorite.setOnClickListener {
             val s = DeviceRegistry.get(mac)
@@ -116,6 +121,10 @@ class DeviceDetailActivity : AppCompatActivity() {
     }
 
     // ---- Rendering ------------------------------------------------------------
+
+    private fun isRotatingTracker(s: DeviceRegistry.Snapshot?) =
+        s?.best?.category == com.rfsentinel.app.detect.Category.TRACKER &&
+            s.addressType != com.rfsentinel.app.detect.AddressType.PUBLIC
 
     private fun refresh() {
         val s = DeviceRegistry.get(mac)
@@ -170,7 +179,12 @@ class DeviceDetailActivity : AppCompatActivity() {
         // Action labels
         val custom = OuiWatchlist.customEntry(mac) ?: OuiWatchlist.customEntry(MacUtil.oui(mac))
         binding.actionWatchlist.text = if (custom != null) "Remove from watchlist" else "Add to watchlist"
-        binding.actionWhitelist.text = if (whitelisted) "Un-whitelist" else "Whitelist"
+        binding.actionWhitelist.text = when {
+            com.rfsentinel.app.data.TrackerMutes.isMuted(mac) -> "Stop ignoring"
+            whitelisted -> "Un-whitelist"
+            isRotatingTracker(s) -> "Ignore tracker"
+            else -> "Whitelist"
+        }
         binding.actionFavorite.text = if (Favorites.contains(mac)) "★ Favorite" else "☆ Favorite"
 
         // Sections: rebuilt only when their content changes (keeps scroll & selection stable).

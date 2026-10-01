@@ -13,7 +13,11 @@ object WhitelistCache {
     @Volatile
     private var macs: Set<String> = emptySet()
 
-    fun contains(mac: String): Boolean = mac in macs
+    /** Trusted devices, plus trackers the user chose to ignore (see [TrackerMutes]). */
+    fun contains(mac: String): Boolean = mac in macs || TrackerMutes.isMuted(mac)
+
+    /** Only the user's whitelist table (not ignored trackers). */
+    fun inTable(mac: String): Boolean = mac in macs
 
     /** Starts mirroring the table for the lifetime of [scope]. */
     fun start(context: Context, scope: CoroutineScope) {

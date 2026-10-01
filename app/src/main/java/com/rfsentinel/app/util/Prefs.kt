@@ -111,6 +111,9 @@ object Prefs {
         sp(context).edit { putString("recent_destinations", com.google.gson.Gson().toJson(list)) }
     }
     fun clearRecentDestinations(context: Context) = sp(context).edit { remove("recent_destinations") }
+    /** Tracker "following you" warnings paused until this time (epoch ms). */
+    fun trackerFollowPausedUntil(context: Context): Long = sp(context).getLong("tracker_follow_paused_until", 0L)
+    fun setTrackerFollowPausedUntil(context: Context, value: Long) = sp(context).edit { putLong("tracker_follow_paused_until", value) }
     fun showKnownAlpr(context: Context): Boolean = bool(context, "show_known_alpr", true)
     fun setShowKnownAlpr(context: Context, value: Boolean) = setBool(context, "show_known_alpr", value)
 
