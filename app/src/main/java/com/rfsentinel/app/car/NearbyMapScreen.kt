@@ -55,7 +55,7 @@ class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs 
         items.forEach { it -> list.addItem(row(it)) }
 
         val template = PlaceListMapTemplate.Builder()
-            .setTitle("Map: cameras, devices, drones")
+            .setTitle("Cameras & devices")
             .setHeaderAction(Action.BACK)
             .setCurrentLocationEnabled(me != null)
             .setItemList(list.build())
@@ -82,9 +82,14 @@ class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs 
                     })
                     .build()
             ).build()
+        // Android Auto requires every place row on a map template to carry its distance
+        // as a DistanceSpan (the host formats it in the driver's units); plain text throws.
+        val text = android.text.SpannableString("  · " + it.detail)
+        text.setSpan(androidx.car.app.model.DistanceSpan.create(distanceOf(it.distanceM)), 0, 1,
+            android.text.Spanned.SPAN_INCLUSIVE_INCLUSIVE)
         return Row.Builder()
             .setTitle(it.title)
-            .addText(distanceText(it.distanceM) + " · " + it.detail)
+            .addText(text)
             .setMetadata(Metadata.Builder().setPlace(place).build())
             .setOnClickListener {
                 if (it.mac != null) screenManager.push(DeviceDetailScreen(carContext, it.mac))
@@ -148,6 +153,11 @@ class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs 
             // Drones first (they move and matter now), then flagged devices, then cameras by distance.
             return (drones.sortedBy { it.distanceM } + devices.sortedBy { it.distanceM } + cams).take(limit)
         }
+
+        /** Metres below 1 km (rounded to 10 m), else kilometres with one decimal. */
+        fun distanceOf(m: Double): androidx.car.app.model.Distance =
+            if (m < 1000) androidx.car.app.model.Distance.create(((m / 10).roundToInt() * 10).toDouble(), androidx.car.app.model.Distance.UNIT_METERS)
+            else androidx.car.app.model.Distance.create(m / 1000, androidx.car.app.model.Distance.UNIT_KILOMETERS_P1)
 
         fun distanceText(m: Double) = if (m < 1000) "${(m / 10).roundToInt() * 10} m" else String.format(java.util.Locale.US, "%.1f km", m / 1000)
     }

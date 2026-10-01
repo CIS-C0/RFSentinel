@@ -101,6 +101,10 @@ class ScanForegroundService : Service() {
         var lastFix: Location? = null
             private set
 
+        /** Tests only: pretend the scanner has this fix. */
+        @androidx.annotation.VisibleForTesting
+        fun setLastFixForTest(l: Location?) { lastFix = l }
+
         /** True while an instance is alive in this process. Source of truth for the UI. */
         @Volatile
         var isRunning = false

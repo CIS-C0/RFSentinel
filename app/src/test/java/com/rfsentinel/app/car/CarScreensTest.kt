@@ -136,9 +136,15 @@ class CarScreensTest {
         assertEquals("330 m", NearbyMapScreen.distanceText(items[1].distanceM))
         assertEquals("1.1 km", NearbyMapScreen.distanceText(items[2].distanceM))
 
-        // The template (host-drawn map + places) builds within Android Auto's limits.
+        // The template (host-drawn map + places) builds within Android Auto's limits - with a
+        // location, so the rows are really there (each needs a DistanceSpan or build() throws).
+        com.rfsentinel.app.service.ScanForegroundService.setLastFixForTest(
+            android.location.Location("test").apply { latitude = 10.5; longitude = -20.5 }
+        )
         val t = NearbyMapScreen(car).onGetTemplate() as androidx.car.app.model.PlaceListMapTemplate
+        assertEquals(3, t.itemList!!.items.size)
         assertTrue(t.itemList!!.items.size <= CarUi.listLimit(car))
+        com.rfsentinel.app.service.ScanForegroundService.setLastFixForTest(null)
         com.rfsentinel.app.alpr.AlprStore.setForTest(emptyList())
     }
 
