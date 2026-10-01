@@ -157,10 +157,13 @@
         android:layout_height="0dp"
         android:layout_weight="1">
 
+        <!-- Bottom padding keeps the last row clear of the floating Map button. -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recyclerView"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingBottom="80dp" />
 
         <com.rfsentinel.app.ui.RadarView
             android:id="@+id/radarView"
@@ -177,6 +180,17 @@
             android:padding="24dp"
             android:text="No devices heard yet.\nTap a device for full details.\nLong-press for quick actions (watchlist, whitelist, favorite)."
             android:textColor="#888888" />
+
+        <!-- The map (traces, devices, known cameras) was easy to miss as a toolbar icon alone. -->
+        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+            android:id="@+id/mapButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="16dp"
+            android:contentDescription="Open the map: your traces, devices and known cameras"
+            android:text="Map"
+            app:icon="@drawable/ic_map" />
     </FrameLayout>
 
     <TextView

@@ -97,6 +97,16 @@ class MainActivity : AppCompatActivity() {
             Prefs.setRadarView(this, !Prefs.radarView(this))
             applyViewMode()
         }
+        binding.mapButton.setOnClickListener {
+            startActivity(Intent(this, com.rfsentinel.app.ui.MapActivity::class.java))
+        }
+        // Shrink the Map button to its icon while scrolling down the list; full label again at the top.
+        binding.recyclerView.addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+            override fun onScrolled(rv: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
+                if (dy > 8 && binding.mapButton.isExtended) binding.mapButton.shrink()
+                else if ((dy < -8 || !rv.canScrollVertically(-1)) && !binding.mapButton.isExtended) binding.mapButton.extend()
+            }
+        })
         binding.filterChips.setOnCheckedStateChangeListener { _, ids ->
             filter = when (ids.firstOrNull()) {
                 R.id.chipFlagged -> Filter.FLAGGED
