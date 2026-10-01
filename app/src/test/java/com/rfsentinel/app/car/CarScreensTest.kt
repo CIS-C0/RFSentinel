@@ -79,7 +79,7 @@ class CarScreensTest {
         assertTrue(rows[1].title.toString().startsWith("Flagged nearby (2)"))
         assertTrue(rows[2].title.toString().startsWith("Drones & trackers (1)"))
         assertTrue(rows[3].title.toString().startsWith("All nearby devices (14)"))
-        assertEquals("Map: devices & cameras around me", rows[4].title.toString())
+        assertTrue(rows[4].title.toString() in setOf("Live map & navigation", "Map: devices & cameras around me"))
         val actions = t.actionStrip!!.actions
         assertEquals(2, actions.size)
         assertEquals("Stop", actions[0].title.toString())
@@ -169,6 +169,17 @@ class CarScreensTest {
             listOf("B0:00:00:00:00:00", "A0:00:00:00:00:01", "B0:00:00:00:00:01", "A0:00:00:00:00:04", "B0:00:00:00:00:02"),
             macs // Bluetooth / WiFi alternate; "home" appears once (its strongest AP)
         )
+    }
+
+    @Test
+    fun liveMapBuildsWithPanZoomAndNavigationPanel() {
+        val screen = LiveMapScreen(car)
+        val t = screen.onGetTemplate() as androidx.car.app.navigation.model.MapWithContentTemplate
+        val strip = t.mapController!!.mapActionStrip!!
+        assertTrue(strip.actions.any { it.type == androidx.car.app.model.Action.TYPE_PAN })
+        assertEquals(4, strip.actions.size)
+        val rows = (t.contentTemplate as ListTemplate).singleList!!.items.map { (it as Row).title.toString() }
+        assertTrue(rows.contains("Navigate to..."))
     }
 
     @Test

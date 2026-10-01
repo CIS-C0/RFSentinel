@@ -30,7 +30,10 @@ object CarUi {
     /** Where the driver is: the scanner's latest fix, else the phone's last known position. */
     @android.annotation.SuppressLint("MissingPermission") // checked via Permissions
     fun currentLocation(context: CarContext): android.location.Location? {
-        com.rfsentinel.app.service.ScanForegroundService.lastFix?.let { return it }
+        // Navigation keeps its own 1 s GPS fixes; use whichever fix is newer.
+        val nav = com.rfsentinel.app.nav.Navigator.lastFix
+        val scan = com.rfsentinel.app.service.ScanForegroundService.lastFix
+        listOfNotNull(nav, scan).maxByOrNull { it.elapsedRealtimeNanos }?.let { return it }
         if (!com.rfsentinel.app.util.Permissions.granted(context, android.Manifest.permission.ACCESS_FINE_LOCATION)) return null
         val lm = context.getSystemService(android.location.LocationManager::class.java) ?: return null
         return listOf(android.location.LocationManager.GPS_PROVIDER, android.location.LocationManager.NETWORK_PROVIDER)

@@ -92,11 +92,7 @@ class MapActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         // osmdroid: identify ourselves to the tile server (OSM tile policy) and keep
         // the tile cache inside the app's private cache.
-        Configuration.getInstance().apply {
-            userAgentValue = "${BuildConfig.APPLICATION_ID}/${BuildConfig.VERSION_NAME}"
-            osmdroidBasePath = File(cacheDir, "osmdroid")
-            osmdroidTileCache = File(cacheDir, "osmdroid/tiles")
-        }
+        MapIcons.configureOsm(this)
         binding = ActivityMapBinding.inflate(layoutInflater)
         setContentView(binding.root)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
@@ -527,24 +523,7 @@ class MapActivity : AppCompatActivity() {
         map.invalidate()
     }
 
-    /** A small camera glyph, distinct from the round device dots: red plate reader, amber speed, purple red-light. */
-    private fun cameraIcon(dp: Float, kind: com.rfsentinel.app.alpr.KnownCamera.Kind): android.graphics.Bitmap {
-        val w = (22 * dp).toInt(); val h = (16 * dp).toInt()
-        val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
-        val c = android.graphics.Canvas(bmp)
-        val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
-        val body = android.graphics.RectF(1 * dp, 3 * dp, w - 1 * dp, h - 1 * dp)
-        p.color = when (kind) {
-            com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR -> 0xFFB3261E.toInt()
-            com.rfsentinel.app.alpr.KnownCamera.Kind.SPEED -> 0xFFE08A00.toInt()
-            com.rfsentinel.app.alpr.KnownCamera.Kind.RED_LIGHT -> 0xFF7B1FA2.toInt()
-        }
-        c.drawRoundRect(body, 3 * dp, 3 * dp, p)
-        p.style = android.graphics.Paint.Style.STROKE; p.strokeWidth = 1.5f * dp; p.color = Color.WHITE
-        c.drawRoundRect(body, 3 * dp, 3 * dp, p)
-        c.drawCircle(w / 2f, (h + 2 * dp) / 2f, 3.5f * dp, p)
-        return bmp
-    }
+    private fun cameraIcon(dp: Float, kind: com.rfsentinel.app.alpr.KnownCamera.Kind) = MapIcons.cameraIcon(dp, kind)
 
     private fun showKnownCamera(cam: com.rfsentinel.app.alpr.KnownCamera) {
         val text = buildString {

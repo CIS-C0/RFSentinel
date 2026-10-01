@@ -101,6 +101,16 @@ object Prefs {
     /** Map: every device heard (true) or flagged ones only. */
     fun mapShowAll(context: Context): Boolean = bool(context, "map_show_all", true)
     fun setMapShowAll(context: Context, value: Boolean) = setBool(context, "map_show_all", value)
+    /** Last destinations picked in the car (newest first, kept on this phone only). */
+    fun recentDestinations(context: Context): List<com.rfsentinel.app.nav.OsmRouting.Destination> = runCatching {
+        val json = sp(context).getString("recent_destinations", null) ?: return emptyList()
+        com.google.gson.Gson().fromJson(json, Array<com.rfsentinel.app.nav.OsmRouting.Destination>::class.java).toList()
+    }.getOrDefault(emptyList())
+    fun addRecentDestination(context: Context, d: com.rfsentinel.app.nav.OsmRouting.Destination) {
+        val list = (listOf(d) + recentDestinations(context).filterNot { it.lat == d.lat && it.lon == d.lon }).take(5)
+        sp(context).edit { putString("recent_destinations", com.google.gson.Gson().toJson(list)) }
+    }
+    fun clearRecentDestinations(context: Context) = sp(context).edit { remove("recent_destinations") }
     fun showKnownAlpr(context: Context): Boolean = bool(context, "show_known_alpr", true)
     fun setShowKnownAlpr(context: Context, value: Boolean) = setBool(context, "show_known_alpr", value)
 

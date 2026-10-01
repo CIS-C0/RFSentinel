@@ -91,6 +91,13 @@ object AlertPlayer {
         }
     }
 
+    /** A spoken navigation instruction (no beep, no vibration); silent when alerts are muted. */
+    fun announce(context: Context, text: String) {
+        if (Prefs.alertsMuted(context)) return
+        duckOthers(context, 5_000L)
+        speak(context.applicationContext, text, if (CarState.connected) carSpeechAttributes else phoneSpeechAttributes)
+    }
+
     /**
      * Silent and vibrate ringer modes, and Do Not Disturb, mute the beeps on the
      * phone (vibration still runs) - like the notification sound they replace.

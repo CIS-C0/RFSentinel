@@ -56,12 +56,16 @@ class HomeScreen(carContext: CarContext) : LiveScreen(carContext) {
         items.addItem(navRow("Flagged nearby", flagged, R.drawable.ic_car_warning, DeviceListScreen.Filter.FLAGGED))
         items.addItem(navRow("Drones & trackers", dronesTrackers, R.drawable.ic_car_drone, DeviceListScreen.Filter.DRONES_TRACKERS))
         items.addItem(navRow("All nearby devices", devices.size, R.drawable.ic_car_list, DeviceListScreen.Filter.ALL))
+        val liveMap = runCatching { carContext.carAppApiLevel >= androidx.car.app.versioning.CarAppApiLevels.LEVEL_7 }.getOrDefault(false)
         items.addItem(
             Row.Builder()
-                .setTitle("Map: devices & cameras around me")
+                .setTitle(if (liveMap) "Live map & navigation" else "Map: devices & cameras around me")
                 .setImage(CarUi.icon(carContext, R.drawable.ic_car_navigate))
                 .setBrowsable(true)
-                .setOnClickListener { screenManager.push(DevicesMapScreen(carContext)) }
+                .setOnClickListener {
+                    // Our own pannable map needs car API 7; older cars get the car-drawn map.
+                    screenManager.push(if (liveMap) LiveMapScreen(carContext) else DevicesMapScreen(carContext))
+                }
                 .build()
         )
 
