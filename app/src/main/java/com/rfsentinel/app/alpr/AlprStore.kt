@@ -12,8 +12,8 @@ import java.net.URL
 import java.net.URLEncoder
 
 /**
- * Offline cache of known plate-reader cameras, downloaded only when the user
- * asks for a map area. The download tells the OpenStreetMap Overpass server
+ * Offline cache of known plate, speed and red-light cameras, downloaded for the
+ * map area you look at (automatically, unless turned off). The download tells the Overpass server
  * which area you're looking at (like map tiles do) - nothing else is sent.
  */
 object AlprStore {
@@ -31,18 +31,66 @@ object AlprStore {
     /** Largest area one download may cover (degrees of latitude / longitude). */
     const val MAX_SPAN_DEG = 2.0
 
+    private const val AREAS_FILE = "known_alpr_areas.json"
+    /** Downloaded areas are fetched again after this long. */
+    const val REFRESH_MS = 7 * 24 * 3600_000L
+    /** After a failed automatic download, wait this long before trying again. */
+    private const val RETRY_MS = 60_000L
+
     private val gson = Gson()
     private val listType = object : TypeToken<List<KnownCamera>>() {}.type
+    private val areaListType = object : TypeToken<List<CameraArea>>() {}.type
 
     @Volatile var cameras: List<KnownCamera> = emptyList()
         private set
+    /** Areas already downloaded, so the map doesn't fetch them again. */
+    @Volatile var areas: List<CameraArea> = emptyList()
+        private set
+
+    private val busy = java.util.concurrent.atomic.AtomicBoolean(false)
+    @Volatile private var lastFailedArea: CameraArea? = null
+    val isBusy: Boolean get() = busy.get()
 
     private fun file(context: Context) = File(context.filesDir, FILE)
+    private fun areasFile(context: Context) = File(context.filesDir, AREAS_FILE)
 
     fun load(context: Context) {
         cameras = runCatching {
             file(context).takeIf { it.exists() }?.readText()?.let { gson.fromJson<List<KnownCamera>>(it, listType) }
         }.getOrNull().orEmpty()
+        areas = runCatching {
+            areasFile(context).takeIf { it.exists() }?.readText()?.let { gson.fromJson<List<CameraArea>>(it, areaListType) }
+        }.getOrNull().orEmpty()
+    }
+
+    /** True when the box isn't inside an area downloaded in the last [REFRESH_MS]. */
+    fun needsDownload(south: Double, west: Double, north: Double, east: Double, now: Long = System.currentTimeMillis()) =
+        CameraArea.needsDownload(areas, south, west, north, east, now, REFRESH_MS)
+
+    /**
+     * Fetches the cameras around a box in the background when that area isn't
+     * cached yet (one download at a time; quiet back-off after a failure).
+     * Returns true when a download ran and changed the cache.
+     */
+    suspend fun autoDownload(context: Context, south: Double, west: Double, north: Double, east: Double): Boolean {
+        val now = System.currentTimeMillis()
+        if (!needsDownload(south, west, north, east, now)) return false
+        // After a failure, leave that same area alone for a minute (other areas may go ahead).
+        if (lastFailedArea?.let { now - it.time < RETRY_MS && it.contains(south, west, north, east) } == true) return false
+        if (!busy.compareAndSet(false, true)) return false
+        val (s, w, n, e) = CameraArea.expand(south, west, north, east, MAX_SPAN_DEG)
+        return try {
+            download(context, s, w, n, e)
+            true
+        } catch (ex: kotlinx.coroutines.CancellationException) {
+            throw ex // the screen closed: not a failure, try again next time
+        } catch (ex: Exception) {
+            android.util.Log.w("AlprStore", "Automatic camera download failed: ${ex.message}")
+            lastFailedArea = CameraArea(s, w, n, e, System.currentTimeMillis())
+            false
+        } finally {
+            busy.set(false)
+        }
     }
 
     /**
@@ -67,6 +115,9 @@ object AlprStore {
                 val merged = cameras.filterNot(inBox) + found
                 file(context).writeText(gson.toJson(merged))
                 cameras = merged
+                val area = CameraArea(south, west, north, east, System.currentTimeMillis())
+                areas = areas.filterNot { area.contains(it) } + area
+                runCatching { areasFile(context).writeText(gson.toJson(areas)) }
                 return@withContext found.size
             }
             error("OpenStreetMap servers busy (${lastError?.message ?: "no answer"}) - try again later")
@@ -100,6 +151,40 @@ object AlprStore {
 
     fun clear(context: Context) {
         file(context).delete()
+        areasFile(context).delete()
         cameras = emptyList()
+        areas = emptyList()
+    }
+}
+
+/** A downloaded bounding box and when it was fetched (pure; unit-tested). */
+data class CameraArea(val south: Double, val west: Double, val north: Double, val east: Double, val time: Long) {
+
+    fun contains(o: CameraArea) = contains(o.south, o.west, o.north, o.east)
+
+    fun contains(s: Double, w: Double, n: Double, e: Double) =
+        s >= south && w >= west && n <= north && e <= east
+
+    companion object {
+        fun needsDownload(areas: List<CameraArea>, s: Double, w: Double, n: Double, e: Double, now: Long, maxAgeMs: Long) =
+            areas.none { now - it.time < maxAgeMs && it.contains(s, w, n, e) }
+
+        /** Smallest box one automatic download covers (degrees, ~40 km). */
+        const val MIN_SPAN_DEG = 0.4
+
+        /**
+         * Grows the visible box to twice its size, and at least [MIN_SPAN_DEG],
+         * so panning around doesn't fetch again right away - without exceeding
+         * [maxSpan] degrees.
+         */
+        fun expand(s: Double, w: Double, n: Double, e: Double, maxSpan: Double): List<Double> {
+            fun pad(span: Double) = (((span * 2).coerceIn(MIN_SPAN_DEG, maxSpan) - span) / 2).coerceAtLeast(0.0)
+            val latPad = pad(n - s)
+            val lonPad = pad(e - w)
+            return listOf(
+                (s - latPad).coerceAtLeast(-90.0), (w - lonPad).coerceAtLeast(-180.0),
+                (n + latPad).coerceAtMost(90.0), (e + lonPad).coerceAtMost(180.0)
+            )
+        }
     }
 }

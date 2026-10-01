@@ -77,7 +77,7 @@ publicly.
 - Patrol-vehicle detection: several kinds of police-type equipment whose signals move together are flagged as a possible police vehicle
 - Address-rotation linking: follows a device when its Bluetooth address changes
 - Follower alerts: a warning when a tracker or flagged device keeps moving with you
-- **Known plate, speed and red-light cameras:** download the cameras mapped in OpenStreetMap (plate readers e.g. by DeFlock, fixed speed and red-light cameras) and get warned as you approach one - even the cellular-only cameras no radio scan can detect. Speed cameras warn about 30 seconds ahead, with the limit when it's mapped
+- **Known plate, speed and red-light cameras:** the cameras mapped in OpenStreetMap (plate readers e.g. by DeFlock, fixed speed and red-light cameras) appear on the map by themselves for the area you look at, and you're warned as you approach one - even the cellular-only cameras no radio scan can detect. Speed cameras warn about 30 seconds ahead, with the limit when it's mapped. Areas are kept offline and refreshed weekly
 - **Drones:** live map of each Remote ID drone with its heading, altitude, speed and operator, plus a "drone overhead" alert
 - **Fake cell tower signs (IMSI catchers):** warnings for test network codes, forced 2G downgrades, unexpected networks and other classic signs (heuristic, no root needed)
 - Editable watchlist with exact addresses, vendor prefixes, and name or vendor rules, plus regional presets (Global, Canada, US)
@@ -246,11 +246,14 @@ Pick a theme in the setup wizard or under **Settings → Appearance**.
 - **Receive-only.** Nothing is transmitted, jammed, spoofed or connected to.
 - **No accounts, no cloud, no analytics.** Detections are stored in a local
   database and excluded from cloud backup.
-- **Network use is limited to OpenStreetMap:** map tiles while the map is open, and,
-  only when you tap *Download known cameras*, the camera list for the area on
-  screen (from overpass-api.de, or the public mirrors overpass.kumi.systems and
-  overpass.private.coffee when it's busy). Those servers see your IP address and
-  that area, never your scans. Map data
+- **Network use is limited to OpenStreetMap:** map tiles while the map is open,
+  and the known-camera list for the area you look at on the map (or around you on
+  the Android Auto camera map), fetched once per area and refreshed weekly, from
+  overpass-api.de or the public mirrors overpass.kumi.systems and
+  overpass.private.coffee when it's busy. Those servers see your IP address and
+  that area - like the map tiles - never your scans. Turn off *Show known cameras
+  automatically* in Settings to fetch only when you tap *Download known cameras*.
+  Map data
   © OpenStreetMap contributors (ODbL).
 - **Data leaves the phone only when you export or share it.**
 - **Optional permissions:** *Nearby devices → connect* is asked only to read the

@@ -228,6 +228,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.autoRecordSwitch.isChecked = Prefs.autoRecordTrace(this)
         binding.knownAlprSwitch.isChecked = Prefs.knownAlprAlerts(this)
         binding.speedCameraSwitch.isChecked = Prefs.speedCameraAlerts(this)
+        binding.autoCamerasSwitch.isChecked = Prefs.autoCameras(this)
 
         // Data
         binding.retentionInput.setText(Prefs.retentionDays(this).toString())
@@ -359,6 +360,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setAutoRecordTrace(this, binding.autoRecordSwitch.isChecked)
         Prefs.setKnownAlprAlerts(this, binding.knownAlprSwitch.isChecked)
         Prefs.setSpeedCameraAlerts(this, binding.speedCameraSwitch.isChecked)
+        Prefs.setAutoCameras(this, binding.autoCamerasSwitch.isChecked)
 
         Prefs.setRetentionDays(this, (binding.retentionInput.text.toString().toIntOrNull() ?: 90).coerceAtLeast(0))
 

@@ -465,11 +465,41 @@ class MapActivity : AppCompatActivity() {
         binding.map.postDelayed(redrawKnownAlpr, 250)
     }
 
+    private val autoDownloadCameras = Runnable { maybeAutoDownloadCameras() }
+
+    /**
+     * Fetches the cameras for the area on screen when it isn't cached yet, so
+     * they're always on the map without a manual download. Runs once the map
+     * has stopped moving for a moment.
+     */
+    private fun maybeAutoDownloadCameras() {
+        val prefs = com.rfsentinel.app.util.Prefs
+        if (!prefs.autoCameras(this) || !prefs.showKnownAlpr(this) || tripId != null) return
+        // Still gliding to your position (or another target): wait until it stops.
+        if (binding.map.isAnimating) { binding.map.postDelayed(autoDownloadCameras, 1_000); return }
+        val box = binding.map.boundingBox
+        val span = com.rfsentinel.app.alpr.AlprStore.MAX_SPAN_DEG
+        if (box.latNorth - box.latSouth > span || box.lonEast - box.lonWest > span) return
+        // The map starts at 0°,0° until it's moved to your position: don't fetch the ocean.
+        if (kotlin.math.abs(box.centerLatitude) < 0.5 && kotlin.math.abs(box.centerLongitude) < 0.5) return
+        // Another download (e.g. the car screen's) is running: look again shortly.
+        if (com.rfsentinel.app.alpr.AlprStore.isBusy) { binding.map.postDelayed(autoDownloadCameras, 3_000); return }
+        lifecycleScope.launch {
+            val changed = com.rfsentinel.app.alpr.AlprStore.autoDownload(
+                this@MapActivity, box.latSouth, box.lonWest, box.latNorth, box.lonEast
+            )
+            // Redrawing also re-checks the area now on screen, in case the map moved meanwhile.
+            if (changed) { drawKnownAlpr(); refreshServiceLocation() }
+        }
+    }
+
     /** Draws the cameras in (and just around) the visible area; skipped when zoomed far out. */
     private fun drawKnownAlpr() {
         val map = binding.map
         knownAlpr.items.clear()
-        if (!com.rfsentinel.app.util.Prefs.showKnownAlpr(this) || map.zoomLevelDouble < 10.0) {
+        map.removeCallbacks(autoDownloadCameras)
+        map.postDelayed(autoDownloadCameras, 1_200)
+        if (!com.rfsentinel.app.util.Prefs.showKnownAlpr(this) || map.zoomLevelDouble < 9.0) {
             map.invalidate(); return
         }
         val box = map.boundingBox.increaseByScale(1.5f)

@@ -95,6 +95,9 @@ object Prefs {
     /** Warn when approaching a speed or red-light camera mapped in OpenStreetMap. */
     fun speedCameraAlerts(context: Context): Boolean = bool(context, "speed_camera_alerts", true)
     fun setSpeedCameraAlerts(context: Context, value: Boolean) = setBool(context, "speed_camera_alerts", value)
+    /** Fetch known cameras for the map area on screen (and around you in the car) automatically. */
+    fun autoCameras(context: Context): Boolean = bool(context, "auto_cameras", true)
+    fun setAutoCameras(context: Context, value: Boolean) = setBool(context, "auto_cameras", value)
     fun showKnownAlpr(context: Context): Boolean = bool(context, "show_known_alpr", true)
     fun setShowKnownAlpr(context: Context, value: Boolean) = setBool(context, "show_known_alpr", value)
 

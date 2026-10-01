@@ -20,6 +20,8 @@ import com.rfsentinel.app.alpr.KnownCameras
 import com.rfsentinel.app.service.DeviceRegistry
 import com.rfsentinel.app.service.ScanForegroundService
 import com.rfsentinel.app.util.Permissions
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
@@ -35,6 +37,7 @@ class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs 
 
     override fun onGetTemplate(): Template {
         val me = myLocation()
+        if (me != null) autoDownloadAround(me)
         val limit = CarUi.listLimit(carContext).coerceAtMost(6)
         val items = if (me == null) emptyList() else nearby(me.latitude, me.longitude, limit)
 
@@ -81,6 +84,18 @@ class NearbyMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs 
                 else CarToast.makeText(carContext, "${it.title}: ${distanceText(it.distanceM)} away", CarToast.LENGTH_LONG).show()
             }
             .build()
+    }
+
+    /** Fetches the cameras within ~20 km when that area isn't cached yet, then refreshes. */
+    private fun autoDownloadAround(me: Location) {
+        if (!com.rfsentinel.app.util.Prefs.autoCameras(carContext)) return
+        val dLat = 0.18
+        val dLon = 0.18 / kotlin.math.max(0.1, kotlin.math.cos(Math.toRadians(me.latitude)))
+        val (s, w, n, e) = listOf(me.latitude - dLat, me.longitude - dLon, me.latitude + dLat, me.longitude + dLon)
+        if (!AlprStore.needsDownload(s, w, n, e)) return
+        lifecycleScope.launch {
+            if (AlprStore.autoDownload(carContext, s, w, n, e)) invalidate()
+        }
     }
 
     @SuppressLint("MissingPermission") // checked via Permissions

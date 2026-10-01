@@ -310,6 +310,12 @@
             android:text="Warn when approaching a known plate-reader camera (download them on the map: menu, Download known cameras)" />
 
         <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/autoCamerasSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Show known cameras automatically: download them from OpenStreetMap for the map area you look at (the Overpass server sees that area, like map tiles)" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/speedCameraSwitch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

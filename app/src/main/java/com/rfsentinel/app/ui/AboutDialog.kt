@@ -18,7 +18,7 @@ object AboutDialog {
             Passive, receive-only Bluetooth LE and WiFi scanner. It never transmits to,
             connects to, jams or spoofs any device. Scans, detections, history and traces stay
             on this phone. Internet is used only for OpenStreetMap: map tiles while the map is
-            open, and - only when you ask - the list of known plate, speed and red-light cameras for the area on
+            open, and the list of known plate, speed and red-light cameras for the area you look at on
             screen. Those servers see your IP and that area, never your scans or detections.
             Map data &copy; OpenStreetMap contributors (ODbL).<br/><br/>
 
