@@ -140,13 +140,16 @@ permission is optional; without it, alerts still play and show in the app.
 
 - **Threat banner:** shows all clear, weak, probable or strong, or *may be following you*.
 - **Live list:** every device heard in the last 3 minutes, with vendor, type,
-  radio, signal, rough distance, and NEW / ★ / FOLLOWING badges. Flagged
+  radio, signal, rough distance, and NEW / ★ / FOLLOWING badges. A green
+  **INTERNAL** badge means the phone's own Bluetooth or Wi-Fi chip heard the
+  device; a blue **ESP32** badge means a connected ESP32 board reported it
+  (both can show at once). Flagged
   devices sort first and flash in their category colour. Matches above your
   alert threshold play a sound and vibrate: one pulse for weak, two for
   probable, three for strong.
 - **Radar view:** closer to the centre means a stronger signal. The angle is
   not a direction, because a phone can't measure one.
-- **Filters and search:** All, Flagged, Trackers, Drones, New, Favorites,
+- **Filters and search:** All, Flagged, Trackers, Drones, New, ESP32, Favorites,
   Bluetooth, WiFi. Search matches name, address, vendor and type.
 - **Tap** a device for details. **Long-press** for quick actions: watchlist,
   whitelist, favorite, copy, and **Report unknown device** for devices with no
@@ -272,12 +275,28 @@ status.
 Boards running the Bluetooth ("App-Controlled") OUI-SPY firmware
 ([lukeswitz/oui-spy-unified-blue](https://github.com/lukeswitz/oui-spy-unified-blue))
 connect wirelessly: start scanning with the board powered on, then
-**Settings -> Pair OUI-SPY board** and pick its `OUI-SPY-xxxx` entry. While
-scanning, RF Sentinel switches on the board's Flock-BLE, Flock-WiFi, Sky Spy and
-Detector engines, adds what they find (Flock cameras and Raven sensors, Remote
-ID drones with position, trackers, Axon and smart-glasses signatures, the
-board's own watchlist), and switches them off again when scanning stops. It
-never uses the board's other engines.
+**Settings -> Pair OUI-SPY board** and pick its `OUI-SPY-xxxx` entry. Pair it
+only there - not in Android's Bluetooth settings: the board keeps no pairing
+keys, so a phone-side pairing breaks the link (the app tells you to tap
+*Forget* if it finds one).
+
+While scanning, RF Sentinel switches on the board's Flock-BLE, Flock-WiFi, Sky
+Spy and Detector engines, adds what they find (Flock cameras and Raven sensors,
+Remote ID drones with position, trackers, Axon and smart-glasses signatures,
+the board's own watchlist), and switches them off again when scanning stops.
+
+By default it also switches on the board's survey (Wardrive) engine, so the
+board relays **every** Wi-Fi network and Bluetooth device it hears. These
+arrive without a verdict and go through RF Sentinel's own watchlist, presets
+and rules, exactly like what the phone hears itself. In this mode the board
+also sends standard Wi-Fi scan probes (like any phone scanning for networks);
+turn **Settings -> OUI-SPY: relay every network and Bluetooth device** off to
+keep it listening only. It never uses the board's other engines (UniPwn, PCAP,
+Foxhunter).
+
+The status line under *Scanning* shows the board's state (`connecting…`,
+`live · N reports`), and the **ESP32** filter lists only what the board
+reported.
 
 ## Themes
 

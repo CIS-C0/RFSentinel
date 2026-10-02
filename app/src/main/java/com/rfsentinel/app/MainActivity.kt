@@ -263,7 +263,7 @@ class MainActivity : AppCompatActivity() {
             s.deviceType.contains("tracker", true) || s.deviceType.contains("Find My", true)
         Filter.DRONES -> s.hits.any { it.category == Category.DRONE } || s.remoteId != null
         Filter.NEW -> s.isNew
-        Filter.ESP32 -> com.rfsentinel.app.esp.EspSeen.recent(s.mac)
+        Filter.ESP32 -> com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac)
         Filter.FAVORITES -> Favorites.contains(s.mac)
         Filter.BLE -> Advert.Source.BLE in s.sources
         Filter.WIFI -> Advert.Source.WIFI in s.sources
@@ -291,7 +291,6 @@ class MainActivity : AppCompatActivity() {
             if (s.following) add("FOLLOWING")
             if (Favorites.contains(s.mac)) add("★")
             if (s.isNew) add("NEW")
-            if (com.rfsentinel.app.esp.EspSeen.recent(s.mac)) add("ESP32")
         }
         val tag = when {
             whitelisted -> "WHITELISTED"
@@ -314,7 +313,9 @@ class MainActivity : AppCompatActivity() {
             highlight = if (alert) colorFor(s) else null,
             flashing = alert && now - s.lastSeen < FLASH_WINDOW_MS &&
                 (s.following || (best!!.confidence >= threshold && best.category != Category.TRACKER)),
-            bold = alert
+            bold = alert,
+            heardByEsp = com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac, now),
+            heardByPhone = com.rfsentinel.app.esp.HeardBy.phone.recent(s.mac, now)
         )
     }
 

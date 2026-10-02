@@ -193,9 +193,9 @@ class ScanForegroundService : Service() {
 
         pipelineThread = HandlerThread("rf-pipeline").apply { start() }
         pipeline = Handler(pipelineThread.looper)
-        bleEngine = BleScanEngine(this) { r -> pipeline.post { AdvertFactory.fromBle(r)?.let(::process) } }
+        bleEngine = BleScanEngine(this) { r -> pipeline.post { AdvertFactory.fromBle(r)?.let(::processPhone) } }
         wifiEngine = WifiScanEngine(this) { results ->
-            pipeline.post { results.forEach { r -> AdvertFactory.fromWifi(r)?.let(::process) } }
+            pipeline.post { results.forEach { r -> AdvertFactory.fromWifi(r)?.let(::processPhone) } }
         }
 
         val pm = getSystemService(POWER_SERVICE) as PowerManager
@@ -386,6 +386,12 @@ class ScanForegroundService : Service() {
 
     // ---- Pipeline -------------------------------------------------------------
 
+    /** Something the phone's own Bluetooth or Wi-Fi chip heard. */
+    private fun processPhone(a: Advert) {
+        com.rfsentinel.app.esp.HeardBy.phone.mark(a.mac)
+        process(a)
+    }
+
     private fun process(a: Advert, reportedRemoteId: RemoteId.Info? = null) {
         val now = a.timestamp
         val mac = a.mac
@@ -450,7 +456,7 @@ class ScanForegroundService : Service() {
     /** One ESP32 report: becomes a normal observation, with the board's own matches added. */
     private fun processEsp(e: com.rfsentinel.app.esp.EspSighting) {
         val now = System.currentTimeMillis()
-        com.rfsentinel.app.esp.EspSeen.mark(e.mac, now)
+        com.rfsentinel.app.esp.HeardBy.esp.mark(e.mac, now)
         if (e.hits.isNotEmpty()) {
             espHits[e.mac] = now to e.hits
             classified.remove(e.mac) // re-classify with the new evidence

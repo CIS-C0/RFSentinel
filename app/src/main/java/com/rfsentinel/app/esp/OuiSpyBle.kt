@@ -28,8 +28,13 @@ object OuiSpyBle {
     private const val TAG = "OuiSpyBle"
     private const val MTU = 247 // detections are up to 155 bytes
     private const val RECONNECT_MS = 8_000L
+    private const val MTU_FALLBACK_MS = 2_500L
+    private const val SETUP_TIMEOUT_MS = 20_000L
+    /** Let a just-closed link go before reconnecting, or the new client shares (and inherits) it. */
+    private const val CLOSE_SETTLE_MS = 1_000L
 
     private val main = Handler(Looper.getMainLooper())
+    private val closer = Handler(Looper.getMainLooper())
     private var gatt: BluetoothGatt? = null
     private var appContext: Context? = null
     private var address: String? = null
@@ -37,6 +42,9 @@ object OuiSpyBle {
     private var onSightings: ((List<EspSighting>) -> Unit)? = null
     @Volatile private var active = false
     private var inSpool = false
+    private var discovering = false
+    private var live = false
+    private var closingUntil = 0L
     private var detections = 0
     /** GATT writes must be sent one at a time. */
     private val pending = ArrayDeque<ByteArray>()
@@ -72,7 +80,9 @@ object OuiSpyBle {
         // Switch our engines off so the board goes quiet, then let go.
         val ctl = g.getService(OuiSpyBleProtocol.SERVICE)?.getCharacteristic(OuiSpyBleProtocol.ENGINE_CONTROL)
         if (ctl != null) runCatching { write(g, ctl, OuiSpyBleProtocol.disableAll()) }
-        main.postDelayed({ runCatching { g.disconnect(); g.close() } }, 300)
+        // Own handler: a quick restart clears `main`, and must not cancel this close.
+        closer.postDelayed({ runCatching { g.disconnect(); g.close() } }, 300)
+        closingUntil = System.currentTimeMillis() + 300 + CLOSE_SETTLE_MS
         gatt = null
         setStatus("")
     }
@@ -82,6 +92,8 @@ object OuiSpyBle {
         val ctx = appContext ?: return
         val addr = address ?: return
         if (!active) return
+        val wait = closingUntil - System.currentTimeMillis()
+        if (wait > 0) { main.postDelayed({ connect() }, wait); return }
         if (!canConnect(ctx)) { setStatus("OUI-SPY: allow \"Nearby devices\" to connect to the board"); return }
         val adapter = ctx.getSystemService(BluetoothManager::class.java)?.adapter ?: return
         if (!adapter.isEnabled) { setStatus("OUI-SPY: Bluetooth is off"); retry(); return }
@@ -119,12 +131,21 @@ object OuiSpyBle {
     @SuppressLint("MissingPermission")
     private fun writeNext(g: BluetoothGatt) {
         val next = pending.removeFirstOrNull() ?: run {
+            live = true
+            Log.i(TAG, "live")
             setStatus(if (relayAll) "OUI-SPY · live · relaying everything it hears"
                 else "OUI-SPY · live · Flock, Sky Spy and Detector engines on")
             return
         }
         val ctl = g.getService(OuiSpyBleProtocol.SERVICE)?.getCharacteristic(OuiSpyBleProtocol.ENGINE_CONTROL) ?: return
         write(g, ctl, next)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun discover(g: BluetoothGatt) {
+        if (discovering) return
+        discovering = true
+        g.discoverServices()
     }
 
     private fun handle(value: ByteArray) {
@@ -147,7 +168,21 @@ object OuiSpyBle {
                 if (g !== gatt) return@post
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     setStatus("OUI-SPY: connected, setting up…")
-                    if (!g.requestMtu(MTU)) g.discoverServices()
+                    live = false
+                    discovering = false
+                    // On a reused link Android may never answer the MTU request: go on anyway.
+                    if (!g.requestMtu(MTU)) discover(g)
+                    else main.postDelayed({ if (g === gatt) discover(g) }, MTU_FALLBACK_MS)
+                    main.postDelayed({
+                        if (g === gatt && !live && active) {
+                            Log.w(TAG, "setup stalled, reconnecting")
+                            runCatching { g.disconnect(); g.close() }
+                            gatt = null
+                            closingUntil = System.currentTimeMillis() + CLOSE_SETTLE_MS
+                            setStatus("OUI-SPY: setup stalled - reconnecting…")
+                            retry()
+                        }
+                    }, SETUP_TIMEOUT_MS)
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     runCatching { g.close() }
                     gatt = null
@@ -158,7 +193,8 @@ object OuiSpyBle {
 
         @SuppressLint("MissingPermission")
         override fun onMtuChanged(g: BluetoothGatt, mtu: Int, st: Int) {
-            main.post { if (g === gatt) g.discoverServices() }
+            Log.i(TAG, "mtu $mtu (status $st)")
+            main.post { if (g === gatt) discover(g) }
         }
 
         @SuppressLint("MissingPermission")

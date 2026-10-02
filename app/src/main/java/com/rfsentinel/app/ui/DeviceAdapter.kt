@@ -24,8 +24,32 @@ data class DeviceRow(
     val highlight: Int?,
     /** Pulse the tint (flagged, above the alert threshold, heard within the last minute). */
     val flashing: Boolean,
-    val bold: Boolean
+    val bold: Boolean,
+    /** Heard by an ESP32 board (blue badge) and/or the phone's own radios (green badge). */
+    val heardByEsp: Boolean = false,
+    val heardByPhone: Boolean = false
 )
+
+private const val ESP_BADGE = 0xFF1E88E5.toInt()
+private const val PHONE_BADGE = 0xFF2E7D32.toInt()
+
+/** The meta line, followed by small coloured "ESP32" / "INTERNAL" badges. */
+private fun metaWithBadges(row: DeviceRow): CharSequence {
+    if (!row.heardByEsp && !row.heardByPhone) return row.meta
+    val sb = android.text.SpannableStringBuilder(row.meta)
+    fun badge(label: String, color: Int) {
+        sb.append("  ")
+        val start = sb.length
+        sb.append(" ").append(label).append(" ")
+        val end = sb.length
+        sb.setSpan(android.text.style.BackgroundColorSpan(color), start, end, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        sb.setSpan(android.text.style.ForegroundColorSpan(Color.WHITE), start, end, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        sb.setSpan(android.text.style.StyleSpan(Typeface.BOLD), start, end, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+    if (row.heardByEsp) badge("ESP32", ESP_BADGE)
+    if (row.heardByPhone) badge("INTERNAL", PHONE_BADGE)
+    return sb
+}
 
 class DeviceAdapter(
     private val onClick: (DeviceRow) -> Unit,
@@ -93,7 +117,7 @@ class DeviceAdapter(
         b.titleText.text = row.title
         b.titleText.setTypeface(null, if (row.bold) Typeface.BOLD else Typeface.NORMAL)
         b.macText.text = row.subtitle
-        b.metaText.text = row.meta
+        b.metaText.text = metaWithBadges(row)
         holder.setHighlight(row.highlight, row.flashing)
         holder.itemView.setOnClickListener { onClick(row) }
         holder.itemView.setOnLongClickListener { onLongPress(row); true }
