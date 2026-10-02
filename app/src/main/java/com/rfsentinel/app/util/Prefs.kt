@@ -114,6 +114,11 @@ object Prefs {
     /** Tracker "following you" warnings paused until this time (epoch ms). */
     fun trackerFollowPausedUntil(context: Context): Long = sp(context).getLong("tracker_follow_paused_until", 0L)
     fun setTrackerFollowPausedUntil(context: Context, value: Long) = sp(context).edit { putLong("tracker_follow_paused_until", value) }
+    /** Bluetooth address of the OUI-SPY board to connect to while scanning (null = none). */
+    fun ouiSpyBoard(context: Context): String? = sp(context).getString("ouispy_board", null)
+    fun setOuiSpyBoard(context: Context, address: String?) = sp(context).edit {
+        if (address == null) remove("ouispy_board") else putString("ouispy_board", address)
+    }
     fun showKnownAlpr(context: Context): Boolean = bool(context, "show_known_alpr", true)
     fun setShowKnownAlpr(context: Context, value: Boolean) = setBool(context, "show_known_alpr", value)
 

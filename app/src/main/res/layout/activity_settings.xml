@@ -353,6 +353,19 @@
             android:paddingTop="6dp"
             android:textSize="12sp" />
 
+        <TextView
+            android:id="@+id/ouiSpyText"
+            style="@style/SettingsLabel"
+            android:paddingTop="6dp"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/ouiSpyButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Pair OUI-SPY board (Bluetooth)" />
+
         <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/autoRecordSwitch"
             android:layout_width="match_parent"

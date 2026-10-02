@@ -267,6 +267,18 @@ USB chip work. RF Sentinel only listens: it never sends OUI-Spy anything, and
 only asks GhostESP to scan and list networks. Settings shows the board's
 status.
 
+### OUI-SPY over Bluetooth (no cable)
+
+Boards running the Bluetooth ("App-Controlled") OUI-SPY firmware
+([lukeswitz/oui-spy-unified-blue](https://github.com/lukeswitz/oui-spy-unified-blue))
+connect wirelessly: start scanning with the board powered on, then
+**Settings -> Pair OUI-SPY board** and pick its `OUI-SPY-xxxx` entry. While
+scanning, RF Sentinel switches on the board's Flock-BLE, Flock-WiFi, Sky Spy and
+Detector engines, adds what they find (Flock cameras and Raven sensors, Remote
+ID drones with position, trackers, Axon and smart-glasses signatures, the
+board's own watchlist), and switches them off again when scanning stops. It
+never uses the board's other engines.
+
 ## Themes
 
 Pick a theme in the setup wizard or under **Settings → Appearance**.

@@ -112,11 +112,63 @@ class SettingsActivity : AppCompatActivity() {
         binding.trackerIgnoreButton.visibility = if (n > 0 || paused) android.view.View.VISIBLE else android.view.View.GONE
     }
 
-    /** ESP32 boards on USB (OUI-Spy / GhostESP) are picked up while scanning. */
+    /** ESP32 boards on USB (OUI-Spy / GhostESP) and an OUI-SPY board over Bluetooth. */
     private fun updateEspStatus() {
         val s = com.rfsentinel.app.esp.EspBoards.status
         binding.espStatusText.text = "ESP32 on USB (OUI-Spy or GhostESP): " +
             s.ifBlank { "plug one in with an OTG cable while scanning to add its detections" }
+        val board = Prefs.ouiSpyBoard(this)
+        binding.ouiSpyText.text = if (board == null)
+            "OUI-SPY over Bluetooth (App-Controlled firmware): not paired"
+        else "OUI-SPY board $board: " + com.rfsentinel.app.esp.OuiSpyBle.status.ifBlank { "connects while scanning" }
+        binding.ouiSpyButton.text = if (board == null) "Pair OUI-SPY board (Bluetooth)" else "Change or forget OUI-SPY board"
+    }
+
+    private val ouiSpyConnectPermission = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted -> if (granted) pairOuiSpy() }
+
+    /**
+     * Picks the OUI-SPY board among nearby devices RF Sentinel hears (they
+     * advertise as "OUI-SPY-xxxx"); scanning must be running to see it.
+     */
+    private fun pairOuiSpy() {
+        if (!com.rfsentinel.app.esp.OuiSpyBle.canConnect(this)) {
+            ouiSpyConnectPermission.launch(android.Manifest.permission.BLUETOOTH_CONNECT); return
+        }
+        val boards = com.rfsentinel.app.service.DeviceRegistry.snapshot()
+            .filter { it.name?.startsWith(com.rfsentinel.app.esp.OuiSpyBleProtocol.NAME_PREFIX) == true }
+            .sortedByDescending { it.rssi }
+        val current = Prefs.ouiSpyBoard(this)
+        val labels = boards.map { "${it.name}  (${it.mac}, ${it.rssi} dBm)" }.toMutableList()
+        if (current != null) labels += "Forget the paired board"
+        if (labels.isEmpty()) {
+            AlertDialog.Builder(this)
+                .setTitle("No OUI-SPY board heard")
+                .setMessage("Power the board (Bluetooth / App-Controlled firmware) and start scanning, " +
+                    "then come back here: it shows up as \"OUI-SPY-xxxx\".")
+                .setPositiveButton("OK", null)
+                .show()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Which OUI-SPY board?")
+            .setItems(labels.toTypedArray()) { _, i ->
+                if (i < boards.size) {
+                    Prefs.setOuiSpyBoard(this, boards[i].mac)
+                    Toast.makeText(this, "Paired - RF Sentinel connects to it while scanning", Toast.LENGTH_LONG).show()
+                } else {
+                    Prefs.setOuiSpyBoard(this, null)
+                    com.rfsentinel.app.esp.OuiSpyBle.stop()
+                }
+                updateEspStatus()
+                // Apply to a running scan right away.
+                if (com.rfsentinel.app.service.ScanForegroundService.isRunning) {
+                    com.rfsentinel.app.service.ScanForegroundService.start(this)
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun updateBannerButtons() {
@@ -125,6 +177,7 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         com.rfsentinel.app.esp.EspBoards.onStatusChanged = null
+        com.rfsentinel.app.esp.OuiSpyBle.onStatusChanged = null
         stopObservingPrefetch?.invoke()
         super.onDestroy()
     }
@@ -253,6 +306,8 @@ class SettingsActivity : AppCompatActivity() {
         updateTrackerIgnoreText()
         updateEspStatus()
         com.rfsentinel.app.esp.EspBoards.onStatusChanged = { runOnUiThread { updateEspStatus() } }
+        com.rfsentinel.app.esp.OuiSpyBle.onStatusChanged = { runOnUiThread { updateEspStatus() } }
+        binding.ouiSpyButton.setOnClickListener { pairOuiSpy() }
         binding.trackerIgnoreButton.setOnClickListener {
             com.rfsentinel.app.data.TrackerMutes.clear(this)
             Prefs.setTrackerFollowPausedUntil(this, 0L)

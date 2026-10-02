@@ -241,6 +241,10 @@ class ScanForegroundService : Service() {
         if (Prefs.wifiEnabled(this)) startWifiPolling() else stopWifiPolling()
         // ESP32 boards on USB (OUI-Spy / GhostESP): their reports join the same pipeline.
         com.rfsentinel.app.esp.EspBoards.start(this) { list -> pipeline.post { list.forEach(::processEsp) } }
+        // An OUI-SPY board paired over Bluetooth (App-Controlled firmware).
+        Prefs.ouiSpyBoard(this)?.let { addr ->
+            com.rfsentinel.app.esp.OuiSpyBle.start(this, addr) { list -> pipeline.post { list.forEach(::processEsp) } }
+        } ?: com.rfsentinel.app.esp.OuiSpyBle.stop()
         updateLocationUpdates()
         startHousekeeping()
         startCellChecks()
@@ -730,6 +734,7 @@ class ScanForegroundService : Service() {
 
     override fun onDestroy() {
         com.rfsentinel.app.esp.EspBoards.stop(this)
+        com.rfsentinel.app.esp.OuiSpyBle.stop()
         bleEngine.stop()
         wifiEngine.stop()
         if (btStateReceiverRegistered) {
