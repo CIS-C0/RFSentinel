@@ -36,12 +36,31 @@ object OuiSpyReports {
 
     fun recognises(text: String): Boolean =
         "\"event\":\"detection\"" in text || "\"drone_lat\"" in text || "\"status\":\"scanning\"" in text ||
-            "OUI-SPY" in text || "[flockyou]" in text
+            "OUI-SPY" in text || "[flockyou]" in text || "[SELECTOR]" in text
+
+    /** OUI-Spy modes, as far as RF Sentinel is concerned. */
+    enum class Mode(val label: String, val usable: Boolean) {
+        FLOCK_YOU("Flock-You", true), DETECTOR("Detector", true), SKY_SPY("Sky Spy", true),
+        SELECTOR("mode selector", false), OTHER("PCAP / BLE sniff / fox hunter", false)
+    }
+
+    /** Which mode [text] (banners, command replies or detection lines) shows, if any. */
+    fun modeOf(text: String): Mode? = when {
+        "\"drone_lat\"" in text || "\"status\":\"scanning\"" in text || "SKY SPY" in text -> Mode.SKY_SPY
+        "\"detection_tier\"" in text || "[flockyou]" in text || "FLOCK-YOU" in text -> Mode.FLOCK_YOU
+        "\"match_method\"" in text || "BLE DETECTOR" in text || "STARTING DETECTOR" in text ||
+            "\"mode\":\"ble_detector\"" in text -> Mode.DETECTOR
+        "[SELECTOR]" in text || "Firmware Selector" in text || "STARTING SELECTOR" in text -> Mode.SELECTOR
+        "PCAP" in text || "BLE SNIFF" in text || "FOXHUNT" in text || "blesniff" in text -> Mode.OTHER
+        else -> null
+    }
 
     fun parse(line: String): EspSighting? {
         val t = line.trim()
         if (!t.startsWith("{") || !t.endsWith("}")) return null
         val o = runCatching { JsonParser.parseString(t).asJsonObject }.getOrNull() ?: return null
+        // Detections from a previous session (replayed from the board's flash) are old news.
+        if (o.text("replay_source") == "flash") return null
         return when {
             o.has("drone_lat") -> drone(o)
             o.text("event") == "detection" -> detection(o)
