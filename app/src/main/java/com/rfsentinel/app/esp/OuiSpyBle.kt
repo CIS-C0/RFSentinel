@@ -83,7 +83,15 @@ object OuiSpyBle {
         val adapter = ctx.getSystemService(BluetoothManager::class.java)?.adapter ?: return
         if (!adapter.isEnabled) { setStatus("OUI-SPY: Bluetooth is off"); retry(); return }
         val device = runCatching { adapter.getRemoteDevice(addr) }.getOrNull() ?: return
+        // The board keeps no pairing keys, so a phone-side pairing breaks every connection
+        // (encryption fails with "key missing"). It must not be paired in Android settings.
+        if (device.bondState == BluetoothDevice.BOND_BONDED) {
+            setStatus("OUI-SPY: tap \"Forget\" on ${device.name ?: "the board"} in Android Bluetooth settings - it must not be paired there")
+            retry()
+            return
+        }
         setStatus("OUI-SPY: connecting…")
+        Log.i(TAG, "connecting")
         gatt = device.connectGatt(ctx, false, callback, BluetoothDevice.TRANSPORT_LE)
     }
 
@@ -130,6 +138,7 @@ object OuiSpyBle {
     private val callback = object : BluetoothGattCallback() {
         @SuppressLint("MissingPermission")
         override fun onConnectionStateChange(g: BluetoothGatt, st: Int, newState: Int) {
+            Log.i(TAG, "connection state $newState (status $st)")
             main.post {
                 if (g !== gatt) return@post
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
@@ -185,6 +194,7 @@ object OuiSpyBle {
             main.post {
                 if (g !== gatt) return@post
                 if (st != BluetoothGatt.GATT_SUCCESS) Log.w(TAG, "engine write failed: $st")
+                else Log.i(TAG, "engine command sent")
                 writeNext(g)
             }
         }
