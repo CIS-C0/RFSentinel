@@ -17,6 +17,8 @@ data class EspSighting(
     /** Wi-Fi network name (access points) or Bluetooth device name. */
     val name: String? = null,
     val frequencyMhz: Int = 0,
+    /** Wi-Fi security in Android's ScanResult style ("[WPA2-PSK]"), when known. */
+    val capabilities: String = "",
     val companyId: Int? = null,
     val serviceUuid16: Int? = null,
     /** Drone position (OUI-Spy Sky Spy mode). */

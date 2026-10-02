@@ -243,7 +243,7 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.esp.EspBoards.start(this) { list -> pipeline.post { list.forEach(::processEsp) } }
         // An OUI-SPY board paired over Bluetooth (App-Controlled firmware).
         Prefs.ouiSpyBoard(this)?.let { addr ->
-            com.rfsentinel.app.esp.OuiSpyBle.start(this, addr) { list -> pipeline.post { list.forEach(::processEsp) } }
+            com.rfsentinel.app.esp.OuiSpyBle.start(this, addr, Prefs.ouiSpyRelayAll(this)) { list -> pipeline.post { list.forEach(::processEsp) } }
         } ?: com.rfsentinel.app.esp.OuiSpyBle.stop()
         updateLocationUpdates()
         startHousekeeping()
@@ -462,7 +462,7 @@ class ScanForegroundService : Service() {
             timestamp = now
         ) else Advert(
             mac = e.mac, source = Advert.Source.WIFI, rssi = e.rssi, name = e.name,
-            wifi = Advert.WifiInfo(e.frequencyMhz, "", null, emptyList()), timestamp = now
+            wifi = Advert.WifiInfo(e.frequencyMhz, e.capabilities, null, emptyList()), timestamp = now
         )
         process(advert, e.remoteId)
     }

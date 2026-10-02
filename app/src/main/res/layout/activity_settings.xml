@@ -367,6 +367,12 @@
             android:text="Pair OUI-SPY board (Bluetooth)" />
 
         <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/ouiSpyRelaySwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="OUI-SPY: relay every network and Bluetooth device it hears, so RF Sentinel's own lists check them (the board also sends standard Wi-Fi scan probes)" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/autoRecordSwitch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

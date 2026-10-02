@@ -31,9 +31,14 @@ object OuiSpyBleProtocol {
     const val ENGINE_FLOCK_BLE = 1
     const val ENGINE_FLOCK_WIFI = 2
     const val ENGINE_SKYSPY = 4
+    /** Survey mode: reports every Wi-Fi network and Bluetooth device the board hears. */
+    const val ENGINE_WARDRIVE = 6
 
-    /** Only passive detection engines; RF Sentinel never touches the others. */
+    /** Detection engines; RF Sentinel never touches the others (UniPwn, PCAP, Foxhunter). */
     val ENGINES = listOf(ENGINE_FLOCK_BLE, ENGINE_FLOCK_WIFI, ENGINE_SKYSPY, ENGINE_DETECTOR)
+
+    /** Engines to switch on; [relayAll] adds the survey engine so RF Sentinel's own rules see everything. */
+    fun engines(relayAll: Boolean) = if (relayAll) ENGINES + ENGINE_WARDRIVE else ENGINES
 
     fun enable(engine: Int): ByteArray = byteArrayOf(0x01, engine.toByte())
     fun disable(engine: Int): ByteArray = byteArrayOf(0x00, engine.toByte())
@@ -61,6 +66,22 @@ object OuiSpyBleProtocol {
             ENGINE_FLOCK_BLE, ENGINE_FLOCK_WIFI -> flock(engine, d, mac, rssi, channel, method)
             ENGINE_SKYSPY -> if (d.size >= 155) drone(d, b, mac, rssi, method) else null
             ENGINE_DETECTOR -> detector(d, mac, rssi, channel, method)
+            ENGINE_WARDRIVE -> survey(d, mac, rssi, channel, method)
+            else -> null
+        }
+    }
+
+    // auth_mode: 0 open, 1 WEP, 2 WPA, 3 WPA2, 4 WPA/WPA2, 5 WPA2-Enterprise, 6 WPA3.
+    private val AUTH = listOf("[ESS]", "[WEP][ESS]", "[WPA-PSK][ESS]", "[WPA2-PSK][ESS]",
+        "[WPA-PSK][WPA2-PSK][ESS]", "[WPA2-EAP][ESS]", "[RSN-SAE][ESS]")
+
+    /** A plain sighting with no verdict: RF Sentinel's own watchlist and rules judge it. */
+    private fun survey(d: ByteArray, mac: String, rssi: Int, channel: Int, method: Int): EspSighting? {
+        if (d.size < 74) return null
+        return when (method) {
+            0 -> EspSighting(mac = mac, rssi = rssi, ble = false, name = text(d, 19, 33),
+                frequencyMhz = freq(channel), capabilities = AUTH.getOrElse(d[52].toInt() and 0xFF) { "" })
+            1 -> EspSighting(mac = mac, rssi = rssi, ble = true, name = text(d, 53, 21))
             else -> null
         }
     }

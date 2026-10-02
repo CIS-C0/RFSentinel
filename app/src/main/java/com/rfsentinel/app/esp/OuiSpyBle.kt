@@ -18,7 +18,8 @@ import com.rfsentinel.app.util.Permissions
 /**
  * Connects to an OUI-SPY board running the "App-Controlled" (Bluetooth)
  * firmware, like its companion app does, but only for detection: it switches
- * on the Flock-BLE, Flock-WiFi, Sky Spy and Detector engines, listens to
+ * on the Flock-BLE, Flock-WiFi, Sky Spy and Detector engines (plus, by default,
+ * the survey engine that relays every network and device it hears), listens to
  * Detection Events, and switches them off again when scanning stops. No cable
  * needed; the board just needs power. Reconnects when the board comes back.
  */
@@ -32,6 +33,7 @@ object OuiSpyBle {
     private var gatt: BluetoothGatt? = null
     private var appContext: Context? = null
     private var address: String? = null
+    private var relayAll = true
     private var onSightings: ((List<EspSighting>) -> Unit)? = null
     @Volatile private var active = false
     private var inSpool = false
@@ -49,12 +51,13 @@ object OuiSpyBle {
         Permissions.granted(context, android.Manifest.permission.BLUETOOTH_CONNECT)
 
     /** Starts (or keeps) the link to the board at [boardAddress] while scanning. */
-    fun start(context: Context, boardAddress: String, sightings: (List<EspSighting>) -> Unit) = main.post {
+    fun start(context: Context, boardAddress: String, relayEverything: Boolean, sightings: (List<EspSighting>) -> Unit) = main.post {
         onSightings = sightings
-        if (active && address == boardAddress) return@post
+        if (active && address == boardAddress && relayAll == relayEverything) return@post
         stopNow()
         appContext = context.applicationContext
         address = boardAddress
+        relayAll = relayEverything
         active = true
         connect()
     }
@@ -116,7 +119,8 @@ object OuiSpyBle {
     @SuppressLint("MissingPermission")
     private fun writeNext(g: BluetoothGatt) {
         val next = pending.removeFirstOrNull() ?: run {
-            setStatus("OUI-SPY · live · Flock, Sky Spy and Detector engines on")
+            setStatus(if (relayAll) "OUI-SPY · live · relaying everything it hears"
+                else "OUI-SPY · live · Flock, Sky Spy and Detector engines on")
             return
         }
         val ctl = g.getService(OuiSpyBleProtocol.SERVICE)?.getCharacteristic(OuiSpyBleProtocol.ENGINE_CONTROL) ?: return
@@ -132,7 +136,7 @@ object OuiSpyBle {
         val s = OuiSpyBleProtocol.decode(value) ?: return
         detections++
         onSightings?.invoke(listOf(s))
-        setStatus("OUI-SPY · live · $detections detection${if (detections == 1) "" else "s"}")
+        setStatus("OUI-SPY · live · $detections report${if (detections == 1) "" else "s"}")
     }
 
     private val callback = object : BluetoothGattCallback() {
@@ -185,7 +189,7 @@ object OuiSpyBle {
                 if (g !== gatt) return@post
                 inSpool = false
                 pending.clear()
-                OuiSpyBleProtocol.ENGINES.forEach { pending.addLast(OuiSpyBleProtocol.enable(it)) }
+                OuiSpyBleProtocol.engines(relayAll).forEach { pending.addLast(OuiSpyBleProtocol.enable(it)) }
                 writeNext(g)
             }
         }

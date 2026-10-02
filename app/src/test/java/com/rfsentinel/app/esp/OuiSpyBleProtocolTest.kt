@@ -84,16 +84,37 @@ class OuiSpyBleProtocolTest {
     fun skipsOldUnusedAndShortFrames() {
         // Detected while no phone was connected (DET_FLAG_AWAY).
         assertNull(OuiSpyBleProtocol.decode(header(70, 0x80 or OuiSpyBleProtocol.ENGINE_FLOCK_WIFI, mac, -70, 6, 4).array()))
-        // Engines RF Sentinel doesn't use (5 = UniPwn, 6 = Wardrive, 7 = PCAP).
-        for (e in 5..7) assertNull(OuiSpyBleProtocol.decode(header(74, e, mac, -70, 6, 0).array()))
+        // Engines RF Sentinel doesn't use (3 = Foxhunter, 5 = UniPwn, 7 = PCAP).
+        for (e in listOf(3, 5, 7)) assertNull(OuiSpyBleProtocol.decode(header(74, e, mac, -70, 6, 0).array()))
         assertNull(OuiSpyBleProtocol.decode(ByteArray(10)))
         assertTrue(OuiSpyBleProtocol.isSpoolHeader(byteArrayOf(0xFF.toByte(), 2, 0, 0, 0, 1, 2, 3, 4)))
         assertTrue(OuiSpyBleProtocol.isSpoolEnd(byteArrayOf(0xFE.toByte())))
     }
 
     @Test
+    fun surveyRelaysPlainNetworksAndDevices() {
+        val ap = header(74, OuiSpyBleProtocol.ENGINE_WARDRIVE, mac, -67, 11, 0)
+        str(ap, 19, "Cafe Guest"); ap.put(52, 3)
+        val a = OuiSpyBleProtocol.decode(ap.array())!!
+        assertFalse(a.ble)
+        assertEquals("Cafe Guest", a.name)
+        assertEquals(2462, a.frequencyMhz)
+        assertEquals("[WPA2-PSK][ESS]", a.capabilities)
+        assertTrue(a.hits.isEmpty()) // RF Sentinel's own lists decide
+
+        val dev = header(74, OuiSpyBleProtocol.ENGINE_WARDRIVE, mac, -58, 0, 1)
+        str(dev, 53, "Speaker")
+        val b = OuiSpyBleProtocol.decode(dev.array())!!
+        assertTrue(b.ble)
+        assertEquals("Speaker", b.name)
+        assertTrue(b.hits.isEmpty())
+    }
+
+    @Test
     fun onlyDetectionEnginesAreEverEnabled() {
         assertEquals(listOf(1, 2, 4, 0), OuiSpyBleProtocol.ENGINES)
+        assertEquals(listOf(1, 2, 4, 0, 6), OuiSpyBleProtocol.engines(relayAll = true))
+        assertEquals(listOf(1, 2, 4, 0), OuiSpyBleProtocol.engines(relayAll = false))
         assertArrayEquals(byteArrayOf(0x01, 0x02), OuiSpyBleProtocol.enable(2))
         assertArrayEquals(byteArrayOf(0x0F, 0x00), OuiSpyBleProtocol.disableAll())
     }
