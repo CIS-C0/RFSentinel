@@ -114,6 +114,55 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     /** ESP32 boards on USB (OUI-Spy / GhostESP) and an OUI-SPY board over Bluetooth. */
+    /** Speed, voice and a test button for spoken alerts; changes apply right away. */
+    private fun setupVoiceControls() {
+        val voice = com.rfsentinel.app.util.Voice
+        val rates = mapOf(R.id.voiceRateSlow to 0.8f, R.id.voiceRateNormal to 1.0f, R.id.voiceRateFast to 1.25f)
+        val current = Prefs.voiceRate(this)
+        binding.voiceRateGroup.check(rates.minByOrNull { kotlin.math.abs(it.value - current) }!!.key)
+        binding.voiceRateGroup.setOnCheckedChangeListener { _, id -> rates[id]?.let { Prefs.setVoiceRate(this, it) } }
+        binding.voiceTestButton.setOnClickListener { com.rfsentinel.app.util.AlertPlayer.testVoice(this) }
+
+        fun label(v: android.speech.tts.Voice, i: Int) =
+            "${v.locale.getDisplayCountry(java.util.Locale.ENGLISH).ifEmpty { "English" }} · voice ${i + 1}" +
+                (if (v.isNetworkConnectionRequired) " · online" else "") +
+                (if (v.quality >= android.speech.tts.Voice.QUALITY_HIGH) " · high quality" else "")
+        fun showVoice() {
+            val list = voice.voices
+            val chosen = Prefs.voiceName(this)?.let { n -> list.indexOfFirst { it.name == n } }?.takeIf { it >= 0 }
+            binding.voiceText.text = when {
+                list.isEmpty() -> "Uses the phone's speech engine (Google's when installed), in English."
+                chosen != null -> "Voice: ${label(list[chosen], chosen)}"
+                else -> "Voice: automatic (${label(list[0], 0)})"
+            }
+        }
+        voice.warmUp(this) { runOnUiThread { if (!isDestroyed) showVoice() } }
+        showVoice()
+        binding.voicePickButton.setOnClickListener {
+            val list = voice.voices
+            if (list.isEmpty()) {
+                Toast.makeText(this, "The speech engine is still starting - try again in a moment", Toast.LENGTH_SHORT).show()
+                voice.warmUp(this); return@setOnClickListener
+            }
+            val names = listOf("Automatic (best English voice)") + list.mapIndexed { i, v -> label(v, i) }
+            val sel = Prefs.voiceName(this)?.let { n -> list.indexOfFirst { it.name == n } + 1 } ?: 0
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Voice for spoken alerts")
+                .setSingleChoiceItems(names.toTypedArray(), sel) { _, which ->
+                    // Each pick is spoken right away so you can compare.
+                    Prefs.setVoiceName(this, if (which == 0) null else list[which - 1].name)
+                    voice.voiceChanged(this)
+                    com.rfsentinel.app.util.AlertPlayer.testVoice(this)
+                    showVoice()
+                }
+                .setPositiveButton("Done", null)
+                .setNeutralButton("Speech engine settings") { _, _ ->
+                    runCatching { startActivity(android.content.Intent("com.android.settings.TTS_SETTINGS")) }
+                }
+                .show()
+        }
+    }
+
     private fun updateEspStatus() {
         val s = com.rfsentinel.app.esp.EspBoards.status
         binding.espStatusText.text = "ESP32 on USB (OUI-Spy or GhostESP): " +
@@ -283,6 +332,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.soundSwitch.isChecked = Prefs.soundEnabled(this)
         binding.vibrateSwitch.isChecked = Prefs.vibrateEnabled(this)
         binding.voiceSwitch.isChecked = Prefs.voiceEnabled(this)
+        setupVoiceControls()
         binding.discreetSwitch.isChecked = Prefs.discreetMode(this)
         binding.bubbleSwitch.isChecked = Prefs.threatBubble(this) && Settings.canDrawOverlays(this)
         binding.bubbleSwitch.setOnCheckedChangeListener { sw, on ->

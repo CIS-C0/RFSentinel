@@ -57,6 +57,14 @@ object Prefs {
     /** Speak the alert ("Axon body camera nearby") via text-to-speech. */
     fun voiceEnabled(context: Context): Boolean = bool(context, "voice_enabled", false)
     fun setVoiceEnabled(context: Context, value: Boolean) = setBool(context, "voice_enabled", value)
+    /** Speech rate for spoken alerts (1.0 = the engine's normal speed). */
+    fun voiceRate(context: Context): Float = sp(context).getFloat("voice_rate", 1.0f)
+    fun setVoiceRate(context: Context, rate: Float) = sp(context).edit { putFloat("voice_rate", rate) }
+    /** The chosen speech-engine voice (null = best English voice on the phone). */
+    fun voiceName(context: Context): String? = sp(context).getString("voice_name", null)
+    fun setVoiceName(context: Context, name: String?) = sp(context).edit {
+        if (name == null) remove("voice_name") else putString("voice_name", name)
+    }
 
     /** Master mute for alert sound and voice (phone menu and Android Auto button). Vibration unaffected. */
     fun alertsMuted(context: Context): Boolean = bool(context, "alerts_muted", false)

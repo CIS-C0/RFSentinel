@@ -233,6 +233,59 @@
             android:layout_height="wrap_content"
             android:text="Spoken alerts (e.g. while driving)" />
 
+        <TextView style="@style/SettingsLabel" android:text="Voice speed" />
+
+        <RadioGroup
+            android:id="@+id/voiceRateGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <RadioButton
+                android:id="@+id/voiceRateSlow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Slow" />
+
+            <RadioButton
+                android:id="@+id/voiceRateNormal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Normal" />
+
+            <RadioButton
+                android:id="@+id/voiceRateFast"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Fast" />
+        </RadioGroup>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/voicePickButton"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Choose voice" />
+
+            <Button
+                android:id="@+id/voiceTestButton"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Test voice" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/voiceText"
+            style="@style/SettingsLabel"
+            android:paddingTop="0dp"
+            android:textSize="12sp" />
+
         <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/bubbleSwitch"
             android:layout_width="match_parent"

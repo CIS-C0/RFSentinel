@@ -10,10 +10,8 @@ import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
-import android.speech.tts.TextToSpeech
 import com.rfsentinel.app.car.CarState
 import com.rfsentinel.app.detect.Tier
-import java.util.Locale
 
 /**
  * Plays match alerts directly (synthesized beeps, a vibration pattern
@@ -54,8 +52,6 @@ object AlertPlayer {
         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
         .build()
 
-    private var tts: TextToSpeech? = null
-    @Volatile private var ttsReady = false
     private val main = Handler(Looper.getMainLooper())
     private var focusRequest: AudioFocusRequest? = null
 
@@ -63,9 +59,8 @@ object AlertPlayer {
         val inCar = CarState.connected
         val muted = Prefs.alertsMuted(context)
         val willSpeak = !muted && spoken != null && (Prefs.voiceEnabled(context) || (inCar && Prefs.carVoice(context)))
-        if (!muted && (Prefs.soundEnabled(context) || willSpeak)) {
-            duckOthers(context, if (willSpeak) 6_000L else 2_500L)
-        }
+        // Speech holds its own audio focus for exactly as long as it talks; this covers the beeps.
+        if (!muted && Prefs.soundEnabled(context)) duckOthers(context, 2_500L)
         var beepMs = 0
         if (!muted && Prefs.soundEnabled(context) && (inCar || ringerAllowsSound(context))) {
             // Our own beeps (1 weak, 2 probable, 3 strong, long-short-long following) at
@@ -85,17 +80,28 @@ object AlertPlayer {
         if (willSpeak) {
             val app = context.applicationContext
             val attrs = if (inCar) carSpeechAttributes else phoneSpeechAttributes
+            val priority = when {
+                following -> VoiceQueue.FOLLOWING
+                tier == Tier.STRONG -> VoiceQueue.STRONG
+                tier == Tier.MEDIUM -> VoiceQueue.PROBABLE
+                else -> VoiceQueue.WEAK
+            }
             // Speak after the beeps, not over them.
-            if (beepMs > 0) main.postDelayed({ speak(app, spoken!!, attrs) }, beepMs + 150L)
-            else speak(app, spoken!!, attrs)
+            if (beepMs > 0) main.postDelayed({ Voice.say(app, spoken!!, priority, attrs) }, beepMs + 150L)
+            else Voice.say(app, spoken!!, priority, attrs)
         }
     }
 
     /** A spoken navigation instruction (no beep, no vibration); silent when alerts are muted. */
     fun announce(context: Context, text: String) {
         if (Prefs.alertsMuted(context)) return
-        duckOthers(context, 5_000L)
-        speak(context.applicationContext, text, if (CarState.connected) carSpeechAttributes else phoneSpeechAttributes)
+        Voice.say(context.applicationContext, text, VoiceQueue.STRONG, if (CarState.connected) carSpeechAttributes else phoneSpeechAttributes)
+    }
+
+    /** The Settings "Test voice" button: speaks right away with the chosen voice and speed. */
+    fun testVoice(context: Context) {
+        Voice.test(context.applicationContext, "RF Sentinel voice alerts. Axon body camera nearby.",
+            if (CarState.connected) carSpeechAttributes else phoneSpeechAttributes)
     }
 
     /**
@@ -141,50 +147,5 @@ object AlertPlayer {
         vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1))
     }
 
-    /** Announcements raised while the speech engine is still starting. */
-    private val pending = mutableListOf<Pair<String, AudioAttributes>>()
-
-    @Synchronized
-    private fun speak(context: Context, text: String, attrs: AudioAttributes) {
-        val engine = tts
-        if (engine != null && ttsReady) {
-            engine.setAudioAttributes(attrs)
-            engine.speak(text, TextToSpeech.QUEUE_ADD, null, "rf-${System.nanoTime()}")
-            return
-        }
-        // Still starting: queue it (bounded) so it's spoken once ready.
-        if (pending.size < 5) pending += text to attrs
-        if (engine == null) {
-            tts = TextToSpeech(context) { status -> onTtsInit(status) }
-        }
-    }
-
-    @Synchronized
-    private fun onTtsInit(status: Int) {
-        val engine = tts ?: return
-        if (status != TextToSpeech.SUCCESS) {
-            // Engine missing or still updating: drop it so the next alert tries again,
-            // instead of staying silent until the app restarts.
-            runCatching { engine.shutdown() }
-            tts = null
-            ttsReady = false
-            pending.clear()
-            return
-        }
-        ttsReady = true
-        engine.language = Locale.getDefault()
-        pending.forEach { (text, attrs) ->
-            engine.setAudioAttributes(attrs)
-            engine.speak(text, TextToSpeech.QUEUE_ADD, null, "rf-${System.nanoTime()}")
-        }
-        pending.clear()
-    }
-
-    @Synchronized
-    fun shutdown() {
-        tts?.shutdown()
-        tts = null
-        ttsReady = false
-        pending.clear()
-    }
+    fun shutdown() = Voice.shutdown()
 }
