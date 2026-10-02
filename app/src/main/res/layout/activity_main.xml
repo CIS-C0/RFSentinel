@@ -130,6 +130,13 @@
                 android:text="New" />
 
             <com.google.android.material.chip.Chip
+                android:id="@+id/chipEsp"
+                style="@style/Widget.MaterialComponents.Chip.Choice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ESP32" />
+
+            <com.google.android.material.chip.Chip
                 android:id="@+id/chipFavorites"
                 style="@style/Widget.MaterialComponents.Chip.Choice"
                 android:layout_width="wrap_content"

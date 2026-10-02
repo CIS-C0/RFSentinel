@@ -450,6 +450,7 @@ class ScanForegroundService : Service() {
     /** One ESP32 report: becomes a normal observation, with the board's own matches added. */
     private fun processEsp(e: com.rfsentinel.app.esp.EspSighting) {
         val now = System.currentTimeMillis()
+        com.rfsentinel.app.esp.EspSeen.mark(e.mac, now)
         if (e.hits.isNotEmpty()) {
             espHits[e.mac] = now to e.hits
             classified.remove(e.mac) // re-classify with the new evidence

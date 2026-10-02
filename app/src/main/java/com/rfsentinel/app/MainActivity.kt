@@ -50,7 +50,7 @@ class MainActivity : AppCompatActivity() {
         private const val WHITELIST_COLOR = 0xFF6B7B80.toInt()
     }
 
-    private enum class Filter { ALL, FLAGGED, TRACKERS, DRONES, NEW, FAVORITES, BLE, WIFI }
+    private enum class Filter { ALL, FLAGGED, TRACKERS, DRONES, NEW, ESP32, FAVORITES, BLE, WIFI }
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var adapter: DeviceAdapter
@@ -113,6 +113,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.chipTrackers -> Filter.TRACKERS
                 R.id.chipDrones -> Filter.DRONES
                 R.id.chipNew -> Filter.NEW
+                R.id.chipEsp -> Filter.ESP32
                 R.id.chipFavorites -> Filter.FAVORITES
                 R.id.chipBle -> Filter.BLE
                 R.id.chipWifi -> Filter.WIFI
@@ -192,7 +193,9 @@ class MainActivity : AppCompatActivity() {
                 (if (flaggedCount > 0) " · $flaggedCount flagged" else "") +
                 (com.rfsentinel.app.service.CellMonitor.lastAnomaly
                     ?.takeIf { System.currentTimeMillis() - it.first < 15 * 60_000L }
-                    ?.let { " · ⚠ ${it.second.title}" } ?: "")
+                    ?.let { " · ⚠ ${it.second.title}" } ?: "") +
+                com.rfsentinel.app.esp.OuiSpyBle.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
+                com.rfsentinel.app.esp.EspBoards.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty()
         }
     }
 
@@ -260,6 +263,7 @@ class MainActivity : AppCompatActivity() {
             s.deviceType.contains("tracker", true) || s.deviceType.contains("Find My", true)
         Filter.DRONES -> s.hits.any { it.category == Category.DRONE } || s.remoteId != null
         Filter.NEW -> s.isNew
+        Filter.ESP32 -> com.rfsentinel.app.esp.EspSeen.recent(s.mac)
         Filter.FAVORITES -> Favorites.contains(s.mac)
         Filter.BLE -> Advert.Source.BLE in s.sources
         Filter.WIFI -> Advert.Source.WIFI in s.sources
@@ -287,6 +291,7 @@ class MainActivity : AppCompatActivity() {
             if (s.following) add("FOLLOWING")
             if (Favorites.contains(s.mac)) add("★")
             if (s.isNew) add("NEW")
+            if (com.rfsentinel.app.esp.EspSeen.recent(s.mac)) add("ESP32")
         }
         val tag = when {
             whitelisted -> "WHITELISTED"
