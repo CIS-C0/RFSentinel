@@ -102,11 +102,12 @@ class MainActivity : AppCompatActivity() {
         binding.mapButton.setOnClickListener {
             startActivity(Intent(this, com.rfsentinel.app.ui.MapActivity::class.java))
         }
-        // Shrink the Map button to its icon while scrolling down the list; full label again at the top.
+        // The disclaimer line at the bottom steps aside once the list is scrolled.
         binding.recyclerView.addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
             override fun onScrolled(rv: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
-                if (dy > 8 && binding.mapButton.isExtended) binding.mapButton.shrink()
-                else if ((dy < -8 || !rv.canScrollVertically(-1)) && !binding.mapButton.isExtended) binding.mapButton.extend()
+                val atTop = !rv.canScrollVertically(-1)
+                if (dy > 8 && !atTop) binding.disclaimerText.visibility = View.GONE
+                else if (atTop) binding.disclaimerText.visibility = View.VISIBLE
             }
         })
         setupFilterChips()
@@ -150,7 +151,13 @@ class MainActivity : AppCompatActivity() {
         if (header == null) return
         binding.themeHeader.style = header
         val file = com.rfsentinel.app.ui.ThemeManager.bannerFile(this)
-        if (com.rfsentinel.app.ui.ThemeManager.hasBanner(this)) {
+        // Bundled poster art sits beside the animated header (a picked banner replaces it).
+        val useArt = theme.headerImage != null && !com.rfsentinel.app.ui.ThemeManager.hasBanner(this)
+        binding.themeHeader.poster = if (useArt) android.graphics.BitmapFactory.decodeResource(resources, theme.headerImage!!,
+            android.graphics.BitmapFactory.Options().apply { inSampleSize = 2 }) else null
+        if (useArt) {
+            binding.themeBanner.visibility = View.GONE
+        } else if (com.rfsentinel.app.ui.ThemeManager.hasBanner(this)) {
             val bmp = android.graphics.BitmapFactory.decodeFile(file.absolutePath, android.graphics.BitmapFactory.Options().apply {
                 // Downsample big images so the header stays light.
                 val probe = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -168,7 +175,8 @@ class MainActivity : AppCompatActivity() {
         val radar = Prefs.radarView(this)
         binding.radarView.visibility = if (radar) View.VISIBLE else View.GONE
         binding.recyclerView.visibility = if (radar) View.GONE else View.VISIBLE
-        if (!binding.mapButton.isExtended) binding.mapButton.extend()
+        binding.disclaimerText.visibility =
+            if (radar || !binding.recyclerView.canScrollVertically(-1)) View.VISIBLE else View.GONE
     }
 
     /** Filter chips from [com.rfsentinel.app.ui.DeviceFilter] (same rules as the map), counts filled in by render(). */
@@ -201,6 +209,8 @@ class MainActivity : AppCompatActivity() {
             b.iconTint = android.content.res.ColorStateList(arrayOf(checked, none), intArrayOf(onAccent, text))
             b.strokeColor = android.content.res.ColorStateList.valueOf(accent)
         }
+        binding.mapButton.iconTint = android.content.res.ColorStateList.valueOf(accent)
+        binding.mapButton.strokeColor = android.content.res.ColorStateList.valueOf(accent)
     }
 
     private var shownRunning: Boolean? = null
@@ -438,7 +448,6 @@ class MainActivity : AppCompatActivity() {
             R.id.action_oui_list -> { startActivity(Intent(this, OuiListActivity::class.java)); true }
             R.id.action_export -> { Exporter.showExportMenu(this); true }
             R.id.action_export_all -> { Exporter.showExportAll(this); true }
-            R.id.action_map -> { startActivity(Intent(this, com.rfsentinel.app.ui.MapActivity::class.java)); true }
             R.id.action_traces -> { startActivity(Intent(this, com.rfsentinel.app.ui.TripsActivity::class.java)); true }
             R.id.action_history -> { startActivity(Intent(this, com.rfsentinel.app.ui.HistoryActivity::class.java)); true }
             R.id.action_about -> { AboutDialog.show(this); true }

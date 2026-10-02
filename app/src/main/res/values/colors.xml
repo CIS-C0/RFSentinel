@@ -14,13 +14,21 @@
     <color name="scope_text">#AA0B5C63</color>
     <color name="trace">#E0622D</color>
 
-    <!-- DedSec-inspired palette: black, white, hot pink, violet -->
+    <!-- DedSec-inspired palette: black, white, electric blue (matches the header poster) -->
     <color name="dedsec_black">#050505</color>
-    <color name="dedsec_panel">#141016</color>
-    <color name="dedsec_magenta">#FF2E88</color>
-    <color name="dedsec_violet">#A23CFF</color>
+    <color name="dedsec_panel">#0E1218</color>
+    <color name="dedsec_blue">#0070F0</color>
+    <color name="dedsec_blue_light">#4D9CFF</color>
     <color name="dedsec_text">#F4F4F4</color>
-    <color name="dedsec_dim">#A99BB8</color>
+    <color name="dedsec_dim">#9AAAC0</color>
+
+    <!-- fsociety (Mr. Robot-inspired): black, ash grey, blood red (matches the header poster) -->
+    <color name="fsoc_black">#050505</color>
+    <color name="fsoc_panel">#151010</color>
+    <color name="fsoc_red">#C8221A</color>
+    <color name="fsoc_red_light">#E5554C</color>
+    <color name="fsoc_text">#EDEDED</color>
+    <color name="fsoc_dim">#A89E9E</color>
 
     <!-- Night Drive: red-only, keeps your night vision while driving -->
     <color name="nd_bg">#000000</color>

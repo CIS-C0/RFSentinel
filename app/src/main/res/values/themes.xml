@@ -27,16 +27,16 @@
         <item name="actionBarTheme">@style/ThemeOverlay.Material3.ActionBar</item>
     </style>
 
-    <!-- DedSec-inspired hacktivist zine: black and white, hot pink and violet, monospace. -->
+    <!-- DedSec-inspired hacktivist poster: black and white with electric blue, monospace. -->
     <style name="Theme.RFSentinel.DedSec" parent="Theme.MaterialComponents">
         <!-- Selected chips / toggles use this theme's own primary colour. -->
         <item name="rfAccent">?attr/colorPrimary</item>
         <item name="rfOnAccent">?attr/colorOnPrimary</item>
-        <item name="colorPrimary">@color/dedsec_magenta</item>
+        <item name="colorPrimary">@color/dedsec_blue</item>
         <item name="colorPrimaryVariant">@color/dedsec_black</item>
-        <item name="colorOnPrimary">@color/dedsec_black</item>
-        <item name="colorSecondary">@color/dedsec_violet</item>
-        <item name="colorOnSecondary">@color/dedsec_text</item>
+        <item name="colorOnPrimary">@color/dedsec_text</item>
+        <item name="colorSecondary">@color/dedsec_blue_light</item>
+        <item name="colorOnSecondary">@color/dedsec_black</item>
         <item name="colorSurface">@color/dedsec_panel</item>
         <item name="colorOnSurface">@color/dedsec_text</item>
         <item name="android:colorBackground">@color/dedsec_black</item>
@@ -51,10 +51,10 @@
         <item name="actionBarTheme">@style/DedSec.ActionBarOverlay</item>
         <item name="alertDialogTheme">@style/DedSec.Dialog</item>
         <item name="materialAlertDialogTheme">@style/DedSec.Dialog</item>
-        <item name="rfScopeColor">@color/dedsec_magenta</item>
+        <item name="rfScopeColor">@color/dedsec_blue</item>
         <item name="rfScopeTextColor">@color/dedsec_dim</item>
-        <item name="rfTraceColor">@color/dedsec_violet</item>
-        <item name="colorAccent">@color/dedsec_violet</item>
+        <item name="rfTraceColor">@color/dedsec_blue_light</item>
+        <item name="colorAccent">@color/dedsec_blue</item>
     </style>
 
     <style name="DedSec.ActionBar" parent="Widget.MaterialComponents.ActionBar.Solid">
@@ -75,10 +75,65 @@
     </style>
 
     <style name="DedSec.Dialog" parent="ThemeOverlay.MaterialComponents.Dialog.Alert">
-        <item name="colorPrimary">@color/dedsec_magenta</item>
+        <item name="colorPrimary">@color/dedsec_blue</item>
         <item name="colorSurface">@color/dedsec_panel</item>
         <item name="android:background">@color/dedsec_panel</item>
         <item name="android:textColorPrimary">@color/dedsec_text</item>
+        <item name="android:fontFamily">@font/share_tech_mono</item>
+    </style>
+
+    <!-- fsociety (Mr. Robot-inspired): black and ash grey with blood red, monospace terminal. -->
+    <style name="Theme.RFSentinel.Fsociety" parent="Theme.MaterialComponents">
+        <!-- Selected chips / toggles use this theme's own primary colour. -->
+        <item name="rfAccent">?attr/colorPrimary</item>
+        <item name="rfOnAccent">?attr/colorOnPrimary</item>
+        <item name="colorPrimary">@color/fsoc_red</item>
+        <item name="colorPrimaryVariant">@color/fsoc_black</item>
+        <item name="colorOnPrimary">@color/fsoc_text</item>
+        <item name="colorSecondary">@color/fsoc_red_light</item>
+        <item name="colorOnSecondary">@color/fsoc_black</item>
+        <item name="colorSurface">@color/fsoc_panel</item>
+        <item name="colorOnSurface">@color/fsoc_text</item>
+        <item name="android:colorBackground">@color/fsoc_black</item>
+        <item name="android:windowBackground">@color/fsoc_black</item>
+        <item name="android:textColorPrimary">@color/fsoc_text</item>
+        <item name="android:textColorSecondary">@color/fsoc_dim</item>
+        <item name="android:fontFamily">@font/share_tech_mono</item>
+        <item name="fontFamily">@font/share_tech_mono</item>
+        <item name="android:statusBarColor">@color/fsoc_black</item>
+        <item name="android:navigationBarColor">@color/fsoc_black</item>
+        <item name="actionBarStyle">@style/Fsociety.ActionBar</item>
+        <item name="actionBarTheme">@style/Fsociety.ActionBarOverlay</item>
+        <item name="alertDialogTheme">@style/Fsociety.Dialog</item>
+        <item name="materialAlertDialogTheme">@style/Fsociety.Dialog</item>
+        <item name="rfScopeColor">@color/fsoc_red</item>
+        <item name="rfScopeTextColor">@color/fsoc_dim</item>
+        <item name="rfTraceColor">@color/fsoc_red_light</item>
+        <item name="colorAccent">@color/fsoc_red</item>
+    </style>
+
+    <style name="Fsociety.ActionBar" parent="Widget.MaterialComponents.ActionBar.Solid">
+        <item name="background">@color/fsoc_black</item>
+        <item name="titleTextStyle">@style/Fsociety.ActionBarTitle</item>
+        <item name="elevation">0dp</item>
+    </style>
+
+    <style name="Fsociety.ActionBarTitle" parent="TextAppearance.AppCompat.Widget.ActionBar.Title">
+        <item name="android:textColor">@color/fsoc_text</item>
+        <item name="android:fontFamily">@font/share_tech_mono</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="Fsociety.ActionBarOverlay" parent="ThemeOverlay.MaterialComponents.Dark.ActionBar">
+        <item name="colorControlNormal">@color/fsoc_text</item>
+        <item name="android:textColorPrimary">@color/fsoc_text</item>
+    </style>
+
+    <style name="Fsociety.Dialog" parent="ThemeOverlay.MaterialComponents.Dialog.Alert">
+        <item name="colorPrimary">@color/fsoc_red_light</item>
+        <item name="colorSurface">@color/fsoc_panel</item>
+        <item name="android:background">@color/fsoc_panel</item>
+        <item name="android:textColorPrimary">@color/fsoc_text</item>
         <item name="android:fontFamily">@font/share_tech_mono</item>
     </style>
 

@@ -38,6 +38,8 @@ class SetupActivity : AppCompatActivity() {
          * the saved-instance state doesn't reliably survive both.
          */
         private var resumeStep: Int? = null
+        /** Scroll position of the theme list to restore after the same recreations. */
+        private var resumeScroll: Int? = null
     }
 
     private lateinit var binding: ActivitySetupBinding
@@ -69,6 +71,20 @@ class SetupActivity : AppCompatActivity() {
             }
         })
         render()
+        restoreScroll()
+    }
+
+    /**
+     * Puts the theme list back where it was. Kept until an instance actually lays
+     * out, since the first of two back-to-back recreations may never get that far.
+     */
+    private fun restoreScroll() {
+        val y = resumeScroll ?: return
+        binding.pageScroll.post {
+            if (isFinishing || isDestroyed) return@post
+            binding.pageScroll.scrollTo(0, y)
+            resumeScroll = null
+        }
     }
 
     override fun onDestroy() {
@@ -90,6 +106,8 @@ class SetupActivity : AppCompatActivity() {
             STEPS - 1 -> "Finish"
             else -> "Next"
         }
+        // No theme is preselected: the user picks one before moving on.
+        binding.nextButton.isEnabled = step != 1 || ThemeManager.isChosen(this)
         binding.page.removeAllViews()
         stopObservingPrefetch?.invoke(); stopObservingPrefetch = null
         when (step) {
@@ -114,16 +132,21 @@ class SetupActivity : AppCompatActivity() {
     }
 
     private fun theme() {
-        header("Pick a look", "Tap a theme to preview it right away.")
+        header("Pick a look", "Tap a theme to preview it right away. Pick one to continue.")
+        val chosen = ThemeManager.isChosen(this)
         val current = ThemeManager.current(this)
         ThemeManager.AppTheme.entries.forEach { t ->
             val note = if (t == ThemeManager.AppTheme.MATERIAL_YOU && !ThemeManager.isDynamicColorAvailable)
                 " (this phone: standard Material 3 colours)" else ""
-            card(t.title, t.description + note, selected = t == current) {
-                if (t != ThemeManager.current(this)) {
-                    resumeStep = step
+            card(t.title, t.description + note, selected = chosen && t == current) {
+                val restyle = t != ThemeManager.current(this)
+                if (restyle || !ThemeManager.isChosen(this)) {
                     ThemeManager.set(this, t)
-                    recreate() // restyles this screen; the step is kept
+                    if (restyle) {
+                        resumeStep = step
+                        resumeScroll = binding.pageScroll.scrollY
+                        recreate() // restyles this screen; the step is kept
+                    } else render()
                 }
             }
         }

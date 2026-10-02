@@ -43,10 +43,14 @@ class ThemeHeaderView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null
 ) : View(context, attrs) {
 
-    enum class Style { GLITCH, HUD, NIGHT_VISION, CRT, SUNSET, STENCIL, BLUEPRINT, MASTHEAD }
+    enum class Style { GLITCH, FSOCIETY, HUD, NIGHT_VISION, CRT, SUNSET, STENCIL, BLUEPRINT, MASTHEAD }
 
     var style: Style = Style.GLITCH
-        set(value) { field = value; setupPaints(); requestLayout(); invalidate() }
+        set(value) { field = value; wordmark = null; setupPaints(); requestLayout(); invalidate() }
+
+    /** Theme banner art, drawn across the GLITCH / FSOCIETY header behind the text. */
+    var poster: android.graphics.Bitmap? = null
+        set(value) { field = value; requestLayout(); invalidate() }
 
     private val d = resources.displayMetrics.density
     private val mono = runCatching { ResourcesCompat.getFont(context, R.font.share_tech_mono) }.getOrNull()
@@ -79,7 +83,7 @@ class ThemeHeaderView @JvmOverloads constructor(
         sub.textSize = 12 * d
         sub.color = dim
         when (style) {
-            Style.GLITCH -> { title.typeface = mono; title.isFakeBoldText = true; sub.typeface = mono; sub.color = 0xFF7FB8B0.toInt() }
+            Style.GLITCH, Style.FSOCIETY -> { title.typeface = mono; title.isFakeBoldText = true; sub.typeface = mono; sub.color = 0xFF7FB8B0.toInt() }
             Style.HUD -> { title.typeface = face("sans-serif-condensed"); title.letterSpacing = 0.25f; sub.typeface = face("sans-serif-condensed", Typeface.NORMAL); sub.letterSpacing = 0.2f }
             Style.NIGHT_VISION -> { title.typeface = mono; title.letterSpacing = 0.1f; sub.typeface = mono }
             Style.CRT -> { title.typeface = face("monospace"); sub.typeface = face("monospace", Typeface.NORMAL) }
@@ -92,7 +96,7 @@ class ThemeHeaderView @JvmOverloads constructor(
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val h = when (style) {
-            Style.GLITCH -> 150 * d
+            Style.GLITCH, Style.FSOCIETY -> if (poster != null) 190 * d else 125 * d
             Style.SUNSET -> 96 * d
             Style.BLUEPRINT, Style.MASTHEAD -> 84 * d
             Style.HUD, Style.STENCIL -> 70 * d
@@ -112,7 +116,7 @@ class ThemeHeaderView @JvmOverloads constructor(
         super.onDraw(canvas)
         val now = System.currentTimeMillis()
         val next = when (style) {
-            Style.GLITCH -> glitch(canvas, now)
+            Style.GLITCH, Style.FSOCIETY -> glitch(canvas, now)
             Style.HUD -> hud(canvas, now)
             Style.NIGHT_VISION -> nightVision(canvas, now)
             Style.CRT -> crt(canvas, now)
@@ -124,58 +128,103 @@ class ThemeHeaderView @JvmOverloads constructor(
         if (next > 0 && isShown) postInvalidateDelayed(next)
     }
 
-    // ---- GLITCH (DedSec) --------------------------------------------------------
-    // Hacktivist zine / poster look in the spirit of DedSec: black and white with
-    // hot pink and violet, a halftone band, an original pixel skull with diagonal
-    // hatching, a chunky pixel wordmark, a boxed label and a retro OS popup where
-    // a terminal line types itself. All original art - no game artwork or logos.
+    // ---- GLITCH (DedSec) / FSOCIETY (Mr. Robot) ------------------------------------
+    // Sits beside the theme's bundled poster: a sliced, glitching wordmark, a boxed
+    // label and a retro OS popup where terminal lines type themselves. Each theme
+    // has its own skin (colours, lettering and lines) - unofficial fan homages.
 
-    // Original 17x16 pixel skull: wide cranium, angular sockets, nose gap, two rows of teeth.
-    private val skull = listOf(
-        "....#########....",
-        "..#############..",
-        ".###############.",
-        "#################",
-        "#################",
-        "###....###....###",
-        "##......#......##",
-        "###....###....###",
-        "#################",
-        "########.########",
-        ".######...######.",
-        "..#############..",
-        "...#.#.#.#.#.#...",
-        "...###########...",
-        "....#.#.#.#.#....",
-        ".....#######....."
-    )
-    private val pinkC = 0xFFFF2E88.toInt()
     private val whiteC = 0xFFF4F4F4.toInt()
     private val blackC = 0xFF050505.toInt()
-    // Nods to Watch Dogs (ctOS, Blume, DedSec) - an unofficial fan homage.
-    private val lines = listOf(
-        "> ctOS uplink... bypassed [OK]",
-        "> sniff --ble --wifi --passive",
-        "> blume_profiler.exe: not on my watch",
-        "> rx_only=true  tx=0  // listen, never touch",
-        "> the city watches you. watch back_",
-        "> we are dedsec. join us_"
-    )
-    private val sticker = Paint(Paint.ANTI_ALIAS_FLAG)
 
-    /** The wordmark drawn tiny and blown up without smoothing: chunky pixel letters. */
+    /**
+     * @param cuts horizontal bands through the wordmark: (start as fraction of height,
+     *   sideways shift in dp); a NaN shift leaves that band empty (a stripe through the letters)
+     */
+    private class Skin(
+        val accent: Int, val ink: Int, val flash: Int, val label: String, val window: String,
+        val font: Typeface, val spacing: Float, val stretch: Float,
+        val cuts: List<Pair<Float, Float>>, val lines: List<String>
+    )
+
+    // Nods to Watch Dogs (ctOS, Blume, DedSec).
+    private val dedsec = Skin(
+        0xFF0070F0.toInt(), whiteC, 0xFF0070F0.toInt(), "WE ARE DEDSEC", "rf_sentinel.exe",
+        Typeface.create("sans-serif-condensed", Typeface.BOLD), 0.03f, 1.35f,
+        listOf(0.0f to 0f, 0.42f to -4f, 0.50f to 0f, 0.74f to 3f, 0.80f to 0f),
+        listOf(
+            "> ctOS 2.0 uplink... bypassed [OK]",
+            "> sniff --ble --wifi --passive",
+            "> blume_profiler.exe: not on my watch",
+            "> the system is a lie_",
+            "> rx_only=true  tx=0  // listen, never touch",
+            "> !nvite.exe: dedsec wants you",
+            "> nudle maps: location leak blocked",
+            "> hacking is our weapon_",
+            "> wrench.exe: (^_^) let's break stuff",
+            "> ctOS profile: [REDACTED]",
+            "> the city watches you. watch back_",
+            "> better a free world_",
+            "> we are dedsec. join us_"
+        )
+    )
+
+    // Nods to Mr. Robot (fsociety, E Corp, the Dark Army) and lines from the show.
+    private val fsociety = Skin(
+        0xFFC8221A.toInt(), 0xFFC8221A.toInt(), whiteC, "HELLO, FRIEND", "fsociety.dat",
+        Typeface.create("sans-serif", Typeface.BOLD), 0.08f, 1.25f,
+        listOf(0.0f to 0f, 0.45f to Float.NaN, 0.50f to 0f),
+        listOf(
+            "$ whoami  -> root",
+            "$ echo \"hello, friend.\"",
+            "$ control is an illusion.",
+            "$ is any of it real?",
+            "$ we are fsociety. we are finally free.",
+            "$ our democracy has been hacked.",
+            "$ bonsoir, elliot.",
+            "$ people always make the best exploits.",
+            "$ give a man a bank, he can rob the world.",
+            "$ a bug is never just a mistake.",
+            "$ hello, friend? that's lame.",
+            "$ we're here to make a change.",
+            "$ dreams don't work unless you do.",
+            "$ the system is a lie.",
+            "$ e corp: our business is life itself",
+            "$ evil corp ledger... encrypted [OK]",
+            "$ ./fuxsocy.py --stage 2",
+            "$ steel mountain hvac: compromised",
+            "$ raspberry_pi: planted. listening.",
+            "$ dark army: five/nine is coming",
+            "$ allsafe ids: 0 alerts. lol.",
+            "$ ecoin wallet: frozen",
+            "$ sniff --ble --wifi --passive",
+            "$ rx_only=true  tx=0  // never touch",
+            "$ mr. robot is watching_",
+            "$ the world is a hoax. stay awake.",
+            "$ fsociety: we are legion_"
+        )
+    )
+
+    private val skin get() = if (style == Style.FSOCIETY) fsociety else dedsec
+
+    private val sticker = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val posterPaint = Paint(Paint.FILTER_BITMAP_FLAG)
+
+    /** The wordmark in heavy condensed white letters, rendered once and then drawn in slices. */
     private var wordmark: android.graphics.Bitmap? = null
-    private val pixelPaint = Paint().apply { isFilterBitmap = false; isAntiAlias = false }
+    private val pixelPaint = Paint(Paint.FILTER_BITMAP_FLAG)
     private fun wordmarkBitmap(): android.graphics.Bitmap {
         wordmark?.let { return it }
-        val p = Paint().apply { isAntiAlias = false; typeface = mono; textSize = 13f; color = whiteC; isFakeBoldText = true }
-        val fm = p.fontMetrics
-        val bmp = android.graphics.Bitmap.createBitmap(
-            kotlin.math.ceil(p.measureText("RF_SENTINEL")).toInt() + 2,
-            kotlin.math.ceil(fm.descent - fm.ascent).toInt() + 1,
-            android.graphics.Bitmap.Config.ARGB_8888
-        )
-        Canvas(bmp).drawText("RF_SENTINEL", 1f, -fm.ascent, p)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = skin.font
+            textSize = 120f; color = skin.ink; letterSpacing = skin.spacing
+            // A light stroke on top of the bold face makes it chunkier, like the game's logo.
+            style = Paint.Style.FILL_AND_STROKE; strokeWidth = 3f
+        }
+        // Crop tightly to the ink so the letters fill the box.
+        val b = android.graphics.Rect()
+        p.getTextBounds("RF_SENTINEL", 0, 11, b)
+        val bmp = android.graphics.Bitmap.createBitmap(b.width() + 8, b.height() + 8, android.graphics.Bitmap.Config.ARGB_8888)
+        Canvas(bmp).drawText("RF_SENTINEL", 4f - b.left, 4f - b.top, p)
         return bmp.also { wordmark = it }
     }
 
@@ -188,83 +237,96 @@ class ThemeHeaderView @JvmOverloads constructor(
         val w = width.toFloat(); val h = height.toFloat()
         canvas.drawColor(blackC)
 
-        // Pixel skull: white body with black diagonal hatching, like a screen-printed poster.
-        // Black and white only; pink shows up just as a glitch flash and the eye glints.
         val bottomBar = 30 * d
-        val cell = min(6.4f * d, (h - bottomBar - 12 * d) / skull.size)
-        val sx = 6 * d; val sy = 6 * d
-        val jitter = if (glitching) Random.nextInt(-3, 4) * d else 0f
-        fun skullCells(dx: Float, dy: Float, color: Int) {
-            fill.color = color
-            skull.forEachIndexed { r, row ->
-                row.forEachIndexed { c, ch ->
-                    if (ch == '#') canvas.drawRect(sx + dx + c * cell, sy + dy + r * cell, sx + dx + (c + 1) * cell, sy + dy + (r + 1) * cell, fill)
-                }
+        // Wide banner art fills the header; the bottom fades to black under the
+        // wordmark, stamp and terminal so they stay readable.
+        val art = poster
+        val ox = 0f
+        if (art != null) {
+            posterPaint.isFilterBitmap = true
+            // Centre-crop to the header's shape so the banner isn't squashed.
+            val crop = if (art.width * h > w * art.height) {
+                val cw = (art.height * w / h).toInt()
+                android.graphics.Rect((art.width - cw) / 2, 0, (art.width + cw) / 2, art.height)
+            } else {
+                val ch = (art.width * h / w).toInt()
+                android.graphics.Rect(0, (art.height - ch) / 2, art.width, (art.height + ch) / 2)
             }
+            canvas.drawBitmap(art, crop, RectF(0f, 0f, w, h), posterPaint)
+            if (glitching) repeat(3) {
+                val sy0 = Random.nextFloat() * h; val sh = Random.nextInt(3, 12) * d
+                val srcY = crop.top + (sy0 / h * crop.height()).toInt()
+                val srcH = (sh / h * crop.height()).toInt().coerceAtLeast(1)
+                val off = Random.nextInt(-8, 9) * d
+                canvas.drawBitmap(art, android.graphics.Rect(crop.left, srcY, crop.right, (srcY + srcH).coerceAtMost(crop.bottom)), RectF(off, sy0, w + off, sy0 + sh), posterPaint)
+            }
+            fill.color = blackC  // opaque: the paint alpha scales the gradient
+            fill.shader = android.graphics.LinearGradient(0f, h * 0.36f, 0f, h * 0.58f, 0x00050505, 0xF0050505.toInt(), android.graphics.Shader.TileMode.CLAMP)
+            canvas.drawRect(0f, h * 0.36f, w, h, fill)
+            fill.shader = null
         }
-        if (glitching) skullCells(3 * d + jitter, 0f, pinkC)
-        skullCells(0f, 0f, whiteC)
-        val skullW = skull[0].length * cell; val skullH = skull.size * cell
-        hatch(canvas, sx, sy, sx + skullW, sy + skullH, 3.2f * d)
-        // Hollow sockets with a small pink glint that blinks now and then.
-        if ((now / 700) % 6 != 0L) {
-            fill.color = pinkC
-            canvas.drawRect(sx + 4 * cell, sy + 6 * cell, sx + 5 * cell, sy + 7 * cell, fill)
-            canvas.drawRect(sx + 12 * cell, sy + 6 * cell, sx + 13 * cell, sy + 7 * cell, fill)
-        }
+        val sx = ox + 8 * d; val sy = 6 * d
 
-        // Pixel wordmark with a hard grey drop shadow; sliced sideways while glitching.
-        val tx = sx + skullW + 14 * d
+        // Wordmark: at the top on its own, or low over the banner's dark fade.
+        val tx = sx
         val bmp = wordmarkBitmap()
-        val markW = min(w - tx - 8 * d, 230 * d)
-        val markH = markW * bmp.height / bmp.width
-        val top = sy + 2 * d
+        val markW = if (art != null) min(w * 0.5f, 190 * d) else min(w - tx - 8 * d, 230 * d)
+        // Stretched taller than the font, like the game's tall condensed logo.
+        val markH = markW * bmp.height / bmp.width * skin.stretch
+        val top = if (art != null) h - bottomBar - 10 * d - markH - 4 * d else sy + 2 * d
         val dst = RectF(tx, top, tx + markW, top + markH)
-        pixelPaint.colorFilter = android.graphics.PorterDuffColorFilter(if (glitching) pinkC else 0xFF555555.toInt(), android.graphics.PorterDuff.Mode.SRC_IN)
-        canvas.drawBitmap(bmp, null, RectF(dst.left + 3 * d, dst.top + 3 * d, dst.right + 3 * d, dst.bottom + 3 * d), pixelPaint)
-        pixelPaint.colorFilter = null
-        if (glitching) {
-            val bands = 4
-            for (i in 0 until bands) {
-                canvas.save()
-                val b0 = dst.top + i * markH / bands
-                canvas.clipRect(0f, b0, w, b0 + markH / bands + 1)
-                val off = Random.nextInt(-10, 11) * d
-                canvas.drawBitmap(bmp, null, RectF(dst.left + off, dst.top, dst.right + off, dst.bottom), pixelPaint)
-                canvas.restore()
+        // Sliced like a torn screen: bands shifted sideways with thin gaps between them.
+        val markTop = dst.top + 4 * d
+        val markBox = RectF(dst.left, markTop, dst.right, markTop + markH)
+        val cuts = skin.cuts
+        for (i in cuts.indices) {
+            val (f0, shift) = cuts[i]
+            if (shift.isNaN()) continue
+            val f1 = if (i + 1 < cuts.size) cuts[i + 1].first else 1f
+            val y0 = markBox.top + f0 * markH; val y1 = markBox.top + f1 * markH - 0.8f * d
+            if (y1 <= y0) continue
+            val off = (if (glitching) shift + Random.nextInt(-8, 9) else shift) * d
+            canvas.save()
+            canvas.clipRect(0f, y0, w, y1)
+            if (glitching && i % 2 == 1) {
+                pixelPaint.colorFilter = android.graphics.PorterDuffColorFilter(skin.flash, android.graphics.PorterDuff.Mode.SRC_IN)
+                canvas.drawBitmap(bmp, null, RectF(markBox.left + off + 3 * d, markBox.top, markBox.right + off + 3 * d, markBox.bottom), pixelPaint)
+                pixelPaint.colorFilter = null
             }
-        } else {
-            canvas.drawBitmap(bmp, null, dst, pixelPaint)
+            canvas.drawBitmap(bmp, null, RectF(markBox.left + off, markBox.top, markBox.right + off, markBox.bottom), pixelPaint)
+            canvas.restore()
         }
-        hatch(canvas, dst.left, dst.top, dst.right, dst.bottom, 4.5f * d, 0.8f * d)
+        dst.bottom = markBox.bottom
 
         // Boxed label: hard white frame, like a stamped sign.
         sticker.typeface = mono; sticker.textSize = 13 * d; sticker.isFakeBoldText = true
         sticker.textAlign = Paint.Align.LEFT
-        val label = "RX ONLY · NO TX"
+        val label = skin.label
         val lw = sticker.measureText(label) + 16 * d
-        val ly = dst.bottom + 10 * d
         val lh = 22 * d
-        if (ly + lh < h - bottomBar - 2 * d) {
+        // Under the wordmark, or beside it when it sits over the banner.
+        val lx = if (art != null) dst.right + 12 * d else tx
+        val ly = if (art != null) dst.bottom - lh else dst.bottom + 10 * d
+        if (ly + lh < h - bottomBar - 2 * d + 1 && lx + lw < w - 4 * d) {
             fill.color = blackC
-            canvas.drawRect(tx, ly, tx + lw, ly + lh, fill)
+            canvas.drawRect(lx, ly, lx + lw, ly + lh, fill)
             line.color = whiteC; line.strokeWidth = 2 * d
-            canvas.drawRect(tx, ly, tx + lw, ly + lh, line)
+            canvas.drawRect(lx, ly, lx + lw, ly + lh, line)
             sticker.color = whiteC
-            canvas.drawText(label, tx + 8 * d, ly + lh * 0.7f, sticker)
+            canvas.drawText(label, lx + 8 * d, ly + lh * 0.7f, sticker)
         }
 
-        // Retro OS popup along the bottom: pink title bar with _ [] X, the terminal line typing inside.
+        // Retro OS popup along the bottom: accent title bar with _ [] X, the terminal line typing inside.
         val wy = h - bottomBar
         val barH = 11 * d
         fill.color = blackC
-        canvas.drawRect(2 * d, wy, w - 2 * d, h - 2 * d, fill)
-        fill.color = pinkC
-        canvas.drawRect(2 * d, wy, w - 2 * d, wy + barH, fill)
+        canvas.drawRect(ox + 2 * d, wy, w - 2 * d, h - 2 * d, fill)
+        fill.color = skin.accent
+        canvas.drawRect(ox + 2 * d, wy, w - 2 * d, wy + barH, fill)
         line.color = whiteC; line.strokeWidth = 1.5f * d
-        canvas.drawRect(2 * d, wy, w - 2 * d, h - 2 * d, line)
+        canvas.drawRect(ox + 2 * d, wy, w - 2 * d, h - 2 * d, line)
         sub.color = blackC; sub.textSize = 9 * d; sub.typeface = mono; sub.isFakeBoldText = true
-        canvas.drawText("rf_sentinel.exe", 7 * d, wy + barH * 0.78f, sub)
+        canvas.drawText(skin.window, ox + 7 * d, wy + barH * 0.78f, sub)
         val box = 7 * d
         for (i in 0 until 3) {
             val bx = w - 8 * d - (3 - i) * (box + 3 * d)
@@ -281,36 +343,26 @@ class ThemeHeaderView @JvmOverloads constructor(
             }
         }
         val cycle = (now - start) / 4500
+        val lines = skin.lines
         val lineText = lines[(cycle % lines.size).toInt()]
         val typed = (((now - start) % 4500) / 45).toInt().coerceAtMost(lineText.length)
         sub.color = whiteC; sub.textSize = 11 * d; sub.isFakeBoldText = false
         val cursor = if ((now / 450) % 2 == 0L) "█" else " "
-        canvas.drawText(lineText.take(typed) + cursor, 7 * d, h - 7 * d, sub)
+        canvas.save(); canvas.clipRect(ox + 3 * d, wy, w - 3 * d, h)
+        canvas.drawText(lineText.take(typed) + cursor, ox + 7 * d, h - 8 * d, sub)
+        canvas.restore()
         sub.textSize = 12 * d
 
-        // Glitch burst: white and pink slabs.
+        // Glitch burst: white and accent slabs.
         if (glitching) {
             repeat(8) {
-                fill.color = if (Random.nextInt(3) == 0) pinkC else whiteC
-                val bx = Random.nextFloat() * w; val by = Random.nextFloat() * (h - bottomBar)
+                fill.color = if (Random.nextInt(3) == 0) skin.accent else whiteC
+                val bx = ox + Random.nextFloat() * (w - ox); val by = Random.nextFloat() * (h - bottomBar)
                 canvas.drawRect(bx, by, bx + Random.nextInt(6, 60) * d, by + Random.nextInt(1, 5) * d, fill)
             }
         }
         scanlines(canvas, 0x10FFFFFF)
         return if (glitching) 40 else 90
-    }
-
-    /** Black diagonal hatch lines over a box: the scanned / screen-printed poster texture. */
-    private fun hatch(canvas: Canvas, l: Float, t: Float, r: Float, b: Float, gap: Float, width: Float = 1.1f * d) {
-        canvas.save()
-        canvas.clipRect(l, t, r, b)
-        line.color = blackC; line.strokeWidth = width
-        var x = l - (b - t)
-        while (x < r) {
-            canvas.drawLine(x, b, x + (b - t), t, line)
-            x += gap
-        }
-        canvas.restore()
     }
 
     // ---- HUD (Night Drive) ----------------------------------------------------

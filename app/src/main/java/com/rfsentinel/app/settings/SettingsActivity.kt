@@ -23,6 +23,14 @@ import com.rfsentinel.app.util.applySystemBarInsets
 import kotlinx.coroutines.launch
 
 class SettingsActivity : AppCompatActivity() {
+
+    companion object {
+        /**
+         * Scroll position to restore after a theme change restyles this screen
+         * (possibly twice: ours + AppCompat's night-mode switch).
+         */
+        private var resumeScroll: Int? = null
+    }
     private lateinit var binding: ActivitySettingsBinding
     private var stopObservingPrefetch: (() -> Unit)? = null
     private var stopObservingDeflock: (() -> Unit)? = null
@@ -252,11 +260,20 @@ class SettingsActivity : AppCompatActivity() {
                 isChecked = t == current
                 setOnCheckedChangeListener { _, checked ->
                     if (checked && t != ThemeManager.current(this@SettingsActivity)) {
+                        resumeScroll = binding.root.scrollY
                         ThemeManager.set(this@SettingsActivity, t)
                         recreate()
                     }
                 }
             })
+        }
+
+        resumeScroll?.let { y ->
+            binding.root.post {
+                if (isFinishing || isDestroyed) return@post
+                binding.root.scrollTo(0, y)
+                resumeScroll = null
+            }
         }
 
         binding.runSetupButton.setOnClickListener {

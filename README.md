@@ -27,14 +27,14 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/list-dedsec.jpg" width="270" alt="List view with demo detections (DedSec theme)" />
+  <img src="docs/screenshots/list-dedsec.jpg" width="270" alt="List view with demo detections (DedSec theme, Watch Dogs 2-inspired)" />
   &nbsp;&nbsp;
-  <img src="docs/screenshots/radar-dedsec.jpg" width="270" alt="Radar view with demo detections (DedSec theme)" />
+  <img src="docs/screenshots/list-fsociety.jpg" width="270" alt="List view with demo detections (fsociety theme, Mr. Robot-inspired)" />
 </p>
 <p align="center">
   <img src="docs/screenshots/android-auto/navigation.jpg" width="560" alt="Android Auto: live map with nearby devices and OpenStreetMap navigation" />
 </p>
-<p align="center"><sub>List and radar views (DedSec theme), and the Android Auto live map with navigation. Demo data. <a href="#themes">See all 12 themes</a> · <a href="#android-auto">Android Auto</a>.</sub></p>
+<p align="center"><sub>The DedSec (Watch Dogs 2) and fsociety (Mr. Robot) themes, and the Android Auto live map with navigation. Demo data. <a href="#themes">See all 13 themes</a> · <a href="#android-auto">Android Auto</a>.</sub></p>
 
 <p align="center">
   <a href="https://github.com/CIS-C0/RFSentinel/stargazers"><img src="docs/star-banner.svg" width="560" alt="Like RF Sentinel? Give it a star on GitHub - it's free, takes one click and helps others find it" /></a>
@@ -107,16 +107,16 @@ publicly.
 - Decoded Apple Continuity, iBeacon, Eddystone, Fast Pair and ASTM F3411 Remote ID
 
 **Interface**
-- Live list and radar view, with filters and search
+- Live list and radar view, with filter chips showing live counts (flagged, trackers, drones, new, ESP32, favorites, Bluetooth, WiFi) and search
 - Device details: evidence, identity, signal graph, **Locate** mode, history and raw advertisement
-- OpenStreetMap map with recorded GPS traces and the devices heard along them
+- OpenStreetMap map with recorded GPS traces and the devices heard along them, the same filter chips, and self-centering that follows you until you pan away
 - **History map & timeline:** a heatmap of where flagged equipment showed up, and when (hour of day, day of week)
-- Alerts with sound, vibration patterns and spoken announcements, plus a discreet mode
+- Alerts with sound, vibration patterns and spoken announcements through the phone's own speech engine (prioritised, no stale or repeated phrases, voice and speed pickers), plus a discreet mode
 - **Floating threat bubble** over Waze, Google Maps or any other app while scanning
 - **Starts by itself in the car** (your car's Bluetooth or Android Auto) and stops when you leave
 - Android Auto app with a map of nearby cameras and drones, Quick Settings tile and home-screen widget
 - **Report unknown device:** share a privacy-safe signature (no full address, serials, location or times) so new equipment can be added
-- 12 themes, each styled theme with its own animated header
+- 13 themes, each styled theme with its own animated header - including **DedSec** (Watch Dogs 2) and **fsociety** (Mr. Robot) fan themes with full-width poster banners and typing terminals
 
 **Data**
 - Export as CSV, JSON, KML, GPX or GeoJSON
@@ -181,7 +181,7 @@ The app never connects to a device. The details screen shows:
 
 ### Map and traces
 
-- The **map** (the floating **Map** button on the main screen) shows your
+- The **map** (the **Map** button next to the list / radar toggle) shows your
   position, the trace being recorded, and every device heard around you as a dot
   in the same colours as the list and radar, placed where your phone was when its
   signal was strongest. That approximates the device's position, not a fix: only
@@ -319,7 +319,8 @@ Pick a theme in the setup wizard or under **Settings → Appearance**.
 
 | Theme | Look |
 |---|---|
-| **DedSec** | Watch Dogs 2-style hacktivist zine: black and white with hot pink and violet, halftone print, a hatched pixel skull, a glitching pixel wordmark and a retro-OS terminal that bypasses ctOS |
+| **DedSec** | Watch Dogs 2-style: black and white with electric blue, a full-width DedSec poster banner, a sliced Watch Dogs 2-style wordmark and a `marcus@ctOS-2.0` terminal typing hacktivist lines |
+| **fsociety** | Mr. Robot-style: black and blood red, a full-width fsociety poster banner, a red striped wordmark and a `root@fsociety` terminal typing quotes from the show |
 | **Night Drive** | Red-only cockpit HUD. Every colour is mapped to red to preserve night vision while driving |
 | **Night Vision** | Green phosphor image intensifier with grain and a scope vignette |
 | **Amber CRT** | 1980s terminal with a blinking cursor and scanlines |
@@ -330,18 +331,20 @@ Pick a theme in the setup wizard or under **Settings → Appearance**.
 | **System / Light / Dark / Material You** | Standard looks. Material You follows your wallpaper colours |
 
 <table>
-<tr><td align="center"><img src="docs/screenshots/themes/dedsec-list.jpg" width="190" alt="DedSec theme, list view" /><br/><sub><b>DedSec</b></sub></td><td align="center"><img src="docs/screenshots/themes/night-drive-list.jpg" width="190" alt="Night Drive theme, list view" /><br/><sub><b>Night Drive</b></sub></td><td align="center"><img src="docs/screenshots/themes/night-vision-list.jpg" width="190" alt="Night Vision theme, list view" /><br/><sub><b>Night Vision</b></sub></td><td align="center"><img src="docs/screenshots/themes/amber-list.jpg" width="190" alt="Amber CRT theme, list view" /><br/><sub><b>Amber CRT</b></sub></td></tr>
-<tr><td align="center"><img src="docs/screenshots/themes/synthwave-list.jpg" width="190" alt="Synthwave theme, list view" /><br/><sub><b>Synthwave</b></sub></td><td align="center"><img src="docs/screenshots/themes/tactical-list.jpg" width="190" alt="Tactical theme, list view" /><br/><sub><b>Tactical</b></sub></td><td align="center"><img src="docs/screenshots/themes/blueprint-list.jpg" width="190" alt="Blueprint theme, list view" /><br/><sub><b>Blueprint</b></sub></td><td align="center"><img src="docs/screenshots/themes/paper-list.jpg" width="190" alt="Paper theme, list view" /><br/><sub><b>Paper</b></sub></td></tr>
-<tr><td align="center"><img src="docs/screenshots/themes/system-list.jpg" width="190" alt="System theme, list view" /><br/><sub><b>System</b></sub></td><td align="center"><img src="docs/screenshots/themes/light-list.jpg" width="190" alt="Light theme, list view" /><br/><sub><b>Light</b></sub></td><td align="center"><img src="docs/screenshots/themes/dark-list.jpg" width="190" alt="Dark theme, list view" /><br/><sub><b>Dark</b></sub></td><td align="center"><img src="docs/screenshots/themes/material-you-list.jpg" width="190" alt="Material You theme, list view" /><br/><sub><b>Material You</b></sub></td></tr>
+<tr><td align="center"><img src="docs/screenshots/themes/dedsec-list.jpg" width="190" alt="DedSec theme, list view" /><br/><sub><b>DedSec</b></sub></td><td align="center"><img src="docs/screenshots/themes/fsociety-list.jpg" width="190" alt="fsociety theme, list view" /><br/><sub><b>fsociety</b></sub></td><td align="center"><img src="docs/screenshots/themes/night-drive-list.jpg" width="190" alt="Night Drive theme, list view" /><br/><sub><b>Night Drive</b></sub></td><td align="center"><img src="docs/screenshots/themes/night-vision-list.jpg" width="190" alt="Night Vision theme, list view" /><br/><sub><b>Night Vision</b></sub></td></tr>
+<tr><td align="center"><img src="docs/screenshots/themes/amber-list.jpg" width="190" alt="Amber CRT theme, list view" /><br/><sub><b>Amber CRT</b></sub></td><td align="center"><img src="docs/screenshots/themes/synthwave-list.jpg" width="190" alt="Synthwave theme, list view" /><br/><sub><b>Synthwave</b></sub></td><td align="center"><img src="docs/screenshots/themes/tactical-list.jpg" width="190" alt="Tactical theme, list view" /><br/><sub><b>Tactical</b></sub></td><td align="center"><img src="docs/screenshots/themes/blueprint-list.jpg" width="190" alt="Blueprint theme, list view" /><br/><sub><b>Blueprint</b></sub></td></tr>
+<tr><td align="center"><img src="docs/screenshots/themes/paper-list.jpg" width="190" alt="Paper theme, list view" /><br/><sub><b>Paper</b></sub></td><td align="center"><img src="docs/screenshots/themes/system-list.jpg" width="190" alt="System theme, list view" /><br/><sub><b>System</b></sub></td><td align="center"><img src="docs/screenshots/themes/light-list.jpg" width="190" alt="Light theme, list view" /><br/><sub><b>Light</b></sub></td><td align="center"><img src="docs/screenshots/themes/dark-list.jpg" width="190" alt="Dark theme, list view" /><br/><sub><b>Dark</b></sub></td></tr>
+<tr><td align="center"><img src="docs/screenshots/themes/material-you-list.jpg" width="190" alt="Material You theme, list view" /><br/><sub><b>Material You</b></sub></td></tr>
 </table>
 
 <details>
 <summary><b>Radar view in every theme</b></summary>
 
 <table>
-<tr><td align="center"><img src="docs/screenshots/themes/dedsec-radar.jpg" width="190" alt="DedSec theme, radar view" /><br/><sub><b>DedSec</b></sub></td><td align="center"><img src="docs/screenshots/themes/night-drive-radar.jpg" width="190" alt="Night Drive theme, radar view" /><br/><sub><b>Night Drive</b></sub></td><td align="center"><img src="docs/screenshots/themes/night-vision-radar.jpg" width="190" alt="Night Vision theme, radar view" /><br/><sub><b>Night Vision</b></sub></td><td align="center"><img src="docs/screenshots/themes/amber-radar.jpg" width="190" alt="Amber CRT theme, radar view" /><br/><sub><b>Amber CRT</b></sub></td></tr>
-<tr><td align="center"><img src="docs/screenshots/themes/synthwave-radar.jpg" width="190" alt="Synthwave theme, radar view" /><br/><sub><b>Synthwave</b></sub></td><td align="center"><img src="docs/screenshots/themes/tactical-radar.jpg" width="190" alt="Tactical theme, radar view" /><br/><sub><b>Tactical</b></sub></td><td align="center"><img src="docs/screenshots/themes/blueprint-radar.jpg" width="190" alt="Blueprint theme, radar view" /><br/><sub><b>Blueprint</b></sub></td><td align="center"><img src="docs/screenshots/themes/paper-radar.jpg" width="190" alt="Paper theme, radar view" /><br/><sub><b>Paper</b></sub></td></tr>
-<tr><td align="center"><img src="docs/screenshots/themes/system-radar.jpg" width="190" alt="System theme, radar view" /><br/><sub><b>System</b></sub></td><td align="center"><img src="docs/screenshots/themes/light-radar.jpg" width="190" alt="Light theme, radar view" /><br/><sub><b>Light</b></sub></td><td align="center"><img src="docs/screenshots/themes/dark-radar.jpg" width="190" alt="Dark theme, radar view" /><br/><sub><b>Dark</b></sub></td><td align="center"><img src="docs/screenshots/themes/material-you-radar.jpg" width="190" alt="Material You theme, radar view" /><br/><sub><b>Material You</b></sub></td></tr>
+<tr><td align="center"><img src="docs/screenshots/themes/dedsec-radar.jpg" width="190" alt="DedSec theme, radar view" /><br/><sub><b>DedSec</b></sub></td><td align="center"><img src="docs/screenshots/themes/fsociety-radar.jpg" width="190" alt="fsociety theme, radar view" /><br/><sub><b>fsociety</b></sub></td><td align="center"><img src="docs/screenshots/themes/night-drive-radar.jpg" width="190" alt="Night Drive theme, radar view" /><br/><sub><b>Night Drive</b></sub></td><td align="center"><img src="docs/screenshots/themes/night-vision-radar.jpg" width="190" alt="Night Vision theme, radar view" /><br/><sub><b>Night Vision</b></sub></td></tr>
+<tr><td align="center"><img src="docs/screenshots/themes/amber-radar.jpg" width="190" alt="Amber CRT theme, radar view" /><br/><sub><b>Amber CRT</b></sub></td><td align="center"><img src="docs/screenshots/themes/synthwave-radar.jpg" width="190" alt="Synthwave theme, radar view" /><br/><sub><b>Synthwave</b></sub></td><td align="center"><img src="docs/screenshots/themes/tactical-radar.jpg" width="190" alt="Tactical theme, radar view" /><br/><sub><b>Tactical</b></sub></td><td align="center"><img src="docs/screenshots/themes/blueprint-radar.jpg" width="190" alt="Blueprint theme, radar view" /><br/><sub><b>Blueprint</b></sub></td></tr>
+<tr><td align="center"><img src="docs/screenshots/themes/paper-radar.jpg" width="190" alt="Paper theme, radar view" /><br/><sub><b>Paper</b></sub></td><td align="center"><img src="docs/screenshots/themes/system-radar.jpg" width="190" alt="System theme, radar view" /><br/><sub><b>System</b></sub></td><td align="center"><img src="docs/screenshots/themes/light-radar.jpg" width="190" alt="Light theme, radar view" /><br/><sub><b>Light</b></sub></td><td align="center"><img src="docs/screenshots/themes/dark-radar.jpg" width="190" alt="Dark theme, radar view" /><br/><sub><b>Dark</b></sub></td></tr>
+<tr><td align="center"><img src="docs/screenshots/themes/material-you-radar.jpg" width="190" alt="Material You theme, radar view" /><br/><sub><b>Material You</b></sub></td></tr>
 </table>
 
 </details>
@@ -470,11 +473,13 @@ was re-checked against its IEEE registrant; see
 [docs/SIGNATURES.md](docs/SIGNATURES.md#community-lists-compared-2026-10). Known
 plate-reader locations come from [DeFlock](https://github.com/FoggedLens/deflock)'s
 snapshot of OpenStreetMap, mapped by its volunteers (data © OpenStreetMap
-contributors, ODbL) - thank you. The DedSec theme font is Share Tech Mono (SIL Open
-Font License 1.1). The DedSec theme is an unofficial fan homage to Watch Dogs: all
-its art is original and it contains no Ubisoft artwork or logos. Watch Dogs, DedSec,
-ctOS and Blume are trademarks of Ubisoft; RF Sentinel is not affiliated with or
-endorsed by Ubisoft.
+contributors, ODbL) - thank you. The DedSec and fsociety theme font is Share Tech
+Mono (SIL Open Font License 1.1). The DedSec theme is an unofficial fan homage to
+Watch Dogs; its header poster uses DedSec imagery. Watch Dogs, DedSec, ctOS and Blume
+are trademarks of Ubisoft. The fsociety theme is an unofficial fan homage to Mr. Robot
+and quotes short lines from the show; Mr. Robot is a trademark of Universal Content
+Productions. RF Sentinel is not affiliated with or endorsed by Ubisoft, USA Network
+or NBCUniversal.
 
 ## License
 

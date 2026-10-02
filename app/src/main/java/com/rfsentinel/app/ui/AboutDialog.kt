@@ -37,9 +37,10 @@ object AboutDialog {
             &bull; Google Find Hub Network accessory spec; arXiv 2501.17452 (trackers)<br/>
             &bull; Research by ryanohoro and GainSec (Flock); Alan Meekins' DEF CON 31 talk (Axon)<br/><br/>
 
-            DedSec and Night Vision theme font: Share Tech Mono &copy; Carrois Type Design, SIL Open Font
-            License 1.1 (assets/licenses). "DedSec" is a name from Ubisoft's Watch Dogs; this
-            theme is an unofficial, original homage and includes no Ubisoft artwork.<br/><br/>
+            DedSec, fsociety and Night Vision theme font: Share Tech Mono &copy; Carrois Type Design, SIL Open Font
+            License 1.1 (assets/licenses). "DedSec" is a name from Ubisoft's Watch Dogs and "fsociety"
+            from Mr. Robot (Universal Content Productions); these themes are unofficial fan homages,
+            not affiliated with or endorsed by Ubisoft, USA Network or NBCUniversal.<br/><br/>
 
             Feature ideas from SØPHIA, BLE Radar (MetaRadar) and RF Party; no code from
             those projects is included.<br/><br/>

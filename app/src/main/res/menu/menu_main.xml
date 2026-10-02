@@ -8,11 +8,6 @@
         app:actionViewClass="androidx.appcompat.widget.SearchView"
         app:showAsAction="ifRoom|collapseActionView" />
     <item
-        android:id="@+id/action_map"
-        android:icon="@drawable/ic_map"
-        android:title="Map"
-        app:showAsAction="ifRoom" />
-    <item
         android:id="@+id/action_mute"
         android:icon="@drawable/ic_car_volume"
         android:title="Mute alerts"

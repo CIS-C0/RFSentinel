@@ -22,6 +22,7 @@ object ThemeManager {
      * @param header animated wordmark drawn above the main screen (null = none)
      * @param appTitle action-bar title on the main screen
      * @param night true for dark themes, false for light, null to follow the phone
+     * @param headerImage bundled header art shown instead of the animated wordmark
      */
     enum class AppTheme(
         val title: String,
@@ -29,14 +30,18 @@ object ThemeManager {
         val style: Int = R.style.Theme_RFSentinel,
         val night: Boolean? = null,
         val header: ThemeHeaderView.Style? = null,
-        val appTitle: String? = null
+        val appTitle: String? = null,
+        val headerImage: Int? = null
     ) {
+        // Featured fan themes first in the pickers.
+        DEDSEC("DedSec", "Watch Dogs 2 hacktivist homage: black & electric blue, hooded-skull poster, glitching wordmark, ctOS-busting terminal",
+            R.style.Theme_RFSentinel_DedSec, true, ThemeHeaderView.Style.GLITCH, "marcus@ctOS-2.0:~$", R.drawable.dedsec_header),
+        FSOCIETY("fsociety", "Mr. Robot homage: black & blood red, fsociety poster, a terminal full of quotes from the show",
+            R.style.Theme_RFSentinel_Fsociety, true, ThemeHeaderView.Style.FSOCIETY, "root@fsociety:~#", R.drawable.fsociety_header),
         SYSTEM("System default", "Teal - follows your phone's light / dark setting"),
         LIGHT("Light", "Always light", night = false),
         DARK("Dark", "Always dark", night = true),
         MATERIAL_YOU("Material You", "Material 3, coloured from your wallpaper (Android 12+)", R.style.Theme_RFSentinel_MaterialYou),
-        DEDSEC("DedSec", "Watch Dogs 2 hacktivist homage: black & white zine, hot pink & violet, glitching pixel skull, ctOS-busting terminal",
-            R.style.Theme_RFSentinel_DedSec, true, ThemeHeaderView.Style.GLITCH, "> RF_SENTINEL_"),
         NIGHT_DRIVE("Night Drive", "Red-only cockpit lighting that keeps your night vision on dark roads",
             R.style.Theme_RFSentinel_NightDrive, true, ThemeHeaderView.Style.HUD, "RF SENTINEL"),
         NIGHT_VISION("Night Vision", "Green phosphor image intensifier with grain and a scope vignette",
@@ -62,6 +67,10 @@ object ThemeManager {
     fun current(context: Context): AppTheme =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null)
             ?.let { runCatching { AppTheme.valueOf(it) }.getOrNull() } ?: AppTheme.SYSTEM
+
+    /** True once the user has picked a theme (the setup wizard requires one). */
+    fun isChosen(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).contains(KEY)
 
     fun set(context: Context, theme: AppTheme) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString(KEY, theme.name) }
