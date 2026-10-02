@@ -75,8 +75,12 @@ class MapActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMapBinding
     private var tripId: Long? = null
     private var trip: TripEntity? = null
-    private var showAll = true
+    /** Which devices the map shows (live: every filter; a saved trace: all or flagged). */
+    private var filter = DeviceFilter.ALL
+    private val filterChips = HashMap<DeviceFilter, com.google.android.material.chip.Chip>()
     private var centeredOnce = false
+    /** The map keeps your position centred until you pan it yourself. */
+    private var following = false
 
     private val trace = Polyline()
     private val pins = FolderOverlay()
@@ -110,14 +114,16 @@ class MapActivity : AppCompatActivity() {
         setupMap()
         binding.map.post { drawKnownAlpr() }
         // Every device heard around you by default (same colours as the list and radar).
-        showAll = com.rfsentinel.app.util.Prefs.mapShowAll(this)
-        binding.showAllChip.isChecked = showAll
-        binding.showAllChip.setOnCheckedChangeListener { _, checked ->
-            showAll = checked
-            com.rfsentinel.app.util.Prefs.setMapShowAll(this, checked)
-            if (tripId != null) loadTrip() else renderLive()
+        setupFilterChips()
+        styleFollowButton()
+        // Outlined "Traces" in the theme highlight (the stock dark teal was unreadable on dark themes).
+        ChipStyle.accent(this).first.let { accent ->
+            binding.tracesButton.setTextColor(accent)
+            binding.tracesButton.strokeColor = android.content.res.ColorStateList.valueOf(accent)
         }
-        binding.centerButton.setOnClickListener { centerOnMe() }
+        binding.centerButton.setOnClickListener {
+            if (tripId == null) setFollow(true) else centerOnMe()
+        }
         binding.tracesButton.setOnClickListener { startActivity(Intent(this, TripsActivity::class.java)) }
 
         if (tripId == null) {
@@ -156,7 +162,11 @@ class MapActivity : AppCompatActivity() {
         map.overlays.add(drones)
         // Redraw the camera layer for the visible area after panning / zooming.
         map.addMapListener(object : org.osmdroid.events.MapListener {
-            override fun onScroll(event: org.osmdroid.events.ScrollEvent?) = false.also { drawKnownAlprSoon() }
+            override fun onScroll(event: org.osmdroid.events.ScrollEvent?) = false.also {
+                drawKnownAlprSoon()
+                // osmdroid stops following when you drag the map: show that on the button.
+                if (following && !myLocation.isFollowLocationEnabled) setFollow(false)
+            }
             override fun onZoom(event: org.osmdroid.events.ZoomEvent?) = false.also {
                 drawKnownAlprSoon()
                 // The fan-out of stacked dots depends on the zoom.
@@ -169,8 +179,10 @@ class MapActivity : AppCompatActivity() {
         if (Permissions.granted(this, android.Manifest.permission.ACCESS_FINE_LOCATION)) {
             myLocation.enableMyLocation()
             if (tripId == null) {
+                // Live map: keep your position centred from the first fix until you pan away.
+                setFollow(true)
                 myLocation.runOnFirstFix {
-                    runOnUiThread { if (!centeredOnce) { centeredOnce = true; centerOnMe() } }
+                    runOnUiThread { if (!centeredOnce) { centeredOnce = true; if (following) centerOnMe() } }
                 }
             }
         }
@@ -201,6 +213,61 @@ class MapActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
+    private fun setupFilterChips() {
+        val options = if (tripId == null) DeviceFilter.entries else listOf(DeviceFilter.ALL, DeviceFilter.FLAGGED)
+        filter = DeviceFilter.parse(com.rfsentinel.app.util.Prefs.mapFilter(this)).takeIf { it in options } ?: DeviceFilter.ALL
+        val group = binding.mapFilterChips
+        for (f in options) {
+            val chip = com.google.android.material.chip.Chip(this, null, com.google.android.material.R.attr.chipStyle).apply {
+                id = View.generateViewId()
+                text = f.label
+                isCheckable = true
+                isCheckedIconVisible = false
+                ChipStyle.apply(this, overMap = true)
+            }
+            filterChips[f] = chip
+            group.addView(chip)
+            if (f == filter) chip.isChecked = true
+        }
+        group.setOnCheckedStateChangeListener { _, ids ->
+            val picked = filterChips.entries.firstOrNull { it.value.id == ids.firstOrNull() }?.key ?: return@setOnCheckedStateChangeListener
+            filter = picked
+            com.rfsentinel.app.util.Prefs.setMapFilter(this, picked.name)
+            if (tripId != null) loadTrip() else renderLive()
+        }
+    }
+
+    /** Chip labels with how many devices each filter would show ("Trackers 2"). */
+    private fun updateFilterCounts(devices: List<DeviceRegistry.Snapshot>) {
+        val placed = devices.filter { it.bestPosition != null }
+        for ((f, chip) in filterChips) {
+            val n = placed.count { f.matches(it) }
+            chip.text = if (f == DeviceFilter.ALL || n > 0) "${f.label} $n" else f.label
+        }
+    }
+
+    /** Turns following on (re-centres now and keeps you centred) or off (after you pan). */
+    private fun setFollow(on: Boolean) {
+        following = on
+        if (on) {
+            myLocation.enableFollowLocation()
+            centerOnMe()
+        } else {
+            myLocation.disableFollowLocation()
+        }
+        styleFollowButton()
+    }
+
+    /** Filled with the theme highlight while following, plain otherwise. */
+    private fun styleFollowButton() {
+        val on = following
+        val (accent, onAccent) = ChipStyle.accent(this)
+        val plain = 0xFFFFFFFF.toInt()
+        binding.centerButton.backgroundTintList = android.content.res.ColorStateList.valueOf(if (on) accent else plain)
+        binding.centerButton.imageTintList = android.content.res.ColorStateList.valueOf(if (on) onAccent else 0xFF0B5C63.toInt())
+        binding.centerButton.contentDescription = if (on) "Following your position" else "Follow my position"
+    }
+
     private fun centerOnMe() {
         val fix = myLocation.myLocation
             ?: TripRecorder.livePoints().lastOrNull()?.let { GeoPoint(it.lat, it.lon) }
@@ -213,7 +280,11 @@ class MapActivity : AppCompatActivity() {
     private fun renderLive() {
         val recording = TripRecorder.isRecording
         binding.recordButton.text = if (recording) "Stop recording" else "Record trace"
-        binding.recordButton.setBackgroundColor(if (recording) 0xFFB3261E.toInt() else 0xFF0B5C63.toInt())
+        val (accent, onAccent) = ChipStyle.accent(this)
+        binding.recordButton.backgroundTintList = android.content.res.ColorStateList.valueOf(if (recording) 0xFFB3261E.toInt() else accent)
+        val recordFg = if (recording) 0xFFFFFFFF.toInt() else onAccent
+        binding.recordButton.setTextColor(recordFg)
+        binding.recordButton.iconTint = android.content.res.ColorStateList.valueOf(recordFg)
 
         trace.setPoints(TripRecorder.livePoints().map { GeoPoint(it.lat, it.lon) })
 
@@ -222,7 +293,7 @@ class MapActivity : AppCompatActivity() {
         val drawn = devices.mapNotNull { s ->
             val pos = s.bestPosition ?: return@mapNotNull null
             val flagged = DeviceColors.isFlagged(s)
-            if (!flagged && !showAll) return@mapNotNull null
+            if (!filter.matches(s)) return@mapNotNull null
             val best = s.best
             Pin(
                 s.mac, pos.lat, pos.lon,
@@ -238,6 +309,7 @@ class MapActivity : AppCompatActivity() {
             )
         }
         drawPins(drawn)
+        updateFilterCounts(devices)
         drawDrones(devices.filter { it.remoteId?.hasPosition == true })
 
         val positioned = devices.count { it.bestPosition != null }
@@ -252,7 +324,7 @@ class MapActivity : AppCompatActivity() {
                 )
             }
             positioned == 0 -> "Scanning · waiting for GPS to place devices"
-            else -> "Scanning · ${drawn.size} on map" + if (!showAll) " (flagged only - tap All devices)" else ""
+            else -> "Scanning · ${drawn.size} on map" + if (filter != DeviceFilter.ALL) " (${filter.label} only)" else ""
         }
         binding.statusText.background.mutate().setTint(if (recording) 0xFFB3261E.toInt() else 0xCC0B5C63.toInt())
         binding.map.invalidate()
@@ -321,7 +393,7 @@ class MapActivity : AppCompatActivity() {
             val points = dao.points(id).map { GeoPoint(it.lat, it.lon) }
             val devices = dao.devices(id)
             trace.setPoints(points)
-            drawPins(devices.filter { it.lat != null && (it.flagged || showAll) }.map { it.toPin() })
+            drawPins(devices.filter { it.lat != null && (it.flagged || filter == DeviceFilter.ALL) }.map { it.toPin() })
             val mins = ((t.endTime ?: System.currentTimeMillis()) - t.startTime) / 60000
             binding.statusText.text = String.format(
                 Locale.US, "%s\n%s · %d:%02d · %.2f km · %s (%d flagged)",

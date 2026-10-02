@@ -7,4 +7,8 @@
     <!-- Action bar colours for the styled themes. -->
     <attr name="rfBarColor" format="color" />
     <attr name="rfTitleColor" format="color" />
+    <!-- Highlight for selected chips and toggles, readable on the theme background
+         (the styled themes fall back to colorPrimary / colorOnPrimary). -->
+    <attr name="rfAccent" format="color" />
+    <attr name="rfOnAccent" format="color" />
 </resources>

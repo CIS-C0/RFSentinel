@@ -60,103 +60,66 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/startStopButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="4dp"
+            android:layout_marginEnd="8dp"
             android:layout_weight="1"
-            android:text="Start scanning" />
+            android:minHeight="52dp"
+            android:text="Start scanning"
+            app:icon="@drawable/ic_car_play"
+            app:iconGravity="textStart" />
 
-        <Button
-            android:id="@+id/viewToggleButton"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="0dp"
+        <!-- List / radar: a two-way toggle reads clearer than one button naming the other view. -->
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/viewToggle"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:layout_weight="1"
-            android:text="Radar view" />
+            app:selectionRequired="true"
+            app:singleSelection="true">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/viewListButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:contentDescription="List view"
+                android:minWidth="56dp"
+                android:minHeight="52dp"
+                app:icon="@drawable/ic_car_list"
+                app:iconPadding="0dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/viewRadarButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:contentDescription="Radar view"
+                android:minWidth="56dp"
+                android:minHeight="52dp"
+                app:icon="@drawable/ic_radar"
+                app:iconPadding="0dp" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
     </LinearLayout>
 
+    <!-- Device filters (built in code from DeviceFilter, with live counts). -->
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
         android:scrollbars="none">
 
         <com.google.android.material.chip.ChipGroup
             android:id="@+id/filterChips"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            app:checkedChip="@id/chipAll"
             app:selectionRequired="true"
             app:singleLine="true"
-            app:singleSelection="true">
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipAll"
-                style="@style/Widget.MaterialComponents.Chip.Choice"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="All" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipFlagged"
-                style="@style/Widget.MaterialComponents.Chip.Choice"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Flagged" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipTrackers"
-                style="@style/Widget.MaterialComponents.Chip.Choice"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Trackers" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipDrones"
-                style="@style/Widget.MaterialComponents.Chip.Choice"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Drones" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipNew"
-                style="@style/Widget.MaterialComponents.Chip.Choice"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="New" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipEsp"
-                style="@style/Widget.MaterialComponents.Chip.Choice"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="ESP32" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipFavorites"
-                style="@style/Widget.MaterialComponents.Chip.Choice"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Favorites" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipBle"
-                style="@style/Widget.MaterialComponents.Chip.Choice"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Bluetooth" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipWifi"
-                style="@style/Widget.MaterialComponents.Chip.Choice"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="WiFi" />
-        </com.google.android.material.chip.ChipGroup>
+            app:singleSelection="true" />
     </HorizontalScrollView>
 
     <FrameLayout

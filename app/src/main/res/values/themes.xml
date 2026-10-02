@@ -11,6 +11,8 @@
         <item name="rfScopeColor">@color/scope</item>
         <item name="rfScopeTextColor">@color/scope_text</item>
         <item name="rfTraceColor">@color/trace</item>
+        <item name="rfAccent">@color/brand_highlight</item>
+        <item name="rfOnAccent">@color/brand_on_highlight</item>
     </style>
 
     <!-- Material You: Material 3 components; colours come from the wallpaper
@@ -46,15 +48,7 @@
         <item name="rfScopeColor">@color/dedsec_green</item>
         <item name="rfScopeTextColor">@color/dedsec_green</item>
         <item name="rfTraceColor">@color/dedsec_magenta</item>
-        <!-- Cut corners on buttons, chips and cards: terminal / street-art edges. -->
-        <item name="shapeAppearanceSmallComponent">@style/DedSec.Cut</item>
-        <item name="shapeAppearanceMediumComponent">@style/DedSec.Cut</item>
         <item name="colorAccent">@color/dedsec_magenta</item>
-    </style>
-
-    <style name="DedSec.Cut" parent="">
-        <item name="cornerFamily">cut</item>
-        <item name="cornerSize">7dp</item>
     </style>
 
     <style name="DedSec.ActionBar" parent="Widget.MaterialComponents.ActionBar.Solid">

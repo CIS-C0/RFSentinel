@@ -44,24 +44,49 @@
             app:trackThickness="6dp" />
     </LinearLayout>
 
+    <!-- Bottom: follow button, device filter chips, controls -->
+    <LinearLayout
+        android:id="@+id/bottomPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical">
+
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/centerButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="end|bottom"
+        android:layout_gravity="end"
         android:layout_marginEnd="14dp"
-        android:layout_marginBottom="84dp"
-        android:contentDescription="Center on my position"
+        android:layout_marginBottom="8dp"
+        android:contentDescription="Follow my position"
         android:src="@drawable/ic_my_location"
         app:fabSize="mini"
         app:tint="#FFFFFF" />
+
+    <HorizontalScrollView
+        android:id="@+id/mapFilterScroll"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clipToPadding="false"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:scrollbars="none">
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/mapFilterChips"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:selectionRequired="true"
+            app:singleLine="true"
+            app:singleSelection="true" />
+    </HorizontalScrollView>
 
     <!-- Bottom controls -->
     <LinearLayout
         android:id="@+id/controls"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
         android:background="?android:attr/colorBackground"
         android:gravity="center_vertical"
         android:orientation="horizontal"
@@ -84,15 +109,8 @@
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="4dp"
             android:layout_weight="1"
             android:text="Traces" />
-
-        <com.google.android.material.chip.Chip
-            android:id="@+id/showAllChip"
-            style="@style/Widget.MaterialComponents.Chip.Filter"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="All devices" />
+    </LinearLayout>
     </LinearLayout>
 </FrameLayout>

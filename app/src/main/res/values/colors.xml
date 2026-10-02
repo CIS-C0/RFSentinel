@@ -2,6 +2,9 @@
     <color name="brand_primary">#0B5C63</color>
     <color name="brand_primary_dark">#073F44</color>
     <color name="brand_accent">#E0622D</color>
+    <!-- Selected chips / toggles: dark teal on light backgrounds, light teal on dark ones. -->
+    <color name="brand_highlight">#0B5C63</color>
+    <color name="brand_on_highlight">#FFFFFF</color>
     <color name="ic_launcher_background">#0B5C63</color>
 
     <color name="match_tag_bg">#C8431A</color>

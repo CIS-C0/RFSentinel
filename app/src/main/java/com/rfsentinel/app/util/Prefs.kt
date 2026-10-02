@@ -106,10 +106,13 @@ object Prefs {
     /** Fetch known cameras for the map area on screen (and around you in the car) automatically. */
     fun autoCameras(context: Context): Boolean = bool(context, "auto_cameras", true)
     fun setAutoCameras(context: Context, value: Boolean) = setBool(context, "auto_cameras", value)
-    /** Map: every device heard (true) or flagged ones only. */
-    fun mapShowAll(context: Context): Boolean = bool(context, "map_show_all", true)
-    fun setMapShowAll(context: Context, value: Boolean) = setBool(context, "map_show_all", value)
-    /** Last destinations picked in the car (newest first, kept on this phone only). */
+    /**
+     * Map device filter (a [com.rfsentinel.app.ui.DeviceFilter] name). Older
+     * versions had only "all devices" on/off: off becomes Flagged.
+     */
+    fun mapFilter(context: Context): String =
+        sp(context).getString("map_filter", null) ?: if (bool(context, "map_show_all", true)) "ALL" else "FLAGGED"
+    fun setMapFilter(context: Context, name: String) = sp(context).edit { putString("map_filter", name) }    /** Last destinations picked in the car (newest first, kept on this phone only). */
     fun recentDestinations(context: Context): List<com.rfsentinel.app.nav.OsmRouting.Destination> = runCatching {
         val json = sp(context).getString("recent_destinations", null) ?: return emptyList()
         com.google.gson.Gson().fromJson(json, Array<com.rfsentinel.app.nav.OsmRouting.Destination>::class.java).toList()

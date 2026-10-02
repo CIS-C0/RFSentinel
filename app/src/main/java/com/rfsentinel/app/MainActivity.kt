@@ -50,11 +50,10 @@ class MainActivity : AppCompatActivity() {
         private const val WHITELIST_COLOR = 0xFF6B7B80.toInt()
     }
 
-    private enum class Filter { ALL, FLAGGED, TRACKERS, DRONES, NEW, ESP32, FAVORITES, BLE, WIFI }
-
     private lateinit var binding: ActivityMainBinding
     private lateinit var adapter: DeviceAdapter
-    private var filter = Filter.ALL
+    private var filter = com.rfsentinel.app.ui.DeviceFilter.ALL
+    private val filterChips = HashMap<com.rfsentinel.app.ui.DeviceFilter, com.google.android.material.chip.Chip>()
     private var query = ""
     private var deviceCount = 0
     private var flaggedCount = 0
@@ -93,8 +92,11 @@ class MainActivity : AppCompatActivity() {
         binding.startStopButton.setOnClickListener {
             if (ScanForegroundService.isRunning) stopScanning() else requestPermissionsAndStart()
         }
-        binding.viewToggleButton.setOnClickListener {
-            Prefs.setRadarView(this, !Prefs.radarView(this))
+        styleViewToggle()
+        binding.viewToggle.check(if (Prefs.radarView(this)) R.id.viewRadarButton else R.id.viewListButton)
+        binding.viewToggle.addOnButtonCheckedListener { _, id, checked ->
+            if (!checked) return@addOnButtonCheckedListener
+            Prefs.setRadarView(this, id == R.id.viewRadarButton)
             applyViewMode()
         }
         binding.mapButton.setOnClickListener {
@@ -107,20 +109,7 @@ class MainActivity : AppCompatActivity() {
                 else if ((dy < -8 || !rv.canScrollVertically(-1)) && !binding.mapButton.isExtended) binding.mapButton.extend()
             }
         })
-        binding.filterChips.setOnCheckedStateChangeListener { _, ids ->
-            filter = when (ids.firstOrNull()) {
-                R.id.chipFlagged -> Filter.FLAGGED
-                R.id.chipTrackers -> Filter.TRACKERS
-                R.id.chipDrones -> Filter.DRONES
-                R.id.chipNew -> Filter.NEW
-                R.id.chipEsp -> Filter.ESP32
-                R.id.chipFavorites -> Filter.FAVORITES
-                R.id.chipBle -> Filter.BLE
-                R.id.chipWifi -> Filter.WIFI
-                else -> Filter.ALL
-            }
-            render()
-        }
+        setupFilterChips()
 
         // Debug builds only: made-up devices for screenshots (see DemoData).
         if (BuildConfig.DEBUG && intent.getBooleanExtra("demo", false)) {
@@ -179,13 +168,57 @@ class MainActivity : AppCompatActivity() {
         val radar = Prefs.radarView(this)
         binding.radarView.visibility = if (radar) View.VISIBLE else View.GONE
         binding.recyclerView.visibility = if (radar) View.GONE else View.VISIBLE
-        binding.viewToggleButton.text = if (radar) "List view" else "Radar view"
         if (!binding.mapButton.isExtended) binding.mapButton.extend()
     }
 
+    /** Filter chips from [com.rfsentinel.app.ui.DeviceFilter] (same rules as the map), counts filled in by render(). */
+    private fun setupFilterChips() {
+        for (f in com.rfsentinel.app.ui.DeviceFilter.entries) {
+            val chip = com.google.android.material.chip.Chip(this, null, com.google.android.material.R.attr.chipStyle).apply {
+                id = View.generateViewId()
+                text = f.label
+                isCheckable = true
+                com.rfsentinel.app.ui.ChipStyle.apply(this)
+            }
+            filterChips[f] = chip
+            binding.filterChips.addView(chip)
+            if (f == filter) chip.isChecked = true
+        }
+        binding.filterChips.setOnCheckedStateChangeListener { _, ids ->
+            filter = filterChips.entries.firstOrNull { it.value.id == ids.firstOrNull() }?.key ?: return@setOnCheckedStateChangeListener
+            render()
+        }
+    }
+
+    /** List / radar toggle: the selected half filled with the theme highlight. */
+    private fun styleViewToggle() {
+        val (accent, onAccent) = com.rfsentinel.app.ui.ChipStyle.accent(this)
+        val text = com.rfsentinel.app.ui.ChipStyle.onSurface(this)
+        val checked = intArrayOf(android.R.attr.state_checked)
+        val none = intArrayOf()
+        for (b in listOf(binding.viewListButton, binding.viewRadarButton)) {
+            b.backgroundTintList = android.content.res.ColorStateList(arrayOf(checked, none), intArrayOf(accent, 0x00000000))
+            b.iconTint = android.content.res.ColorStateList(arrayOf(checked, none), intArrayOf(onAccent, text))
+            b.strokeColor = android.content.res.ColorStateList.valueOf(accent)
+        }
+    }
+
+    private var shownRunning: Boolean? = null
+
     private fun updateStatus() {
         val running = ScanForegroundService.isRunning || demoMode
-        binding.startStopButton.text = if (running) "Stop scanning" else "Start scanning"
+        if (shownRunning != running) {
+            shownRunning = running
+            // Start: theme highlight with a play icon; Stop: red with a stop icon.
+            val (accent, onAccent) = com.rfsentinel.app.ui.ChipStyle.accent(this)
+            val red = com.rfsentinel.app.ui.ThemeManager.ink(this, 0xFFB3261E.toInt())
+            binding.startStopButton.text = if (running) "Stop scanning" else "Start scanning"
+            binding.startStopButton.setIconResource(if (running) R.drawable.ic_car_stop else R.drawable.ic_car_play)
+            binding.startStopButton.backgroundTintList = android.content.res.ColorStateList.valueOf(if (running) red else accent)
+            val fg = if (running) 0xFFFFFFFF.toInt() else onAccent
+            binding.startStopButton.setTextColor(fg)
+            binding.startStopButton.iconTint = android.content.res.ColorStateList.valueOf(fg)
+        }
         binding.statusText.text = when {
             !running -> "Idle - tap Start to listen for nearby devices"
             !bluetoothOn() && !demoMode -> "Scanning WiFi only - turn on Bluetooth for BLE (picked up automatically)"
@@ -226,7 +259,13 @@ class MainActivity : AppCompatActivity() {
         updateBanner(flagged, threshold)
         updateStatus()
 
-        val visible = all.filter { matchesFilter(it) && matchesQuery(it) }
+        // Live counts on the chips ("Trackers 2"); empty filters stay unlabelled.
+        for ((f, chip) in filterChips) {
+            val n = all.count { f.matches(it) }
+            val label = if (f == com.rfsentinel.app.ui.DeviceFilter.ALL || n > 0) "${f.label} $n" else f.label
+            if (chip.text != label) chip.text = label
+        }
+        val visible = all.filter { filter.matches(it) && matchesQuery(it) }
             .sortedWith(
                 compareByDescending<DeviceRegistry.Snapshot> { it.best != null && !WhitelistCache.contains(it.mac) }
                     .thenByDescending { it.following }
@@ -254,19 +293,6 @@ class MainActivity : AppCompatActivity() {
             all.isEmpty() -> "Listening... no devices heard yet."
             else -> "No devices match this filter."
         }
-    }
-
-    private fun matchesFilter(s: DeviceRegistry.Snapshot): Boolean = when (filter) {
-        Filter.ALL -> true
-        Filter.FLAGGED -> s.best != null && !WhitelistCache.contains(s.mac)
-        Filter.TRACKERS -> s.hits.any { it.category == Category.TRACKER } ||
-            s.deviceType.contains("tracker", true) || s.deviceType.contains("Find My", true)
-        Filter.DRONES -> s.hits.any { it.category == Category.DRONE } || s.remoteId != null
-        Filter.NEW -> s.isNew
-        Filter.ESP32 -> com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac)
-        Filter.FAVORITES -> Favorites.contains(s.mac)
-        Filter.BLE -> Advert.Source.BLE in s.sources
-        Filter.WIFI -> Advert.Source.WIFI in s.sources
     }
 
     private fun matchesQuery(s: DeviceRegistry.Snapshot): Boolean {
