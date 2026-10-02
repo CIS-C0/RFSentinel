@@ -27,14 +27,17 @@ data class KnownCamera(
     /** Null in caches saved before speed cameras were added: those are all plate readers. */
     val kind: Kind? = null,
     /** Enforced speed limit (km/h) for speed cameras, when mapped. */
-    val maxspeed: Int? = null
+    val maxspeed: Int? = null,
+    /** A Flock camera mapped as an ordinary camera: most are plate readers, some only record video. */
+    val probable: Boolean? = null
 ) {
     enum class Kind { ALPR, SPEED, RED_LIGHT }
 
     val type: Kind get() = kind ?: Kind.ALPR
 
     val label: String get() = when (type) {
-        Kind.ALPR -> (brand ?: "Plate reader") + " (ALPR)"
+        Kind.ALPR -> if (probable == true) "${brand ?: "Flock"} camera (probably a plate reader)"
+            else (brand ?: "Plate reader") + " (ALPR)"
         Kind.SPEED -> "Speed camera" + (maxspeed?.let { " ($it km/h)" } ?: "")
         Kind.RED_LIGHT -> "Red-light camera"
     }
@@ -63,12 +66,37 @@ object KnownCameras {
             "node[\"highway\"=\"speed_camera\"]$b;" +
             "node[\"enforcement\"]$b;" +
             "relation[\"type\"=\"enforcement\"]$b;" +
+            BRAND_KEYS.joinToString("") { k -> "nwr[\"surveillance:type\"=\"camera\"][\"$k\"~\"^Flock\",i]$b;" } +
+            ");out center tags;"
+    }
+
+    private val BRAND_KEYS = listOf("brand", "manufacturer", "surveillance:brand", "surveillance:manufacturer", "operator")
+
+    /** A Flock-branded camera mapped as an ordinary camera (not tagged ALPR). */
+    fun isFlockCamera(tag: (String) -> String?) =
+        tag("surveillance:type").equals("camera", ignoreCase = true) &&
+            BRAND_KEYS.any { tag(it)?.startsWith("Flock", ignoreCase = true) == true }
+
+    /**
+     * What DeFlock's snapshot leaves out, for a box: plate readers without
+     * `man_made=surveillance`, plate readers mapped as ways, and Flock cameras
+     * mapped as ordinary cameras. Small, so it stays cheap even for a large box.
+     */
+    fun extrasQuery(south: Double, west: Double, north: Double, east: Double): String {
+        val b = "($south,$west,$north,$east)"
+        val flock = BRAND_KEYS.joinToString("") { k -> "nwr[\"surveillance:type\"=\"camera\"][\"$k\"~\"^Flock\",i]$b;" }
+        return "[out:json][timeout:90];(" +
+            "node[\"surveillance:type\"=\"ALPR\"][\"man_made\"!=\"surveillance\"]$b;" +
+            "way[\"surveillance:type\"=\"ALPR\"]$b;" +
+            "relation[\"surveillance:type\"=\"ALPR\"]$b;" +
+            flock +
             ");out center tags;"
     }
 
     /** What an OSM element is, from its tags; null when it's none of ours. */
     fun kindOf(tag: (String) -> String?): KnownCamera.Kind? = when {
         tag("surveillance:type").equals("ALPR", ignoreCase = true) -> KnownCamera.Kind.ALPR
+        isFlockCamera(tag) -> KnownCamera.Kind.ALPR
         tag("enforcement") == "traffic_signals" -> KnownCamera.Kind.RED_LIGHT
         tag("highway") == "speed_camera" || tag("enforcement") in setOf("maxspeed", "average_speed") -> KnownCamera.Kind.SPEED
         else -> null
@@ -129,7 +157,8 @@ object KnownCameras {
                 operator = tag("operator"),
                 direction = parseDirection(tag("camera:direction", "direction")),
                 kind = kind,
-                maxspeed = if (kind == KnownCamera.Kind.SPEED) parseMaxspeed(tag("maxspeed")) else null
+                maxspeed = if (kind == KnownCamera.Kind.SPEED) parseMaxspeed(tag("maxspeed")) else null,
+                probable = if (!tag("surveillance:type").equals("ALPR", ignoreCase = true) && isFlockCamera { tag(it) }) true else null
             )
         }.let(::dedupe)
     }

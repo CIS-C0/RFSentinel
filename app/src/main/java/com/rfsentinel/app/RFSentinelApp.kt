@@ -26,6 +26,7 @@ class RFSentinelApp : Application() {
     override fun onCreate() {
         super.onCreate()
         com.rfsentinel.app.ui.ThemeManager.install(this)
+        com.rfsentinel.app.ui.ScreenAwake.install(this)
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityStarted(a: android.app.Activity) { visibleActivities++ }
             override fun onActivityStopped(a: android.app.Activity) { visibleActivities = (visibleActivities - 1).coerceAtLeast(0) }
@@ -47,6 +48,7 @@ class RFSentinelApp : Application() {
         appScope.launch { runCatching { com.rfsentinel.app.service.TripRecorder.closeStale(this@RFSentinelApp) } }
         appScope.launch(Dispatchers.IO) {
             runCatching { com.rfsentinel.app.alpr.AlprStore.load(this@RFSentinelApp) }
+            runCatching { com.rfsentinel.app.alpr.DeflockBulk.refreshIfDue(this@RFSentinelApp) }
             // A scanner started before the cache loaded (e.g. at boot) must now watch for cameras.
             if (com.rfsentinel.app.service.ScanForegroundService.isRunning && com.rfsentinel.app.alpr.AlprStore.cameras.isNotEmpty()) {
                 runCatching {

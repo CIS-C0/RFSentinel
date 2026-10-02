@@ -10,20 +10,39 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Status card -->
-    <TextView
-        android:id="@+id/statusText"
+    <!-- Status card, with the camera-download progress bar under it -->
+    <LinearLayout
+        android:id="@+id/statusBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="top"
         android:layout_margin="10dp"
-        android:background="@drawable/banner_bg"
-        android:paddingStart="12dp"
-        android:paddingTop="8dp"
-        android:paddingEnd="12dp"
-        android:paddingBottom="8dp"
-        android:textColor="#FFFFFF"
-        android:textSize="13sp" />
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/banner_bg"
+            android:paddingStart="12dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="8dp"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp" />
+
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/downloadProgress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:max="100"
+            android:visibility="gone"
+            app:indicatorColor="#FFFFFF"
+            app:trackColor="#660B5C63"
+            app:trackCornerRadius="3dp"
+            app:trackThickness="6dp" />
+    </LinearLayout>
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/centerButton"

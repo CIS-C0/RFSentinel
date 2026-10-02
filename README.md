@@ -183,7 +183,19 @@ The app never connects to a device. The details screen shows:
   in the same colours as the list and radar, placed where your phone was when its
   signal was strongest. That approximates the device's position, not a fix: only
   precise, fresh GPS fixes are used, and the map switches to GPS while it's open.
-  Tap *All devices* to show flagged ones only.
+  Tap *All devices* to show flagged ones only. Devices heard from the same spot
+  fan out around it when you zoom in, so every dot can be tapped.
+- **Known cameras** (map menu ⋮): *Download nearby cameras* fetches the plate
+  readers within ~100 km; *Download Flock* fetches every plate reader mapped in
+  the US and Canada (~18 MB, about 143,000, refreshed weekly on Wi-Fi). Both use
+  [DeFlock](https://deflock.org)'s hourly snapshot of OpenStreetMap, then add the
+  ones it leaves out (other tagging, Flock cameras mapped as ordinary cameras)
+  straight from OpenStreetMap. A progress bar shows under the status card, and
+  the cameras appear as soon as DeFlock's part is saved. Speed and red-light
+  cameras come with the automatic downloads for the area you look at.
+- **Screen:** Settings (and the setup wizard) choose whether the screen stays on
+  while RF Sentinel is open: *always*, *while charging* (default - car mount,
+  desk) or *normal*.
 - **Record trace** saves your GPS route and every device heard along it. It
   keeps running with the screen off, and can start automatically with each scan.
 - Traces export as **GPX**, **KML**, **GeoJSON** or **CSV**, with all devices or
@@ -338,13 +350,15 @@ Pick a theme in the setup wizard or under **Settings → Appearance**.
 - **Receive-only.** Nothing is transmitted, jammed, spoofed or connected to.
 - **No accounts, no cloud, no analytics.** Detections are stored in a local
   database and excluded from cloud backup.
-- **Network use is limited to OpenStreetMap:** map tiles while the map is open,
+- **Network use is limited to OpenStreetMap data:** map tiles while the map is open,
   and the known-camera list for the area you look at on the map (or around you on
   the Android Auto camera map), fetched once per area and refreshed weekly, from
   overpass-api.de or the public mirrors overpass.kumi.systems and
   overpass.private.coffee when it's busy. Those servers see your IP address and
   that area - like the map tiles - never your scans. Turn off *Show known cameras
-  automatically* in Settings to fetch only when you tap *Download known cameras*.
+  automatically* in Settings to fetch only when you tap a download. The camera
+  downloads also fetch DeFlock's region files from cdn.deflock.me (it sees which
+  20° region is requested and your IP address, nothing else).
   In Android Auto, navigation also uses OpenStreetMap's Nominatim (destination
   search) and the OSRM routing server, only when you search or start a route.
   Map data © OpenStreetMap contributors (ODbL).
@@ -450,7 +464,10 @@ in [Flock You](https://github.com/colonelpanichacks/flock-you) and
 [Flock-You-Android](https://github.com/MaxwellDPS/Flock-You-Android) and
 [Fieldwatch](https://github.com/OffGridPete/Fieldwatch) - thank you. Every prefix
 was re-checked against its IEEE registrant; see
-[docs/SIGNATURES.md](docs/SIGNATURES.md#community-lists-compared-2026-10). The DedSec theme font is Share Tech Mono (SIL Open
+[docs/SIGNATURES.md](docs/SIGNATURES.md#community-lists-compared-2026-10). Known
+plate-reader locations come from [DeFlock](https://github.com/FoggedLens/deflock)'s
+snapshot of OpenStreetMap, mapped by its volunteers (data © OpenStreetMap
+contributors, ODbL) - thank you. The DedSec theme font is Share Tech Mono (SIL Open
 Font License 1.1). The DedSec theme is an unofficial, original homage and
 contains no Ubisoft artwork.
 

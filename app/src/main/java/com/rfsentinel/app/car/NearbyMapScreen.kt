@@ -52,7 +52,7 @@ class NearbyMapScreen(
             list.setNoItemsMessage("Waiting for your location...")
         } else if (items.isEmpty()) {
             list.setNoItemsMessage(
-                if (AlprStore.cameras.isEmpty()) "No known cameras downloaded - on your phone: Map > menu > Download known cameras"
+                if (AlprStore.cameras.isEmpty()) "No known cameras downloaded - on your phone: Map > menu > Download nearby cameras"
                 else "No known cameras or drones within ${(SEARCH_RADIUS_M / 1000).toInt()} km"
             )
         }

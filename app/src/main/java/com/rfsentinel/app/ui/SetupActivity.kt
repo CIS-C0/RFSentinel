@@ -172,6 +172,24 @@ class SetupActivity : AppCompatActivity() {
         switch("Discreet mode - hide details on the lock screen and in notifications", Prefs.discreetMode(this)) {
             Prefs.setDiscreetMode(this, it)
         }
+        label("Screen while RF Sentinel is open")
+        val screen = RadioGroup(this)
+        val mode = Prefs.screenMode(this)
+        listOf(
+            Prefs.ScreenMode.ALWAYS_ON to "Always on",
+            Prefs.ScreenMode.ON_WHILE_CHARGING to "On while charging (car, desk) - recommended",
+            Prefs.ScreenMode.NORMAL to "Normal (turns off like other apps)"
+        ).forEach { (value, text) ->
+            screen.addView(RadioButton(this).apply {
+                id = View.generateViewId()
+                this.text = text
+                isChecked = value == mode
+                setOnCheckedChangeListener { _, c ->
+                    if (c) { Prefs.setScreenMode(this@SetupActivity, value); ScreenAwake.apply(this@SetupActivity) }
+                }
+            })
+        }
+        binding.page.addView(screen)
     }
 
     private fun location() {

@@ -320,7 +320,7 @@
             android:id="@+id/knownAlprSwitch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Warn when approaching a known plate-reader camera (download them on the map: menu, Download known cameras)" />
+            android:text="Warn when approaching a known plate-reader camera (download them on the map: menu, Download nearby cameras)" />
 
         <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/autoCamerasSwitch"
@@ -337,6 +337,19 @@
 
         <TextView
             android:id="@+id/prefetchCamerasText"
+            style="@style/SettingsLabel"
+            android:paddingTop="0dp"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/deflockButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Download all plate cameras: US &amp; Canada (~18 MB)" />
+
+        <TextView
+            android:id="@+id/deflockText"
             style="@style/SettingsLabel"
             android:paddingTop="0dp"
             android:textSize="12sp" />
@@ -371,6 +384,34 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="OUI-SPY: relay every network and Bluetooth device it hears, so RF Sentinel's own lists check them (the board also sends standard Wi-Fi scan probes)" />
+
+        <TextView
+            style="@style/SettingsLabel"
+            android:text="Screen while RF Sentinel is open" />
+
+        <RadioGroup
+            android:id="@+id/screenModeGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <RadioButton
+                android:id="@+id/screenAlwaysOn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Always on" />
+
+            <RadioButton
+                android:id="@+id/screenOnCharging"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="On while charging (car, desk)" />
+
+            <RadioButton
+                android:id="@+id/screenNormal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Normal (turns off like other apps)" />
+        </RadioGroup>
 
         <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/autoRecordSwitch"

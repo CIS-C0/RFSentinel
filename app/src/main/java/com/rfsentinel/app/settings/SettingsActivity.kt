@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 class SettingsActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySettingsBinding
     private var stopObservingPrefetch: (() -> Unit)? = null
+    private var stopObservingDeflock: (() -> Unit)? = null
     private val categorySwitches = mutableMapOf<Category, SwitchMaterial>()
 
     private val bannerPicker = registerForActivityResult(
@@ -179,6 +180,7 @@ class SettingsActivity : AppCompatActivity() {
         com.rfsentinel.app.esp.EspBoards.onStatusChanged = null
         com.rfsentinel.app.esp.OuiSpyBle.onStatusChanged = null
         stopObservingPrefetch?.invoke()
+        stopObservingDeflock?.invoke()
         super.onDestroy()
     }
 
@@ -319,6 +321,11 @@ class SettingsActivity : AppCompatActivity() {
         binding.gpsSwitch.isChecked = Prefs.gpsTaggingEnabled(this)
         binding.autoRecordSwitch.isChecked = Prefs.autoRecordTrace(this)
         binding.ouiSpyRelaySwitch.isChecked = Prefs.ouiSpyRelayAll(this)
+        binding.screenModeGroup.check(when (Prefs.screenMode(this)) {
+            Prefs.ScreenMode.ALWAYS_ON -> R.id.screenAlwaysOn
+            Prefs.ScreenMode.ON_WHILE_CHARGING -> R.id.screenOnCharging
+            Prefs.ScreenMode.NORMAL -> R.id.screenNormal
+        })
         binding.knownAlprSwitch.isChecked = Prefs.knownAlprAlerts(this)
         binding.speedCameraSwitch.isChecked = Prefs.speedCameraAlerts(this)
         binding.autoCamerasSwitch.isChecked = Prefs.autoCameras(this)
@@ -328,6 +335,23 @@ class SettingsActivity : AppCompatActivity() {
             binding.prefetchCamerasButton.isEnabled = located &&
                 s !is com.rfsentinel.app.alpr.CameraPrefetch.State.Locating && s !is com.rfsentinel.app.alpr.CameraPrefetch.State.Downloading
             binding.prefetchCamerasText.text = com.rfsentinel.app.ui.cameraPrefetchText(s, located)
+        }
+        binding.deflockButton.setOnClickListener { com.rfsentinel.app.alpr.DeflockBulk.start(this) }
+        stopObservingDeflock = com.rfsentinel.app.alpr.DeflockBulk.observe { s ->
+            binding.deflockButton.isEnabled = !com.rfsentinel.app.alpr.DeflockBulk.isRunning
+            val last = Prefs.deflockUpdated(this)
+            binding.deflockText.text = when (s) {
+                is com.rfsentinel.app.alpr.DeflockBulk.State.Downloading ->
+                    "Downloading · ${s.detail.ifEmpty { "${s.done}/${s.total} regions" }} · ${s.found} plate cameras so far"
+                is com.rfsentinel.app.alpr.DeflockBulk.State.CheckingExtras ->
+                    "${s.cameras} plate cameras saved · checking OpenStreetMap for more (up to 45 s)..."
+                is com.rfsentinel.app.alpr.DeflockBulk.State.Done ->
+                    "${s.cameras} plate cameras saved - they work offline and refresh weekly on Wi-Fi."
+                is com.rfsentinel.app.alpr.DeflockBulk.State.Failed -> s.reason
+                else -> if (last > 0) "Last downloaded " +
+                    android.text.format.DateUtils.getRelativeTimeSpanString(last) + "; refreshes weekly on Wi-Fi."
+                else "Every plate reader mapped in OpenStreetMap, from DeFlock's hourly snapshot (cdn.deflock.me sees only the download, not your position)."
+            }
         }
 
         // Data
@@ -459,6 +483,12 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setGpsTaggingEnabled(this, binding.gpsSwitch.isChecked)
         Prefs.setAutoRecordTrace(this, binding.autoRecordSwitch.isChecked)
         Prefs.setOuiSpyRelayAll(this, binding.ouiSpyRelaySwitch.isChecked)
+        Prefs.setScreenMode(this, when (binding.screenModeGroup.checkedRadioButtonId) {
+            R.id.screenAlwaysOn -> Prefs.ScreenMode.ALWAYS_ON
+            R.id.screenNormal -> Prefs.ScreenMode.NORMAL
+            else -> Prefs.ScreenMode.ON_WHILE_CHARGING
+        })
+        com.rfsentinel.app.ui.ScreenAwake.apply(this)
         Prefs.setKnownAlprAlerts(this, binding.knownAlprSwitch.isChecked)
         Prefs.setSpeedCameraAlerts(this, binding.speedCameraSwitch.isChecked)
         Prefs.setAutoCameras(this, binding.autoCamerasSwitch.isChecked)

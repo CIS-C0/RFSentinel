@@ -168,13 +168,12 @@ object AlprStore {
             found.size
         }
 
-    private const val STAGGER_MS = 4_000L
     private const val RETRY_PAUSE_MS = 5_000L
 
     /**
-     * Asks the main server first and each mirror a few seconds later (at once
-     * if the earlier ones already failed); the first JSON answer wins and the
-     * others are abandoned. Throws an IOException when every server failed.
+     * Asks the main server and every mirror at the same time; the first JSON
+     * answer wins and the other requests are cancelled right away (their
+     * connections closed). Throws an IOException when every server failed.
      */
     private suspend fun fetchFirst(body: String, status: (String) -> Unit): String {
         val requests = kotlinx.coroutines.CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
@@ -184,7 +183,6 @@ object AlprStore {
         val open = java.util.Collections.synchronizedList(mutableListOf<HttpURLConnection>())
         ENDPOINTS.forEachIndexed { i, endpoint ->
             requests.launch {
-                if (i > 0) kotlinx.coroutines.withTimeoutOrNull(STAGGER_MS * i) { failures.first { it >= i } }
                 if (result.isCompleted) return@launch
                 val host = URL(endpoint).host
                 status("asking $host")
@@ -257,13 +255,54 @@ object AlprStore {
         }
     }
 
+    /**
+     * Swaps in a complete set of plate readers for [boxes] (DeFlock's snapshot):
+     * plate-reader nodes inside them are replaced, everything else - speed and
+     * red-light cameras, plate readers mapped as ways, other regions - is kept.
+     */
+    fun mergePlateReaders(context: Context, boxes: List<DoubleArray>, found: List<KnownCamera>) {
+        synchronized(this) {
+            val merged = mergeCameras(cameras, boxes, found)
+            file(context).writeText(gson.toJson(merged))
+            cameras = merged
+        }
+    }
+
+    /**
+     * Fetches the plate readers DeFlock's snapshot leaves out for a box (see
+     * [KnownCameras.extrasQuery]) from Overpass and adds them. Returns how many.
+     */
+    suspend fun downloadExtras(context: Context, south: Double, west: Double, north: Double, east: Double): Int =
+        withContext(Dispatchers.IO) {
+            val body = "data=" + URLEncoder.encode(KnownCameras.extrasQuery(south, west, north, east), "UTF-8")
+            val found = KnownCameras.parse(fetchFirst(body) {}).filter { it.type == KnownCamera.Kind.ALPR }
+            mergePlateReaders(context, emptyList(), found)
+            found.size
+        }
+
+    /**
+     * Pure part of [mergePlateReaders] (unit-tested): adds the new cameras and
+     * updates ones already cached (same OSM id). Nothing is removed - DeFlock's
+     * snapshot leaves out some plate readers OpenStreetMap has (no
+     * `man_made=surveillance`, mapped as ways, very recent), and the map's area
+     * downloads may have fetched those. [boxes] is kept for callers' bookkeeping.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun mergeCameras(current: List<KnownCamera>, boxes: List<DoubleArray>, found: List<KnownCamera>): List<KnownCamera> {
+        val ids = found.mapTo(HashSet()) { it.osmId }
+        return current.filterNot { it.osmId in ids } + found
+    }
+
     /** Tests only: set the cache without files or network. */
     @androidx.annotation.VisibleForTesting
     fun setForTest(list: List<KnownCamera>) { cameras = list }
 
+    // Synchronized with the merges, so a save that was mid-write can't bring cameras back.
+    @Synchronized
     fun clear(context: Context) {
         file(context).delete()
         areasFile(context).delete()
+        com.rfsentinel.app.util.Prefs.setDeflockUpdated(context, 0L)
         cameras = emptyList()
         areas = emptyList()
     }

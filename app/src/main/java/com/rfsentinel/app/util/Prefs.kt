@@ -120,6 +120,14 @@ object Prefs {
         if (address == null) remove("ouispy_board") else putString("ouispy_board", address)
     }
     /** Have the OUI-SPY board relay every network and Bluetooth device it hears (its Wardrive engine). */
+    /** Whether the screen stays on while an RF Sentinel screen is open. */
+    enum class ScreenMode { ALWAYS_ON, ON_WHILE_CHARGING, NORMAL }
+    fun screenMode(context: Context): ScreenMode =
+        runCatching { ScreenMode.valueOf(sp(context).getString("screen_mode", null)!!) }.getOrDefault(ScreenMode.ON_WHILE_CHARGING)
+    fun setScreenMode(context: Context, mode: ScreenMode) = sp(context).edit { putString("screen_mode", mode.name) }
+    /** When the US & Canada plate readers were last downloaded from DeFlock (0 = never). */
+    fun deflockUpdated(context: Context): Long = sp(context).getLong("deflock_updated", 0L)
+    fun setDeflockUpdated(context: Context, time: Long) = sp(context).edit { putLong("deflock_updated", time) }
     fun ouiSpyRelayAll(context: Context): Boolean = bool(context, "ouispy_relay_all", true)
     fun setOuiSpyRelayAll(context: Context, value: Boolean) = setBool(context, "ouispy_relay_all", value)
     fun showKnownAlpr(context: Context): Boolean = bool(context, "show_known_alpr", true)

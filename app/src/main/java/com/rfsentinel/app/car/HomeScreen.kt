@@ -56,7 +56,12 @@ class HomeScreen(carContext: CarContext) : LiveScreen(carContext) {
         items.addItem(navRow("Flagged nearby", flagged, R.drawable.ic_car_warning, DeviceListScreen.Filter.FLAGGED))
         items.addItem(navRow("Drones & trackers", dronesTrackers, R.drawable.ic_car_drone, DeviceListScreen.Filter.DRONES_TRACKERS))
         items.addItem(navRow("All nearby devices", devices.size, R.drawable.ic_car_list, DeviceListScreen.Filter.ALL))
-        val liveMap = runCatching { carContext.carAppApiLevel >= androidx.car.app.versioning.CarAppApiLevels.LEVEL_7 }.getOrDefault(false)
+        // Our own map needs Car API 7 and the surface permission (not every build declares it).
+        val liveMap = runCatching {
+            carContext.carAppApiLevel >= androidx.car.app.versioning.CarAppApiLevels.LEVEL_7 &&
+                carContext.checkSelfPermission("androidx.car.app.ACCESS_SURFACE") ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+        }.getOrDefault(false)
         items.addItem(
             Row.Builder()
                 .setTitle(if (liveMap) "Live map & navigation" else "Map: devices & cameras around me")

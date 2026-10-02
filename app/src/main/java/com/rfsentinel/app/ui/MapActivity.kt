@@ -103,7 +103,7 @@ class MapActivity : AppCompatActivity() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             binding.controls.updatePadding(bottom = bars.bottom + (6 * resources.displayMetrics.density).toInt())
-            binding.statusText.translationY = bars.top.toFloat()
+            binding.statusBox.translationY = bars.top.toFloat()
             insets
         }
 
@@ -121,6 +121,7 @@ class MapActivity : AppCompatActivity() {
         binding.tracesButton.setOnClickListener { startActivity(Intent(this, TripsActivity::class.java)) }
 
         if (tripId == null) {
+            observeBulk()
             binding.recordButton.setOnClickListener { toggleRecording() }
             lifecycleScope.launch {
                 repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -156,7 +157,12 @@ class MapActivity : AppCompatActivity() {
         // Redraw the camera layer for the visible area after panning / zooming.
         map.addMapListener(object : org.osmdroid.events.MapListener {
             override fun onScroll(event: org.osmdroid.events.ScrollEvent?) = false.also { drawKnownAlprSoon() }
-            override fun onZoom(event: org.osmdroid.events.ZoomEvent?) = false.also { drawKnownAlprSoon() }
+            override fun onZoom(event: org.osmdroid.events.ZoomEvent?) = false.also {
+                drawKnownAlprSoon()
+                // The fan-out of stacked dots depends on the zoom.
+                map.removeCallbacks(respreadPins)
+                map.postDelayed(respreadPins, 150)
+            }
         })
 
         myLocation = MyLocationNewOverlay(GpsMyLocationProvider(this), map)
@@ -187,6 +193,7 @@ class MapActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        stopObservingBulk?.invoke()
         myLocation.disableMyLocation()
         binding.map.removeCallbacks(autoDownloadCameras)
         binding.map.removeCallbacks(redrawKnownAlpr)
@@ -235,6 +242,7 @@ class MapActivity : AppCompatActivity() {
 
         val positioned = devices.count { it.bestPosition != null }
         binding.statusText.text = when {
+            bulkStatus() != null -> bulkStatus() // a camera download's progress wins
             !ScanForegroundService.isRunning -> "Not scanning - start scanning, then Record trace to save your route"
             recording -> {
                 val mins = (System.currentTimeMillis() - TripRecorder.startedAt) / 60000
@@ -350,12 +358,31 @@ class MapActivity : AppCompatActivity() {
 
     // ---- Drawing ----------------------------------------------------------------------
 
+    private var lastPins: List<Pin> = emptyList()
+    private val respreadPins = Runnable { drawPins(lastPins); binding.map.invalidate() }
+
+    /** Metres per screen pixel at the map's current zoom, near [lat]. */
+    private fun metersPerPx(lat: Double, lon: Double): Double {
+        val proj = binding.map.projection
+        val a = proj.toPixels(GeoPoint(lat, lon), null)
+        val b = proj.toPixels(GeoPoint(lat + 0.001, lon), null)
+        val px = kotlin.math.abs(b.y - a.y).toDouble()
+        return if (px > 0) 111.32 / px else 0.0
+    }
+
     private fun drawPins(list: List<Pin>) {
+        lastPins = list
         pins.items.clear()
         val dp = resources.displayMetrics.density
         // Ordinary devices first so flagged ones end up on top.
-        list.sortedBy { it.flagged }.forEach { p ->
-            val size = ((if (p.flagged) 18 else 10) * dp).toInt()
+        val sorted = list.sortedBy { it.flagged }
+        // Devices heard from the same spot share coordinates: fan them out so each can be tapped.
+        val center = binding.map.mapCenter
+        val real = sorted.map { it.lat to it.lon }
+        val shown = if (binding.map.zoomLevelDouble < PinSpread.MIN_ZOOM) real
+            else PinSpread.spread(real, metersPerPx(center.latitude, center.longitude), 30.0 * dp)
+        sorted.forEachIndexed { i, p ->
+            val size = ((if (p.flagged) 24 else 16) * dp).toInt()
             val dot = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(p.color)
@@ -363,7 +390,7 @@ class MapActivity : AppCompatActivity() {
                 setSize(size, size)
             }
             pins.add(Marker(binding.map).apply {
-                position = GeoPoint(p.lat, p.lon)
+                position = GeoPoint(shown[i].first, shown[i].second)
                 icon = dot
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                 title = p.label
@@ -548,44 +575,6 @@ class MapActivity : AppCompatActivity() {
             .show()
     }
 
-    /** Downloads the known cameras for the visible area, after saying what that reveals. */
-    private fun downloadKnownAlpr() {
-        val box = binding.map.boundingBox
-        val span = com.rfsentinel.app.alpr.AlprStore.MAX_SPAN_DEG
-        if (box.latNorth - box.latSouth > span || box.lonEast - box.lonWest > span) {
-            Toast.makeText(this, "Zoom in first: one download covers up to about 200 km", Toast.LENGTH_LONG).show()
-            return
-        }
-        AlertDialog.Builder(this)
-            .setTitle("Download known cameras?")
-            .setMessage(
-                "Fetches the license-plate readers, speed cameras and red-light cameras mapped in " +
-                    "OpenStreetMap for the area on screen, " +
-                    "then keeps them on this phone for offline warnings.\n\n" +
-                    "Privacy: the OpenStreetMap Overpass server (overpass-api.de, or a public mirror when it is busy: overpass.kumi.systems, overpass.private.coffee) sees this area and your IP address, " +
-                    "like when loading map tiles. Nothing about your scans is sent."
-            )
-            .setPositiveButton("Download") { _, _ ->
-                binding.statusText.text = "Downloading known cameras..."
-                lifecycleScope.launch {
-                    val result = runCatching {
-                        com.rfsentinel.app.alpr.AlprStore.download(this@MapActivity, box.latSouth, box.lonWest, box.latNorth, box.lonEast)
-                    }
-                    result.onSuccess { n ->
-                        val total = com.rfsentinel.app.alpr.AlprStore.cameras.size
-                        Toast.makeText(this@MapActivity, "$n cameras in this area ($total saved in total)", Toast.LENGTH_LONG).show()
-                        com.rfsentinel.app.util.Prefs.setShowKnownAlpr(this@MapActivity, true)
-                        drawKnownAlpr()
-                        refreshServiceLocation() // start watching for them while scanning
-                    }.onFailure { e ->
-                        Toast.makeText(this@MapActivity, "Download failed: ${e.message ?: "no connection"}", Toast.LENGTH_LONG).show()
-                    }
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
     private fun showPin(p: Pin) {
         AlertDialog.Builder(this)
             .setTitle(p.label)
@@ -593,6 +582,74 @@ class MapActivity : AppCompatActivity() {
             .setPositiveButton("Details") { _, _ -> DeviceActions.openDetails(this, p.mac) }
             .setNegativeButton("Close", null)
             .show()
+    }
+
+    /**
+     * DeFlock's snapshot - all of the US & Canada, or with [nearby] only ~100 km
+     * around you (or the map centre without a GPS fix). Progress in the status
+     * bar; the map redraws when done.
+     */
+    private fun downloadAllPlateCameras(nearby: Boolean = false) {
+        val bulk = com.rfsentinel.app.alpr.DeflockBulk
+        announceWhere = if (nearby) "within ~100 km" else "(US & Canada)"
+        // One download at a time: tapping again while one runs just follows its progress (bar on the map).
+        if (bulk.isRunning) return
+        val around = if (!nearby) null else {
+            val fix = myLocation.myLocation ?: binding.map.mapCenter.let { GeoPoint(it.latitude, it.longitude) }
+            fix.latitude to fix.longitude
+        }
+        bulk.start(this, around)
+    }
+
+    /** Set when a download was started (or followed) from this screen: show its result. */
+    private var announceWhere: String? = null
+    private var stopObservingBulk: (() -> Unit)? = null
+
+    /** Status text while a DeFlock download runs, or null when none does. */
+    private fun bulkStatus(): String? = when (val s = com.rfsentinel.app.alpr.DeflockBulk.state) {
+        is com.rfsentinel.app.alpr.DeflockBulk.State.Downloading ->
+            "Downloading plate cameras · ${s.detail.ifEmpty { "${s.done}/${s.total} regions" }} · ${s.found} found"
+        is com.rfsentinel.app.alpr.DeflockBulk.State.CheckingExtras ->
+            "${s.cameras} plate cameras on the map · checking OpenStreetMap for more (up to 45 s)..."
+        else -> null
+    }
+
+    /** Follows every DeFlock download (from here, Settings or the weekly refresh) with the progress bar. */
+    private fun observeBulk() {
+        stopObservingBulk = com.rfsentinel.app.alpr.DeflockBulk.observe { s ->
+            if (isFinishing || isDestroyed) return@observe
+            val bar = binding.downloadProgress
+            when (s) {
+                is com.rfsentinel.app.alpr.DeflockBulk.State.Downloading -> {
+                    if (bar.isIndeterminate) { bar.visibility = View.INVISIBLE; bar.isIndeterminate = false }
+                    bar.visibility = View.VISIBLE
+                    bar.setProgressCompat((s.fraction * 100).toInt(), true)
+                }
+                is com.rfsentinel.app.alpr.DeflockBulk.State.CheckingExtras -> {
+                    // DeFlock's cameras are saved: show them now; the bar keeps moving for the extras.
+                    com.rfsentinel.app.util.Prefs.setShowKnownAlpr(this, true)
+                    drawKnownAlpr(); refreshServiceLocation()
+                    bar.visibility = View.INVISIBLE; bar.isIndeterminate = true; bar.visibility = View.VISIBLE
+                }
+                is com.rfsentinel.app.alpr.DeflockBulk.State.Done -> {
+                    bar.visibility = View.GONE
+                    drawKnownAlpr(); refreshServiceLocation()
+                    announceWhere?.let { where ->
+                        Toast.makeText(this, "${s.cameras} plate cameras saved $where" +
+                            if (s.extrasSkipped) " (OpenStreetMap was busy - a few extras will come next time)" else "",
+                            Toast.LENGTH_LONG).show()
+                    }
+                    announceWhere = null
+                }
+                is com.rfsentinel.app.alpr.DeflockBulk.State.Failed -> {
+                    bar.visibility = View.GONE
+                    announceWhere?.let { Toast.makeText(this, s.reason, Toast.LENGTH_LONG).show() }
+                    announceWhere = null
+                }
+                com.rfsentinel.app.alpr.DeflockBulk.State.Idle -> bar.visibility = View.GONE
+            }
+            bulkStatus()?.let { binding.statusText.text = it }
+        }
     }
 
     // ---- Menu (trip mode) ---------------------------------------------------------------
@@ -604,7 +661,8 @@ class MapActivity : AppCompatActivity() {
             menu.add(0, 3, 2, "Delete")
         } else {
             menu.add(0, 4, 0, "Recorded traces")
-            menu.add(0, 5, 1, "Download known cameras here")
+            menu.add(0, 5, 1, "Download nearby cameras")
+            menu.add(0, 8, 1, "Download all US & CA")
             menu.add(0, 6, 2, "Show known cameras").apply {
                 isCheckable = true; isChecked = com.rfsentinel.app.util.Prefs.showKnownAlpr(this@MapActivity)
             }
@@ -620,7 +678,7 @@ class MapActivity : AppCompatActivity() {
             2 -> { id?.let { rename(it) }; true }
             3 -> { id?.let { confirmDelete(it) }; true }
             4 -> { startActivity(Intent(this, TripsActivity::class.java)); true }
-            5 -> { downloadKnownAlpr(); true }
+            5 -> { downloadAllPlateCameras(nearby = true); true }
             6 -> {
                 val show = !com.rfsentinel.app.util.Prefs.showKnownAlpr(this)
                 com.rfsentinel.app.util.Prefs.setShowKnownAlpr(this, show)
@@ -628,10 +686,13 @@ class MapActivity : AppCompatActivity() {
                 drawKnownAlpr(); true
             }
             7 -> {
+                // Stop a running download first, or it would put cameras back afterwards.
+                com.rfsentinel.app.alpr.DeflockBulk.cancel()
                 com.rfsentinel.app.alpr.AlprStore.clear(this)
                 drawKnownAlpr(); refreshServiceLocation()
                 Toast.makeText(this, "Downloaded cameras deleted", Toast.LENGTH_SHORT).show(); true
             }
+            8 -> { downloadAllPlateCameras(); true }
             android.R.id.home -> { finish(); true }
             else -> super.onOptionsItemSelected(item)
         }
