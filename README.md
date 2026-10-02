@@ -319,7 +319,7 @@ Pick a theme in the setup wizard or under **Settings → Appearance**.
 
 | Theme | Look |
 |---|---|
-| **DedSec** | Hacker street art: pixel skull, self-decrypting title, glitch effects, cut-corner controls |
+| **DedSec** | Watch Dogs 2-style hacktivist zine: black and white with hot pink and violet, halftone print, a hatched pixel skull, a glitching pixel wordmark and a retro-OS terminal that bypasses ctOS |
 | **Night Drive** | Red-only cockpit HUD. Every colour is mapped to red to preserve night vision while driving |
 | **Night Vision** | Green phosphor image intensifier with grain and a scope vignette |
 | **Amber CRT** | 1980s terminal with a blinking cursor and scanlines |
@@ -471,8 +471,10 @@ was re-checked against its IEEE registrant; see
 plate-reader locations come from [DeFlock](https://github.com/FoggedLens/deflock)'s
 snapshot of OpenStreetMap, mapped by its volunteers (data © OpenStreetMap
 contributors, ODbL) - thank you. The DedSec theme font is Share Tech Mono (SIL Open
-Font License 1.1). The DedSec theme is an unofficial, original homage and
-contains no Ubisoft artwork.
+Font License 1.1). The DedSec theme is an unofficial fan homage to Watch Dogs: all
+its art is original and it contains no Ubisoft artwork or logos. Watch Dogs, DedSec,
+ctOS and Blume are trademarks of Ubisoft; RF Sentinel is not affiliated with or
+endorsed by Ubisoft.
 
 ## License
 

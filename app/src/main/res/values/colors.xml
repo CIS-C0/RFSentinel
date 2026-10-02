@@ -14,14 +14,13 @@
     <color name="scope_text">#AA0B5C63</color>
     <color name="trace">#E0622D</color>
 
-    <!-- DedSec-inspired hacker palette -->
+    <!-- DedSec-inspired palette: black, white, hot pink, violet -->
     <color name="dedsec_black">#050505</color>
-    <color name="dedsec_panel">#0E0E10</color>
-    <color name="dedsec_cyan">#00F0D8</color>
+    <color name="dedsec_panel">#141016</color>
     <color name="dedsec_magenta">#FF2E88</color>
-    <color name="dedsec_green">#39FF6A</color>
-    <color name="dedsec_text">#D8FFF9</color>
-    <color name="dedsec_dim">#7FB8B0</color>
+    <color name="dedsec_violet">#A23CFF</color>
+    <color name="dedsec_text">#F4F4F4</color>
+    <color name="dedsec_dim">#A99BB8</color>
 
     <!-- Night Drive: red-only, keeps your night vision while driving -->
     <color name="nd_bg">#000000</color>

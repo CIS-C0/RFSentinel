@@ -35,7 +35,7 @@ object ThemeManager {
         LIGHT("Light", "Always light", night = false),
         DARK("Dark", "Always dark", night = true),
         MATERIAL_YOU("Material You", "Material 3, coloured from your wallpaper (Android 12+)", R.style.Theme_RFSentinel_MaterialYou),
-        DEDSEC("DedSec", "Hacker terminal: black, neon cyan & magenta, glitching wordmark",
+        DEDSEC("DedSec", "Watch Dogs 2 hacktivist homage: black & white zine, hot pink & violet, glitching pixel skull, ctOS-busting terminal",
             R.style.Theme_RFSentinel_DedSec, true, ThemeHeaderView.Style.GLITCH, "> RF_SENTINEL_"),
         NIGHT_DRIVE("Night Drive", "Red-only cockpit lighting that keeps your night vision on dark roads",
             R.style.Theme_RFSentinel_NightDrive, true, ThemeHeaderView.Style.HUD, "RF SENTINEL"),

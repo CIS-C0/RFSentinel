@@ -18,19 +18,25 @@
     <!-- Material You: Material 3 components; colours come from the wallpaper
          (DynamicColors, Android 12+), falling back to the M3 baseline palette. -->
     <style name="Theme.RFSentinel.MaterialYou" parent="Theme.Material3.DayNight">
+        <!-- Selected chips / toggles use this theme's own primary colour. -->
+        <item name="rfAccent">?attr/colorPrimary</item>
+        <item name="rfOnAccent">?attr/colorOnPrimary</item>
         <item name="rfScopeColor">?attr/colorPrimary</item>
         <item name="rfScopeTextColor">?attr/colorOnSurfaceVariant</item>
         <item name="rfTraceColor">?attr/colorTertiary</item>
         <item name="actionBarTheme">@style/ThemeOverlay.Material3.ActionBar</item>
     </style>
 
-    <!-- DedSec-inspired hacker terminal: pure black, neon cyan / magenta, monospace. -->
+    <!-- DedSec-inspired hacktivist zine: black and white, hot pink and violet, monospace. -->
     <style name="Theme.RFSentinel.DedSec" parent="Theme.MaterialComponents">
-        <item name="colorPrimary">@color/dedsec_cyan</item>
+        <!-- Selected chips / toggles use this theme's own primary colour. -->
+        <item name="rfAccent">?attr/colorPrimary</item>
+        <item name="rfOnAccent">?attr/colorOnPrimary</item>
+        <item name="colorPrimary">@color/dedsec_magenta</item>
         <item name="colorPrimaryVariant">@color/dedsec_black</item>
         <item name="colorOnPrimary">@color/dedsec_black</item>
-        <item name="colorSecondary">@color/dedsec_magenta</item>
-        <item name="colorOnSecondary">@color/dedsec_black</item>
+        <item name="colorSecondary">@color/dedsec_violet</item>
+        <item name="colorOnSecondary">@color/dedsec_text</item>
         <item name="colorSurface">@color/dedsec_panel</item>
         <item name="colorOnSurface">@color/dedsec_text</item>
         <item name="android:colorBackground">@color/dedsec_black</item>
@@ -45,10 +51,10 @@
         <item name="actionBarTheme">@style/DedSec.ActionBarOverlay</item>
         <item name="alertDialogTheme">@style/DedSec.Dialog</item>
         <item name="materialAlertDialogTheme">@style/DedSec.Dialog</item>
-        <item name="rfScopeColor">@color/dedsec_green</item>
-        <item name="rfScopeTextColor">@color/dedsec_green</item>
-        <item name="rfTraceColor">@color/dedsec_magenta</item>
-        <item name="colorAccent">@color/dedsec_magenta</item>
+        <item name="rfScopeColor">@color/dedsec_magenta</item>
+        <item name="rfScopeTextColor">@color/dedsec_dim</item>
+        <item name="rfTraceColor">@color/dedsec_violet</item>
+        <item name="colorAccent">@color/dedsec_violet</item>
     </style>
 
     <style name="DedSec.ActionBar" parent="Widget.MaterialComponents.ActionBar.Solid">
@@ -58,18 +64,18 @@
     </style>
 
     <style name="DedSec.ActionBarTitle" parent="TextAppearance.AppCompat.Widget.ActionBar.Title">
-        <item name="android:textColor">@color/dedsec_cyan</item>
+        <item name="android:textColor">@color/dedsec_text</item>
         <item name="android:fontFamily">@font/share_tech_mono</item>
         <item name="android:textStyle">bold</item>
     </style>
 
     <style name="DedSec.ActionBarOverlay" parent="ThemeOverlay.MaterialComponents.Dark.ActionBar">
-        <item name="colorControlNormal">@color/dedsec_cyan</item>
-        <item name="android:textColorPrimary">@color/dedsec_cyan</item>
+        <item name="colorControlNormal">@color/dedsec_text</item>
+        <item name="android:textColorPrimary">@color/dedsec_text</item>
     </style>
 
     <style name="DedSec.Dialog" parent="ThemeOverlay.MaterialComponents.Dialog.Alert">
-        <item name="colorPrimary">@color/dedsec_cyan</item>
+        <item name="colorPrimary">@color/dedsec_magenta</item>
         <item name="colorSurface">@color/dedsec_panel</item>
         <item name="android:background">@color/dedsec_panel</item>
         <item name="android:textColorPrimary">@color/dedsec_text</item>
@@ -108,6 +114,9 @@
 
     <!-- Night Drive: red-only on black, like a cockpit - protects dark adaptation while driving. -->
     <style name="Theme.RFSentinel.NightDrive" parent="Theme.MaterialComponents">
+        <!-- Selected chips / toggles use this theme's own primary colour. -->
+        <item name="rfAccent">?attr/colorPrimary</item>
+        <item name="rfOnAccent">?attr/colorOnPrimary</item>
         <item name="colorPrimary">@color/nd_red</item>
         <item name="colorPrimaryVariant">@color/nd_bg</item>
         <item name="colorOnPrimary">@color/nd_bg</item>
@@ -139,6 +148,9 @@
 
     <!-- Night Vision: green phosphor image-intensifier look. -->
     <style name="Theme.RFSentinel.NightVision" parent="Theme.MaterialComponents">
+        <!-- Selected chips / toggles use this theme's own primary colour. -->
+        <item name="rfAccent">?attr/colorPrimary</item>
+        <item name="rfOnAccent">?attr/colorOnPrimary</item>
         <item name="colorPrimary">@color/nv_green</item>
         <item name="colorPrimaryVariant">@color/nv_bg</item>
         <item name="colorOnPrimary">@color/nv_bg</item>
@@ -170,6 +182,9 @@
 
     <!-- Amber CRT: 1980s monochrome terminal. -->
     <style name="Theme.RFSentinel.Amber" parent="Theme.MaterialComponents">
+        <!-- Selected chips / toggles use this theme's own primary colour. -->
+        <item name="rfAccent">?attr/colorPrimary</item>
+        <item name="rfOnAccent">?attr/colorOnPrimary</item>
         <item name="colorPrimary">@color/amber_main</item>
         <item name="colorPrimaryVariant">@color/amber_bg</item>
         <item name="colorOnPrimary">@color/amber_bg</item>
@@ -201,6 +216,9 @@
 
     <!-- Synthwave: neon pink and cyan over a purple night. -->
     <style name="Theme.RFSentinel.Synthwave" parent="Theme.MaterialComponents">
+        <!-- Selected chips / toggles use this theme's own primary colour. -->
+        <item name="rfAccent">?attr/colorPrimary</item>
+        <item name="rfOnAccent">?attr/colorOnPrimary</item>
         <item name="colorPrimary">@color/sw_pink</item>
         <item name="colorPrimaryVariant">@color/sw_bg</item>
         <item name="colorOnPrimary">@color/sw_bg</item>
@@ -232,6 +250,9 @@
 
     <!-- Tactical: olive drab and coyote tan, low glare. -->
     <style name="Theme.RFSentinel.Tactical" parent="Theme.MaterialComponents">
+        <!-- Selected chips / toggles use this theme's own primary colour. -->
+        <item name="rfAccent">?attr/colorPrimary</item>
+        <item name="rfOnAccent">?attr/colorOnPrimary</item>
         <item name="colorPrimary">@color/tac_olive</item>
         <item name="colorPrimaryVariant">@color/tac_bg</item>
         <item name="colorOnPrimary">@color/tac_bg</item>
@@ -263,6 +284,9 @@
 
     <!-- Blueprint: white technical drawing on drafting blue. -->
     <style name="Theme.RFSentinel.Blueprint" parent="Theme.MaterialComponents">
+        <!-- Selected chips / toggles use this theme's own primary colour. -->
+        <item name="rfAccent">?attr/colorPrimary</item>
+        <item name="rfOnAccent">?attr/colorOnPrimary</item>
         <item name="colorPrimary">@color/bp_line</item>
         <item name="colorPrimaryVariant">@color/bp_bg</item>
         <item name="colorOnPrimary">@color/bp_bg</item>
@@ -294,6 +318,9 @@
 
     <!-- Paper: newspaper ink on newsprint - maximum contrast in direct sunlight. -->
     <style name="Theme.RFSentinel.Paper" parent="Theme.MaterialComponents.Light">
+        <!-- Selected chips / toggles use this theme's own primary colour. -->
+        <item name="rfAccent">?attr/colorPrimary</item>
+        <item name="rfOnAccent">?attr/colorOnPrimary</item>
         <item name="colorPrimary">@color/paper_ink</item>
         <item name="colorPrimaryVariant">@color/paper_bg</item>
         <item name="colorOnPrimary">@color/paper_bg</item>
