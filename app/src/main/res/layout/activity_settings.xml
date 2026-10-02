@@ -347,6 +347,12 @@
             android:layout_height="wrap_content"
             android:text="Warn when approaching a known speed or red-light camera (same download)" />
 
+        <TextView
+            android:id="@+id/espStatusText"
+            style="@style/SettingsLabel"
+            android:paddingTop="6dp"
+            android:textSize="12sp" />
+
         <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/autoRecordSwitch"
             android:layout_width="match_parent"

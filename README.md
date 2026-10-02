@@ -249,6 +249,24 @@ or updated. Enable *Unknown sources* first, then install (or reinstall) the APK,
 open RF Sentinel once on the phone, and reconnect. Also check **Android Auto
 settings → Customize launcher** in case it's listed under hidden apps.
 
+## ESP32 boards on USB (optional)
+
+Plug an ESP32 board into the phone with a USB OTG cable while scanning and
+RF Sentinel adds what the board reports to its own detections (allow USB access
+on the prompt the first time). Supported firmware:
+
+- **[OUI-Spy](https://github.com/colonelpanichacks/oui-spy-unified-blue)**
+  (recommended): its Flock-You, Detector and Sky Spy modes stream every
+  detection - Flock cameras, your board's watchlist matches, Remote ID drones
+  with their position - as they happen.
+- **[GhostESP](https://github.com/GhostESP-Revival/GhostESP)**: the Wi-Fi
+  networks it scans, about every 10 seconds (no Bluetooth over USB).
+
+Boards with native USB (ESP32-S2/S3/C3/C6) and those with a CP210x or CH340
+USB chip work. RF Sentinel only listens: it never sends OUI-Spy anything, and
+only asks GhostESP to scan and list networks. Settings shows the board's
+status.
+
 ## Themes
 
 Pick a theme in the setup wizard or under **Settings → Appearance**.

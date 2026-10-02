@@ -112,11 +112,19 @@ class SettingsActivity : AppCompatActivity() {
         binding.trackerIgnoreButton.visibility = if (n > 0 || paused) android.view.View.VISIBLE else android.view.View.GONE
     }
 
+    /** ESP32 boards on USB (OUI-Spy / GhostESP) are picked up while scanning. */
+    private fun updateEspStatus() {
+        val s = com.rfsentinel.app.esp.EspBoards.status
+        binding.espStatusText.text = "ESP32 on USB (OUI-Spy or GhostESP): " +
+            s.ifBlank { "plug one in with an OTG cable while scanning to add its detections" }
+    }
+
     private fun updateBannerButtons() {
         binding.bannerClearButton.isEnabled = ThemeManager.hasBanner(this)
     }
 
     override fun onDestroy() {
+        com.rfsentinel.app.esp.EspBoards.onStatusChanged = null
         stopObservingPrefetch?.invoke()
         super.onDestroy()
     }
@@ -243,6 +251,8 @@ class SettingsActivity : AppCompatActivity() {
         // Location
         binding.followSwitch.isChecked = Prefs.followerAlerts(this)
         updateTrackerIgnoreText()
+        updateEspStatus()
+        com.rfsentinel.app.esp.EspBoards.onStatusChanged = { runOnUiThread { updateEspStatus() } }
         binding.trackerIgnoreButton.setOnClickListener {
             com.rfsentinel.app.data.TrackerMutes.clear(this)
             Prefs.setTrackerFollowPausedUntil(this, 0L)

@@ -87,6 +87,7 @@ class ScanForegroundService : Service() {
         private const val CELL_CHECK_MS = 15_000L
         private const val CELL_REPEAT_MS = 30 * 60_000L
         private const val PLACING_MAX_AGE_MS = 30_000L
+        private const val ESP_HIT_TTL_MS = 5 * 60_000L
         private const val PLACING_MAX_ACCURACY_M = 50f
 
         /**
@@ -238,6 +239,8 @@ class ScanForegroundService : Service() {
         // Re-evaluated on every start command, so Settings changes apply live.
         if (Prefs.bleEnabled(this)) { bleEngine.stop(); startBle() } else stopBle()
         if (Prefs.wifiEnabled(this)) startWifiPolling() else stopWifiPolling()
+        // ESP32 boards on USB (OUI-Spy / GhostESP): their reports join the same pipeline.
+        com.rfsentinel.app.esp.EspBoards.start(this) { list -> pipeline.post { list.forEach(::processEsp) } }
         updateLocationUpdates()
         startHousekeeping()
         startCellChecks()
@@ -379,12 +382,12 @@ class ScanForegroundService : Service() {
 
     // ---- Pipeline -------------------------------------------------------------
 
-    private fun process(a: Advert) {
+    private fun process(a: Advert, reportedRemoteId: RemoteId.Info? = null) {
         val now = a.timestamp
         val mac = a.mac
 
         // Remote ID messages arrive one type at a time; merge every packet.
-        var remoteId: RemoteId.Info? = null
+        var remoteId: RemoteId.Info? = reportedRemoteId
         if (a.isBle) {
             a.serviceData[Advert.uuid16(0xFFFA)]?.let { remoteId = RemoteId.decodeBle(it, DeviceRegistry.remoteIdOf(mac)) }
         } else {
@@ -437,6 +440,28 @@ class ScanForegroundService : Service() {
         }
     }
 
+    /** Matches an ESP32 board reported, kept a few minutes so re-classification keeps them. */
+    private val espHits = HashMap<String, Pair<Long, List<Hit>>>()
+
+    /** One ESP32 report: becomes a normal observation, with the board's own matches added. */
+    private fun processEsp(e: com.rfsentinel.app.esp.EspSighting) {
+        val now = System.currentTimeMillis()
+        if (e.hits.isNotEmpty()) {
+            espHits[e.mac] = now to e.hits
+            classified.remove(e.mac) // re-classify with the new evidence
+        }
+        val advert = if (e.ble) Advert(
+            mac = e.mac, source = Advert.Source.BLE, rssi = e.rssi, name = e.name,
+            manufacturerData = e.companyId?.let { mapOf(it to ByteArray(0)) }.orEmpty(),
+            serviceUuids = listOfNotNull(e.serviceUuid16?.let { Advert.uuid16(it) }),
+            timestamp = now
+        ) else Advert(
+            mac = e.mac, source = Advert.Source.WIFI, rssi = e.rssi, name = e.name,
+            wifi = Advert.WifiInfo(e.frequencyMhz, "", null, emptyList()), timestamp = now
+        )
+        process(advert, e.remoteId)
+    }
+
     private fun classify(a: Advert, now: Long): Classified {
         val macVendor = VendorDb.macVendor(a.mac)
         val identity = DeviceIntel.identify(a, macVendor)
@@ -447,7 +472,8 @@ class ScanForegroundService : Service() {
         val raw = SignatureEngine.classify(a) +
             OuiWatchlist.hits(a.mac, a.name, listOfNotNull(macVendor) + companyVendors) +
             DeviceRegistry.inheritedHits(a.mac) +
-            listOfNotNull(DeviceRegistry.clusterHit(a.mac, now))
+            listOfNotNull(DeviceRegistry.clusterHit(a.mac, now)) +
+            espHits[a.mac]?.takeIf { now - it.first < ESP_HIT_TTL_MS }?.second.orEmpty()
         val hits = EvidenceFusion.fuse(raw.filter { Prefs.categoryEnabled(this, it.category) })
         return Classified(now, hits, identity, vendor)
     }
@@ -703,6 +729,7 @@ class ScanForegroundService : Service() {
     }
 
     override fun onDestroy() {
+        com.rfsentinel.app.esp.EspBoards.stop(this)
         bleEngine.stop()
         wifiEngine.stop()
         if (btStateReceiverRegistered) {
