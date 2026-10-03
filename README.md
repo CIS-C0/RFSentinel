@@ -203,7 +203,7 @@ Details: [How it works](https://cis-c0.github.io/RFSentinel/how-it-works.html) a
   next to it. On the radar, closer to the centre means a stronger signal; the
   angle is not a direction (a phone can't measure one).
 - **Filters and search:** All, Flagged, Trackers, Drones, Favorites, New,
-  Bluetooth, WiFi. Search matches name, address, vendor and type.
+  Bluetooth, WiFi, Cells, ESP32. Search matches name, address, vendor and type.
 - **Tap** a device for details. **Long-press** for watchlist, whitelist,
   favorite, copy, ignore, and **Report unknown device**.
 - **Floating bubble** (Settings, needs *Display over other apps*): green when
