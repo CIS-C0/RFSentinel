@@ -313,6 +313,66 @@
 </div>
 </details>
 
+<details class="faq" id="vs-flock-you">
+<summary>RF Sentinel vs Flock You: which one should I use?</summary>
+<div>
+<p><a href="https://github.com/colonelpanichacks/flock-you" rel="noopener">Flock You</a> is open-source (MIT) ESP32 firmware focused on one target: Flock Safety cameras. It runs the radio in 2.4 GHz promiscuous mode, so it sees Flock cameras' WiFi probe requests and SoftAPs that a phone can't, plus Flock battery-pack BLE adverts, and beeps or feeds a dashboard.</p>
+<p>RF Sentinel is a phone app that covers Flock as one category among many (body cams, patrol gear, trackers, drones, glasses, fake cell towers) and adds the OpenStreetMap / DeFlock camera map for cellular-only cameras. They combine well: plug an ESP32 running OUI-Spy's Flock-You mode into the phone and RF Sentinel shows its Flock detections next to its own. See <a href="esp32.html">ESP32 boards</a>.</p>
+</div>
+</details>
+
+<details class="faq" id="vs-oui-spy">
+<summary>RF Sentinel vs OUI-Spy / OUI-APEX</summary>
+<div>
+<p><a href="https://github.com/colonelpanichacks/oui-spy-unified-blue" rel="noopener">OUI-Spy</a> is ESP32 firmware for the XIAO ESP32-S3 with several modes (Detector, Flock-You, Foxhunter, Sky Spy), a buzzer and LED, and a web flasher. <a href="https://github.com/lukeswitz/oui-spy-unified-blue" rel="noopener">OUI-APEX</a> (lukeswitz's fork) runs those engines from one firmware and pairs with its own cross-platform app.</p>
+<p>It isn't either/or: RF Sentinel <b>reads OUI-Spy boards</b> over USB, and OUI-SPY App-Controlled boards over Bluetooth, and merges their detections with the phone's own (blue <b>ESP32</b> badge). The board gives range and radio modes a phone lacks; RF Sentinel adds its rule set, patrol-vehicle grouping, the camera map, alerts and Android Auto.</p>
+</div>
+</details>
+
+<details class="faq" id="vs-wardrive-go">
+<summary>RF Sentinel vs Wardrive Go</summary>
+<div>
+<p><a href="https://github.com/RocketGod-git/wardrive-go" rel="noopener">Wardrive Go</a> (GPL-3.0, Android) is a wardriving app: it maps WiFi, Bluetooth and cellular networks, uploads to WiGLE and WDGWars, supports USB monitor-mode WiFi adapters and has channel / spectrum analyzers, Android Auto and a Wear OS companion. It also flags Flock cameras and Axon body cams.</p>
+<p>RF Sentinel is built around detection and alerting rather than mapping for upload: sourced signatures with confidence tiers, evidence fusion, patrol-vehicle grouping, follower alerts, Remote ID decoding, fake-cell signs and warnings before mapped cameras. Use Wardrive Go to contribute to WiGLE; use RF Sentinel to be warned while you drive. Some of RF Sentinel's prefix data was cross-checked with Wardrive Go's lists.</p>
+</div>
+</details>
+
+<details class="faq" id="vs-fieldwatch">
+<summary>RF Sentinel vs Fieldwatch</summary>
+<div>
+<p><a href="https://github.com/OffGridPete/Fieldwatch" rel="noopener">Fieldwatch</a> (MIT, Android) is a receive-only WiFi and Bluetooth LE observer with customizable views, a filtering engine, an extensible signature library and reports, fully offline. It's a general field-survey tool.</p>
+<p>RF Sentinel shares the receive-only, offline approach but is tuned for surveillance and police gear: alert tiers, patrol-vehicle grouping, tracker follow detection, drone and cell analysis, the camera map and Android Auto. Part of RF Sentinel's prefix data was cross-checked with Fieldwatch's list.</p>
+</div>
+</details>
+
+<details class="faq" id="vs-sophia-short">
+<summary>RF Sentinel vs SØPHIA (s0phia ops)</summary>
+<div>
+<p>SØPHIA is a paid, closed-source recon toolkit that runs inside Termux. RF Sentinel does the same kind of passive WiFi and Bluetooth recon as a free, open-source, regular APK, with police, ALPR, tracker, drone and fake-cell detection, a camera map and Android Auto. Full comparison: <a href="sophia-alternative.html">RF Sentinel vs SØPHIA</a>.</p>
+</div>
+</details>
+
+<details class="faq" id="vs-flock-you-android">
+<summary>RF Sentinel vs Flock-You for Android</summary>
+<div>
+<p><a href="https://github.com/MaxwellDPS/Flock-You-Android" rel="noopener">Flock-You (Android)</a> is a separate counter-surveillance app with broad multi-protocol ambitions (BLE, WiFi, cellular, GNSS, ultrasonic) and Flipper Zero integration. RF Sentinel stays with what a phone's radios can verify, cites a source for every rule, and connects to ESP32 boards instead of a Flipper. Part of RF Sentinel's prefix data was cross-checked with its list.</p>
+</div>
+</details>
+
+<details class="faq" id="single-radio-tools">
+<summary>What about apps that only scan WiFi or only Bluetooth?</summary>
+<div>
+<p>Many good tools cover one radio or one job:</p>
+<ul>
+<li><b>Bluetooth only:</b> <a href="https://github.com/seemoo-lab/AirGuard" rel="noopener">AirGuard</a> (AirTag / Find My tracker protection), <a href="https://github.com/Semper-Viventem/MetaRadar" rel="noopener">BLE Radar (MetaRadar)</a> (BLE environment monitoring and custom filters), nRF Connect (a developer's BLE scanner), RF Party (BLE from the DEF CON 31 talk).</li>
+<li><b>WiFi only:</b> WiFi analyzer apps show access points and channels but don't identify police or surveillance gear.</li>
+<li><b>Cell only:</b> <a href="https://github.com/EFForg/rayhunter" rel="noopener">EFF's Rayhunter</a> (IMSI catcher detection on dedicated hardware).</li>
+<li><b>Mapping:</b> WiGLE WiFi Wardriving and Wardrive Go map networks for upload.</li>
+</ul>
+<p>RF Sentinel puts Bluetooth LE, WiFi and cell analysis in one app, so evidence from different radios can add up (e.g. a router, a radio and a printer moving together = possible police vehicle). A single-radio tool can't make that connection.</p>
+</div>
+</details>
+
 <details class="faq" id="iphone">
 <summary>Is there an iPhone version?</summary>
 <div>
