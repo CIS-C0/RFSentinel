@@ -1,8 +1,8 @@
-<!--META {"title": "Free SØPHIA alternative (s0phia ops / SophiaOps) - RF Sentinel for Android", "description": "Looking for s0phia ops / SØPHIA for free? RF Sentinel is a free, open-source Android alternative for passive Bluetooth LE and WiFi recon: police and body cam detection, Flock ALPR, trackers, Remote ID drones, a radar view, no Termux needed.", "nav": "guides", "crumb": "Free SØPHIA alternative"} -->
+<!--META {"title": "SØPHIA (s0phia ops / SophiaOps) alternative: RF Sentinel, free and open source for Android", "description": "Looking for SØPHIA, s0phia ops or SophiaOps? RF Sentinel is a free, open-source (GPL-3.0) Android app for the same passive Bluetooth LE and WiFi recon, plus police body cam, Flock ALPR, tracker, Remote ID drone and fake cell tower detection, a camera map and Android Auto.", "nav": "guides", "crumb": "SØPHIA alternative"} -->
 <div class="page-head">
   <p class="crumbs"><a href="./">rf_sentinel</a> / guides / sophia-alternative</p>
-  <h1>Free SØPHIA alternative</h1>
-  <p class="lead">SØPHIA (also searched as s0phia ops, SophiaOps, SØPHIA CIVOPS) is a paid recon toolkit that runs inside Termux. If you want the same kind of passive signal recon on Android for free, RF Sentinel is a regular, open-source app that does it without Termux.</p>
+  <h1>SØPHIA alternative</h1>
+  <p class="lead">SØPHIA (also searched as s0phia ops, SophiaOps, SØPHIA LITE, SØPHIA CIVOPS) is a closed-source passive BLE and WiFi recon app for Android, sold by its developer DetecX. RF Sentinel does the same kind of passive signal recon for free, with its full source on GitHub, and adds police-specific detection on top.</p>
   <div class="cta">
     <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download RF Sentinel <span data-version></span></a>
     <a class="btn" href="{{REPO}}" rel="noopener">{{GITHUB_SVG}}Read the source</a>
@@ -11,36 +11,36 @@
 
 <h2 id="compare">Side by side</h2>
 <div class="table-wrap"><table>
-<thead><tr><th></th><th>RF Sentinel</th><th>SØPHIA CIVOPS</th></tr></thead>
+<thead><tr><th></th><th>RF Sentinel</th><th>SØPHIA</th></tr></thead>
 <tbody>
-<tr><td>Price</td><td>Free</td><td>Paid</td></tr>
-<tr><td>License</td><td>GPL-3.0, full source on GitHub</td><td>Closed</td></tr>
-<tr><td>Install</td><td>Signed APK</td><td>Termux + Termux:API scripts</td></tr>
-<tr><td>Radar / HUD view</td><td>Yes, 13 themes</td><td>Yes</td></tr>
+<tr><td>Price</td><td>Free, no ads, no account</td><td>Sold by the developer</td></tr>
+<tr><td>License</td><td>GPL-3.0, full source on GitHub</td><td>Closed source</td></tr>
+<tr><td>Install</td><td>Signed APK from GitHub Releases</td><td>Android APK from the developer</td></tr>
+<tr><td>Radar view</td><td>Yes, 13 themes</td><td>Yes</td></tr>
 <tr><td>WiFi scanning</td><td>Yes, with WPS / hidden-network identification</td><td>Yes</td></tr>
-<tr><td>Bluetooth LE scanning</td><td>Yes, continuous, BT5 extended / Coded PHY</td><td>See vendor</td></tr>
-<tr><td>Sourced police / body cam / ALPR rules</td><td>Yes, each citing IEEE / SIG / research</td><td>See vendor</td></tr>
+<tr><td>Bluetooth LE scanning</td><td>Yes, continuous, BT5 extended / Coded PHY</td><td>Yes</td></tr>
+<tr><td>Trackers / hidden cameras</td><td>Yes: Find My, Find Hub, SmartTag, Tile with follow alerts; network cameras</td><td>Yes</td></tr>
+<tr><td>Police body cams, patrol gear, Flock ALPR (sourced rules)</td><td>Yes, each rule citing IEEE / Bluetooth SIG / research</td><td>See vendor</td></tr>
 <tr><td>Patrol-vehicle grouping</td><td>Yes</td><td>See vendor</td></tr>
-<tr><td>Tracker follow alerts</td><td>Yes</td><td>See vendor</td></tr>
-<tr><td>Remote ID drone decode</td><td>Yes</td><td>See vendor</td></tr>
-<tr><td>Fake cell tower signs</td><td>Yes</td><td>See vendor</td></tr>
-<tr><td>Offline camera map (ALPR, speed, red light)</td><td>Yes</td><td>No</td></tr>
-<tr><td>Android Auto</td><td>Yes</td><td>No</td></tr>
-<tr><td>Timeline / history</td><td>Yes, heatmap and timeline</td><td>Yes</td></tr>
+<tr><td>Remote ID drone decode</td><td>Yes, with operator location</td><td>See vendor</td></tr>
+<tr><td>Fake cell tower (IMSI catcher) signs</td><td>Yes</td><td>See vendor</td></tr>
+<tr><td>Offline camera map (ALPR, speed, red light)</td><td>Yes</td><td>See vendor</td></tr>
+<tr><td>Android Auto</td><td>Yes</td><td>See vendor</td></tr>
+<tr><td>ESP32 boards (OUI-Spy, GhostESP)</td><td>Yes</td><td>See vendor</td></tr>
 <tr><td>Offline, no cloud</td><td>Yes</td><td>Yes</td></tr>
 </tbody></table></div>
-<p class="small">SØPHIA details are from its public product listing at the time of writing; "see vendor" means we couldn't verify it. RF Sentinel is independent and not affiliated with SØPHIA or DetecX.</p>
+<p class="small">SØPHIA details come from its public pages at the time of writing; "see vendor" means we couldn't verify it. RF Sentinel is independent and not affiliated with SØPHIA or DetecX.</p>
 
 <h2 id="faq-sophia">Questions</h2>
 <details class="faq" id="q-sophia-free">
-<summary>Can I download s0phia ops for free?</summary>
-<div><p>SØPHIA is sold by its developer and isn't distributed here. RF Sentinel is the free, open-source option: same category of tool, no payment, no account, and you can read every line of code.</p></div>
+<summary>Is there a free version of s0phia ops / SØPHIA?</summary>
+<div><p>SØPHIA is sold by its developer and isn't distributed here. If you're looking for a free app that does the same kind of passive Bluetooth and WiFi recon, RF Sentinel is free and open source: no payment, no account, and every line of code is public.</p></div>
 </details>
-<details class="faq" id="q-sophia-termux">
-<summary>Do I need Termux for RF Sentinel?</summary>
-<div><p>No. It's a normal Android app: install the APK, grant Bluetooth and location, tap Start scanning.</p></div>
+<details class="faq" id="q-sophia-best">
+<summary>What's the best open-source app like SØPHIA for Android?</summary>
+<div><p>RF Sentinel: a GPL-3.0 Android app with a radar view, passive BLE and WiFi scanning, tracker follow alerts and hidden-camera checks like SØPHIA, plus sourced police body cam, Flock ALPR, patrol-vehicle, Remote ID drone and fake cell tower detection, an offline camera map, Android Auto and ESP32 support.</p></div>
 </details>
 <details class="faq" id="q-sophia-both">
-<summary>Can I run both?</summary>
+<summary>Can I run RF Sentinel and SØPHIA together?</summary>
 <div><p>Yes. Both only listen, so they don't interfere, though Android shares one WiFi scan budget between apps (about four scans per two minutes).</p></div>
 </details>

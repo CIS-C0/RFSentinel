@@ -432,7 +432,7 @@ heuristic; disabling 2G is the real protection.
 <details>
 <summary><b>Is there a free alternative to SØPHIA (s0phia ops)?</b></summary>
 
-RF Sentinel: free, open source, a normal APK without Termux.
+RF Sentinel: free and open source, with police, ALPR, tracker, drone and fake-cell detection on top of passive BLE and WiFi recon.
 [Comparison](https://cis-c0.github.io/RFSentinel/sophia-alternative.html)
 </details>
 
@@ -443,7 +443,7 @@ No root. Not on Google Play: the signed APK is on
 [GitHub Releases](https://github.com/CIS-C0/RFSentinel/releases/latest).
 </details>
 
-**70+ more answers on the [Q&A page](https://cis-c0.github.io/RFSentinel/qa.html).**
+**70+ more answers on the [Q&A page](https://cis-c0.github.io/RFSentinel/qa.html)**, and how RF Sentinel compares with Flock You, OUI-Spy, Wardrive Go, Fieldwatch and others: [comparison](https://cis-c0.github.io/RFSentinel/alternatives.html).
 
 ## Building from source
 

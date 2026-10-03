@@ -48,6 +48,7 @@ GUIDES = [
     ("tracker-detector.html", "AirTag & tracker detection"),
     ("drone-detector.html", "Remote ID drone detector"),
     ("smart-glasses-detector.html", "Smart glasses detector"),
+    ("alternatives.html", "Compared with other tools"),
     ("sophia-alternative.html", "Free SØPHIA alternative"),
 ]
 
