@@ -302,7 +302,7 @@ class MainActivity : AppCompatActivity() {
 
         // Live counts on the chips ("Trackers 2"); empty filters stay unlabelled.
         for ((f, chip) in filterChips) {
-            val n = all.count { f.matches(it) }
+            val n = if (f == com.rfsentinel.app.ui.DeviceFilter.CELLS) liveCellCount(now) else all.count { f.matches(it) }
             val label = if (f == com.rfsentinel.app.ui.DeviceFilter.ALL || n > 0) "${f.label} $n" else f.label
             if (chip.text != label) chip.text = label
         }
@@ -334,6 +334,8 @@ class MainActivity : AppCompatActivity() {
         binding.emptyText.text = when {
             all.isEmpty() && !ScanForegroundService.isRunning -> "Not scanning.\nTap Start scanning to begin."
             all.isEmpty() -> "Listening... no devices heard yet."
+            filter == com.rfsentinel.app.ui.DeviceFilter.CELLS ->
+                "No cell towers yet - they're read every 15 s while scanning\n(needs the Fake cell tower category on in Settings)."
             else -> "No devices match this filter."
         }
     }
@@ -352,10 +354,15 @@ class MainActivity : AppCompatActivity() {
     private fun radioColor(s: DeviceRegistry.Snapshot): Int =
         if (Advert.Source.BLE in s.sources) BLUETOOTH_TAG_COLOR else WIFI_TAG_COLOR
 
+    private fun liveCellCount(now: Long): Int =
+        if (ScanForegroundService.isRunning && now - com.rfsentinel.app.service.CellTowerStore.currentAt <= 60_000L)
+            com.rfsentinel.app.service.CellTowerStore.current.size else 0
+
     private var shownCells = 0
 
     private fun cellRows(now: Long): List<DeviceRow> {
-        if (filter != com.rfsentinel.app.ui.DeviceFilter.ALL || !ScanForegroundService.isRunning) return emptyList()
+        if ((filter != com.rfsentinel.app.ui.DeviceFilter.ALL && filter != com.rfsentinel.app.ui.DeviceFilter.CELLS) ||
+            !ScanForegroundService.isRunning) return emptyList()
         val at = com.rfsentinel.app.service.CellTowerStore.currentAt
         if (now - at > 60_000L) return emptyList()
         val ageSec = (now - at) / 1000

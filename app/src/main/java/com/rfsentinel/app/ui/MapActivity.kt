@@ -239,7 +239,7 @@ class MapActivity : AppCompatActivity() {
     }
 
     private fun setupFilterChips() {
-        val options = if (tripId == null) DeviceFilter.entries else listOf(DeviceFilter.ALL, DeviceFilter.FLAGGED)
+        val options = if (tripId == null) DeviceFilter.entries - DeviceFilter.CELLS else listOf(DeviceFilter.ALL, DeviceFilter.FLAGGED)
         filter = DeviceFilter.parse(com.rfsentinel.app.util.Prefs.mapFilter(this)).takeIf { it in options } ?: DeviceFilter.ALL
         val group = binding.mapFilterChips
         for (f in options) {

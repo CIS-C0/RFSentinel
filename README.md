@@ -141,7 +141,7 @@ Every match shows its evidence, its source and a confidence tier: **weak** (< 50
 - **USB WiFi adapters in monitor mode** (RTL8811AU / RTL8821AU, e.g. ALFA AWUS036ACS) over OTG, no root: continuous 2.4 GHz channel hopping with no Android scan limit, longer range, and **client devices** (laptops, phones, cameras connected to a network) the phone's WiFi scan can't see
 
 **Interface**
-- Live list and radar view, filter chips with live counts (flagged, trackers, drones, new, ESP32, favorites, Bluetooth, WiFi), search
+- Live list and radar view, filter chips with live counts (flagged, trackers, drones, favorites, new, Bluetooth, WiFi, cells, ESP32), search
 - **Tools** (button next to the map button): **Cell towers** (serving and neighbour cells with network, IDs, channel and signal, plus every tower seen while scanning), **WiFi channels** and **WiFi spectrum** analyzers for 2.4 / 5 / 6 GHz
 - **Cell towers in the live list:** the serving cell and its neighbours appear under *All*, after the devices
 - **Scan watchdog:** a scanner that goes silent is restarted on its own
@@ -202,7 +202,7 @@ Details: [How it works](https://cis-c0.github.io/RFSentinel/how-it-works.html) a
 - **List / Radar / Map:** the toggle switches list and radar; **Map** sits right
   next to it. On the radar, closer to the centre means a stronger signal; the
   angle is not a direction (a phone can't measure one).
-- **Filters and search:** All, Flagged, Trackers, Drones, New, ESP32, Favorites,
+- **Filters and search:** All, Flagged, Trackers, Drones, Favorites, New,
   Bluetooth, WiFi. Search matches name, address, vendor and type.
 - **Tap** a device for details. **Long-press** for watchlist, whitelist,
   favorite, copy, ignore, and **Report unknown device**.
