@@ -192,7 +192,9 @@ def build():
         for key, href, label in NAV:
             cur = ' aria-current="page"' if meta.get("nav") == key else ""
             nav.append(f'<a href="{rel}{href or "./"}"{cur}>{label}</a>')
-        guides = "".join(f'<li><a href="{rel}{h}">{html.escape(t)}</a></li>' for h, t in GUIDES)
+        # The home page keeps competitor comparisons out of its footer.
+        guides = "".join(f'<li><a href="{rel}{h}">{html.escape(t)}</a></li>' for h, t in GUIDES
+                         if not (slug == "index" and h == "sophia-alternative.html"))
 
         # Structured data
         graph = []

@@ -67,7 +67,7 @@
 <tr><td>Speed &amp; red-light cameras</td><td>Fixed cameras mapped in OpenStreetMap</td><td>Offline map layer, warned about ~30 s ahead with the mapped limit</td></tr>
 <tr><td>Audio sensors</td><td>Flock Raven gunshot detectors</td><td>128-bit service UUIDs with short IDs <code>0x3100</code>-<code>0x3500</code></td></tr>
 <tr><td>Patrol vehicles</td><td>Two or more kinds of police-type gear moving together</td><td>RSSI correlation (Pearson r ≥ 0.6 over ≥ 8 s) across body cam, radio, in-car router, printer, rugged laptop roles</td></tr>
-<tr><td>Public-safety gear</td><td>P25 / TETRA radio makers, police radar makers, vehicle upfit, Zebra e-ticket printers</td><td>Company IDs, UUIDs, IEEE prefixes, Zebra factory-serial names</td></tr>
+<tr><td>Public-safety gear</td><td>P25 / TETRA radio makers, in-car cellular routers (Sierra Wireless, Cradlepoint, Peplink, Inseego), in-car printers (Zebra, Brother), police radar makers, vehicle upfit, breath / drug screening devices</td><td>Company IDs, UUIDs, IEEE prefixes, Zebra factory-serial names</td></tr>
 <tr><td>Trackers</td><td>AirTag &amp; Find My, Google Find Hub, Samsung SmartTag, Tile</td><td>Separated-from-owner frames, then follow detection (default 10 min and 800 m with you)</td></tr>
 <tr><td>Drones</td><td>Any ASTM F3411 / FAA Remote ID broadcaster (DJI, Skydio, Autel, Parrot...)</td><td>Decoded Remote ID over BLE and WiFi: serial, position, altitude, speed, heading, operator location</td></tr>
 <tr><td>Camera glasses</td><td>Ray-Ban Meta, Snap Spectacles, Vuzix, HeyCyan-based glasses</td><td>Luxottica <code>0x0D53</code>, Snap <code>0x03C2</code>, Vuzix <code>0x060C</code>, Meta UUIDs</td></tr>
@@ -116,19 +116,21 @@
 
 <h2 id="compare">Compared with other options</h2>
 <div class="table-wrap"><table>
-<thead><tr><th></th><th>RF Sentinel</th><th>SØPHIA (CIVOPS)</th><th>Phone's built-in tracker alerts</th></tr></thead>
+<thead><tr><th></th><th>RF Sentinel</th><th>Crowd-reported apps (Waze)</th><th>Phone's built-in tracker alerts</th></tr></thead>
 <tbody>
-<tr><td>Price</td><td><span class="yes">Free</span></td><td>Paid</td><td>Free</td></tr>
+<tr><td>Price</td><td><span class="yes">Free</span></td><td>Free</td><td>Free</td></tr>
 <tr><td>Open source</td><td><span class="yes">GPL-3.0</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td></tr>
-<tr><td>Install</td><td>Regular APK</td><td>Termux + Termux:API</td><td>Built in</td></tr>
-<tr><td>Bluetooth LE signatures</td><td><span class="yes">Yes</span></td><td>See vendor</td><td>Trackers only</td></tr>
-<tr><td>Police / ALPR / body cam rules</td><td><span class="yes">Yes, sourced</span></td><td>See vendor</td><td><span class="no">No</span></td></tr>
-<tr><td>Remote ID drone decode</td><td><span class="yes">Yes</span></td><td>See vendor</td><td><span class="no">No</span></td></tr>
-<tr><td>Fake cell tower signs</td><td><span class="yes">Yes</span></td><td>See vendor</td><td>Android 15+ only (network notifications)</td></tr>
-<tr><td>Android Auto</td><td><span class="yes">Yes</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td></tr>
+<tr><td>Works where nobody reported</td><td><span class="yes">Yes, reads the equipment's own signals</span></td><td><span class="no">No, needs other drivers</span></td><td>Trackers only</td></tr>
+<tr><td>Account / tracking</td><td><span class="yes">None</span></td><td>Location shared with the service</td><td>Phone account</td></tr>
+<tr><td>Install</td><td>Regular APK</td><td>App store</td><td>Built in</td></tr>
+<tr><td>Bluetooth LE / WiFi signatures</td><td><span class="yes">Yes</span></td><td><span class="no">No</span></td><td>Trackers only</td></tr>
+<tr><td>Police / ALPR / body cam rules</td><td><span class="yes">Yes, sourced</span></td><td>User reports</td><td><span class="no">No</span></td></tr>
+<tr><td>Remote ID drone decode</td><td><span class="yes">Yes</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td></tr>
+<tr><td>Fake cell tower signs</td><td><span class="yes">Yes</span></td><td><span class="no">No</span></td><td>Android 15+ only (network notifications)</td></tr>
+<tr><td>Android Auto</td><td><span class="yes">Yes</span></td><td><span class="yes">Yes</span></td><td><span class="no">No</span></td></tr>
 </tbody>
 </table></div>
-<p class="small">More in <a href="sophia-alternative.html">RF Sentinel vs SØPHIA</a>. RF Sentinel is an independent project, not affiliated with SØPHIA or DetecX.</p>
+<p class="small">Crowd-reported apps and RF Sentinel work well together: one knows what other drivers saw, the other hears the equipment itself.</p>
 
 <h2 id="guides">Guides</h2>
 <div class="grid">
@@ -166,7 +168,7 @@
       </div>
       <div>
         <h4>Guides</h4>
-        <ul><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li></ul>
+        <ul><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li></ul>
       </div>
       <div>
         <h4>Community</h4>

@@ -77,7 +77,6 @@
 | **How** | Receive-only: reads advertisements, beacons and cell info that devices broadcast publicly. Never transmits to, connects to or jams anything |
 | **Runs on** | Android 8.0+ phones, Android Auto, plus optional ESP32 boards (OUI-Spy, GhostESP) |
 | **Costs** | Nothing. GPL-3.0, no ads, no account, no subscription, no analytics |
-| **Alternative to** | SØPHIA / s0phia ops: same kind of passive BLE and WiFi recon as a normal APK, no Termux. *Independent project, not affiliated with SØPHIA or DetecX* |
 
 ## What it detects
 
@@ -88,7 +87,7 @@
 | **Speed & red-light cameras** | Fixed cameras mapped in OpenStreetMap | Offline map layer, warned ~30 s ahead with the mapped limit |
 | **Audio sensors** | Flock Raven | 128-bit service UUIDs `0x3100`-`0x3500` |
 | **Patrol vehicles** | Two or more kinds of police-type gear travelling together | Signal correlation between body cams, radios, in-car routers, printers, rugged laptops |
-| **Public-safety gear** | P25 / TETRA radios, police radar makers, vehicle upfit, Zebra e-ticket printers, cell-site simulator and forensic makers | Company IDs, UUIDs, IEEE prefixes, Zebra factory-serial names |
+| **Public-safety gear** | P25 / TETRA radios, in-car cellular routers (Sierra Wireless, Cradlepoint, Peplink, Inseego), in-car printers (Zebra, Brother), police radar makers, vehicle upfit, breath / drug screening devices, cell-site simulator and forensic makers | Company IDs, UUIDs, IEEE prefixes, Zebra factory-serial names |
 | **Trackers** | AirTag & Find My, Google Find Hub, Samsung SmartTag, Tile | Separated-from-owner frames, then follow detection |
 | **Drones** | Any ASTM F3411 / FAA / EU Remote ID broadcaster | Decoded Remote ID over BLE and WiFi: serial, position, altitude, speed, operator location |
 | **Camera glasses** | Ray-Ban Meta, Snap Spectacles, Vuzix, HeyCyan-based glasses | Company IDs `0x0D53`, `0x03C2`, `0x060C`, Meta UUIDs |

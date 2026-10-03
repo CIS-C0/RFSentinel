@@ -110,6 +110,8 @@ Every question, on `qa.html` or any guide page, uses exactly this markup:
   defaults and `docs/SIGNATURES.md`. When the app changes, update the site.
 - Technical, no marketing fluff. Say what it can't do (limits) as plainly as
   what it can.
+- **No SØPHIA / s0phia mentions on the home page** (owner's choice): they live on
+  `sophia-alternative.html` and in the Q&A only; the home page footer skips that guide.
 - Competitors (SØPHIA etc.): only verifiable facts; write "see vendor" when
   unknown. Never offer, link or hint at pirated copies. "s0phia for free"
   questions point to RF Sentinel as the free alternative.

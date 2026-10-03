@@ -33,6 +33,10 @@ Before shipping, the identifiers were checked against these registries:
 | Public safety | Company ID `0x04EC`, or UUID `0xFD8E` / `0xFE04` (Motorola Solutions) | 45 | SIG; mostly two-way radios |
 | Public safety | UUID `0xFE79` / `0xFD66` (Zebra) with a factory-serial name (`^[A-Z0-9]{2}[A-Z]{3}\d{9}$`): unrenamed fleet mobile printer, e.g. e-ticket printers | 50 | SIG; Zebra Link-OS BLE app note; field capture |
 | Public safety | UUID `0xFE79` / `0xFD66` (Zebra) with any other name | 30 | SIG; mostly warehouse/retail printers |
+| Public safety | Company ID `0x01F1` (Zebra Technologies) without a Zebra printer UUID | 25 | SIG; printers, but also store scanners and handhelds |
+| Public safety | Company ID `0x0755` (Brother Industries) | 20 | SIG; RuggedJet / PocketJet in-car printers, mostly home and office printers |
+| Public safety | UUID `0xFDE1` / `0xFDCA` (Fortin Electronic Systems) | 20 | SIG; vehicle interface modules used in police upfits, also civilian remote starters |
+| Public safety | Company ID `0x04BC` or UUID `0xFCDA` (Dräger) | 35 | SIG; roadside breath / drug screening devices, also hospital and gas-detection gear |
 | ALPR | WiFi SSID starting with `Flock-` | 88 | ACAB (ryanohoro, GainSec) |
 | ALPR | BLE name `FS Ext Battery` | 80 | ACAB |
 | ALPR | BLE name `Penguin-<digits>` or `FS-<hex>` | 70, or 80 with company ID `0x09C8` | ACAB |
@@ -76,7 +80,10 @@ Single rules are only the first pass. Every 2 s per device the scanner also:
    two-way radio, vehicle cellular router, mobile printer, in-car computer,
    rugged laptop or police camera. Consumer brands that also make car audio or
    office gear (Kenwood, Panasonic Connect, Havis) get no role from their vendor
-   name alone, and whitelisted devices never count. At least two *different* roles
+   name alone, and whitelisted devices never count. Peplink and Inseego routers count
+   as vehicle cellular routers. Fortin interface modules and Dräger devices are
+   *support* roles: they add to a group but a group needs at least one other role,
+   so a driveway of remote starters never reads as a police vehicle. At least two *different* roles
    count as one vehicle when either condition holds:
    - their RSSI rises and falls together (Pearson r ≥ 0.6 over at least 8
      aligned seconds);
@@ -286,6 +293,25 @@ others, and would flag ordinary phones and laptops as drones; several more aren'
 IEEE blocks at all. Generic chip makers listed as "body cam" or "spy camera"
 sources (Nordic, Texas Instruments, Raspberry Pi, Ralink, Apple) and DJI's Osmo
 / Ronin gimbal blocks were also left out.
+
+### Police-vehicle vendor sweep (2026-10)
+
+Added after checking which in-car equipment makers named in public police procurement
+records were missing. All weak on their own (they mostly matter for patrol-vehicle
+grouping), and every block checked against the IEEE registry by `tools/gen_assets.py`.
+
+| Vendor | Blocks | Score | Why weak |
+|---|---|---|---|
+| Zebra Technologies | 17 MA-L | 25 | Store scanners, handhelds and label printers |
+| Brother Industries | 7 MA-L | 20 | Home and office printers (no patrol role from the registrant) |
+| Peplink | 4 MA-L | 30 | Also buses, boats, RVs |
+| Inseego | 4 more MA-L | 30 | Consumer MiFi hotspots |
+| Panasonic Connect (Toughbook) | 3 MA-L | 30 | Projectors and business gear; a laptop is usually a WiFi client (no patrol role) |
+| Sierra Wireless AirLink | 6 MA-L, now also in the Canada preset | 40 | Buses, utility trucks, kiosks |
+
+No IEEE block or Bluetooth ID exists for Getac (its blocks are shared with consumer
+laptops), Whelen, Feniex, SoundOff or Laser Technology, so they can only be matched by
+names captured in the field.
 
 ## Canada preset (`assets/oui_presets/canada.json`), researched 2026-09
 
