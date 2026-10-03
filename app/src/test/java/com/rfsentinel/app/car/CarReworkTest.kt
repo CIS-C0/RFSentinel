@@ -115,6 +115,22 @@ class CarReworkTest {
     }
 
     @Test
+    fun homeWarnsWhenThePhoneScreenIsOff() {
+        val pm = ApplicationProvider.getApplicationContext<Application>().getSystemService(android.os.PowerManager::class.java)
+        org.robolectric.Shadows.shadowOf(pm).turnScreenOn(false)
+        val off = rows(HomeScreen(car).onGetTemplate())[0].texts[0].toString()
+        assertTrue(off.contains(HomeScreen.SCREEN_OFF_SHORT))
+        org.robolectric.Shadows.shadowOf(pm).turnScreenOn(true)
+        val on = rows(HomeScreen(car).onGetTemplate())[0].texts[0].toString()
+        assertFalse(on.contains(HomeScreen.SCREEN_OFF_SHORT))
+        // Not scanning: no warning either way.
+        ScanForegroundService.isRunning = false
+        org.robolectric.Shadows.shadowOf(pm).turnScreenOn(false)
+        assertEquals("Not scanning", rows(HomeScreen(car).onGetTemplate())[0].title.toString())
+        org.robolectric.Shadows.shadowOf(pm).turnScreenOn(true)
+    }
+
+    @Test
     fun cameraAheadFollowsTheHeading() {
         val cams = listOf(
             KnownCamera("node/n", 10.505, -20.5, null, null, null),

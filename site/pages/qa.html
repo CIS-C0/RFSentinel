@@ -549,7 +549,7 @@
 <details class="faq" id="screen-off">
 <summary>Does it work with the screen off?</summary>
 <div>
-<p>Partly. Android suspends unfiltered BLE scans while the screen is off and only keeps scans with hardware filters. RF Sentinel runs a second, filtered scan on the identifiers that matter most (body-cam, Flock, Raven, drone, tracker, glasses company IDs and UUIDs, and exact-address watchlist entries), so those keep alerting with the screen off. Prefix-only matches need the screen on. The car mount "keep screen on while charging" default avoids this while driving.</p>
+<p>Partly. Android pauses app Bluetooth scanning while the screen is off, and on some phones (a Pixel in our tests) no Bluetooth results arrive at all until the screen is back on. WiFi, the fake-cell checks, known-camera warnings and ESP32 / USB hardware keep working. Keep the screen on for Bluetooth: the car-mount default "keep screen on while charging" does that while driving. Android Auto warns you when a scan starts with the phone screen off and shows "Bluetooth limited" on its home screen.</p>
 </div>
 </details>
 

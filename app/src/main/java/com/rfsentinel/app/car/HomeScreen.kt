@@ -36,7 +36,9 @@ class HomeScreen(carContext: CarContext) : LiveScreen(carContext) {
         val newestAlert: AlertLog.Entry?,
         val silenced: String,
         val liveMap: Boolean,
-        val cellSummary: String?
+        val cellSummary: String?,
+        /** Scanning with the phone screen off: Android limits Bluetooth scanning then. */
+        val screenOff: Boolean
     )
 
     private fun model(): Model {
@@ -53,7 +55,8 @@ class HomeScreen(carContext: CarContext) : LiveScreen(carContext) {
             newestAlert = alerts.firstOrNull(),
             silenced = CarUi.silencedText(carContext),
             liveMap = liveMapAvailable(carContext),
-            cellSummary = if (running) CellsScreen.summary() else null
+            cellSummary = if (running) CellsScreen.summary() else null,
+            screenOff = running && !phoneScreenOn(carContext)
         )
     }
 
@@ -63,7 +66,7 @@ class HomeScreen(carContext: CarContext) : LiveScreen(carContext) {
         return listOf(
             m.running, m.devices, m.flagged, m.headline, m.camera?.first?.osmId, m.camera?.second?.let { (it / 50).toInt() },
             m.alerts, m.newestAlert?.time, m.newestAlert?.let { CarUi.ageText(now - it.time) }, m.silenced, m.liveMap,
-            m.cellSummary, Prefs.alertsMuted(carContext)
+            m.cellSummary, Prefs.alertsMuted(carContext), m.screenOff
         )
     }
 
@@ -78,7 +81,8 @@ class HomeScreen(carContext: CarContext) : LiveScreen(carContext) {
             val (color, text) = m.headline!!
             Row.Builder()
                 .setTitle(text)
-                .addText(listOf("Scanning · ${m.devices} nearby · ${m.flagged} flagged", m.silenced)
+                .addText(listOf("Scanning · ${m.devices} nearby · ${m.flagged} flagged", m.silenced,
+                    if (m.screenOff) SCREEN_OFF_SHORT else "")
                     .filter { it.isNotEmpty() }.joinToString(" · "))
                 .setImage(CarUi.icon(carContext, R.drawable.ic_car_warning, color))
                 .setBrowsable(true)
@@ -202,7 +206,8 @@ class HomeScreen(carContext: CarContext) : LiveScreen(carContext) {
         }
         try {
             ScanForegroundService.start(carContext)
-            toast("Scanning started")
+            // Android cuts Bluetooth scanning back while the phone screen is off: say so up front.
+            toast(if (phoneScreenOn(carContext)) "Scanning started" else SCREEN_OFF_WARNING)
         } catch (e: Exception) {
             toast("Couldn't start - open RF Sentinel on your phone")
         }
@@ -218,6 +223,15 @@ class HomeScreen(carContext: CarContext) : LiveScreen(carContext) {
     private fun toast(msg: String) = CarToast.makeText(carContext, msg, CarToast.LENGTH_LONG).show()
 
     companion object {
+        const val SCREEN_OFF_SHORT = "Phone screen off: Bluetooth limited"
+        /** Fits the two lines a car toast shows. */
+        const val SCREEN_OFF_WARNING = "Phone screen off: Android limits Bluetooth scanning. WiFi, cells and cameras still work."
+
+        /** True while the phone's own screen is on (Android Auto projects to the car with it off). */
+        fun phoneScreenOn(context: android.content.Context): Boolean = runCatching {
+            context.getSystemService(android.os.PowerManager::class.java).isInteractive
+        }.getOrDefault(true)
+
         /** Our own pannable map needs car API 7 and the surface permission (not every build declares it). */
         fun liveMapAvailable(carContext: CarContext): Boolean = runCatching {
             carContext.carAppApiLevel >= androidx.car.app.versioning.CarAppApiLevels.LEVEL_7 &&

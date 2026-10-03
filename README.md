@@ -111,7 +111,7 @@ Every match shows its evidence, its source and a confidence tier: **weak** (< 50
 - **Hidden WiFi networks** identified from WPS data, Cisco AP names and vendor elements, and linked to the visible network on the same router
 - Ordinary devices named precisely: exact AirPods / Beats model, device class, IEEE registrant; decoded Apple Continuity, iBeacon, Eddystone, Fast Pair
 - Editable **watchlist** (exact addresses, prefixes, name / vendor rules) with Global, Canada and US presets; per-category on/off switches
-- Bluetooth 5 extended advertising and LE Coded (long range) where the phone supports it; a filtered scan keeps key signatures alerting with the screen off
+- Bluetooth 5 extended advertising and LE Coded (long range) where the phone supports it
 
 **Known cameras**
 - Plate-reader, speed and red-light cameras from OpenStreetMap appear on the map by themselves and are kept offline, refreshed weekly
@@ -434,9 +434,12 @@ Pick a theme in the setup wizard or under **Settings → Appearance**.
   invisible without monitor mode.
 - **Signal strength is not distance.** Estimates are often off by 2-3×, and the
   radar angle is not a direction.
-- **Screen-off coverage is partial.** With the screen off, Android keeps only a
-  filtered scan: payload signatures, trackers, drones, glasses and exact-address
-  watchlist entries keep working, prefix-only matches don't.
+- **Bluetooth needs the phone screen on.** With the screen off, Android pauses
+  app Bluetooth scanning, and on some phones (Pixel tested) nothing gets through
+  until the screen comes back on. WiFi, the fake-cell checks, known-camera
+  warnings and ESP32 / USB hardware keep working. Android Auto warns you when a
+  scan starts with the phone screen off and shows "Bluetooth limited" on its
+  home screen.
 - **Cellular-only devices are undetectable by radio**, including most non-Flock
   plate readers and LTE GPS trackers. The known-camera map covers mapped ones.
 - **Not a radar detector.** Police radar and lidar, and radios' voice channels
