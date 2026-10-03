@@ -75,7 +75,7 @@
 |---|---|
 | **What** | A non-rooted Android app that lists every Bluetooth LE and WiFi device around you with its vendor, type and signal, and flags law-enforcement and surveillance equipment |
 | **How** | Receive-only: reads advertisements, beacons and cell info that devices broadcast publicly. Never transmits to, connects to or jams anything |
-| **Runs on** | Android 8.0+ phones, Android Auto, plus optional ESP32 boards (OUI-Spy, GhostESP) |
+| **Runs on** | Android 8.0+ phones, Android Auto, plus optional ESP32 boards (OUI-Spy, GhostESP, Marauder, Flipper Zero + BFFB) |
 | **Costs** | Nothing. GPL-3.0, no ads, no account, no subscription, no analytics |
 
 ## What it detects
@@ -138,7 +138,7 @@ Every match shows its evidence, its source and a confidence tier: **weak** (< 50
 - Night Drive red-only theme; screen stays on while charging
 
 **Hardware**
-- ESP32 boards over USB OTG (OUI-Spy, GhostESP) or Bluetooth (OUI-SPY App-Controlled) add their detections and extend range
+- ESP32 boards over USB OTG (OUI-Spy, GhostESP, Marauder incl. dual-band ESP32-C5 boards, or through a Flipper Zero) or Bluetooth (OUI-SPY App-Controlled) add their detections and extend range
 - **USB WiFi adapters in monitor mode** (RTL8811AU / RTL8821AU, e.g. ALFA AWUS036ACS) over OTG, no root: continuous 2.4 GHz channel hopping with no Android scan limit, longer range, and **client devices** (laptops, phones, cameras connected to a network) the phone's WiFi scan can't see
 
 **Interface**
@@ -300,10 +300,22 @@ merges into the list with a blue **ESP32** badge.
 | [OUI-Spy](https://github.com/colonelpanichacks/oui-spy-unified-blue) (recommended) | USB | Flock-You, Detector and Sky Spy detections as they happen: Flock cameras, the board's watchlist matches, Remote ID drones with position |
 | [OUI-SPY App-Controlled](https://github.com/lukeswitz/oui-spy-unified-blue) | Bluetooth | Flock-BLE, Flock-WiFi, Sky Spy, Detector and (optional) Wardrive survey engines |
 | [GhostESP](https://github.com/GhostESP-Revival/GhostESP) | USB | The WiFi networks it scans, about every 10 s |
+| [ESP32 Marauder](https://github.com/justcallmekoko/ESP32Marauder) | USB, or through a Flipper Zero | WiFi networks and client devices from its passive beacon and probe sniffers, batched every 2 s; on ESP32-C5 boards (Marauder v8, BFFB v2, LilyGo T-Dongle C5, C5 DevKit) both 2.4 and 5 GHz |
 
-Native-USB boards (ESP32-S2/S3/C3/C6) and boards with a CP210x or CH340 bridge
-work. RF Sentinel never sends OUI-Spy anything over USB, and only asks GhostESP to
-scan and list networks.
+Native-USB boards (ESP32-S2/S3/C3/C5/C6) and boards with a CP210x or CH340 bridge
+work. RF Sentinel only asks OUI-Spy for its version and live table, only asks
+GhostESP to scan and list networks, and only runs Marauder's passive
+`sniffbeacon` / `sniffprobe` sniffers (no attack commands, no settings changes).
+
+**Marauder on ESP32-C5** (Marauder v8, BFFB v2, T-Dongle C5, C5 DevKit) hears 5 GHz
+networks the phone's throttled WiFi scan misses, which helps catch vehicle
+routers on a pass. Keep **Channel Hop** on in Marauder's settings; RF Sentinel
+says so if the board stays on one channel.
+
+**Flipper Zero (e.g. with the BFFB board):** plug the Flipper into the phone and
+open **GPIO → USB-UART Bridge** on the Flipper; RF Sentinel then talks to the
+board's Marauder through it. A BFFB v2 can also be plugged in by its own USB-C
+port.
 
 **OUI-SPY over Bluetooth:** start scanning with the board on, then **Settings →
 Pair OUI-SPY board** and pick `OUI-SPY-xxxx`. Pair it only there, not in

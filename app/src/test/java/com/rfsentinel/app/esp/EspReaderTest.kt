@@ -106,4 +106,31 @@ class EspReaderTest {
         assertTrue(board.written.containsAll(listOf("help", "scanap", "stopscan", "list -a")))
         assertTrue(seen.any { it.name == "Example Net" })
     }
+
+    @Test
+    fun marauderIsIdentifiedAndOnlyItsPassiveSniffersAreUsed() {
+        val board = FakeBoard("") { cmd ->
+            when (cmd) {
+                "help" -> "============ Commands ============\nchannel [-s <channel>]\nsniffbeacon\n"
+                "sniffbeacon" -> "Starting Beacon sniff. Stop with stopscan\n" +
+                    "-55 Ch: 36 34:53:d2:c4:5d:e6 ESSID: Example Net\n-70 Ch: 1 aa:bb:cc:dd:ee:01 ESSID: Other\n" +
+                    "-50 Ch: 36 34:53:d2:c4:5d:e6 ESSID: Example Net\n"
+                else -> null
+            }
+        }
+        val (statuses, seen) = runFor(board, 9_000)
+        assertEquals(listOf("CMD:VERSION", "help", "sniffbeacon"), board.written.toList().take(3))
+        assertTrue(board.written.all { it in setOf("CMD:VERSION", "help", "sniffbeacon", "sniffprobe", "stopscan") })
+        assertEquals(2, seen.map { it.mac }.distinct().size)
+        assertEquals(-50, seen.first { it.mac == "34:53:D2:C4:5D:E6" }.rssi) // strongest kept
+        assertTrue(statuses.last().contains("2.4 + 5 GHz"))
+    }
+
+    @Test
+    fun aFlipperOutsideBridgeModeIsExplained() {
+        val board = FakeBoard("Welcome to Flipper Zero Command Line Interface!\n>: ") { null }
+        val (statuses, seen) = runFor(board, 8_500)
+        assertTrue(seen.isEmpty())
+        assertTrue(statuses.last().contains("USB-UART Bridge"))
+    }
 }

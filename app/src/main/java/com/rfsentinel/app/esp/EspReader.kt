@@ -4,7 +4,8 @@ package com.rfsentinel.app.esp
  * Reads one ESP32 board until [stop] is called. RF Sentinel only listens and
  * asks read-only questions: OUI-Spy may be sent `CMD:VERSION` and, in
  * Detector mode, `CMD:DUMP_LIVE` (what it has found so far); GhostESP is only
- * asked for `help`, to scan networks and to list them.
+ * asked for `help`, to scan networks and to list them; ESP32 Marauder only for
+ * `help` and its passive `sniffbeacon` / `sniffprobe` sniffers.
  */
 class EspReader(
     private val port: SerialPort,
@@ -32,9 +33,24 @@ class EspReader(
             port.write("help\r\n")
             val banner = readFor(buf, 2_500) { GhostEspReports.recognises(it) }
             if (GhostEspReports.recognises(banner)) { pollGhostEsp(buf); return }
+            // 4. ESP32 Marauder answers `help` with its command list (a Flipper Zero in
+            //    USB-UART bridge mode passes it through from its ESP32 board).
+            if (MarauderReports.recognises(heard + banner)) { pollMarauder(buf); return }
+            if (MarauderReports.isFlipperCli(heard + banner)) {
+                onStatus("Flipper Zero connected - on the Flipper open GPIO > USB-UART Bridge so RF Sentinel can reach its ESP32 board (Marauder)")
+                // Wait for the bridge, asking `help` now and then (the Flipper's own command
+                // line just lists its commands) until Marauder answers through it.
+                while (!stopped) {
+                    port.write("help\r\n")
+                    if (MarauderReports.recognises(readFor(buf, 3_000) { MarauderReports.recognises(it) })) {
+                        pollMarauder(buf); return
+                    }
+                }
+                return
+            }
             heard += banner
         }
-        // 4. OUI-Spy - or a quiet board: Flock-You and Sky Spy say nothing until they find
+        // 5. OUI-Spy - or a quiet board: Flock-You and Sky Spy say nothing until they find
         //    something, so keep listening rather than giving up on it.
         readOuiSpy(heard, buf)
     }
@@ -94,6 +110,74 @@ class EspReader(
             val networks = GhostEspReports.parseList(readFor(buf, 3_000))
             if (networks.isNotEmpty()) onSightings(networks)
             onStatus("GhostESP · live · ${networks.size} Wi-Fi networks")
+        }
+        runCatching { port.write("stopscan\r\n") }
+    }
+
+    /**
+     * ESP32 Marauder: alternates its two passive sniffers - `sniffbeacon` (access points,
+     * both bands on an ESP32-C5) and `sniffprobe` (client devices looking for networks) -
+     * and passes on what it hears in batches. Nothing else is sent.
+     */
+    private fun pollMarauder(buf: ByteArray) {
+        val seen = LinkedHashMap<String, EspSighting>()
+        val channels = HashSet<Int>()
+        // Devices heard this round (one beacon + one probe sniff), for the status counts.
+        val apMacs = HashSet<String>(); val clientMacs = HashSet<String>()
+        var fiveGhz = false
+        var hint = ""
+        val pending = StringBuilder()
+        fun status() = onStatus(
+            "Marauder · live · ${apMacs.size} networks, ${clientMacs.size} client devices" +
+                (if (fiveGhz) " · 2.4 + 5 GHz" else "") + hint
+        )
+        fun flush() {
+            if (seen.isEmpty()) return
+            onSightings(seen.values.toList())
+            seen.clear()
+            status()
+        }
+        fun sniff(command: String, ms: Long) {
+            port.write("$command\r\n")
+            val until = System.currentTimeMillis() + ms
+            var lastFlush = System.currentTimeMillis()
+            while (!stopped && System.currentTimeMillis() < until) {
+                val n = port.read(buf, 300)
+                if (n > 0) {
+                    pending.append(String(buf, 0, n))
+                    while (true) {
+                        val nl = pending.indexOf('\n')
+                        if (nl < 0) break
+                        val s = MarauderReports.parse(pending.substring(0, nl))
+                        pending.delete(0, nl + 1)
+                        if (s == null) continue
+                        if (s.client) clientMacs += s.mac else apMacs += s.mac
+                        // Keep the strongest reading per device in each batch.
+                        val prev = seen[s.mac]
+                        if (prev == null || s.rssi > prev.rssi) seen[s.mac] = s
+                        if (s.frequencyMhz >= 5000) fiveGhz = true
+                        channels += s.frequencyMhz
+                    }
+                    if (pending.length > 16_384) pending.setLength(0)
+                }
+                if (System.currentTimeMillis() - lastFlush >= 2_000) { flush(); lastFlush = System.currentTimeMillis() }
+            }
+            flush()
+            port.write("stopscan\r\n")
+            readFor(buf, 500)
+        }
+        status()
+        var rounds = 0
+        while (!stopped) {
+            channels.clear()
+            sniff("sniffbeacon", 20_000)
+            if (stopped) break
+            sniff("sniffprobe", 10_000)
+            rounds++
+            // Marauder only hops channels with its ChanHop setting on; say so rather than change it.
+            hint = if (rounds >= 2 && channels.size == 1) " · stuck on one channel: turn on Channel Hop in Marauder's settings" else ""
+            status()
+            apMacs.clear(); clientMacs.clear()
         }
         runCatching { port.write("stopscan\r\n") }
     }

@@ -72,4 +72,30 @@ class EspReportsTest {
         assertEquals(SerialPort.Chip.CH34X, SerialPort.chipOf(0x1A86, 0x7523))
         assertNull(SerialPort.chipOf(0x0BDA, 0x0811)) // not an ESP32 serial board
     }
+
+    @Test
+    fun marauderBeaconAndProbeLines() {
+        val ap = MarauderReports.parse("-55 Ch: 36 34:53:d2:c4:5d:e6 ESSID: Example Net " + 13.toChar())!!
+        assertEquals("34:53:D2:C4:5D:E6", ap.mac)
+        assertEquals(-55, ap.rssi)
+        assertEquals(5180, ap.frequencyMhz)
+        assertEquals("Example Net", ap.name)
+        assertFalse(ap.client)
+        val hidden = MarauderReports.parse("-80 Ch: 6 aa:bb:cc:dd:ee:ff ESSID: ")!!
+        assertNull(hidden.name)
+        assertEquals(2437, hidden.frequencyMhz)
+        val probe = MarauderReports.parse("-60 Ch: 11 Client: 02:11:22:33:44:55 Requesting: Home")!!
+        assertTrue(probe.client)
+        assertNull(probe.name)
+        assertEquals(2462, probe.frequencyMhz)
+        assertNull(MarauderReports.parse("Beacon sniff"))
+        assertTrue(MarauderReports.recognises("============ Commands ============\nchannel [-s <channel>]"))
+        assertTrue(MarauderReports.isFlipperCli("Welcome to Flipper Zero Command Line Interface!\n>: "))
+        assertFalse(MarauderReports.isFlipperCli("-55 Ch: 1 aa:bb:cc:dd:ee:ff ESSID: x"))
+    }
+
+    @Test
+    fun flipperZeroIsASerialBoard() {
+        assertEquals(SerialPort.Chip.NATIVE_USB, SerialPort.chipOf(0x0483, 0x5740))
+    }
 }

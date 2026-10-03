@@ -24,7 +24,9 @@ data class EspSighting(
     /** Drone position (OUI-Spy Sky Spy mode). */
     val remoteId: RemoteId.Info? = null,
     /** Matches the board itself reported. */
-    val hits: List<Hit> = emptyList()
+    val hits: List<Hit> = emptyList(),
+    /** A Wi-Fi client device (heard sending probe requests), not an access point. */
+    val client: Boolean = false
 )
 
 /**
@@ -150,5 +152,52 @@ object GhostEspReports {
                 else -> 5000 + ch * 5
             }
         )
+    }
+}
+
+/**
+ * ESP32 Marauder (justcallmekoko/ESP32Marauder) serial output, from its passive sniffers.
+ * `sniffbeacon`: `-55 Ch: 36 aa:bb:cc:dd:ee:ff ESSID: Name`;
+ * `sniffprobe`: `-60 Ch: 6 Client: aa:bb:cc:dd:ee:ff Requesting: Name`.
+ * Dual-band boards (ESP32-C5: Marauder v8, BFFB v2, T-Dongle C5, C5 DevKit) report 5 GHz channels too.
+ */
+object MarauderReports {
+
+    private val ANSI = Regex("""\u001B\[[0-9;]*m""")
+    private val BEACON = Regex("""^\s*(-?\d+)\s+Ch:\s*(\d+)\s+([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})\s+ESSID:\s?(.*)$""")
+    private val PROBE = Regex("""^\s*(-?\d+)\s+Ch:\s*(\d+)\s+Client:\s*([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})\s+Requesting:.*$""")
+
+    /** Marauder's `help` header, or its name in a boot banner. */
+    fun recognises(text: String): Boolean =
+        "============ Commands ============" in text || "sniffbeacon" in text || "Marauder" in text
+
+    /** The Flipper Zero's own command line (not in USB-UART bridge mode). */
+    fun isFlipperCli(text: String): Boolean =
+        "Flipper Zero Command Line" in text || "\n>: " in text || text.startsWith(">: ")
+
+    fun frequencyOf(ch: Int): Int = when {
+        ch == 14 -> 2484
+        ch in 1..13 -> 2407 + ch * 5
+        ch in 32..177 -> 5000 + ch * 5
+        else -> 0
+    }
+
+    fun parse(line: String): EspSighting? {
+        val t = ANSI.replace(line, "").trimEnd('\r', ' ')
+        BEACON.find(t)?.let { m ->
+            val ch = m.groupValues[2].toInt()
+            return EspSighting(
+                mac = m.groupValues[3].uppercase(), rssi = m.groupValues[1].toInt(), ble = false,
+                name = m.groupValues[4].trim().takeIf { it.isNotEmpty() && it.any { c -> c.code >= 0x20 } },
+                frequencyMhz = frequencyOf(ch)
+            )
+        }
+        PROBE.find(t)?.let { m ->
+            return EspSighting(
+                mac = m.groupValues[3].uppercase(), rssi = m.groupValues[1].toInt(), ble = false,
+                frequencyMhz = frequencyOf(m.groupValues[2].toInt()), client = true
+            )
+        }
+        return null
     }
 }

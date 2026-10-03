@@ -18,7 +18,8 @@ interface SerialPort {
 
     companion object {
         fun chipOf(vid: Int, pid: Int): Chip? = when {
-            vid == 0x303A -> Chip.NATIVE_USB                                    // Espressif native USB (S2, S3, C3, C6...)
+            vid == 0x303A -> Chip.NATIVE_USB                                    // Espressif native USB (S2, S3, C3, C5, C6...)
+            vid == 0x0483 && pid == 0x5740 -> Chip.NATIVE_USB                   // Flipper Zero (USB-UART bridge to its ESP32 board)
             vid == 0x10C4 && pid == 0xEA60 -> Chip.CP210X                       // Silicon Labs CP2102 / CP2104
             vid == 0x1A86 && pid in setOf(0x7523, 0x5523, 0x55D4) -> Chip.CH34X // WCH CH340 / CH341 / CH9102
             else -> null

@@ -256,7 +256,7 @@ class ScanForegroundService : Service() {
         // Re-evaluated on every start command, so Settings changes apply live.
         if (Prefs.bleEnabled(this)) { bleEngine.stop(); startBle() } else stopBle()
         if (Prefs.wifiEnabled(this)) startWifiPolling() else stopWifiPolling()
-        // ESP32 boards on USB (OUI-Spy / GhostESP): their reports join the same pipeline.
+        // ESP32 boards on USB (OUI-Spy / GhostESP / Marauder): their reports join the same pipeline.
         com.rfsentinel.app.esp.EspBoards.start(this) { list -> pipeline.post { list.forEach(::processEsp) } }
         // A USB WiFi adapter in monitor mode (e.g. AWUS036ACS): access points and client devices.
         com.rfsentinel.app.usb.UsbWifi.start(this) { list -> pipeline.post { list.forEach(::processUsbWifi) } }
@@ -506,7 +506,7 @@ class ScanForegroundService : Service() {
             timestamp = now
         ) else Advert(
             mac = e.mac, source = Advert.Source.WIFI, rssi = e.rssi, name = e.name,
-            wifi = Advert.WifiInfo(e.frequencyMhz, e.capabilities, null, emptyList()), timestamp = now
+            wifi = Advert.WifiInfo(e.frequencyMhz, e.capabilities, null, emptyList(), client = e.client), timestamp = now
         )
         process(advert, e.remoteId)
     }

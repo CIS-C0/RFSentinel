@@ -11,7 +11,9 @@ import androidx.core.content.ContextCompat
 
 /**
  * ESP32 boards on USB (OTG cable), used alongside the phone's own radios while
- * scanning. Supports OUI-Spy (Flock-You, Detector, Sky Spy) and GhostESP.
+ * scanning. Supports OUI-Spy (Flock-You, Detector, Sky Spy), GhostESP and ESP32
+ * Marauder (including ESP32-C5 boards: 2.4 + 5 GHz), directly or through a Flipper
+ * Zero's USB-UART bridge (e.g. the BFFB board).
  * Android asks once per board for permission; plugging a board in while
  * scanning starts it.
  */

@@ -130,7 +130,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.ignoredCamerasButton.visibility = if (n > 0) android.view.View.VISIBLE else android.view.View.GONE
     }
 
-    /** ESP32 boards on USB (OUI-Spy / GhostESP) and an OUI-SPY board over Bluetooth. */
+    /** ESP32 boards on USB (OUI-Spy / GhostESP / Marauder) and an OUI-SPY board over Bluetooth. */
     /** Speed, voice and a test button for spoken alerts; changes apply right away. */
     private fun setupVoiceControls() {
         val voice = com.rfsentinel.app.util.Voice
@@ -185,7 +185,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun updateEspStatus() {
         val s = com.rfsentinel.app.esp.EspBoards.status
-        binding.espStatusText.text = "ESP32 on USB (OUI-Spy or GhostESP): " +
+        binding.espStatusText.text = "ESP32 on USB (OUI-Spy, GhostESP or Marauder; also through a Flipper Zero): " +
             s.ifBlank { "plug one in with an OTG cable while scanning to add its detections" }
         binding.usbWifiText.text = "USB WiFi adapter in monitor mode (RTL8811AU / 8821AU, e.g. ALFA AWUS036ACS): " +
             com.rfsentinel.app.usb.UsbWifi.status.ifBlank { "plug one in with an OTG cable while scanning - longer range, and it hears devices connected to networks" }

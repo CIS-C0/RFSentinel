@@ -255,7 +255,7 @@ class SetupActivity : AppCompatActivity() {
         switch("Alert when the serving cell tower changes (frequent while driving; useful when parked)", Prefs.cellChangeAlerts(this)) {
             Prefs.setCellChangeAlerts(this, it)
         }
-        para("Extra hardware works on its own once plugged in while scanning: ESP32 boards (OUI-Spy, GhostESP) " +
+        para("Extra hardware works on its own once plugged in while scanning: ESP32 boards (OUI-Spy, GhostESP, Marauder - also ESP32-C5 boards for 5 GHz, and a Flipper Zero with its ESP32 board) " +
             "and USB WiFi adapters such as the ALFA AWUS036ACS. An OUI-SPY board over Bluetooth is paired in Settings.", small = true)
     }
 
