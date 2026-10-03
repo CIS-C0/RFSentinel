@@ -232,10 +232,12 @@ object DeviceIntel {
             }
             facts += "Band" to "$band (${w.frequencyMhz} MHz, channel ${channelOf(w.frequencyMhz)})"
             w.standard?.let { facts += "Standard" to it }
-            facts += "Security" to security(w.capabilities)
+            if (!w.client) facts += "Security" to security(w.capabilities)
+            else facts += "Heard by" to "USB WiFi adapter (monitor mode)"
         }
         val ssid = a.name
         val type = when {
+            w?.client == true -> "WiFi device (laptop, phone or camera on a network)"
             ssid.isNullOrEmpty() -> "Hidden WiFi network"
             Regex("iphone|androidap|galaxy|pixel|hotspot|'s phone", RegexOption.IGNORE_CASE).containsMatchIn(ssid) -> "Phone hotspot"
             Regex("direct-|printer|hp-print|epson|canon", RegexOption.IGNORE_CASE).containsMatchIn(ssid) -> "WiFi Direct / printer"

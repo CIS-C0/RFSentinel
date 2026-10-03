@@ -183,6 +183,8 @@ class SettingsActivity : AppCompatActivity() {
         val s = com.rfsentinel.app.esp.EspBoards.status
         binding.espStatusText.text = "ESP32 on USB (OUI-Spy or GhostESP): " +
             s.ifBlank { "plug one in with an OTG cable while scanning to add its detections" }
+        binding.usbWifiText.text = "USB WiFi adapter in monitor mode (RTL8811AU / 8821AU, e.g. ALFA AWUS036ACS): " +
+            com.rfsentinel.app.usb.UsbWifi.status.ifBlank { "plug one in with an OTG cable while scanning - longer range, and it hears devices connected to networks" }
         val board = Prefs.ouiSpyBoard(this)
         binding.ouiSpyText.text = if (board == null)
             "OUI-SPY over Bluetooth (App-Controlled firmware): not paired"
@@ -396,6 +398,13 @@ class SettingsActivity : AppCompatActivity() {
         com.rfsentinel.app.esp.EspBoards.onStatusChanged = { runOnUiThread { updateEspStatus() } }
         com.rfsentinel.app.esp.OuiSpyBle.onStatusChanged = { runOnUiThread { updateEspStatus() } }
         binding.ouiSpyButton.setOnClickListener { pairOuiSpy() }
+        binding.usbWifiLogButton.setOnClickListener {
+            val log = com.rfsentinel.app.usb.UsbWifi.logText().ifBlank { "No USB WiFi adapter activity yet." }
+            startActivity(android.content.Intent.createChooser(
+                android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+                    .putExtra(android.content.Intent.EXTRA_SUBJECT, "RF Sentinel USB WiFi adapter log")
+                    .putExtra(android.content.Intent.EXTRA_TEXT, log), "Share adapter log"))
+        }
         binding.trackerIgnoreButton.setOnClickListener {
             com.rfsentinel.app.data.TrackerMutes.clear(this)
             Prefs.setTrackerFollowPausedUntil(this, 0L)

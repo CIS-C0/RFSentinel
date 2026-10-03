@@ -27,15 +27,17 @@ data class DeviceRow(
     val bold: Boolean,
     /** Heard by an ESP32 board (blue badge) and/or the phone's own radios (green badge). */
     val heardByEsp: Boolean = false,
+    val heardByUsb: Boolean = false,
     val heardByPhone: Boolean = false
 )
 
 private const val ESP_BADGE = 0xFF1E88E5.toInt()
 private const val PHONE_BADGE = 0xFF2E7D32.toInt()
+private const val USB_BADGE = 0xFF6A1B9A.toInt()
 
 /** The meta line, followed by small coloured "ESP32" / "INTERNAL" badges. */
 private fun metaWithBadges(row: DeviceRow): CharSequence {
-    if (!row.heardByEsp && !row.heardByPhone) return row.meta
+    if (!row.heardByEsp && !row.heardByUsb && !row.heardByPhone) return row.meta
     val sb = android.text.SpannableStringBuilder(row.meta)
     fun badge(label: String, color: Int) {
         sb.append("  ")
@@ -47,6 +49,7 @@ private fun metaWithBadges(row: DeviceRow): CharSequence {
         sb.setSpan(android.text.style.StyleSpan(Typeface.BOLD), start, end, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
     }
     if (row.heardByEsp) badge("ESP32", ESP_BADGE)
+    if (row.heardByUsb) badge("USB WIFI", USB_BADGE)
     if (row.heardByPhone) badge("INTERNAL", PHONE_BADGE)
     return sb
 }

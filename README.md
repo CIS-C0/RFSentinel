@@ -137,6 +137,7 @@ Every match shows its evidence, its source and a confidence tier: **weak** (< 50
 
 **Hardware**
 - ESP32 boards over USB OTG (OUI-Spy, GhostESP) or Bluetooth (OUI-SPY App-Controlled) add their detections and extend range
+- **USB WiFi adapters in monitor mode** (RTL8811AU / RTL8821AU, e.g. ALFA AWUS036ACS) over OTG, no root: continuous 2.4 GHz channel hopping with no Android scan limit, longer range, and **client devices** (laptops, phones, cameras connected to a network) the phone's WiFi scan can't see
 
 **Interface**
 - Live list and radar view, filter chips with live counts (flagged, trackers, drones, new, ESP32, favorites, Bluetooth, WiFi), search
@@ -310,6 +311,24 @@ relays **every** WiFi network and Bluetooth device for RF Sentinel's own rules.
 In that mode the board sends standard WiFi probe requests; turn **Settings →
 OUI-SPY: relay every network and Bluetooth device** off to keep it listening
 only. The board's UniPwn, PCAP and Foxhunter engines are never used.
+
+### USB WiFi adapter (monitor mode)
+
+Plug a supported USB WiFi adapter into the phone with an OTG cable while
+scanning and allow USB access on the prompt. RF Sentinel drives it directly
+over Android's USB host API (no root, no kernel driver), puts it in
+**receive-only monitor mode** and hops the 2.4 GHz channels. Access points
+(beacons, probe responses) and client devices (probe requests, data frames)
+go through RF Sentinel's own rules like everything else, with a purple
+**USB WIFI** badge.
+
+| Chip | Example adapters | Status |
+|---|---|---|
+| Realtek RTL8811AU / RTL8821AU (`0bda:0811`) | ALFA AWUS036ACS | Supported |
+| RTL8812AU, RTL8814AU, AR9271, MT7612U, RT3070, RTL8187 | AWUS036ACH, AWUS1900, AWUS036NHA... | Detected and named, not supported yet |
+
+The adapter never transmits. Settings shows its status and can share its
+driver log for troubleshooting.
 
 ## Themes
 
@@ -535,7 +554,12 @@ detection and WiFi identification, is in [docs/SIGNATURES.md](docs/SIGNATURES.md
 Inspired by the nyanBOX hardware device and the RF Party app, which was based
 on Alan Meekins' DEF CON 31 talk *"Snoop Unto Them As They Snoop Unto Us"*.
 Some feature ideas come from SØPHIA and BLE Radar (MetaRadar). No code from
-those projects is included.
+those projects is included. The USB WiFi monitor-mode driver for RTL8811AU /
+RTL8821AU adapters (`app/src/main/java/com/rfsentinel/app/usb/`) is ported from
+[Wardrive Go](https://github.com/RocketGod-git/wardrive-go) by RocketGod (GPL-3.0),
+whose register tables come from the Realtek 88xxau Linux driver; its handshake /
+PMKID capture was left out. The map's anchored point layer follows Wardrive Go's
+approach - thank you.
 
 Part of the MAC-prefix data was cross-checked with, and extended from, the lists
 in [Flock You](https://github.com/colonelpanichacks/flock-you) and

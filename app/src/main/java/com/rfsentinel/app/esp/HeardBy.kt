@@ -29,5 +29,7 @@ object HeardBy {
     const val WINDOW_MS = 5 * 60_000L
 
     val esp = RecentMacs()
+    /** A USB WiFi adapter in monitor mode. */
+    val usb = RecentMacs()
     val phone = RecentMacs()
 }

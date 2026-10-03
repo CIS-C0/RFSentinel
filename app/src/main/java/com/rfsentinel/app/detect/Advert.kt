@@ -39,7 +39,9 @@ class Advert(
         val capabilities: String,
         val standard: String?,
         /** Beacon information elements (id, payload), API 30+ only. */
-        val infoElements: List<Pair<Int, ByteArray>>
+        val infoElements: List<Pair<Int, ByteArray>>,
+        /** A client device (laptop, phone, camera) heard by a monitor-mode adapter, not an access point. */
+        val client: Boolean = false
     )
 
     val isBle get() = source == Source.BLE

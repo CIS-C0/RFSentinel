@@ -258,6 +258,8 @@ class ScanForegroundService : Service() {
         if (Prefs.wifiEnabled(this)) startWifiPolling() else stopWifiPolling()
         // ESP32 boards on USB (OUI-Spy / GhostESP): their reports join the same pipeline.
         com.rfsentinel.app.esp.EspBoards.start(this) { list -> pipeline.post { list.forEach(::processEsp) } }
+        // A USB WiFi adapter in monitor mode (e.g. AWUS036ACS): access points and client devices.
+        com.rfsentinel.app.usb.UsbWifi.start(this) { list -> pipeline.post { list.forEach(::processUsbWifi) } }
         // An OUI-SPY board paired over Bluetooth (App-Controlled firmware).
         Prefs.ouiSpyBoard(this)?.let { addr ->
             com.rfsentinel.app.esp.OuiSpyBle.start(this, addr, Prefs.ouiSpyRelayAll(this)) { list -> pipeline.post { list.forEach(::processEsp) } }
@@ -478,6 +480,18 @@ class ScanForegroundService : Service() {
     private val espHits = HashMap<String, Pair<Long, List<Hit>>>()
 
     /** One ESP32 report: becomes a normal observation, with the board's own matches added. */
+    private fun processUsbWifi(m: com.rfsentinel.app.usb.MonitorSighting) {
+        val now = System.currentTimeMillis()
+        val mac = com.rfsentinel.app.util.MacUtil.normalize(m.mac)
+        com.rfsentinel.app.esp.HeardBy.usb.mark(mac, now)
+        process(Advert(
+            mac = mac, source = Advert.Source.WIFI, rssi = m.rssi, name = m.ssid,
+            addressType = com.rfsentinel.app.detect.AddressType.ofWifi(mac),
+            wifi = Advert.WifiInfo(m.frequencyMhz, "", null, emptyList(), client = !m.isAccessPoint),
+            timestamp = now
+        ), null)
+    }
+
     private fun processEsp(e: com.rfsentinel.app.esp.EspSighting) {
         val now = System.currentTimeMillis()
         com.rfsentinel.app.esp.HeardBy.esp.mark(e.mac, now)
@@ -826,6 +840,7 @@ class ScanForegroundService : Service() {
 
     override fun onDestroy() {
         com.rfsentinel.app.esp.EspBoards.stop(this)
+        com.rfsentinel.app.usb.UsbWifi.stop(this)
         com.rfsentinel.app.esp.OuiSpyBle.stop()
         bleEngine.stop()
         wifiEngine.stop()

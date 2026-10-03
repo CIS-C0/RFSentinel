@@ -25,7 +25,7 @@ enum class DeviceFilter(val label: String) {
             s.deviceType.contains("tracker", true) || s.deviceType.contains("Find My", true)
         DRONES -> s.hits.any { it.category == Category.DRONE } || s.remoteId != null
         NEW -> s.isNew
-        ESP32 -> com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac)
+        ESP32 -> com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac) || com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac)
         FAVORITES -> Favorites.contains(s.mac)
         BLE -> Advert.Source.BLE in s.sources
         WIFI -> Advert.Source.WIFI in s.sources

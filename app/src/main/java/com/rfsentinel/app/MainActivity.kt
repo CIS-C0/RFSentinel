@@ -242,7 +242,8 @@ class MainActivity : AppCompatActivity() {
                     ?.let { " · ${it.second} scan restarted " +
                         java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(it.first)) } ?: "") +
                 com.rfsentinel.app.esp.OuiSpyBle.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
-                com.rfsentinel.app.esp.EspBoards.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty()
+                com.rfsentinel.app.esp.EspBoards.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
+                com.rfsentinel.app.usb.UsbWifi.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty()
         }
     }
 
@@ -355,6 +356,7 @@ class MainActivity : AppCompatActivity() {
                 (s.following || (best!!.confidence >= threshold && best.category != Category.TRACKER)),
             bold = alert,
             heardByEsp = com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac, now),
+            heardByUsb = com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac, now),
             heardByPhone = com.rfsentinel.app.esp.HeardBy.phone.recent(s.mac, now)
         )
     }

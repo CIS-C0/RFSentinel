@@ -462,6 +462,19 @@
             android:textSize="12sp" />
 
         <TextView
+            android:id="@+id/usbWifiText"
+            style="@style/SettingsLabel"
+            android:paddingTop="6dp"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/usbWifiLogButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Share USB WiFi adapter log" />
+
+        <TextView
             android:id="@+id/ouiSpyText"
             style="@style/SettingsLabel"
             android:paddingTop="6dp"
