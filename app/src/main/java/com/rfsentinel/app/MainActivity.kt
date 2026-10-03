@@ -245,7 +245,8 @@ class MainActivity : AppCompatActivity() {
             // Start: theme highlight with a play icon; Stop: red with a stop icon.
             val (accent, onAccent) = com.rfsentinel.app.ui.ChipStyle.accent(this)
             val red = com.rfsentinel.app.ui.ThemeManager.ink(this, 0xFFB3261E.toInt())
-            binding.startStopButton.text = if (running) "Stop scanning" else "Start scanning"
+            binding.startStopButton.text = if (running) "Stop" else "Start"
+            binding.startStopButton.contentDescription = if (running) "Stop scanning" else "Start scanning"
             binding.startStopButton.setIconResource(if (running) R.drawable.ic_car_stop else R.drawable.ic_car_play)
             binding.startStopButton.backgroundTintList = android.content.res.ColorStateList.valueOf(if (running) red else accent)
             val fg = if (running) 0xFFFFFFFF.toInt() else onAccent

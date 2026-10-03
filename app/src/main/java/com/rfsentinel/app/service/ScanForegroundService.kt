@@ -775,8 +775,43 @@ class ScanForegroundService : Service() {
         cellJob = serviceScope.launch {
             while (isActive) {
                 runCatching { monitor.check() }.getOrNull().orEmpty().forEach { onCellAnomaly(it) }
+                checkServingCellChange()
                 delay(CELL_CHECK_MS)
             }
+        }
+    }
+
+    /** Serving cell of the previous check, for the optional "cell tower changed" alert. */
+    private var lastServing: com.rfsentinel.app.detect.CellAnalyzer.Cell? = null
+
+    /**
+     * Optional (Settings): says so each time the phone moves to another serving cell.
+     * A switch while you stand still is the classic sign of a fake tower pulling phones in.
+     */
+    private fun checkServingCellChange() {
+        val serving = CellTowerStore.current.firstOrNull { it.registered && it.cellId != null } ?: return
+        val prev = lastServing
+        lastServing = serving
+        if (prev == null || prev.key == serving.key || !Prefs.cellChangeAlerts(this)) return
+        val now = System.currentTimeMillis()
+        val detail = "Your phone moved from ${prev.rat.label} cell ${prev.cellId} (area ${prev.area ?: "?"}) to " +
+            "${serving.rat.label} cell ${serving.cellId} (area ${serving.area ?: "?"})" +
+            (serving.operator?.let { " on $it" } ?: "") + (serving.dbm?.let { ", $it dBm" } ?: "") +
+            ". Normal while moving; a change while you're parked is worth a look."
+        val hit = Hit(Category.CELL_ANOMALY, "Cell tower changed", 30, detail, "Android cell info")
+        NotificationHelper.sendMapAlert(this, "cellchange", hit, com.rfsentinel.app.ui.CellTowersActivity::class.java)
+        AlertPlayer.play(this, hit.tier, "Cell tower changed")
+        val loc = lastLocation
+        val tag = Prefs.gpsTaggingEnabled(this)
+        serviceScope.launch {
+            AppDatabase.getInstance(this@ScanForegroundService).detectionDao().insert(
+                DetectionEntity(
+                    mac = "CELL " + serving.key, label = hit.label, source = "CELL", rssi = serving.dbm ?: 0,
+                    timestamp = now,
+                    latitude = if (tag) loc?.latitude else null, longitude = if (tag) loc?.longitude else null,
+                    category = Category.CELL_ANOMALY.name, confidence = hit.confidence, evidence = detail
+                )
+            )
         }
     }
 

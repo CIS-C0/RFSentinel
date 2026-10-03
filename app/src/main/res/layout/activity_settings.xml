@@ -172,6 +172,12 @@
             style="@style/SettingsLabel"
             android:text="Android 15 and later (e.g. Pixel 8+) can also warn you themselves when a network asks for your SIM's identity or turns encryption off - signalling apps can't see. Turn on &quot;Network notifications&quot; under Security &amp; privacy &gt; More security &amp; privacy &gt; Cellular security." />
 
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/cellChangeSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Alert when the serving cell tower changes (frequent while driving; useful when parked)" />
+
         <Button
             android:id="@+id/cellSecurityButton"
             style="@style/Widget.MaterialComponents.Button.TextButton"

@@ -70,7 +70,11 @@
             android:layout_marginEnd="8dp"
             android:layout_weight="1"
             android:minHeight="52dp"
-            android:text="Start scanning"
+            android:maxLines="1"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:text="Start"
+            android:contentDescription="Start scanning"
             app:icon="@drawable/ic_car_play"
             app:iconGravity="textStart" />
 

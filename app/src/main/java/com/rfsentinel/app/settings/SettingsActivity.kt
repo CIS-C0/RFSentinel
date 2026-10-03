@@ -422,6 +422,7 @@ class SettingsActivity : AppCompatActivity() {
             Prefs.ScreenMode.NORMAL -> R.id.screenNormal
         })
         binding.knownAlprSwitch.isChecked = Prefs.knownAlprAlerts(this)
+        binding.cellChangeSwitch.isChecked = Prefs.cellChangeAlerts(this)
         binding.speedCameraSwitch.isChecked = Prefs.speedCameraAlerts(this)
         binding.autoCamerasSwitch.isChecked = Prefs.autoCameras(this)
         fun showRadius(km: Int) {
@@ -605,6 +606,7 @@ class SettingsActivity : AppCompatActivity() {
         })
         com.rfsentinel.app.ui.ScreenAwake.apply(this)
         Prefs.setKnownAlprAlerts(this, binding.knownAlprSwitch.isChecked)
+        Prefs.setCellChangeAlerts(this, binding.cellChangeSwitch.isChecked)
         Prefs.setSpeedCameraAlerts(this, binding.speedCameraSwitch.isChecked)
         Prefs.setAutoCameras(this, binding.autoCamerasSwitch.isChecked)
 

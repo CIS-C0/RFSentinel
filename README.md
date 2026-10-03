@@ -106,6 +106,7 @@ Every match shows its evidence, its source and a confidence tier: **weak** (< 50
 - **Address-rotation linking:** keeps following a device when its Bluetooth address changes
 - **Follower alerts:** a tracker or flagged device that stays with you (default 10 min and 800 m, adjustable) raises *may be following you*
 - **Remote ID drones** decoded live, with a *drone overhead* alert within 200 m
+- Optional **cell tower change alert**: says so each time the phone moves to another serving tower (Settings; a change while parked is a classic fake-tower sign)
 - **Fake cell tower signs** checked every 15 s, with persistence, call and border suppression (modelled on [EFF's Rayhunter](https://github.com/EFForg/rayhunter) as far as Android allows without root)
 - **Hidden WiFi networks** identified from WPS data, Cisco AP names and vendor elements, and linked to the visible network on the same router
 - Ordinary devices named precisely: exact AirPods / Beats model, device class, IEEE registrant; decoded Apple Continuity, iBeacon, Eddystone, Fast Pair
@@ -162,7 +163,7 @@ Requires **Android 8.0 or newer**.
 3. Open the downloaded file from the notification, or from **Files → Downloads**.
 4. If Android blocks it, tap **Settings**, enable **Allow from this source**, go back and tap **Install**.
 5. Open **RF Sentinel**. The setup wizard walks you through theme, region, alerts, camera radius and permissions.
-6. Tap **Start scanning** and grant location and *Nearby devices*.
+6. Tap **Start** and grant location and *Nearby devices*.
 
 <p align="center"><img src="docs/screenshots/setup-theme.jpg" width="260" alt="Setup wizard: pick a theme" /></p>
 
