@@ -45,6 +45,8 @@ class MainActivity : AppCompatActivity() {
     companion object {
         /** Row id prefix of the live cell tower rows (not devices). */
         private const val CELL_ROW = "cell:"
+        private const val BLUETOOTH_TAG_COLOR = 0xFF1565C0.toInt()
+        private const val WIFI_TAG_COLOR = 0xFF00838F.toInt()
         /** A flagged row flashes while its device was heard within this window. */
         private const val FLASH_WINDOW_MS = 60_000L
         private const val REFRESH_MS = 1_000L
@@ -340,6 +342,16 @@ class MainActivity : AppCompatActivity() {
      * The cell towers the phone sees right now (serving first), listed after the devices
      * under the All filter. Read every 15 s while scanning; tap opens Tools > Cell towers.
      */
+    /** The radio tag on ordinary rows, like the purple CELL tag on cell towers. */
+    private fun radioTag(s: DeviceRegistry.Snapshot): String = when {
+        Advert.Source.BLE in s.sources && Advert.Source.WIFI in s.sources -> "BLUETOOTH + WIFI"
+        Advert.Source.WIFI in s.sources -> "WIFI"
+        else -> "BLUETOOTH"
+    }
+
+    private fun radioColor(s: DeviceRegistry.Snapshot): Int =
+        if (Advert.Source.BLE in s.sources) BLUETOOTH_TAG_COLOR else WIFI_TAG_COLOR
+
     private var shownCells = 0
 
     private fun cellRows(now: Long): List<DeviceRow> {
@@ -398,7 +410,7 @@ class MainActivity : AppCompatActivity() {
             whitelisted -> "WHITELISTED"
             best != null -> (if (s.following) "FOLLOWING · " else "") +
                 "${best.category.shortTag} · ${best.tier.label} ${best.confidence}%"
-            else -> null
+            else -> radioTag(s)
         }
         return DeviceRow(
             mac = s.mac,
@@ -406,12 +418,17 @@ class MainActivity : AppCompatActivity() {
             subtitle = s.mac + "  ·  " + (s.vendor ?: s.addressType.label),
             meta = listOf(
                 if (best != null && s.name != null) "\"${s.name}\"" else s.deviceType,
-                s.sources.joinToString("+") { if (it == Advert.Source.BLE) "BLE" else "WiFi" },
+                // Ordinary rows name the radio in their tag; flagged ones keep it here.
+                if (tag == radioTag(s)) null else s.sources.joinToString("+") { if (it == Advert.Source.BLE) "BLE" else "WiFi" },
                 "${ProximityUtil.band(s.rssi)} ${s.rssi} dBm ${DeviceIntel.formatDistance(s.distanceM)}",
                 age
-            ).joinToString(" · ") + if (badges.isNotEmpty()) "  " + badges.joinToString(" ") else "",
+            ).filterNotNull().joinToString(" · ") + if (badges.isNotEmpty()) "  " + badges.joinToString(" ") else "",
             tag = tag,
-            tagColor = if (whitelisted) com.rfsentinel.app.ui.ThemeManager.ink(this, WHITELIST_COLOR) else colorFor(s),
+            tagColor = when {
+                whitelisted -> com.rfsentinel.app.ui.ThemeManager.ink(this, WHITELIST_COLOR)
+                best == null -> com.rfsentinel.app.ui.ThemeManager.ink(this, radioColor(s))
+                else -> colorFor(s)
+            },
             highlight = if (alert) colorFor(s) else null,
             flashing = alert && now - s.lastSeen < FLASH_WINDOW_MS &&
                 (s.following || (best!!.confidence >= threshold && best.category != Category.TRACKER)),
