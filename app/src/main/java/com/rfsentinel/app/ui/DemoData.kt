@@ -22,6 +22,12 @@ object DemoData {
 
     private const val DEMO_DRONE = "60:60:1F:A2:44:18"
 
+    /**
+     * A made-up position passed when the demo starts (`--ef lat .. --ef lon ..`): the car
+     * screens use it instead of the phone's, so screenshots never show where the phone is.
+     */
+    @Volatile var fakeLocation: android.location.Location? = null
+
     /** A drone circling ~120 m from [anchor], with its operator ~80 m the other way. */
     private fun demoRemoteId(anchor: Pair<Double, Double>, secondsAgo: Int): RemoteId.Info {
         val angle = Math.toRadians(135.0 + secondsAgo * 2.0)
@@ -140,5 +146,33 @@ object DemoData {
                 DeviceRegistry.report(a, EvidenceFusion.fuse(raw), DeviceIntel.identify(a, VendorDb.macVendor(a.mac)), vendor, rid, spot, t)
             }
         }
+    }
+
+    /**
+     * A few made-up recent alerts (the flagged demo devices and a camera), so the
+     * Android Auto "Recent alerts" screen has something to show. Positions are
+     * placed relative to [anchor] at runtime, like the rest of the demo.
+     */
+    fun seedAlerts(context: android.content.Context, anchor: Pair<Double, Double>?) {
+        val log = com.rfsentinel.app.data.AlertLog
+        val now = System.currentTimeMillis()
+        val flagged = DeviceRegistry.snapshot().filter { it.best != null }
+            .sortedByDescending { it.best!!.confidence }.take(4)
+        val minutesAgo = listOf(2L, 6L, 14L, 31L)
+        val entries = flagged.mapIndexed { i, s ->
+            minutesAgo[i] to {
+                log.add(context, s.mac, s.mac, s.best!!, s.rssi, following = false,
+                    lat = anchor?.first?.plus(0.0004 * (i + 1)), lon = anchor?.second,
+                    now = now - minutesAgo[i] * 60_000L)
+            }
+        } + (9L to {
+            log.add(context, "alpr:demo", null,
+                com.rfsentinel.app.detect.Hit(com.rfsentinel.app.detect.Category.ALPR, "Known plate camera ahead", 80,
+                    "Plate reader, ~300 m away. Mapped in OpenStreetMap - it may not broadcast any signal.", "Demo data"),
+                null, following = false, lat = anchor?.first?.plus(0.0027), lon = anchor?.second,
+                now = now - 9 * 60_000L)
+        })
+        // Oldest first: each new entry goes on top, so the newest ends up first.
+        entries.sortedByDescending { it.first }.forEach { it.second() }
     }
 }

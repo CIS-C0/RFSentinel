@@ -23,7 +23,7 @@
   <li><a href="#tech">How detection works</a></li>
   <li><a href="#limits">Range, accuracy, battery, screen off</a></li>
   <li><a href="#car">Android Auto and driving</a></li>
-  <li><a href="#esp32">ESP32, OUI-Spy, GhostESP</a></li>
+  <li><a href="#esp32">ESP32, OUI-Spy, GhostESP, Marauder</a></li>
   <li><a href="#privacy">Privacy, safety and legality</a></li>
   <li><a href="#project">Themes, data, contributing</a></li>
 </ol>
@@ -102,7 +102,7 @@
 <details class="faq" id="police-alert-how">
 <summary>How will I be alerted?</summary>
 <div>
-<p>Matches above your alert threshold (default 50, probable) play a sound and vibrate: one pulse for weak, two for probable, three for strong. Optional spoken announcements use the phone's own text-to-speech engine. There is a discreet mode, a floating threat bubble over other apps (green / orange / red with a count), a notification, a Quick Settings tile, a home-screen widget, and heads-up alerts in Android Auto.</p>
+<p>Matches above your alert threshold (default 50, probable) play a sound and vibrate: one pulse for weak, two for probable, three for strong. Optional spoken announcements use the phone's own text-to-speech engine, in full ("Axon body camera nearby") or short ("Body cam", "Police car", "Speed camera, 50"). There is a discreet mode, a floating threat bubble over other apps (green / orange / red with a count), a notification, a Quick Settings tile, a home-screen widget, and heads-up alerts in Android Auto.</p>
 </div>
 </details>
 
@@ -201,7 +201,7 @@
 <details class="faq" id="ignore-own-tag">
 <summary>My own AirTag keeps showing up. How do I ignore it?</summary>
 <div>
-<p>Long-press it and ignore it. The ignore follows the tag when its address changes: it is carried over through the advert fingerprint link, so you don't have to ignore it again after each rotation.</p>
+<p>Long-press it and ignore it. The ignore follows the tag when its address changes: it is carried over through the advert fingerprint link, so you don't have to ignore it again after each rotation. To leave every Apple Find My tag out of the Trackers category, turn on <b>Settings → Exclude Apple AirTags</b> (also in Android Auto → More); Google Find Hub, SmartTag and Tile trackers still alert.</p>
 </div>
 </details>
 </section>
@@ -574,7 +574,7 @@
 <details class="faq" id="android-auto-police">
 <summary>Is there a police detector app for Android Auto?</summary>
 <div>
-<p>RF Sentinel runs in Android Auto: threat headline, live counts, Start/Stop and mute on the home screen, device lists, a live OpenStreetMap map with devices, cameras and drones, OSM navigation with spoken turns, and alerts as heads-up cards through the car speakers. See <a href="android-auto.html">Android Auto</a>.</p>
+<p>RF Sentinel runs in Android Auto: threat headline, the next known camera on your way, recent alerts, Start/Stop and mute on the home screen, device lists with the phone's filters, cell towers, hardware status, a live OpenStreetMap map with devices, cameras and drones, OSM navigation with spoken turns, and alerts as heads-up cards through the car speakers with Mute 30 min and Ignore buttons. See <a href="android-auto.html">Android Auto</a>.</p>
 </div>
 </details>
 
@@ -601,12 +601,12 @@
 </section>
 
 <section class="faq-group" id="esp32">
-<h2>ESP32, OUI-Spy, GhostESP</h2>
+<h2>ESP32, OUI-Spy, GhostESP, Marauder</h2>
 
 <details class="faq" id="esp32-boards">
 <summary>Can I use an ESP32 with RF Sentinel?</summary>
 <div>
-<p>Yes. Plug a board running <a href="https://github.com/colonelpanichacks/oui-spy-unified-blue" rel="noopener">OUI-Spy</a> or <a href="https://github.com/GhostESP-Revival/GhostESP" rel="noopener">GhostESP</a> into the phone with a USB OTG cable while scanning, or pair an OUI-SPY board running the Bluetooth (App-Controlled) firmware wirelessly. Its detections merge into the list with a blue <b>ESP32</b> badge. Native-USB boards (S2/S3/C3/C6) and CP210x / CH340 bridges work. See <a href="esp32.html">ESP32 boards</a>.</p>
+<p>Yes. Plug a board running <a href="https://github.com/colonelpanichacks/oui-spy-unified-blue" rel="noopener">OUI-Spy</a> , <a href="https://github.com/GhostESP-Revival/GhostESP" rel="noopener">GhostESP</a> or <a href="https://github.com/justcallmekoko/ESP32Marauder" rel="noopener">ESP32 Marauder</a> into the phone with a USB OTG cable while scanning, or pair an OUI-SPY board running the Bluetooth (App-Controlled) firmware wirelessly. Its detections merge into the list with a blue <b>ESP32</b> badge. Native-USB boards (S2/S3/C3/C5/C6) and CP210x / CH340 bridges work. See <a href="esp32.html">ESP32 boards</a>.</p>
 </div>
 </details>
 
@@ -641,7 +641,14 @@
 <details class="faq" id="flipper">
 <summary>Does it work with Flipper Zero or a WiFi Pineapple?</summary>
 <div>
-<p>No. Supported external hardware is ESP32 boards running OUI-Spy or GhostESP.</p>
+<p>A Flipper Zero with an ESP32 board running Marauder (for example the BFFB) works since 2.11.1: plug the Flipper into the phone and open <b>GPIO → USB-UART Bridge</b>. A WiFi Pineapple isn't supported. Other supported hardware: ESP32 boards running OUI-Spy, GhostESP or Marauder, and RTL8811AU / 8821AU USB WiFi adapters.</p>
+</div>
+</details>
+
+<details class="faq" id="marauder">
+<summary>Can I use ESP32 Marauder or an ESP32-C5 board for 5 GHz WiFi on Android?</summary>
+<div>
+<p>Yes, with RF Sentinel 2.11.1+. Plug a board running <a href="https://github.com/justcallmekoko/ESP32Marauder" rel="noopener">ESP32 Marauder</a> into the phone with a USB OTG cable while scanning. RF Sentinel runs only its passive beacon and probe sniffers and adds the networks and client devices to the list. On ESP32-C5 boards (Marauder v8, BFFB v2, LilyGo T-Dongle C5, C5 DevKit) that includes 5 GHz. Keep Channel Hop on in Marauder's settings. See <a href="esp32.html#marauder">ESP32 boards</a>.</p>
 </div>
 </details>
 </section>

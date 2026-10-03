@@ -141,7 +141,15 @@ class MainActivity : AppCompatActivity() {
             // So the Android Auto screens show the demo as a running scan too.
             ScanForegroundService.isRunning = true
             intent.getStringExtra("view")?.let { Prefs.setRadarView(this, it == "radar") }
-            val anchor = runCatching {
+            val demoLat = intent.getFloatExtra("lat", Float.NaN)
+            val demoLon = intent.getFloatExtra("lon", Float.NaN)
+            if (!demoLat.isNaN() && !demoLon.isNaN()) {
+                com.rfsentinel.app.ui.DemoData.fakeLocation = android.location.Location("demo").apply {
+                    latitude = demoLat.toDouble(); longitude = demoLon.toDouble(); accuracy = 5f
+                    time = System.currentTimeMillis(); elapsedRealtimeNanos = android.os.SystemClock.elapsedRealtimeNanos()
+                }
+            }
+            val anchor = com.rfsentinel.app.ui.DemoData.fakeLocation?.let { it.latitude to it.longitude } ?: runCatching {
                 @Suppress("MissingPermission")
                 (getSystemService(LOCATION_SERVICE) as android.location.LocationManager)
                     .getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
@@ -149,6 +157,7 @@ class MainActivity : AppCompatActivity() {
             }.getOrNull()
             lifecycleScope.launch(kotlinx.coroutines.Dispatchers.Default) {
                 com.rfsentinel.app.ui.DemoData.populate(anchor)
+                com.rfsentinel.app.ui.DemoData.seedAlerts(this@MainActivity, anchor)
                 anchor?.let { com.rfsentinel.app.ui.DemoData.seedHistory(this@MainActivity, it) }
             }
         }

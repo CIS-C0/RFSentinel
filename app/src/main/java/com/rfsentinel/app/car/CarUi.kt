@@ -29,6 +29,8 @@ object CarUi {
     /** Where the driver is: the scanner's latest fix, else the phone's last known position. */
     @android.annotation.SuppressLint("MissingPermission") // checked via Permissions
     fun currentLocation(context: CarContext): android.location.Location? {
+        // Debug demo only: a made-up position, so screenshots never show the real one.
+        com.rfsentinel.app.ui.DemoData.fakeLocation?.let { return it }
         // Navigation keeps its own 1 s GPS fixes; use whichever fix is newer.
         val nav = com.rfsentinel.app.nav.Navigator.lastFix
         val scan = com.rfsentinel.app.service.ScanForegroundService.lastFix

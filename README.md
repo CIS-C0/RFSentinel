@@ -260,14 +260,18 @@ Menu → **Export all devices...** or **Export...**:
 A driver-safe, template-based Android Auto app:
 
 <p align="center">
-  <img src="docs/screenshots/android-auto/home.jpg" width="400" alt="Android Auto home screen with the threat headline" />
-  <img src="docs/screenshots/android-auto/flagged.jpg" width="400" alt="Android Auto list of flagged devices" />
+  <img src="docs/screenshots/android-auto/home.jpg" width="400" alt="Android Auto home screen with the threat headline and recent alerts" />
+  <img src="docs/screenshots/android-auto/recent-alerts.jpg" width="400" alt="Android Auto recent alerts, kept after the device has left" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/android-auto/flagged.jpg" width="400" alt="Android Auto list of flagged devices with the radio that heard each one" />
+  <img src="docs/screenshots/android-auto/more.jpg" width="400" alt="Android Auto More screen: snooze alerts, spoken alerts, cell towers, hardware" />
 </p>
 <p align="center">
   <img src="docs/screenshots/android-auto/live-map.jpg" width="400" alt="Android Auto live map with the devices around you" />
   <img src="docs/screenshots/android-auto/cameras.jpg" width="400" alt="Android Auto live map zoomed out with known cameras" />
 </p>
-<p align="center"><sub>Home, flagged devices, live map, and known cameras (demo data).</sub></p>
+<p align="center"><sub>Home, recent alerts, flagged devices, More, live map and known cameras (demo data).</sub></p>
 
 - **Home**, most important first (a car shows about six rows while driving):
   the threat headline (tap for the flagged devices), the **next known camera on

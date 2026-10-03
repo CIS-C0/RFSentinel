@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Police &amp; camera detector for Android Auto - RF Sentinel</title>
-<meta name="description" content="RF Sentinel on Android Auto: threat headline, flagged device lists, a live OpenStreetMap map with plate-reader, speed and red-light cameras and drones, OSM turn-by-turn navigation, and alerts through the car speakers. Setup for sideloaded apps.">
+<meta name="description" content="RF Sentinel on Android Auto: threat headline, next camera ahead, recent alerts, filtered device lists, cell towers, a live OpenStreetMap map with plate-reader, speed and red-light cameras and drones, OSM turn-by-turn navigation, and alerts through the car speakers. Setup for sideloaded apps.">
 <link rel="canonical" href="https://cis-c0.github.io/RFSentinel/android-auto.html">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="theme-color" content="#050507">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="RF Sentinel">
 <meta property="og:title" content="Police &amp; camera detector for Android Auto - RF Sentinel">
-<meta property="og:description" content="RF Sentinel on Android Auto: threat headline, flagged device lists, a live OpenStreetMap map with plate-reader, speed and red-light cameras and drones, OSM turn-by-turn navigation, and alerts through the car speakers. Setup for sideloaded apps.">
+<meta property="og:description" content="RF Sentinel on Android Auto: threat headline, next camera ahead, recent alerts, filtered device lists, cell towers, a live OpenStreetMap map with plate-reader, speed and red-light cameras and drones, OSM turn-by-turn navigation, and alerts through the car speakers. Setup for sideloaded apps.">
 <meta property="og:url" content="https://cis-c0.github.io/RFSentinel/android-auto.html">
 <meta property="og:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
 <meta property="og:image:width" content="1280">
@@ -19,7 +19,7 @@
 <meta property="og:image:alt" content="RF Sentinel - BLE and WiFi police scanner for Android">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Police &amp; camera detector for Android Auto - RF Sentinel">
-<meta name="twitter:description" content="RF Sentinel on Android Auto: threat headline, flagged device lists, a live OpenStreetMap map with plate-reader, speed and red-light cameras and drones, OSM turn-by-turn navigation, and alerts through the car speakers. Setup for sideloaded apps.">
+<meta name="twitter:description" content="RF Sentinel on Android Auto: threat headline, next camera ahead, recent alerts, filtered device lists, cell towers, a live OpenStreetMap map with plate-reader, speed and red-light cameras and drones, OSM turn-by-turn navigation, and alerts through the car speakers. Setup for sideloaded apps.">
 <meta name="twitter:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preload" href="assets/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
@@ -50,8 +50,11 @@
 </div>
 
 <div class="wide-shots">
-  <figure><img src="screenshots/android-auto/home.jpg" width="800" height="400" alt="Android Auto home screen with the threat headline"><figcaption>home</figcaption></figure>
-  <figure><img src="screenshots/android-auto/flagged.jpg" width="800" height="400" loading="lazy" alt="Android Auto list of flagged devices"><figcaption>flagged devices</figcaption></figure>
+  <figure><img src="screenshots/android-auto/home.jpg" width="800" height="400" alt="Android Auto home screen with the threat headline and recent alerts"><figcaption>home</figcaption></figure>
+  <figure><img src="screenshots/android-auto/recent-alerts.jpg" width="800" height="400" loading="lazy" alt="Android Auto recent alerts, kept after the device has left"><figcaption>recent alerts</figcaption></figure>
+  <figure><img src="screenshots/android-auto/nearby.jpg" width="800" height="400" loading="lazy" alt="Android Auto nearby devices with the phone's filters and counts"><figcaption>nearby devices</figcaption></figure>
+  <figure><img src="screenshots/android-auto/flagged.jpg" width="800" height="400" loading="lazy" alt="Android Auto list of flagged devices with the radio that heard each one"><figcaption>flagged devices</figcaption></figure>
+  <figure><img src="screenshots/android-auto/more.jpg" width="800" height="400" loading="lazy" alt="Android Auto More screen: snooze alerts, spoken alerts, cell towers, hardware"><figcaption>more</figcaption></figure>
   <figure><img src="screenshots/android-auto/live-map.jpg" width="800" height="400" loading="lazy" alt="Android Auto live map with the devices around you"><figcaption>live map</figcaption></figure>
   <figure><img src="screenshots/android-auto/cameras.jpg" width="800" height="400" loading="lazy" alt="Android Auto live map zoomed out with known cameras"><figcaption>known cameras</figcaption></figure>
 </div>
@@ -59,11 +62,16 @@
 
 <h2 id="screens">Screens</h2>
 <ul>
-<li><b>Home:</b> threat headline, live counts, Start/Stop, and a speaker button that mutes or unmutes all alert sound.</li>
-<li><b>Device lists:</b> flagged, drones &amp; trackers, all nearby; device details with Whitelist, Watch and Favorite. <b>Navigate</b> hands drones with a known position to your navigation app.</li>
+<li><b>Home</b>, most important first (a car shows about six rows while driving): the threat headline (tap for the flagged devices), the <b>next known camera on your way</b> with its distance, <b>recent alerts</b>, the map, nearby devices and <b>More</b>. Start/Stop and a speaker button that mutes or unmutes all alert sound sit in the header.</li>
+<li><b>Nearby devices:</b> the phone's filters with live counts (flagged, trackers, drones, favorites, new, Bluetooth, WiFi, ESP32 / USB). Each row says which radio heard it.</li>
+<li><b>Device details:</b> Whitelist, Watch and Favorite; trackers get the phone's three ignore choices (<i>it's mine</i>, <i>today only</i>, <i>pause follow warnings</i>). <b>Navigate</b> hands drones with a known position to your navigation app. A device that has left still shows its last alert.</li>
+<li><b>Recent alerts:</b> the last 40 alerts (devices, cameras, cell warnings), kept after the device is gone.</li>
+<li><b>Cameras:</b> tap one to see it alone on the map, navigate to it, or tap its row to turn its alerts off or back on (faded on the maps).</li>
+<li><b>More:</b> snooze alerts for 30 minutes, spoken alerts in the car, short spoken alerts, whether AirTags count as trackers, <b>cell towers</b> (fake-cell check status, serving cell and neighbours) and <b>hardware</b> status (phone radios and the scan watchdog, ESP32 / Marauder / Flipper on USB, OUI-SPY over Bluetooth, USB WiFi adapter).</li>
 <li><b>Live map:</b> RF Sentinel's own OpenStreetMap map on the car screen with devices in list / radar colours, plate-reader, speed and red-light cameras, and your position. Drag, pinch or <b>+ / −</b>; <b>◎</b> follows the car again. Needs car API level 7; older Android Auto gets car-drawn maps with device and camera lists.</li>
 <li><b>Navigation:</b> <i>Navigate to...</i> searches with Nominatim (on submit only, no search-as-you-type), keeps recent destinations on the phone, routes with OSRM, draws the route with next turn, ETA and distance, speaks turns and re-routes.</li>
-<li><b>Alerts:</b> heads-up cards on the car screen, spoken through the car speakers as navigation guidance audio, briefly lowering music.</li>
+<li><b>Alerts:</b> heads-up cards on the car screen with <b>Mute 30 min</b> and <b>Ignore</b> buttons, spoken through the car speakers as navigation guidance audio, briefly lowering music.</li>
+<li><b>Phone screen off:</b> Android limits Bluetooth scanning then. The car warns you when a scan starts that way and shows "Bluetooth limited" on its home screen; WiFi, cell checks and known cameras keep working.</li>
 </ul>
 
 <h2 id="setup">Setup for a sideloaded app</h2>

@@ -1,4 +1,4 @@
-<!--META {"title": "ESP32 with RF Sentinel - OUI-Spy over USB or Bluetooth, GhostESP", "description": "Connect an ESP32 board running OUI-Spy (Flock-You, Detector, Sky Spy, Wardrive) or GhostESP to RF Sentinel over USB OTG or Bluetooth to extend range and add the board's detections to the Android app.", "nav": "esp32", "crumb": "ESP32 boards"} -->
+<!--META {"title": "ESP32 with RF Sentinel - OUI-Spy, GhostESP, Marauder, Flipper Zero", "description": "Connect an ESP32 board running OUI-Spy (Flock-You, Detector, Sky Spy, Wardrive) , GhostESP or ESP32 Marauder (including dual-band ESP32-C5 boards such as Marauder v8 and the Flipper Zero BFFB v2) to RF Sentinel over USB OTG or Bluetooth to extend range and add the board's detections to the Android app.", "nav": "esp32", "crumb": "ESP32 boards"} -->
 <div class="page-head">
   <p class="crumbs"><a href="./">rf_sentinel</a> / esp32</p>
   <h1>ESP32 boards</h1>
@@ -16,10 +16,15 @@
 <tr><td><a href="https://github.com/colonelpanichacks/oui-spy-unified-blue" rel="noopener">OUI-Spy</a> (recommended)</td><td>USB OTG</td><td>Flock-You, Detector and Sky Spy detections as they happen: Flock cameras, the board's watchlist matches, Remote ID drones with position</td></tr>
 <tr><td><a href="https://github.com/lukeswitz/oui-spy-unified-blue" rel="noopener">OUI-SPY App-Controlled</a></td><td>Bluetooth</td><td>Flock-BLE, Flock-WiFi, Sky Spy, Detector and (optional) Wardrive survey engines</td></tr>
 <tr><td><a href="https://github.com/GhostESP-Revival/GhostESP" rel="noopener">GhostESP</a></td><td>USB OTG</td><td>The WiFi networks it scans, about every 10 s (no Bluetooth over USB)</td></tr>
+<tr><td><a href="https://github.com/justcallmekoko/ESP32Marauder" rel="noopener">ESP32 Marauder</a></td><td>USB OTG, or through a Flipper Zero</td><td>WiFi networks and client devices from its passive beacon and probe sniffers, batched every 2 s; on ESP32-C5 boards (Marauder v8, BFFB v2, LilyGo T-Dongle C5, C5 DevKit) both 2.4 and 5 GHz</td></tr>
 </tbody></table></div>
 
 <h2 id="usb">USB</h2>
-<p>Plug the board into the phone with a USB OTG cable while scanning and allow USB access on the first prompt. Native-USB boards (ESP32-S2 / S3 / C3 / C6) and boards with CP210x or CH340 USB bridges work. RF Sentinel never sends OUI-Spy anything, and only asks GhostESP to scan and list networks. Settings shows the board's status.</p>
+<p>Plug the board into the phone with a USB OTG cable while scanning and allow USB access on the first prompt. Native-USB boards (ESP32-S2 / S3 / C3 / C5 / C6) and boards with CP210x or CH340 USB bridges work. RF Sentinel only asks OUI-Spy for its version and live table, only asks GhostESP to scan and list networks, and only runs Marauder's passive <code>sniffbeacon</code> / <code>sniffprobe</code> sniffers (no attack commands, no settings changes). Settings shows the board's status.</p>
+
+<h2 id="marauder">ESP32 Marauder, ESP32-C5 and Flipper Zero</h2>
+<p><b>Dual-band:</b> Marauder on an ESP32-C5 (Marauder v8, BFFB v2, LilyGo T-Dongle C5, C5 DevKit) hears 5 GHz networks that the phone's throttled WiFi scan misses, which helps catch vehicle routers on a pass. Keep <b>Channel Hop</b> on in Marauder's settings; RF Sentinel says so if the board stays on one channel.</p>
+<p><b>Flipper Zero (e.g. with the BFFB board):</b> plug the Flipper into the phone and open <b>GPIO → USB-UART Bridge</b> on the Flipper; RF Sentinel then talks to the board's Marauder through it. A BFFB v2 can also be plugged in by its own USB-C port. The original BFFB uses a 2.4 GHz-only ESP32.</p>
 
 <h2 id="ble">Bluetooth (OUI-SPY App-Controlled)</h2>
 <ol>

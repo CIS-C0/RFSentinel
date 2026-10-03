@@ -106,7 +106,8 @@ class ScanForegroundService : Service() {
 
         /** Re-applies the location mode of a running scan (never starts one). */
         private fun refreshLocation(context: Context) {
-            if (!isRunning) return
+            // The debug demo pretends to scan: never start real location updates for it.
+            if (!isRunning || com.rfsentinel.app.ui.DemoData.fakeLocation != null) return
             runCatching {
                 context.startService(Intent(context, ScanForegroundService::class.java).setAction(ACTION_REFRESH_LOCATION))
             }
