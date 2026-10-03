@@ -251,6 +251,9 @@ class SettingsActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
+    /** True once the screen shows the saved values, so leaving it can save them back. */
+    private var loaded = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivitySettingsBinding.inflate(layoutInflater)
@@ -370,6 +373,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.soundSwitch.isChecked = Prefs.soundEnabled(this)
         binding.vibrateSwitch.isChecked = Prefs.vibrateEnabled(this)
         binding.voiceSwitch.isChecked = Prefs.voiceEnabled(this)
+        binding.shortVoiceSwitch.isChecked = Prefs.shortVoice(this)
         setupVoiceControls()
         binding.discreetSwitch.isChecked = Prefs.discreetMode(this)
         binding.bubbleSwitch.isChecked = Prefs.threatBubble(this) && Settings.canDrawOverlays(this)
@@ -490,7 +494,7 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
-        binding.saveButton.setOnClickListener { save() }
+        loaded = true
     }
 
     override fun onResume() {
@@ -553,6 +557,12 @@ class SettingsActivity : AppCompatActivity() {
             .show()
     }
 
+    /** Settings save themselves: whenever this screen is left (back, home, another screen). */
+    override fun onPause() {
+        super.onPause()
+        if (loaded) save()
+    }
+
     private fun save() {
         Prefs.setBleEnabled(this, binding.bleSwitch.isChecked)
         Prefs.setWifiEnabled(this, binding.wifiSwitch.isChecked)
@@ -587,6 +597,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setSoundEnabled(this, binding.soundSwitch.isChecked)
         Prefs.setVibrateEnabled(this, binding.vibrateSwitch.isChecked)
         Prefs.setVoiceEnabled(this, binding.voiceSwitch.isChecked)
+        Prefs.setShortVoice(this, binding.shortVoiceSwitch.isChecked)
         Prefs.setDiscreetMode(this, binding.discreetSwitch.isChecked)
         Prefs.setThreatBubble(this, binding.bubbleSwitch.isChecked)
         if (!binding.bubbleSwitch.isChecked) com.rfsentinel.app.ui.ThreatBubble.hide(this)
@@ -614,7 +625,6 @@ class SettingsActivity : AppCompatActivity() {
 
         // Re-deliver a start command so a running scanner picks up the changes.
         if (ScanForegroundService.isRunning) ScanForegroundService.start(this)
-        finish()
     }
 
     override fun onSupportNavigateUp(): Boolean {

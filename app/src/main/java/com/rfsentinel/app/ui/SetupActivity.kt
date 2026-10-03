@@ -192,6 +192,18 @@ class SetupActivity : AppCompatActivity() {
         switch("Alert sound", Prefs.soundEnabled(this)) { Prefs.setSoundEnabled(this, it) }
         switch("Vibration (1 pulse weak, 2 probable, 3 strong)", Prefs.vibrateEnabled(this)) { Prefs.setVibrateEnabled(this, it) }
         switch("Spoken alerts (\"Axon body camera nearby\")", Prefs.voiceEnabled(this)) { Prefs.setVoiceEnabled(this, it) }
+        switch("Short spoken alerts (\"Body cam\", \"Police car\", \"Speed camera, 50\")", Prefs.shortVoice(this)) { Prefs.setShortVoice(this, it) }
+        switch("Floating threat bubble over other apps (Waze, Google Maps...)",
+            Prefs.threatBubble(this) && android.provider.Settings.canDrawOverlays(this)) { on ->
+            Prefs.setThreatBubble(this, on)
+            if (on && !android.provider.Settings.canDrawOverlays(this)) {
+                // Android asks for "Display over other apps" on its own screen.
+                runCatching {
+                    startActivity(android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        android.net.Uri.parse("package:$packageName")))
+                }
+            }
+        }
         switch("Discreet mode - hide details on the lock screen and in notifications", Prefs.discreetMode(this)) {
             Prefs.setDiscreetMode(this, it)
         }
@@ -216,7 +228,7 @@ class SetupActivity : AppCompatActivity() {
     }
 
     private fun location() {
-        header("Location features", "These use GPS while scanning. Everything stays on this phone.")
+        header("Driving & location", "GPS features, the car and known cameras. Everything stays on this phone.")
         switch("Warn me when a tracker or flagged device keeps moving with me", Prefs.followerAlerts(this)) {
             Prefs.setFollowerAlerts(this, it)
         }
@@ -229,6 +241,22 @@ class SetupActivity : AppCompatActivity() {
         switch("Start scanning automatically when the phone boots", Prefs.autoStartOnBoot(this)) {
             Prefs.setAutoStartOnBoot(this, it)
         }
+        switch("Start scanning in the car (Android Auto; pick your car's Bluetooth later in Settings)", Prefs.carAutoStart(this)) {
+            Prefs.setCarAutoStart(this, it)
+        }
+        label("Known cameras")
+        switch("Warn me before plate-reader cameras mapped in OpenStreetMap", Prefs.knownAlprAlerts(this)) {
+            Prefs.setKnownAlprAlerts(this, it)
+        }
+        switch("Warn me before speed and red-light cameras", Prefs.speedCameraAlerts(this)) {
+            Prefs.setSpeedCameraAlerts(this, it)
+        }
+        label("Cell network")
+        switch("Alert when the serving cell tower changes (frequent while driving; useful when parked)", Prefs.cellChangeAlerts(this)) {
+            Prefs.setCellChangeAlerts(this, it)
+        }
+        para("Extra hardware works on its own once plugged in while scanning: ESP32 boards (OUI-Spy, GhostESP) " +
+            "and USB WiFi adapters such as the ALFA AWUS036ACS. An OUI-SPY board over Bluetooth is paired in Settings.", small = true)
     }
 
     private fun permissions() {

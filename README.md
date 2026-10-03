@@ -121,13 +121,14 @@ Every match shows its evidence, its source and a confidence tier: **weak** (< 50
 
 **Alerts**
 - Sound, vibration pattern per tier (1 / 2 / 3 pulses) and spoken announcements through the phone's own speech engine (prioritised, voice and speed pickers)
+- **Short spoken alerts** option ("Body cam", "Police car", "Speed camera, 50")
 - Discreet mode, adjustable alert threshold, mute from the app or the car
 - **Floating threat bubble** over Waze, Google Maps or any app
 - Notification, Quick Settings tile and home-screen widget
 
 **Map & history**
 - OpenStreetMap map with your GPS trace and every device pinned exactly where its signal peaked (tap a spot to list everything heard there), the same filter chips as the list, self-centering
-- Optional **cell tower layer**: every tower seen while scanning, at the spot where its signal was strongest
+- Optional **cell tower layer** (or the map's **Cells** chip): every tower seen while scanning, at the spot where its signal was strongest
 - **Record traces** of your route and the devices along it, with the screen off
 - **History map & timeline:** heatmap of where flagged equipment showed up, and when (hour of day, day of week)
 
@@ -146,7 +147,8 @@ Every match shows its evidence, its source and a confidence tier: **weak** (< 50
 - **Cell towers in the live list:** the serving cell and its neighbours appear under *All*, after the devices
 - **Scan watchdog:** a scanner that goes silent is restarted on its own
 - Device details: evidence, identity, decoded data, signal graph, **Locate** mode, history, raw advertisement
-- Setup wizard (theme, region, alerts, camera radius, screen, permissions)
+- Setup wizard (theme, region, alerts and voice, bubble, car start, camera warnings, cell alerts, camera radius, screen, permissions); Settings save themselves
+- **Check for updates** (menu ⋮): compares with the latest GitHub release, only when you tap it
 - 13 themes, including the **DedSec** (Watch Dogs 2) and **fsociety** (Mr. Robot) fan themes
 
 **Data & privacy**

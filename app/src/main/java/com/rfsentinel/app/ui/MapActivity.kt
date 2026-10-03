@@ -239,7 +239,7 @@ class MapActivity : AppCompatActivity() {
     }
 
     private fun setupFilterChips() {
-        val options = if (tripId == null) DeviceFilter.entries - DeviceFilter.CELLS else listOf(DeviceFilter.ALL, DeviceFilter.FLAGGED)
+        val options = if (tripId == null) DeviceFilter.entries else listOf(DeviceFilter.ALL, DeviceFilter.FLAGGED)
         filter = DeviceFilter.parse(com.rfsentinel.app.util.Prefs.mapFilter(this)).takeIf { it in options } ?: DeviceFilter.ALL
         val group = binding.mapFilterChips
         for (f in options) {
@@ -259,6 +259,7 @@ class MapActivity : AppCompatActivity() {
             filter = picked
             com.rfsentinel.app.util.Prefs.setMapFilter(this, picked.name)
             if (tripId != null) loadTrip() else renderLive()
+            drawTowers()
         }
     }
 
@@ -266,7 +267,7 @@ class MapActivity : AppCompatActivity() {
     private fun updateFilterCounts(devices: List<DeviceRegistry.Snapshot>) {
         val placed = devices.filter { it.bestPosition != null }
         for ((f, chip) in filterChips) {
-            val n = placed.count { f.matches(it) }
+            val n = if (f == DeviceFilter.CELLS) towerCount else placed.count { f.matches(it) }
             chip.text = if (f == DeviceFilter.ALL || n > 0) "${f.label} $n" else f.label
         }
     }
@@ -646,8 +647,14 @@ class MapActivity : AppCompatActivity() {
             .show()
     }
 
+    /** Towers with a map position (the Cells chip's count), refreshed with the layer. */
+    private var towerCount = 0
+
     private fun drawTowers() {
-        towers.points = if (tripId != null || !com.rfsentinel.app.util.Prefs.showCellTowers(this)) emptyList()
+        towerCount = com.rfsentinel.app.service.CellTowerStore.all(this).count { it.bestLat != null }
+        // The Cells chip shows the towers (only them); otherwise the map menu's switch decides.
+        val show = filter == DeviceFilter.CELLS || com.rfsentinel.app.util.Prefs.showCellTowers(this)
+        towers.points = if (tripId != null || !show) emptyList()
         else com.rfsentinel.app.service.CellTowerStore.all(this).filter { it.bestLat != null }.map {
             PointsOverlay.Point(it.bestLat!!, it.bestLon!!, it, icon = towerIcon)
         }

@@ -251,6 +251,12 @@
             android:layout_height="wrap_content"
             android:text="Spoken alerts (e.g. while driving)" />
 
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/shortVoiceSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Short spoken alerts (&quot;Body cam&quot;, &quot;Police car&quot;, &quot;Speed camera, 50&quot;)" />
+
         <TextView style="@style/SettingsLabel" android:text="Voice speed" />
 
         <RadioGroup
@@ -574,12 +580,11 @@
             android:layout_height="wrap_content"
             android:text="Clear match history" />
 
-        <Button
-            android:id="@+id/saveButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Save" />
+        <TextView
+            style="@style/SettingsLabel"
+            android:paddingTop="16dp"
+            android:textSize="12sp"
+            android:text="Changes are saved automatically." />
 
     </LinearLayout>
 </ScrollView>

@@ -145,6 +145,10 @@ object Prefs {
     fun setDeflockUpdated(context: Context, time: Long) = sp(context).edit { putLong("deflock_updated", time) }
     fun ouiSpyRelayAll(context: Context): Boolean = bool(context, "ouispy_relay_all", true)
     fun setOuiSpyRelayAll(context: Context, value: Boolean) = setBool(context, "ouispy_relay_all", value)
+    /** Two- or three-word spoken alerts ("Body cam", "Speed camera, 50") instead of full labels. */
+    fun shortVoice(context: Context): Boolean = bool(context, "short_voice", false)
+    fun setShortVoice(context: Context, value: Boolean) = setBool(context, "short_voice", value)
+
     /** Alert each time the phone switches to another serving cell tower (off by default: frequent while driving). */
     fun cellChangeAlerts(context: Context): Boolean = bool(context, "cell_change_alerts", false)
     fun setCellChangeAlerts(context: Context, value: Boolean) = setBool(context, "cell_change_alerts", value)

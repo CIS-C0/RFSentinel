@@ -472,7 +472,7 @@ class ScanForegroundService : Service() {
             )
         ) {
             NotificationHelper.sendAlert(this, mac, best, a.rssi, following = true)
-            AlertPlayer.play(this, best.tier, "Warning. ${best.label} may be following you.", following = true)
+            AlertPlayer.play(this, best.tier, com.rfsentinel.app.util.Spoken.device(this, best, following = true), following = true)
         }
     }
 
@@ -561,7 +561,7 @@ class ScanForegroundService : Service() {
         if (now - last <= window) return
         lastAlerted[a.mac] = now
         NotificationHelper.sendAlert(this, a.mac, best, a.rssi)
-        AlertPlayer.play(this, best.tier, "${best.label} nearby")
+        AlertPlayer.play(this, best.tier, com.rfsentinel.app.util.Spoken.device(this, best))
     }
 
     private fun knownAlprActive() = (Prefs.knownAlprAlerts(this) || Prefs.speedCameraAlerts(this)) &&
@@ -605,7 +605,7 @@ class ScanForegroundService : Service() {
                 "OpenStreetMap (" + (if (alpr) "surveillance:type=ALPR" else "highway=speed_camera / enforcement") + "), ODbL"
             )
             NotificationHelper.sendMapAlert(this, "alpr:" + cam.osmId, hit)
-            AlertPlayer.play(this, hit.tier, cam.spoken)
+            AlertPlayer.play(this, hit.tier, com.rfsentinel.app.util.Spoken.camera(this, cam))
             break // one warning per fix is enough
         }
     }

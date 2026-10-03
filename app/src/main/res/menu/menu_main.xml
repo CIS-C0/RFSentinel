@@ -20,5 +20,6 @@
     <item android:id="@+id/action_settings" android:title="Settings" app:showAsAction="never" />
     <item android:id="@+id/action_export_all" android:title="Export all devices..." app:showAsAction="never" />
     <item android:id="@+id/action_export" android:title="Export (history, matches, everything)..." app:showAsAction="never" />
+    <item android:id="@+id/action_check_update" android:title="Check for updates" app:showAsAction="never" />
     <item android:id="@+id/action_about" android:title="About &amp; sources" app:showAsAction="never" />
 </menu>

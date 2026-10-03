@@ -542,6 +542,7 @@ class MainActivity : AppCompatActivity() {
             R.id.action_traces -> { startActivity(Intent(this, com.rfsentinel.app.ui.TripsActivity::class.java)); true }
             R.id.action_history -> { startActivity(Intent(this, com.rfsentinel.app.ui.HistoryActivity::class.java)); true }
             R.id.action_about -> { AboutDialog.show(this); true }
+            R.id.action_check_update -> { com.rfsentinel.app.util.UpdateChecker.check(this); true }
             R.id.action_mute -> {
                 val muted = !Prefs.alertsMuted(this)
                 Prefs.setAlertsMuted(this, muted)
