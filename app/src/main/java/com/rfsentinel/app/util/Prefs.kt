@@ -149,6 +149,13 @@ object Prefs {
     fun shortVoice(context: Context): Boolean = bool(context, "short_voice", false)
     fun setShortVoice(context: Context, value: Boolean) = setBool(context, "short_voice", value)
 
+    /** Leave Apple Find My tags (AirTags and compatible) out of the Trackers category. */
+    fun excludeAirTags(context: Context): Boolean = bool(context, "exclude_airtags", false)
+    fun setExcludeAirTags(context: Context, value: Boolean) {
+        setBool(context, "exclude_airtags", value)
+        com.rfsentinel.app.ui.DeviceFilter.excludeAirTags = value
+    }
+
     /** Alert each time the phone switches to another serving cell tower (off by default: frequent while driving). */
     fun cellChangeAlerts(context: Context): Boolean = bool(context, "cell_change_alerts", false)
     fun setCellChangeAlerts(context: Context, value: Boolean) = setBool(context, "cell_change_alerts", value)

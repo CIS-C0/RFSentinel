@@ -99,8 +99,8 @@ object AlertPlayer {
     }
 
     /** The Settings "Test voice" button: speaks right away with the chosen voice and speed. */
-    fun testVoice(context: Context) {
-        Voice.test(context.applicationContext, "RF Sentinel voice alerts. Axon body camera nearby.",
+    fun testVoice(context: Context, short: Boolean = Prefs.shortVoice(context)) {
+        Voice.test(context.applicationContext, if (short) "Body cam" else "RF Sentinel voice alerts. Axon body camera nearby.",
             if (CarState.connected) carSpeechAttributes else phoneSpeechAttributes)
     }
 

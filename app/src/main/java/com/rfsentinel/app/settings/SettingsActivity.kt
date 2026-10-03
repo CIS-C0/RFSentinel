@@ -35,6 +35,7 @@ class SettingsActivity : AppCompatActivity() {
     private var stopObservingPrefetch: (() -> Unit)? = null
     private var stopObservingDeflock: (() -> Unit)? = null
     private val categorySwitches = mutableMapOf<Category, SwitchMaterial>()
+    private var airTagSwitch: SwitchMaterial? = null
 
     private val bannerPicker = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.GetContent()
@@ -137,7 +138,10 @@ class SettingsActivity : AppCompatActivity() {
         val current = Prefs.voiceRate(this)
         binding.voiceRateGroup.check(rates.minByOrNull { kotlin.math.abs(it.value - current) }!!.key)
         binding.voiceRateGroup.setOnCheckedChangeListener { _, id -> rates[id]?.let { Prefs.setVoiceRate(this, it) } }
-        binding.voiceTestButton.setOnClickListener { com.rfsentinel.app.util.AlertPlayer.testVoice(this) }
+        // Tests what is on screen (Settings save when you leave), so the short switch counts right away.
+        binding.voiceTestButton.setOnClickListener {
+            com.rfsentinel.app.util.AlertPlayer.testVoice(this, binding.shortVoiceSwitch.isChecked)
+        }
 
         fun label(v: android.speech.tts.Voice, i: Int) =
             "${v.locale.getDisplayCountry(java.util.Locale.ENGLISH).ifEmpty { "English" }} · voice ${i + 1}" +
@@ -168,7 +172,7 @@ class SettingsActivity : AppCompatActivity() {
                     // Each pick is spoken right away so you can compare.
                     Prefs.setVoiceName(this, if (which == 0) null else list[which - 1].name)
                     voice.voiceChanged(this)
-                    com.rfsentinel.app.util.AlertPlayer.testVoice(this)
+                    com.rfsentinel.app.util.AlertPlayer.testVoice(this, binding.shortVoiceSwitch.isChecked)
                     showVoice()
                 }
                 .setPositiveButton("Done", null)
@@ -355,6 +359,16 @@ class SettingsActivity : AppCompatActivity() {
             }
             binding.categoryContainer.addView(sw)
             categorySwitches[c] = sw
+            if (c == Category.TRACKER) {
+                airTagSwitch = SwitchMaterial(this).apply {
+                    text = "Exclude Apple AirTags (Find My tags) from Trackers"
+                    isChecked = Prefs.excludeAirTags(this@SettingsActivity)
+                    setPadding((24 * resources.displayMetrics.density).toInt(), 0, 0, 0)
+                    isEnabled = sw.isChecked
+                }
+                sw.setOnCheckedChangeListener { _, on -> airTagSwitch?.isEnabled = on }
+                binding.categoryContainer.addView(airTagSwitch)
+            }
         }
         val enabledPresets = OuiWatchlist.getEnabledPresets(this)
         binding.presetGlobal.isChecked = "global" in enabledPresets
@@ -580,6 +594,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setCarAutoStart(this, binding.carAutoSwitch.isChecked)
 
         categorySwitches.forEach { (c, sw) -> Prefs.setCategoryEnabled(this, c, sw.isChecked) }
+        airTagSwitch?.let { Prefs.setExcludeAirTags(this, it.isChecked) }
         val presets = mutableSetOf<String>()
         if (binding.presetGlobal.isChecked) presets.add("global")
         if (binding.presetCanada.isChecked) presets.add("canada")

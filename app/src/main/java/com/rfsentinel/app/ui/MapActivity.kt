@@ -652,8 +652,10 @@ class MapActivity : AppCompatActivity() {
 
     private fun drawTowers() {
         towerCount = com.rfsentinel.app.service.CellTowerStore.all(this).count { it.bestLat != null }
-        // The Cells chip shows the towers (only them); otherwise the map menu's switch decides.
-        val show = filter == DeviceFilter.CELLS || com.rfsentinel.app.util.Prefs.showCellTowers(this)
+        // The Cells chip shows the towers (only them); All adds them when the map menu's switch is on;
+        // every other chip hides them.
+        val show = filter == DeviceFilter.CELLS ||
+            (filter == DeviceFilter.ALL && com.rfsentinel.app.util.Prefs.showCellTowers(this))
         towers.points = if (tripId != null || !show) emptyList()
         else com.rfsentinel.app.service.CellTowerStore.all(this).filter { it.bestLat != null }.map {
             PointsOverlay.Point(it.bestLat!!, it.bestLon!!, it, icon = towerIcon)

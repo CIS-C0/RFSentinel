@@ -19,6 +19,12 @@ import java.util.UUID
  */
 object SignatureEngine {
 
+    const val APPLE_FIND_MY_LABEL = "Apple Find My tracker away from its owner (AirTag or compatible)"
+
+    /** An Apple Find My tag match (AirTag or compatible), for Settings > Exclude AirTags. */
+    fun isAppleFindMy(hit: Hit) = hit.category == Category.TRACKER && hit.label.startsWith("Apple Find My")
+
+
     private const val ACAB = "all-cameras-are-beacons signature reference (Apache-2.0)"
     private const val SIG = "Bluetooth SIG assigned numbers"
     private const val IEEE = "IEEE registry"
@@ -218,7 +224,7 @@ object SignatureEngine {
         // ---- Trackers separated from their owner ----------------------------
         a.manufacturerData[CID_APPLE]?.let { d ->
             if (d.size >= 2 && Bytes.u8(d, 0) == 0x12 && Bytes.u8(d, 1) == 0x19) {
-                hits += Hit(Category.TRACKER, "Apple Find My tracker away from its owner (AirTag or compatible)", 70,
+                hits += Hit(Category.TRACKER, APPLE_FIND_MY_LABEL, 70,
                     "Apple Find My offline-finding frame (type 0x12, length 0x19 = separated state)",
                     "$ACAB; arXiv 2501.17452")
             }

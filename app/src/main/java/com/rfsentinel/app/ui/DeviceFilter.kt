@@ -24,8 +24,8 @@ enum class DeviceFilter(val label: String) {
     fun matches(s: DeviceRegistry.Snapshot): Boolean = when (this) {
         ALL -> true
         FLAGGED -> s.best != null && !WhitelistCache.contains(s.mac)
-        TRACKERS -> s.hits.any { it.category == Category.TRACKER } ||
-            s.deviceType.contains("tracker", true) || s.deviceType.contains("Find My", true)
+        TRACKERS -> !(excludeAirTags && isAppleFindMy(s)) && (s.hits.any { it.category == Category.TRACKER } ||
+            s.deviceType.contains("tracker", true) || s.deviceType.contains("Find My", true))
         DRONES -> s.hits.any { it.category == Category.DRONE } || s.remoteId != null
         NEW -> s.isNew
         CELLS -> false
@@ -36,6 +36,13 @@ enum class DeviceFilter(val label: String) {
     }
 
     companion object {
+        /** Settings > Exclude Apple AirTags: kept here so the list and map filters needn't read prefs per device. */
+        @Volatile var excludeAirTags = false
+
+        private fun isAppleFindMy(s: DeviceRegistry.Snapshot) =
+            s.deviceType.contains("Find My", true) || s.deviceType.contains("AirTag", true) ||
+                s.hits.any { com.rfsentinel.app.detect.SignatureEngine.isAppleFindMy(it) }
+
         fun parse(name: String?) = entries.firstOrNull { it.name == name } ?: ALL
     }
 }

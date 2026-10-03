@@ -523,7 +523,10 @@ class ScanForegroundService : Service() {
             DeviceRegistry.inheritedHits(a.mac) +
             listOfNotNull(DeviceRegistry.clusterHit(a.mac, now)) +
             espHits[a.mac]?.takeIf { now - it.first < ESP_HIT_TTL_MS }?.second.orEmpty()
-        val hits = EvidenceFusion.fuse(raw.filter { Prefs.categoryEnabled(this, it.category) })
+        val noAirTags = Prefs.excludeAirTags(this)
+        val hits = EvidenceFusion.fuse(raw.filter {
+            Prefs.categoryEnabled(this, it.category) && !(noAirTags && SignatureEngine.isAppleFindMy(it))
+        })
         return Classified(now, hits, identity, vendor)
     }
 
