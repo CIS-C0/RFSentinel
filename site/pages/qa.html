@@ -617,6 +617,27 @@
 </div>
 </details>
 
+<details class="faq" id="usb-wifi-adapter">
+<summary>Can I use a USB WiFi adapter like the ALFA AWUS036ACS with Android?</summary>
+<div>
+<p>Yes, with RF Sentinel 2.11+. Plug an RTL8811AU / RTL8821AU adapter (e.g. AWUS036ACS) into the phone with an OTG cable while scanning and allow USB access. RF Sentinel drives it directly over Android's USB host API (no root), in receive-only monitor mode on the 2.4 GHz channels: no 30-second scan limit, longer range, and it hears client devices (laptops, phones, cameras on a network) that a phone's WiFi scan can't. The driver is ported from Wardrive Go (GPL-3.0). Other chips (RTL8812AU, RTL8814AU, AR9271, MT7612U) are recognised but not supported yet.</p>
+</div>
+</details>
+
+<details class="faq" id="cell-tower-app">
+<summary>How do I see the cell towers my Android phone is connected to?</summary>
+<div>
+<p>RF Sentinel's Tools button → Cell towers lists the serving cell and its neighbours live (2G-5G, operator, MCC-MNC, area code, cell ID, PCI, channel, signal) and every tower seen while scanning. They also appear in the live list (Cells filter) and optionally on the map at the spot where the signal was strongest. An optional alert says when the serving tower changes. No online lookup is made, so nothing reveals where you are.</p>
+</div>
+</details>
+
+<details class="faq" id="wifi-analyzer">
+<summary>Is there a WiFi channel and spectrum analyzer in RF Sentinel?</summary>
+<div>
+<p>Yes: Tools → WiFi channels (networks and strongest signal per channel) and WiFi spectrum (each network as a curve across its channel width) for 2.4, 5 and 6 GHz, from the phone's own scans.</p>
+</div>
+</details>
+
 <details class="faq" id="flipper">
 <summary>Does it work with Flipper Zero or a WiFi Pineapple?</summary>
 <div>
