@@ -159,6 +159,22 @@ tags and scripts are in `TEMPLATE` in `tools/build_site.py`. It's a Python
   the structured data is still read by search engines and AI crawlers.
 - Check structured data with <https://validator.schema.org/>.
 
+## On every app release (checklist)
+
+Every time a new version is published on GitHub Releases, check the website:
+
+1. **Download button:** it reads the latest release from the GitHub API and
+   links the asset whose name ends in `-release.apk`. Keep that asset name
+   (`RFSentinel-vX.Y.Z-release.apk`) and mark the release as *Latest* (not a
+   pre-release or draft), or the button falls back to the releases page and
+   loses its version label. After publishing, open the live site and confirm
+   the button shows the new tag and links the new APK.
+2. **Content:** if the release adds, changes or removes a feature, rule,
+   score, threshold or default, update the matching pages in `site/pages/`
+   (and `docs/llms.txt`), rebuild, and push with the release.
+3. **Static numbers:** APK size ("about 9 MB" on `install.html`), Android
+   version requirements, theme count, build tool versions on `install.html`.
+
 ## Publishing
 
 The repo is public. Get the owner's explicit OK before pushing site changes
