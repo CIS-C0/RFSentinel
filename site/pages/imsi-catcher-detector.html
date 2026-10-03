@@ -1,0 +1,53 @@
+<!--META {"title": "IMSI catcher / Stingray detector for Android without root | RF Sentinel", "description": "Detect signs of a fake cell tower (Stingray, IMSI catcher, cell-site simulator) on a non-rooted Android phone: test MCCs, sudden 4G to 2G downgrades, cloned and reserved cell identities. What Android exposes, what it hides, and how it compares with Rayhunter.", "nav": "guides", "crumb": "Stingray / IMSI catcher signs"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / imsi-catcher-detector</p>
+  <h1>Stingray / IMSI catcher signs</h1>
+  <p class="lead">A cell-site simulator pretends to be a tower so phones attach to it, often forcing them down to 2G where encryption is weak or absent. Without root a phone can't read the signalling, but the cell data Android does expose still shows some of the tell-tale signs.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="qa.html#cell">Cell Q&amp;A</a>
+  </div>
+</div>
+
+<h2 id="visible">What Android exposes without root</h2>
+<p><code>TelephonyManager.getAllCellInfo()</code> returns the serving and neighbour cells: radio technology (GSM / WCDMA / LTE / NR), MCC-MNC, cell ID, area code (LAC / TAC), and signal. It does <b>not</b> expose ciphering, identity requests or other layer-3 messages; that needs the modem's diagnostic interface (root, or dedicated hardware like Rayhunter).</p>
+
+<h2 id="signs">Signs RF Sentinel checks every 15 s</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Sign</th><th>Score</th></tr></thead>
+<tbody>
+<tr><td>Serving cell on a test / reserved MCC (001, 002, 999)</td><td>85</td></tr>
+<tr><td>Sudden switch from 4G/5G to 2G while strong LTE (≥ −105 dBm) is still visible</td><td>70</td></tr>
+<tr><td>Sudden 4G/5G → 2G without strong LTE; or downgraded to 2G with strong LTE visible</td><td>50</td></tr>
+<tr><td>Network country code differs from the SIM's while not roaming</td><td>55</td></tr>
+<tr><td>Reserved identity: area code 0, 0xFFFE or 0xFFFF, or cell ID 0</td><td>45</td></tr>
+<tr><td>Known cell number reappearing in a different area (cloned identity)</td><td>50</td></tr>
+<tr><td>Location / tracking area changed while GPS shows you still for 2+ minutes</td><td>40</td></tr>
+<tr><td>Switched to a cell with no neighbours where several were visible</td><td>35</td></tr>
+<tr><td>Several signs at once</td><td>max + 15, cap 90</td></tr>
+</tbody></table></div>
+
+<h2 id="false">Cutting false alarms</h2>
+<ul>
+<li><b>Persistence:</b> a sign must be present on two consecutive checks.</li>
+<li><b>Calls:</b> drops to 2G during a call (and for 2 minutes after) are ignored: many networks hand voice to 2G/3G.</li>
+<li><b>Borders:</b> area codes ping-ponging at a coverage border don't count.</li>
+<li><b>Known areas:</b> which area each cell lives in is remembered on the phone (cleared with "Forget device history"); a genuinely moved cell is adopted after 8 snapshots.</li>
+</ul>
+
+<h2 id="protect">Actual protection</h2>
+<ol>
+<li>Settings → Network → SIM → turn off <b>Allow 2G</b> (Android 12+, if your carrier allows it).</li>
+<li>Android 15+: <b>Cellular security → Network notifications</b> warns when a network requests your SIM identity in clear or disables encryption. RF Sentinel's Settings links straight there.</li>
+<li>For signalling-level detection, run <a href="https://github.com/EFForg/rayhunter" rel="noopener">EFF's Rayhunter</a> on a supported hotspot.</li>
+</ol>
+
+<h2 id="faq-cell">Questions</h2>
+<details class="faq" id="q-cell-root">
+<summary>Is a rooted phone better for IMSI catcher detection?</summary>
+<div><p>Yes, with a Qualcomm or similar modem that exposes diagnostic logs, a rooted phone (or Rayhunter) can see identity requests and cipher mode. RF Sentinel stays root-free and limits itself to what public APIs show.</p></div>
+</details>
+<details class="faq" id="q-cell-5g">
+<summary>Does 5G protect against IMSI catchers?</summary>
+<div><p>5G standalone encrypts the permanent identity (SUCI), but most networks still run non-standalone 5G anchored on LTE, and downgrade attacks to 2G/3G remain the main vector. Disabling 2G closes the easiest one.</p></div>
+</details>

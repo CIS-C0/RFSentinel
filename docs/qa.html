@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RF Sentinel Q&amp;A - detecting police, body cams, Flock cameras, AirTags, drones and IMSI catchers on Android</title>
+<meta name="description" content="Technical answers: how to detect police and body cameras with an Android phone, find Flock license-plate cameras, tell if an AirTag is following you, spot Stingray/IMSI catcher signs without root, decode Remote ID drones, and a free alternative to SØPHIA (s0phia ops).">
+<link rel="canonical" href="https://cis-c0.github.io/RFSentinel/qa.html">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#050507">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="RF Sentinel">
+<meta property="og:title" content="RF Sentinel Q&amp;A - detecting police, body cams, Flock cameras, AirTags, drones and IMSI catchers on Android">
+<meta property="og:description" content="Technical answers: how to detect police and body cameras with an Android phone, find Flock license-plate cameras, tell if an AirTag is following you, spot Stingray/IMSI catcher signs without root, decode Remote ID drones, and a free alternative to SØPHIA (s0phia ops).">
+<meta property="og:url" content="https://cis-c0.github.io/RFSentinel/qa.html">
+<meta property="og:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="RF Sentinel - BLE and WiFi police scanner for Android">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="RF Sentinel Q&amp;A - detecting police, body cams, Flock cameras, AirTags, drones and IMSI catchers on Android">
+<meta name="twitter:description" content="Technical answers: how to detect police and body cameras with an Android phone, find Flock license-plate cameras, tell if an AirTag is following you, spot Stingray/IMSI catcher signs without root, decode Remote ID drones, and a free alternative to SØPHIA (s0phia ops).">
+<meta name="twitter:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="assets/style.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "Q&A", "item": "https://cis-c0.github.io/RFSentinel/qa.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "How do I detect police with an Android phone?", "acceptedAnswer": {"@type": "Answer", "text": "Modern police gear is full of radios that broadcast on their own: body cameras advertise over Bluetooth LE so the officer's phone and holster sensors can find them, in-car routers run WiFi access points, radios and e-ticket printers pair over Bluetooth. Any phone can receive those broadcasts without connecting to anything. RF Sentinel runs a continuous BLE scan and periodic WiFi scans, and matches every packet against vendor company IDs, service UUIDs, payload tags, network names and IEEE MAC prefixes assigned to law-enforcement equipment makers (Axon/TASER, Motorola Solutions, Digital Ally, Getac, Zebra, Flock Safety and others). When two or more kinds of police-type gear rise and fall in signal together, it flags a possible police vehicle. Install the APK , tap Start scanning , grant location and Nearby devices. See the police detection guide ."}}, {"@type": "Question", "name": "Is there an app that detects police nearby?", "acceptedAnswer": {"@type": "Answer", "text": "Yes: RF Sentinel is a free, open-source Android app that does this passively from Bluetooth LE and WiFi signals, with no root and no subscription. It detects the equipment , not people: a match means a device with a police-equipment signature is in range. Crowd-sourced apps (Waze) rely on users reporting; RF Sentinel relies only on what the hardware itself broadcasts, so it also works where nobody has reported anything."}}, {"@type": "Question", "name": "Can my phone detect a police body camera?", "acceptedAnswer": {"@type": "Answer", "text": "Often, yes. Body cameras use Bluetooth LE to pair with the officer's phone app, holster and light-bar triggers, and many advertise continuously. RF Sentinel matches: the BWCDEVICE ASCII tag in service data, manufacturer data or the raw advert, in either byte order (confidence 90, field-validated); TASER International company ID 0x034D and Axon / TASER service UUIDs 0xFC81 , 0xFE6B , 0xFE6C (60 each); Utility Inc. BodyWorn Remote names (80); IEEE MAC prefixes registered to Axon ( 00:25:DF ), Digital Ally, WatchGuard, Getac, Zepcam and others. Independent matches on the same device are fused, so an Axon camera with the company ID, UUID and prefix lands in the strong tier. Cameras that are switched off, or that only use WiFi to dock, are not visible."}}, {"@type": "Question", "name": "How do I detect Axon body cameras and TASERs?", "acceptedAnswer": {"@type": "Answer", "text": "Axon (formerly TASER International) gear is identifiable from the Bluetooth SIG company ID 0x034D , the 16-bit service UUIDs 0xFC81 (Axon Enterprise), 0xFE6B and 0xFE6C (TASER International), and the IEEE block 00:25:DF . Axon Signal Sidearm holster sensors and Signal units, which start body cameras when a gun is drawn or the light bar turns on, are Bluetooth LE too. RF Sentinel ships all of these rules on by default."}}, {"@type": "Question", "name": "Can it detect a police car or unmarked car?", "acceptedAnswer": {"@type": "Answer", "text": "Indirectly. A single Motorola radio, Zebra printer or Cradlepoint router proves nothing, because civilians use them too. RF Sentinel assigns each device a role (body camera, plate reader, two-way radio, vehicle cellular router, mobile printer, in-car computer, rugged laptop, police camera) and groups devices with at least two different roles when their RSSI moves together (Pearson r ≥ 0.6 over at least 8 aligned seconds), or when both are flat (parked) and appeared within 30 s of each other. The group is flagged \"Possible police vehicle\" at 24 + 12 × roles, +10 when the signals move together, capped at 88: two roles stay weak (48), three moving together reach 70. An unmarked car is detected the same way if its gear advertises; there is no \"unmarked car\" signal as such. Details: patrol-vehicle detection ."}}, {"@type": "Question", "name": "Can it detect police radios?", "acceptedAnswer": {"@type": "Answer", "text": "It flags radios that expose Bluetooth or WiFi: Motorola Solutions company ID 0x04EC and UUIDs 0xFD8E / 0xFE04 , plus IEEE prefixes of P25 / TETRA radio makers. Those are weak on their own (Motorola radios are also used by security guards, schools and construction crews) and become meaningful as part of a patrol-vehicle group. It does not receive the voice channels themselves. P25 and TETRA run on VHF, UHF and 700/800 MHz and are usually encrypted; a phone has no receiver for those bands. That would need a software-defined radio, and RF Sentinel never decodes or listens to radio traffic."}}, {"@type": "Question", "name": "Is RF Sentinel a radar detector? Does it detect police radar guns?", "acceptedAnswer": {"@type": "Answer", "text": "No. Police radar and lidar use X, K and Ka-band microwave or infrared laser, which a phone cannot receive. \"Police radar\" in RF Sentinel's list means the Bluetooth/WiFi signatures of radar makers' in-car units when they advertise. For fixed speed and red-light cameras, RF Sentinel uses the OpenStreetMap camera layer and warns about 30 seconds ahead."}}, {"@type": "Question", "name": "Can it detect e-ticket printers?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, with care. Zebra mobile printers advertise UUIDs 0xFE79 / 0xFD66 . With a factory-serial name ( ^[A-Z0-9]{2}[A-Z]{3}\\d{9}$ ), which fleets rarely rename, the score is 50; any other name stays at 30 because the same printers are everywhere in warehouses and retail. Next to a body camera or radio moving with it, it becomes part of a patrol-vehicle group."}}, {"@type": "Question", "name": "How will I be alerted?", "acceptedAnswer": {"@type": "Answer", "text": "Matches above your alert threshold (default 50, probable) play a sound and vibrate: one pulse for weak, two for probable, three for strong. Optional spoken announcements use the phone's own text-to-speech engine. There is a discreet mode, a floating threat bubble over other apps (green / orange / red with a count), a notification, a Quick Settings tile, a home-screen widget, and heads-up alerts in Android Auto."}}, {"@type": "Question", "name": "Why did it flag a device that is not police?", "acceptedAnswer": {"@type": "Answer", "text": "A match is a signature, not an identification. 00:25:DF means \"registered to Axon Enterprise\", not \"a police officer\". Some identifiers are shared with consumer products: Motorola Solutions radios are used by private security, Zebra printers by shops, Meta's company ID by Quest headsets. That is why every rule has a confidence, weak matches are amber and silent by default, and the detail screen shows the exact evidence and source. Long-press a device to whitelist it."}}, {"@type": "Question", "name": "How do I detect Flock Safety cameras?", "acceptedAnswer": {"@type": "Answer", "text": "Two ways, combined in the app: Radio signatures. Flock units and their batteries broadcast identifiable signals: WiFi SSIDs starting with Flock- (88), BLE names FS Ext Battery (80), Penguin-<digits> or FS-<hex> (70, or 80 with company ID 0x09C8 ), and the XUNTONG company ID 0x09C8 alone (45, shared silicon). The known-camera map. Flock cameras mapped by volunteers in OpenStreetMap (via DeFlock ) are downloaded and kept offline. You are warned when one is within about 20 seconds of travel and getting closer, even for cameras that only use cellular and emit nothing a phone can hear. See the Flock / ALPR guide ."}}, {"@type": "Question", "name": "How do I detect license plate readers (ALPR) on Android?", "acceptedAnswer": {"@type": "Answer", "text": "Most non-Flock plate readers (Genetec AutoVu, Motorola / Vigilant, Perceptics, Quercus, Tattile) are wired or on cellular modems and don't broadcast anything a phone can match. RF Sentinel flags them by IEEE prefix when they do expose WiFi or Bluetooth, and covers the rest with the OpenStreetMap layer: every element tagged surveillance:type=ALPR , with manufacturer, operator and direction where mapped. The Download Flock option fetches every mapped plate reader in the US and Canada (~18 MB, about 143,000 cameras, refreshed weekly on WiFi); Download nearby cameras fetches a 10-200 km radius."}}, {"@type": "Question", "name": "Can it detect Flock Raven gunshot / audio sensors?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Raven sensors advertise 128-bit service UUIDs whose short IDs fall in 0x3100 - 0x3500 , matched at confidence 80 (field capture via all-cameras-are-beacons)."}}, {"@type": "Question", "name": "Can it warn me about speed cameras and red-light cameras without Waze?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Fixed speed and red-light cameras mapped in OpenStreetMap are downloaded automatically for the area you look at and kept offline, refreshed weekly. Speed cameras warn about 30 seconds ahead, with the speed limit when it's mapped. No account, no reporting, no location sent anywhere except the area request to the Overpass API. Coverage depends on how well your area is mapped in OpenStreetMap, and mobile speed traps aren't covered."}}, {"@type": "Question", "name": "Can I silence one specific camera I pass every day?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Tap the camera on the map and choose Ignore alerts . It stays on the map, faded, and never alerts again. Alert again on the same camera, or Settings, turns it back on. Ignored cameras are kept permanently."}}, {"@type": "Question", "name": "Can I find hidden cameras with my phone?", "acceptedAnswer": {"@type": "Answer", "text": "Only cameras that use WiFi or Bluetooth. RF Sentinel has an optional (off by default) network-camera category: SSIDs starting with ARLO_VMB_ / NTGR_VMB_ (88) and IEEE blocks of Arlo, Blink, Ezviz, Uniview, Amcrest, Wyze, Swann, Night Owl, SkyBell and WUUK (65, WiFi only). Turn on the Network / home security camera category in Settings. Limits you should know: a camera that joins an existing WiFi network as a client is invisible to an Android WiFi scan (only access points are listed), and wired, SD-card-only or cellular cameras emit nothing usable. A lens-reflection or IR check finds those, not a radio app."}}, {"@type": "Question", "name": "Can it identify hidden WiFi networks?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Hidden networks still send beacons with information elements. RF Sentinel reads the WPS element (manufacturer, model name and number, device name, primary device type), the Cisco CCX AP name (IE 133), the BSSID's IEEE registrant and vendor IE owners, and links a hidden BSSID to the visible network on the same router (octets 2-5 equal, last octet within 16). Requires Android 11+ for the raw elements."}}, {"@type": "Question", "name": "How do I know if an AirTag is following me on Android?", "acceptedAnswer": {"@type": "Answer", "text": "An AirTag away from its owner switches to a \"separated\" Find My frame: Apple company ID 0x004C , type 0x12 , length 0x19 . RF Sentinel matches that frame (confidence 70), keeps tracking the tag through its address rotations, and raises a may be following you alert when it has been with you for at least 10 minutes while you moved at least 800 m (both adjustable: 2-240 minutes). Tap the device and use Locate : it beeps faster as the signal gets stronger. It reacts to the same frame Android's built-in unknown-tracker alerts use, but shows it live, with history and a signal graph, instead of after hours."}}, {"@type": "Question", "name": "Does it detect Tile, Samsung SmartTag and Google Find Hub trackers?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Google Find Hub tags via 0xFEAA service data frame 0x41 (separated; frame 0x40 means near the owner and is ignored), Samsung SmartTag via 0xFD5A and Tile via 0xFEED service data (55). All feed the same follow detection."}}, {"@type": "Question", "name": "Can it find a GPS tracker hidden on my car?", "acceptedAnswer": {"@type": "Answer", "text": "Only Bluetooth trackers (AirTag, SmartTag, Tile, Find Hub tags). LTE / GSM GPS trackers report over the cellular network and don't broadcast anything a phone can identify. For those, a physical inspection or a dedicated RF sweep is needed."}}, {"@type": "Question", "name": "My own AirTag keeps showing up. How do I ignore it?", "acceptedAnswer": {"@type": "Answer", "text": "Long-press it and ignore it. The ignore follows the tag when its address changes: it is carried over through the advert fingerprint link, so you don't have to ignore it again after each rotation."}}, {"@type": "Question", "name": "How do I detect drones near me with my phone?", "acceptedAnswer": {"@type": "Answer", "text": "Drones sold since FAA / EU Remote ID rules must broadcast an ASTM F3411 Remote ID signal over Bluetooth (service data 0xFFFA , app code 0x0D ) or WiFi (vendor IE OUI FA:0B:BC , type 0x0D ). RF Sentinel decodes it (confidence 95), places the drone on the map with heading, altitude and speed, and raises a \"drone overhead\" alert when it is within 200 m horizontally (once per drone per 5 minutes). Drone makers' own IEEE blocks (DJI, Parrot, Skydio, Autel, Yuneec...) are also matched at 60. See the drone guide ."}}, {"@type": "Question", "name": "Can I see where the drone pilot is?", "acceptedAnswer": {"@type": "Answer", "text": "When the drone's Remote ID includes the System message, yes: Remote ID carries the operator (or take-off) position. The detail screen shows it, and you can open both the drone and operator positions in your maps app. Remote ID also carries the serial number and, where used, an operator ID."}}, {"@type": "Question", "name": "Does it detect police drones?", "acceptedAnswer": {"@type": "Answer", "text": "It detects any drone that broadcasts Remote ID, which includes most police drones (DJI, Skydio, Autel) under current rules. It can't tell who operates it unless the operator ID says so. Exempt or modified drones that don't broadcast Remote ID are not detected."}}, {"@type": "Question", "name": "How do I detect a Stingray or IMSI catcher on Android without root?", "acceptedAnswer": {"@type": "Answer", "text": "Without root, Android exposes the cells your phone sees (network codes, cell IDs, area codes, radio technology, signal) but not ciphering or signalling messages. RF Sentinel reads them every 15 s and looks for the signs a cell-site simulator leaves in that data: serving cell on a test / reserved MCC (001, 002, 999): 85; sudden switch from 4G/5G to 2G while strong LTE is still visible (the visible side of the 2G downgrade EFF's Rayhunter watches for): 70; a known cell number appearing in a different area (cloned identity), a reserved area code (0, 0xFFFE, 0xFFFF) or cell ID 0; a network country code that doesn't match the SIM while not roaming; the location area changing while GPS shows you standing still, a new cell with no neighbours. A sign must persist across two checks; 2G drops during calls and area codes flipping at coverage borders are ignored. Several signs together score max + 15, capped at 90. See the IMSI catcher guide ."}}, {"@type": "Question", "name": "How reliable is fake cell tower detection on a phone?", "acceptedAnswer": {"@type": "Answer", "text": "It is heuristic. Each sign has innocent explanations (network maintenance, rural 2G, carrier misconfiguration), and a well-configured simulator copying a real cell's identity shows few of them. Treat it as a warning to look closer, not proof. The strongest protection is turning off Allow 2G in your SIM settings (Android 12+), and on Android 15+ enabling Cellular security → Network notifications , which warns when a network asks for your SIM identity or turns off encryption. RF Sentinel's Settings links there."}}, {"@type": "Question", "name": "How does this compare with EFF's Rayhunter?", "acceptedAnswer": {"@type": "Answer", "text": "Rayhunter runs on a cheap mobile hotspot with root access to the modem's signalling (QMDL / diag), so it sees identity requests and ciphering changes directly. A normal Android app can't. RF Sentinel implements the parts of that analysis visible through Android's public cell APIs (2G downgrade, identity anomalies) and points to Android 15's own network notifications for the rest. For the strongest detection, use Rayhunter hardware alongside."}}, {"@type": "Question", "name": "How do I detect Ray-Ban Meta smart glasses nearby?", "acceptedAnswer": {"@type": "Answer", "text": "Ray-Ban Meta glasses advertise over Bluetooth LE. RF Sentinel matches Luxottica's company ID 0x0D53 (70), company ID 0x058E together with the META_RB_GLASS token (72), and Meta's corporate company ID 0x01AB / UUIDs 0xFEB7 / 0xFEB8 (45, because Quest headsets share them). Snap Spectacles ( 0x03C2 ), Vuzix ( 0x060C ) and HeyCyan-SDK glasses (full 128-bit UUID) are matched too. See the smart glasses guide ."}}, {"@type": "Question", "name": "Can it tell if the glasses are recording?", "acceptedAnswer": {"@type": "Answer", "text": "No. It tells you the glasses are near you and advertising. Recording state is not part of the advertisement."}}, {"@type": "Question", "name": "How can I get s0phia ops (SØPHIA) for free?", "acceptedAnswer": {"@type": "Answer", "text": "SØPHIA is a paid product sold by its own developer, and this site doesn't distribute it or any copy of it. If what you want is the same kind of tool for free, RF Sentinel is a free, open-source (GPL-3.0) alternative: passive Bluetooth LE and WiFi scanning for police gear, plate-reader cameras, trackers and drones, installed as a normal APK without Termux. Comparison: RF Sentinel vs SØPHIA ."}}, {"@type": "Question", "name": "Is there a free alternative to SØPHIA / SophiaOps?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. RF Sentinel covers passive BLE and WiFi recon with a radar view, risk scoring and a timeline, and adds sourced police, ALPR, tracker, Remote ID and smart-glasses signatures, patrol-vehicle grouping, fake cell tower signs, an offline camera map and Android Auto. It costs nothing and the full source is on GitHub . RF Sentinel is independent and not affiliated with SØPHIA or DetecX."}}, {"@type": "Question", "name": "Do I need Termux to scan for police on Android?", "acceptedAnswer": {"@type": "Answer", "text": "Not with RF Sentinel. It is a regular Android app using the public BLE scan and WiFi scan APIs, so there's no Termux, Termux:API, Python or shell setup."}}, {"@type": "Question", "name": "How is it different from RF Party, BLE Radar (MetaRadar) or Flock You?", "acceptedAnswer": {"@type": "Answer", "text": "RF Party (based on Alan Meekins' DEF CON 31 talk) and BLE Radar are general Bluetooth scanners: they list and track devices, with fewer police-specific rules. Flock You and OUI-Spy are ESP32 firmware focused on Flock and watchlist matching. RF Sentinel combines a sourced signature set (each rule cites the IEEE registry, Bluetooth SIG or published research), evidence fusion, patrol-vehicle grouping, WiFi and cell analysis, the OpenStreetMap camera layer and Android Auto in one Android app, and can ingest OUI-Spy and GhostESP boards. No code from those projects is included."}}, {"@type": "Question", "name": "Is there an iPhone version?", "acceptedAnswer": {"@type": "Answer", "text": "No. iOS hides Bluetooth MAC addresses and most advertisement fields from apps, offers no WiFi scan API, and doesn't expose cell information, so most of RF Sentinel's detection can't run there. It is Android only."}}, {"@type": "Question", "name": "Is RF Sentinel free? Are there ads or in-app purchases?", "acceptedAnswer": {"@type": "Answer", "text": "Free, no ads, no in-app purchases, no subscription, no account. Licensed GPL-3.0."}}, {"@type": "Question", "name": "Is it on Google Play or F-Droid?", "acceptedAnswer": {"@type": "Answer", "text": "Not currently. The signed APK is published on GitHub Releases for every version. See the install guide ."}}, {"@type": "Question", "name": "How do I install the APK?", "acceptedAnswer": {"@type": "Answer", "text": "On the phone, open the latest release . Under Assets , tap the file ending in -release.apk (not \"Source code\"). Open the downloaded file from the notification or Files → Downloads. If Android blocks it, tap Settings , enable Allow from this source , go back and tap Install . Open RF Sentinel. The setup wizard covers theme, region, alerts, camera download radius and permissions."}}, {"@type": "Question", "name": "Is the APK safe?", "acceptedAnswer": {"@type": "Answer", "text": "The full source is public, every release is signed with the same release key (Android refuses an update signed with a different key), and you can build it yourself with ./gradlew assembleDebug . The app requests no contacts, storage, camera or microphone permissions. Play Protect may warn about any app installed outside Google Play; that warning is about the install source, not a scan result."}}, {"@type": "Question", "name": "How do I update?", "acceptedAnswer": {"@type": "Answer", "text": "Install the newer APK over the existing one. Settings, history and watchlist are kept."}}, {"@type": "Question", "name": "Which Android versions and phones are supported?", "acceptedAnswer": {"@type": "Answer", "text": "Android 8.0 (API 26) and newer, on any phone with Bluetooth LE: Pixel, Samsung, Motorola, OnePlus, Xiaomi and others. Hidden-network WiFi details need Android 11+. Bluetooth 5 extended advertising and LE Coded PHY (long range) are used automatically where the chip supports them."}}, {"@type": "Question", "name": "Does it need root?", "acceptedAnswer": {"@type": "Answer", "text": "No. Everything uses public Android APIs."}}, {"@type": "Question", "name": "Why does it ask for location?", "acceptedAnswer": {"@type": "Answer", "text": "Android ties Bluetooth and WiFi scan results to the location permission (up to Android 11 always, and still for WiFi scans and cell info). RF Sentinel also uses GPS for traces, follow detection and camera warnings. Nearby devices (Bluetooth scan) is required; notifications, Display over other apps (bubble) and Nearby devices → connect (only to list your paired car) are optional."}}, {"@type": "Question", "name": "Scanning stops on Samsung / Xiaomi / OnePlus. What do I do?", "acceptedAnswer": {"@type": "Answer", "text": "Some manufacturers kill background apps aggressively. Scanning runs as a foreground service with a notification, but you may still need to set RF Sentinel's battery usage to Unrestricted . Settings has a shortcut to Android's battery optimization screen."}}, {"@type": "Question", "name": "How does passive Bluetooth LE detection work?", "acceptedAnswer": {"@type": "Answer", "text": "BLE devices broadcast advertising packets on channels 37, 38 and 39 so other devices can find them. Each packet carries an address, flags and optional fields: device name, 16/128-bit service UUIDs, service data, manufacturer data with a Bluetooth SIG company ID, TX power. RF Sentinel receives these through Android's BluetoothLeScanner and matches every field against its rules. It never connects, so the device never knows it was seen."}}, {"@type": "Question", "name": "What is a MAC vendor prefix (OUI) and why does it matter?", "acceptedAnswer": {"@type": "Answer", "text": "The first 3 bytes of a public MAC address (MA-L), or 3.5 / 4.5 bytes for MA-M / MA-S blocks, are assigned by the IEEE to a company. If a device uses its public address, the prefix reveals the maker, e.g. 00:25:DF is Axon Enterprise. RF Sentinel ships the IEEE registry offline and regional watchlist presets (Global, Canada, US) of law-enforcement and surveillance makers, each prefix re-checked against its registrant. Devices using random private addresses defeat prefix matching, which is why payload signatures and fingerprint linking matter more."}}, {"@type": "Question", "name": "What do weak, probable and strong mean?", "acceptedAnswer": {"@type": "Answer", "text": "Tier Confidence Meaning Weak (verify) < 50 Identifier shared with many unrelated products. Amber, silent by default. Probable 50-79 Vendor-specific identifier. Alerts at the default threshold. Strong 80+ Payload tag, or a network name the vendor gives its own devices."}}, {"@type": "Question", "name": "What is evidence fusion?", "acceptedAnswer": {"@type": "Answer", "text": "When different rules of the same category match one device, the scores combine by noisy-OR, with each supporting hit discounted by half because rules often share evidence: 1 - (1 - top) × Π(1 - 0.5 × support) . Hits under 30 never corroborate, and fusion never exceeds 90. Example: watchlisted address 70 + Zebra serial name 50 → 78."}}, {"@type": "Question", "name": "Devices change their Bluetooth address. How does it keep track?", "acceptedAnswer": {"@type": "Answer", "text": "A structural advert fingerprint survives address rotation: names, service UUIDs, service-data and company-ID payload sizes, TX power and connectable flag. When a new private address appears with the same fingerprint as exactly one device that went silent 1.5-30 s earlier, it inherits that device's matches (at −5), follow history and ignore state. Apple-Continuity-only adverts (phones) are never linked, and two identical candidates means no link."}}, {"@type": "Question", "name": "Can I add my own devices or signatures?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The watchlist takes exact addresses, vendor prefixes (MA-L / MA-M / MA-S) and name or vendor rules, each with a label and score, plus the regional presets. It exports as JSON. Long-press any device to add it."}}, {"@type": "Question", "name": "I found an unidentified device. How do I report it?", "acceptedAnswer": {"@type": "Answer", "text": "Long-press it → Report unknown device . The report shows exactly what is shared before you send it: vendor prefix, name pattern with serial digits hidden, service and manufacturer IDs. No full address, serial, location or time. Paste it into a GitHub issue or share it on Discord . New signatures need a registry or published source; guesses aren't merged."}}, {"@type": "Question", "name": "How far away can it detect devices?", "acceptedAnswer": {"@type": "Answer", "text": "It depends on the transmitter's power, walls, bodies and your phone's antenna. Bluetooth LE from a body camera is typically heard at tens of metres in the open and much less through a vehicle or building; WiFi access points carry further. Phones with LE Coded PHY hear Bluetooth 5 long-range adverts further. An external ESP32 board with a better antenna extends range. Phone radios are weaker than dedicated hardware, so expect fewer catches than purpose-built scanners."}}, {"@type": "Question", "name": "Can it tell the distance or direction of a device?", "acceptedAnswer": {"@type": "Answer", "text": "Distance is estimated from RSSI and is often off by 2-3×. The radar view places stronger signals closer to the centre, but the angle is not a direction: a phone can't measure angle of arrival. To find a device, use Locate mode and walk: it beeps faster as the signal grows."}}, {"@type": "Question", "name": "Why does WiFi only update every 30 seconds?", "acceptedAnswer": {"@type": "Answer", "text": "Android throttles apps to about four WiFi scans per two minutes. The default 30-second interval stays within that limit. Bluetooth LE is continuous."}}, {"@type": "Question", "name": "Why doesn't it see WiFi phones, laptops or cameras connected to a network?", "acceptedAnswer": {"@type": "Answer", "text": "Android's WiFi scan only lists access points (beacons and probe responses). Client devices, such as an in-car laptop connected to the car's router, need monitor mode, which Android doesn't offer without root and a supported chip. An ESP32 board can partly fill that gap."}}, {"@type": "Question", "name": "Does it work with the screen off?", "acceptedAnswer": {"@type": "Answer", "text": "Partly. Android suspends unfiltered BLE scans while the screen is off and only keeps scans with hardware filters. RF Sentinel runs a second, filtered scan on the identifiers that matter most (body-cam, Flock, Raven, drone, tracker, glasses company IDs and UUIDs, and exact-address watchlist entries), so those keep alerting with the screen off. Prefix-only matches need the screen on. The car mount \"keep screen on while charging\" default avoids this while driving."}}, {"@type": "Question", "name": "How much battery does it use?", "acceptedAnswer": {"@type": "Answer", "text": "Continuous scanning costs battery. Settings → BLE scan mode offers Low latency (default, catches the most), Balanced and Low power , and the WiFi interval is adjustable. Auto-start in the car scans only while you drive."}}, {"@type": "Question", "name": "What can't it detect at all?", "acceptedAnswer": {"@type": "Answer", "text": "Anything that doesn't broadcast BLE or WiFi beacons: cellular-only devices (most non-Flock plate readers, LTE GPS trackers), wired cameras, radios' voice channels, radar and lidar, devices switched off or in a non-advertising state, and WiFi clients. Cameras in OpenStreetMap are covered by the map layer instead."}}, {"@type": "Question", "name": "Is there a police detector app for Android Auto?", "acceptedAnswer": {"@type": "Answer", "text": "RF Sentinel runs in Android Auto: threat headline, live counts, Start/Stop and mute on the home screen, device lists, a live OpenStreetMap map with devices, cameras and drones, OSM navigation with spoken turns, and alerts as heads-up cards through the car speakers. See Android Auto ."}}, {"@type": "Question", "name": "RF Sentinel doesn't show up in Android Auto. How do I fix it?", "acceptedAnswer": {"@type": "Answer", "text": "Android Auto hides sideloaded apps until you enable them: open Android Auto settings on the phone, tap Version ten times to unlock developer mode, open ⋮ → Developer settings and enable Unknown sources , then reinstall the APK, open RF Sentinel once on the phone, and reconnect. Also check Customize launcher for hidden apps."}}, {"@type": "Question", "name": "Can I use it with Waze or Google Maps on screen?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The floating threat bubble (needs Display over other apps) sits over any app: green when clear, orange for probable, red for strong or a follower, with the count. Tap to open, drag to move. Spoken alerts briefly lower other audio."}}, {"@type": "Question", "name": "Can it start by itself when I get in the car?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Settings → Start scanning automatically in the car : pick your car's Bluetooth. Scanning starts when the phone connects to it or to Android Auto, and stops when you leave if the car started it."}}, {"@type": "Question", "name": "Can I use an ESP32 with RF Sentinel?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Plug a board running OUI-Spy or GhostESP into the phone with a USB OTG cable while scanning, or pair an OUI-SPY board running the Bluetooth (App-Controlled) firmware wirelessly. Its detections merge into the list with a blue ESP32 badge. Native-USB boards (S2/S3/C3/C6) and CP210x / CH340 bridges work. See ESP32 boards ."}}, {"@type": "Question", "name": "How do I pair an OUI-SPY board over Bluetooth?", "acceptedAnswer": {"@type": "Answer", "text": "Start scanning with the board on, then Settings → Pair OUI-SPY board and pick OUI-SPY-xxxx . Pair only there, not in Android's Bluetooth settings: the board keeps no pairing keys, so a phone-side bond breaks the link (the app tells you to tap Forget if it finds one)."}}, {"@type": "Question", "name": "Does it work with Flipper Zero or a WiFi Pineapple?", "acceptedAnswer": {"@type": "Answer", "text": "No. Supported external hardware is ESP32 boards running OUI-Spy or GhostESP."}}, {"@type": "Question", "name": "Does RF Sentinel transmit or jam anything?", "acceptedAnswer": {"@type": "Answer", "text": "No. It never transmits, jams, spoofs or connects to the devices it detects. (The phone's own WiFi scan sends standard probe requests like any phone looking for networks, and an OUI-SPY board in relay mode does the same; that can be turned off.)"}}, {"@type": "Question", "name": "Can police or anyone tell I'm running it?", "acceptedAnswer": {"@type": "Answer", "text": "The app itself sends nothing to the devices it scans. Your phone, like every phone, may still advertise its own Bluetooth and probe for WiFi networks independently of RF Sentinel."}}, {"@type": "Question", "name": "What data does it collect?", "acceptedAnswer": {"@type": "Answer", "text": "None leaves the phone. No accounts, no analytics, no crash reporting. Detections are stored in a local database excluded from cloud backup. Network requests go only to OpenStreetMap services (map tiles, Overpass camera data from overpass-api.de or its mirrors, DeFlock's region files) and, in Android Auto navigation, Nominatim and OSRM. They see your IP and the area or route, never your scans."}}, {"@type": "Question", "name": "Is it legal to detect police equipment?", "acceptedAnswer": {"@type": "Answer", "text": "RF Sentinel only receives signals that devices broadcast publicly by design, and it doesn't decode private communications. Passive reception of Bluetooth and WiFi advertisements is generally lawful, but rules differ by country and state, and some places restrict use in vehicles or of radar detectors. Check your local laws. This is not legal advice."}}, {"@type": "Question", "name": "What is it meant for?", "acceptedAnswer": {"@type": "Answer", "text": "Awareness, research and personal privacy: knowing which surveillance devices are around you, finding trackers, documenting plate-reader deployments. A detection says a device with a given signature is nearby; it isn't proof of who is present or what they're doing."}}, {"@type": "Question", "name": "Is there a Watch Dogs / DedSec or Mr. Robot theme?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. DedSec (Watch Dogs 2-inspired: black, white and electric blue, poster banner, sliced wordmark, a marcus@ctOS-2.0:~$ terminal typing hacktivist lines) and fsociety (Mr. Robot-inspired: black and blood red, striped wordmark, a root@fsociety:~# terminal typing quotes from the show). Unofficial fan homages, not affiliated with Ubisoft or NBCUniversal. Eleven more themes include Night Drive (red-only HUD for night driving), Night Vision, Amber CRT, Synthwave, Tactical, Blueprint, Paper and Material You."}}, {"@type": "Question", "name": "Can I export detections?", "acceptedAnswer": {"@type": "Answer", "text": "Yes: current scan as CSV, JSON or KML; all devices ever seen as CSV or JSON; the match log as CSV, JSON, GPX or KML; GPS traces with their devices as GPX, KML, GeoJSON or CSV; the watchlist as JSON; or everything in one JSON file."}}, {"@type": "Question", "name": "Is it open source? Can I build it myself?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, GPL-3.0, 100% Kotlin. Requirements: Android Studio, or JDK 17+ with the Android SDK. git clone https://github.com/CIS-C0/RFSentinel cd RFSentinel ./gradlew assembleDebug tools/gen_assets.py regenerates the offline IEEE and Bluetooth SIG databases and fails if any prefix used in code stops matching its registrant."}}, {"@type": "Question", "name": "How can I help?", "acceptedAnswer": {"@type": "Answer", "text": "Report unknown devices with the in-app report, submit sourced signatures, map cameras in OpenStreetMap / DeFlock, file bugs on GitHub , join the Discord , and star the repo so others find it."}}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="favicon.svg" alt="" width="28" height="28">RF<span>_</span>SENTINEL</a>
+    <nav class="nav" aria-label="Main"><a href="./">Home</a><a href="how-it-works.html">How it works</a><a href="police-detector.html">Guides</a><a href="install.html">Install</a><a href="android-auto.html">Android Auto</a><a href="esp32.html">ESP32</a><a href="qa.html" aria-current="page">Q&amp;A</a></nav>
+    <div class="social">
+      <a class="icon-btn discord" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span class="lbl">Discord</span></a>
+      <a class="icon-btn github" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg><span class="lbl">GitHub</span></a>
+    </div>
+  </div>
+</header>
+<main id="main" class="wrap">
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / q&amp;a</p>
+  <h1>Q&amp;A</h1>
+  <p class="lead">Straight answers about what a phone can and can't pick up, and how RF Sentinel does it. Every link to a code file points at the public source.</p>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/CIS-C0/RFSentinel/releases/latest" data-apk><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Download APK <span data-version></span></a>
+    <a class="btn discord" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg>Ask on Discord</a>
+    <a class="btn" href="https://github.com/CIS-C0/RFSentinel/issues" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg>Open an issue</a>
+  </div>
+</div>
+
+<nav aria-label="Q&amp;A sections">
+<ol class="faq-toc">
+  <li><a href="#police">Detecting police</a></li>
+  <li><a href="#cameras">Flock, ALPR, speed and hidden cameras</a></li>
+  <li><a href="#trackers">AirTags and trackers</a></li>
+  <li><a href="#drones">Drones and Remote ID</a></li>
+  <li><a href="#cell">Stingray / IMSI catchers</a></li>
+  <li><a href="#glasses">Smart glasses</a></li>
+  <li><a href="#alternatives">SØPHIA and other apps</a></li>
+  <li><a href="#install">Install, update, devices</a></li>
+  <li><a href="#tech">How detection works</a></li>
+  <li><a href="#limits">Range, accuracy, battery, screen off</a></li>
+  <li><a href="#car">Android Auto and driving</a></li>
+  <li><a href="#esp32">ESP32, OUI-Spy, GhostESP</a></li>
+  <li><a href="#privacy">Privacy, safety and legality</a></li>
+  <li><a href="#project">Themes, data, contributing</a></li>
+</ol>
+</nav>
+
+<section class="faq-group" id="police">
+<h2>Detecting police</h2>
+
+<details class="faq" id="detect-police-android">
+<summary>How do I detect police with an Android phone?</summary>
+<div>
+<p>Modern police gear is full of radios that broadcast on their own: body cameras advertise over Bluetooth LE so the officer's phone and holster sensors can find them, in-car routers run WiFi access points, radios and e-ticket printers pair over Bluetooth. Any phone can receive those broadcasts without connecting to anything.</p>
+<p>RF Sentinel runs a continuous BLE scan and periodic WiFi scans, and matches every packet against vendor company IDs, service UUIDs, payload tags, network names and IEEE MAC prefixes assigned to law-enforcement equipment makers (Axon/TASER, Motorola Solutions, Digital Ally, Getac, Zebra, Flock Safety and others). When two or more kinds of police-type gear rise and fall in signal together, it flags a possible police vehicle.</p>
+<p>Install the <a href="install.html">APK</a>, tap <b>Start scanning</b>, grant location and Nearby devices. See <a href="police-detector.html">the police detection guide</a>.</p>
+</div>
+</details>
+
+<details class="faq" id="police-detector-app">
+<summary>Is there an app that detects police nearby?</summary>
+<div>
+<p>Yes: RF Sentinel is a free, open-source Android app that does this passively from Bluetooth LE and WiFi signals, with no root and no subscription. It detects the <em>equipment</em>, not people: a match means a device with a police-equipment signature is in range. Crowd-sourced apps (Waze) rely on users reporting; RF Sentinel relies only on what the hardware itself broadcasts, so it also works where nobody has reported anything.</p>
+</div>
+</details>
+
+<details class="faq" id="detect-body-camera">
+<summary>Can my phone detect a police body camera?</summary>
+<div>
+<p>Often, yes. Body cameras use Bluetooth LE to pair with the officer's phone app, holster and light-bar triggers, and many advertise continuously. RF Sentinel matches:</p>
+<ul>
+<li>the <code>BWCDEVICE</code> ASCII tag in service data, manufacturer data or the raw advert, in either byte order (confidence 90, field-validated);</li>
+<li>TASER International company ID <code>0x034D</code> and Axon / TASER service UUIDs <code>0xFC81</code>, <code>0xFE6B</code>, <code>0xFE6C</code> (60 each);</li>
+<li>Utility Inc. <code>BodyWorn Remote</code> names (80);</li>
+<li>IEEE MAC prefixes registered to Axon (<code>00:25:DF</code>), Digital Ally, WatchGuard, Getac, Zepcam and others.</li>
+</ul>
+<p>Independent matches on the same device are fused, so an Axon camera with the company ID, UUID and prefix lands in the strong tier. Cameras that are switched off, or that only use WiFi to dock, are not visible.</p>
+</div>
+</details>
+
+<details class="faq" id="detect-axon">
+<summary>How do I detect Axon body cameras and TASERs?</summary>
+<div>
+<p>Axon (formerly TASER International) gear is identifiable from the Bluetooth SIG company ID <code>0x034D</code>, the 16-bit service UUIDs <code>0xFC81</code> (Axon Enterprise), <code>0xFE6B</code> and <code>0xFE6C</code> (TASER International), and the IEEE block <code>00:25:DF</code>. Axon Signal Sidearm holster sensors and Signal units, which start body cameras when a gun is drawn or the light bar turns on, are Bluetooth LE too. RF Sentinel ships all of these rules on by default.</p>
+</div>
+</details>
+
+<details class="faq" id="detect-police-car">
+<summary>Can it detect a police car or unmarked car?</summary>
+<div>
+<p>Indirectly. A single Motorola radio, Zebra printer or Cradlepoint router proves nothing, because civilians use them too. RF Sentinel assigns each device a <em>role</em> (body camera, plate reader, two-way radio, vehicle cellular router, mobile printer, in-car computer, rugged laptop, police camera) and groups devices with at least two different roles when their RSSI moves together (Pearson r ≥ 0.6 over at least 8 aligned seconds), or when both are flat (parked) and appeared within 30 s of each other.</p>
+<p>The group is flagged "Possible police vehicle" at 24 + 12 × roles, +10 when the signals move together, capped at 88: two roles stay weak (48), three moving together reach 70. An unmarked car is detected the same way if its gear advertises; there is no "unmarked car" signal as such. Details: <a href="how-it-works.html#patrol">patrol-vehicle detection</a>.</p>
+</div>
+</details>
+
+<details class="faq" id="detect-police-radio">
+<summary>Can it detect police radios?</summary>
+<div>
+<p>It flags radios that expose Bluetooth or WiFi: Motorola Solutions company ID <code>0x04EC</code> and UUIDs <code>0xFD8E</code> / <code>0xFE04</code>, plus IEEE prefixes of P25 / TETRA radio makers. Those are weak on their own (Motorola radios are also used by security guards, schools and construction crews) and become meaningful as part of a patrol-vehicle group.</p>
+<p>It does <b>not</b> receive the voice channels themselves. P25 and TETRA run on VHF, UHF and 700/800 MHz and are usually encrypted; a phone has no receiver for those bands. That would need a software-defined radio, and RF Sentinel never decodes or listens to radio traffic.</p>
+</div>
+</details>
+
+<details class="faq" id="radar-detector">
+<summary>Is RF Sentinel a radar detector? Does it detect police radar guns?</summary>
+<div>
+<p>No. Police radar and lidar use X, K and Ka-band microwave or infrared laser, which a phone cannot receive. "Police radar" in RF Sentinel's list means the Bluetooth/WiFi signatures of radar <em>makers'</em> in-car units when they advertise. For fixed speed and red-light cameras, RF Sentinel uses the OpenStreetMap camera layer and warns about 30 seconds ahead.</p>
+</div>
+</details>
+
+<details class="faq" id="detect-ticket-printer">
+<summary>Can it detect e-ticket printers?</summary>
+<div>
+<p>Yes, with care. Zebra mobile printers advertise UUIDs <code>0xFE79</code> / <code>0xFD66</code>. With a factory-serial name (<code>^[A-Z0-9]{2}[A-Z]{3}\d{9}$</code>), which fleets rarely rename, the score is 50; any other name stays at 30 because the same printers are everywhere in warehouses and retail. Next to a body camera or radio moving with it, it becomes part of a patrol-vehicle group.</p>
+</div>
+</details>
+
+<details class="faq" id="police-alert-how">
+<summary>How will I be alerted?</summary>
+<div>
+<p>Matches above your alert threshold (default 50, probable) play a sound and vibrate: one pulse for weak, two for probable, three for strong. Optional spoken announcements use the phone's own text-to-speech engine. There is a discreet mode, a floating threat bubble over other apps (green / orange / red with a count), a notification, a Quick Settings tile, a home-screen widget, and heads-up alerts in Android Auto.</p>
+</div>
+</details>
+
+<details class="faq" id="false-positive">
+<summary>Why did it flag a device that is not police?</summary>
+<div>
+<p>A match is a signature, not an identification. <code>00:25:DF</code> means "registered to Axon Enterprise", not "a police officer". Some identifiers are shared with consumer products: Motorola Solutions radios are used by private security, Zebra printers by shops, Meta's company ID by Quest headsets. That is why every rule has a confidence, weak matches are amber and silent by default, and the detail screen shows the exact evidence and source. Long-press a device to whitelist it.</p>
+</div>
+</details>
+</section>
+
+<section class="faq-group" id="cameras">
+<h2>Flock, ALPR, speed and hidden cameras</h2>
+
+<details class="faq" id="detect-flock">
+<summary>How do I detect Flock Safety cameras?</summary>
+<div>
+<p>Two ways, combined in the app:</p>
+<ol>
+<li><b>Radio signatures.</b> Flock units and their batteries broadcast identifiable signals: WiFi SSIDs starting with <code>Flock-</code> (88), BLE names <code>FS Ext Battery</code> (80), <code>Penguin-&lt;digits&gt;</code> or <code>FS-&lt;hex&gt;</code> (70, or 80 with company ID <code>0x09C8</code>), and the XUNTONG company ID <code>0x09C8</code> alone (45, shared silicon).</li>
+<li><b>The known-camera map.</b> Flock cameras mapped by volunteers in OpenStreetMap (via <a href="https://deflock.org" rel="noopener">DeFlock</a>) are downloaded and kept offline. You are warned when one is within about 20 seconds of travel and getting closer, even for cameras that only use cellular and emit nothing a phone can hear.</li>
+</ol>
+<p>See <a href="flock-camera-detector.html">the Flock / ALPR guide</a>.</p>
+</div>
+</details>
+
+<details class="faq" id="detect-alpr">
+<summary>How do I detect license plate readers (ALPR) on Android?</summary>
+<div>
+<p>Most non-Flock plate readers (Genetec AutoVu, Motorola / Vigilant, Perceptics, Quercus, Tattile) are wired or on cellular modems and don't broadcast anything a phone can match. RF Sentinel flags them by IEEE prefix when they do expose WiFi or Bluetooth, and covers the rest with the OpenStreetMap layer: every element tagged <code>surveillance:type=ALPR</code>, with manufacturer, operator and direction where mapped. The <b>Download Flock</b> option fetches every mapped plate reader in the US and Canada (~18 MB, about 143,000 cameras, refreshed weekly on WiFi); <b>Download nearby cameras</b> fetches a 10-200 km radius.</p>
+</div>
+</details>
+
+<details class="faq" id="flock-raven">
+<summary>Can it detect Flock Raven gunshot / audio sensors?</summary>
+<div>
+<p>Yes. Raven sensors advertise 128-bit service UUIDs whose short IDs fall in <code>0x3100</code>-<code>0x3500</code>, matched at confidence 80 (field capture via all-cameras-are-beacons).</p>
+</div>
+</details>
+
+<details class="faq" id="speed-camera-app">
+<summary>Can it warn me about speed cameras and red-light cameras without Waze?</summary>
+<div>
+<p>Yes. Fixed speed and red-light cameras mapped in OpenStreetMap are downloaded automatically for the area you look at and kept offline, refreshed weekly. Speed cameras warn about 30 seconds ahead, with the speed limit when it's mapped. No account, no reporting, no location sent anywhere except the area request to the Overpass API. Coverage depends on how well your area is mapped in OpenStreetMap, and mobile speed traps aren't covered.</p>
+</div>
+</details>
+
+<details class="faq" id="ignore-camera">
+<summary>Can I silence one specific camera I pass every day?</summary>
+<div>
+<p>Yes. Tap the camera on the map and choose <b>Ignore alerts</b>. It stays on the map, faded, and never alerts again. <b>Alert again</b> on the same camera, or Settings, turns it back on. Ignored cameras are kept permanently.</p>
+</div>
+</details>
+
+<details class="faq" id="find-hidden-camera">
+<summary>Can I find hidden cameras with my phone?</summary>
+<div>
+<p>Only cameras that use WiFi or Bluetooth. RF Sentinel has an optional (off by default) network-camera category: SSIDs starting with <code>ARLO_VMB_</code> / <code>NTGR_VMB_</code> (88) and IEEE blocks of Arlo, Blink, Ezviz, Uniview, Amcrest, Wyze, Swann, Night Owl, SkyBell and WUUK (65, WiFi only). Turn on the <b>Network / home security camera</b> category in Settings.</p>
+<p>Limits you should know: a camera that joins an existing WiFi network as a client is invisible to an Android WiFi scan (only access points are listed), and wired, SD-card-only or cellular cameras emit nothing usable. A lens-reflection or IR check finds those, not a radio app.</p>
+</div>
+</details>
+
+<details class="faq" id="hidden-wifi">
+<summary>Can it identify hidden WiFi networks?</summary>
+<div>
+<p>Yes. Hidden networks still send beacons with information elements. RF Sentinel reads the WPS element (manufacturer, model name and number, device name, primary device type), the Cisco CCX AP name (IE 133), the BSSID's IEEE registrant and vendor IE owners, and links a hidden BSSID to the visible network on the same router (octets 2-5 equal, last octet within 16). Requires Android 11+ for the raw elements.</p>
+</div>
+</details>
+</section>
+
+<section class="faq-group" id="trackers">
+<h2>AirTags and trackers</h2>
+
+<details class="faq" id="airtag-following-me">
+<summary>How do I know if an AirTag is following me on Android?</summary>
+<div>
+<p>An AirTag away from its owner switches to a "separated" Find My frame: Apple company ID <code>0x004C</code>, type <code>0x12</code>, length <code>0x19</code>. RF Sentinel matches that frame (confidence 70), keeps tracking the tag through its address rotations, and raises a <b>may be following you</b> alert when it has been with you for at least 10 minutes while you moved at least 800 m (both adjustable: 2-240 minutes). Tap the device and use <b>Locate</b>: it beeps faster as the signal gets stronger.</p>
+<p>It reacts to the same frame Android's built-in unknown-tracker alerts use, but shows it live, with history and a signal graph, instead of after hours.</p>
+</div>
+</details>
+
+<details class="faq" id="detect-tile-smarttag">
+<summary>Does it detect Tile, Samsung SmartTag and Google Find Hub trackers?</summary>
+<div>
+<p>Yes. Google Find Hub tags via <code>0xFEAA</code> service data frame <code>0x41</code> (separated; frame <code>0x40</code> means near the owner and is ignored), Samsung SmartTag via <code>0xFD5A</code> and Tile via <code>0xFEED</code> service data (55). All feed the same follow detection.</p>
+</div>
+</details>
+
+<details class="faq" id="gps-tracker-car">
+<summary>Can it find a GPS tracker hidden on my car?</summary>
+<div>
+<p>Only Bluetooth trackers (AirTag, SmartTag, Tile, Find Hub tags). LTE / GSM GPS trackers report over the cellular network and don't broadcast anything a phone can identify. For those, a physical inspection or a dedicated RF sweep is needed.</p>
+</div>
+</details>
+
+<details class="faq" id="ignore-own-tag">
+<summary>My own AirTag keeps showing up. How do I ignore it?</summary>
+<div>
+<p>Long-press it and ignore it. The ignore follows the tag when its address changes: it is carried over through the advert fingerprint link, so you don't have to ignore it again after each rotation.</p>
+</div>
+</details>
+</section>
+
+<section class="faq-group" id="drones">
+<h2>Drones and Remote ID</h2>
+
+<details class="faq" id="detect-drone">
+<summary>How do I detect drones near me with my phone?</summary>
+<div>
+<p>Drones sold since FAA / EU Remote ID rules must broadcast an ASTM F3411 Remote ID signal over Bluetooth (service data <code>0xFFFA</code>, app code <code>0x0D</code>) or WiFi (vendor IE OUI <code>FA:0B:BC</code>, type <code>0x0D</code>). RF Sentinel decodes it (confidence 95), places the drone on the map with heading, altitude and speed, and raises a "drone overhead" alert when it is within 200 m horizontally (once per drone per 5 minutes). Drone makers' own IEEE blocks (DJI, Parrot, Skydio, Autel, Yuneec...) are also matched at 60. See <a href="drone-detector.html">the drone guide</a>.</p>
+</div>
+</details>
+
+<details class="faq" id="drone-operator-location">
+<summary>Can I see where the drone pilot is?</summary>
+<div>
+<p>When the drone's Remote ID includes the System message, yes: Remote ID carries the operator (or take-off) position. The detail screen shows it, and you can open both the drone and operator positions in your maps app. Remote ID also carries the serial number and, where used, an operator ID.</p>
+</div>
+</details>
+
+<details class="faq" id="police-drone">
+<summary>Does it detect police drones?</summary>
+<div>
+<p>It detects any drone that broadcasts Remote ID, which includes most police drones (DJI, Skydio, Autel) under current rules. It can't tell who operates it unless the operator ID says so. Exempt or modified drones that don't broadcast Remote ID are not detected.</p>
+</div>
+</details>
+</section>
+
+<section class="faq-group" id="cell">
+<h2>Stingray / IMSI catchers</h2>
+
+<details class="faq" id="detect-stingray">
+<summary>How do I detect a Stingray or IMSI catcher on Android without root?</summary>
+<div>
+<p>Without root, Android exposes the cells your phone sees (network codes, cell IDs, area codes, radio technology, signal) but not ciphering or signalling messages. RF Sentinel reads them every 15 s and looks for the signs a cell-site simulator leaves in that data:</p>
+<ul>
+<li>serving cell on a test / reserved MCC (001, 002, 999): 85;</li>
+<li>sudden switch from 4G/5G to 2G while strong LTE is still visible (the visible side of the 2G downgrade EFF's Rayhunter watches for): 70;</li>
+<li>a known cell number appearing in a different area (cloned identity), a reserved area code (0, 0xFFFE, 0xFFFF) or cell ID 0;</li>
+<li>a network country code that doesn't match the SIM while not roaming;</li>
+<li>the location area changing while GPS shows you standing still, a new cell with no neighbours.</li>
+</ul>
+<p>A sign must persist across two checks; 2G drops during calls and area codes flipping at coverage borders are ignored. Several signs together score max + 15, capped at 90. See <a href="imsi-catcher-detector.html">the IMSI catcher guide</a>.</p>
+</div>
+</details>
+
+<details class="faq" id="stingray-reliable">
+<summary>How reliable is fake cell tower detection on a phone?</summary>
+<div>
+<p>It is heuristic. Each sign has innocent explanations (network maintenance, rural 2G, carrier misconfiguration), and a well-configured simulator copying a real cell's identity shows few of them. Treat it as a warning to look closer, not proof. The strongest protection is turning off <b>Allow 2G</b> in your SIM settings (Android 12+), and on Android 15+ enabling <b>Cellular security → Network notifications</b>, which warns when a network asks for your SIM identity or turns off encryption. RF Sentinel's Settings links there.</p>
+</div>
+</details>
+
+<details class="faq" id="rayhunter-vs">
+<summary>How does this compare with EFF's Rayhunter?</summary>
+<div>
+<p>Rayhunter runs on a cheap mobile hotspot with root access to the modem's signalling (QMDL / diag), so it sees identity requests and ciphering changes directly. A normal Android app can't. RF Sentinel implements the parts of that analysis visible through Android's public cell APIs (2G downgrade, identity anomalies) and points to Android 15's own network notifications for the rest. For the strongest detection, use Rayhunter hardware alongside.</p>
+</div>
+</details>
+</section>
+
+<section class="faq-group" id="glasses">
+<h2>Smart glasses</h2>
+
+<details class="faq" id="detect-meta-glasses">
+<summary>How do I detect Ray-Ban Meta smart glasses nearby?</summary>
+<div>
+<p>Ray-Ban Meta glasses advertise over Bluetooth LE. RF Sentinel matches Luxottica's company ID <code>0x0D53</code> (70), company ID <code>0x058E</code> together with the <code>META_RB_GLASS</code> token (72), and Meta's corporate company ID <code>0x01AB</code> / UUIDs <code>0xFEB7</code> / <code>0xFEB8</code> (45, because Quest headsets share them). Snap Spectacles (<code>0x03C2</code>), Vuzix (<code>0x060C</code>) and HeyCyan-SDK glasses (full 128-bit UUID) are matched too. See <a href="smart-glasses-detector.html">the smart glasses guide</a>.</p>
+</div>
+</details>
+
+<details class="faq" id="glasses-recording">
+<summary>Can it tell if the glasses are recording?</summary>
+<div>
+<p>No. It tells you the glasses are near you and advertising. Recording state is not part of the advertisement.</p>
+</div>
+</details>
+</section>
+
+<section class="faq-group" id="alternatives">
+<h2>SØPHIA and other apps</h2>
+
+<details class="faq" id="sophia-free">
+<summary>How can I get s0phia ops (SØPHIA) for free?</summary>
+<div>
+<p>SØPHIA is a paid product sold by its own developer, and this site doesn't distribute it or any copy of it. If what you want is the same kind of tool for free, RF Sentinel is a free, open-source (GPL-3.0) alternative: passive Bluetooth LE and WiFi scanning for police gear, plate-reader cameras, trackers and drones, installed as a normal APK without Termux. Comparison: <a href="sophia-alternative.html">RF Sentinel vs SØPHIA</a>.</p>
+</div>
+</details>
+
+<details class="faq" id="sophia-alternative">
+<summary>Is there a free alternative to SØPHIA / SophiaOps?</summary>
+<div>
+<p>Yes. RF Sentinel covers passive BLE and WiFi recon with a radar view, risk scoring and a timeline, and adds sourced police, ALPR, tracker, Remote ID and smart-glasses signatures, patrol-vehicle grouping, fake cell tower signs, an offline camera map and Android Auto. It costs nothing and the full source is on <a href="https://github.com/CIS-C0/RFSentinel" rel="noopener">GitHub</a>. RF Sentinel is independent and not affiliated with SØPHIA or DetecX.</p>
+</div>
+</details>
+
+<details class="faq" id="need-termux">
+<summary>Do I need Termux to scan for police on Android?</summary>
+<div>
+<p>Not with RF Sentinel. It is a regular Android app using the public BLE scan and WiFi scan APIs, so there's no Termux, Termux:API, Python or shell setup.</p>
+</div>
+</details>
+
+<details class="faq" id="vs-rfparty">
+<summary>How is it different from RF Party, BLE Radar (MetaRadar) or Flock You?</summary>
+<div>
+<p>RF Party (based on Alan Meekins' DEF CON 31 talk) and BLE Radar are general Bluetooth scanners: they list and track devices, with fewer police-specific rules. Flock You and OUI-Spy are ESP32 firmware focused on Flock and watchlist matching. RF Sentinel combines a sourced signature set (each rule cites the IEEE registry, Bluetooth SIG or published research), evidence fusion, patrol-vehicle grouping, WiFi and cell analysis, the OpenStreetMap camera layer and Android Auto in one Android app, and can ingest OUI-Spy and GhostESP boards. No code from those projects is included.</p>
+</div>
+</details>
+
+<details class="faq" id="iphone">
+<summary>Is there an iPhone version?</summary>
+<div>
+<p>No. iOS hides Bluetooth MAC addresses and most advertisement fields from apps, offers no WiFi scan API, and doesn't expose cell information, so most of RF Sentinel's detection can't run there. It is Android only.</p>
+</div>
+</details>
+</section>
+
+<section class="faq-group" id="install">
+<h2>Install, update, devices</h2>
+
+<details class="faq" id="is-free">
+<summary>Is RF Sentinel free? Are there ads or in-app purchases?</summary>
+<div>
+<p>Free, no ads, no in-app purchases, no subscription, no account. Licensed GPL-3.0.</p>
+</div>
+</details>
+
+<details class="faq" id="google-play">
+<summary>Is it on Google Play or F-Droid?</summary>
+<div>
+<p>Not currently. The signed APK is published on <a href="https://github.com/CIS-C0/RFSentinel/releases/latest">GitHub Releases</a> for every version. See the <a href="install.html">install guide</a>.</p>
+</div>
+</details>
+
+<details class="faq" id="how-install-apk">
+<summary>How do I install the APK?</summary>
+<div>
+<ol>
+<li>On the phone, open the <a href="https://github.com/CIS-C0/RFSentinel/releases/latest">latest release</a>.</li>
+<li>Under <b>Assets</b>, tap the file ending in <code>-release.apk</code> (not "Source code").</li>
+<li>Open the downloaded file from the notification or Files → Downloads.</li>
+<li>If Android blocks it, tap <b>Settings</b>, enable <b>Allow from this source</b>, go back and tap <b>Install</b>.</li>
+<li>Open RF Sentinel. The setup wizard covers theme, region, alerts, camera download radius and permissions.</li>
+</ol>
+</div>
+</details>
+
+<details class="faq" id="apk-safe">
+<summary>Is the APK safe?</summary>
+<div>
+<p>The full source is public, every release is signed with the same release key (Android refuses an update signed with a different key), and you can build it yourself with <code>./gradlew assembleDebug</code>. The app requests no contacts, storage, camera or microphone permissions. Play Protect may warn about any app installed outside Google Play; that warning is about the install source, not a scan result.</p>
+</div>
+</details>
+
+<details class="faq" id="update">
+<summary>How do I update?</summary>
+<div>
+<p>Install the newer APK over the existing one. Settings, history and watchlist are kept.</p>
+</div>
+</details>
+
+<details class="faq" id="android-version">
+<summary>Which Android versions and phones are supported?</summary>
+<div>
+<p>Android 8.0 (API 26) and newer, on any phone with Bluetooth LE: Pixel, Samsung, Motorola, OnePlus, Xiaomi and others. Hidden-network WiFi details need Android 11+. Bluetooth 5 extended advertising and LE Coded PHY (long range) are used automatically where the chip supports them.</p>
+</div>
+</details>
+
+<details class="faq" id="root">
+<summary>Does it need root?</summary>
+<div>
+<p>No. Everything uses public Android APIs.</p>
+</div>
+</details>
+
+<details class="faq" id="permissions">
+<summary>Why does it ask for location?</summary>
+<div>
+<p>Android ties Bluetooth and WiFi scan results to the location permission (up to Android 11 always, and still for WiFi scans and cell info). RF Sentinel also uses GPS for traces, follow detection and camera warnings. Nearby devices (Bluetooth scan) is required; notifications, Display over other apps (bubble) and Nearby devices → connect (only to list your paired car) are optional.</p>
+</div>
+</details>
+
+<details class="faq" id="samsung-xiaomi-killed">
+<summary>Scanning stops on Samsung / Xiaomi / OnePlus. What do I do?</summary>
+<div>
+<p>Some manufacturers kill background apps aggressively. Scanning runs as a foreground service with a notification, but you may still need to set RF Sentinel's battery usage to <b>Unrestricted</b>. Settings has a shortcut to Android's battery optimization screen.</p>
+</div>
+</details>
+</section>
+
+<section class="faq-group" id="tech">
+<h2>How detection works</h2>
+
+<details class="faq" id="how-ble-detection">
+<summary>How does passive Bluetooth LE detection work?</summary>
+<div>
+<p>BLE devices broadcast advertising packets on channels 37, 38 and 39 so other devices can find them. Each packet carries an address, flags and optional fields: device name, 16/128-bit service UUIDs, service data, manufacturer data with a Bluetooth SIG company ID, TX power. RF Sentinel receives these through Android's <code>BluetoothLeScanner</code> and matches every field against its rules. It never connects, so the device never knows it was seen.</p>
+</div>
+</details>
+
+<details class="faq" id="what-is-oui">
+<summary>What is a MAC vendor prefix (OUI) and why does it matter?</summary>
+<div>
+<p>The first 3 bytes of a public MAC address (MA-L), or 3.5 / 4.5 bytes for MA-M / MA-S blocks, are assigned by the IEEE to a company. If a device uses its public address, the prefix reveals the maker, e.g. <code>00:25:DF</code> is Axon Enterprise. RF Sentinel ships the IEEE registry offline and regional watchlist presets (Global, Canada, US) of law-enforcement and surveillance makers, each prefix re-checked against its registrant. Devices using random private addresses defeat prefix matching, which is why payload signatures and fingerprint linking matter more.</p>
+</div>
+</details>
+
+<details class="faq" id="confidence-tiers">
+<summary>What do weak, probable and strong mean?</summary>
+<div>
+<div class="table-wrap"><table>
+<thead><tr><th>Tier</th><th>Confidence</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>Weak (verify)</td><td>&lt; 50</td><td>Identifier shared with many unrelated products. Amber, silent by default.</td></tr>
+<tr><td>Probable</td><td>50-79</td><td>Vendor-specific identifier. Alerts at the default threshold.</td></tr>
+<tr><td>Strong</td><td>80+</td><td>Payload tag, or a network name the vendor gives its own devices.</td></tr>
+</tbody></table></div>
+</div>
+</details>
+
+<details class="faq" id="evidence-fusion">
+<summary>What is evidence fusion?</summary>
+<div>
+<p>When different rules of the same category match one device, the scores combine by noisy-OR, with each supporting hit discounted by half because rules often share evidence: <code>1 - (1 - top) × Π(1 - 0.5 × support)</code>. Hits under 30 never corroborate, and fusion never exceeds 90. Example: watchlisted address 70 + Zebra serial name 50 → 78.</p>
+</div>
+</details>
+
+<details class="faq" id="mac-randomization">
+<summary>Devices change their Bluetooth address. How does it keep track?</summary>
+<div>
+<p>A structural advert fingerprint survives address rotation: names, service UUIDs, service-data and company-ID payload sizes, TX power and connectable flag. When a new private address appears with the same fingerprint as exactly one device that went silent 1.5-30 s earlier, it inherits that device's matches (at −5), follow history and ignore state. Apple-Continuity-only adverts (phones) are never linked, and two identical candidates means no link.</p>
+</div>
+</details>
+
+<details class="faq" id="watchlist">
+<summary>Can I add my own devices or signatures?</summary>
+<div>
+<p>Yes. The watchlist takes exact addresses, vendor prefixes (MA-L / MA-M / MA-S) and name or vendor rules, each with a label and score, plus the regional presets. It exports as JSON. Long-press any device to add it.</p>
+</div>
+</details>
+
+<details class="faq" id="report-unknown">
+<summary>I found an unidentified device. How do I report it?</summary>
+<div>
+<p>Long-press it → <b>Report unknown device</b>. The report shows exactly what is shared before you send it: vendor prefix, name pattern with serial digits hidden, service and manufacturer IDs. No full address, serial, location or time. Paste it into a <a href="https://github.com/CIS-C0/RFSentinel/issues/new" rel="noopener">GitHub issue</a> or share it on <a href="https://discord.gg/NDTjn8HMGq" rel="noopener">Discord</a>. New signatures need a registry or published source; guesses aren't merged.</p>
+</div>
+</details>
+</section>
+
+<section class="faq-group" id="limits">
+<h2>Range, accuracy, battery, screen off</h2>
+
+<details class="faq" id="range">
+<summary>How far away can it detect devices?</summary>
+<div>
+<p>It depends on the transmitter's power, walls, bodies and your phone's antenna. Bluetooth LE from a body camera is typically heard at tens of metres in the open and much less through a vehicle or building; WiFi access points carry further. Phones with LE Coded PHY hear Bluetooth 5 long-range adverts further. An external ESP32 board with a better antenna extends range. Phone radios are weaker than dedicated hardware, so expect fewer catches than purpose-built scanners.</p>
+</div>
+</details>
+
+<details class="faq" id="distance-direction">
+<summary>Can it tell the distance or direction of a device?</summary>
+<div>
+<p>Distance is estimated from RSSI and is often off by 2-3×. The radar view places stronger signals closer to the centre, but the angle is not a direction: a phone can't measure angle of arrival. To find a device, use <b>Locate</b> mode and walk: it beeps faster as the signal grows.</p>
+</div>
+</details>
+
+<details class="faq" id="wifi-30s">
+<summary>Why does WiFi only update every 30 seconds?</summary>
+<div>
+<p>Android throttles apps to about four WiFi scans per two minutes. The default 30-second interval stays within that limit. Bluetooth LE is continuous.</p>
+</div>
+</details>
+
+<details class="faq" id="wifi-clients">
+<summary>Why doesn't it see WiFi phones, laptops or cameras connected to a network?</summary>
+<div>
+<p>Android's WiFi scan only lists access points (beacons and probe responses). Client devices, such as an in-car laptop connected to the car's router, need monitor mode, which Android doesn't offer without root and a supported chip. An ESP32 board can partly fill that gap.</p>
+</div>
+</details>
+
+<details class="faq" id="screen-off">
+<summary>Does it work with the screen off?</summary>
+<div>
+<p>Partly. Android suspends unfiltered BLE scans while the screen is off and only keeps scans with hardware filters. RF Sentinel runs a second, filtered scan on the identifiers that matter most (body-cam, Flock, Raven, drone, tracker, glasses company IDs and UUIDs, and exact-address watchlist entries), so those keep alerting with the screen off. Prefix-only matches need the screen on. The car mount "keep screen on while charging" default avoids this while driving.</p>
+</div>
+</details>
+
+<details class="faq" id="battery">
+<summary>How much battery does it use?</summary>
+<div>
+<p>Continuous scanning costs battery. Settings → BLE scan mode offers <b>Low latency</b> (default, catches the most), <b>Balanced</b> and <b>Low power</b>, and the WiFi interval is adjustable. Auto-start in the car scans only while you drive.</p>
+</div>
+</details>
+
+<details class="faq" id="cellular-only">
+<summary>What can't it detect at all?</summary>
+<div>
+<p>Anything that doesn't broadcast BLE or WiFi beacons: cellular-only devices (most non-Flock plate readers, LTE GPS trackers), wired cameras, radios' voice channels, radar and lidar, devices switched off or in a non-advertising state, and WiFi clients. Cameras in OpenStreetMap are covered by the map layer instead.</p>
+</div>
+</details>
+</section>
+
+<section class="faq-group" id="car">
+<h2>Android Auto and driving</h2>
+
+<details class="faq" id="android-auto-police">
+<summary>Is there a police detector app for Android Auto?</summary>
+<div>
+<p>RF Sentinel runs in Android Auto: threat headline, live counts, Start/Stop and mute on the home screen, device lists, a live OpenStreetMap map with devices, cameras and drones, OSM navigation with spoken turns, and alerts as heads-up cards through the car speakers. See <a href="android-auto.html">Android Auto</a>.</p>
+</div>
+</details>
+
+<details class="faq" id="android-auto-missing">
+<summary>RF Sentinel doesn't show up in Android Auto. How do I fix it?</summary>
+<div>
+<p>Android Auto hides sideloaded apps until you enable them: open Android Auto settings on the phone, tap <b>Version</b> ten times to unlock developer mode, open <b>⋮ → Developer settings</b> and enable <b>Unknown sources</b>, then reinstall the APK, open RF Sentinel once on the phone, and reconnect. Also check <b>Customize launcher</b> for hidden apps.</p>
+</div>
+</details>
+
+<details class="faq" id="waze-overlay">
+<summary>Can I use it with Waze or Google Maps on screen?</summary>
+<div>
+<p>Yes. The floating threat bubble (needs Display over other apps) sits over any app: green when clear, orange for probable, red for strong or a follower, with the count. Tap to open, drag to move. Spoken alerts briefly lower other audio.</p>
+</div>
+</details>
+
+<details class="faq" id="auto-start-car">
+<summary>Can it start by itself when I get in the car?</summary>
+<div>
+<p>Yes. Settings → <b>Start scanning automatically in the car</b>: pick your car's Bluetooth. Scanning starts when the phone connects to it or to Android Auto, and stops when you leave if the car started it.</p>
+</div>
+</details>
+</section>
+
+<section class="faq-group" id="esp32">
+<h2>ESP32, OUI-Spy, GhostESP</h2>
+
+<details class="faq" id="esp32-boards">
+<summary>Can I use an ESP32 with RF Sentinel?</summary>
+<div>
+<p>Yes. Plug a board running <a href="https://github.com/colonelpanichacks/oui-spy-unified-blue" rel="noopener">OUI-Spy</a> or <a href="https://github.com/GhostESP-Revival/GhostESP" rel="noopener">GhostESP</a> into the phone with a USB OTG cable while scanning, or pair an OUI-SPY board running the Bluetooth (App-Controlled) firmware wirelessly. Its detections merge into the list with a blue <b>ESP32</b> badge. Native-USB boards (S2/S3/C3/C6) and CP210x / CH340 bridges work. See <a href="esp32.html">ESP32 boards</a>.</p>
+</div>
+</details>
+
+<details class="faq" id="oui-spy-pair">
+<summary>How do I pair an OUI-SPY board over Bluetooth?</summary>
+<div>
+<p>Start scanning with the board on, then <b>Settings → Pair OUI-SPY board</b> and pick <code>OUI-SPY-xxxx</code>. Pair only there, not in Android's Bluetooth settings: the board keeps no pairing keys, so a phone-side bond breaks the link (the app tells you to tap Forget if it finds one).</p>
+</div>
+</details>
+
+<details class="faq" id="flipper">
+<summary>Does it work with Flipper Zero or a WiFi Pineapple?</summary>
+<div>
+<p>No. Supported external hardware is ESP32 boards running OUI-Spy or GhostESP.</p>
+</div>
+</details>
+</section>
+
+<section class="faq-group" id="privacy">
+<h2>Privacy, safety and legality</h2>
+
+<details class="faq" id="transmit">
+<summary>Does RF Sentinel transmit or jam anything?</summary>
+<div>
+<p>No. It never transmits, jams, spoofs or connects to the devices it detects. (The phone's own WiFi scan sends standard probe requests like any phone looking for networks, and an OUI-SPY board in relay mode does the same; that can be turned off.)</p>
+</div>
+</details>
+
+<details class="faq" id="can-police-see">
+<summary>Can police or anyone tell I'm running it?</summary>
+<div>
+<p>The app itself sends nothing to the devices it scans. Your phone, like every phone, may still advertise its own Bluetooth and probe for WiFi networks independently of RF Sentinel.</p>
+</div>
+</details>
+
+<details class="faq" id="data-collected">
+<summary>What data does it collect?</summary>
+<div>
+<p>None leaves the phone. No accounts, no analytics, no crash reporting. Detections are stored in a local database excluded from cloud backup. Network requests go only to OpenStreetMap services (map tiles, Overpass camera data from overpass-api.de or its mirrors, DeFlock's region files) and, in Android Auto navigation, Nominatim and OSRM. They see your IP and the area or route, never your scans.</p>
+</div>
+</details>
+
+<details class="faq" id="legal">
+<summary>Is it legal to detect police equipment?</summary>
+<div>
+<p>RF Sentinel only receives signals that devices broadcast publicly by design, and it doesn't decode private communications. Passive reception of Bluetooth and WiFi advertisements is generally lawful, but rules differ by country and state, and some places restrict use in vehicles or of radar detectors. Check your local laws. This is not legal advice.</p>
+</div>
+</details>
+
+<details class="faq" id="use-responsibly">
+<summary>What is it meant for?</summary>
+<div>
+<p>Awareness, research and personal privacy: knowing which surveillance devices are around you, finding trackers, documenting plate-reader deployments. A detection says a device with a given signature is nearby; it isn't proof of who is present or what they're doing.</p>
+</div>
+</details>
+</section>
+
+<section class="faq-group" id="project">
+<h2>Themes, data, contributing</h2>
+
+<details class="faq" id="watch-dogs-theme">
+<summary>Is there a Watch Dogs / DedSec or Mr. Robot theme?</summary>
+<div>
+<p>Yes. <b>DedSec</b> (Watch Dogs 2-inspired: black, white and electric blue, poster banner, sliced wordmark, a <code>marcus@ctOS-2.0:~$</code> terminal typing hacktivist lines) and <b>fsociety</b> (Mr. Robot-inspired: black and blood red, striped wordmark, a <code>root@fsociety:~#</code> terminal typing quotes from the show). Unofficial fan homages, not affiliated with Ubisoft or NBCUniversal. Eleven more themes include Night Drive (red-only HUD for night driving), Night Vision, Amber CRT, Synthwave, Tactical, Blueprint, Paper and Material You.</p>
+</div>
+</details>
+
+<details class="faq" id="export">
+<summary>Can I export detections?</summary>
+<div>
+<p>Yes: current scan as CSV, JSON or KML; all devices ever seen as CSV or JSON; the match log as CSV, JSON, GPX or KML; GPS traces with their devices as GPX, KML, GeoJSON or CSV; the watchlist as JSON; or everything in one JSON file.</p>
+</div>
+</details>
+
+<details class="faq" id="open-source">
+<summary>Is it open source? Can I build it myself?</summary>
+<div>
+<p>Yes, GPL-3.0, 100% Kotlin. Requirements: Android Studio, or JDK 17+ with the Android SDK.</p>
+<pre><code>git clone https://github.com/CIS-C0/RFSentinel
+cd RFSentinel
+./gradlew assembleDebug</code></pre>
+<p><code>tools/gen_assets.py</code> regenerates the offline IEEE and Bluetooth SIG databases and fails if any prefix used in code stops matching its registrant.</p>
+</div>
+</details>
+
+<details class="faq" id="contribute">
+<summary>How can I help?</summary>
+<div>
+<p>Report unknown devices with the in-app report, submit sourced signatures, map cameras in OpenStreetMap / DeFlock, file bugs on <a href="https://github.com/CIS-C0/RFSentinel/issues" rel="noopener">GitHub</a>, join the <a href="https://discord.gg/NDTjn8HMGq" rel="noopener">Discord</a>, and star the repo so others find it.</p>
+</div>
+</details>
+</section>
+<section class="community" aria-label="Community">
+  <a class="dc" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span><strong>Join the Discord</strong>Help, ideas, new signatures, field captures and ESP32 builds.</span></a>
+  <a class="gh" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg><span><strong>CIS-C0/RFSentinel on GitHub</strong>Source code, releases, issues. A star helps others find it.</span></a>
+</section>
+</main>
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <h4>RF Sentinel</h4>
+        <ul>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/releases/latest">Download the APK</a></li>
+          <li><a href="install.html">Install &amp; update</a></li>
+          <li><a href="how-it-works.html">How detection works</a></li>
+          <li><a href="qa.html">Q&amp;A</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Guides</h4>
+        <ul><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li></ul>
+      </div>
+      <div>
+        <h4>Community</h4>
+        <ul>
+          <li><a href="https://discord.gg/NDTjn8HMGq" rel="noopener">Discord server</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel" rel="noopener">GitHub repository</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/issues" rel="noopener">Issues &amp; device reports</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/blob/main/docs/SIGNATURES.md" rel="noopener">Signature reference</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="legal">RF Sentinel is free software under the GNU GPL v3.0. Copyright © 2026 CIS-C0.
+    Receive-only: it transmits nothing, and a detection is a signature match, not proof of who is present. Check your local laws.
+    Not affiliated with any company or product named on this site; names are used only to describe compatibility and detection.
+    No cookies, no analytics, no trackers on this site.</p>
+  </div>
+</footer>
+<script>
+// A link to a question (qa.html#detect-flock) opens its answer.
+(function () {
+  function openHash() {
+    var el = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (el && el.tagName === "DETAILS") { el.open = true; el.scrollIntoView(); }
+  }
+  openHash();
+  window.addEventListener("hashchange", openHash);
+})();
+// Latest release: version label and a direct link to the signed APK. Falls back to the releases page.
+(function () {
+  var els = document.querySelectorAll("[data-apk]");
+  if (!els.length || !window.fetch) return;
+  fetch("https://api.github.com/repos/CIS-C0/RFSentinel/releases/latest")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (rel) {
+      if (!rel) return;
+      var apk = (rel.assets || []).filter(function (a) { return /-release\.apk$/.test(a.name); })[0];
+      els.forEach(function (el) {
+        if (apk) el.href = apk.browser_download_url;
+        var v = el.querySelector("[data-version]");
+        if (v) v.textContent = rel.tag_name;
+      });
+    }).catch(function () {});
+})();
+</script>
+</body>
+</html>

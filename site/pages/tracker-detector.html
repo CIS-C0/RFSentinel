@@ -1,0 +1,47 @@
+<!--META {"title": "AirTag & tracker detector for Android - is someone tracking me? | RF Sentinel", "description": "Find AirTags, Samsung SmartTags, Tile and Google Find Hub trackers following you on Android. Detects separated-from-owner frames, follows trackers through address changes, alerts after time and distance with you, and locates them by signal.", "nav": "guides", "crumb": "AirTag & tracker detection"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / tracker-detector</p>
+  <h1>AirTag &amp; tracker detection</h1>
+  <p class="lead">Bluetooth trackers away from their owner change what they broadcast. RF Sentinel catches that frame, follows the tag through its address rotations, and tells you when it has been travelling with you.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="qa.html#trackers">Tracker Q&amp;A</a>
+  </div>
+</div>
+
+<h2 id="frames">What a separated tracker looks like</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Tracker</th><th>Separated frame</th><th>Score</th></tr></thead>
+<tbody>
+<tr><td>Apple AirTag / Find My accessories</td><td>Manufacturer data, company <code>0x004C</code>, type <code>0x12</code>, length <code>0x19</code></td><td>70</td></tr>
+<tr><td>Google Find Hub tags</td><td>Service data <code>0xFEAA</code>, frame <code>0x41</code> (<code>0x40</code> = near owner, ignored)</td><td>70</td></tr>
+<tr><td>Samsung SmartTag</td><td>Service data <code>0xFD5A</code></td><td>55</td></tr>
+<tr><td>Tile</td><td>Service data <code>0xFEED</code></td><td>55</td></tr>
+</tbody></table></div>
+
+<h2 id="follow">Follow detection</h2>
+<p>Trackers rotate their Bluetooth address to stay anonymous. RF Sentinel links the new address to the old one by an advert fingerprint (payload sizes, UUIDs, TX power, connectable flag; new address within 1.5-30 s of the old one going silent, exactly one candidate) and carries the time-with-you and GPS path across. A <b>FOLLOWING</b> alert fires once a tracker or flagged device has stayed with you for at least <b>10 minutes</b> while you moved at least <b>800 m</b>. Both are adjustable (2-240 minutes).</p>
+
+<h2 id="find">Finding the tag</h2>
+<ol>
+<li>Tap the device → <b>Locate</b>. The beep rate rises with signal strength.</li>
+<li>Walk around the car or bag; RSSI changes fast within the last metre.</li>
+<li>Check the signal graph and history on the detail screen to see when it first appeared.</li>
+</ol>
+
+<h2 id="own">Your own tags</h2>
+<p>Long-press your own AirTag or SmartTag and ignore it. The ignore follows it through address changes, so it stays quiet.</p>
+
+<h2 id="faq-tracker">Questions</h2>
+<details class="faq" id="q-tracker-builtin">
+<summary>Android already has unknown tracker alerts. Why use this?</summary>
+<div><p>Android's alerts are good but run on Google's schedule and thresholds and show little detail. RF Sentinel shows trackers live, with raw evidence, signal history, the path they followed and adjustable thresholds, alongside everything else around you.</p></div>
+</details>
+<details class="faq" id="q-tracker-near-owner">
+<summary>Why don't I see AirTags that are with their owners?</summary>
+<div><p>Near its owner an AirTag broadcasts a different, shorter frame and isn't a threat to you. RF Sentinel only flags the separated frame, so people's own keys in a café don't alert.</p></div>
+</details>
+<details class="faq" id="q-tracker-lte">
+<summary>What about LTE GPS trackers?</summary>
+<div><p>They report over the cellular network and broadcast no Bluetooth a phone can identify. Inspect the vehicle physically.</p></div>
+</details>

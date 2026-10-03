@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Police &amp; camera detector for Android Auto - RF Sentinel</title>
+<meta name="description" content="RF Sentinel on Android Auto: threat headline, flagged device lists, a live OpenStreetMap map with plate-reader, speed and red-light cameras and drones, OSM turn-by-turn navigation, and alerts through the car speakers. Setup for sideloaded apps.">
+<link rel="canonical" href="https://cis-c0.github.io/RFSentinel/android-auto.html">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#050507">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="RF Sentinel">
+<meta property="og:title" content="Police &amp; camera detector for Android Auto - RF Sentinel">
+<meta property="og:description" content="RF Sentinel on Android Auto: threat headline, flagged device lists, a live OpenStreetMap map with plate-reader, speed and red-light cameras and drones, OSM turn-by-turn navigation, and alerts through the car speakers. Setup for sideloaded apps.">
+<meta property="og:url" content="https://cis-c0.github.io/RFSentinel/android-auto.html">
+<meta property="og:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="RF Sentinel - BLE and WiFi police scanner for Android">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Police &amp; camera detector for Android Auto - RF Sentinel">
+<meta name="twitter:description" content="RF Sentinel on Android Auto: threat headline, flagged device lists, a live OpenStreetMap map with plate-reader, speed and red-light cameras and drones, OSM turn-by-turn navigation, and alerts through the car speakers. Setup for sideloaded apps.">
+<meta name="twitter:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="assets/style.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "Android Auto", "item": "https://cis-c0.github.io/RFSentinel/android-auto.html"}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="favicon.svg" alt="" width="28" height="28">RF<span>_</span>SENTINEL</a>
+    <nav class="nav" aria-label="Main"><a href="./">Home</a><a href="how-it-works.html">How it works</a><a href="police-detector.html">Guides</a><a href="install.html">Install</a><a href="android-auto.html" aria-current="page">Android Auto</a><a href="esp32.html">ESP32</a><a href="qa.html">Q&amp;A</a></nav>
+    <div class="social">
+      <a class="icon-btn discord" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span class="lbl">Discord</span></a>
+      <a class="icon-btn github" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg><span class="lbl">GitHub</span></a>
+    </div>
+  </div>
+</header>
+<main id="main" class="wrap">
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / android-auto</p>
+  <h1>Android Auto</h1>
+  <p class="lead">A driver-safe, template-based Android Auto app: what's around you, on the car screen, with alerts through the car speakers.</p>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/CIS-C0/RFSentinel/releases/latest" data-apk><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Download APK <span data-version></span></a>
+    <a class="btn" href="qa.html#car">Driving Q&amp;A</a>
+  </div>
+</div>
+
+<div class="wide-shots">
+  <figure><img src="screenshots/android-auto/home.jpg" width="800" height="400" alt="Android Auto home screen with the threat headline"><figcaption>home</figcaption></figure>
+  <figure><img src="screenshots/android-auto/flagged.jpg" width="800" height="400" loading="lazy" alt="Android Auto list of flagged devices"><figcaption>flagged devices</figcaption></figure>
+  <figure><img src="screenshots/android-auto/live-map.jpg" width="800" height="400" loading="lazy" alt="Android Auto live map with the devices around you"><figcaption>live map</figcaption></figure>
+  <figure><img src="screenshots/android-auto/cameras.jpg" width="800" height="400" loading="lazy" alt="Android Auto live map zoomed out with known cameras"><figcaption>known cameras</figcaption></figure>
+</div>
+<p class="small">Demo data.</p>
+
+<h2 id="screens">Screens</h2>
+<ul>
+<li><b>Home:</b> threat headline, live counts, Start/Stop, and a speaker button that mutes or unmutes all alert sound.</li>
+<li><b>Device lists:</b> flagged, drones &amp; trackers, all nearby; device details with Whitelist, Watch and Favorite. <b>Navigate</b> hands drones with a known position to your navigation app.</li>
+<li><b>Live map:</b> RF Sentinel's own OpenStreetMap map on the car screen with devices in list / radar colours, plate-reader, speed and red-light cameras, and your position. Drag, pinch or <b>+ / −</b>; <b>◎</b> follows the car again. Needs car API level 7; older Android Auto gets car-drawn maps with device and camera lists.</li>
+<li><b>Navigation:</b> <i>Navigate to...</i> searches with Nominatim (on submit only, no search-as-you-type), keeps recent destinations on the phone, routes with OSRM, draws the route with next turn, ETA and distance, speaks turns and re-routes.</li>
+<li><b>Alerts:</b> heads-up cards on the car screen, spoken through the car speakers as navigation guidance audio, briefly lowering music.</li>
+</ul>
+
+<h2 id="setup">Setup for a sideloaded app</h2>
+<ol>
+<li>Open <b>Android Auto settings</b> on the phone.</li>
+<li>Tap <b>Version</b> ten times to unlock developer mode.</li>
+<li><b>⋮ → Developer settings</b> → enable <b>Unknown sources</b>.</li>
+<li>Install (or reinstall) the APK, open RF Sentinel once on the phone, reconnect to the car.</li>
+<li>Still missing? <b>Customize launcher</b> may list it under hidden apps.</li>
+</ol>
+
+<h2 id="auto-start">Auto start</h2>
+<p>Settings → <b>Start scanning automatically in the car</b>: scanning starts when the phone connects to your car's Bluetooth or to Android Auto, and stops when you leave if the car started it.</p>
+
+<h2 id="privacy-nav">Navigation privacy</h2>
+<p>Nominatim and OSRM see the search, your position and destination, and your IP address, only when you search or start a route. They never see your scans.</p>
+<section class="community" aria-label="Community">
+  <a class="dc" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span><strong>Join the Discord</strong>Help, ideas, new signatures, field captures and ESP32 builds.</span></a>
+  <a class="gh" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg><span><strong>CIS-C0/RFSentinel on GitHub</strong>Source code, releases, issues. A star helps others find it.</span></a>
+</section>
+</main>
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <h4>RF Sentinel</h4>
+        <ul>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/releases/latest">Download the APK</a></li>
+          <li><a href="install.html">Install &amp; update</a></li>
+          <li><a href="how-it-works.html">How detection works</a></li>
+          <li><a href="qa.html">Q&amp;A</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Guides</h4>
+        <ul><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li></ul>
+      </div>
+      <div>
+        <h4>Community</h4>
+        <ul>
+          <li><a href="https://discord.gg/NDTjn8HMGq" rel="noopener">Discord server</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel" rel="noopener">GitHub repository</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/issues" rel="noopener">Issues &amp; device reports</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/blob/main/docs/SIGNATURES.md" rel="noopener">Signature reference</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="legal">RF Sentinel is free software under the GNU GPL v3.0. Copyright © 2026 CIS-C0.
+    Receive-only: it transmits nothing, and a detection is a signature match, not proof of who is present. Check your local laws.
+    Not affiliated with any company or product named on this site; names are used only to describe compatibility and detection.
+    No cookies, no analytics, no trackers on this site.</p>
+  </div>
+</footer>
+<script>
+// A link to a question (qa.html#detect-flock) opens its answer.
+(function () {
+  function openHash() {
+    var el = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (el && el.tagName === "DETAILS") { el.open = true; el.scrollIntoView(); }
+  }
+  openHash();
+  window.addEventListener("hashchange", openHash);
+})();
+// Latest release: version label and a direct link to the signed APK. Falls back to the releases page.
+(function () {
+  var els = document.querySelectorAll("[data-apk]");
+  if (!els.length || !window.fetch) return;
+  fetch("https://api.github.com/repos/CIS-C0/RFSentinel/releases/latest")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (rel) {
+      if (!rel) return;
+      var apk = (rel.assets || []).filter(function (a) { return /-release\.apk$/.test(a.name); })[0];
+      els.forEach(function (el) {
+        if (apk) el.href = apk.browser_download_url;
+        var v = el.querySelector("[data-version]");
+        if (v) v.textContent = rel.tag_name;
+      });
+    }).catch(function () {});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!--META {"title": "How to detect police with an Android phone - body cams, radios, patrol cars | RF Sentinel", "description": "Detect police body cameras (Axon, Motorola, Digital Ally), radios, e-ticket printers and patrol-vehicle equipment with a non-rooted Android phone. Which Bluetooth LE and WiFi signatures work, how patrol cars are grouped, and the limits.", "nav": "guides", "crumb": "Detect police with Android"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / police-detector</p>
+  <h1>Detect police with Android</h1>
+  <p class="lead">Police equipment talks constantly over Bluetooth LE and WiFi: body cameras pair with phones and holster sensors, cars carry cellular routers, printers and radios pair with tablets. A phone can hear all of that without root and without transmitting anything.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="qa.html#police">Police Q&amp;A</a>
+  </div>
+</div>
+
+<h2 id="what">What gives police gear away</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Equipment</th><th>Signal</th><th>Rule</th><th>Score</th></tr></thead>
+<tbody>
+<tr><td>Body camera (multiple brands)</td><td>BLE payload</td><td><code>BWCDEVICE</code> ASCII in service / manufacturer data or raw advert, either byte order</td><td>90</td></tr>
+<tr><td>Axon / TASER</td><td>BLE</td><td>Company ID <code>0x034D</code>; UUID <code>0xFC81</code>, <code>0xFE6B</code>, <code>0xFE6C</code></td><td>60 each, fused</td></tr>
+<tr><td>Axon</td><td>MAC prefix</td><td><code>00:25:DF</code> (IEEE MA-L, Axon Enterprise)</td><td>75</td></tr>
+<tr><td>Utility Inc. body cam</td><td>BLE name</td><td>contains <code>BodyWorn Remote</code></td><td>80</td></tr>
+<tr><td>Motorola Solutions radios / gear</td><td>BLE</td><td>Company ID <code>0x04EC</code>; UUID <code>0xFD8E</code> / <code>0xFE04</code></td><td>45</td></tr>
+<tr><td>Zebra e-ticket printer</td><td>BLE</td><td>UUID <code>0xFE79</code> / <code>0xFD66</code> + factory-serial name</td><td>50 (30 otherwise)</td></tr>
+<tr><td>In-car router</td><td>WiFi / MAC</td><td>Cradlepoint, Sierra Wireless registrant (role only, never alone)</td><td>via grouping</td></tr>
+<tr><td>Flock plate reader</td><td>WiFi / BLE</td><td><code>Flock-</code> SSID, <code>FS Ext Battery</code>, <code>Penguin-</code>, <code>FS-</code>, <code>0x09C8</code></td><td>45-88</td></tr>
+</tbody></table></div>
+<p>Plus vendor prefixes of Digital Ally, WatchGuard, Getac, Zepcam, Vievu, P25 / TETRA radio makers, police radar makers and vehicle upfitters in the Global, Canada and US presets. Every prefix cites its IEEE registrant. Full list: <a href="{{REPO}}/blob/main/docs/SIGNATURES.md" rel="noopener">SIGNATURES.md</a>.</p>
+
+<h2 id="patrol">Patrol vehicles: grouping gear that moves together</h2>
+<p>One Motorola radio is a security guard as often as a cop. A body camera, a radio and a vehicle router whose signals rise and fall together are a patrol car. RF Sentinel gives each device a role from its matches or IEEE registrant, then groups two or more different roles when:</p>
+<ul>
+<li>their RSSI series correlate (Pearson r ≥ 0.6 over at least 8 aligned seconds), or</li>
+<li>both are flat (parked) and appeared within 30 s of each other.</li>
+</ul>
+<div class="term"><span class="c"># score = 24 + 12 x roles (+10 if moving together), max 88</span>
+2 roles, parked ........... 48  <span class="c">weak</span>
+2 roles, moving together .. 58  <span class="w">probable</span>
+3 roles, moving together .. 70  <span class="w">probable</span>
+5 roles, moving together .. 88  <span class="b">strong</span></div>
+<p>Consumer brands that also make car audio or office gear (Kenwood, Panasonic Connect, Havis) get no role from their vendor name alone, and whitelisted devices never count. The group is recomputed every 2 s, so it disappears when the vehicle leaves.</p>
+
+<h2 id="setup">Setup for driving</h2>
+<ol>
+<li>Install and run the setup wizard: pick your region preset (Global, Canada, US) and alert threshold.</li>
+<li>Settings → <b>Start scanning automatically in the car</b> → pick your car's Bluetooth.</li>
+<li>Enable the floating bubble if you drive with Waze or Google Maps on screen, or use <a href="android-auto.html">Android Auto</a>.</li>
+<li>Leave screen-on <i>while charging</i> (default) on a car mount: Android limits Bluetooth scans with the screen off.</li>
+</ol>
+
+<h2 id="limits">Limits</h2>
+<ul>
+<li>A match is a signature, not an officer. Every hit shows its evidence; verify weak ones.</li>
+<li>Gear that's off, docked, or only on cellular is invisible. Radios' voice channels (VHF/UHF/700/800 MHz P25, TETRA) are not received.</li>
+<li>Not a radar detector: X/K/Ka-band radar and lidar can't be received by a phone.</li>
+<li>Range is limited by phone antennas; an <a href="esp32.html">ESP32 board</a> helps.</li>
+</ul>
+
+<h2 id="faq-police">Questions</h2>
+<details class="faq" id="q-bodycam-always">
+<summary>Do body cameras advertise all the time?</summary>
+<div><p>Many do, on and off. Some only include their tag in some packets, so RF Sentinel holds a device's match for 2 minutes after the evidence was last seen before it fades.</p></div>
+</details>
+<details class="faq" id="q-officer-phone">
+<summary>Does it detect an officer's phone?</summary>
+<div><p>No. Phones use random addresses and generic Apple / Google adverts with nothing police-specific. It detects the equipment, not the person.</p></div>
+</details>
+<details class="faq" id="q-bodycam-recording">
+<summary>Can it tell if a body camera is recording?</summary>
+<div><p>No. Recording state isn't in the advertisement RF Sentinel matches.</p></div>
+</details>

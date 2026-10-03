@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to detect police with an Android phone - body cams, radios, patrol cars | RF Sentinel</title>
+<meta name="description" content="Detect police body cameras (Axon, Motorola, Digital Ally), radios, e-ticket printers and patrol-vehicle equipment with a non-rooted Android phone. Which Bluetooth LE and WiFi signatures work, how patrol cars are grouped, and the limits.">
+<link rel="canonical" href="https://cis-c0.github.io/RFSentinel/police-detector.html">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#050507">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="RF Sentinel">
+<meta property="og:title" content="How to detect police with an Android phone - body cams, radios, patrol cars | RF Sentinel">
+<meta property="og:description" content="Detect police body cameras (Axon, Motorola, Digital Ally), radios, e-ticket printers and patrol-vehicle equipment with a non-rooted Android phone. Which Bluetooth LE and WiFi signatures work, how patrol cars are grouped, and the limits.">
+<meta property="og:url" content="https://cis-c0.github.io/RFSentinel/police-detector.html">
+<meta property="og:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="RF Sentinel - BLE and WiFi police scanner for Android">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to detect police with an Android phone - body cams, radios, patrol cars | RF Sentinel">
+<meta name="twitter:description" content="Detect police body cameras (Axon, Motorola, Digital Ally), radios, e-ticket printers and patrol-vehicle equipment with a non-rooted Android phone. Which Bluetooth LE and WiFi signatures work, how patrol cars are grouped, and the limits.">
+<meta name="twitter:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="assets/style.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "Detect police with Android", "item": "https://cis-c0.github.io/RFSentinel/police-detector.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Do body cameras advertise all the time?", "acceptedAnswer": {"@type": "Answer", "text": "Many do, on and off. Some only include their tag in some packets, so RF Sentinel holds a device's match for 2 minutes after the evidence was last seen before it fades."}}, {"@type": "Question", "name": "Does it detect an officer's phone?", "acceptedAnswer": {"@type": "Answer", "text": "No. Phones use random addresses and generic Apple / Google adverts with nothing police-specific. It detects the equipment, not the person."}}, {"@type": "Question", "name": "Can it tell if a body camera is recording?", "acceptedAnswer": {"@type": "Answer", "text": "No. Recording state isn't in the advertisement RF Sentinel matches."}}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="favicon.svg" alt="" width="28" height="28">RF<span>_</span>SENTINEL</a>
+    <nav class="nav" aria-label="Main"><a href="./">Home</a><a href="how-it-works.html">How it works</a><a href="police-detector.html" aria-current="page">Guides</a><a href="install.html">Install</a><a href="android-auto.html">Android Auto</a><a href="esp32.html">ESP32</a><a href="qa.html">Q&amp;A</a></nav>
+    <div class="social">
+      <a class="icon-btn discord" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span class="lbl">Discord</span></a>
+      <a class="icon-btn github" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg><span class="lbl">GitHub</span></a>
+    </div>
+  </div>
+</header>
+<main id="main" class="wrap">
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / police-detector</p>
+  <h1>Detect police with Android</h1>
+  <p class="lead">Police equipment talks constantly over Bluetooth LE and WiFi: body cameras pair with phones and holster sensors, cars carry cellular routers, printers and radios pair with tablets. A phone can hear all of that without root and without transmitting anything.</p>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/CIS-C0/RFSentinel/releases/latest" data-apk><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Download APK <span data-version></span></a>
+    <a class="btn" href="qa.html#police">Police Q&amp;A</a>
+  </div>
+</div>
+
+<h2 id="what">What gives police gear away</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Equipment</th><th>Signal</th><th>Rule</th><th>Score</th></tr></thead>
+<tbody>
+<tr><td>Body camera (multiple brands)</td><td>BLE payload</td><td><code>BWCDEVICE</code> ASCII in service / manufacturer data or raw advert, either byte order</td><td>90</td></tr>
+<tr><td>Axon / TASER</td><td>BLE</td><td>Company ID <code>0x034D</code>; UUID <code>0xFC81</code>, <code>0xFE6B</code>, <code>0xFE6C</code></td><td>60 each, fused</td></tr>
+<tr><td>Axon</td><td>MAC prefix</td><td><code>00:25:DF</code> (IEEE MA-L, Axon Enterprise)</td><td>75</td></tr>
+<tr><td>Utility Inc. body cam</td><td>BLE name</td><td>contains <code>BodyWorn Remote</code></td><td>80</td></tr>
+<tr><td>Motorola Solutions radios / gear</td><td>BLE</td><td>Company ID <code>0x04EC</code>; UUID <code>0xFD8E</code> / <code>0xFE04</code></td><td>45</td></tr>
+<tr><td>Zebra e-ticket printer</td><td>BLE</td><td>UUID <code>0xFE79</code> / <code>0xFD66</code> + factory-serial name</td><td>50 (30 otherwise)</td></tr>
+<tr><td>In-car router</td><td>WiFi / MAC</td><td>Cradlepoint, Sierra Wireless registrant (role only, never alone)</td><td>via grouping</td></tr>
+<tr><td>Flock plate reader</td><td>WiFi / BLE</td><td><code>Flock-</code> SSID, <code>FS Ext Battery</code>, <code>Penguin-</code>, <code>FS-</code>, <code>0x09C8</code></td><td>45-88</td></tr>
+</tbody></table></div>
+<p>Plus vendor prefixes of Digital Ally, WatchGuard, Getac, Zepcam, Vievu, P25 / TETRA radio makers, police radar makers and vehicle upfitters in the Global, Canada and US presets. Every prefix cites its IEEE registrant. Full list: <a href="https://github.com/CIS-C0/RFSentinel/blob/main/docs/SIGNATURES.md" rel="noopener">SIGNATURES.md</a>.</p>
+
+<h2 id="patrol">Patrol vehicles: grouping gear that moves together</h2>
+<p>One Motorola radio is a security guard as often as a cop. A body camera, a radio and a vehicle router whose signals rise and fall together are a patrol car. RF Sentinel gives each device a role from its matches or IEEE registrant, then groups two or more different roles when:</p>
+<ul>
+<li>their RSSI series correlate (Pearson r ≥ 0.6 over at least 8 aligned seconds), or</li>
+<li>both are flat (parked) and appeared within 30 s of each other.</li>
+</ul>
+<div class="term"><span class="c"># score = 24 + 12 x roles (+10 if moving together), max 88</span>
+2 roles, parked ........... 48  <span class="c">weak</span>
+2 roles, moving together .. 58  <span class="w">probable</span>
+3 roles, moving together .. 70  <span class="w">probable</span>
+5 roles, moving together .. 88  <span class="b">strong</span></div>
+<p>Consumer brands that also make car audio or office gear (Kenwood, Panasonic Connect, Havis) get no role from their vendor name alone, and whitelisted devices never count. The group is recomputed every 2 s, so it disappears when the vehicle leaves.</p>
+
+<h2 id="setup">Setup for driving</h2>
+<ol>
+<li>Install and run the setup wizard: pick your region preset (Global, Canada, US) and alert threshold.</li>
+<li>Settings → <b>Start scanning automatically in the car</b> → pick your car's Bluetooth.</li>
+<li>Enable the floating bubble if you drive with Waze or Google Maps on screen, or use <a href="android-auto.html">Android Auto</a>.</li>
+<li>Leave screen-on <i>while charging</i> (default) on a car mount: Android limits Bluetooth scans with the screen off.</li>
+</ol>
+
+<h2 id="limits">Limits</h2>
+<ul>
+<li>A match is a signature, not an officer. Every hit shows its evidence; verify weak ones.</li>
+<li>Gear that's off, docked, or only on cellular is invisible. Radios' voice channels (VHF/UHF/700/800 MHz P25, TETRA) are not received.</li>
+<li>Not a radar detector: X/K/Ka-band radar and lidar can't be received by a phone.</li>
+<li>Range is limited by phone antennas; an <a href="esp32.html">ESP32 board</a> helps.</li>
+</ul>
+
+<h2 id="faq-police">Questions</h2>
+<details class="faq" id="q-bodycam-always">
+<summary>Do body cameras advertise all the time?</summary>
+<div><p>Many do, on and off. Some only include their tag in some packets, so RF Sentinel holds a device's match for 2 minutes after the evidence was last seen before it fades.</p></div>
+</details>
+<details class="faq" id="q-officer-phone">
+<summary>Does it detect an officer's phone?</summary>
+<div><p>No. Phones use random addresses and generic Apple / Google adverts with nothing police-specific. It detects the equipment, not the person.</p></div>
+</details>
+<details class="faq" id="q-bodycam-recording">
+<summary>Can it tell if a body camera is recording?</summary>
+<div><p>No. Recording state isn't in the advertisement RF Sentinel matches.</p></div>
+</details>
+<section class="community" aria-label="Community">
+  <a class="dc" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span><strong>Join the Discord</strong>Help, ideas, new signatures, field captures and ESP32 builds.</span></a>
+  <a class="gh" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg><span><strong>CIS-C0/RFSentinel on GitHub</strong>Source code, releases, issues. A star helps others find it.</span></a>
+</section>
+</main>
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <h4>RF Sentinel</h4>
+        <ul>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/releases/latest">Download the APK</a></li>
+          <li><a href="install.html">Install &amp; update</a></li>
+          <li><a href="how-it-works.html">How detection works</a></li>
+          <li><a href="qa.html">Q&amp;A</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Guides</h4>
+        <ul><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li></ul>
+      </div>
+      <div>
+        <h4>Community</h4>
+        <ul>
+          <li><a href="https://discord.gg/NDTjn8HMGq" rel="noopener">Discord server</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel" rel="noopener">GitHub repository</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/issues" rel="noopener">Issues &amp; device reports</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/blob/main/docs/SIGNATURES.md" rel="noopener">Signature reference</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="legal">RF Sentinel is free software under the GNU GPL v3.0. Copyright © 2026 CIS-C0.
+    Receive-only: it transmits nothing, and a detection is a signature match, not proof of who is present. Check your local laws.
+    Not affiliated with any company or product named on this site; names are used only to describe compatibility and detection.
+    No cookies, no analytics, no trackers on this site.</p>
+  </div>
+</footer>
+<script>
+// A link to a question (qa.html#detect-flock) opens its answer.
+(function () {
+  function openHash() {
+    var el = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (el && el.tagName === "DETAILS") { el.open = true; el.scrollIntoView(); }
+  }
+  openHash();
+  window.addEventListener("hashchange", openHash);
+})();
+// Latest release: version label and a direct link to the signed APK. Falls back to the releases page.
+(function () {
+  var els = document.querySelectorAll("[data-apk]");
+  if (!els.length || !window.fetch) return;
+  fetch("https://api.github.com/repos/CIS-C0/RFSentinel/releases/latest")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (rel) {
+      if (!rel) return;
+      var apk = (rel.assets || []).filter(function (a) { return /-release\.apk$/.test(a.name); })[0];
+      els.forEach(function (el) {
+        if (apk) el.href = apk.browser_download_url;
+        var v = el.querySelector("[data-version]");
+        if (v) v.textContent = rel.tag_name;
+      });
+    }).catch(function () {});
+})();
+</script>
+</body>
+</html>

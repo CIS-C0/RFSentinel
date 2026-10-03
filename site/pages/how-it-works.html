@@ -1,0 +1,67 @@
+<!--META {"title": "How RF Sentinel detects surveillance equipment - BLE, WiFi, signatures, evidence fusion", "description": "Technical overview of RF Sentinel's detection pipeline: passive BLE and WiFi scanning, IEEE OUI and Bluetooth SIG signatures, confidence tiers, noisy-OR evidence fusion, patrol-vehicle RSSI correlation, MAC-rotation linking, WiFi fingerprinting and cell analysis.", "nav": "how-it-works", "crumb": "How it works"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / how-it-works</p>
+  <h1>How it works</h1>
+  <p class="lead">From radio packet to alert. Every rule and threshold here is in the public source; file names point at the Kotlin classes.</p>
+</div>
+
+<h2 id="scan">1. Scanning (receive only)</h2>
+<ul>
+<li><b>Bluetooth LE</b> (<code>service/BleScanEngine.kt</code>): continuous <code>BluetoothLeScanner</code> scan, no batching, aggressive match mode, legacy + BT5 extended advertising and LE Coded PHY when the chip supports them. Scan mode: low latency (default), balanced or low power.</li>
+<li><b>Screen off:</b> Android suspends unfiltered scans, so a second, hardware-filtered scan runs on the identifiers that matter (vendor company IDs, Remote ID, tracker and glasses service data and UUIDs, watchlisted exact addresses).</li>
+<li><b>WiFi</b>: <code>WifiManager</code> scans every 30 s by default (Android allows about 4 per 2 minutes), including raw information elements on Android 11+.</li>
+<li><b>Cell</b>: <code>getAllCellInfo()</code> every 15 s for <a href="imsi-catcher-detector.html">fake-tower signs</a>.</li>
+<li><b>External</b>: OUI-Spy / GhostESP <a href="esp32.html">ESP32 boards</a> over USB or Bluetooth.</li>
+</ul>
+<p>Nothing is ever transmitted to, connected to or paired with a scanned device.</p>
+
+<h2 id="signatures">2. Signatures</h2>
+<p><code>detect/SignatureEngine.kt</code> matches payload tags (<code>BWCDEVICE</code>), Bluetooth SIG company IDs, 16 and 128-bit service UUIDs, service data, names and SSIDs. The watchlist matches exact addresses, IEEE MA-L / MA-M / MA-S prefixes and name / vendor rules, seeded by regional presets (<code>assets/oui_presets/</code>: Global, Canada, US). Every prefix used in code is checked against its IEEE registrant by <code>tools/gen_assets.py</code>, which fails the build data if one changes.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Tier</th><th>Confidence</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>Weak</td><td>&lt; 50</td><td>Shared identifier; amber, silent by default</td></tr>
+<tr><td>Probable</td><td>50-79</td><td>Vendor-specific identifier; alerts at the default threshold</td></tr>
+<tr><td>Strong</td><td>80+</td><td>Payload tag or vendor-assigned network name</td></tr>
+</tbody></table></div>
+<p>Rejected on purpose: bare 10-digit BLE names, the <code>-FALCON</code> SSID suffix, Liteon module blocks, Motorola Mobility blocks (consumer phones), Sierra Wireless / Cradlepoint blocks as standalone matches, and company ID <code>0x058E</code> alone.</p>
+
+<h2 id="fusion">3. Evidence fusion</h2>
+<p><code>detect/EvidenceFusion.kt</code>, every 2 s per device. Different rules of the same category combine by noisy-OR with each supporting hit at half weight:</p>
+<pre><code>fused = 1 - (1 - top) × Π (1 - 0.5 × support_i)      support_i ≥ 30, result ≤ 90</code></pre>
+<p>Example: watchlisted address 70 + Zebra serial name 50 → 78. The patrol-vehicle hit is never fused, because it is derived from the device's own matches.</p>
+
+<h2 id="patrol">4. Patrol-vehicle grouping</h2>
+<p><code>detect/PatrolCluster.kt</code>. Each device gets a role (body camera, plate reader, two-way radio, vehicle cellular router, mobile printer, in-car computer, rugged laptop, police camera) from its matches or IEEE registrant. Two or more different roles form a vehicle when their RSSI correlates (Pearson r ≥ 0.6 over ≥ 8 aligned seconds) or both are parked (flat) and appeared within 30 s of each other. Score: 24 + 12 × roles, +10 if moving together, cap 88. A device's own match is held 2 minutes after its evidence was last seen.</p>
+
+<h2 id="linking">5. Address-rotation linking</h2>
+<p><code>detect/AdvertFingerprint.kt</code>. Fingerprint = names, service UUIDs, service-data and company-ID payload sizes, TX power, connectable flag. A new private address with the same fingerprint as exactly one device that went silent 1.5-30 s earlier inherits its matches (−5), follow history (time with you, GPS path) and ignore state. Apple-Continuity-only adverts are never linked.</p>
+
+<h2 id="follow">6. Follow detection</h2>
+<p>A tracker or flagged device heard continuously (gaps under 3 minutes) for at least 10 minutes while you moved at least 800 m raises <b>may be following you</b>, once per device. Both thresholds are adjustable.</p>
+
+<h2 id="identify">7. Identifying ordinary devices</h2>
+<ol>
+<li>Decoded vendor protocols (Apple Continuity incl. exact AirPods / Beats model, iBeacon, Eddystone, Fast Pair, Remote ID)</li>
+<li>GAP appearance</li>
+<li>Standard SIG services (heart rate, HID, LE Audio, medical...)</li>
+<li>Name patterns</li>
+<li>Member-service owner</li>
+<li>IEEE registrant</li>
+<li>Company ID</li>
+</ol>
+
+<h2 id="wifi">8. WiFi fingerprinting</h2>
+<p><code>detect/WifiFingerprint.kt</code>: WPS element (manufacturer <code>0x1021</code>, model name <code>0x1023</code>, model number <code>0x1024</code>, device name <code>0x1011</code>, primary device type <code>0x1054</code>), Cisco CCX AP name (IE 133, bytes 10-25), BSSID registrant (unless chipset-only), vendor IE owners split into equipment and chipset makers. BSSIDs are the same AP when octets 2-5 match, the last octet is within 16 and the first is equal or locally administered.</p>
+
+<h2 id="cameras">9. Known cameras</h2>
+<p><code>alpr/</code>: OpenStreetMap elements tagged <code>surveillance:type=ALPR</code>, speed and red-light cameras, fetched via Overpass (overpass-api.de, with overpass.kumi.systems and overpass.private.coffee as fallbacks) and DeFlock's region snapshots, cached privately, refreshed weekly. Warnings when a camera is ~20 s ahead (150-600 m) and getting closer.</p>
+
+<h2 id="sources">Sources</h2>
+<ul>
+<li><a href="https://github.com/soyboi1312/all-cameras-are-beacons" rel="noopener">all-cameras-are-beacons</a> signature reference (Apache-2.0): confidence ladder and field-validated values</li>
+<li>opendroneid-core-c (Apache-2.0): Remote ID message layout</li>
+<li>IEEE Registration Authority (via Wireshark's weekly copy) and Bluetooth SIG assigned numbers</li>
+<li>Community prefix lists cross-checked: Flock You, OUI-Spy, nite-oui-collection, Wardrive Go, Flock-You-Android, Fieldwatch</li>
+</ul>
+<p>Full tables: <a href="{{REPO}}/blob/main/docs/SIGNATURES.md" rel="noopener">docs/SIGNATURES.md</a>.</p>

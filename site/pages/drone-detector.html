@@ -1,0 +1,48 @@
+<!--META {"title": "Remote ID drone detector for Android - see drones and the pilot's location | RF Sentinel", "description": "Decode FAA / EU Remote ID (ASTM F3411) from drones over Bluetooth LE and WiFi on Android: serial number, position, altitude, speed, heading and operator location on a live map, with a drone-overhead alert. Free, open source.", "nav": "guides", "crumb": "Remote ID drone detector"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / drone-detector</p>
+  <h1>Remote ID drone detector</h1>
+  <p class="lead">Drones flying under FAA and EU Remote ID rules broadcast their identity and position in the clear. RF Sentinel decodes the broadcast and puts every drone and its operator on a map.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="qa.html#drones">Drone Q&amp;A</a>
+  </div>
+</div>
+
+<h2 id="transport">Transports decoded</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Transport</th><th>Identifier</th><th>Score</th></tr></thead>
+<tbody>
+<tr><td>Bluetooth LE (legacy and BT5 extended advertising, LE Coded where supported)</td><td>Service data <code>0xFFFA</code>, app code <code>0x0D</code></td><td>95</td></tr>
+<tr><td>WiFi beacon</td><td>Vendor IE, OUI <code>FA:0B:BC</code>, type <code>0x0D</code></td><td>95</td></tr>
+<tr><td>Maker MAC blocks</td><td>DJI, Parrot, Skydio, Autel /28, Yuneec /28 and others</td><td>60</td></tr>
+</tbody></table></div>
+
+<h2 id="messages">ASTM F3411 messages</h2>
+<ul>
+<li><b>Basic ID</b> (0): serial number or registration, UA type.</li>
+<li><b>Location / Vector</b> (1): latitude, longitude, altitude, height, speed, vertical speed, heading.</li>
+<li><b>Self ID</b> (3): free-text description.</li>
+<li><b>System</b> (4): operator / take-off position, area count.</li>
+<li><b>Operator ID</b> (5): registered operator ID.</li>
+<li><b>Message Pack</b> (0xF): several of the above in one extended advert.</li>
+</ul>
+<p>Message layout follows opendroneid-core-c (Apache-2.0).</p>
+
+<h2 id="app">In the app</h2>
+<ul>
+<li>Live map of each drone with heading, altitude and speed, plus its operator.</li>
+<li><b>Drone overhead</b> alert (95) when one is within 200 m horizontally of you, once per drone per 5 minutes.</li>
+<li>Drone and operator positions open in your maps app; in Android Auto, <b>Navigate</b> hands them to your navigation app.</li>
+<li><b>Drones</b> filter chip with a live count.</li>
+</ul>
+
+<h2 id="faq-drone">Questions</h2>
+<details class="faq" id="q-drone-ocusync">
+<summary>Can it detect DJI drones without Remote ID?</summary>
+<div><p>Not their video / control link: DJI OcuSync is a proprietary wideband link a phone can't decode. DJI aircraft sold under Remote ID rules broadcast standard Remote ID, which is what RF Sentinel reads.</p></div>
+</details>
+<details class="faq" id="q-drone-range">
+<summary>How far away can it see a drone?</summary>
+<div><p>Remote ID over Bluetooth is designed for a few hundred metres in the open; phones with LE Coded PHY hear the long-range variant further. WiFi Beacon Remote ID usually carries further than legacy Bluetooth.</p></div>
+</details>

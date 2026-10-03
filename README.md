@@ -23,6 +23,10 @@
 </p>
 
 <p align="center">
+  <b><a href="https://cis-c0.github.io/RFSentinel/">Website</a> · <a href="https://cis-c0.github.io/RFSentinel/qa.html">Q&amp;A</a> · <a href="https://cis-c0.github.io/RFSentinel/how-it-works.html">How it works</a></b>
+</p>
+
+<p align="center">
   <a href="https://github.com/CIS-C0/RFSentinel/releases/latest"><img src="docs/download-button.svg" width="420" alt="Download the app for Android - free, latest version (.apk)" /></a>
 </p>
 

@@ -1,0 +1,109 @@
+<!--META {"title": "RF Sentinel - Free police, body cam, Flock camera & tracker detector for Android", "description": "Free open-source Android app that passively detects police body cameras (Axon, Motorola), Flock license-plate cameras, patrol vehicles, AirTags following you, Remote ID drones, smart glasses and fake cell tower signs from Bluetooth LE, WiFi and cell data. No root, no Termux, no account.", "nav": "index"} -->
+<section class="hero">
+  <div>
+    <p class="kicker">marcus@ctOS-2.0:~$ ./rf_sentinel --passive</p>
+    <h1>RF_SENTINEL</h1>
+    <p class="lead">A free, open-source Android app that listens to Bluetooth LE advertisements and WiFi beacons around you and flags police and surveillance equipment: body cameras, Flock and other plate-reader cameras, patrol-vehicle gear, trackers following you, Remote ID drones and camera glasses. It also watches the cell network for fake-tower (IMSI catcher) signs.</p>
+    <p><span class="stamp">RX ONLY</span><span class="small">No root · no Termux · no account · no analytics · GPL-3.0 · Android 8.0+</span></p>
+    <div class="cta">
+      <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+      <a class="btn" href="{{REPO}}" rel="noopener">{{GITHUB_SVG}}Source on GitHub</a>
+      <a class="btn discord" href="{{DISCORD}}" rel="noopener">{{DISCORD_SVG}}Discord</a>
+    </div>
+    <p class="small">Signed APK from GitHub Releases. Not on Google Play. <a href="install.html">Install guide</a> · <a href="qa.html">Q&amp;A</a></p>
+  </div>
+  <div class="shots">
+    <img src="screenshots/list-dedsec.jpg" width="540" height="1202" alt="RF Sentinel list view in the DedSec theme with flagged body camera, patrol vehicle and Flock camera detections (demo data)">
+    <img src="screenshots/list-fsociety.jpg" width="540" height="1202" alt="RF Sentinel list view in the fsociety theme (demo data)">
+  </div>
+</section>
+
+<h2 id="detects">What it detects</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Category</th><th>Examples</th><th>How</th></tr></thead>
+<tbody>
+<tr><td>Body cameras</td><td>Axon (TASER), Motorola / WatchGuard, Digital Ally, Zepcam, Vievu, Utility, Getac, in-car video</td><td><code>BWCDEVICE</code> payload tag, company ID <code>0x034D</code>, service UUIDs <code>0xFC81</code> / <code>0xFE6B</code> / <code>0xFE6C</code>, IEEE vendor prefixes</td></tr>
+<tr><td>License-plate readers (ALPR)</td><td>Flock Safety, Genetec, Perceptics, Quercus, Tattile</td><td><code>Flock-</code> SSIDs, <code>Penguin-</code> / <code>FS-</code> / <code>FS Ext Battery</code> BLE names, company ID <code>0x09C8</code>, plus OpenStreetMap / DeFlock camera locations</td></tr>
+<tr><td>Speed &amp; red-light cameras</td><td>Fixed cameras mapped in OpenStreetMap</td><td>Offline map layer, warned about ~30 s ahead with the mapped limit</td></tr>
+<tr><td>Audio sensors</td><td>Flock Raven gunshot detectors</td><td>128-bit service UUIDs with short IDs <code>0x3100</code>-<code>0x3500</code></td></tr>
+<tr><td>Patrol vehicles</td><td>Two or more kinds of police-type gear moving together</td><td>RSSI correlation (Pearson r ≥ 0.6 over ≥ 8 s) across body cam, radio, in-car router, printer, rugged laptop roles</td></tr>
+<tr><td>Public-safety gear</td><td>P25 / TETRA radio makers, police radar makers, vehicle upfit, Zebra e-ticket printers</td><td>Company IDs, UUIDs, IEEE prefixes, Zebra factory-serial names</td></tr>
+<tr><td>Trackers</td><td>AirTag &amp; Find My, Google Find Hub, Samsung SmartTag, Tile</td><td>Separated-from-owner frames, then follow detection (default 10 min and 800 m with you)</td></tr>
+<tr><td>Drones</td><td>Any ASTM F3411 / FAA Remote ID broadcaster (DJI, Skydio, Autel, Parrot...)</td><td>Decoded Remote ID over BLE and WiFi: serial, position, altitude, speed, heading, operator location</td></tr>
+<tr><td>Camera glasses</td><td>Ray-Ban Meta, Snap Spectacles, Vuzix, HeyCyan-based glasses</td><td>Luxottica <code>0x0D53</code>, Snap <code>0x03C2</code>, Vuzix <code>0x060C</code>, Meta UUIDs</td></tr>
+<tr><td>Fake cell towers</td><td>IMSI catchers / cell-site simulators</td><td>Test MCCs, sudden 4G→2G, cloned or reserved cell IDs, unexpected networks (no root)</td></tr>
+</tbody>
+</table></div>
+<p>Every match shows its evidence, its source and a confidence tier: <b>weak</b> (&lt; 50), <b>probable</b> (50-79) or <b>strong</b> (80+). Full rules: <a href="how-it-works.html">how detection works</a> and the <a href="{{REPO}}/blob/main/docs/SIGNATURES.md" rel="noopener">signature reference</a>.</p>
+
+<h2 id="pipeline">What happens to every packet</h2>
+<div class="term"><span class="p">[ble]</span>  adv 00:25:DF:xx:xx:xx  rssi -71  mfr 0x034D  svc 0xFC81
+<span class="p">[sig]</span>  TASER company ID .............. 60  <span class="c">(SIG)</span>
+<span class="p">[sig]</span>  Axon service UUID ............. 60  <span class="c">(SIG)</span>
+<span class="p">[oui]</span>  00:25:DF Axon Enterprise ...... 75  <span class="c">(IEEE MA-L)</span>
+<span class="p">[fuse]</span> noisy-OR, support x0.5 ........ 88  <span class="w">STRONG body camera</span>
+<span class="p">[grp]</span>  + Motorola radio + Cradlepoint router, r=0.74 over 12 s
+<span class="b">[alrt]</span> Possible police vehicle (3 kinds of gear) ... 70</div>
+<p class="small">Illustrative trace: actual scores depend on what each device advertises. The app logs the evidence the same way on each device's detail screen.</p>
+
+<h2 id="features">Features</h2>
+<div class="grid">
+  <div class="card"><h3>Live list &amp; radar</h3><p>Every device heard in the last 3 minutes with vendor, type, radio, RSSI, rough distance and NEW / ★ / FOLLOWING badges. Flagged devices sort first. Filter chips with live counts.</p></div>
+  <div class="card"><h3>Alerts</h3><p>Sound, vibration pattern per tier (1 / 2 / 3 pulses), spoken announcements through the phone's TTS, discreet mode, floating threat bubble over Waze or Google Maps.</p></div>
+  <div class="card"><h3>Map &amp; traces</h3><p>OpenStreetMap with your GPS trace, devices placed where their signal peaked, history heatmap and timeline, offline known-camera layer.</p></div>
+  <div class="card"><h3>Android Auto</h3><p>Template app with threat headline, device lists, live OSM map with cameras and drones, turn-by-turn navigation, alerts through the car speakers. <a href="android-auto.html">Details</a></p></div>
+  <div class="card"><h3>Auto start in the car</h3><p>Starts when the phone connects to your car's Bluetooth or Android Auto, stops when you leave.</p></div>
+  <div class="card"><h3>ESP32 boards</h3><p>OUI-Spy over USB OTG or Bluetooth, GhostESP over USB. The board's detections merge into the app. <a href="esp32.html">Details</a></p></div>
+  <div class="card"><h3>Device details</h3><p>Evidence, identity, decoded protocol data, signal graph, Locate mode (beeps faster as you get closer), history and the raw advertisement.</p></div>
+  <div class="card"><h3>Export</h3><p>CSV, JSON, KML, GPX, GeoJSON. Everything stays on the phone until you export or share it.</p></div>
+  <div class="card"><h3>13 themes</h3><p>Including DedSec (Watch Dogs 2) and fsociety (Mr. Robot) fan themes with animated terminal headers, Night Drive red HUD, Night Vision, Amber CRT.</p></div>
+</div>
+
+<h2 id="screens">Screenshots</h2>
+<div class="gallery">
+  <figure><img src="screenshots/themes/dedsec-radar.jpg" width="540" height="1202" loading="lazy" alt="Radar view, DedSec theme"><figcaption>radar · DedSec</figcaption></figure>
+  <figure><img src="screenshots/themes/fsociety-radar.jpg" width="540" height="1202" loading="lazy" alt="Radar view, fsociety theme"><figcaption>radar · fsociety</figcaption></figure>
+  <figure><img src="screenshots/themes/night-drive-list.jpg" width="540" height="1202" loading="lazy" alt="List view, Night Drive red theme"><figcaption>Night Drive</figcaption></figure>
+  <figure><img src="screenshots/themes/night-vision-radar.jpg" width="540" height="1202" loading="lazy" alt="Radar view, Night Vision theme"><figcaption>Night Vision</figcaption></figure>
+  <figure><img src="screenshots/themes/amber-list.jpg" width="540" height="1202" loading="lazy" alt="List view, Amber CRT theme"><figcaption>Amber CRT</figcaption></figure>
+  <figure><img src="screenshots/themes/synthwave-radar.jpg" width="540" height="1202" loading="lazy" alt="Radar view, Synthwave theme"><figcaption>Synthwave</figcaption></figure>
+</div>
+<div class="wide-shots">
+  <figure><img src="screenshots/android-auto/navigation.jpg" width="800" height="400" loading="lazy" alt="Android Auto live map with nearby devices and OpenStreetMap navigation"><figcaption>Android Auto · live map &amp; navigation</figcaption></figure>
+  <figure><img src="screenshots/android-auto/flagged.jpg" width="800" height="400" loading="lazy" alt="Android Auto list of flagged devices"><figcaption>Android Auto · flagged devices</figcaption></figure>
+</div>
+<p class="small">Screenshots use made-up demo devices run through the real detection pipeline.</p>
+
+<h2 id="compare">Compared with other options</h2>
+<div class="table-wrap"><table>
+<thead><tr><th></th><th>RF Sentinel</th><th>SØPHIA (CIVOPS)</th><th>Phone's built-in tracker alerts</th></tr></thead>
+<tbody>
+<tr><td>Price</td><td><span class="yes">Free</span></td><td>Paid</td><td>Free</td></tr>
+<tr><td>Open source</td><td><span class="yes">GPL-3.0</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td></tr>
+<tr><td>Install</td><td>Regular APK</td><td>Termux + Termux:API</td><td>Built in</td></tr>
+<tr><td>Bluetooth LE signatures</td><td><span class="yes">Yes</span></td><td>See vendor</td><td>Trackers only</td></tr>
+<tr><td>Police / ALPR / body cam rules</td><td><span class="yes">Yes, sourced</span></td><td>See vendor</td><td><span class="no">No</span></td></tr>
+<tr><td>Remote ID drone decode</td><td><span class="yes">Yes</span></td><td>See vendor</td><td><span class="no">No</span></td></tr>
+<tr><td>Fake cell tower signs</td><td><span class="yes">Yes</span></td><td>See vendor</td><td>Android 15+ only (network notifications)</td></tr>
+<tr><td>Android Auto</td><td><span class="yes">Yes</span></td><td><span class="no">No</span></td><td><span class="no">No</span></td></tr>
+</tbody>
+</table></div>
+<p class="small">More in <a href="sophia-alternative.html">RF Sentinel vs SØPHIA</a>. RF Sentinel is an independent project, not affiliated with SØPHIA or DetecX.</p>
+
+<h2 id="guides">Guides</h2>
+<div class="grid">
+  <a class="card" href="police-detector.html"><h3>Detect police with Android</h3><p>Body cams, radios, patrol-vehicle kits, e-ticket printers.</p></a>
+  <a class="card" href="flock-camera-detector.html"><h3>Flock &amp; ALPR cameras</h3><p>Radio signatures plus the OpenStreetMap / DeFlock camera map.</p></a>
+  <a class="card" href="imsi-catcher-detector.html"><h3>Stingray / IMSI catcher</h3><p>What a non-rooted phone can and can't see.</p></a>
+  <a class="card" href="tracker-detector.html"><h3>AirTag &amp; tracker detection</h3><p>Find My, Find Hub, SmartTag and Tile on Android.</p></a>
+  <a class="card" href="drone-detector.html"><h3>Remote ID drone detector</h3><p>Drone and operator position from the broadcast.</p></a>
+  <a class="card" href="smart-glasses-detector.html"><h3>Smart glasses detector</h3><p>Ray-Ban Meta, Spectacles, Vuzix nearby.</p></a>
+</div>
+
+<h2 id="privacy">Privacy</h2>
+<ul>
+  <li><b>Receive-only.</b> The app never transmits, jams, spoofs or connects to the devices it detects.</li>
+  <li><b>No accounts, no cloud, no analytics.</b> Detections live in a local database excluded from cloud backup.</li>
+  <li><b>Network use:</b> OpenStreetMap map tiles and camera data (Overpass API, DeFlock CDN), and in Android Auto, Nominatim search and OSRM routing, only when used. Those servers see your IP and the area or route, never your scans.</li>
+  <li><b>Data leaves the phone only when you export or share it.</b></li>
+</ul>

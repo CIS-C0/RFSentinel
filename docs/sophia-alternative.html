@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Free SØPHIA alternative (s0phia ops / SophiaOps) - RF Sentinel for Android</title>
+<meta name="description" content="Looking for s0phia ops / SØPHIA for free? RF Sentinel is a free, open-source Android alternative for passive Bluetooth LE and WiFi recon: police and body cam detection, Flock ALPR, trackers, Remote ID drones, a radar view, no Termux needed.">
+<link rel="canonical" href="https://cis-c0.github.io/RFSentinel/sophia-alternative.html">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#050507">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="RF Sentinel">
+<meta property="og:title" content="Free SØPHIA alternative (s0phia ops / SophiaOps) - RF Sentinel for Android">
+<meta property="og:description" content="Looking for s0phia ops / SØPHIA for free? RF Sentinel is a free, open-source Android alternative for passive Bluetooth LE and WiFi recon: police and body cam detection, Flock ALPR, trackers, Remote ID drones, a radar view, no Termux needed.">
+<meta property="og:url" content="https://cis-c0.github.io/RFSentinel/sophia-alternative.html">
+<meta property="og:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="RF Sentinel - BLE and WiFi police scanner for Android">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Free SØPHIA alternative (s0phia ops / SophiaOps) - RF Sentinel for Android">
+<meta name="twitter:description" content="Looking for s0phia ops / SØPHIA for free? RF Sentinel is a free, open-source Android alternative for passive Bluetooth LE and WiFi recon: police and body cam detection, Flock ALPR, trackers, Remote ID drones, a radar view, no Termux needed.">
+<meta name="twitter:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="assets/style.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "Free SØPHIA alternative", "item": "https://cis-c0.github.io/RFSentinel/sophia-alternative.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Can I download s0phia ops for free?", "acceptedAnswer": {"@type": "Answer", "text": "SØPHIA is sold by its developer and isn't distributed here. RF Sentinel is the free, open-source option: same category of tool, no payment, no account, and you can read every line of code."}}, {"@type": "Question", "name": "Do I need Termux for RF Sentinel?", "acceptedAnswer": {"@type": "Answer", "text": "No. It's a normal Android app: install the APK, grant Bluetooth and location, tap Start scanning."}}, {"@type": "Question", "name": "Can I run both?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Both only listen, so they don't interfere, though Android shares one WiFi scan budget between apps (about four scans per two minutes)."}}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="favicon.svg" alt="" width="28" height="28">RF<span>_</span>SENTINEL</a>
+    <nav class="nav" aria-label="Main"><a href="./">Home</a><a href="how-it-works.html">How it works</a><a href="police-detector.html" aria-current="page">Guides</a><a href="install.html">Install</a><a href="android-auto.html">Android Auto</a><a href="esp32.html">ESP32</a><a href="qa.html">Q&amp;A</a></nav>
+    <div class="social">
+      <a class="icon-btn discord" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span class="lbl">Discord</span></a>
+      <a class="icon-btn github" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg><span class="lbl">GitHub</span></a>
+    </div>
+  </div>
+</header>
+<main id="main" class="wrap">
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / sophia-alternative</p>
+  <h1>Free SØPHIA alternative</h1>
+  <p class="lead">SØPHIA (also searched as s0phia ops, SophiaOps, SØPHIA CIVOPS) is a paid recon toolkit that runs inside Termux. If you want the same kind of passive signal recon on Android for free, RF Sentinel is a regular, open-source app that does it without Termux.</p>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/CIS-C0/RFSentinel/releases/latest" data-apk><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Download RF Sentinel <span data-version></span></a>
+    <a class="btn" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg>Read the source</a>
+  </div>
+</div>
+
+<h2 id="compare">Side by side</h2>
+<div class="table-wrap"><table>
+<thead><tr><th></th><th>RF Sentinel</th><th>SØPHIA CIVOPS</th></tr></thead>
+<tbody>
+<tr><td>Price</td><td>Free</td><td>Paid</td></tr>
+<tr><td>License</td><td>GPL-3.0, full source on GitHub</td><td>Closed</td></tr>
+<tr><td>Install</td><td>Signed APK</td><td>Termux + Termux:API scripts</td></tr>
+<tr><td>Radar / HUD view</td><td>Yes, 13 themes</td><td>Yes</td></tr>
+<tr><td>WiFi scanning</td><td>Yes, with WPS / hidden-network identification</td><td>Yes</td></tr>
+<tr><td>Bluetooth LE scanning</td><td>Yes, continuous, BT5 extended / Coded PHY</td><td>See vendor</td></tr>
+<tr><td>Sourced police / body cam / ALPR rules</td><td>Yes, each citing IEEE / SIG / research</td><td>See vendor</td></tr>
+<tr><td>Patrol-vehicle grouping</td><td>Yes</td><td>See vendor</td></tr>
+<tr><td>Tracker follow alerts</td><td>Yes</td><td>See vendor</td></tr>
+<tr><td>Remote ID drone decode</td><td>Yes</td><td>See vendor</td></tr>
+<tr><td>Fake cell tower signs</td><td>Yes</td><td>See vendor</td></tr>
+<tr><td>Offline camera map (ALPR, speed, red light)</td><td>Yes</td><td>No</td></tr>
+<tr><td>Android Auto</td><td>Yes</td><td>No</td></tr>
+<tr><td>Timeline / history</td><td>Yes, heatmap and timeline</td><td>Yes</td></tr>
+<tr><td>Offline, no cloud</td><td>Yes</td><td>Yes</td></tr>
+</tbody></table></div>
+<p class="small">SØPHIA details are from its public product listing at the time of writing; "see vendor" means we couldn't verify it. RF Sentinel is independent and not affiliated with SØPHIA or DetecX.</p>
+
+<h2 id="faq-sophia">Questions</h2>
+<details class="faq" id="q-sophia-free">
+<summary>Can I download s0phia ops for free?</summary>
+<div><p>SØPHIA is sold by its developer and isn't distributed here. RF Sentinel is the free, open-source option: same category of tool, no payment, no account, and you can read every line of code.</p></div>
+</details>
+<details class="faq" id="q-sophia-termux">
+<summary>Do I need Termux for RF Sentinel?</summary>
+<div><p>No. It's a normal Android app: install the APK, grant Bluetooth and location, tap Start scanning.</p></div>
+</details>
+<details class="faq" id="q-sophia-both">
+<summary>Can I run both?</summary>
+<div><p>Yes. Both only listen, so they don't interfere, though Android shares one WiFi scan budget between apps (about four scans per two minutes).</p></div>
+</details>
+<section class="community" aria-label="Community">
+  <a class="dc" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span><strong>Join the Discord</strong>Help, ideas, new signatures, field captures and ESP32 builds.</span></a>
+  <a class="gh" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg><span><strong>CIS-C0/RFSentinel on GitHub</strong>Source code, releases, issues. A star helps others find it.</span></a>
+</section>
+</main>
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <h4>RF Sentinel</h4>
+        <ul>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/releases/latest">Download the APK</a></li>
+          <li><a href="install.html">Install &amp; update</a></li>
+          <li><a href="how-it-works.html">How detection works</a></li>
+          <li><a href="qa.html">Q&amp;A</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Guides</h4>
+        <ul><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li></ul>
+      </div>
+      <div>
+        <h4>Community</h4>
+        <ul>
+          <li><a href="https://discord.gg/NDTjn8HMGq" rel="noopener">Discord server</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel" rel="noopener">GitHub repository</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/issues" rel="noopener">Issues &amp; device reports</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/blob/main/docs/SIGNATURES.md" rel="noopener">Signature reference</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="legal">RF Sentinel is free software under the GNU GPL v3.0. Copyright © 2026 CIS-C0.
+    Receive-only: it transmits nothing, and a detection is a signature match, not proof of who is present. Check your local laws.
+    Not affiliated with any company or product named on this site; names are used only to describe compatibility and detection.
+    No cookies, no analytics, no trackers on this site.</p>
+  </div>
+</footer>
+<script>
+// A link to a question (qa.html#detect-flock) opens its answer.
+(function () {
+  function openHash() {
+    var el = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (el && el.tagName === "DETAILS") { el.open = true; el.scrollIntoView(); }
+  }
+  openHash();
+  window.addEventListener("hashchange", openHash);
+})();
+// Latest release: version label and a direct link to the signed APK. Falls back to the releases page.
+(function () {
+  var els = document.querySelectorAll("[data-apk]");
+  if (!els.length || !window.fetch) return;
+  fetch("https://api.github.com/repos/CIS-C0/RFSentinel/releases/latest")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (rel) {
+      if (!rel) return;
+      var apk = (rel.assets || []).filter(function (a) { return /-release\.apk$/.test(a.name); })[0];
+      els.forEach(function (el) {
+        if (apk) el.href = apk.browser_download_url;
+        var v = el.querySelector("[data-version]");
+        if (v) v.textContent = rel.tag_name;
+      });
+    }).catch(function () {});
+})();
+</script>
+</body>
+</html>

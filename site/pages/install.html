@@ -1,0 +1,44 @@
+<!--META {"title": "Install RF Sentinel - download the APK for Android 8.0+", "description": "How to download and install the RF Sentinel APK from GitHub Releases, allow installs from unknown sources, update without losing data, enable it in Android Auto, or build it from source with Gradle.", "nav": "install", "crumb": "Install"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / install</p>
+  <h1>Install</h1>
+  <p class="lead">Android 8.0 or newer. One signed APK from GitHub Releases, about 9 MB.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="{{RELEASES}}">All releases &amp; changelog</a>
+  </div>
+</div>
+
+<h2 id="steps">Steps</h2>
+<ol>
+<li>On your phone, tap <b>Download APK</b> above, or open the <a href="{{RELEASES}}">latest release</a> and under <b>Assets</b> tap the file ending in <code>-release.apk</code>. Don't pick the "Source code" archives.</li>
+<li>Open the downloaded file from the notification, or from <b>Files → Downloads</b>.</li>
+<li>If Android blocks it as an unknown source, tap <b>Settings</b>, enable <b>Allow from this source</b>, go back and tap <b>Install</b>.</li>
+<li>Open <b>RF Sentinel</b>. The setup wizard walks through theme, region preset, alerts, camera download radius, screen behaviour and permissions.</li>
+<li>Tap <b>Start scanning</b> and grant location and <i>Nearby devices</i>.</li>
+</ol>
+
+<h2 id="update">Updating</h2>
+<p>Install the newer APK over the existing one. History, watchlist and settings are kept. Every release is signed with the same key; Android refuses an update signed with a different one.</p>
+
+<h2 id="auto">Android Auto</h2>
+<p>Sideloaded apps need one-time setup: Android Auto settings → tap <b>Version</b> 10 times → <b>⋮ → Developer settings</b> → enable <b>Unknown sources</b>, then (re)install the APK, open RF Sentinel once, reconnect. More on <a href="android-auto.html">Android Auto</a>.</p>
+
+<h2 id="battery">Battery settings</h2>
+<p>On phones with aggressive battery management (Samsung, Xiaomi, OnePlus, Huawei), set RF Sentinel's battery usage to <b>Unrestricted</b>. Settings has a shortcut.</p>
+
+<h2 id="build">Build from source</h2>
+<p>Android Studio, or JDK 17+ with the Android SDK (platform 37).</p>
+<pre><code>git clone https://github.com/CIS-C0/RFSentinel
+cd RFSentinel
+./gradlew assembleDebug                 # app/build/outputs/apk/debug/
+./gradlew testDebugUnitTest lintDebug   # tests and lint</code></pre>
+<div class="table-wrap"><table>
+<thead><tr><th>Component</th><th>Version</th></tr></thead>
+<tbody>
+<tr><td>Gradle</td><td>9.6.0 (wrapper)</td></tr>
+<tr><td>Android Gradle Plugin</td><td>9.4.0 (built-in Kotlin)</td></tr>
+<tr><td>KSP / Room</td><td>2.3.12 / 2.8.5</td></tr>
+<tr><td>compileSdk / targetSdk / minSdk</td><td>37 / 36 / 26</td></tr>
+</tbody></table></div>
+<p>A self-built debug APK has a different signature from the release, so uninstall the release first (that clears its data).</p>

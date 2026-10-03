@@ -1,0 +1,48 @@
+<!--META {"title": "Flock camera detector for Android - find Flock Safety & license plate readers | RF Sentinel", "description": "Detect Flock Safety ALPR cameras and Raven audio sensors from their WiFi and Bluetooth signals, and get warned before every plate reader, speed and red-light camera mapped in OpenStreetMap / DeFlock, offline. Free Android app.", "nav": "guides", "crumb": "Flock & plate-reader cameras"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / flock-camera-detector</p>
+  <h1>Flock &amp; plate-reader cameras</h1>
+  <p class="lead">Two layers: radio signatures for cameras that broadcast, and an offline map of every plate reader, speed and red-light camera volunteers have mapped in OpenStreetMap, for the ones that don't.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="qa.html#cameras">Camera Q&amp;A</a>
+  </div>
+</div>
+
+<h2 id="radio">Layer 1: radio signatures</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Signal</th><th>Rule</th><th>Score</th></tr></thead>
+<tbody>
+<tr><td>WiFi SSID</td><td>starts with <code>Flock-</code></td><td>88</td></tr>
+<tr><td>BLE name</td><td><code>FS Ext Battery</code></td><td>80</td></tr>
+<tr><td>BLE name</td><td><code>Penguin-&lt;digits&gt;</code> or <code>FS-&lt;hex&gt;</code></td><td>70, 80 with <code>0x09C8</code></td></tr>
+<tr><td>BLE name</td><td>starts with <code>Flock</code> (loose)</td><td>55</td></tr>
+<tr><td>BLE company ID</td><td><code>0x09C8</code> XUNTONG, alone (shared silicon)</td><td>45</td></tr>
+<tr><td>BLE 128-bit UUIDs</td><td>short IDs <code>0x3100</code>-<code>0x3500</code>: Flock Raven audio sensor</td><td>80</td></tr>
+</tbody></table></div>
+<p>Sources: all-cameras-are-beacons field captures (ryanohoro, GainSec) and Bluetooth SIG assigned numbers. The SSID <code>-FALCON</code> suffix is deliberately <b>not</b> matched: the evidence behind it turned out to be circular.</p>
+
+<h2 id="map">Layer 2: the known-camera map</h2>
+<ul>
+<li><b>Automatic:</b> for the area on screen, cameras tagged <code>surveillance:type=ALPR</code> plus fixed speed and red-light cameras are fetched once from the Overpass API and kept offline, refreshed weekly.</li>
+<li><b>Download nearby cameras:</b> every plate reader within the radius set in Settings or the setup wizard (10-200 km, 100 by default).</li>
+<li><b>Download Flock:</b> every plate reader mapped in the US and Canada, ~18 MB, about 143,000 cameras, refreshed weekly on WiFi. Uses <a href="https://deflock.org" rel="noopener">DeFlock</a>'s hourly snapshot, then adds cameras it leaves out (other tagging, Flock cameras mapped as ordinary cameras) straight from OpenStreetMap.</li>
+</ul>
+<p>While scanning, you're warned once per camera per 30 minutes when one is within about 20 s of travel (150 m minimum, 600 m maximum) and two GPS fixes show you getting closer. Speed cameras warn about 30 s ahead with the mapped limit. Tap a camera → <b>Ignore alerts</b> to silence it for good.</p>
+
+<h2 id="why-map">Why the map matters</h2>
+<p>Most plate readers that aren't Flock (Genetec AutoVu, Motorola Vigilant, Perceptics, Quercus, Tattile) send their data over cellular modems or wired links and broadcast nothing a phone can match. The map layer is the only way a phone can warn about those. If a camera near you is missing, add it to OpenStreetMap, for example through DeFlock.</p>
+
+<h2 id="faq-flock">Questions</h2>
+<details class="faq" id="q-flock-range">
+<summary>How close do I need to be to detect a Flock camera by radio?</summary>
+<div><p>Close: Flock units' WiFi and BLE are low-power and often only heard within tens of metres, depending on the install. The map layer warns from further away.</p></div>
+</details>
+<details class="faq" id="q-flock-data">
+<summary>Does the camera download reveal my location?</summary>
+<div><p>The Overpass API and DeFlock's CDN see your IP and the area requested (DeFlock: which 20° region), like map tiles. Turn off <b>Show known cameras automatically</b> to fetch only when you tap a download.</p></div>
+</details>
+<details class="faq" id="q-flock-export">
+<summary>Can I export where I've seen Flock cameras?</summary>
+<div><p>Yes. Recorded traces export as GPX, KML, GeoJSON or CSV with the devices heard along them, including flagged-only.</p></div>
+</details>

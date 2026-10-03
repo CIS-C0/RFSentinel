@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IMSI catcher / Stingray detector for Android without root | RF Sentinel</title>
+<meta name="description" content="Detect signs of a fake cell tower (Stingray, IMSI catcher, cell-site simulator) on a non-rooted Android phone: test MCCs, sudden 4G to 2G downgrades, cloned and reserved cell identities. What Android exposes, what it hides, and how it compares with Rayhunter.">
+<link rel="canonical" href="https://cis-c0.github.io/RFSentinel/imsi-catcher-detector.html">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#050507">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="RF Sentinel">
+<meta property="og:title" content="IMSI catcher / Stingray detector for Android without root | RF Sentinel">
+<meta property="og:description" content="Detect signs of a fake cell tower (Stingray, IMSI catcher, cell-site simulator) on a non-rooted Android phone: test MCCs, sudden 4G to 2G downgrades, cloned and reserved cell identities. What Android exposes, what it hides, and how it compares with Rayhunter.">
+<meta property="og:url" content="https://cis-c0.github.io/RFSentinel/imsi-catcher-detector.html">
+<meta property="og:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="RF Sentinel - BLE and WiFi police scanner for Android">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="IMSI catcher / Stingray detector for Android without root | RF Sentinel">
+<meta name="twitter:description" content="Detect signs of a fake cell tower (Stingray, IMSI catcher, cell-site simulator) on a non-rooted Android phone: test MCCs, sudden 4G to 2G downgrades, cloned and reserved cell identities. What Android exposes, what it hides, and how it compares with Rayhunter.">
+<meta name="twitter:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="assets/style.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "Stingray / IMSI catcher signs", "item": "https://cis-c0.github.io/RFSentinel/imsi-catcher-detector.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is a rooted phone better for IMSI catcher detection?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, with a Qualcomm or similar modem that exposes diagnostic logs, a rooted phone (or Rayhunter) can see identity requests and cipher mode. RF Sentinel stays root-free and limits itself to what public APIs show."}}, {"@type": "Question", "name": "Does 5G protect against IMSI catchers?", "acceptedAnswer": {"@type": "Answer", "text": "5G standalone encrypts the permanent identity (SUCI), but most networks still run non-standalone 5G anchored on LTE, and downgrade attacks to 2G/3G remain the main vector. Disabling 2G closes the easiest one."}}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="favicon.svg" alt="" width="28" height="28">RF<span>_</span>SENTINEL</a>
+    <nav class="nav" aria-label="Main"><a href="./">Home</a><a href="how-it-works.html">How it works</a><a href="police-detector.html" aria-current="page">Guides</a><a href="install.html">Install</a><a href="android-auto.html">Android Auto</a><a href="esp32.html">ESP32</a><a href="qa.html">Q&amp;A</a></nav>
+    <div class="social">
+      <a class="icon-btn discord" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span class="lbl">Discord</span></a>
+      <a class="icon-btn github" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg><span class="lbl">GitHub</span></a>
+    </div>
+  </div>
+</header>
+<main id="main" class="wrap">
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / imsi-catcher-detector</p>
+  <h1>Stingray / IMSI catcher signs</h1>
+  <p class="lead">A cell-site simulator pretends to be a tower so phones attach to it, often forcing them down to 2G where encryption is weak or absent. Without root a phone can't read the signalling, but the cell data Android does expose still shows some of the tell-tale signs.</p>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/CIS-C0/RFSentinel/releases/latest" data-apk><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Download APK <span data-version></span></a>
+    <a class="btn" href="qa.html#cell">Cell Q&amp;A</a>
+  </div>
+</div>
+
+<h2 id="visible">What Android exposes without root</h2>
+<p><code>TelephonyManager.getAllCellInfo()</code> returns the serving and neighbour cells: radio technology (GSM / WCDMA / LTE / NR), MCC-MNC, cell ID, area code (LAC / TAC), and signal. It does <b>not</b> expose ciphering, identity requests or other layer-3 messages; that needs the modem's diagnostic interface (root, or dedicated hardware like Rayhunter).</p>
+
+<h2 id="signs">Signs RF Sentinel checks every 15 s</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Sign</th><th>Score</th></tr></thead>
+<tbody>
+<tr><td>Serving cell on a test / reserved MCC (001, 002, 999)</td><td>85</td></tr>
+<tr><td>Sudden switch from 4G/5G to 2G while strong LTE (≥ −105 dBm) is still visible</td><td>70</td></tr>
+<tr><td>Sudden 4G/5G → 2G without strong LTE; or downgraded to 2G with strong LTE visible</td><td>50</td></tr>
+<tr><td>Network country code differs from the SIM's while not roaming</td><td>55</td></tr>
+<tr><td>Reserved identity: area code 0, 0xFFFE or 0xFFFF, or cell ID 0</td><td>45</td></tr>
+<tr><td>Known cell number reappearing in a different area (cloned identity)</td><td>50</td></tr>
+<tr><td>Location / tracking area changed while GPS shows you still for 2+ minutes</td><td>40</td></tr>
+<tr><td>Switched to a cell with no neighbours where several were visible</td><td>35</td></tr>
+<tr><td>Several signs at once</td><td>max + 15, cap 90</td></tr>
+</tbody></table></div>
+
+<h2 id="false">Cutting false alarms</h2>
+<ul>
+<li><b>Persistence:</b> a sign must be present on two consecutive checks.</li>
+<li><b>Calls:</b> drops to 2G during a call (and for 2 minutes after) are ignored: many networks hand voice to 2G/3G.</li>
+<li><b>Borders:</b> area codes ping-ponging at a coverage border don't count.</li>
+<li><b>Known areas:</b> which area each cell lives in is remembered on the phone (cleared with "Forget device history"); a genuinely moved cell is adopted after 8 snapshots.</li>
+</ul>
+
+<h2 id="protect">Actual protection</h2>
+<ol>
+<li>Settings → Network → SIM → turn off <b>Allow 2G</b> (Android 12+, if your carrier allows it).</li>
+<li>Android 15+: <b>Cellular security → Network notifications</b> warns when a network requests your SIM identity in clear or disables encryption. RF Sentinel's Settings links straight there.</li>
+<li>For signalling-level detection, run <a href="https://github.com/EFForg/rayhunter" rel="noopener">EFF's Rayhunter</a> on a supported hotspot.</li>
+</ol>
+
+<h2 id="faq-cell">Questions</h2>
+<details class="faq" id="q-cell-root">
+<summary>Is a rooted phone better for IMSI catcher detection?</summary>
+<div><p>Yes, with a Qualcomm or similar modem that exposes diagnostic logs, a rooted phone (or Rayhunter) can see identity requests and cipher mode. RF Sentinel stays root-free and limits itself to what public APIs show.</p></div>
+</details>
+<details class="faq" id="q-cell-5g">
+<summary>Does 5G protect against IMSI catchers?</summary>
+<div><p>5G standalone encrypts the permanent identity (SUCI), but most networks still run non-standalone 5G anchored on LTE, and downgrade attacks to 2G/3G remain the main vector. Disabling 2G closes the easiest one.</p></div>
+</details>
+<section class="community" aria-label="Community">
+  <a class="dc" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span><strong>Join the Discord</strong>Help, ideas, new signatures, field captures and ESP32 builds.</span></a>
+  <a class="gh" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg><span><strong>CIS-C0/RFSentinel on GitHub</strong>Source code, releases, issues. A star helps others find it.</span></a>
+</section>
+</main>
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <h4>RF Sentinel</h4>
+        <ul>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/releases/latest">Download the APK</a></li>
+          <li><a href="install.html">Install &amp; update</a></li>
+          <li><a href="how-it-works.html">How detection works</a></li>
+          <li><a href="qa.html">Q&amp;A</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Guides</h4>
+        <ul><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li></ul>
+      </div>
+      <div>
+        <h4>Community</h4>
+        <ul>
+          <li><a href="https://discord.gg/NDTjn8HMGq" rel="noopener">Discord server</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel" rel="noopener">GitHub repository</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/issues" rel="noopener">Issues &amp; device reports</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/blob/main/docs/SIGNATURES.md" rel="noopener">Signature reference</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="legal">RF Sentinel is free software under the GNU GPL v3.0. Copyright © 2026 CIS-C0.
+    Receive-only: it transmits nothing, and a detection is a signature match, not proof of who is present. Check your local laws.
+    Not affiliated with any company or product named on this site; names are used only to describe compatibility and detection.
+    No cookies, no analytics, no trackers on this site.</p>
+  </div>
+</footer>
+<script>
+// A link to a question (qa.html#detect-flock) opens its answer.
+(function () {
+  function openHash() {
+    var el = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (el && el.tagName === "DETAILS") { el.open = true; el.scrollIntoView(); }
+  }
+  openHash();
+  window.addEventListener("hashchange", openHash);
+})();
+// Latest release: version label and a direct link to the signed APK. Falls back to the releases page.
+(function () {
+  var els = document.querySelectorAll("[data-apk]");
+  if (!els.length || !window.fetch) return;
+  fetch("https://api.github.com/repos/CIS-C0/RFSentinel/releases/latest")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (rel) {
+      if (!rel) return;
+      var apk = (rel.assets || []).filter(function (a) { return /-release\.apk$/.test(a.name); })[0];
+      els.forEach(function (el) {
+        if (apk) el.href = apk.browser_download_url;
+        var v = el.querySelector("[data-version]");
+        if (v) v.textContent = rel.tag_name;
+      });
+    }).catch(function () {});
+})();
+</script>
+</body>
+</html>

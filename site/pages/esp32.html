@@ -1,0 +1,41 @@
+<!--META {"title": "ESP32 with RF Sentinel - OUI-Spy over USB or Bluetooth, GhostESP", "description": "Connect an ESP32 board running OUI-Spy (Flock-You, Detector, Sky Spy, Wardrive) or GhostESP to RF Sentinel over USB OTG or Bluetooth to extend range and add the board's detections to the Android app.", "nav": "esp32", "crumb": "ESP32 boards"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / esp32</p>
+  <h1>ESP32 boards</h1>
+  <p class="lead">An ESP32 with a decent antenna hears further than a phone and can see things Android hides. RF Sentinel merges what the board reports into its own list, marked with a blue <b>ESP32</b> badge.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn discord" href="{{DISCORD}}" rel="noopener">{{DISCORD_SVG}}ESP32 builds on Discord</a>
+  </div>
+</div>
+
+<h2 id="firmware">Supported firmware</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Firmware</th><th>Link</th><th>What RF Sentinel gets</th></tr></thead>
+<tbody>
+<tr><td><a href="https://github.com/colonelpanichacks/oui-spy-unified-blue" rel="noopener">OUI-Spy</a> (recommended)</td><td>USB OTG</td><td>Flock-You, Detector and Sky Spy detections as they happen: Flock cameras, the board's watchlist matches, Remote ID drones with position</td></tr>
+<tr><td><a href="https://github.com/lukeswitz/oui-spy-unified-blue" rel="noopener">OUI-SPY App-Controlled</a></td><td>Bluetooth</td><td>Flock-BLE, Flock-WiFi, Sky Spy, Detector and (optional) Wardrive survey engines</td></tr>
+<tr><td><a href="https://github.com/GhostESP-Revival/GhostESP" rel="noopener">GhostESP</a></td><td>USB OTG</td><td>The WiFi networks it scans, about every 10 s (no Bluetooth over USB)</td></tr>
+</tbody></table></div>
+
+<h2 id="usb">USB</h2>
+<p>Plug the board into the phone with a USB OTG cable while scanning and allow USB access on the first prompt. Native-USB boards (ESP32-S2 / S3 / C3 / C6) and boards with CP210x or CH340 USB bridges work. RF Sentinel never sends OUI-Spy anything, and only asks GhostESP to scan and list networks. Settings shows the board's status.</p>
+
+<h2 id="ble">Bluetooth (OUI-SPY App-Controlled)</h2>
+<ol>
+<li>Power the board and start scanning in RF Sentinel.</li>
+<li><b>Settings → Pair OUI-SPY board</b> → pick <code>OUI-SPY-xxxx</code>.</li>
+<li>Pair only there, not in Android's Bluetooth settings: the board keeps no pairing keys, so a phone-side bond breaks the link. The app tells you to tap <b>Forget</b> if it finds one.</li>
+</ol>
+<p>While scanning, RF Sentinel switches on the board's Flock-BLE, Flock-WiFi, Sky Spy and Detector engines and switches them off when scanning stops. By default it also runs the Wardrive survey engine so the board relays <b>every</b> WiFi network and Bluetooth device; those go through RF Sentinel's own watchlist, presets and rules. In that mode the board sends standard WiFi probe requests, so turn off <b>OUI-SPY: relay every network and Bluetooth device</b> to keep it purely listening. The board's UniPwn, PCAP and Foxhunter engines are never used.</p>
+<p>The status line under <i>Scanning</i> shows <code>connecting…</code> / <code>live · N reports</code>; the <b>ESP32</b> filter chip lists only what the board reported.</p>
+
+<h2 id="faq-esp">Questions</h2>
+<details class="faq" id="q-esp-board">
+<summary>Which ESP32 board should I buy?</summary>
+<div><p>Any board the firmware supports: XIAO ESP32-S3, ESP32-S3 DevKitC, LilyGO T-Dongle-S3 and others are targets of OUI-Spy. An external antenna connector (u.FL / IPEX) is worth having for range.</p></div>
+</details>
+<details class="faq" id="q-esp-flash">
+<summary>How do I flash OUI-Spy?</summary>
+<div><p>Follow the firmware's own README (PlatformIO or its flash script). RF Sentinel doesn't flash boards.</p></div>
+</details>

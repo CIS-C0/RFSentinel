@@ -1,0 +1,34 @@
+<!--META {"title": "Smart glasses detector for Android - Ray-Ban Meta, Spectacles, Vuzix | RF Sentinel", "description": "Detect Ray-Ban Meta smart glasses, Snap Spectacles, Vuzix and HeyCyan-based camera glasses nearby from their Bluetooth LE advertisements on Android. Which identifiers are reliable and which are shared with Quest headsets.", "nav": "guides", "crumb": "Smart glasses detector"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / smart-glasses-detector</p>
+  <h1>Smart glasses detector</h1>
+  <p class="lead">Camera glasses keep a Bluetooth LE link to their phone app and advertise while worn. Their company IDs and service UUIDs give them away.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="qa.html#glasses">Glasses Q&amp;A</a>
+  </div>
+</div>
+
+<h2 id="rules">Rules</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Glasses</th><th>Identifier</th><th>Score</th></tr></thead>
+<tbody>
+<tr><td>Ray-Ban Meta (Luxottica)</td><td>Company ID <code>0x0D53</code></td><td>70</td></tr>
+<tr><td>Ray-Ban Meta</td><td>Company ID <code>0x058E</code> with the <code>META_RB_GLASS</code> token only</td><td>72</td></tr>
+<tr><td>Snap Spectacles</td><td>Company ID <code>0x03C2</code></td><td>70</td></tr>
+<tr><td>Vuzix</td><td>Company ID <code>0x060C</code></td><td>70</td></tr>
+<tr><td>Glasses UUID</td><td><code>0xFE45</code></td><td>70</td></tr>
+<tr><td>HeyCyan SDK glasses</td><td>UUID <code>7905FFF0-B5CE-4E99-A40F-4B1E122D00D0</code>, full 16-byte match</td><td>68</td></tr>
+<tr><td>Meta (corporate)</td><td>Company ID <code>0x01AB</code>, UUID <code>0xFEB7</code> / <code>0xFEB8</code></td><td>45, Quest headsets share it</td></tr>
+</tbody></table></div>
+<p><code>0x058E</code> alone is deliberately not matched: Quest headsets use it too.</p>
+
+<h2 id="faq-glasses">Questions</h2>
+<details class="faq" id="q-glasses-record">
+<summary>Does a match mean I'm being recorded?</summary>
+<div><p>No. It means camera glasses are nearby and advertising. Recording state isn't broadcast; look for the capture LED.</p></div>
+</details>
+<details class="faq" id="q-glasses-off">
+<summary>Will it see glasses that are folded or in their case?</summary>
+<div><p>Usually not: glasses stop advertising when off or charging in the case.</p></div>
+</details>

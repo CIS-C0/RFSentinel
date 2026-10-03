@@ -1,0 +1,42 @@
+<!--META {"title": "Police & camera detector for Android Auto - RF Sentinel", "description": "RF Sentinel on Android Auto: threat headline, flagged device lists, a live OpenStreetMap map with plate-reader, speed and red-light cameras and drones, OSM turn-by-turn navigation, and alerts through the car speakers. Setup for sideloaded apps.", "nav": "android-auto", "crumb": "Android Auto"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / android-auto</p>
+  <h1>Android Auto</h1>
+  <p class="lead">A driver-safe, template-based Android Auto app: what's around you, on the car screen, with alerts through the car speakers.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="qa.html#car">Driving Q&amp;A</a>
+  </div>
+</div>
+
+<div class="wide-shots">
+  <figure><img src="screenshots/android-auto/home.jpg" width="800" height="400" alt="Android Auto home screen with the threat headline"><figcaption>home</figcaption></figure>
+  <figure><img src="screenshots/android-auto/flagged.jpg" width="800" height="400" loading="lazy" alt="Android Auto list of flagged devices"><figcaption>flagged devices</figcaption></figure>
+  <figure><img src="screenshots/android-auto/live-map.jpg" width="800" height="400" loading="lazy" alt="Android Auto live map with the devices around you"><figcaption>live map</figcaption></figure>
+  <figure><img src="screenshots/android-auto/cameras.jpg" width="800" height="400" loading="lazy" alt="Android Auto live map zoomed out with known cameras"><figcaption>known cameras</figcaption></figure>
+</div>
+<p class="small">Demo data.</p>
+
+<h2 id="screens">Screens</h2>
+<ul>
+<li><b>Home:</b> threat headline, live counts, Start/Stop, and a speaker button that mutes or unmutes all alert sound.</li>
+<li><b>Device lists:</b> flagged, drones &amp; trackers, all nearby; device details with Whitelist, Watch and Favorite. <b>Navigate</b> hands drones with a known position to your navigation app.</li>
+<li><b>Live map:</b> RF Sentinel's own OpenStreetMap map on the car screen with devices in list / radar colours, plate-reader, speed and red-light cameras, and your position. Drag, pinch or <b>+ / −</b>; <b>◎</b> follows the car again. Needs car API level 7; older Android Auto gets car-drawn maps with device and camera lists.</li>
+<li><b>Navigation:</b> <i>Navigate to...</i> searches with Nominatim (on submit only, no search-as-you-type), keeps recent destinations on the phone, routes with OSRM, draws the route with next turn, ETA and distance, speaks turns and re-routes.</li>
+<li><b>Alerts:</b> heads-up cards on the car screen, spoken through the car speakers as navigation guidance audio, briefly lowering music.</li>
+</ul>
+
+<h2 id="setup">Setup for a sideloaded app</h2>
+<ol>
+<li>Open <b>Android Auto settings</b> on the phone.</li>
+<li>Tap <b>Version</b> ten times to unlock developer mode.</li>
+<li><b>⋮ → Developer settings</b> → enable <b>Unknown sources</b>.</li>
+<li>Install (or reinstall) the APK, open RF Sentinel once on the phone, reconnect to the car.</li>
+<li>Still missing? <b>Customize launcher</b> may list it under hidden apps.</li>
+</ol>
+
+<h2 id="auto-start">Auto start</h2>
+<p>Settings → <b>Start scanning automatically in the car</b>: scanning starts when the phone connects to your car's Bluetooth or to Android Auto, and stops when you leave if the car started it.</p>
+
+<h2 id="privacy-nav">Navigation privacy</h2>
+<p>Nominatim and OSRM see the search, your position and destination, and your IP address, only when you search or start a route. They never see your scans.</p>

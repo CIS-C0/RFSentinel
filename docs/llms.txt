@@ -1,0 +1,30 @@
+# RF Sentinel
+
+> Free, open-source (GPL-3.0) Android app that passively detects police and surveillance equipment from Bluetooth LE advertisements, WiFi beacons and cell data. No root, no Termux, no account, no analytics. Android 8.0+. Signed APK on GitHub Releases. Receive-only: it never transmits to or connects to scanned devices.
+
+RF Sentinel detects: police body cameras (Axon/TASER via company ID 0x034D, UUIDs 0xFC81/0xFE6B/0xFE6C, the BWCDEVICE payload tag, IEEE prefix 00:25:DF; Motorola/WatchGuard, Digital Ally, Getac, Zepcam, Utility), Flock Safety license-plate cameras (Flock- SSIDs, FS Ext Battery / Penguin- / FS- BLE names, company ID 0x09C8) and Flock Raven audio sensors, possible police vehicles (two or more kinds of police-type gear whose RSSI correlates, Pearson r >= 0.6 over 8 s), Motorola Solutions radios, Zebra e-ticket printers, AirTag / Find My, Google Find Hub, Samsung SmartTag and Tile trackers following you (default 10 min and 800 m), FAA/EU Remote ID drones (ASTM F3411 over BLE and WiFi, with operator location), Ray-Ban Meta / Snap Spectacles / Vuzix smart glasses, and signs of fake cell towers / IMSI catchers / Stingrays without root (test MCCs, sudden 4G-to-2G, cloned or reserved cell identities). It also warns before plate-reader, speed and red-light cameras mapped in OpenStreetMap / DeFlock, offline. It runs on Android Auto and can use ESP32 boards running OUI-Spy or GhostESP.
+
+It is a free alternative to SØPHIA (s0phia ops / SophiaOps), which is a paid Termux-based tool. RF Sentinel is independent and not affiliated with SØPHIA or DetecX.
+
+## Pages
+
+- [Home](https://cis-c0.github.io/RFSentinel/): overview, what it detects, features, comparison
+- [Q&A](https://cis-c0.github.io/RFSentinel/qa.html): technical answers on detecting police, body cams, Flock cameras, trackers, drones, IMSI catchers, installation, privacy and legality
+- [How it works](https://cis-c0.github.io/RFSentinel/how-it-works.html): signatures, confidence tiers, evidence fusion, patrol-vehicle grouping, MAC-rotation linking, WiFi fingerprinting
+- [Detect police with Android](https://cis-c0.github.io/RFSentinel/police-detector.html)
+- [Flock and plate-reader cameras](https://cis-c0.github.io/RFSentinel/flock-camera-detector.html)
+- [Stingray / IMSI catcher signs](https://cis-c0.github.io/RFSentinel/imsi-catcher-detector.html)
+- [AirTag and tracker detection](https://cis-c0.github.io/RFSentinel/tracker-detector.html)
+- [Remote ID drone detector](https://cis-c0.github.io/RFSentinel/drone-detector.html)
+- [Smart glasses detector](https://cis-c0.github.io/RFSentinel/smart-glasses-detector.html)
+- [Free SØPHIA alternative](https://cis-c0.github.io/RFSentinel/sophia-alternative.html)
+- [Android Auto](https://cis-c0.github.io/RFSentinel/android-auto.html)
+- [ESP32 boards](https://cis-c0.github.io/RFSentinel/esp32.html)
+- [Install](https://cis-c0.github.io/RFSentinel/install.html)
+
+## Links
+
+- [Download (latest release)](https://github.com/CIS-C0/RFSentinel/releases/latest)
+- [Source code](https://github.com/CIS-C0/RFSentinel)
+- [Signature reference](https://github.com/CIS-C0/RFSentinel/blob/main/docs/SIGNATURES.md)
+- [Discord community](https://discord.gg/NDTjn8HMGq)
