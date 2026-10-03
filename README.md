@@ -141,7 +141,8 @@ Every match shows its evidence, its source and a confidence tier: **weak** (< 50
 
 **Interface**
 - Live list and radar view, filter chips with live counts (flagged, trackers, drones, new, ESP32, favorites, Bluetooth, WiFi), search
-- **Tools** (menu ⋮): **Cell towers** (serving and neighbour cells with network, IDs, channel and signal, plus every tower seen while scanning), **WiFi channels** and **WiFi spectrum** analyzers for 2.4 / 5 / 6 GHz
+- **Tools** (button next to the map button): **Cell towers** (serving and neighbour cells with network, IDs, channel and signal, plus every tower seen while scanning), **WiFi channels** and **WiFi spectrum** analyzers for 2.4 / 5 / 6 GHz
+- **Cell towers in the live list:** the serving cell and its neighbours appear under *All*, after the devices
 - **Scan watchdog:** a scanner that goes silent is restarted on its own
 - Device details: evidence, identity, decoded data, signal graph, **Locate** mode, history, raw advertisement
 - Setup wizard (theme, region, alerts, camera radius, screen, permissions)
@@ -557,7 +558,9 @@ Some feature ideas come from SØPHIA and BLE Radar (MetaRadar). No code from
 those projects is included. The USB WiFi monitor-mode driver for RTL8811AU /
 RTL8821AU adapters (`app/src/main/java/com/rfsentinel/app/usb/`) is ported from
 [Wardrive Go](https://github.com/RocketGod-git/wardrive-go) by RocketGod (GPL-3.0),
-whose register tables come from the Realtek 88xxau Linux driver; its handshake /
+whose register tables come from Realtek's 88xxau Linux driver
+([aircrack-ng/rtl8812au](https://github.com/aircrack-ng/rtl8812au), GPL-2.0; see
+`usb/NOTICE.md`); its handshake /
 PMKID capture was left out. The map's anchored point layer follows Wardrive Go's
 approach - thank you.
 
@@ -591,7 +594,9 @@ Software Foundation. It is distributed in the hope that it will be useful, but
 
 Any modified version you distribute must also be released under GPL-3.0 with
 its source code. Bundled third-party material keeps its own license: the Share
-Tech Mono font (SIL Open Font License 1.1, `app/src/main/assets/licenses/`), and
+Tech Mono font (SIL Open Font License 1.1, `app/src/main/assets/licenses/`), the
+Realtek 88xxau register tables in the USB WiFi driver (from Realtek's GPL-2.0 Linux
+driver, via Wardrive Go; see `app/src/main/java/com/rfsentinel/app/usb/NOTICE.md`), and
 the signature and Remote ID references credited above (Apache-2.0).
 
 ## Disclaimer

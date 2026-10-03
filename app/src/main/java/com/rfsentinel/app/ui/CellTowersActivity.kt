@@ -35,7 +35,7 @@ import java.util.Date
 class CellTowersActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLogBinding
-    private val fmt = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+    private val fmt get() = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
     private var reader: CellMonitor? = null
 
     private sealed interface Row {

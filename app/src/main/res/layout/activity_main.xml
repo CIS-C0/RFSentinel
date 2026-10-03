@@ -117,6 +117,19 @@
             android:minHeight="52dp"
             app:icon="@drawable/ic_map"
             app:iconPadding="0dp" />
+
+        <!-- Tools: cell towers, WiFi channels and spectrum. -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/toolsButton"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:contentDescription="Tools: cell towers, WiFi channels and WiFi spectrum"
+            android:minWidth="56dp"
+            android:minHeight="52dp"
+            app:icon="@drawable/ic_tools"
+            app:iconPadding="0dp" />
     </LinearLayout>
 
     <!-- Device filters (built in code from DeviceFilter, with live counts). -->

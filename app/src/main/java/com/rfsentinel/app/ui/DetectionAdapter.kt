@@ -18,7 +18,8 @@ class DetectionAdapter(
 ) : RecyclerView.Adapter<DetectionAdapter.VH>() {
 
     private var items: List<DetectionEntity> = emptyList()
-    private val fmt = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM)
+    /** "Oct 3, 2026, 10:21:05 AM": a numeric date like 10/3/26 is read as 10 March in much of the world. */
+    private val fmt get() = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.MEDIUM)
 
     fun submitList(newItems: List<DetectionEntity>) {
         val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {

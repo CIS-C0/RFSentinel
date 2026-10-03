@@ -43,6 +43,8 @@ import kotlinx.coroutines.launch
 class MainActivity : AppCompatActivity() {
 
     companion object {
+        /** Row id prefix of the live cell tower rows (not devices). */
+        private const val CELL_ROW = "cell:"
         /** A flagged row flashes while its device was heard within this window. */
         private const val FLASH_WINDOW_MS = 60_000L
         private const val REFRESH_MS = 1_000L
@@ -79,8 +81,11 @@ class MainActivity : AppCompatActivity() {
         applyThemeHeader()
 
         adapter = DeviceAdapter(
-            onClick = { DeviceActions.openDetails(this, it.mac) },
-            onLongPress = { DeviceActions.showQuickActions(this, it.mac) }
+            onClick = {
+                if (it.mac.startsWith(CELL_ROW)) startActivity(Intent(this, com.rfsentinel.app.ui.CellTowersActivity::class.java))
+                else DeviceActions.openDetails(this, it.mac)
+            },
+            onLongPress = { if (!it.mac.startsWith(CELL_ROW)) DeviceActions.showQuickActions(this, it.mac) }
         )
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
@@ -98,6 +103,22 @@ class MainActivity : AppCompatActivity() {
             if (!checked) return@addOnButtonCheckedListener
             Prefs.setRadarView(this, id == R.id.viewRadarButton)
             applyViewMode()
+        }
+        binding.toolsButton.setOnClickListener { v ->
+            androidx.appcompat.widget.PopupMenu(this, v).apply {
+                menu.add(0, 1, 0, "Cell towers")
+                menu.add(0, 2, 1, "WiFi channels")
+                menu.add(0, 3, 2, "WiFi spectrum")
+                setOnMenuItemClickListener { item ->
+                    when (item.itemId) {
+                        1 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.CellTowersActivity::class.java))
+                        2 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.WifiAnalyzerActivity::class.java))
+                        else -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.WifiAnalyzerActivity::class.java)
+                            .putExtra(com.rfsentinel.app.ui.WifiAnalyzerActivity.EXTRA_SPECTRUM, true))
+                    }
+                    true
+                }
+            }.show()
         }
         binding.mapButton.setOnClickListener {
             startActivity(Intent(this, com.rfsentinel.app.ui.MapActivity::class.java))
@@ -211,6 +232,8 @@ class MainActivity : AppCompatActivity() {
         }
         binding.mapButton.iconTint = android.content.res.ColorStateList.valueOf(accent)
         binding.mapButton.strokeColor = android.content.res.ColorStateList.valueOf(accent)
+        binding.toolsButton.iconTint = android.content.res.ColorStateList.valueOf(accent)
+        binding.toolsButton.strokeColor = android.content.res.ColorStateList.valueOf(accent)
     }
 
     private var shownRunning: Boolean? = null
@@ -300,14 +323,51 @@ class MainActivity : AppCompatActivity() {
                 )
             })
         } else {
-            adapter.submitList(visible.map { toRow(it, now, threshold) })
+            val cells = cellRows(now)
+            adapter.submitList(visible.map { toRow(it, now, threshold) } + cells)
+            shownCells = cells.size
         }
-        binding.emptyText.visibility = if (visible.isEmpty()) View.VISIBLE else View.GONE
+        binding.emptyText.visibility = if (visible.isEmpty() && (binding.radarView.visibility == View.VISIBLE || shownCells == 0)) View.VISIBLE else View.GONE
         binding.emptyText.text = when {
             all.isEmpty() && !ScanForegroundService.isRunning -> "Not scanning.\nTap Start scanning to begin."
             all.isEmpty() -> "Listening... no devices heard yet."
             else -> "No devices match this filter."
         }
+    }
+
+    /**
+     * The cell towers the phone sees right now (serving first), listed after the devices
+     * under the All filter. Read every 15 s while scanning; tap opens Tools > Cell towers.
+     */
+    private var shownCells = 0
+
+    private fun cellRows(now: Long): List<DeviceRow> {
+        if (filter != com.rfsentinel.app.ui.DeviceFilter.ALL || !ScanForegroundService.isRunning) return emptyList()
+        val at = com.rfsentinel.app.service.CellTowerStore.currentAt
+        if (now - at > 60_000L) return emptyList()
+        val ageSec = (now - at) / 1000
+        return com.rfsentinel.app.service.CellTowerStore.current
+            .sortedWith(compareByDescending<com.rfsentinel.app.detect.CellAnalyzer.Cell> { it.registered }.thenByDescending { it.dbm ?: -999 })
+            .filter { c ->
+                query.isBlank() || listOfNotNull(c.operator, c.rat.label, c.cellId?.toString(), "${c.mcc}-${c.mnc}")
+                    .any { it.contains(query.trim(), ignoreCase = true) }
+            }
+            .mapIndexed { i, c ->
+                val area = if (c.rat == com.rfsentinel.app.detect.CellAnalyzer.Rat.LTE || c.rat == com.rfsentinel.app.detect.CellAnalyzer.Rat.NR) "TAC" else "LAC"
+                DeviceRow(
+                    mac = CELL_ROW + i + ":" + c.key,
+                    title = "Cell tower · ${c.rat.label}" + (c.operator?.let { " · $it" } ?: ""),
+                    subtitle = listOfNotNull(
+                        if (c.mcc != null || c.mnc != null) "${c.mcc ?: "?"}-${c.mnc ?: "?"}" else null,
+                        c.area?.let { "$area $it" }, c.cellId?.let { "Cell $it" }, c.pci?.let { "PCI $it" }
+                    ).joinToString("  ·  ").ifEmpty { "No IDs reported" },
+                    meta = (if (c.registered) "Serving your phone" else "Neighbour cell") +
+                        (c.dbm?.let { " · $it dBm" } ?: "") + " · " + (if (ageSec < 2) "now" else "${ageSec}s ago"),
+                    tag = if (c.registered) "CELL · serving" else "CELL",
+                    tagColor = 0xFF5E35B1.toInt(),
+                    highlight = null, flashing = false, bold = c.registered
+                )
+            }
     }
 
     private fun matchesQuery(s: DeviceRegistry.Snapshot): Boolean {
@@ -457,12 +517,6 @@ class MainActivity : AppCompatActivity() {
             R.id.action_traces -> { startActivity(Intent(this, com.rfsentinel.app.ui.TripsActivity::class.java)); true }
             R.id.action_history -> { startActivity(Intent(this, com.rfsentinel.app.ui.HistoryActivity::class.java)); true }
             R.id.action_about -> { AboutDialog.show(this); true }
-            R.id.action_cell_towers -> { startActivity(Intent(this, com.rfsentinel.app.ui.CellTowersActivity::class.java)); true }
-            R.id.action_wifi_channels -> { startActivity(Intent(this, com.rfsentinel.app.ui.WifiAnalyzerActivity::class.java)); true }
-            R.id.action_wifi_spectrum -> {
-                startActivity(Intent(this, com.rfsentinel.app.ui.WifiAnalyzerActivity::class.java)
-                    .putExtra(com.rfsentinel.app.ui.WifiAnalyzerActivity.EXTRA_SPECTRUM, true)); true
-            }
             R.id.action_mute -> {
                 val muted = !Prefs.alertsMuted(this)
                 Prefs.setAlertsMuted(this, muted)
