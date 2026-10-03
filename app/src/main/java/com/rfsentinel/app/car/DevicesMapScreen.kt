@@ -37,7 +37,14 @@ class DevicesMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs
         val flagged: Boolean, val color: Int, val tag: String?
     )
 
-    override fun onGetTemplate(): Template {
+    override fun contentKey(): Any {
+        val me = CarUi.currentLocation(carContext) ?: return listOf(ScanForegroundService.isRunning, "no fix")
+        return listOf(ScanForegroundService.isRunning) +
+            around(me.latitude, me.longitude, CarUi.listLimit(carContext).coerceAtMost(6))
+                .map { "${it.mac}|${it.title}|${it.detail}|${(it.distanceM / 10).toInt()}|${it.color}" }
+    }
+
+    override fun render(): Template {
         val me = CarUi.currentLocation(carContext)
         val limit = CarUi.listLimit(carContext).coerceAtMost(6)
         val items = if (me == null) emptyList() else around(me.latitude, me.longitude, limit)

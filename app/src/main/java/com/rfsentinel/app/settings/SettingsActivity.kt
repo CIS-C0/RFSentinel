@@ -503,6 +503,7 @@ class SettingsActivity : AppCompatActivity() {
             confirm("Clear match history?", "Deletes every logged match. Export first if you need a copy.") {
                 lifecycleScope.launch {
                     AppDatabase.getInstance(this@SettingsActivity).detectionDao().clearAll()
+                    com.rfsentinel.app.data.AlertLog.clear(this@SettingsActivity)
                     Toast.makeText(this@SettingsActivity, "Match history cleared", Toast.LENGTH_SHORT).show()
                 }
             }

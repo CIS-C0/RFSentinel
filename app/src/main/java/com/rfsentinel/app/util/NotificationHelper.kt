@@ -139,8 +139,11 @@ object NotificationHelper {
      */
     fun sendMapAlert(
         context: Context, key: String, hit: Hit,
-        target: Class<out android.app.Activity> = com.rfsentinel.app.ui.MapActivity::class.java
+        target: Class<out android.app.Activity> = com.rfsentinel.app.ui.MapActivity::class.java,
+        /** Where the thing is (a camera); else where you were. */
+        lat: Double? = null, lon: Double? = null
     ) {
+        recordAlert(context, key, null, hit, null, false, lat, lon)
         val nm = context.getSystemService(NotificationManager::class.java)
         val discreet = Prefs.discreetMode(context)
         val open = PendingIntent.getActivity(
@@ -166,6 +169,8 @@ object NotificationHelper {
                     .setContentText(if (discreet) "New alert" else hit.evidence)
                     .setSmallIcon(R.drawable.ic_tile_scan)
                     .setImportance(NotificationManagerCompat.IMPORTANCE_HIGH)
+                    .addAction(R.drawable.ic_car_volume_off, "Mute 30 min",
+                        com.rfsentinel.app.receiver.AlertActionReceiver.snoozeIntent(context, ALERT_NOTIFICATION_ID_BASE + key.hashCode()))
                     .build()
             )
         try {
@@ -175,8 +180,29 @@ object NotificationHelper {
         }
     }
 
+    /**
+     * Adds the alert to the recent-alerts list (Android Auto). Positions are kept only
+     * with Settings > GPS tagging on, like the match history.
+     */
+    private fun recordAlert(
+        context: Context, key: String, mac: String?, hit: Hit, rssi: Int?, following: Boolean,
+        lat: Double?, lon: Double?
+    ) {
+        runCatching {
+            val tag = Prefs.gpsTaggingEnabled(context)
+            val here = ScanForegroundService.lastFix
+            com.rfsentinel.app.data.AlertLog.add(
+                context, key, mac, hit, rssi, following,
+                if (tag) lat ?: here?.latitude else null, if (tag) lon ?: here?.longitude else null
+            )
+        }
+    }
+
     /** Posts the match notification; sound/vibration/voice are played by the caller. */
     fun sendAlert(context: Context, mac: String, hit: Hit, rssi: Int, following: Boolean = false) {
+        // A drone with a Remote ID position is logged where it is; anything else where you were.
+        val rid = com.rfsentinel.app.service.DeviceRegistry.get(mac)?.remoteId?.takeIf { it.hasPosition }
+        recordAlert(context, mac, mac, hit, rssi, following, rid?.latitude, rid?.longitude)
         val nm = context.getSystemService(NotificationManager::class.java)
         val discreet = Prefs.discreetMode(context)
         val detail = PendingIntent.getActivity(
@@ -228,6 +254,12 @@ object NotificationHelper {
                             PendingIntent.FLAG_UPDATE_CURRENT
                         )
                     )
+                    // One tap from the car screen: silence alerts for a while, or stop
+                    // alerting about this device (undo from its details).
+                    .addAction(R.drawable.ic_car_volume_off, "Mute 30 min",
+                        com.rfsentinel.app.receiver.AlertActionReceiver.snoozeIntent(context, ALERT_NOTIFICATION_ID_BASE + mac.hashCode()))
+                    .addAction(R.drawable.ic_car_star_outline, "Ignore",
+                        com.rfsentinel.app.receiver.AlertActionReceiver.ignoreIntent(context, mac, ALERT_NOTIFICATION_ID_BASE + mac.hashCode()))
                     .build()
             )
         try {

@@ -607,7 +607,7 @@ class ScanForegroundService : Service() {
                     ". Mapped in OpenStreetMap" + (if (alpr) " - it may not broadcast any signal." else "."),
                 "OpenStreetMap (" + (if (alpr) "surveillance:type=ALPR" else "highway=speed_camera / enforcement") + "), ODbL"
             )
-            NotificationHelper.sendMapAlert(this, "alpr:" + cam.osmId, hit)
+            NotificationHelper.sendMapAlert(this, "alpr:" + cam.osmId, hit, lat = cam.lat, lon = cam.lon)
             AlertPlayer.play(this, hit.tier, com.rfsentinel.app.util.Spoken.camera(this, cam))
             break // one warning per fix is enough
         }

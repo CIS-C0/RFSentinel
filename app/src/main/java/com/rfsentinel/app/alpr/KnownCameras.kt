@@ -186,6 +186,34 @@ object KnownCameras {
         else max(300.0, minOf(900.0, v * 30.0))
     }
 
+    /**
+     * The next camera on your way: the nearest within [maxM] that lies within
+     * [coneDeg] of your direction of travel ([bearingDeg]). Without a bearing
+     * (standing still, no GPS heading) the nearest within [maxM] / 3. [skip]
+     * leaves out cameras the user silenced.
+     */
+    fun ahead(
+        cameras: List<KnownCamera>, lat: Double, lon: Double, bearingDeg: Float?,
+        maxM: Double = 3_000.0, coneDeg: Double = 45.0, skip: (KnownCamera) -> Boolean = { false }
+    ): Pair<KnownCamera, Double>? {
+        if (bearingDeg == null) return near(cameras, lat, lon, maxM / 3).firstOrNull { !skip(it.first) }
+        return near(cameras, lat, lon, maxM).firstOrNull { (c, d) ->
+            if (skip(c)) return@firstOrNull false
+            if (d < 30.0) return@firstOrNull true // right here
+            val diff = kotlin.math.abs(((bearingTo(lat, lon, c.lat, c.lon) - bearingDeg) % 360 + 540) % 360 - 180)
+            diff <= coneDeg
+        }
+    }
+
+    /** Initial great-circle bearing from one point to another, degrees from north (0-360). */
+    fun bearingTo(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val p1 = Math.toRadians(lat1); val p2 = Math.toRadians(lat2)
+        val dl = Math.toRadians(lon2 - lon1)
+        val y = kotlin.math.sin(dl) * cos(p2)
+        val x = cos(p1) * kotlin.math.sin(p2) - kotlin.math.sin(p1) * cos(p2) * cos(dl)
+        return (Math.toDegrees(kotlin.math.atan2(y, x)) + 360) % 360
+    }
+
     /** Cameras within [radiusM] of a point, nearest first. Cheap bounding-box prefilter. */
     fun near(cameras: List<KnownCamera>, lat: Double, lon: Double, radiusM: Double): List<Pair<KnownCamera, Double>> {
         val dLat = radiusM / 111_000.0

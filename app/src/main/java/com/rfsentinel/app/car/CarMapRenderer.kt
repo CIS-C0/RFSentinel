@@ -51,6 +51,16 @@ class CarMapRenderer(private val carContext: CarContext, private val scope: Coro
     private var devices = FolderOverlay()
     private var cameras = FolderOverlay()
     private var me = FolderOverlay()
+    private var towers = FolderOverlay()
+    /** Icons are built once per map, not on every redraw (keyed by colour and size). */
+    private val dotIcons = HashMap<Long, android.graphics.drawable.Drawable>()
+    private var cameraIcons: Map<KnownCamera.Kind, BitmapDrawable> = emptyMap()
+    private var fadedCameraIcons: Map<KnownCamera.Kind, BitmapDrawable> = emptyMap()
+    private var towerIcon: BitmapDrawable? = null
+    /** What the marker layers were last built from: unchanged data isn't rebuilt. */
+    private var devicesKey: Any? = null
+    private var camerasKey: Any? = null
+    private var towersKey: Any? = null
     /** The navigation route; created with each map (osmdroid needs the MapView for it). */
     private var route: Polyline? = null
     private var visibleArea: Rect? = null
@@ -78,7 +88,8 @@ class CarMapRenderer(private val carContext: CarContext, private val scope: Coro
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY
             )
             val p = Presentation(carContext, vd.display)
-            devices = FolderOverlay(); cameras = FolderOverlay(); me = FolderOverlay()
+            devices = FolderOverlay(); cameras = FolderOverlay(); me = FolderOverlay(); towers = FolderOverlay()
+            dotIcons.clear(); devicesKey = null; camerasKey = null; towersKey = null
             val m = MapView(p.context).apply {
                 setTileSource(TileSourceFactory.MAPNIK)
                 setMultiTouchControls(false) // touch comes from the car via onScroll/onScale
@@ -86,6 +97,7 @@ class CarMapRenderer(private val carContext: CarContext, private val scope: Coro
                 minZoomLevel = 4.0
                 maxZoomLevel = 19.0
                 controller.setZoom(16.0)
+                overlays.add(towers)
                 overlays.add(cameras)
                 overlays.add(devices)
                 overlays.add(me)
@@ -93,6 +105,13 @@ class CarMapRenderer(private val carContext: CarContext, private val scope: Coro
             p.setContentView(m)
             p.show()
             m.onResume()
+            val dp = m.context.resources.displayMetrics.density
+            // Car screens sit further away: bigger camera icons than on the phone.
+            cameraIcons = KnownCamera.Kind.entries.associateWith { BitmapDrawable(m.context.resources, MapIcons.cameraIcon(dp * 1.6f, it)) }
+            fadedCameraIcons = KnownCamera.Kind.entries.associateWith {
+                BitmapDrawable(m.context.resources, MapIcons.cameraIcon(dp * 1.6f, it)).apply { alpha = 90 }
+            }
+            towerIcon = BitmapDrawable(m.context.resources, MapIcons.towerIcon(dp * 1.3f))
             display = vd; presentation = p; map = m
             applyDayNight()
             main.post(tick)
@@ -193,51 +212,88 @@ class CarMapRenderer(private val carContext: CarContext, private val scope: Coro
             })
         }
 
-        devices.items.clear()
-        val list = DeviceRegistry.snapshot().filter { !WhitelistCache.contains(it.mac) }
-        // Ordinary devices first so flagged ones are drawn on top.
-        for (s in list.sortedBy { DeviceColors.isFlagged(it) }) {
-            val rid = s.remoteId?.takeIf { it.hasPosition }
-            val lat = rid?.latitude ?: s.bestPosition?.lat ?: continue
-            val lon = rid?.longitude ?: s.bestPosition?.lon ?: continue
-            val best = s.best
-            val color = when {
-                best == null -> DevicesMapScreen.ORDINARY_COLOR
-                best.tier == Tier.WEAK -> DeviceColors.WEAK
-                else -> best.category.colorArgb
+        // Devices: ordinary first so flagged ones are drawn on top.
+        val placed = DeviceRegistry.snapshot().filter { !WhitelistCache.contains(it.mac) }
+            .sortedBy { DeviceColors.isFlagged(it) }
+            .mapNotNull { s ->
+                val rid = s.remoteId?.takeIf { it.hasPosition }
+                val lat = rid?.latitude ?: s.bestPosition?.lat ?: return@mapNotNull null
+                val lon = rid?.longitude ?: s.bestPosition?.lon ?: return@mapNotNull null
+                val best = s.best
+                val color = when {
+                    best == null -> DevicesMapScreen.ORDINARY_COLOR
+                    best.tier == Tier.WEAK -> DeviceColors.WEAK
+                    else -> best.category.colorArgb
+                }
+                DeviceDot(lat, lon, color, if (DeviceColors.isFlagged(s)) 18 else 11)
             }
-            devices.add(Marker(m).apply {
-                position = GeoPoint(lat, lon)
-                icon = MapIcons.dot(dp, color, if (DeviceColors.isFlagged(s)) 18 else 11)
-                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                setInfoWindow(null)
-            })
+        if (placed != devicesKey) {
+            devicesKey = placed
+            devices.items.clear()
+            for (d in placed) {
+                devices.add(Marker(m).apply {
+                    position = GeoPoint(d.lat, d.lon)
+                    icon = dotIcons.getOrPut((d.color.toLong() shl 8) or d.sizeDp.toLong()) { MapIcons.dot(dp, d.color, d.sizeDp) }
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    setInfoWindow(null)
+                })
+            }
         }
 
-        cameras.items.clear()
+        // Cell towers (phone map menu: Show cell towers), at their estimated spots.
+        val showTowers = Prefs.showCellTowers(carContext)
+        val tKey = if (showTowers) com.rfsentinel.app.service.CellTowerStore.currentAt / 30_000L else null
+        if (tKey != towersKey) {
+            towersKey = tKey
+            towers.items.clear()
+            if (showTowers) com.rfsentinel.app.service.CellTowerStore.all(carContext).forEach { t ->
+                val lat = t.bestLat ?: return@forEach
+                val lon = t.bestLon ?: return@forEach
+                towers.add(Marker(m).apply {
+                    position = GeoPoint(lat, lon)
+                    icon = towerIcon
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    setInfoWindow(null)
+                })
+            }
+        }
+
         if (m.zoomLevelDouble >= 9.0) {
             val box = m.boundingBox.increaseByScale(1.4f)
-            val icons = KnownCamera.Kind.entries.associateWith { BitmapDrawable(m.context.resources, MapIcons.cameraIcon(dp * 1.6f, it)) } // car screens sit further away
-            AlprStore.cameras.asSequence()
+            val inBox = AlprStore.cameras.asSequence()
                 .filter { it.lat in box.latSouth..box.latNorth && it.lon in box.lonWest..box.lonEast }
                 .take(600)
-                .forEach { c ->
+                .toList()
+            // Rebuilt when the cameras in view change, not on every 2 s tick.
+            val ignoredIds = inBox.filter { com.rfsentinel.app.alpr.IgnoredCameras.contains(carContext, it.osmId) }.map { it.osmId }.toSet()
+            val cKey = listOf(inBox.size, inBox.firstOrNull()?.osmId, inBox.lastOrNull()?.osmId, ignoredIds)
+            if (cKey != camerasKey) {
+                camerasKey = cKey
+                cameras.items.clear()
+                inBox.forEach { c ->
                     cameras.add(Marker(m).apply {
                         position = GeoPoint(c.lat, c.lon)
-                        icon = icons.getValue(c.type)
+                        // Silenced cameras stay on the map, faded (like on the phone).
+                        icon = (if (c.osmId in ignoredIds) fadedCameraIcons else cameraIcons)[c.type]
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                         setInfoWindow(null)
                     })
                 }
+            }
             // Fetch the cameras for wherever the driver moved the map.
             if (Prefs.autoCameras(carContext) && !AlprStore.isBusy && box.latNorth - box.latSouth <= AlprStore.MAX_SPAN_DEG) {
                 scope.launch {
                     if (AlprStore.autoDownload(carContext, box.latSouth, box.lonWest, box.latNorth, box.lonEast)) redraw()
                 }
             }
+        } else if (camerasKey != null) {
+            camerasKey = null
+            cameras.items.clear()
         }
         m.invalidate()
     }
+
+    private data class DeviceDot(val lat: Double, val lon: Double, val color: Int, val sizeDp: Int)
 
     private var drawnRoute: com.rfsentinel.app.nav.OsmRouting.Route? = null
 

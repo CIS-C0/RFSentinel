@@ -42,6 +42,8 @@ class CarScreensTest {
     @Before
     fun setUp() {
         car = TestCarContext.createCarContext(ApplicationProvider.getApplicationContext())
+        SafeScreen.lastError = null
+        com.rfsentinel.app.data.AlertLog.resetForTest()
         DeviceRegistry.startSession()
         ScanForegroundService.isRunning = true
 
@@ -67,19 +69,22 @@ class CarScreensTest {
     @After
     fun tearDown() {
         ScanForegroundService.isRunning = false
+        ScanForegroundService.setLastFixForTest(null)
+        com.rfsentinel.app.alpr.AlprStore.setForTest(emptyList())
         DeviceRegistry.clear()
+        // A screen that failed to build shows an error message instead of crashing: catch that here.
+        org.junit.Assert.assertNull("a car screen failed to render", SafeScreen.lastError)
     }
 
     @Test
     fun homeScreenShowsStatusNavigationAndButtons() {
         val t = HomeScreen(car).onGetTemplate() as ListTemplate
         val rows = t.singleList!!.items.map { it as Row }
-        assertEquals(6, rows.size)
+        assertEquals(listOf("Recent alerts (0)", "Nearby devices (14)", "More"),
+            listOf(rows[1], rows[3], rows[4]).map { it.title.toString() })
         assertTrue(rows[0].title.toString().startsWith("Strong match"))              // threat headline
-        assertTrue(rows[1].title.toString().startsWith("Flagged nearby (2)"))
-        assertTrue(rows[2].title.toString().startsWith("Drones & trackers (1)"))
-        assertTrue(rows[3].title.toString().startsWith("All nearby devices (14)"))
-        assertTrue(rows[4].title.toString() in setOf("Live map & navigation", "Map: devices & cameras around me"))
+        assertTrue(rows[0].texts[0].toString().contains("2 flagged"))
+        assertTrue(rows[2].title.toString() in setOf("Live map & navigation", "Map: devices & cameras around me"))
         val actions = t.actionStrip!!.actions
         assertEquals(2, actions.size)
         assertEquals("Stop", actions[0].title.toString())
@@ -93,7 +98,7 @@ class CarScreensTest {
         mute.onClickDelegate!!.sendClick(object : OnDoneCallback {})
         assertTrue(Prefs.alertsMuted(car))
         val t = screen.onGetTemplate() as ListTemplate
-        assertTrue((t.singleList!!.items[5] as Row).texts[0].toString().contains("muted"))
+        assertTrue((t.singleList!!.items[0] as Row).texts[0].toString().contains("muted"))
         val relabeled = t.actionStrip!!.actions[1]
         relabeled.onClickDelegate!!.sendClick(object : OnDoneCallback {})
         assertTrue(!Prefs.alertsMuted(car))
@@ -101,13 +106,13 @@ class CarScreensTest {
 
     @Test
     fun listsRespectCarRowLimitAndOrder() {
-        val t = DeviceListScreen(car, DeviceListScreen.Filter.ALL).onGetTemplate() as ListTemplate
+        val t = DeviceListScreen(car, com.rfsentinel.app.ui.DeviceFilter.ALL).onGetTemplate() as ListTemplate
         val rows = t.singleList!!.items.map { it as Row }
         assertTrue(rows.size <= CarUi.listLimit(car))
         assertEquals("Drone broadcasting Remote ID", rows[0].title.toString()) // strongest evidence (95) first
         assertEquals("Axon body camera", rows[1].title.toString())
 
-        val flagged = DeviceListScreen(car, DeviceListScreen.Filter.FLAGGED).onGetTemplate() as ListTemplate
+        val flagged = DeviceListScreen(car, com.rfsentinel.app.ui.DeviceFilter.FLAGGED).onGetTemplate() as ListTemplate
         assertEquals(2, flagged.singleList!!.items.size)
     }
 

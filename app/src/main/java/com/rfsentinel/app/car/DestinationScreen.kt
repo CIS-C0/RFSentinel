@@ -2,7 +2,6 @@ package com.rfsentinel.app.car
 
 import androidx.car.app.CarContext
 import androidx.car.app.CarToast
-import androidx.car.app.Screen
 import androidx.car.app.model.Action
 import androidx.car.app.model.ItemList
 import androidx.car.app.model.Row
@@ -23,7 +22,7 @@ import kotlinx.coroutines.withContext
  * sent only when you submit it - Nominatim's usage policy forbids
  * search-as-you-type, and it keeps requests to a minimum.
  */
-class DestinationScreen(carContext: CarContext, private val map: LiveMapScreen) : Screen(carContext) {
+class DestinationScreen(carContext: CarContext, private val map: LiveMapScreen) : SafeScreen(carContext) {
 
     private var results: List<OsmRouting.Destination>? = null
     private var loading = false
@@ -31,7 +30,7 @@ class DestinationScreen(carContext: CarContext, private val map: LiveMapScreen) 
     /** What's typed so far (searched only when submitted or tapped - no search-as-you-type). */
     private var typed = ""
 
-    override fun onGetTemplate(): Template {
+    override fun buildTemplate(): Template {
         val list = ItemList.Builder()
         val shown = results ?: Prefs.recentDestinations(carContext)
         val me = CarUi.currentLocation(carContext)

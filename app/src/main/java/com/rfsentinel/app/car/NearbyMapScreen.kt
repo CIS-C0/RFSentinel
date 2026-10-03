@@ -38,10 +38,20 @@ class NearbyMapScreen(
     /** One row: a camera or a drone. */
     data class Item(val title: String, val detail: String, val lat: Double, val lon: Double, val distanceM: Double,
                     val drone: Boolean, val mac: String?, val kind: com.rfsentinel.app.alpr.KnownCamera.Kind? = null,
+                    /** The known camera this row shows (opens its own view with the ignore toggle). */
+                    val camera: com.rfsentinel.app.alpr.KnownCamera? = null,
                     /** Flagged device: its list / radar colour (category, or amber when weak). */
                     val deviceColor: Int? = null)
 
-    override fun onGetTemplate(): Template {
+    override fun contentKey(): Any {
+        val me = CarUi.currentLocation(carContext) ?: return "no fix"
+        val items = nearby(me.latitude, me.longitude, CarUi.listLimit(carContext).coerceAtMost(6))
+        return listOf(AlprStore.cameras.size) + items.map {
+            "${it.title}|${(it.distanceM / 10).toInt()}|${it.camera?.let { c -> com.rfsentinel.app.alpr.IgnoredCameras.contains(carContext, c.osmId) }}"
+        }
+    }
+
+    override fun render(): Template {
         val me = CarUi.currentLocation(carContext)
         if (me != null) autoDownloadAround(me)
         val limit = CarUi.listLimit(carContext).coerceAtMost(6)
@@ -76,24 +86,21 @@ class NearbyMapScreen(
     }
 
     private fun row(it: Item): Row {
+        val ignored = it.camera != null && com.rfsentinel.app.alpr.IgnoredCameras.contains(carContext, it.camera.osmId)
         val color = when {
             it.drone -> CarColor.BLUE
             it.deviceColor != null -> CarColor.createCustom(it.deviceColor, it.deviceColor)
-            it.kind == com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR -> CarColor.RED
+            ignored -> CarColor.createCustom(0xFF9E9E9E.toInt(), 0xFF9E9E9E.toInt())
+            it.kind != null -> cameraColor(it.kind).let { c -> CarColor.createCustom(c, c) }
             else -> CarColor.YELLOW
         }
-        val label = when (it.kind) {
-            null -> if (it.drone) "D" else "!"
-            com.rfsentinel.app.alpr.KnownCamera.Kind.SPEED -> "S"
-            com.rfsentinel.app.alpr.KnownCamera.Kind.RED_LIGHT -> "R"
-            com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR -> "P"
-        }
+        val label = it.kind?.let { k -> cameraLabel(k) } ?: if (it.drone) "D" else "!"
         val place = Place.Builder(CarLocation.create(it.lat, it.lon))
             .setMarker(PlaceMarker.Builder().setColor(color).setLabel(label).build())
             .build()
         // Android Auto requires every place row on a map template to carry its distance
         // as a DistanceSpan (the host formats it in the driver's units); plain text throws.
-        val text = android.text.SpannableString("  · " + it.detail)
+        val text = android.text.SpannableString("  · " + it.detail + if (ignored) " · alerts off" else "")
         text.setSpan(androidx.car.app.model.DistanceSpan.create(distanceOf(it.distanceM)), 0, 1,
             android.text.Spanned.SPAN_INCLUSIVE_INCLUSIVE)
         return Row.Builder()
@@ -102,6 +109,7 @@ class NearbyMapScreen(
             .setMetadata(Metadata.Builder().setPlace(place).build())
             .setOnClickListener {
                 if (it.mac != null) screenManager.push(DeviceDetailScreen(carContext, it.mac))
+                else if (it.camera != null) screenManager.push(PlaceFocusScreen.forCamera(carContext, it.camera))
                 else screenManager.push(PlaceFocusScreen(carContext, it.title, it.detail, it.lat, it.lon, color, label))
             }
             .build()
@@ -127,7 +135,7 @@ class NearbyMapScreen(
         fun nearby(lat: Double, lon: Double, limit: Int): List<Item> {
             val cams = KnownCameras.near(AlprStore.cameras, lat, lon, SEARCH_RADIUS_M).map { (c, d) ->
                 Item(c.label, c.operator ?: (c.direction?.let { "faces $it°" } ?: "mapped in OpenStreetMap"),
-                    c.lat, c.lon, d, drone = false, mac = null, kind = c.type)
+                    c.lat, c.lon, d, drone = false, mac = null, kind = c.type, camera = c)
             }
             val drones = DeviceRegistry.snapshot().mapNotNull { s ->
                 val r = s.remoteId ?: return@mapNotNull null
@@ -151,6 +159,16 @@ class NearbyMapScreen(
             }
             // Drones first (they move and matter now), then flagged devices, then cameras by distance.
             return (drones.sortedBy { it.distanceM } + devices.sortedBy { it.distanceM } + cams).take(limit)
+        }
+
+        /** Marker colour of a camera kind: the same as the phone map's camera icons. */
+        fun cameraColor(kind: com.rfsentinel.app.alpr.KnownCamera.Kind): Int = com.rfsentinel.app.ui.MapIcons.cameraColor(kind)
+
+        /** Marker letter: P(late reader), S(peed), R(ed light). */
+        fun cameraLabel(kind: com.rfsentinel.app.alpr.KnownCamera.Kind) = when (kind) {
+            com.rfsentinel.app.alpr.KnownCamera.Kind.SPEED -> "S"
+            com.rfsentinel.app.alpr.KnownCamera.Kind.RED_LIGHT -> "R"
+            com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR -> "P"
         }
 
         /** Metres below 1 km (rounded to 10 m), else kilometres with one decimal. */

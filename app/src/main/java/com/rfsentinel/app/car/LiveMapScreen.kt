@@ -50,7 +50,14 @@ class LiveMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs = 
         invalidate()
     }
 
-    override fun onGetTemplate(): Template {
+    override fun contentKey(): Any {
+        val p = Navigator.progress
+        return if (Navigator.active) listOf("nav", Navigator.status, p?.nextStep?.instruction,
+            p?.toNextStepM?.let { (it / 10).toInt() }, p?.remainingM?.let { (it / 100).toInt() })
+        else listOf(ScanForegroundService.isRunning, renderer.counts(), renderer.following)
+    }
+
+    override fun render(): Template {
         val list = ItemList.Builder()
         if (Navigator.active) guidanceRows(list) else summaryRows(list)
 

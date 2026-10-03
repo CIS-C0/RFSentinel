@@ -53,7 +53,10 @@ class DetectionLogActivity : AppCompatActivity() {
                 .setTitle("Clear match history?")
                 .setMessage("This deletes every logged match on this device. Export first if you need a copy.")
                 .setPositiveButton("Clear") { _, _ ->
-                    lifecycleScope.launch { AppDatabase.getInstance(this@DetectionLogActivity).detectionDao().clearAll() }
+                    lifecycleScope.launch {
+                        AppDatabase.getInstance(this@DetectionLogActivity).detectionDao().clearAll()
+                        com.rfsentinel.app.data.AlertLog.clear(this@DetectionLogActivity)
+                    }
                 }
                 .setNegativeButton("Cancel", null)
                 .show()

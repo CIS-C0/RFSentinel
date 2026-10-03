@@ -70,6 +70,14 @@ object Prefs {
     fun alertsMuted(context: Context): Boolean = bool(context, "alerts_muted", false)
     fun setAlertsMuted(context: Context, value: Boolean) = setBool(context, "alerts_muted", value)
 
+    /** Alert sound and voice snoozed until this time (Android Auto "Mute 30 min"); 0 = not snoozed. */
+    fun alertsSnoozedUntil(context: Context): Long = sp(context).getLong("alerts_snoozed_until", 0L)
+    fun setAlertsSnoozedUntil(context: Context, time: Long) = sp(context).edit { putLong("alerts_snoozed_until", time) }
+
+    /** Muted, or snoozed for a while: no alert sound or voice. */
+    fun alertsSilenced(context: Context, now: Long = System.currentTimeMillis()): Boolean =
+        alertsMuted(context) || now < alertsSnoozedUntil(context)
+
     /** Speak alerts whenever Android Auto is connected, even if phone voice alerts are off. */
     fun carVoice(context: Context): Boolean = bool(context, "car_voice", true)
     fun setCarVoice(context: Context, value: Boolean) = setBool(context, "car_voice", value)

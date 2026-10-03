@@ -133,7 +133,7 @@ Every match shows its evidence, its source and a confidence tier: **weak** (< 50
 - **History map & timeline:** heatmap of where flagged equipment showed up, and when (hour of day, day of week)
 
 **Driving**
-- **Android Auto** app: threat headline, device lists, live map with cameras and drones, OpenStreetMap turn-by-turn navigation, alerts through the car speakers
+- **Android Auto** app: threat headline, next camera ahead, recent alerts, filtered device lists, cell towers, hardware status, live map with cameras and drones, OpenStreetMap turn-by-turn navigation, alerts through the car speakers with Mute 30 min / Ignore buttons
 - **Starts by itself in the car** (your car's Bluetooth or Android Auto) and stops when you leave
 - Night Drive red-only theme; screen stays on while charging
 
@@ -269,11 +269,27 @@ A driver-safe, template-based Android Auto app:
 </p>
 <p align="center"><sub>Home, flagged devices, live map, and known cameras (demo data).</sub></p>
 
-- **Home:** threat headline, live counts, Start/Stop, and a speaker button that
-  mutes or unmutes all alert sound.
-- **Device lists** (flagged, drones & trackers, all nearby) and **details** with
-  Whitelist, Watch and Favorite. **Navigate** hands drones with a known position
-  to your navigation app.
+- **Home**, most important first (a car shows about six rows while driving):
+  the threat headline (tap for the flagged devices), the **next known camera on
+  your way** with its distance, **recent alerts**, the map, nearby devices and
+  **More**. Start/Stop and a speaker button that mutes or unmutes all alert
+  sound sit in the header.
+- **Nearby devices** with the phone's filters and live counts (flagged,
+  trackers, drones, favorites, new, Bluetooth, WiFi, ESP32 / USB). Each row says
+  which radio heard it.
+- **Device details** with Whitelist, Watch and Favorite; trackers get the
+  phone's three ignore choices (*it's mine*, *today only*, *pause follow
+  warnings*). **Navigate** hands drones with a known position to your
+  navigation app. A device that has left still shows its last alert.
+- **Recent alerts:** the last 40 alerts (devices, cameras, cell warnings), kept
+  after the device is gone.
+- **Cameras:** tap one to see it alone on the map, navigate to it, or tap its
+  row to turn its alerts off or back on (faded on the maps).
+- **More:** snooze alerts for 30 minutes, spoken alerts in the car, short
+  spoken alerts, whether AirTags count as trackers, **cell towers** (fake-cell
+  check status, serving cell and neighbours) and **hardware** status (phone
+  radios and the scan watchdog, ESP32 / Marauder / Flipper on USB, OUI-SPY over
+  Bluetooth, USB WiFi adapter).
 - **Live map:** RF Sentinel's own OpenStreetMap map on the car screen with
   devices, known plate / speed / red-light cameras and your position. Drag,
   pinch or **+ / −**; **◎** follows the car again. Needs car API level 7; older
@@ -281,8 +297,11 @@ A driver-safe, template-based Android Auto app:
 - **Navigation:** *Navigate to...* searches with [Nominatim](https://nominatim.org)
   (on submit only), keeps recent destinations on the phone, routes with
   [OSRM](https://project-osrm.org), speaks turns and re-routes.
-- **Alerts** appear as heads-up cards and play through the car speakers as
-  navigation audio, briefly lowering your music.
+- **Alerts** appear as heads-up cards with **Mute 30 min** and **Ignore**
+  buttons, and play through the car speakers as navigation audio, briefly
+  lowering your music.
+- Screens only redraw when what they show has changed, and a screen that fails
+  to build shows a short message instead of closing the app.
 
 **Sideloaded apps need one-time setup:** Android Auto settings → tap **Version**
 ten times → **⋮ → Developer settings** → enable **Unknown sources**. Then

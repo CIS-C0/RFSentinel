@@ -1,7 +1,5 @@
 package com.rfsentinel.app.car
 
-import android.content.Intent
-import android.net.Uri
 import androidx.car.app.CarContext
 import androidx.car.app.CarToast
 import androidx.car.app.model.Action
@@ -14,10 +12,14 @@ import androidx.car.app.model.Row
 import androidx.car.app.model.Template
 import androidx.lifecycle.lifecycleScope
 import com.rfsentinel.app.R
+import com.rfsentinel.app.data.AlertLog
 import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.Favorites
+import com.rfsentinel.app.data.TrackerMutes
 import com.rfsentinel.app.data.WhitelistCache
 import com.rfsentinel.app.data.WhitelistEntity
+import com.rfsentinel.app.detect.AddressType
+import com.rfsentinel.app.detect.Category
 import com.rfsentinel.app.detect.DeviceIntel
 import com.rfsentinel.app.oui.OuiEntry
 import com.rfsentinel.app.oui.OuiWatchlist
@@ -27,18 +29,25 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 /**
- * One device on the car screen: why it's flagged, live signal, identity,
- * and buttons (whitelist, watch, favorite, navigate to a drone).
+ * One device on the car screen: why it's flagged, live signal, which radio heard
+ * it, and buttons (whitelist / ignore a tracker, watch, favorite, navigate to a
+ * drone). Once the device is out of range, its last alert is shown instead.
  */
 class DeviceDetailScreen(carContext: CarContext, private val mac: String) : LiveScreen(carContext, 2_000L) {
 
+    override fun contentKey(): Any {
+        val now = System.currentTimeMillis()
+        val s = DeviceRegistry.get(mac) ?: return listOf("gone", AlertLog.latestFor(carContext, mac)?.time,
+            WhitelistCache.inTable(mac))
+        return listOf(
+            CarUi.rowKey(s, now), s.best?.evidence, s.bestRssi, trend(s), s.remoteId?.latitude, s.remoteId?.longitude,
+            WhitelistCache.inTable(mac), TrackerMutes.isMuted(mac), OuiWatchlist.customEntry(mac) != null, Favorites.contains(mac)
+        )
+    }
+
     @Suppress("DEPRECATION") // setTitle/setActionStrip keep compatibility with older Android Auto hosts
-    override fun onGetTemplate(): Template {
-        val s = DeviceRegistry.get(mac)
-            ?: return MessageTemplate.Builder("This device is no longer in range.")
-                .setTitle("Device details")
-                .setHeaderAction(Action.BACK)
-                .build()
+    override fun render(): Template {
+        val s = DeviceRegistry.get(mac) ?: return outOfRange()
 
         val best = s.best
         val rows = mutableListOf<Row>()
@@ -50,16 +59,8 @@ class DeviceDetailScreen(carContext: CarContext, private val mac: String) : Live
         if (best != null) {
             rows += Row.Builder().setTitle("Why").addText(best.evidence.take(120)).build()
         }
-        val trend = s.history.takeLast(6).dropLast(1).map { it.rssi }.average().let { avg ->
-            when {
-                avg.isNaN() -> ""
-                s.rssi > avg + 3 -> " · getting closer"
-                s.rssi < avg - 3 -> " · moving away"
-                else -> " · steady"
-            }
-        }
         rows += Row.Builder()
-            .setTitle("Signal ${s.rssi} dBm · ${ProximityUtil.band(s.rssi)}$trend")
+            .setTitle("Signal ${s.rssi} dBm · ${ProximityUtil.band(s.rssi)}${trend(s)}")
             .addText("${DeviceIntel.formatDistance(s.distanceM)} (rough) · best ${s.bestRssi} dBm")
             .build()
         s.remoteId?.takeIf { it.hasPosition }?.let { r ->
@@ -76,7 +77,7 @@ class DeviceDetailScreen(carContext: CarContext, private val mac: String) : Live
         }
         rows += Row.Builder()
             .setTitle(s.vendor ?: s.deviceType)
-            .addText("$mac · ${s.addressType.label}")
+            .addText("$mac · ${s.addressType.label} · heard by ${heardBy(s)}")
             .build()
 
         val pane = Pane.Builder()
@@ -84,20 +85,16 @@ class DeviceDetailScreen(carContext: CarContext, private val mac: String) : Live
 
         // Primary buttons (a pane allows two).
         val whitelisted = WhitelistCache.inTable(mac)
-        val ignored = com.rfsentinel.app.data.TrackerMutes.isMuted(mac)
-        val tracker = best?.category == com.rfsentinel.app.detect.Category.TRACKER &&
-            s.addressType != com.rfsentinel.app.detect.AddressType.PUBLIC
+        val ignored = TrackerMutes.isMuted(mac)
+        val tracker = best?.category == Category.TRACKER && s.addressType != AddressType.PUBLIC
         pane.addAction(
             Action.Builder()
-                .setTitle(when { ignored -> "Stop ignoring"; whitelisted -> "Un-whitelist"; tracker -> "Ignore today"; else -> "Whitelist" })
+                .setTitle(when { ignored -> "Stop ignoring"; whitelisted -> "Un-whitelist"; tracker -> "Ignore..."; else -> "Whitelist" })
                 .setOnClickListener {
                     when {
-                        ignored -> com.rfsentinel.app.data.TrackerMutes.unmute(carContext, mac)
-                        tracker && !whitelisted -> {
-                            // Address changes daily: ignore until then (the phone offers "it's mine").
-                            com.rfsentinel.app.data.TrackerMutes.mute(carContext, mac, best!!.label, s.rssi, follow = false)
-                            toast("Ignored until its address changes (at most 24 h)")
-                        }
+                        ignored -> { TrackerMutes.unmute(carContext, mac); toast("No longer ignored") }
+                        // Its address changes daily, so it can't be whitelisted: offer the phone's choices.
+                        tracker && !whitelisted -> screenManager.push(TrackerIgnoreScreen(carContext, mac))
                         else -> toggleWhitelist(whitelisted, best?.label ?: s.name ?: "")
                     }
                     invalidate()
@@ -149,6 +146,67 @@ class DeviceDetailScreen(carContext: CarContext, private val mac: String) : Live
             .build()
     }
 
+    /** No longer heard: what its last alert said, with Whitelist and (when known) Navigate. */
+    @Suppress("DEPRECATION")
+    private fun outOfRange(): Template {
+        val e = AlertLog.latestFor(carContext, mac)
+            ?: return MessageTemplate.Builder("This device is no longer in range.")
+                .setTitle("Device details")
+                .setHeaderAction(Action.BACK)
+                .build()
+        val now = System.currentTimeMillis()
+        val color = if (e.tierEnum == com.rfsentinel.app.detect.Tier.WEAK) CarUi.WEAK_COLOR
+            else e.categoryEnum?.colorArgb ?: CarUi.DANGER_COLOR
+        val pane = Pane.Builder()
+        listOf(
+            Row.Builder().setTitle((if (e.following) "FOLLOWING · " else "") + e.label)
+                .addText("Out of range · last alert ${CarUi.ageText(now - e.time)}" + (e.rssi?.let { " · $it dBm" } ?: ""))
+                .setImage(CarUi.icon(carContext, R.drawable.ic_car_warning, color)).build(),
+            Row.Builder().setTitle("Why").addText(e.evidence.take(120)).build(),
+            Row.Builder().setTitle(mac).addText("${e.categoryEnum?.title ?: e.category} · ${e.confidence}%").build()
+        ).take(CarUi.paneLimit(carContext)).forEach { pane.addRow(it) }
+
+        val whitelisted = WhitelistCache.inTable(mac)
+        pane.addAction(
+            Action.Builder()
+                .setTitle(if (whitelisted) "Un-whitelist" else "Whitelist")
+                .setOnClickListener { toggleWhitelist(whitelisted, e.label) }
+                .build()
+        )
+        val lat = e.lat
+        val lon = e.lon
+        if (lat != null && lon != null) {
+            pane.addAction(
+                Action.Builder()
+                    .setTitle("Navigate there")
+                    .setOnClickListener { CarUi.navigateTo(carContext, lat, lon) }
+                    .build()
+            )
+        }
+        return PaneTemplate.Builder(pane.build())
+            .setTitle("Device details")
+            .setHeaderAction(Action.BACK)
+            .build()
+    }
+
+    private fun trend(s: DeviceRegistry.Snapshot): String =
+        s.history.takeLast(6).dropLast(1).map { it.rssi }.average().let { avg ->
+            when {
+                avg.isNaN() -> ""
+                s.rssi > avg + 3 -> " · getting closer"
+                s.rssi < avg - 3 -> " · moving away"
+                else -> " · steady"
+            }
+        }
+
+    private fun heardBy(s: DeviceRegistry.Snapshot): String = listOfNotNull(
+        if (com.rfsentinel.app.esp.HeardBy.phone.recent(mac) || (!com.rfsentinel.app.esp.HeardBy.esp.recent(mac) &&
+                !com.rfsentinel.app.esp.HeardBy.usb.recent(mac)))
+            "phone " + if (s.source == com.rfsentinel.app.detect.Advert.Source.WIFI) "WiFi" else "Bluetooth" else null,
+        if (com.rfsentinel.app.esp.HeardBy.esp.recent(mac)) "ESP32" else null,
+        if (com.rfsentinel.app.esp.HeardBy.usb.recent(mac)) "USB WiFi" else null
+    ).joinToString(" + ")
+
     private fun toggleWhitelist(whitelisted: Boolean, label: String) {
         lifecycleScope.launch {
             val dao = AppDatabase.getInstance(carContext).whitelistDao()
@@ -171,6 +229,5 @@ class DeviceDetailScreen(carContext: CarContext, private val mac: String) : Live
         invalidate()
     }
 
-    /** Hands the point to the car's navigation app. */
     private fun toast(msg: String) = CarToast.makeText(carContext, msg, CarToast.LENGTH_SHORT).show()
 }

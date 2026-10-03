@@ -26,7 +26,6 @@ object CarUi {
         return b.build()
     }
 
-    /** Max rows the car allows in a list (typically 6 while driving). */
     /** Where the driver is: the scanner's latest fix, else the phone's last known position. */
     @android.annotation.SuppressLint("MissingPermission") // checked via Permissions
     fun currentLocation(context: CarContext): android.location.Location? {
@@ -53,6 +52,7 @@ object CarUi {
         }
     }
 
+    /** Max rows the car allows in a list (typically 6 while driving). */
     fun listLimit(context: CarContext): Int = runCatching {
         context.getCarService(ConstraintManager::class.java)
             .getContentLimit(ConstraintManager.CONTENT_LIMIT_TYPE_LIST)
@@ -92,10 +92,53 @@ object CarUi {
         }
     }
 
-    fun signalLine(s: DeviceRegistry.Snapshot, now: Long = System.currentTimeMillis()): String {
-        val age = (now - s.lastSeen) / 1000
-        return "${s.rssi} dBm ${ProximityUtil.band(s.rssi)} · ${DeviceIntel.formatDistance(s.distanceM)} · " +
-            if (age < 2) "now" else "${age}s ago"
+    /** Which radio heard it: an ESP32 board, a USB WiFi adapter, or the phone (Bluetooth / WiFi). */
+    fun sourceTag(s: DeviceRegistry.Snapshot): String = when {
+        com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac) -> "USB WiFi"
+        com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac) -> "ESP32"
+        s.source == com.rfsentinel.app.detect.Advert.Source.WIFI -> "WiFi"
+        else -> "Bluetooth"
+    }
+
+    /** Which radio heard it first (the line above can be cut off), then signal, distance and age. */
+    fun signalLine(s: DeviceRegistry.Snapshot, now: Long = System.currentTimeMillis()): String =
+        "${sourceTag(s)} · ${s.rssi} dBm ${ProximityUtil.band(s.rssi)} · ${DeviceIntel.formatDistance(s.distanceM)} · " + ageText(now - s.lastSeen)
+
+    /** Coarse on purpose: a screen only refreshes when what it shows changes. */
+    fun ageText(ms: Long): String = when {
+        ms < 5_000 -> "now"
+        ms < 60_000 -> "under a minute ago"
+        ms < 3_600_000 -> "${ms / 60_000} min ago"
+        else -> "${ms / 3_600_000} h ago"
+    }
+
+    /** What a device row shows, for a screen's refresh key (3 dB signal steps). */
+    fun rowKey(s: DeviceRegistry.Snapshot, now: Long): String =
+        "${s.mac}|${title(s)}|${tagLine(s)}|${sourceTag(s)}|${s.rssi / 3}|${ageText(now - s.lastSeen)}|${s.following}"
+
+    /**
+     * The next known camera on your way (see KnownCameras.ahead): needs a GPS heading
+     * while moving; parked, the nearest within 1 km. Silenced cameras are left out.
+     */
+    fun nextCamera(context: CarContext): Pair<com.rfsentinel.app.alpr.KnownCamera, Double>? {
+        val cams = com.rfsentinel.app.alpr.AlprStore.cameras
+        if (cams.isEmpty()) return null
+        val me = currentLocation(context) ?: return null
+        val moving = me.hasBearing() && me.hasSpeed() && me.speed > 2f
+        return com.rfsentinel.app.alpr.KnownCameras.ahead(
+            cams, me.latitude, me.longitude, if (moving) me.bearing else null
+        ) { com.rfsentinel.app.alpr.IgnoredCameras.contains(context, it.osmId) }
+    }
+
+    /** Alert sound state for the home screen and the More screen ("" when sound is on). */
+    fun silencedText(context: CarContext, now: Long = System.currentTimeMillis()): String {
+        val until = com.rfsentinel.app.util.Prefs.alertsSnoozedUntil(context)
+        return when {
+            com.rfsentinel.app.util.Prefs.alertsMuted(context) -> "Alert sound muted"
+            now < until -> "Alerts snoozed until " +
+                java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(until))
+            else -> ""
+        }
     }
 
     /** Headline for the home screen, mirroring the phone's threat banner. */

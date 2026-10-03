@@ -57,7 +57,7 @@ object AlertPlayer {
 
     fun play(context: Context, tier: Tier, spoken: String?, following: Boolean = false) {
         val inCar = CarState.connected
-        val muted = Prefs.alertsMuted(context)
+        val muted = Prefs.alertsSilenced(context)
         val willSpeak = !muted && spoken != null && (Prefs.voiceEnabled(context) || (inCar && Prefs.carVoice(context)))
         var beepMs = 0
         if (!muted && Prefs.soundEnabled(context) && (inCar || ringerAllowsSound(context))) {
@@ -94,7 +94,7 @@ object AlertPlayer {
 
     /** A spoken navigation instruction (no beep, no vibration); silent when alerts are muted. */
     fun announce(context: Context, text: String) {
-        if (Prefs.alertsMuted(context)) return
+        if (Prefs.alertsSilenced(context)) return
         Voice.say(context.applicationContext, text, VoiceQueue.STRONG, if (CarState.connected) carSpeechAttributes else phoneSpeechAttributes)
     }
 
