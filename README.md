@@ -37,9 +37,9 @@
   <img src="docs/screenshots/list-fsociety.jpg" width="260" alt="Live list in the fsociety theme (demo data)" />
 </p>
 <p align="center">
-  <img src="docs/screenshots/android-auto/navigation.jpg" width="560" alt="Android Auto: live map with nearby devices and OpenStreetMap navigation" />
+  <img src="docs/screenshots/android-auto/home.jpg" width="560" alt="Android Auto home: threat headline, recent alerts and the live map" />
 </p>
-<p align="center"><sub>Live list (DedSec theme), why a device is flagged, the fsociety theme, and the Android Auto live map. Demo data. <a href="#themes">All 13 themes</a> · <a href="#android-auto">Android Auto</a></sub></p>
+<p align="center"><sub>Live list (DedSec theme), why a device is flagged, the fsociety theme, and the Android Auto home screen. Demo data. <a href="#themes">All 13 themes</a> · <a href="#android-auto">Android Auto</a></sub></p>
 
 <p align="center">
   <a href="https://github.com/CIS-C0/RFSentinel/stargazers"><img src="docs/star-banner.svg" width="560" alt="Like RF Sentinel? Give it a star on GitHub - it's free, takes one click and helps others find it" /></a>
