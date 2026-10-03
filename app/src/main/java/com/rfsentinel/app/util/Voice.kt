@@ -176,6 +176,15 @@ object Voice {
         app?.getSystemService(AudioManager::class.java)?.abandonAudioFocusRequest(req)
     }
 
+    /** Stops what's being said and drops what's queued (alerts muted); the engine stays ready. */
+    fun silence() = main.post {
+        queue.clear()
+        testText = null
+        tts?.stop()
+        speaking = null
+        releaseFocus()
+    }
+
     fun shutdown() = main.post {
         queue.clear()
         speaking = null

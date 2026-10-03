@@ -255,10 +255,12 @@ class SetupActivity : AppCompatActivity() {
     /** Pre-downloads the known cameras around you, so the map and warnings work offline from the start. */
     private fun knownCamerasNearMe() {
         label("Known cameras near you")
-        para("Download the plate, speed and red-light cameras mapped in OpenStreetMap within about 100 km of you, " +
+        para("Download the plate, speed and red-light cameras mapped in OpenStreetMap around you, " +
             "so they're on the map and warn you offline right away. Only that area is sent to the OpenStreetMap server.", small = true)
         para("No need to wait for it: tap Finish whenever you like - it keeps downloading in the background, " +
             "with its progress in your notifications.", small = true)
+        // Same radius as in Settings and the map menu.
+        binding.page.addView(CameraRadiusSlider.create(this))
         val btn = button("Download cameras around me now") { com.rfsentinel.app.alpr.CameraPrefetch.start(this) }
         val status = para("", small = true)
         check("Download them when I tap Finish (if not started yet)", prefetchOnFinish) { prefetchOnFinish = it }

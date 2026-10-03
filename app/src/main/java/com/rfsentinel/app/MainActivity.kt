@@ -454,6 +454,7 @@ class MainActivity : AppCompatActivity() {
             R.id.action_mute -> {
                 val muted = !Prefs.alertsMuted(this)
                 Prefs.setAlertsMuted(this, muted)
+                if (muted) com.rfsentinel.app.util.Voice.silence()
                 invalidateOptionsMenu()
                 android.widget.Toast.makeText(
                     this, if (muted) "Alert sound and voice muted" else "Alert sound on", android.widget.Toast.LENGTH_SHORT

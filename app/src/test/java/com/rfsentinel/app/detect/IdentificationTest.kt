@@ -188,6 +188,27 @@ class IdentificationTest {
     }
 
     @Test
+    fun rotatedAddressKeepsFollowTracking() {
+        DeviceRegistry.startSession(0)
+        val id = DeviceIntel.Identity("x", emptyList())
+        val axon = Hit(Category.BODY_CAM, "Axon / TASER equipment", 60, "Company ID 0x034D", "SIG")
+        // Heard for 8 minutes along a 1.2 km drive under the first address...
+        for (i in 0..8) {
+            val t = 1_000L + i * 60_000L
+            DeviceRegistry.report(axonAdvert("5A:11:22:33:55:01", t), listOf(axon), id, null, null,
+                DeviceRegistry.GeoSample(t, 45.0 + i * 0.0015, 10.0), t)
+        }
+        // ...then its address changes; 3 more minutes under the new one.
+        for (i in 0..3) {
+            val t = 490_000L + i * 60_000L
+            DeviceRegistry.report(axonAdvert("5A:11:22:33:55:02", t), emptyList(), id, null, null,
+                DeviceRegistry.GeoSample(t, 45.0135 + i * 0.0015, 10.0), t)
+        }
+        // 11 minutes in all: the new address counts the time and distance before the change.
+        assertTrue(DeviceRegistry.checkFollowing("5A:11:22:33:55:02", 10 * 60_000L, 800.0))
+    }
+
+    @Test
     fun ambiguousOrUninformativeAdvertsAreNotLinked() {
         DeviceRegistry.startSession(0)
         val axon = Hit(Category.BODY_CAM, "Axon", 60, "e", "s")

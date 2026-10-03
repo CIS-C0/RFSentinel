@@ -76,7 +76,11 @@ class DeviceDetailActivity : AppCompatActivity() {
         binding.actionWhitelist.setOnClickListener {
             val s = DeviceRegistry.get(mac)
             when {
-                com.rfsentinel.app.data.TrackerMutes.isMuted(mac) -> com.rfsentinel.app.data.TrackerMutes.unmute(this, mac)
+                com.rfsentinel.app.data.TrackerMutes.isMuted(mac) -> {
+                    com.rfsentinel.app.data.TrackerMutes.unmute(this, mac)
+                    Toast.makeText(this, "Tracker no longer ignored", Toast.LENGTH_SHORT).show()
+                    refresh()
+                }
                 WhitelistCache.inTable(mac) -> DeviceActions.unwhitelist(this, mac)
                 isRotatingTracker(s) -> DeviceActions.ignoreTracker(this, mac)
                 else -> DeviceActions.whitelist(this, mac, s?.let { it.best?.label ?: it.name } ?: "")

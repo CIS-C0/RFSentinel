@@ -26,7 +26,7 @@
 
         <TextView
             style="@style/SettingsLabel"
-            android:text="Banner image - shown above the animated header in the styled themes (DedSec, Night Drive, Synthwave...). Pick any image on your phone (for example a logo you have); it's copied privately into the app." />
+            android:text="Banner image - shown above the animated header in the styled themes (Night Drive, Synthwave...); in DedSec and fsociety it replaces the poster. Pick any image on your phone (for example a logo you have); it&apos;s copied privately into the app." />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -166,6 +166,18 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Open SIM settings" />
+
+        <!-- Android 15+ phones can watch the signalling an app can't see (like EFF's Rayhunter). -->
+        <TextView
+            style="@style/SettingsLabel"
+            android:text="Android 15 and later (e.g. Pixel 8+) can also warn you themselves when a network asks for your SIM's identity or turns encryption off - signalling apps can't see. Turn on &quot;Network notifications&quot; under Security &amp; privacy &gt; More security &amp; privacy &gt; Cellular security." />
+
+        <Button
+            android:id="@+id/cellSecurityButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Open cellular security settings" />
 
         <TextView style="@style/SettingsLabel" android:text="Watchlist presets (MAC prefixes)" />
 
@@ -381,6 +393,22 @@
             android:layout_height="wrap_content"
             android:text="Show known cameras automatically: download them from OpenStreetMap for the map area you look at (the Overpass server sees that area, like map tiles)" />
 
+        <!-- Radius of "download the cameras around me" (also the setup wizard and the map menu). -->
+        <TextView
+            android:id="@+id/cameraRadiusText"
+            style="@style/SettingsLabel"
+            android:text="Download radius: 100 km" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/cameraRadiusSlider"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:contentDescription="Camera download radius in kilometres"
+            android:stepSize="10"
+            android:value="100"
+            android:valueFrom="10"
+            android:valueTo="200" />
+
         <Button
             android:id="@+id/prefetchCamerasButton"
             style="@style/Widget.MaterialComponents.Button.TextButton"
@@ -393,6 +421,20 @@
             style="@style/SettingsLabel"
             android:paddingTop="0dp"
             android:textSize="12sp" />
+
+        <!-- Cameras silenced from the map (tap a camera > Ignore alerts). -->
+        <TextView
+            android:id="@+id/ignoredCamerasText"
+            style="@style/SettingsLabel"
+            android:paddingTop="4dp"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/ignoredCamerasButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Alert for all ignored cameras again" />
 
         <Button
             android:id="@+id/deflockButton"

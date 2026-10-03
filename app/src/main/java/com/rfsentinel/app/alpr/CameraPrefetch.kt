@@ -23,7 +23,8 @@ import kotlin.coroutines.resume
 
 /**
  * "Download the cameras around me": finds where you are and fetches the known
- * plate, speed and red-light cameras within ~100 km, so they're on the map and
+ * plate, speed and red-light cameras within the radius set in Settings (100 km
+ * by default), so they're on the map and
  * warn you offline from the start. Runs in the background - leaving the screen
  * that started it doesn't stop it. Only the area is sent, never your scans.
  */
@@ -33,7 +34,7 @@ object CameraPrefetch {
         data object Idle : State
         data object Locating : State
         data class Downloading(val done: Int, val total: Int, val found: Int = 0, val detail: String = "") : State
-        data class Done(val cameras: Int, val failedAreas: Int = 0) : State
+        data class Done(val cameras: Int, val failedAreas: Int = 0, val radiusKm: Int = 100) : State
         data class Failed(val reason: String) : State
     }
 
@@ -91,7 +92,7 @@ object CameraPrefetch {
             )
             is State.Done -> h.showCameraDownload(
                 ctx, "Known cameras ready",
-                "${s.cameras} plate, speed and red-light cameras saved within ~100 km - they work offline." +
+                "${s.cameras} plate, speed and red-light cameras saved within ~${s.radiusKm} km - they work offline." +
                     (if (s.failedAreas > 0) " ${s.failedAreas} area(s) failed; the map will fetch them when you look there." else ""),
                 0, 0, false
             )
@@ -107,14 +108,15 @@ object CameraPrefetch {
             set(State.Locating)
             val here = currentLocation(app)
             if (here == null) { set(State.Failed("No location yet - try again outdoors, or open the map later")); return@launch }
+            val radius = com.rfsentinel.app.util.Prefs.cameraRadiusKm(app)
             set(State.Downloading(0, 4, detail = "starting"))
             try {
                 var failed = 0
-                val n = AlprStore.downloadAround(app, here.latitude, here.longitude) { p ->
+                val n = AlprStore.downloadAround(app, here.latitude, here.longitude, radius.toDouble()) { p ->
                     failed = p.failed
                     set(State.Downloading(p.done, p.total, p.found, p.detail))
                 }
-                set(State.Done(n, failed))
+                set(State.Done(n, failed, radius))
                 // A running scan starts watching for the new cameras.
                 if (ScanForegroundService.isRunning) runCatching {
                     app.startService(Intent(app, ScanForegroundService::class.java).setAction(ScanForegroundService.ACTION_REFRESH_LOCATION))

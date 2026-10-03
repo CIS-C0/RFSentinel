@@ -95,10 +95,10 @@ publicly.
 - Evidence fusion: independent matches on the same device strengthen each other
 - Patrol-vehicle detection: several kinds of police-type equipment whose signals move together are flagged as a possible police vehicle
 - Address-rotation linking: follows a device when its Bluetooth address changes
-- Follower alerts: a warning when a tracker or flagged device keeps moving with you
-- **Known plate, speed and red-light cameras:** the cameras mapped in OpenStreetMap (plate readers e.g. by DeFlock, fixed speed and red-light cameras) appear on the map by themselves for the area you look at, and you're warned as you approach one - even the cellular-only cameras no radio scan can detect. Speed cameras warn about 30 seconds ahead, with the limit when it's mapped. Areas are kept offline and refreshed weekly; the setup wizard (and Settings) can pre-download everything within ~100 km of you
+- Follower alerts: a warning when a tracker or flagged device keeps moving with you. Your own tag can be ignored (long-press it): RF Sentinel keeps ignoring it when its address changes
+- **Known plate, speed and red-light cameras:** the cameras mapped in OpenStreetMap (plate readers e.g. by DeFlock, fixed speed and red-light cameras) appear on the map by themselves for the area you look at, and you're warned as you approach one - even the cellular-only cameras no radio scan can detect. Speed cameras warn about 30 seconds ahead, with the limit when it's mapped. Areas are kept offline and refreshed weekly; the setup wizard (and Settings) can pre-download everything around you, within a radius you set (10-200 km, 100 by default). Tap a camera on the map to turn off its alerts for good (it stays on the map, faded)
 - **Drones:** live map of each Remote ID drone with its heading, altitude, speed and operator, plus a "drone overhead" alert
-- **Fake cell tower signs (IMSI catchers):** warnings for test network codes, forced 2G downgrades, unexpected networks and other classic signs (heuristic, no root needed)
+- **Fake cell tower signs (IMSI catchers):** test network codes, sudden 4G-to-2G switches (the visible side of the 2G redirect [EFF's Rayhunter](https://github.com/EFForg/rayhunter) watches for), cloned cell identities, reserved cell identities, unexpected networks and other classic signs. Heuristic and no root needed; a sign must persist before it alerts, and drops to 2G during phone calls or area codes flipping at a coverage border don't count
 - Editable watchlist with exact addresses, vendor prefixes, and name or vendor rules, plus regional presets (Global, Canada, US)
 
 **Identification**
@@ -189,13 +189,15 @@ The app never connects to a device. The details screen shows:
   Tap *All devices* to show flagged ones only. Devices heard from the same spot
   fan out around it when you zoom in, so every dot can be tapped.
 - **Known cameras** (map menu ⋮): *Download nearby cameras* fetches the plate
-  readers within ~100 km; *Download Flock* fetches every plate reader mapped in
+  readers within the download radius set in Settings (10-200 km, 100 by default); *Download Flock* fetches every plate reader mapped in
   the US and Canada (~18 MB, about 143,000, refreshed weekly on Wi-Fi). Both use
   [DeFlock](https://deflock.org)'s hourly snapshot of OpenStreetMap, then add the
   ones it leaves out (other tagging, Flock cameras mapped as ordinary cameras)
   straight from OpenStreetMap. A progress bar shows under the status card, and
   the cameras appear as soon as DeFlock's part is saved. Speed and red-light
-  cameras come with the automatic downloads for the area you look at.
+  cameras come with the automatic downloads for the area you look at. Tap a
+  camera and choose *Ignore alerts* to never be warned about it again; it stays
+  on the map, faded, and *Alert again* (or Settings) turns it back on.
 - **Screen:** Settings (and the setup wizard) choose whether the screen stays on
   while RF Sentinel is open: *always*, *while charging* (default - car mount,
   desk) or *normal*.
@@ -395,6 +397,10 @@ Pick a theme in the setup wizard or under **Settings → Appearance**.
 - **Fake cell tower checks are heuristic.** Without root, Android shows the cells the
   phone sees but not ciphering or signalling, so each sign has innocent explanations.
   The strongest protection is turning off *Allow 2G* in your SIM settings (Android 12+).
+  Android 15+ phones can also warn by themselves when a network asks for your SIM's
+  identity or turns encryption off (*Cellular security > Network notifications*);
+  Settings links there. Rayhunter's other checks need the modem's signalling, which
+  only rooted or dedicated hardware can read.
 - **Randomized addresses** defeat vendor-prefix matching. Payload signatures and
   address-rotation linking partly compensate.
 

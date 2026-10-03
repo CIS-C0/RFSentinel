@@ -59,10 +59,10 @@ object AlertPlayer {
         val inCar = CarState.connected
         val muted = Prefs.alertsMuted(context)
         val willSpeak = !muted && spoken != null && (Prefs.voiceEnabled(context) || (inCar && Prefs.carVoice(context)))
-        // Speech holds its own audio focus for exactly as long as it talks; this covers the beeps.
-        if (!muted && Prefs.soundEnabled(context)) duckOthers(context, 2_500L)
         var beepMs = 0
         if (!muted && Prefs.soundEnabled(context) && (inCar || ringerAllowsSound(context))) {
+            // Speech holds its own audio focus for exactly as long as it talks; this covers the beeps.
+            duckOthers(context, 2_500L)
             // Our own beeps (1 weak, 2 probable, 3 strong, long-short-long following) at
             // media volume, like Locate: the notification chime was too soft and too quiet.
             val beeps = when (tier) { Tier.STRONG -> 3; Tier.MEDIUM -> 2; else -> 1 }

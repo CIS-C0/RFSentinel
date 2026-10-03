@@ -48,4 +48,29 @@ class TrackerMutesTest {
         // Another kind of tracker.
         assertFalse(s.onSeen("BB:00:00:00:00:04", "Tile tracker", -50, t0 + 70_000))
     }
+
+    @Test
+    fun yourTagStillAroundKeepsItsMute() {
+        val s = TrackerMutes.Store()
+        s.mute("AA:00:00:00:00:01", airtag, -50, t0, follow = true)
+        // Your tag keeps advertising every few seconds for a minute...
+        var t = t0
+        while (t < t0 + 60_000) { t += 5_000; assertTrue(s.onSeen("AA:00:00:00:00:01", airtag, -50, t)) }
+        // ...so a stranger's tag of the same kind showing up now doesn't take its mute.
+        assertFalse(s.onSeen("BB:00:00:00:00:01", airtag, -52, t + 2_000))
+        assertTrue(s.isMuted("AA:00:00:00:00:01", t + 2_000))
+    }
+
+    @Test
+    fun linkedAddressInheritsRightAway() {
+        val s = TrackerMutes.Store()
+        s.mute("AA:00:00:00:00:01", airtag, -50, t0, follow = true)
+        // The scanner linked the new address to the old one (same advert fingerprint):
+        // carried over at once, even at a different strength.
+        assertTrue(s.onSeen("AA:00:00:00:00:02", airtag, -75, t0 + 3_000, linkedFrom = "AA:00:00:00:00:01"))
+        assertTrue(s.isMuted("AA:00:00:00:00:02", t0 + 4_000))
+        // A "today only" mute is never carried, linked or not.
+        s.mute("CC:00:00:00:00:01", airtag, -50, t0, follow = false)
+        assertFalse(s.onSeen("CC:00:00:00:00:02", airtag, -50, t0 + 3_000, linkedFrom = "CC:00:00:00:00:01"))
+    }
 }

@@ -101,8 +101,8 @@ object AlprStore {
     data class Progress(val area: Int, val done: Int, val total: Int, val found: Int, val failed: Int, val detail: String)
 
     /**
-     * Downloads every known camera within about [radiusKm] of a point, in up to
-     * four tiles (small requests get through busy servers more easily). Tiles
+     * Downloads every known camera within about [radiusKm] of a point, in tiles
+     * of at most a degree (small requests get through busy servers more easily). Tiles
      * that fail are skipped - the map fetches them later. Returns how many
      * cameras were found, or throws when no tile could be downloaded.
      */
@@ -111,12 +111,13 @@ object AlprStore {
         onProgress: (Progress) -> Unit = {}
     ): Int {
         val tiles = CameraArea.tilesAround(lat, lon, radiusKm, MAX_SPAN_DEG / 2)
-        val names = listOf("south-west", "south-east", "north-west", "north-east")
+        fun name(i: Int) = if (tiles.size == 4) listOf("south-west", "south-east", "north-west", "north-east")[i] + " area"
+            else "area ${i + 1} of ${tiles.size}"
         var found = 0
         var ok = 0
         var lastError: Exception? = null
         tiles.forEachIndexed { i, t ->
-            val report = { detail: String -> onProgress(Progress(i + 1, i, tiles.size, found, i - ok, "${names[i]} area: $detail")) }
+            val report = { detail: String -> onProgress(Progress(i + 1, i, tiles.size, found, i - ok, "${name(i)}: $detail")) }
             try {
                 found += download(context, t[0], t[1], t[2], t[3], report)
                 ok++
@@ -126,7 +127,7 @@ object AlprStore {
                 lastError = e
             }
             onProgress(Progress(i + 1, i + 1, tiles.size, found, i + 1 - ok,
-                if (ok == i + 1) "${names[i]} area done" else "${names[i]} area failed - the map will fetch it later"))
+                if (ok == i + 1) "${name(i)} done" else "${name(i)} failed - the map will fetch it later"))
         }
         if (ok == 0) throw lastError ?: java.io.IOException("No answer")
         return found
@@ -334,18 +335,25 @@ data class CameraArea(val south: Double, val west: Double, val north: Double, va
         }
 
         /**
-         * The box within [radiusKm] of a point, split into 2x2 tiles no larger
-         * than [maxTileDeg] on a side: [[south, west, north, east], ...].
+         * The box within [radiusKm] of a point, split into a grid (at least 2x2)
+         * of tiles no larger than [maxTileDeg] on a side: [[south, west, north, east], ...],
+         * row by row from the south-west.
          */
         fun tilesAround(lat: Double, lon: Double, radiusKm: Double, maxTileDeg: Double): List<DoubleArray> {
-            val dLat = (radiusKm / 111.0).coerceAtMost(maxTileDeg)
-            val dLon = (radiusKm / (111.0 * kotlin.math.max(0.05, kotlin.math.cos(Math.toRadians(lat))))).coerceAtMost(maxTileDeg)
+            val dLat = radiusKm / 111.0
+            val dLon = radiusKm / (111.0 * kotlin.math.max(0.05, kotlin.math.cos(Math.toRadians(lat))))
             val s = (lat - dLat).coerceAtLeast(-90.0); val n = (lat + dLat).coerceAtMost(90.0)
             val w = (lon - dLon).coerceAtLeast(-180.0); val e = (lon + dLon).coerceAtMost(180.0)
-            return listOf(
-                doubleArrayOf(s, w, lat, lon), doubleArrayOf(s, lon, lat, e),
-                doubleArrayOf(lat, w, n, lon), doubleArrayOf(lat, lon, n, e)
-            )
+            val rows = kotlin.math.max(2, kotlin.math.ceil((n - s) / maxTileDeg - 1e-9).toInt())
+            val cols = kotlin.math.max(2, kotlin.math.ceil((e - w) / maxTileDeg - 1e-9).toInt())
+            return (0 until rows).flatMap { r ->
+                (0 until cols).map { c ->
+                    doubleArrayOf(
+                        s + (n - s) * r / rows, w + (e - w) * c / cols,
+                        s + (n - s) * (r + 1) / rows, w + (e - w) * (c + 1) / cols
+                    )
+                }
+            }
         }
 
         /** Smallest box one automatic download covers (degrees, ~40 km). */

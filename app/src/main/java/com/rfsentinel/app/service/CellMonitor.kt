@@ -26,8 +26,13 @@ import kotlin.coroutines.resume
  */
 class CellMonitor(private val context: Context) {
 
-    private val analyzer = CellAnalyzer()
+    /** Each cell's area as seen before (for the cloned-identity check), kept across sessions. */
+    private val knownAreas: MutableMap<String, Int> = loadKnownAreas()
+    private val analyzer = CellAnalyzer(knownAreas)
     private val tm = context.getSystemService(TelephonyManager::class.java)
+    private val audio = context.getSystemService(android.media.AudioManager::class.java)
+    private var lastCallAt = 0L
+    private var checks = 0
     private val executor = Executors.newSingleThreadExecutor()
     private val fixes = ArrayDeque<Location>()
 
@@ -57,13 +62,39 @@ class CellMonitor(private val context: Context) {
         val cells = infos.mapNotNull(::toCell)
         if (cells.isEmpty()) return emptyList()
         val now = System.currentTimeMillis()
+        // A call (or one that just ended): networks without 4G calling drop to 2G/3G for it.
+        // The audio mode tells without the phone-state permission.
+        if (audio?.mode == android.media.AudioManager.MODE_IN_CALL) lastCallAt = now
         val ctx = CellAnalyzer.Context(
             time = now,
             simOperator = runCatching { tm.simOperator }.getOrNull()?.takeIf { it.length >= 5 },
             roaming = runCatching { tm.isNetworkRoaming }.getOrDefault(false),
-            stationary = stationary(now)
+            stationary = stationary(now),
+            inCall = now - lastCallAt < CALL_GRACE_MS
         )
-        return analyzer.analyze(cells, ctx)
+        return synchronized(knownAreas) {
+            if (forgetCells) { knownAreas.clear(); forgetCells = false }
+            analyzer.analyze(cells, ctx).also { if (++checks % SAVE_EVERY == 0) saveKnownAreas() }
+        }
+    }
+
+    private val knownFile get() = java.io.File(context.filesDir, "known_cells.txt")
+
+    /** "RAT mcc-mnc cellId<TAB>area" per line, oldest first. */
+    private fun loadKnownAreas(): MutableMap<String, Int> = LinkedHashMap<String, Int>().also { map ->
+        runCatching {
+            knownFile.takeIf { it.exists() }?.forEachLine { line ->
+                val tab = line.lastIndexOf('\t')
+                if (tab > 0) line.substring(tab + 1).toIntOrNull()?.let { map[line.substring(0, tab)] = it }
+            }
+        }
+    }
+
+    private fun saveKnownAreas() = synchronized(knownAreas) {
+        if (forgetCells) { knownAreas.clear(); forgetCells = false }
+        runCatching {
+            knownFile.writeText(knownAreas.entries.joinToString("\n") { "${it.key}\t${it.value}" })
+        }
     }
 
     /** Fresh cell info on Android 10+ (falls back to the cached list). */
@@ -138,9 +169,26 @@ class CellMonitor(private val context: Context) {
     private fun android.telephony.CellIdentityWcdma.mncCompat() =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) mncString else mnc.orNull()?.let { "%02d".format(it) }
 
-    fun close() = executor.shutdown()
+    fun close() {
+        saveKnownAreas()
+        executor.shutdown()
+    }
 
     companion object {
+        /** Drops to 2G this long after a call are still put down to the call. */
+        private const val CALL_GRACE_MS = 2 * 60_000L
+        /** The cell memory is written every this many checks (~5 min), and when scanning stops. */
+        private const val SAVE_EVERY = 20
+
+        /** Set by "Forget device history": a running monitor empties its cell memory too. */
+        @Volatile private var forgetCells = false
+
+        /** Erases the remembered cells (which towers you were near) - with the device history. */
+        fun forget(context: Context) {
+            forgetCells = true
+            runCatching { java.io.File(context.filesDir, "known_cells.txt").delete() }
+        }
+
         /** Last warning sign raised (for the main screen), and when. */
         @Volatile var lastAnomaly: Pair<Long, CellAnalyzer.Anomaly>? = null
     }

@@ -194,12 +194,18 @@ class MapActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         binding.map.onResume()
+        // The location overlay's GPS runs only while the map is on screen.
+        if (Permissions.granted(this, android.Manifest.permission.ACCESS_FINE_LOCATION)) {
+            myLocation.enableMyLocation()
+            if (following) myLocation.enableFollowLocation()
+        }
         // Precise GPS while the map is on screen, so devices land where they were heard.
         if (tripId == null) ScanForegroundService.mapShown(this)
     }
 
     override fun onPause() {
         if (tripId == null) ScanForegroundService.mapHidden(this)
+        myLocation.disableMyLocation()
         binding.map.onPause()
         super.onPause()
     }
@@ -613,6 +619,8 @@ class MapActivity : AppCompatActivity() {
             knownAlpr.add(Marker(map).apply {
                 position = GeoPoint(cam.lat, cam.lon)
                 this.icon = icons.getValue(cam.type)
+                // Cameras whose alerts you turned off stay on the map, faded.
+                if (com.rfsentinel.app.alpr.IgnoredCameras.contains(this@MapActivity, cam.osmId)) alpha = 0.35f
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                 title = cam.label
                 setOnMarkerClickListener { _, _ -> showKnownCamera(cam); true }
@@ -625,7 +633,9 @@ class MapActivity : AppCompatActivity() {
     private fun cameraIcon(dp: Float, kind: com.rfsentinel.app.alpr.KnownCamera.Kind) = MapIcons.cameraIcon(dp, kind)
 
     private fun showKnownCamera(cam: com.rfsentinel.app.alpr.KnownCamera) {
+        val ignored = com.rfsentinel.app.alpr.IgnoredCameras.contains(this, cam.osmId)
         val text = buildString {
+            if (ignored) append("Alerts for this camera are off.\n\n")
             append(when (cam.type) {
                 com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR -> "A license-plate reader mapped in OpenStreetMap.\n\n"
                 com.rfsentinel.app.alpr.KnownCamera.Kind.SPEED -> "A speed camera mapped in OpenStreetMap.\n\n"
@@ -640,7 +650,14 @@ class MapActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle(cam.label)
             .setMessage(text)
-            .setPositiveButton("Close", null)
+            // Kept until turned back on here (or cleared in Settings).
+            .setPositiveButton(if (ignored) "Alert again" else "Ignore alerts") { _, _ ->
+                com.rfsentinel.app.alpr.IgnoredCameras.set(this, cam.osmId, !ignored)
+                Toast.makeText(this, if (ignored) "You'll be warned about this camera again"
+                    else "No more alerts for this camera (tap it again to undo)", Toast.LENGTH_SHORT).show()
+                drawKnownAlpr()
+            }
+            .setNegativeButton("Close", null)
             .setNeutralButton("Open in OpenStreetMap") { _, _ ->
                 runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.openstreetmap.org/${cam.osmId}"))) }
             }
@@ -657,20 +674,35 @@ class MapActivity : AppCompatActivity() {
     }
 
     /**
-     * DeFlock's snapshot - all of the US & Canada, or with [nearby] only ~100 km
-     * around you (or the map centre without a GPS fix). Progress in the status
+     * DeFlock's snapshot - all of the US & Canada, or with [nearby] only within
+     * the download radius set in Settings around you (or the map centre without a GPS fix). Progress in the status
      * bar; the map redraws when done.
      */
     private fun downloadAllPlateCameras(nearby: Boolean = false) {
         val bulk = com.rfsentinel.app.alpr.DeflockBulk
-        announceWhere = if (nearby) "within ~100 km" else "(US & Canada)"
+        val radius = com.rfsentinel.app.util.Prefs.cameraRadiusKm(this)
+        announceWhere = if (nearby) "within ~$radius km" else "(US & Canada)"
         // One download at a time: tapping again while one runs just follows its progress (bar on the map).
         if (bulk.isRunning) return
         val around = if (!nearby) null else {
             val fix = myLocation.myLocation ?: binding.map.mapCenter.let { GeoPoint(it.latitude, it.longitude) }
             fix.latitude to fix.longitude
         }
-        bulk.start(this, around)
+        bulk.start(this, around, radius.toDouble())
+    }
+
+    /** Picks the radius (same setting as in Settings and the setup wizard), then downloads. */
+    private fun askNearbyRadius() {
+        val d = resources.displayMetrics.density
+        val body = CameraRadiusSlider.create(this).apply {
+            setPadding((24 * d).toInt(), (8 * d).toInt(), (24 * d).toInt(), 0)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Download nearby cameras")
+            .setView(body)
+            .setPositiveButton("Download") { _, _ -> downloadAllPlateCameras(nearby = true) }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     /** Set when a download was started (or followed) from this screen: show its result. */
@@ -733,7 +765,7 @@ class MapActivity : AppCompatActivity() {
             menu.add(0, 3, 2, "Delete")
         } else {
             menu.add(0, 4, 0, "Recorded traces")
-            menu.add(0, 5, 1, "Download nearby cameras")
+            menu.add(0, 5, 1, "Download nearby cameras...")
             menu.add(0, 8, 1, "Download all US & CA")
             menu.add(0, 6, 2, "Show known cameras").apply {
                 isCheckable = true; isChecked = com.rfsentinel.app.util.Prefs.showKnownAlpr(this@MapActivity)
@@ -750,7 +782,7 @@ class MapActivity : AppCompatActivity() {
             2 -> { id?.let { rename(it) }; true }
             3 -> { id?.let { confirmDelete(it) }; true }
             4 -> { startActivity(Intent(this, TripsActivity::class.java)); true }
-            5 -> { downloadAllPlateCameras(nearby = true); true }
+            5 -> { askNearbyRadius(); true }
             6 -> {
                 val show = !com.rfsentinel.app.util.Prefs.showKnownAlpr(this)
                 com.rfsentinel.app.util.Prefs.setShowKnownAlpr(this, show)

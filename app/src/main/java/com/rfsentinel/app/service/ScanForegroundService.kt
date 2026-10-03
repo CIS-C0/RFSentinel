@@ -431,7 +431,11 @@ class ScanForegroundService : Service() {
         val best = c.hits.firstOrNull() ?: return
         // Ignored trackers (their address changes, so they can't be whitelisted); this is
         // also where an ignored "it's mine" tag carries its mute over to a new address.
-        if (best.category == Category.TRACKER && com.rfsentinel.app.data.TrackerMutes.onSeen(this, mac, best.label, a.rssi, now)) return
+        // Any tracker match counts, not just the top one.
+        val trackerHit = c.hits.firstOrNull { it.category == Category.TRACKER }
+        if (trackerHit != null && com.rfsentinel.app.data.TrackerMutes.onSeen(
+                this, mac, trackerHit.label, a.rssi, now, DeviceRegistry.linkedFrom(mac))
+        ) return
         if (WhitelistCache.contains(mac)) return
 
         maybeLog(a, best, c.vendor, loc, now)
@@ -546,12 +550,17 @@ class ScanForegroundService : Service() {
         // Search out to the larger (speed camera) radius, then apply each kind's own.
         val radius = KnownCameras.warnRadius(speed, com.rfsentinel.app.alpr.KnownCamera.Kind.SPEED)
         val near = KnownCameras.near(AlprStore.cameras, loc.latitude, loc.longitude, radius)
-            .filter { (cam, d) -> wantsAlert(cam.type) && d <= KnownCameras.warnRadius(speed, cam.type) }
+            .filter { (cam, d) ->
+                wantsAlert(cam.type) && d <= KnownCameras.warnRadius(speed, cam.type) &&
+                    !com.rfsentinel.app.alpr.IgnoredCameras.contains(this, cam.osmId) // silenced from the map
+            }
         val nearIds = near.map { it.first.osmId }.toSet()
         alprLastDistance.keys.retainAll(nearIds)
         for ((cam, d) in near) {
             val prev = alprLastDistance.put(cam.osmId, d)
-            val approaching = prev == null || d < prev - 3
+            // Only once a second fix shows you getting closer: a camera you just passed
+            // (or one near where the scan started) mustn't warn.
+            val approaching = prev != null && d < prev - 3
             if (!approaching || now - (alprLastAlert[cam.osmId] ?: 0L) < KNOWN_ALPR_REPEAT_MS) continue
             alprLastAlert[cam.osmId] = now
             val alpr = cam.type == com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR

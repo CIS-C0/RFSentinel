@@ -93,6 +93,8 @@ object DeviceRegistry {
         var bestRssi = -127
         var distance = 0.0
         val firstSeen = now
+        /** Heard since (the earlier address's time when linked after an address change): for follow detection. */
+        var since = now
         var lastSeen = now
         var sightings = 0
         val history = ArrayDeque<Sample>()
@@ -213,13 +215,22 @@ object DeviceRegistry {
                 )
             } to (prev.name to prev.role)
         }
+        // The follow check carries on too: time with you, where it was heard, and a warning
+        // already given (so a tag changing its address isn't reset - nor warned about again).
+        val follow = synchronized(prev) { Triple(prev.since, prev.path.toList(), prev.following) }
         synchronized(t) {
             t.linkedFrom = prev.mac
             t.inherited = carried.first
             if (t.name == null) t.name = carried.second.first
             if (t.role == null) t.role = carried.second.second
+            t.since = minOf(t.since, follow.first)
+            follow.second.forEach { t.path.addLast(it) }
+            t.following = t.following || follow.third
         }
     }
+
+    /** The address this device used before its address rotated, if it was linked. */
+    fun linkedFrom(mac: String): String? = tracks[mac]?.let { synchronized(it) { it.linkedFrom } }
 
     /** Matches carried over from this device's previous (rotated) address. */
     fun inheritedHits(mac: String): List<Hit> = tracks[mac]?.let { synchronized(it) { it.inherited } }.orEmpty()
@@ -260,7 +271,7 @@ object DeviceRegistry {
         synchronized(t) {
             if (t.following || t.path.size < 3) return false
             val first = t.path.first
-            if (t.lastSeen - t.firstSeen < minDurationMs) return false
+            if (t.lastSeen - t.since < minDurationMs) return false
             val moved = t.path.maxOf { metersBetween(first.lat, first.lon, it.lat, it.lon) }
             if (moved < minDistanceM) return false
             t.following = true

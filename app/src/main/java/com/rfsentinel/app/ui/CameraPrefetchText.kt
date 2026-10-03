@@ -9,7 +9,7 @@ fun cameraPrefetchText(s: CameraPrefetch.State, located: Boolean): String = when
     is CameraPrefetch.State.Downloading ->
         "Downloading... ${s.done}/${s.total} areas, ${s.found} cameras so far\n${s.detail}\n" +
             "No need to wait - it keeps going in the background (see your notifications)."
-    is CameraPrefetch.State.Done -> "✓ ${s.cameras} known cameras saved within ~100 km of you." +
+    is CameraPrefetch.State.Done -> "✓ ${s.cameras} known cameras saved within ~${s.radiusKm} km of you." +
         (if (s.failedAreas > 0) " ${s.failedAreas} area(s) failed - the map fetches them when you look there." else "")
     is CameraPrefetch.State.Failed -> "Couldn't download: ${s.reason}"
 }

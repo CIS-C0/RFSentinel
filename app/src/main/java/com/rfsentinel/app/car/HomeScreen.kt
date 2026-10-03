@@ -107,6 +107,7 @@ class HomeScreen(carContext: CarContext) : LiveScreen(carContext) {
             .setIcon(CarUi.icon(carContext, if (muted) R.drawable.ic_car_volume_off else R.drawable.ic_car_volume))
             .setOnClickListener {
                 val nowMuted = !Prefs.alertsMuted(carContext)
+                if (nowMuted) com.rfsentinel.app.util.Voice.silence()
                 Prefs.setAlertsMuted(carContext, nowMuted)
                 toast(if (nowMuted) "Alert sound muted" else "Alert sound on - plays through the car speakers")
                 invalidate()

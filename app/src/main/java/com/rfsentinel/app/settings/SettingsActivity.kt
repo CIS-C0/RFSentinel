@@ -121,6 +121,14 @@ class SettingsActivity : AppCompatActivity() {
         binding.trackerIgnoreButton.visibility = if (n > 0 || paused) android.view.View.VISIBLE else android.view.View.GONE
     }
 
+    /** Known cameras silenced from the map (tap a camera > Ignore alerts). */
+    private fun updateIgnoredCamerasText() {
+        val n = com.rfsentinel.app.alpr.IgnoredCameras.count(this)
+        binding.ignoredCamerasText.text = if (n == 0) "No ignored cameras (tap a camera on the map to turn off its alerts)"
+            else "$n camera${if (n == 1) "" else "s"} with alerts turned off (shown faded on the map)"
+        binding.ignoredCamerasButton.visibility = if (n > 0) android.view.View.VISIBLE else android.view.View.GONE
+    }
+
     /** ESP32 boards on USB (OUI-Spy / GhostESP) and an OUI-SPY board over Bluetooth. */
     /** Speed, voice and a test button for spoken alerts; changes apply right away. */
     private fun setupVoiceControls() {
@@ -310,6 +318,17 @@ class SettingsActivity : AppCompatActivity() {
                 Toast.LENGTH_LONG
             ).show()
         }
+        binding.cellSecurityButton.setOnClickListener {
+            // The Cellular security page (Android 15+); else the general security page.
+            val opened = runCatching { startActivity(Intent("android.settings.CELLULAR_NETWORK_SECURITY")) }.isSuccess ||
+                runCatching { startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS)) }.isSuccess
+            Toast.makeText(
+                this,
+                if (opened) "Look for Cellular security > Network notifications (Android 15+ only)"
+                else "Open Settings > Security & privacy > More security & privacy > Cellular security",
+                Toast.LENGTH_LONG
+            ).show()
+        }
         updateWifiThrottleHint()
         binding.bootSwitch.isChecked = Prefs.autoStartOnBoot(this)
         binding.carAutoSwitch.isChecked = Prefs.carAutoStart(this)
@@ -396,7 +415,25 @@ class SettingsActivity : AppCompatActivity() {
         binding.knownAlprSwitch.isChecked = Prefs.knownAlprAlerts(this)
         binding.speedCameraSwitch.isChecked = Prefs.speedCameraAlerts(this)
         binding.autoCamerasSwitch.isChecked = Prefs.autoCameras(this)
+        fun showRadius(km: Int) {
+            binding.cameraRadiusText.text = "Download radius: $km km" +
+                if (km > 100) " (larger areas take longer and use more data)" else ""
+            binding.prefetchCamerasButton.text = "Download cameras around me (~$km km)"
+        }
+        Prefs.cameraRadiusKm(this).let { km -> binding.cameraRadiusSlider.value = km.toFloat(); showRadius(km) }
+        binding.cameraRadiusSlider.setLabelFormatter { "${it.toInt()} km" }
+        binding.cameraRadiusSlider.addOnChangeListener { _, value, fromUser ->
+            if (!fromUser) return@addOnChangeListener
+            Prefs.setCameraRadiusKm(this, value.toInt())
+            showRadius(value.toInt())
+        }
         binding.prefetchCamerasButton.setOnClickListener { com.rfsentinel.app.alpr.CameraPrefetch.start(this) }
+        updateIgnoredCamerasText()
+        binding.ignoredCamerasButton.setOnClickListener {
+            com.rfsentinel.app.alpr.IgnoredCameras.clear(this)
+            updateIgnoredCamerasText()
+            Toast.makeText(this, "Every camera alerts again", Toast.LENGTH_SHORT).show()
+        }
         stopObservingPrefetch = com.rfsentinel.app.alpr.CameraPrefetch.observe { s ->
             val located = com.rfsentinel.app.alpr.CameraPrefetch.canRun(this)
             binding.prefetchCamerasButton.isEnabled = located &&
@@ -425,9 +462,10 @@ class SettingsActivity : AppCompatActivity() {
         binding.retentionInput.setText(Prefs.retentionDays(this).toString())
         binding.exportAllButton.setOnClickListener { com.rfsentinel.app.util.Exporter.showExportMenu(this) }
         binding.forgetHistoryButton.setOnClickListener {
-            confirm("Forget device history?", "New/returning status and detect counts start over. Favorites are kept.") {
+            confirm("Forget device history?", "New/returning status, detect counts and the cell towers remembered for the fake-cell checks start over. Favorites are kept.") {
                 lifecycleScope.launch {
                     AppDatabase.getInstance(this@SettingsActivity).knownDeviceDao().clearNonFavorites()
+                    com.rfsentinel.app.service.CellMonitor.forget(this@SettingsActivity)
                     Toast.makeText(this@SettingsActivity, "Device history cleared", Toast.LENGTH_SHORT).show()
                 }
             }

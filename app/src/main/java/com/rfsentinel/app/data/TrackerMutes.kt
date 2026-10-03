@@ -33,6 +33,9 @@ object TrackerMutes {
     /** In-memory rules; no Android types. */
     class Store(var mutes: List<Mute> = emptyList()) {
 
+        /** When each muted address was last written to storage (last seen is kept fresh in memory). */
+        private val persisted = HashMap<String, Long>()
+
         fun isMuted(mac: String, now: Long): Boolean = mutes.any { it.mac == mac && it.until > now }
 
         fun mute(mac: String, kind: String, rssi: Int, now: Long, follow: Boolean) {
@@ -45,26 +48,36 @@ object TrackerMutes {
         /**
          * A tracker of [kind] was heard. Returns true when it's muted - possibly
          * because it just inherited the mute of a "mine" tag whose address changed.
+         * [linkedFrom] is the address the scanner linked this one to (same advert
+         * fingerprint, see DeviceRegistry), the surest sign of an address change.
          * Returns whether the stored list changed through [changed].
          */
-        fun onSeen(mac: String, kind: String, rssi: Int, now: Long, changed: (Boolean) -> Unit = {}): Boolean {
+        fun onSeen(
+            mac: String, kind: String, rssi: Int, now: Long,
+            linkedFrom: String? = null, changed: (Boolean) -> Unit = {}
+        ): Boolean {
             mutes = mutes.filter { it.until > now }
             val own = mutes.firstOrNull { it.mac == mac }
             if (own != null) {
-                // Keep "last seen" fresh, but don't rewrite storage on every packet.
-                if (now - own.lastSeen > 30_000) {
-                    mutes = mutes.map { if (it.mac == mac) it.copy(lastSeen = now, lastRssi = rssi) else it }
+                // "Last seen" stays fresh in memory on every packet, so a tag that's still
+                // around never looks silent (and can't hand its mute to another tag);
+                // storage is rewritten at most every 30 s.
+                mutes = mutes.map { if (it.mac == mac) it.copy(lastSeen = now, lastRssi = rssi) else it }
+                if (now - (persisted[mac] ?: 0L) > 30_000) {
+                    persisted[mac] = now
                     changed(true)
                 }
                 return true
             }
-            val candidates = mutes.filter {
+            // The scanner linked this address to a muted "mine" tag's previous one.
+            val linked = linkedFrom?.let { from -> mutes.firstOrNull { it.follow && it.mac == from } }
+            val prev = linked ?: mutes.filter {
                 it.follow && it.kind == kind &&
                     now - it.lastSeen in SILENT_MS..CARRY_WINDOW_MS &&
                     kotlin.math.abs(it.lastRssi - rssi) <= RSSI_TOLERANCE_DB
-            }
-            val prev = candidates.singleOrNull() ?: return false
+            }.singleOrNull() ?: return false
             mutes = mutes.map { if (it === prev) it.copy(mac = mac, lastSeen = now, lastRssi = rssi) else it }
+            persisted[mac] = now
             changed(true)
             return true
         }
@@ -104,10 +117,13 @@ object TrackerMutes {
     fun load(context: Context) = ensure(context)
 
     @Synchronized
-    fun onSeen(context: Context, mac: String, kind: String, rssi: Int, now: Long = System.currentTimeMillis()): Boolean {
+    fun onSeen(
+        context: Context, mac: String, kind: String, rssi: Int,
+        now: Long = System.currentTimeMillis(), linkedFrom: String? = null
+    ): Boolean {
         ensure(context)
         var dirty = false
-        val muted = store.onSeen(mac, kind, rssi, now) { dirty = it }
+        val muted = store.onSeen(mac, kind, rssi, now, linkedFrom) { dirty = it }
         if (dirty) save(context)
         return muted
     }

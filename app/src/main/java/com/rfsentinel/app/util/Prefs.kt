@@ -104,6 +104,10 @@ object Prefs {
     fun speedCameraAlerts(context: Context): Boolean = bool(context, "speed_camera_alerts", true)
     fun setSpeedCameraAlerts(context: Context, value: Boolean) = setBool(context, "speed_camera_alerts", value)
     /** Fetch known cameras for the map area on screen (and around you in the car) automatically. */
+    /** Radius of "download the cameras around me" (Settings, setup wizard, map menu), in km. */
+    fun cameraRadiusKm(context: Context): Int = int(context, "camera_radius_km", 100).coerceIn(10, 200)
+    fun setCameraRadiusKm(context: Context, km: Int) = setInt(context, "camera_radius_km", km.coerceIn(10, 200))
+
     fun autoCameras(context: Context): Boolean = bool(context, "auto_cameras", true)
     fun setAutoCameras(context: Context, value: Boolean) = setBool(context, "auto_cameras", value)
     /**

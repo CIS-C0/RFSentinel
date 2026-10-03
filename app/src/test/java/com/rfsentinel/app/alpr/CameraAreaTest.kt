@@ -32,6 +32,17 @@ class CameraAreaTest {
     }
 
     @Test
+    fun largeRadiusIsSplitIntoSmallTiles() {
+        // 200 km at 45 degrees: about 3.6 x 5.1 degrees, more than the old 2x2 tiles could hold.
+        val tiles = CameraArea.tilesAround(45.0, 10.0, radiusKm = 200.0, maxTileDeg = 1.0)
+        assertTrue(tiles.size > 4)
+        tiles.forEach { assertTrue(it[2] - it[0] <= 1.0 + 1e-9 && it[3] - it[1] <= 1.0 + 1e-9) }
+        val areas = tiles.map { CameraArea(it[0], it[1], it[2], it[3], time = 0L) }
+        // The whole radius is covered: a box reaching 190 km north and east of the point.
+        assertFalse(CameraArea.needsDownload(areas, 45.0, 10.0, 45.0 + 190 / 111.0, 10.0 + 190 / (111.0 * Math.cos(Math.toRadians(45.0))), now = day, maxAgeMs = 7 * day))
+    }
+
+    @Test
     fun expandDoublesWithinLimits() {
         // A small zoomed-in box grows to the minimum span.
         val (s, w, n, e) = CameraArea.expand(10.0, -20.05, 10.1, -19.95, maxSpan = 2.0)
