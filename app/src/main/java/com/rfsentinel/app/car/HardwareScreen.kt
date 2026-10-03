@@ -41,7 +41,7 @@ class HardwareScreen(carContext: CarContext) : LiveScreen(carContext, periodMs =
                 if (board == null) "Not paired (pair it in Settings on the phone)"
                 else "$board · " + OuiSpyBle.status.ifBlank { "connects while scanning" }, R.drawable.ic_car_usb),
             Triple("USB WiFi adapter", UsbWifi.status.ifBlank {
-                if (running) "None connected (RTL8811AU / 8821AU, e.g. ALFA AWUS036ACS)" else "Connects while scanning"
+                if (running) "None connected (RTL8811AU / 8821AU or RTL8812BU / 8822BU)" else "Connects while scanning"
             }, R.drawable.ic_car_usb)
         )
     }

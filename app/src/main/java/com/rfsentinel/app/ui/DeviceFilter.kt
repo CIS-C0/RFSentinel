@@ -19,7 +19,8 @@ enum class DeviceFilter(val label: String) {
     WIFI("WiFi"),
     /** Cell towers: not devices, listed from the cell snapshot (list only, not the map). */
     CELLS("Cells"),
-    ESP32("ESP32");
+    /** Heard by external hardware: an ESP32 board (USB or OUI-SPY over Bluetooth) or a USB WiFi adapter. */
+    EXTERNAL("External");
 
     fun matches(s: DeviceRegistry.Snapshot): Boolean = when (this) {
         ALL -> true
@@ -29,7 +30,7 @@ enum class DeviceFilter(val label: String) {
         DRONES -> s.hits.any { it.category == Category.DRONE } || s.remoteId != null
         NEW -> s.isNew
         CELLS -> false
-        ESP32 -> com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac) || com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac)
+        EXTERNAL -> com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac) || com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac)
         FAVORITES -> Favorites.contains(s.mac)
         BLE -> Advert.Source.BLE in s.sources
         WIFI -> Advert.Source.WIFI in s.sources

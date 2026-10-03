@@ -25,23 +25,14 @@ import java.util.concurrent.TimeoutException
 object Rtl8821auMonitor {
     @Volatile var running = false; private set
     @Volatile private var stop = false
-    @Volatile var captureClients = true
 
-    private class Sighting(val mac: String, var isAp: Boolean) {
-        var ssid: String? = null; var bssid: String? = null
-        var rssi = -128; var channel = 0
-        var good = false; var hits = 0; var lastSeen = 0L
-        fun trusted() = good || hits >= 2
-    }
-    private val sightings = LinkedHashMap<String, Sighting>()
+    private val frames = MonitorFrames()
     private val HOP = intArrayOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
     private const val DWELL_MS = 350L
 
     private val FRESH_MS get() = (HOP.size * DWELL_MS * 9 / 5).coerceAtLeast(3000L)
-    private const val PRUNE_MS = 60_000L
     private const val REPORT_MS = 10_000L
     private const val NOMINAL_RSSI = -60
-    private fun freqOf(ch: Int) = 2407 + ch * 5
 
     private const val OUT_VENDOR = 0x40; private const val IN_VENDOR = 0xC0
     private const val VREQ = 0x05
@@ -56,7 +47,7 @@ object Rtl8821auMonitor {
     fun run(ctx: Context, device: UsbDevice, onStatus: (String) -> Unit,
             onFrame: (List<MonitorSighting>) -> Unit) {
         if (running) return
-        running = true; stop = false; sightings.clear(); rfShadow.clear()
+        running = true; stop = false; frames.clear(); rfShadow.clear()
         val mgr = ctx.getSystemService(Context.USB_SERVICE) as UsbManager
         val conn = mgr.openDevice(device) ?: run { onStatus("RTL8821AU: couldn't reopen adapter"); running = false; return }
         var epRx: UsbEndpoint? = null
@@ -164,18 +155,16 @@ object Rtl8821auMonitor {
     private fun rxTick(conn: UsbDeviceConnection, now: Long, st: RxState,
                        onFrame: (List<MonitorSighting>) -> Unit, onStatus: (String) -> Unit) {
         if (now - st.lastLog > 3000) {
-            val shown = sightings.values.filter { it.trusted() && now - it.lastSeen < REPORT_MS }
-            val aps = shown.count { it.isAp }
-            UsbWifi.log("RTL8821AU: RX ${st.bufs} bufs / ${st.total} B ch ${HOP[st.hopIdx]} | ${shown.size} live ($aps AP · ${shown.size - aps} client, ${sightings.size} tracked)")
+            val (aps, clients) = frames.live(now, REPORT_MS)
+            UsbWifi.log("RTL8821AU: RX ${st.bufs} bufs / ${st.total} B ch ${HOP[st.hopIdx]} | ${aps + clients} live ($aps AP · $clients client, ${frames.tracked} tracked)")
             st.lastLog = now
         }
         if (now - st.lastEmit > 2000) { emitSightings(onFrame); st.lastEmit = now }
         if (now - st.hopAt > DWELL_MS) {
             val ni = (st.hopIdx + 1) % HOP.size
             if (ni != st.hopIdx) { st.hopIdx = ni; runCatching { channelTune(conn, HOP[st.hopIdx]) } }
-            val shown = sightings.values.filter { it.trusted() && now - it.lastSeen < REPORT_MS }
-            val aps = shown.count { it.isAp }
-            onStatus("RTL8811AU / 8821AU · live · $aps access points · ${shown.size - aps} devices · ch ${HOP[st.hopIdx]}")
+            val (aps, clients) = frames.live(now, REPORT_MS)
+            onStatus("RTL8811AU / 8821AU · live · $aps access points · $clients devices · ch ${HOP[st.hopIdx]}")
             st.hopAt = now
         }
     }
@@ -265,55 +254,9 @@ object Rtl8821auMonitor {
             if (crc == 0 && fe - fs >= 24) {
                 val rate = b[off + 12].toInt() and 0x7f
                 val rssi = if (drv >= 8 && off + size + drv <= n) rtlRssi(b, off + size, rate) else NOMINAL_RSSI
-                parse80211(b, fs, fe, ch, rssi)
+                frames.frame(b, fs, fe, ch, rssi)
             }
             off += (size + drv + shift + pkt + 7) and 7.inv()
-        }
-    }
-
-    private fun parse80211(b: ByteArray, d: Int, end: Int, ch: Int, rssi: Int) {
-        fun u8(i: Int) = b[i].toInt() and 0xff
-        val fc = u8(d); val ftype = (fc shr 2) and 3; val sub = (fc shr 4) and 0xf
-        val fc1 = u8(d + 1); val toDs = fc1 and 0x01; val fromDs = (fc1 shr 1) and 0x01
-        val a1 = d + 4; val a2 = d + 10; val a3 = d + 16
-        fun mac(at: Int) = (at until at + 6).joinToString(":") { "%02x".format(u8(it)) }
-        fun isReal(m: String) = m != "ff:ff:ff:ff:ff:ff" && m != "00:00:00:00:00:00" &&
-            !m.startsWith("01:00:5e") && !m.startsWith("33:33") && !m.startsWith("01:80:c2")
-        fun readSsid(from: Int): String? {
-            var i = from
-            while (i + 2 <= end) {
-                val tag = u8(i); val tl = u8(i + 1)
-                if (i + 2 + tl > end) break
-                if (tag == 0) return String(b, i + 2, tl, Charsets.UTF_8).trim { it <= ' ' }
-                i += 2 + tl
-            }
-            return null
-        }
-        fun touch(m: String, ap: Boolean): Sighting? {
-            if (!isReal(m)) return null
-            val s = sightings.getOrPut(m) { Sighting(m, ap) }
-            s.hits++; s.good = true
-            if (rssi > s.rssi) s.rssi = rssi
-            s.channel = ch; s.lastSeen = System.currentTimeMillis()
-            return s
-        }
-        when (ftype) {
-            0 -> when (sub) {
-                8, 5 -> if (d + 36 <= end) {
-                    val ssid = readSsid(d + 36)
-                    touch(mac(a3), ap = true)?.let { if (ssid != null && it.ssid == null) it.ssid = ssid }
-                }
-                // Probe request: a device looking for networks (e.g. a laptop or a Flock camera).
-                4 -> if (captureClients) touch(mac(a2), ap = false)
-                0, 2, 10, 11, 12 -> if (captureClients) touch(mac(a2), ap = false)?.let { it.bssid = mac(a3) }
-            }
-            2 -> {
-                if (captureClients) when {
-                    toDs == 1 && fromDs == 0 -> touch(mac(a2), ap = false)?.let { it.bssid = mac(a1) }
-                    toDs == 0 && fromDs == 1 -> touch(mac(a1), ap = false)?.let { it.bssid = mac(a2) }
-                    else -> touch(mac(a2), ap = false)
-                }
-            }
         }
     }
 
@@ -337,18 +280,7 @@ object Rtl8821auMonitor {
     }
 
     private fun emitSightings(onFrame: (List<MonitorSighting>) -> Unit) {
-        val now = System.currentTimeMillis()
-        val batch = sightings.values.filter { it.trusted() && now - it.lastSeen < FRESH_MS }.map { s ->
-            MonitorSighting(
-                mac = s.mac,
-                ssid = s.ssid,
-                rssi = s.rssi.coerceIn(-120, -20),
-                frequencyMhz = if (s.channel > 0) freqOf(s.channel) else 0,
-                isAccessPoint = s.isAp,
-                bssid = s.bssid
-            )
-        }
-        sightings.entries.removeAll { now - it.value.lastSeen > PRUNE_MS }
+        val batch = frames.drain(System.currentTimeMillis(), FRESH_MS)
         if (batch.isNotEmpty()) onFrame(batch)
     }
 

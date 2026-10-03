@@ -48,7 +48,7 @@ class NearbyDevicesScreen(carContext: CarContext) : LiveScreen(carContext) {
         DeviceFilter.FLAGGED -> R.drawable.ic_car_warning
         DeviceFilter.TRACKERS, DeviceFilter.DRONES -> R.drawable.ic_car_drone
         DeviceFilter.FAVORITES -> R.drawable.ic_car_star
-        DeviceFilter.ESP32 -> R.drawable.ic_car_usb
+        DeviceFilter.EXTERNAL -> R.drawable.ic_car_usb
         else -> R.drawable.ic_car_list
     }
 }

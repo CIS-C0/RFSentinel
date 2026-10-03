@@ -13,7 +13,7 @@ import com.rfsentinel.app.ui.DeviceFilter
 
 /**
  * A driver-safe list of nearby devices, filtered like the phone's chips
- * (Flagged, Trackers, Drones, Favorites, New, Bluetooth, WiFi, ESP32).
+ * (Flagged, Trackers, Drones, Favorites, New, Bluetooth, WiFi, External).
  * Tapping a row opens its details.
  */
 class DeviceListScreen(carContext: CarContext, private val filter: DeviceFilter) : LiveScreen(carContext) {
@@ -69,7 +69,7 @@ class DeviceListScreen(carContext: CarContext, private val filter: DeviceFilter)
             DeviceFilter.ALL -> "All nearby"
             DeviceFilter.FLAGGED -> "Flagged nearby"
             DeviceFilter.NEW -> "New devices"
-            DeviceFilter.ESP32 -> "Heard by ESP32 / USB"
+            DeviceFilter.EXTERNAL -> "Heard by external hardware"
             else -> f.label
         }
 
@@ -79,7 +79,7 @@ class DeviceListScreen(carContext: CarContext, private val filter: DeviceFilter)
             f == DeviceFilter.TRACKERS -> "No trackers nearby"
             f == DeviceFilter.DRONES -> "No drones nearby"
             f == DeviceFilter.FAVORITES -> "No favorites nearby"
-            f == DeviceFilter.ESP32 -> "Nothing from an ESP32 board or USB adapter - see More > Hardware"
+            f == DeviceFilter.EXTERNAL -> "Nothing from an ESP32 board or USB WiFi adapter - see More > Hardware"
             f == DeviceFilter.ALL -> "Listening... no devices heard yet"
             else -> "Nothing here right now"
         }

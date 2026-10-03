@@ -107,7 +107,10 @@ object EspBoards {
     @Synchronized
     private fun stopBoard(name: String) {
         running.remove(name)?.reader?.stop()
-        if (running.isEmpty()) setStatus("ESP32 disconnected")
+        if (running.isEmpty()) {
+            setStatus("ESP32 disconnected")
+            if (!OuiSpyBle.connected) HeardBy.esp.clear()
+        }
     }
 
     private fun setStatus(s: String) {

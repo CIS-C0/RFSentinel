@@ -881,6 +881,9 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.esp.EspBoards.stop(this)
         com.rfsentinel.app.usb.UsbWifi.stop(this)
         com.rfsentinel.app.esp.OuiSpyBle.stop()
+        // External hardware is gone with the scan: its "heard by" marks (External filter, badges) go too.
+        com.rfsentinel.app.esp.HeardBy.esp.clear()
+        com.rfsentinel.app.esp.HeardBy.usb.clear()
         bleEngine.stop()
         wifiEngine.stop()
         if (btStateReceiverRegistered) {

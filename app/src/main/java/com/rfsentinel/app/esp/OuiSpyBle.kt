@@ -41,6 +41,9 @@ object OuiSpyBle {
     private var relayAll = true
     private var onSightings: ((List<EspSighting>) -> Unit)? = null
     @Volatile private var active = false
+
+    /** An OUI-SPY board is set to run (its reports keep devices marked as heard by external hardware). */
+    val connected: Boolean get() = active
     private var inSpool = false
     private var discovering = false
     private var live = false

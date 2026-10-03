@@ -187,7 +187,7 @@ class SettingsActivity : AppCompatActivity() {
         val s = com.rfsentinel.app.esp.EspBoards.status
         binding.espStatusText.text = "ESP32 on USB (OUI-Spy, GhostESP or Marauder; also through a Flipper Zero): " +
             s.ifBlank { "plug one in with an OTG cable while scanning to add its detections" }
-        binding.usbWifiText.text = "USB WiFi adapter in monitor mode (RTL8811AU / 8821AU, e.g. ALFA AWUS036ACS): " +
+        binding.usbWifiText.text = "USB WiFi adapter in monitor mode (RTL8811AU / 8821AU such as the ALFA AWUS036ACS, or RTL8812BU / 8822BU): " +
             com.rfsentinel.app.usb.UsbWifi.status.ifBlank { "plug one in with an OTG cable while scanning - longer range, and it hears devices connected to networks" }
         val board = Prefs.ouiSpyBoard(this)
         binding.ouiSpyText.text = if (board == null)

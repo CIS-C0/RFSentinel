@@ -129,7 +129,7 @@ class HomeScreen(carContext: CarContext) : LiveScreen(carContext) {
         // 5. Everything nearby, filtered like the phone's chips.
         rows += Row.Builder()
             .setTitle("Nearby devices (${m.devices})")
-            .addText("Flagged, trackers, drones, favorites, new, ESP32...")
+            .addText("Flagged, trackers, drones, favorites, new, external...")
             .setImage(CarUi.icon(carContext, R.drawable.ic_car_drone))
             .setBrowsable(true)
             .setOnClickListener { screenManager.push(NearbyDevicesScreen(carContext)) }
