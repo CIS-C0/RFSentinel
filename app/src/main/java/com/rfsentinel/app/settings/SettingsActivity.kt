@@ -466,6 +466,7 @@ class SettingsActivity : AppCompatActivity() {
                 lifecycleScope.launch {
                     AppDatabase.getInstance(this@SettingsActivity).knownDeviceDao().clearNonFavorites()
                     com.rfsentinel.app.service.CellMonitor.forget(this@SettingsActivity)
+                    com.rfsentinel.app.service.CellTowerStore.forget(this@SettingsActivity)
                     Toast.makeText(this@SettingsActivity, "Device history cleared", Toast.LENGTH_SHORT).show()
                 }
             }

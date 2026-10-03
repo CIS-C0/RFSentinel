@@ -53,6 +53,9 @@ object AlprStore {
 
     private val busy = java.util.concurrent.atomic.AtomicBoolean(false)
     @Volatile private var lastFailedArea: CameraArea? = null
+    /** When the last automatic download failed (0 = the last one worked), for the map's status line. */
+    @Volatile var lastAutoFailureAt = 0L
+        private set
     val isBusy: Boolean get() = busy.get()
 
     private fun file(context: Context) = File(context.filesDir, FILE)
@@ -85,12 +88,14 @@ object AlprStore {
         val (s, w, n, e) = CameraArea.expand(south, west, north, east, MAX_SPAN_DEG)
         return try {
             download(context, s, w, n, e)
+            lastAutoFailureAt = 0L
             true
         } catch (ex: kotlinx.coroutines.CancellationException) {
             throw ex // the screen closed: not a failure, try again next time
         } catch (ex: Exception) {
             android.util.Log.w("AlprStore", "Automatic camera download failed: ${ex.message}")
             lastFailedArea = CameraArea(s, w, n, e, System.currentTimeMillis())
+            lastAutoFailureAt = System.currentTimeMillis()
             false
         } finally {
             busy.set(false)

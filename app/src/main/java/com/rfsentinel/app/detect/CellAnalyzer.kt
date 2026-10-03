@@ -37,7 +37,13 @@ class CellAnalyzer(private val knownAreas: MutableMap<String, Int> = LinkedHashM
         /** LAC (2G/3G) or TAC (4G/5G). */
         val area: Int?,
         val cellId: Long?,
-        val dbm: Int?
+        val dbm: Int?,
+        /** Radio channel: ARFCN (2G), UARFCN (3G), EARFCN (4G) or NR-ARFCN (5G). */
+        val channel: Int? = null,
+        /** Physical cell ID (4G/5G PCI, 3G PSC, 2G BSIC): what neighbour cells report instead of an ID. */
+        val pci: Int? = null,
+        /** Network name the cell broadcasts, when Android reports it. */
+        val operator: String? = null
     ) {
         val key get() = "${rat.name} ${mcc ?: "?"}-${mnc ?: "?"} ${area ?: "?"}/${cellId ?: "?"}"
         /** The cell's identity without its area: a cloned cell keeps this and changes the area. */

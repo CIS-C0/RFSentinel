@@ -124,12 +124,14 @@ class BleScanEngine(
         for (cid in intArrayOf(0x034D, 0x04EC, 0x09C8, 0x0D53, 0x03C2, 0x060C, 0x01AB)) {
             out += ScanFilter.Builder().setManufacturerData(cid, ByteArray(0)).build()
         }
-        // Apple Find My "separated from owner" frame: type 0x12, length 0x19.
-        out += ScanFilter.Builder()
-            .setManufacturerData(0x004C, byteArrayOf(0x12, 0x19), byteArrayOf(0xFF.toByte(), 0xFF.toByte()))
-            .build()
-        // Service data: Remote ID, Find Hub / Eddystone, SmartTag, Tile.
-        for (short in intArrayOf(0xFFFA, 0xFEAA, 0xFD5A, 0xFEED)) {
+        // The makers behind most Bluetooth traffic, so ordinary devices (and trackers following
+        // you) stay visible with the screen off, when Android suspends the unfiltered scan:
+        // Apple (any frame, incl. Find My), Samsung, Google, Microsoft, Garmin, Bose, Sony, Xiaomi.
+        for (cid in intArrayOf(0x004C, 0x0075, 0x00E0, 0x0006, 0x0087, 0x009E, 0x012D, 0x038F)) {
+            out += ScanFilter.Builder().setManufacturerData(cid, ByteArray(0)).build()
+        }
+        // Service data: Remote ID, Find Hub / Eddystone, SmartTag, Tile, Google Fast Pair.
+        for (short in intArrayOf(0xFFFA, 0xFEAA, 0xFD5A, 0xFEED, 0xFE2C)) {
             out += ScanFilter.Builder().setServiceData(ParcelUuid(Advert.uuid16(short)), ByteArray(0)).build()
         }
         // Advertised services: Axon/TASER, Flock Raven GPS, Motorola Solutions, Zebra printers,
@@ -137,7 +139,7 @@ class BleScanEngine(
         for (short in intArrayOf(0xFC81, 0xFE6B, 0xFE6C, 0x3100, 0xFD8E, 0xFE04, 0xFE79, 0xFD66, 0xFE45, 0xFEB7, 0xFEB8)) {
             out += ScanFilter.Builder().setServiceUuid(ParcelUuid(Advert.uuid16(short))).build()
         }
-        // Controllers offload a limited number of filters; keep the total around 30.
+        // Controllers offload a limited number of filters; keep the total around 40.
         watchedMacs.take(8).forEach { mac ->
             runCatching { out += ScanFilter.Builder().setDeviceAddress(mac).build() }
         }

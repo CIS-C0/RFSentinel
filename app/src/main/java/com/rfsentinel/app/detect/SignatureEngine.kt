@@ -34,6 +34,9 @@ object SignatureEngine {
     private const val CID_VUZIX = 0x060C           // Vuzix Corporation
     private const val CID_META = 0x01AB            // Meta Platforms, Inc.
     private const val CID_META_TECH = 0x058E       // Meta Platforms Technologies (shared with Quest)
+    private const val CID_ZEBRA = 0x01F1           // Zebra Technologies Corporation
+    private const val CID_BROTHER = 0x0755         // Brother Industries, Ltd
+    private const val CID_DRAEGER = 0x04BC         // Draegerwerk AG & Co. KGaA
 
     // --- 16-bit service UUIDs ------------------------------------------------
     private val AXON_UUIDS = mapOf(0xFC81 to "Axon Enterprise", 0xFE6B to "TASER International", 0xFE6C to "TASER International")
@@ -46,6 +49,8 @@ object SignatureEngine {
     private const val UUID_SPECTACLES = 0xFE45     // Snapchat Inc
     private val META_UUIDS = setOf(0xFEB7, 0xFEB8) // Meta Platforms, Inc.
     private val ZEBRA_UUIDS = setOf(0xFE79, 0xFD66) // Zebra Technologies (FE79 = Link-OS printer BLE service)
+    private val FORTIN_UUIDS = setOf(0xFDE1, 0xFDCA) // Fortin Electronic Systems (vehicle interface modules)
+    private const val UUID_DRAEGER = 0xFCDA        // Draeger
 
     /** HeyCyan smart-glasses SDK service; must match all 16 bytes (Apple ANCS differs by 2 bytes). */
     private val HEYCYAN = UUID.fromString("7905fff0-b5ce-4e99-a40f-4b1e122d00d0")
@@ -149,6 +154,29 @@ object SignatureEngine {
                     String.format("Service UUID 0x%04X (Zebra Technologies)", u) +
                         " - common in warehouses, stores and deliveries", SIG)
             }
+        }
+
+        if (CID_ZEBRA in a.manufacturerData && ZEBRA_UUIDS.none { it in allShorts }) {
+            hits += Hit(Category.PUBLIC_SAFETY, "Zebra device (mobile printer or handheld)", 25,
+                "Zebra Technologies company ID 0x01F1 - mobile printers (incl. e-ticket printers) but also " +
+                    "store scanners and handhelds", SIG)
+        }
+        if (CID_BROTHER in a.manufacturerData) {
+            hits += Hit(Category.PUBLIC_SAFETY, "Brother printer", 20,
+                "Brother Industries company ID 0x0755 - RuggedJet / PocketJet in-car printers, but mostly " +
+                    "home and office printers", SIG)
+        }
+
+        // ---- Vehicle and impairment-testing gear ----------------------------
+        if (FORTIN_UUIDS.any { it in allShorts }) {
+            hits += Hit(Category.PUBLIC_SAFETY, "Fortin vehicle interface module", 20,
+                "Fortin Electronic Systems service UUID 0xFDE1/0xFDCA - interface modules used when upfitting " +
+                    "police vehicles, but also remote starters in many ordinary cars", SIG)
+        }
+        if (CID_DRAEGER in a.manufacturerData || UUID_DRAEGER in allShorts) {
+            hits += Hit(Category.PUBLIC_SAFETY, "Dräger device (breath / drug screening or medical)", 35,
+                "Draegerwerk company ID 0x04BC or service UUID 0xFCDA - Dräger makes the roadside breath " +
+                    "(Alcotest) and drug (DrugTest) screening devices police use, and hospital and gas-detection gear", SIG)
         }
 
         // ---- Flock Safety ALPR + Raven --------------------------------------

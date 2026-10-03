@@ -15,6 +15,13 @@
     <item android:id="@+id/action_match_log" android:title="Match history" app:showAsAction="never" />
     <item android:id="@+id/action_traces" android:title="Recorded traces" app:showAsAction="never" />
     <item android:id="@+id/action_history" android:title="History map &amp; timeline" app:showAsAction="never" />
+    <item android:id="@+id/action_tools" android:title="Tools" app:showAsAction="never">
+        <menu>
+            <item android:id="@+id/action_cell_towers" android:title="Cell towers" />
+            <item android:id="@+id/action_wifi_channels" android:title="WiFi channels" />
+            <item android:id="@+id/action_wifi_spectrum" android:title="WiFi spectrum" />
+        </menu>
+    </item>
     <item android:id="@+id/action_oui_list" android:title="Watchlist &amp; rules" app:showAsAction="never" />
     <item android:id="@+id/action_whitelist" android:title="Whitelist (trusted devices)" app:showAsAction="never" />
     <item android:id="@+id/action_settings" android:title="Settings" app:showAsAction="never" />

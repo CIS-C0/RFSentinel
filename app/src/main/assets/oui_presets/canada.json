@@ -214,5 +214,53 @@
     "confidence": "candidate",
     "score": 35,
     "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:A0:D5",
+    "label": "Sierra Wireless AirLink vehicle gateway (police / EMS / fleet)",
+    "source": "IEEE MA-L (Sierra Wireless, ULC); AirLink routers are sold by Canadian police-vehicle integrators and installed with carrier vehicle modems. Weak: also on buses, utility trucks and kiosks",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "28:A3:31",
+    "label": "Sierra Wireless AirLink vehicle gateway (police / EMS / fleet)",
+    "source": "IEEE MA-L (Sierra Wireless, ULC); AirLink routers are sold by Canadian police-vehicle integrators and installed with carrier vehicle modems. Weak: also on buses, utility trucks and kiosks",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "50:13:9D",
+    "label": "Sierra Wireless AirLink vehicle gateway (police / EMS / fleet)",
+    "source": "IEEE MA-L (Sierra Wireless, ULC); AirLink routers are sold by Canadian police-vehicle integrators and installed with carrier vehicle modems. Weak: also on buses, utility trucks and kiosks",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "64:CE:6E",
+    "label": "Sierra Wireless AirLink vehicle gateway (police / EMS / fleet)",
+    "source": "IEEE MA-L (Sierra Wireless, ULC); AirLink routers are sold by Canadian police-vehicle integrators and installed with carrier vehicle modems. Weak: also on buses, utility trucks and kiosks",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "84:DB:2F",
+    "label": "Sierra Wireless AirLink vehicle gateway (police / EMS / fleet)",
+    "source": "IEEE MA-L (Sierra Wireless, ULC); AirLink routers are sold by Canadian police-vehicle integrators and installed with carrier vehicle modems. Weak: also on buses, utility trucks and kiosks",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "CC:93:4A",
+    "label": "Sierra Wireless AirLink vehicle gateway (police / EMS / fleet)",
+    "source": "IEEE MA-L (Sierra Wireless, ULC); AirLink routers are sold by Canadian police-vehicle integrators and installed with carrier vehicle modems. Weak: also on buses, utility trucks and kiosks",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
   }
 ]

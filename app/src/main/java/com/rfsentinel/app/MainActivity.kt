@@ -237,6 +237,10 @@ class MainActivity : AppCompatActivity() {
                 (com.rfsentinel.app.service.CellMonitor.lastAnomaly
                     ?.takeIf { System.currentTimeMillis() - it.first < 15 * 60_000L }
                     ?.let { " · ⚠ ${it.second.title}" } ?: "") +
+                (ScanForegroundService.lastWatchdogRestart
+                    ?.takeIf { System.currentTimeMillis() - it.first < 10 * 60_000L }
+                    ?.let { " · ${it.second} scan restarted " +
+                        java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(it.first)) } ?: "") +
                 com.rfsentinel.app.esp.OuiSpyBle.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
                 com.rfsentinel.app.esp.EspBoards.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty()
         }
@@ -451,6 +455,12 @@ class MainActivity : AppCompatActivity() {
             R.id.action_traces -> { startActivity(Intent(this, com.rfsentinel.app.ui.TripsActivity::class.java)); true }
             R.id.action_history -> { startActivity(Intent(this, com.rfsentinel.app.ui.HistoryActivity::class.java)); true }
             R.id.action_about -> { AboutDialog.show(this); true }
+            R.id.action_cell_towers -> { startActivity(Intent(this, com.rfsentinel.app.ui.CellTowersActivity::class.java)); true }
+            R.id.action_wifi_channels -> { startActivity(Intent(this, com.rfsentinel.app.ui.WifiAnalyzerActivity::class.java)); true }
+            R.id.action_wifi_spectrum -> {
+                startActivity(Intent(this, com.rfsentinel.app.ui.WifiAnalyzerActivity::class.java)
+                    .putExtra(com.rfsentinel.app.ui.WifiAnalyzerActivity.EXTRA_SPECTRUM, true)); true
+            }
             R.id.action_mute -> {
                 val muted = !Prefs.alertsMuted(this)
                 Prefs.setAlertsMuted(this, muted)

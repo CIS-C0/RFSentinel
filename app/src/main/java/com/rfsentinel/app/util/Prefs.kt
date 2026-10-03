@@ -145,6 +145,8 @@ object Prefs {
     fun setDeflockUpdated(context: Context, time: Long) = sp(context).edit { putLong("deflock_updated", time) }
     fun ouiSpyRelayAll(context: Context): Boolean = bool(context, "ouispy_relay_all", true)
     fun setOuiSpyRelayAll(context: Context, value: Boolean) = setBool(context, "ouispy_relay_all", value)
+    fun showCellTowers(context: Context): Boolean = bool(context, "show_cell_towers", false)
+    fun setShowCellTowers(context: Context, value: Boolean) = setBool(context, "show_cell_towers", value)
     fun showKnownAlpr(context: Context): Boolean = bool(context, "show_known_alpr", true)
     fun setShowKnownAlpr(context: Context, value: Boolean) = setBool(context, "show_known_alpr", value)
 

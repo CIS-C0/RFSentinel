@@ -43,6 +43,18 @@ class CellMonitor(private val context: Context) {
         while (fixes.size > 12) fixes.removeFirst()
     }
 
+    @Synchronized
+    private fun lastFix(): Location? = fixes.lastOrNull()
+
+    /** The cells the phone sees right now, without any analysis (the cell towers screen). */
+    suspend fun read(): List<CellAnalyzer.Cell> {
+        val tm = tm ?: return emptyList()
+        return fetch(tm)?.mapNotNull(::toCell).orEmpty()
+    }
+
+    /** Frees the reader thread of a monitor used only through [read]. */
+    fun release() = executor.shutdown()
+
     /** True / false when GPS knows whether you've been still for ~2 minutes; null otherwise. */
     @Synchronized
     private fun stationary(now: Long): Boolean? {
@@ -62,6 +74,7 @@ class CellMonitor(private val context: Context) {
         val cells = infos.mapNotNull(::toCell)
         if (cells.isEmpty()) return emptyList()
         val now = System.currentTimeMillis()
+        CellTowerStore.record(context, cells, lastFix(), now)
         // A call (or one that just ended): networks without 4G calling drop to 2G/3G for it.
         // The audio mode tells without the phone-state permission.
         if (audio?.mode == android.media.AudioManager.MODE_IN_CALL) lastCallAt = now
@@ -120,13 +133,16 @@ class CellMonitor(private val context: Context) {
         val reg = info.isRegistered
         return when (info) {
             is CellInfoLte -> info.cellIdentity.let {
-                CellAnalyzer.Cell(CellAnalyzer.Rat.LTE, reg, mcc(it.mccCompat()), mnc(it.mncCompat()), it.tac.orNull(), it.ci.orNull()?.toLong(), info.cellSignalStrength.dbm)
+                CellAnalyzer.Cell(CellAnalyzer.Rat.LTE, reg, mcc(it.mccCompat()), mnc(it.mncCompat()), it.tac.orNull(), it.ci.orNull()?.toLong(),
+                    info.cellSignalStrength.dbm, it.earfcn.orNull(), it.pci.orNull(), opName(it))
             }
             is CellInfoGsm -> info.cellIdentity.let {
-                CellAnalyzer.Cell(CellAnalyzer.Rat.GSM, reg, mcc(it.mccCompat()), mnc(it.mncCompat()), it.lac.orNull(), it.cid.orNull()?.toLong(), info.cellSignalStrength.dbm)
+                CellAnalyzer.Cell(CellAnalyzer.Rat.GSM, reg, mcc(it.mccCompat()), mnc(it.mncCompat()), it.lac.orNull(), it.cid.orNull()?.toLong(),
+                    info.cellSignalStrength.dbm, it.arfcn.orNull(), it.bsic.orNull(), opName(it))
             }
             is CellInfoWcdma -> info.cellIdentity.let {
-                CellAnalyzer.Cell(CellAnalyzer.Rat.WCDMA, reg, mcc(it.mccCompat()), mnc(it.mncCompat()), it.lac.orNull(), it.cid.orNull()?.toLong(), info.cellSignalStrength.dbm)
+                CellAnalyzer.Cell(CellAnalyzer.Rat.WCDMA, reg, mcc(it.mccCompat()), mnc(it.mncCompat()), it.lac.orNull(), it.cid.orNull()?.toLong(),
+                    info.cellSignalStrength.dbm, it.uarfcn.orNull(), it.psc.orNull(), opName(it))
             }
             is CellInfoCdma -> CellAnalyzer.Cell(CellAnalyzer.Rat.CDMA, reg, null, null,
                 info.cellIdentity.networkId.orNull(), info.cellIdentity.basestationId.orNull()?.toLong(), info.cellSignalStrength.dbm)
@@ -138,13 +154,21 @@ class CellMonitor(private val context: Context) {
     private fun newer(info: CellInfo, reg: Boolean): CellAnalyzer.Cell? = when (info) {
         is CellInfoNr -> (info.cellIdentity as CellIdentityNr).let {
             CellAnalyzer.Cell(CellAnalyzer.Rat.NR, reg, it.mccString, it.mncString, it.tac.orNull(),
-                it.nci.takeIf { n -> n != CellInfo.UNAVAILABLE_LONG && n >= 0 }, info.cellSignalStrength.dbm)
+                it.nci.takeIf { n -> n != CellInfo.UNAVAILABLE_LONG && n >= 0 }, info.cellSignalStrength.dbm,
+                it.nrarfcn.orNull(), it.pci.orNull(), opName(it))
         }
         is CellInfoTdscdma -> info.cellIdentity.let {
-            CellAnalyzer.Cell(CellAnalyzer.Rat.TDSCDMA, reg, it.mccString, it.mncString, it.lac.orNull(), it.cid.orNull()?.toLong(), info.cellSignalStrength.dbm)
+            CellAnalyzer.Cell(CellAnalyzer.Rat.TDSCDMA, reg, it.mccString, it.mncString, it.lac.orNull(), it.cid.orNull()?.toLong(),
+                info.cellSignalStrength.dbm, it.uarfcn.orNull(), it.cpid.orNull(), opName(it))
         }
         else -> null
     }
+
+    /** The network name the cell broadcasts (API 28+). */
+    private fun opName(id: Any): String? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) (id as? android.telephony.CellIdentity)
+            ?.let { (it.operatorAlphaLong ?: it.operatorAlphaShort)?.toString()?.takeIf { s -> s.isNotBlank() } }
+        else null
 
     // Operator codes: the String getters are API 28+; older phones only have the int ones.
     private fun mcc(v: String?) = v?.takeIf { it.isNotBlank() }
@@ -171,6 +195,7 @@ class CellMonitor(private val context: Context) {
 
     fun close() {
         saveKnownAreas()
+        CellTowerStore.save(context)
         executor.shutdown()
     }
 

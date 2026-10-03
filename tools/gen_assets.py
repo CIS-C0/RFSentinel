@@ -117,6 +117,13 @@ CODE_PREFIXES = {
     # Canada preset (2026-09 research)
     '8C1F64DF0': 'Cyberkar', '00BF15': 'Genetec', '0CBF15': 'Genetec', '0050C2BE7': 'Genetec',
     '003044': 'CradlePoint', '00E01C': 'CradlePoint',
+    # Police-vehicle vendor sweep (2026-10)
+    '000512': 'Zebra', '00074D': 'Zebra', '001570': 'Zebra', '002368': 'Zebra', '00A0F8': 'Zebra', '4083DE': 'Zebra', '488EB7': 'Zebra', '609532': 'Zebra', '7493A4': 'Zebra', '78B8D6': 'Zebra', '84248D': 'Zebra', '88BCAC': 'Zebra', '9075DE': 'Zebra', '94FB29': 'Zebra', 'C47DCC': 'Zebra', 'C81CFE': 'Zebra', 'FC597A': 'Zebra',
+    '001BA9': 'Brother', '008077': 'Brother', '30055C': 'Brother', '3C2AF4': 'Brother', '94DDF8': 'Brother', 'B07C8E': 'Brother', 'B42200': 'Brother',
+    '00116E': 'Peplink', '1056CA': 'Peplink', '6CA3D3': 'Peplink', 'D413F8': 'Peplink',
+    '0015FF': 'Inseego', '18EE86': 'Inseego', '780C71': 'Inseego', 'E08614': 'Inseego',
+    '4C364E': 'Panasonic', 'B8208E': 'Panasonic', 'BC3E0B': 'Panasonic',
+    '00A0D5': 'Sierra', '28A331': 'Sierra', '50139D': 'Sierra', '64CE6E': 'Sierra', '84DB2F': 'Sierra', 'CC934A': 'Sierra',
 }
 bad = 0
 for p, expect in CODE_PREFIXES.items():

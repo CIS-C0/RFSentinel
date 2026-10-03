@@ -125,7 +125,8 @@ Every match shows its evidence, its source and a confidence tier: **weak** (< 50
 - Notification, Quick Settings tile and home-screen widget
 
 **Map & history**
-- OpenStreetMap map with your GPS trace and every device placed where its signal peaked, the same filter chips as the list, self-centering
+- OpenStreetMap map with your GPS trace and every device pinned exactly where its signal peaked (tap a spot to list everything heard there), the same filter chips as the list, self-centering
+- Optional **cell tower layer**: every tower seen while scanning, at the spot where its signal was strongest
 - **Record traces** of your route and the devices along it, with the screen off
 - **History map & timeline:** heatmap of where flagged equipment showed up, and when (hour of day, day of week)
 
@@ -139,6 +140,8 @@ Every match shows its evidence, its source and a confidence tier: **weak** (< 50
 
 **Interface**
 - Live list and radar view, filter chips with live counts (flagged, trackers, drones, new, ESP32, favorites, Bluetooth, WiFi), search
+- **Tools** (menu ⋮): **Cell towers** (serving and neighbour cells with network, IDs, channel and signal, plus every tower seen while scanning), **WiFi channels** and **WiFi spectrum** analyzers for 2.4 / 5 / 6 GHz
+- **Scan watchdog:** a scanner that goes silent is restarted on its own
 - Device details: evidence, identity, decoded data, signal graph, **Locate** mode, history, raw advertisement
 - Setup wizard (theme, region, alerts, camera radius, screen, permissions)
 - 13 themes, including the **DedSec** (Watch Dogs 2) and **fsociety** (Mr. Robot) fan themes
@@ -219,8 +222,11 @@ the raw advertisement.
 
 - The **map** shows your position, the trace being recorded, and every device
   heard around you, placed where your phone was when its signal was strongest.
-  That's an approximation, not a fix. Devices heard from the same spot fan out
-  when you zoom in.
+  That's an approximation, not a fix. Each dot stays pinned to its spot as you
+  pan and zoom; tap a spot where several devices were heard to pick one from a list.
+- **Cell towers** (map menu ⋮ → *Show cell towers*): towers seen while scanning,
+  at the spot where your phone heard them strongest - an estimate, not the
+  tower's real position (looking that up online would reveal where you are).
 - **Known cameras** (map menu ⋮): *Download nearby cameras* fetches plate readers
   within your radius (10-200 km, 100 by default); *Download Flock* fetches every
   plate reader mapped in the US and Canada (~18 MB, refreshed weekly on WiFi).

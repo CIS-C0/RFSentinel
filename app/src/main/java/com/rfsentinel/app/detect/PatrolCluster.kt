@@ -38,11 +38,22 @@ object PatrolCluster {
     private const val MIN_CORRELATION = 0.6
     private const val MIN_SPREAD_DB = 2.0
 
+    private const val ROLE_SCREENING = "impairment-screening device"
+    private const val ROLE_INTERFACE = "vehicle interface module"
+    /**
+     * Roles from makers whose products are mostly civilian (remote starters, medical and
+     * gas-detection gear): they add to a group but can't make one on their own, so an office or a
+     * driveway full of them never reads as a police vehicle.
+     */
+    private val SUPPORT_ROLES = setOf(ROLE_SCREENING, ROLE_INTERFACE)
+
     private val ROLE_BY_VENDOR = listOf(
         Regex("axon|taser", RegexOption.IGNORE_CASE) to "Axon / TASER gear",
         Regex("motorola solutions|harris corp|l3harris", RegexOption.IGNORE_CASE) to "two-way radio",
-        Regex("cradlepoint|sierra wireless", RegexOption.IGNORE_CASE) to "vehicle cellular router",
+        Regex("cradlepoint|sierra wireless|peplink|inseego", RegexOption.IGNORE_CASE) to "vehicle cellular router",
         Regex("zebra|ruggedjet|pocketjet", RegexOption.IGNORE_CASE) to "mobile printer",
+        Regex("dräger|draeger", RegexOption.IGNORE_CASE) to ROLE_SCREENING,
+        Regex("fortin vehicle|fortin electronic", RegexOption.IGNORE_CASE) to ROLE_INTERFACE,
         Regex("cyberkar", RegexOption.IGNORE_CASE) to "in-car computer / console",
         Regex("getac", RegexOption.IGNORE_CASE) to "rugged laptop / body cam",
         Regex("genetec", RegexOption.IGNORE_CASE) to "plate reader",
@@ -93,7 +104,7 @@ object PatrolCluster {
         }
         return live.indices.groupBy { find(it) }.values
             .map { idx -> Group(idx.map { live[it] }, idx.map { live[it].role }.toSet(), idx.any { it in correlatedPairs }) }
-            .filter { it.roles.size >= 2 }
+            .filter { it.roles.size >= 2 && (it.roles - SUPPORT_ROLES).isNotEmpty() }
     }
 
     /** The cluster hit for [mac], if it belongs to a group. */

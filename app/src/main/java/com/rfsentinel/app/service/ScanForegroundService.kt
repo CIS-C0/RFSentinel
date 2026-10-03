@@ -71,6 +71,10 @@ class ScanForegroundService : Service() {
 
         /** Android downgrades an unfiltered BLE scan to opportunistic after ~30 min; restart before. */
         private const val BLE_RESTART_INTERVAL_MS = 25 * 60 * 1000L
+        /** Watchdog: a scanner silent this long is restarted. */
+        private const val BLE_SILENCE_MS = 2 * 60_000L
+        private const val WIFI_SILENCE_MS = 3 * 60_000L
+        private const val MAX_SILENCE_MS = 16 * 60_000L
 
         /** At most one logged row per device per this interval (BLE repeats many times a second). */
         private const val LOG_THROTTLE_MS = 30_000L
@@ -116,6 +120,11 @@ class ScanForegroundService : Service() {
         /** Tests only: pretend the scanner has this fix. */
         @androidx.annotation.VisibleForTesting
         fun setLastFixForTest(l: Location?) { lastFix = l }
+
+        /** Last watchdog restart (time, which scanner), for the status line. */
+        @Volatile
+        var lastWatchdogRestart: Pair<Long, String>? = null
+            private set
 
         /** True while an instance is alive in this process. Source of truth for the UI. */
         @Volatile
@@ -193,8 +202,16 @@ class ScanForegroundService : Service() {
 
         pipelineThread = HandlerThread("rf-pipeline").apply { start() }
         pipeline = Handler(pipelineThread.looper)
-        bleEngine = BleScanEngine(this) { r -> pipeline.post { AdvertFactory.fromBle(r)?.let(::processPhone) } }
+        bleEngine = BleScanEngine(this) { r ->
+            val t = System.currentTimeMillis()
+            lastBleResultAt = t
+            bleWatchdogRestartAt?.let { onRecovered("Bluetooth", it, t); bleWatchdogRestartAt = null; bleSilenceMs = BLE_SILENCE_MS }
+            pipeline.post { AdvertFactory.fromBle(r)?.let(::processPhone) }
+        }
         wifiEngine = WifiScanEngine(this) { results ->
+            val t = System.currentTimeMillis()
+            lastWifiResultAt = t
+            wifiWatchdogRestartAt?.let { onRecovered("WiFi", it, t); wifiWatchdogRestartAt = null; wifiSilenceMs = WIFI_SILENCE_MS }
             pipeline.post { results.forEach { r -> AdvertFactory.fromWifi(r)?.let(::processPhone) } }
         }
 
@@ -298,6 +315,7 @@ class ScanForegroundService : Service() {
     // ---- Scanning -----------------------------------------------------------
 
     private fun startBle() {
+        bleStartedAt = System.currentTimeMillis()
         val watched = OuiWatchlist.allEntries().filter { it.isCustom && it.prefix.length == 17 }.map { it.prefix }
         bleEngine.start(Prefs.bleScanMode(this), watched)
         bleRestartJob?.cancel()
@@ -306,6 +324,7 @@ class ScanForegroundService : Service() {
                 delay(BLE_RESTART_INTERVAL_MS)
                 bleEngine.stop()
                 delay(1_000)
+                bleStartedAt = System.currentTimeMillis()
                 bleEngine.start(Prefs.bleScanMode(this@ScanForegroundService), watched)
             }
         }
@@ -317,6 +336,7 @@ class ScanForegroundService : Service() {
     }
 
     private fun startWifiPolling() {
+        wifiStartedAt = System.currentTimeMillis()
         wifiEngine.start()
         wifiPollJob?.cancel()
         wifiPollJob = serviceScope.launch {
@@ -669,7 +689,63 @@ class ScanForegroundService : Service() {
                 }
                 // Forget classification cache for devices that left.
                 classified.keys.retainAll(devices.map { it.mac }.toSet())
+                watchdog()
             }
+        }
+    }
+
+    // ---- Watchdog ----------------------------------------------------------------
+
+    @Volatile private var lastBleResultAt = 0L
+    @Volatile private var lastWifiResultAt = 0L
+    @Volatile private var bleStartedAt = 0L
+    @Volatile private var wifiStartedAt = 0L
+    /** Set when the watchdog restarted a scanner; cleared by its next result. */
+    @Volatile private var bleWatchdogRestartAt: Long? = null
+    @Volatile private var wifiWatchdogRestartAt: Long? = null
+    /** Silence allowed before a restart; doubles after each restart that brought nothing back. */
+    @Volatile private var bleSilenceMs = BLE_SILENCE_MS
+    @Volatile private var wifiSilenceMs = WIFI_SILENCE_MS
+
+    /** Results came back after a restart: the scanner really was stuck, so say so. */
+    private fun onRecovered(which: String, restartAt: Long, now: Long) {
+        if (now - restartAt <= 90_000L) {
+            Log.i(TAG, "Watchdog: $which scan recovered after restart")
+            lastWatchdogRestart = restartAt to which
+        }
+    }
+
+    /**
+     * A scanner that goes silent is restarted. Android (or a phone maker's battery
+     * manager) can stop delivering results without reporting an error - the scan
+     * looks alive but nothing arrives until it's restarted. Nearly every place has
+     * some Bluetooth or WiFi around, so minutes of silence mean a stuck scanner.
+     * Skipped with the screen off: Android pauses unfiltered BLE scans then by design.
+     */
+    private fun watchdog() {
+        val now = System.currentTimeMillis()
+        val interactive = (getSystemService(POWER_SERVICE) as PowerManager).isInteractive
+        val adapterOn = runCatching {
+            (getSystemService(BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager).adapter?.isEnabled == true
+        }.getOrDefault(false)
+        if (interactive && adapterOn && Prefs.bleEnabled(this) &&
+            now - maxOf(lastBleResultAt, bleStartedAt) > bleSilenceMs
+        ) {
+            Log.w(TAG, "Watchdog: no Bluetooth results for ${(now - maxOf(lastBleResultAt, bleStartedAt)) / 1000} s - restarting the scan")
+            // A quiet area isn't a stuck scanner: back off while restarts bring nothing.
+            if (bleWatchdogRestartAt != null) bleSilenceMs = (bleSilenceMs * 2).coerceAtMost(MAX_SILENCE_MS)
+            bleWatchdogRestartAt = now
+            android.os.Handler(Looper.getMainLooper()).post { bleEngine.stop(); startBle() }
+        }
+        val wifiOn = runCatching { (applicationContext.getSystemService(WIFI_SERVICE) as android.net.wifi.WifiManager).isScanAlwaysAvailable ||
+            (applicationContext.getSystemService(WIFI_SERVICE) as android.net.wifi.WifiManager).isWifiEnabled }.getOrDefault(false)
+        if (wifiOn && Prefs.wifiEnabled(this) &&
+            now - maxOf(lastWifiResultAt, wifiStartedAt) > maxOf(wifiSilenceMs, 4 * Prefs.scanIntervalMs(this))
+        ) {
+            Log.w(TAG, "Watchdog: no WiFi results - restarting the WiFi scan")
+            if (wifiWatchdogRestartAt != null) wifiSilenceMs = (wifiSilenceMs * 2).coerceAtMost(MAX_SILENCE_MS)
+            wifiWatchdogRestartAt = now
+            android.os.Handler(Looper.getMainLooper()).post { wifiEngine.stop(); startWifiPolling() }
         }
     }
 

@@ -1686,5 +1686,285 @@
     "confidence": "candidate",
     "score": 40,
     "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:05:12",
+    "label": "Zebra Technologies (mobile printers, incl. in-car e-ticket printers)",
+    "source": "IEEE MA-L (Zebra Technologies Inc); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
+    "confidence": "candidate",
+    "score": 25,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:07:4D",
+    "label": "Zebra Technologies (mobile printers, incl. in-car e-ticket printers)",
+    "source": "IEEE MA-L (Zebra Technologies Corp.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
+    "confidence": "candidate",
+    "score": 25,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:15:70",
+    "label": "Zebra Technologies (mobile printers, incl. in-car e-ticket printers)",
+    "source": "IEEE MA-L (Zebra Technologies Inc); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
+    "confidence": "candidate",
+    "score": 25,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:23:68",
+    "label": "Zebra Technologies (mobile printers, incl. in-car e-ticket printers)",
+    "source": "IEEE MA-L (Zebra Technologies Inc); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
+    "confidence": "candidate",
+    "score": 25,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:A0:F8",
+    "label": "Zebra Technologies (mobile printers, incl. in-car e-ticket printers)",
+    "source": "IEEE MA-L (Zebra Technologies Inc); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
+    "confidence": "candidate",
+    "score": 25,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "40:83:DE",
+    "label": "Zebra Technologies (mobile printers, incl. in-car e-ticket printers)",
+    "source": "IEEE MA-L (Zebra Technologies Inc); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
+    "confidence": "candidate",
+    "score": 25,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "48:8E:B7",
+    "label": "Zebra Technologies (mobile printers, incl. in-car e-ticket printers)",
+    "source": "IEEE MA-L (Zebra Technologies Inc.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
+    "confidence": "candidate",
+    "score": 25,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "60:95:32",
+    "label": "Zebra Technologies (mobile printers, incl. in-car e-ticket printers)",
+    "source": "IEEE MA-L (Zebra Technologies Inc.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
+    "confidence": "candidate",
+    "score": 25,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "74:93:A4",
+    "label": "Zebra Technologies (mobile printers, incl. in-car e-ticket printers)",
+    "source": "IEEE MA-L (Zebra Technologies Corp.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
+    "confidence": "candidate",
+    "score": 25,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "78:B8:D6",
+    "label": "Zebra Technologies (mobile printers, incl. in-car e-ticket printers)",
+    "source": "IEEE MA-L (Zebra Technologies Inc.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
+    "confidence": "candidate",
+    "score": 25,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "84:24:8D",
+    "label": "Zebra Technologies (mobile printers, incl. in-car e-ticket printers)",
+    "source": "IEEE MA-L (Zebra Technologies Inc); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
+    "confidence": "candidate",
+    "score": 25,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "88:BC:AC",
+    "label": "Zebra Technologies (mobile printers, incl. in-car e-ticket printers)",
+    "source": "IEEE MA-L (Zebra Technologies Inc.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
+    "confidence": "candidate",
+    "score": 25,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "90:75:DE",
+    "label": "Zebra Technologies (mobile printers, incl. in-car e-ticket printers)",
+    "source": "IEEE MA-L (Zebra Technologies Inc.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
+    "confidence": "candidate",
+    "score": 25,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "94:FB:29",
+    "label": "Zebra Technologies (mobile printers, incl. in-car e-ticket printers)",
+    "source": "IEEE MA-L (Zebra Technologies Inc.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
+    "confidence": "candidate",
+    "score": 25,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "C4:7D:CC",
+    "label": "Zebra Technologies (mobile printers, incl. in-car e-ticket printers)",
+    "source": "IEEE MA-L (Zebra Technologies Inc); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
+    "confidence": "candidate",
+    "score": 25,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "C8:1C:FE",
+    "label": "Zebra Technologies (mobile printers, incl. in-car e-ticket printers)",
+    "source": "IEEE MA-L (Zebra Technologies Inc.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
+    "confidence": "candidate",
+    "score": 25,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "FC:59:7A",
+    "label": "Zebra Technologies (mobile printers, incl. in-car e-ticket printers)",
+    "source": "IEEE MA-L (Zebra Technologies Inc.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
+    "confidence": "candidate",
+    "score": 25,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:1B:A9",
+    "label": "Brother Industries (RuggedJet / PocketJet in-car printers)",
+    "source": "IEEE MA-L (Brother industries, LTD.); Brother mobile printers are sold for in-car reports and tickets. Very weak: Brother home and office printers use the same blocks",
+    "confidence": "candidate",
+    "score": 20,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:80:77",
+    "label": "Brother Industries (RuggedJet / PocketJet in-car printers)",
+    "source": "IEEE MA-L (Brother industries, LTD.); Brother mobile printers are sold for in-car reports and tickets. Very weak: Brother home and office printers use the same blocks",
+    "confidence": "candidate",
+    "score": 20,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "30:05:5C",
+    "label": "Brother Industries (RuggedJet / PocketJet in-car printers)",
+    "source": "IEEE MA-L (Brother industries, LTD.); Brother mobile printers are sold for in-car reports and tickets. Very weak: Brother home and office printers use the same blocks",
+    "confidence": "candidate",
+    "score": 20,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "3C:2A:F4",
+    "label": "Brother Industries (RuggedJet / PocketJet in-car printers)",
+    "source": "IEEE MA-L (Brother Industries, LTD.); Brother mobile printers are sold for in-car reports and tickets. Very weak: Brother home and office printers use the same blocks",
+    "confidence": "candidate",
+    "score": 20,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "94:DD:F8",
+    "label": "Brother Industries (RuggedJet / PocketJet in-car printers)",
+    "source": "IEEE MA-L (Brother Industries, LTD.); Brother mobile printers are sold for in-car reports and tickets. Very weak: Brother home and office printers use the same blocks",
+    "confidence": "candidate",
+    "score": 20,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "B0:7C:8E",
+    "label": "Brother Industries (RuggedJet / PocketJet in-car printers)",
+    "source": "IEEE MA-L (Brother Industries, LTD.); Brother mobile printers are sold for in-car reports and tickets. Very weak: Brother home and office printers use the same blocks",
+    "confidence": "candidate",
+    "score": 20,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "B4:22:00",
+    "label": "Brother Industries (RuggedJet / PocketJet in-car printers)",
+    "source": "IEEE MA-L (Brother Industries, LTD.); Brother mobile printers are sold for in-car reports and tickets. Very weak: Brother home and office printers use the same blocks",
+    "confidence": "candidate",
+    "score": 20,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:11:6E",
+    "label": "Peplink vehicle cellular router (police / EMS / fleet)",
+    "source": "IEEE MA-L (Peplink International Ltd.); Peplink mobile routers are sold for public-safety vehicles. Weak: also on buses, boats and RVs",
+    "confidence": "candidate",
+    "score": 30,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "10:56:CA",
+    "label": "Peplink vehicle cellular router (police / EMS / fleet)",
+    "source": "IEEE MA-L (Peplink International Ltd.); Peplink mobile routers are sold for public-safety vehicles. Weak: also on buses, boats and RVs",
+    "confidence": "candidate",
+    "score": 30,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "6C:A3:D3",
+    "label": "Peplink vehicle cellular router (police / EMS / fleet)",
+    "source": "IEEE MA-L (Peplink International Ltd.); Peplink mobile routers are sold for public-safety vehicles. Weak: also on buses, boats and RVs",
+    "confidence": "candidate",
+    "score": 30,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "D4:13:F8",
+    "label": "Peplink vehicle cellular router (police / EMS / fleet)",
+    "source": "IEEE MA-L (Peplink International Ltd.); Peplink mobile routers are sold for public-safety vehicles. Weak: also on buses, boats and RVs",
+    "confidence": "candidate",
+    "score": 30,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:15:FF",
+    "label": "Inseego (Novatel) vehicle radio / MiFi (reported in public-safety vehicles)",
+    "source": "IEEE MA-L (Inseego Wireless, Inc); Inseego vehicle routers are sold for public-safety fleets. Weak: same blocks as consumer MiFi hotspots",
+    "confidence": "candidate",
+    "score": 30,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "18:EE:86",
+    "label": "Inseego (Novatel) vehicle radio / MiFi (reported in public-safety vehicles)",
+    "source": "IEEE MA-L (Inseego Wireless, Inc); Inseego vehicle routers are sold for public-safety fleets. Weak: same blocks as consumer MiFi hotspots",
+    "confidence": "candidate",
+    "score": 30,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "78:0C:71",
+    "label": "Inseego (Novatel) vehicle radio / MiFi (reported in public-safety vehicles)",
+    "source": "IEEE MA-L (Inseego Wireless, Inc); Inseego vehicle routers are sold for public-safety fleets. Weak: same blocks as consumer MiFi hotspots",
+    "confidence": "candidate",
+    "score": 30,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "E0:86:14",
+    "label": "Inseego (Novatel) vehicle radio / MiFi (reported in public-safety vehicles)",
+    "source": "IEEE MA-L (Inseego Wireless, Inc); Inseego vehicle routers are sold for public-safety fleets. Weak: same blocks as consumer MiFi hotspots",
+    "confidence": "candidate",
+    "score": 30,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "4C:36:4E",
+    "label": "Panasonic Connect (Toughbook rugged laptops / tablets used in patrol cars)",
+    "source": "IEEE MA-L (Panasonic Connect Co., Ltd.); Toughbooks are common in-car computers. Weak: the same company makes projectors, cameras and business gear, and a laptop is usually a WiFi client a phone can't see",
+    "confidence": "candidate",
+    "score": 30,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "B8:20:8E",
+    "label": "Panasonic Connect (Toughbook rugged laptops / tablets used in patrol cars)",
+    "source": "IEEE MA-L (Panasonic Connect Co., Ltd.); Toughbooks are common in-car computers. Weak: the same company makes projectors, cameras and business gear, and a laptop is usually a WiFi client a phone can't see",
+    "confidence": "candidate",
+    "score": 30,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "BC:3E:0B",
+    "label": "Panasonic Connect (Toughbook rugged laptops / tablets used in patrol cars)",
+    "source": "IEEE MA-L (Panasonic Connect Co., Ltd.); Toughbooks are common in-car computers. Weak: the same company makes projectors, cameras and business gear, and a laptop is usually a WiFi client a phone can't see",
+    "confidence": "candidate",
+    "score": 30,
+    "category": "PUBLIC_SAFETY"
   }
 ]

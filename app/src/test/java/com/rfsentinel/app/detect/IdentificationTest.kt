@@ -120,6 +120,28 @@ class IdentificationTest {
     }
 
     @Test
+    fun newVehicleRolesAndSupportOnlyGroups() {
+        assertEquals("vehicle cellular router", PatrolCluster.roleOf(emptyList(), "Peplink International Ltd.", null))
+        assertEquals("vehicle cellular router", PatrolCluster.roleOf(emptyList(), "Inseego Wireless, Inc", null))
+        assertEquals("vehicle interface module",
+            PatrolCluster.roleOf(listOf(hit(Category.PUBLIC_SAFETY, "Fortin vehicle interface module", 20)), null, null))
+        // Fortinet firewalls are not Fortin modules.
+        assertNull(PatrolCluster.roleOf(emptyList(), "Fortinet, Inc.", null))
+        assertNull(PatrolCluster.roleOf(emptyList(), "Brother industries, LTD.", null))
+
+        val now = 60_000L
+        // A remote starter and a Dräger device moving together: civilian makers alone never make a vehicle.
+        val supportOnly = listOf(
+            PatrolCluster.Member("AA:00:00:00:00:01", "vehicle interface module", 0, now, wave(0)),
+            PatrolCluster.Member("AA:00:00:00:00:02", "impairment-screening device", 0, now, wave(0, offset = -80))
+        )
+        assertTrue(PatrolCluster.groups(supportOnly, now).isEmpty())
+        // ...but they add to a group with a core role.
+        val withRadio = supportOnly + PatrolCluster.Member("AA:00:00:00:00:03", "two-way radio", 0, now, wave(0, offset = -75))
+        assertEquals(3, PatrolCluster.groups(withRadio, now).single().roles.size)
+    }
+
+    @Test
     fun consumerBrandsHaveNoPatrolRole() {
         assertNull(PatrolCluster.roleOf(emptyList(), "JVCKENWOOD Corporation", "KENWOOD CAR"))
         assertNull(PatrolCluster.roleOf(emptyList(), "Panasonic Connect Co., Ltd.", null))

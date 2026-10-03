@@ -57,6 +57,23 @@ class DetectionTest {
     }
 
     @Test
+    fun printerVehicleAndScreeningMakersAreWeakClues() {
+        val zebra = best(ble(mfg = mapOf(0x01F1 to bytes(1))))
+        assertEquals(Category.PUBLIC_SAFETY, zebra?.category)
+        assertEquals(25, zebra?.confidence)
+        // The Zebra printer UUID rule takes over when both are present.
+        assertEquals(30, best(ble(mfg = mapOf(0x01F1 to bytes(1)), uuids = listOf(Advert.uuid16(0xFE79))))?.confidence)
+        assertEquals(20, best(ble(mfg = mapOf(0x0755 to bytes(1))))?.confidence)
+        assertEquals("Fortin vehicle interface module", best(ble(uuids = listOf(Advert.uuid16(0xFDE1))))?.label)
+        assertEquals(35, best(ble(mfg = mapOf(0x04BC to bytes(1))))?.confidence)
+        assertEquals(35, best(ble(uuids = listOf(Advert.uuid16(0xFCDA))))?.confidence)
+        // All stay under the default alert threshold (50).
+        listOf(0x01F1, 0x0755, 0x04BC).forEach { cid ->
+            assertTrue(best(ble(mfg = mapOf(cid to bytes(1))))!!.confidence < 50)
+        }
+    }
+
+    @Test
     fun motorolaIsWeak() {
         val hit = best(ble(mfg = mapOf(0x04EC to bytes(0))))
         assertEquals(Category.PUBLIC_SAFETY, hit?.category)

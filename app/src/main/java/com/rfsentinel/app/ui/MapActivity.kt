@@ -61,6 +61,13 @@ class MapActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_TRIP_ID = "trip_id"
+        /** Open the map centred here (e.g. a cell tower), without following your position. */
+        const val EXTRA_CENTER_LAT = "center_lat"
+        const val EXTRA_CENTER_LON = "center_lon"
+        /** Turn the cell tower layer on. */
+        const val EXTRA_SHOW_TOWERS = "show_towers"
+        /** A failed camera download stays in the status line this long (the retry runs after a minute). */
+        private const val CAMERA_FAIL_SHOWN_MS = 90_000L
         private const val TRACE_COLOR = 0xFFE0622D.toInt()
         private const val PAST_TRACE_COLOR = 0xFF1F5FBF.toInt()
         private const val DRONE_COLOR = 0xFF1F5FBF.toInt()
@@ -83,12 +90,19 @@ class MapActivity : AppCompatActivity() {
     private var following = false
 
     private val trace = Polyline()
-    private val pins = FolderOverlay()
+    private val pins by lazy { PointsOverlay<Pin>(resources.displayMetrics.density) { showPins(it) } }
     /** Live drones from Remote ID: aircraft, operator and the line between them. */
     private val drones = FolderOverlay()
     /** Plate-reader cameras mapped in OpenStreetMap (downloaded on request). */
-    private val knownAlpr = FolderOverlay()
+    private val knownAlpr by lazy {
+        PointsOverlay<com.rfsentinel.app.alpr.KnownCamera>(resources.displayMetrics.density) { showKnownCamera(it.first()) }
+    }
     private var knownAlprDrawnFor: BoundingBox? = null
+    /** Cell towers seen while scanning, at their estimated (strongest-signal) spot. */
+    private val towers by lazy {
+        PointsOverlay<com.rfsentinel.app.service.CellTowerStore.Tower>(resources.displayMetrics.density) { showTower(it.first()) }
+    }
+    private val towerIcon by lazy { MapIcons.towerIcon(resources.displayMetrics.density) }
     private lateinit var myLocation: MyLocationNewOverlay
     private val dateFmt = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
 
@@ -111,6 +125,7 @@ class MapActivity : AppCompatActivity() {
             insets
         }
 
+        if (intent.getBooleanExtra(EXTRA_SHOW_TOWERS, false)) com.rfsentinel.app.util.Prefs.setShowCellTowers(this, true)
         setupMap()
         binding.map.post { drawKnownAlpr() }
         // Every device heard around you by default (same colours as the list and radar).
@@ -157,6 +172,7 @@ class MapActivity : AppCompatActivity() {
             strokeWidth = 7f * resources.displayMetrics.density / 2
         }
         map.overlays.add(knownAlpr)
+        map.overlays.add(towers)
         map.overlays.add(trace)
         map.overlays.add(pins)
         map.overlays.add(drones)
@@ -169,16 +185,18 @@ class MapActivity : AppCompatActivity() {
             }
             override fun onZoom(event: org.osmdroid.events.ZoomEvent?) = false.also {
                 drawKnownAlprSoon()
-                // The fan-out of stacked dots depends on the zoom.
-                map.removeCallbacks(respreadPins)
-                map.postDelayed(respreadPins, 150)
             }
         })
 
         myLocation = MyLocationNewOverlay(GpsMyLocationProvider(this), map)
         if (Permissions.granted(this, android.Manifest.permission.ACCESS_FINE_LOCATION)) {
             myLocation.enableMyLocation()
-            if (tripId == null) {
+            if (intent.hasExtra(EXTRA_CENTER_LAT)) {
+                // Opened on a place (a cell tower): look there instead of following you.
+                map.controller.setZoom(15.0)
+                map.controller.setCenter(GeoPoint(intent.getDoubleExtra(EXTRA_CENTER_LAT, 0.0), intent.getDoubleExtra(EXTRA_CENTER_LON, 0.0)))
+                centeredOnce = true
+            } else if (tripId == null) {
                 // Live map: keep your position centred from the first fix until you pan away.
                 setFollow(true)
                 myLocation.runOnFirstFix {
@@ -201,6 +219,7 @@ class MapActivity : AppCompatActivity() {
         }
         // Precise GPS while the map is on screen, so devices land where they were heard.
         if (tripId == null) ScanForegroundService.mapShown(this)
+        drawTowers()
     }
 
     override fun onPause() {
@@ -321,6 +340,8 @@ class MapActivity : AppCompatActivity() {
         val positioned = devices.count { it.bestPosition != null }
         binding.statusText.text = when {
             bulkStatus() != null -> bulkStatus() // a camera download's progress wins
+            System.currentTimeMillis() - com.rfsentinel.app.alpr.AlprStore.lastAutoFailureAt < CAMERA_FAIL_SHOWN_MS ->
+                "Couldn't download the cameras for this area (map server busy or offline) - retrying"
             !ScanForegroundService.isRunning -> "Not scanning - start scanning, then Record trace to save your route"
             recording -> {
                 val mins = (System.currentTimeMillis() - TripRecorder.startedAt) / 60000
@@ -436,44 +457,14 @@ class MapActivity : AppCompatActivity() {
 
     // ---- Drawing ----------------------------------------------------------------------
 
-    private var lastPins: List<Pin> = emptyList()
-    private val respreadPins = Runnable { drawPins(lastPins); binding.map.invalidate() }
-
-    /** Metres per screen pixel at the map's current zoom, near [lat]. */
-    private fun metersPerPx(lat: Double, lon: Double): Double {
-        val proj = binding.map.projection
-        val a = proj.toPixels(GeoPoint(lat, lon), null)
-        val b = proj.toPixels(GeoPoint(lat + 0.001, lon), null)
-        val px = kotlin.math.abs(b.y - a.y).toDouble()
-        return if (px > 0) 111.32 / px else 0.0
-    }
-
+    /**
+     * Each device sits exactly where it was heard best. Devices heard from the same
+     * spot overlap; tapping there lists them all.
+     */
     private fun drawPins(list: List<Pin>) {
-        lastPins = list
-        pins.items.clear()
-        val dp = resources.displayMetrics.density
-        // Ordinary devices first so flagged ones end up on top.
-        val sorted = list.sortedBy { it.flagged }
-        // Devices heard from the same spot share coordinates: fan them out so each can be tapped.
-        val center = binding.map.mapCenter
-        val real = sorted.map { it.lat to it.lon }
-        val shown = if (binding.map.zoomLevelDouble < PinSpread.MIN_ZOOM) real
-            else PinSpread.spread(real, metersPerPx(center.latitude, center.longitude), 30.0 * dp)
-        sorted.forEachIndexed { i, p ->
-            val size = ((if (p.flagged) 24 else 16) * dp).toInt()
-            val dot = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(p.color)
-                setStroke((2 * dp).toInt(), Color.WHITE)
-                setSize(size, size)
-            }
-            pins.add(Marker(binding.map).apply {
-                position = GeoPoint(shown[i].first, shown[i].second)
-                icon = dot
-                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                title = p.label
-                setOnMarkerClickListener { _, _ -> showPin(p); true }
-            })
+        // Ordinary devices first so flagged ones are drawn on top.
+        pins.points = list.sortedBy { it.flagged }.map { p ->
+            PointsOverlay.Point(p.lat, p.lon, p, color = p.color, sizeDp = if (p.flagged) 24f else 16f)
         }
     }
 
@@ -601,30 +592,21 @@ class MapActivity : AppCompatActivity() {
     /** Draws the cameras in (and just around) the visible area; skipped when zoomed far out. */
     private fun drawKnownAlpr() {
         val map = binding.map
-        knownAlpr.items.clear()
         map.removeCallbacks(autoDownloadCameras)
         map.postDelayed(autoDownloadCameras, 1_200)
         if (!com.rfsentinel.app.util.Prefs.showKnownAlpr(this) || map.zoomLevelDouble < 9.0) {
-            map.invalidate(); return
+            knownAlpr.points = emptyList(); map.invalidate(); return
         }
         val box = map.boundingBox.increaseByScale(1.5f)
         val inView = com.rfsentinel.app.alpr.AlprStore.cameras.filter {
             it.lat in box.latSouth..box.latNorth && it.lon in box.lonWest..box.lonEast
         }.take(1500)
         val dp = resources.displayMetrics.density
-        val icons = com.rfsentinel.app.alpr.KnownCamera.Kind.entries.associateWith {
-            android.graphics.drawable.BitmapDrawable(resources, cameraIcon(dp, it))
-        }
-        for (cam in inView) {
-            knownAlpr.add(Marker(map).apply {
-                position = GeoPoint(cam.lat, cam.lon)
-                this.icon = icons.getValue(cam.type)
-                // Cameras whose alerts you turned off stay on the map, faded.
-                if (com.rfsentinel.app.alpr.IgnoredCameras.contains(this@MapActivity, cam.osmId)) alpha = 0.35f
-                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                title = cam.label
-                setOnMarkerClickListener { _, _ -> showKnownCamera(cam); true }
-            })
+        val icons = com.rfsentinel.app.alpr.KnownCamera.Kind.entries.associateWith { cameraIcon(dp, it) }
+        knownAlpr.points = inView.map { cam ->
+            // Cameras whose alerts you turned off stay on the map, faded.
+            val ignored = com.rfsentinel.app.alpr.IgnoredCameras.contains(this@MapActivity, cam.osmId)
+            PointsOverlay.Point(cam.lat, cam.lon, cam, icon = icons.getValue(cam.type), alpha = if (ignored) 90 else 255)
         }
         knownAlprDrawnFor = box
         map.invalidate()
@@ -661,6 +643,38 @@ class MapActivity : AppCompatActivity() {
             .setNeutralButton("Open in OpenStreetMap") { _, _ ->
                 runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.openstreetmap.org/${cam.osmId}"))) }
             }
+            .show()
+    }
+
+    private fun drawTowers() {
+        towers.points = if (tripId != null || !com.rfsentinel.app.util.Prefs.showCellTowers(this)) emptyList()
+        else com.rfsentinel.app.service.CellTowerStore.all(this).filter { it.bestLat != null }.map {
+            PointsOverlay.Point(it.bestLat!!, it.bestLon!!, it, icon = towerIcon)
+        }
+        binding.map.invalidate()
+    }
+
+    private fun showTower(t: com.rfsentinel.app.service.CellTowerStore.Tower) {
+        val net = listOfNotNull(t.operator, "${t.mcc ?: "?"}-${t.mnc ?: "?"}").joinToString(" · ")
+        AlertDialog.Builder(this)
+            .setTitle(t.ratLabel)
+            .setMessage("$net\nArea ${t.area ?: "?"} · Cell ${t.cellId}" +
+                (t.bestDbm?.let { "\nStrongest signal $it dBm" } ?: "") +
+                "\nSeen ${t.timesSeen}×, last ${dateFmt.format(java.util.Date(t.lastSeen))}" +
+                "\n\nPlaced where your phone heard it strongest: an estimate, not the tower's exact position.")
+            .setPositiveButton("All towers") { _, _ -> startActivity(Intent(this, CellTowersActivity::class.java)) }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    /** One device, or a list to pick from when several were heard at the same spot. */
+    private fun showPins(list: List<Pin>) {
+        if (list.size == 1) { showPin(list[0]); return }
+        val sorted = list.sortedByDescending { it.flagged }
+        AlertDialog.Builder(this)
+            .setTitle("${list.size} devices here")
+            .setItems(sorted.map { (if (it.flagged) "⚠ " else "") + it.label }.toTypedArray()) { _, i -> showPin(sorted[i]) }
+            .setNegativeButton("Close", null)
             .show()
     }
 
@@ -771,6 +785,9 @@ class MapActivity : AppCompatActivity() {
                 isCheckable = true; isChecked = com.rfsentinel.app.util.Prefs.showKnownAlpr(this@MapActivity)
             }
             menu.add(0, 7, 3, "Delete downloaded cameras")
+            menu.add(0, 9, 4, "Show cell towers").apply {
+                isCheckable = true; isChecked = com.rfsentinel.app.util.Prefs.showCellTowers(this@MapActivity)
+            }
         }
         return true
     }
@@ -797,6 +814,12 @@ class MapActivity : AppCompatActivity() {
                 Toast.makeText(this, "Downloaded cameras deleted", Toast.LENGTH_SHORT).show(); true
             }
             8 -> { downloadAllPlateCameras(); true }
+            9 -> {
+                val show = !com.rfsentinel.app.util.Prefs.showCellTowers(this)
+                com.rfsentinel.app.util.Prefs.setShowCellTowers(this, show)
+                item.isChecked = show
+                drawTowers(); true
+            }
             android.R.id.home -> { finish(); true }
             else -> super.onOptionsItemSelected(item)
         }

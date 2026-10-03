@@ -45,6 +45,24 @@ object MapIcons {
         return bmp
     }
 
+    /** A cell tower: a mast with two radio waves on a dark disc. */
+    fun towerIcon(dp: Float): Bitmap {
+        val s = (20 * dp).toInt()
+        val bmp = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        val r = s / 2f
+        p.color = 0xFF5E35B1.toInt(); c.drawCircle(r, r, r - 1 * dp, p)
+        p.style = Paint.Style.STROKE; p.strokeWidth = 1.5f * dp; p.color = Color.WHITE
+        c.drawCircle(r, r, r - 1 * dp, p)
+        p.strokeCap = Paint.Cap.ROUND
+        c.drawLine(r, r - 1 * dp, r - 3.5f * dp, r + 6 * dp, p)
+        c.drawLine(r, r - 1 * dp, r + 3.5f * dp, r + 6 * dp, p)
+        c.drawArc(RectF(r - 4 * dp, r - 6 * dp, r + 4 * dp, r + 2 * dp), 200f, 140f, false, p)
+        c.drawArc(RectF(r - 6.5f * dp, r - 8.5f * dp, r + 6.5f * dp, r + 4.5f * dp), 205f, 130f, false, p)
+        return bmp
+    }
+
     /** A round device dot with a white ring. */
     fun dot(dp: Float, color: Int, sizeDp: Int, ringDp: Float = 2f) = GradientDrawable().apply {
         shape = GradientDrawable.OVAL
