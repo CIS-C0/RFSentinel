@@ -118,6 +118,12 @@ object Prefs {
 
     fun autoCameras(context: Context): Boolean = bool(context, "auto_cameras", true)
     fun setAutoCameras(context: Context, value: Boolean) = setBool(context, "auto_cameras", value)
+
+    /** Check GitHub for a new release when the app opens. Off by default: it contacts GitHub. */
+    fun autoUpdateCheck(context: Context): Boolean = bool(context, "auto_update_check", false)
+    fun setAutoUpdateCheck(context: Context, value: Boolean) = setBool(context, "auto_update_check", value)
+    fun lastUpdateCheck(context: Context): Long = sp(context).getLong("last_update_check", 0L)
+    fun setLastUpdateCheck(context: Context, value: Long) = sp(context).edit { putLong("last_update_check", value) }
     /**
      * Map device filter (a [com.rfsentinel.app.ui.DeviceFilter] name). Older
      * versions had only "all devices" on/off: off becomes Flagged.

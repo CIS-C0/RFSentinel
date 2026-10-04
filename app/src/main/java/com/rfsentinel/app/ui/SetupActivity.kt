@@ -126,7 +126,7 @@ class SetupActivity : AppCompatActivity() {
         header("Welcome to RF Sentinel", "A quick setup - about a minute. You can change everything later in Settings.")
         para("RF Sentinel listens - passively - to the Bluetooth and WiFi signals devices around you already broadcast, and flags equipment such as body cameras, license-plate cameras, drones, trackers following you and camera glasses.")
         bullet("It never transmits to, connects to or interferes with any device.")
-        bullet("Scans, detections and history stay on this phone. Internet is only used for OpenStreetMap maps (including known plate, speed and red-light camera locations for the area you look at - can be turned off in Settings - and, in Android Auto, destination search and routes when you navigate).")
+        bullet("Scans, detections and history stay on this phone. Internet is only used for OpenStreetMap maps (including known plate, speed and red-light camera locations for the area you look at - can be turned off in Settings - and, in Android Auto, destination search and routes when you navigate) and GitHub when you check for updates.")
         bullet("A match means a device with that signature is nearby - not proof of who is there.")
         para("Check your local laws before use. This is not legal advice.", small = true)
     }
@@ -243,6 +243,9 @@ class SetupActivity : AppCompatActivity() {
         }
         switch("Start scanning in the car (Android Auto; pick your car's Bluetooth later in Settings)", Prefs.carAutoStart(this)) {
             Prefs.setCarAutoStart(this, it)
+        }
+        switch("Check for updates when the app opens (asks GitHub at most every 6 hours)", Prefs.autoUpdateCheck(this)) {
+            Prefs.setAutoUpdateCheck(this, it)
         }
         label("Known cameras")
         switch("Warn me before plate-reader cameras mapped in OpenStreetMap", Prefs.knownAlprAlerts(this)) {

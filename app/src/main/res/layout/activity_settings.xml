@@ -16,6 +16,13 @@
             android:layout_height="wrap_content"
             android:text="Run the setup wizard again" />
 
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/autoUpdateSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Check for updates when the app opens (asks GitHub at most every 6 hours; says something only when a new version is out)" />
+
         <!-- ================= Appearance ================= -->
         <TextView style="@style/SettingsHeader" android:text="Appearance" />
 

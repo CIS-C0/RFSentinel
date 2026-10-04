@@ -57,11 +57,26 @@ object UpdateChecker {
         }
     }
 
-    fun check(activity: AppCompatActivity) {
-        Toast.makeText(activity, "Checking for updates…", Toast.LENGTH_SHORT).show()
+    private const val AUTO_INTERVAL_MS = 6 * 60 * 60 * 1000L
+
+    /**
+     * The startup check (Settings / setup wizard toggle): at most every 6 hours, and silent
+     * unless a newer version is out - no "checking", "up to date" or connection-error messages.
+     */
+    fun checkOnStartup(activity: AppCompatActivity) {
+        if (!Prefs.autoUpdateCheck(activity)) return
+        val now = System.currentTimeMillis()
+        if (now - Prefs.lastUpdateCheck(activity) < AUTO_INTERVAL_MS) return
+        Prefs.setLastUpdateCheck(activity, now)
+        check(activity, silent = true)
+    }
+
+    fun check(activity: AppCompatActivity, silent: Boolean = false) {
+        if (!silent) Toast.makeText(activity, "Checking for updates…", Toast.LENGTH_SHORT).show()
         activity.lifecycleScope.launch {
             val result = withContext(Dispatchers.IO) { runCatching { fetch() } }
-            if (activity.isFinishing) return@launch
+            if (activity.isFinishing || activity.isDestroyed) return@launch
+            if (silent && result.isFailure) return@launch
             val latest = result.getOrElse {
                 AlertDialog.Builder(activity)
                     .setTitle("Couldn't check for updates")
@@ -80,7 +95,7 @@ object UpdateChecker {
                     .setNeutralButton("What's new") { _, _ -> open(activity, latest.notesUrl) }
                     .setNegativeButton("Later", null)
                     .show()
-            } else {
+            } else if (!silent) {
                 AlertDialog.Builder(activity)
                     .setTitle("You're up to date")
                     .setMessage("RF Sentinel $current is the latest version.")

@@ -167,6 +167,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch { Favorites.load(this@MainActivity) }
         // Only on a real fresh start - a theme change recreates this screen too.
         if (savedInstanceState == null && !Prefs.onboardingDone(this)) showOnboarding()
+        else if (savedInstanceState == null) com.rfsentinel.app.util.UpdateChecker.checkOnStartup(this)
     }
 
     override fun onResume() {

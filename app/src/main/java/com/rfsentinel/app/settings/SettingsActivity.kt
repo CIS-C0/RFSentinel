@@ -477,6 +477,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.cellChangeSwitch.isChecked = Prefs.cellChangeAlerts(this)
         binding.speedCameraSwitch.isChecked = Prefs.speedCameraAlerts(this)
         binding.autoCamerasSwitch.isChecked = Prefs.autoCameras(this)
+        binding.autoUpdateSwitch.isChecked = Prefs.autoUpdateCheck(this)
         fun showRadius(km: Int) {
             binding.cameraRadiusText.text = "Download radius: $km km" +
                 if (km > 100) " (larger areas take longer and use more data)" else ""
@@ -672,6 +673,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setCellChangeAlerts(this, binding.cellChangeSwitch.isChecked)
         Prefs.setSpeedCameraAlerts(this, binding.speedCameraSwitch.isChecked)
         Prefs.setAutoCameras(this, binding.autoCamerasSwitch.isChecked)
+        Prefs.setAutoUpdateCheck(this, binding.autoUpdateSwitch.isChecked)
 
         Prefs.setRetentionDays(this, (binding.retentionInput.text.toString().toIntOrNull() ?: 90).coerceAtLeast(0))
 
