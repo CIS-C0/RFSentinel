@@ -5,11 +5,13 @@ package com.rfsentinel.app.esp
  * asks read-only questions: OUI-Spy may be sent `CMD:VERSION` and, in
  * Detector mode, `CMD:DUMP_LIVE` (what it has found so far); GhostESP is only
  * asked for `help`, to scan networks and to list them; ESP32 Marauder only for
- * `help` and its passive `sniffbeacon` / `sniffprobe` sniffers.
+ * `help` and its passive `sniffbeacon` / `sniffprobe` sniffers; a FREE-WiLi 2 ([freeWili])
+ * only gets its console's WiFi-menu keys and its access-point scan.
  */
 class EspReader(
     private val port: SerialPort,
     private val onStatus: (String) -> Unit,
+    private val freeWili: Boolean = false,
     private val onSightings: (List<EspSighting>) -> Unit
 ) {
     @Volatile private var stopped = false
@@ -18,6 +20,7 @@ class EspReader(
 
     fun run() {
         val buf = ByteArray(4096)
+        if (freeWili) { pollFreeWili(buf); return }
         onStatus("ESP32 · listening…")
         // 1. OUI-Spy prints on its own (banners, status, detections).
         var heard = readFor(buf, 4_000) { OuiSpyReports.recognises(it) }
@@ -180,6 +183,39 @@ class EspReader(
             apMacs.clear(); clientMacs.clear()
         }
         runCatching { port.write("stopscan\r\n") }
+    }
+
+    /**
+     * FREE-WiLi 2 (its ESP32-C5 does WiFi): opens the console's WiFi menu (`w`), then runs its
+     * access-point scan (`s`) over and over, passing on the `*wifiscan` lines it prints.
+     * Leaves the menu (`q`) when stopped. Ported from Wardrive Go (RocketGod, GPL-3.0).
+     */
+    private fun pollFreeWili(buf: ByteArray) {
+        onStatus("FREE-WiLi · connecting…")
+        readFor(buf, 3_000) // boot banner / menu
+        var inWifi = false
+        for (attempt in 0 until 2) {
+            if (stopped) return
+            readFor(buf, 200); port.write("w\r"); readFor(buf, 1_500)
+            port.write("w\r")
+            if (FreeWiliReports.isWifiMenu(readFor(buf, 1_800))) { inWifi = true; break }
+        }
+        onStatus(if (inWifi) "FREE-WiLi · live · scanning…" else "FREE-WiLi · WiFi menu not confirmed · scanning anyway…")
+        val seen = HashMap<String, Long>()
+        var sweeps = 0
+        while (!stopped) {
+            readFor(buf, 200) // drain
+            port.write("s\r")
+            val found = FreeWiliReports.parseScan(readFor(buf, 9_000))
+            if (stopped) break
+            val now = System.currentTimeMillis()
+            found.forEach { seen[it.mac] = now }
+            seen.entries.removeAll { now - it.value > 60_000 }
+            if (found.isNotEmpty()) onSightings(found)
+            sweeps++
+            onStatus("FREE-WiLi · live · ${seen.size} Wi-Fi networks (sweep $sweeps)")
+        }
+        runCatching { port.write("q\r") }
     }
 
     /** Reads for up to [ms], stopping early once [done] is true for what was read. */

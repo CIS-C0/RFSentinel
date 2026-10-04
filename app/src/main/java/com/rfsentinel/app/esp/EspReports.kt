@@ -204,3 +204,40 @@ object MarauderReports {
         return null
     }
 }
+
+/**
+ * FREE-WiLi 2 console: its WiFi menu's access-point scan prints one `*wifiscan` line per
+ * network; the tokens after it are read as Wardrive Go does (RocketGod, GPL-3.0): BSSID
+ * 3rd, RSSI 4th, channel 5th, and the network name from the 8th to the one before last.
+ */
+object FreeWiliReports {
+
+    private val ANSI = Regex("""\u001B\[[0-9;]*m""")
+    private val MAC = Regex("""^[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5}$""")
+    private val SPACES = Regex("""\s+""")
+
+    fun isWifiMenu(text: String): Boolean = ANSI.replace(text, "").let {
+        it.contains("Wifi Functions", ignoreCase = true) || it.contains("Scan for Access Points", ignoreCase = true)
+    }
+
+    fun parseLine(raw: String): EspSighting? {
+        val line = ANSI.replace(raw, "").trim()
+        val i = line.indexOf("*wifiscan")
+        if (i < 0) return null
+        val body = line.substring(i + "*wifiscan".length).trim().trimEnd(']', ')').trim()
+        val t = body.split(SPACES).filter { it.isNotEmpty() }
+        if (t.size < 8 || !MAC.matches(t[2])) return null
+        val rssi = t[3].toIntOrNull() ?: return null
+        val ch = t[4].toIntOrNull()
+        val ssid = if (t.size >= 9) t.subList(7, t.size - 1).joinToString(" ").trim() else ""
+        return EspSighting(
+            mac = t[2].uppercase(), rssi = rssi, ble = false,
+            name = ssid.takeIf { com.rfsentinel.app.usb.MonitorFrames.validSsid(it) },
+            frequencyMhz = ch?.let { MarauderReports.frequencyOf(it) } ?: 0
+        )
+    }
+
+    /** Every network in one scan's output (the last line wins for a repeated BSSID). */
+    fun parseScan(text: String): List<EspSighting> =
+        text.lines().mapNotNull { parseLine(it) }.associateBy { it.mac }.values.toList()
+}

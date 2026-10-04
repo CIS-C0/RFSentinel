@@ -183,11 +183,34 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * The USB WiFi adapter log as a .txt file to send (email, messages, Drive...): app and
+     * phone, the USB devices plugged in, and the driver log - for testers without adb.
+     */
+    private fun exportUsbWifiLog() {
+        lifecycleScope.launch {
+            val uri = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    val dir = java.io.File(cacheDir, "exports").apply { mkdirs() }
+                    val file = java.io.File(dir, "rfsentinel-usb-wifi-log-${com.rfsentinel.app.util.Exporter.stamp()}.txt")
+                    file.writeText(com.rfsentinel.app.usb.UsbWifi.report(this@SettingsActivity))
+                    androidx.core.content.FileProvider.getUriForFile(this@SettingsActivity, "$packageName.fileprovider", file)
+                }.getOrNull()
+            }
+            if (uri == null) { Toast.makeText(this@SettingsActivity, "Couldn't create the log file", Toast.LENGTH_SHORT).show(); return@launch }
+            startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
+                .putExtra(Intent.EXTRA_STREAM, uri)
+                .putExtra(Intent.EXTRA_SUBJECT, "RF Sentinel USB WiFi adapter log")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Export adapter log"))
+        }
+    }
+
     private fun updateEspStatus() {
         val s = com.rfsentinel.app.esp.EspBoards.status
-        binding.espStatusText.text = "ESP32 on USB (OUI-Spy, GhostESP or Marauder; also through a Flipper Zero): " +
+        binding.espStatusText.text = "ESP32 on USB (OUI-Spy, GhostESP or Marauder; also through a Flipper Zero; FREE-WiLi 2): " +
             s.ifBlank { "plug one in with an OTG cable while scanning to add its detections" }
-        binding.usbWifiText.text = "USB WiFi adapter in monitor mode (RTL8811AU / 8821AU such as the ALFA AWUS036ACS, or RTL8812BU / 8822BU): " +
+        binding.usbWifiText.text = "USB WiFi adapter in monitor mode (RTL8811AU / 8821AU such as the ALFA AWUS036ACS, RTL8812BU / 8822BU, " +
+            "RTL8814AU (AWUS1900), MT7612U (AWUS036ACM), RTL8187 (AWUS036H), RT3070 (AWUS036NH / NEH) or, experimental, AR9271 (AWUS036NHA)): " +
             com.rfsentinel.app.usb.UsbWifi.status.ifBlank { "plug one in with an OTG cable while scanning - longer range, and it hears devices connected to networks" }
         val board = Prefs.ouiSpyBoard(this)
         binding.ouiSpyText.text = if (board == null)
@@ -433,13 +456,7 @@ class SettingsActivity : AppCompatActivity() {
         com.rfsentinel.app.esp.EspBoards.onStatusChanged = { runOnUiThread { updateEspStatus() } }
         com.rfsentinel.app.esp.OuiSpyBle.onStatusChanged = { runOnUiThread { updateEspStatus() } }
         binding.ouiSpyButton.setOnClickListener { pairOuiSpy() }
-        binding.usbWifiLogButton.setOnClickListener {
-            val log = com.rfsentinel.app.usb.UsbWifi.logText().ifBlank { "No USB WiFi adapter activity yet." }
-            startActivity(android.content.Intent.createChooser(
-                android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
-                    .putExtra(android.content.Intent.EXTRA_SUBJECT, "RF Sentinel USB WiFi adapter log")
-                    .putExtra(android.content.Intent.EXTRA_TEXT, log), "Share adapter log"))
-        }
+        binding.usbWifiLogButton.setOnClickListener { exportUsbWifiLog() }
         binding.trackerIgnoreButton.setOnClickListener {
             com.rfsentinel.app.data.TrackerMutes.clear(this)
             Prefs.setTrackerFollowPausedUntil(this, 0L)

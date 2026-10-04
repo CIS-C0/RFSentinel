@@ -93,7 +93,8 @@ object EspBoards {
             val conn = mgr.openDevice(d) ?: continue
             val port = SerialPort.open(conn, d)
             if (port == null) { runCatching { conn.close() }; setStatus("ESP32: couldn't open its USB serial port"); continue }
-            val reader = EspReader(port, ::setStatus) { list -> onSightings?.invoke(list) }
+            val freeWili = SerialPort.chipOf(d.vendorId, d.productId) == SerialPort.Chip.FREEWILI
+            val reader = EspReader(port, ::setStatus, freeWili) { list -> onSightings?.invoke(list) }
             val t = Thread({
                 runCatching { reader.run() }
                 runCatching { port.close() }

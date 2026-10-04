@@ -13,8 +13,8 @@ interface SerialPort {
     fun read(buf: ByteArray, timeoutMs: Int): Int
     fun close()
 
-    /** The USB-serial chips found on ESP32 boards. */
-    enum class Chip { NATIVE_USB, CP210X, CH34X }
+    /** The USB-serial chips found on ESP32 boards; FREEWILI is the FREE-WiLi 2's console (CDC-ACM). */
+    enum class Chip { NATIVE_USB, CP210X, CH34X, FREEWILI }
 
     companion object {
         fun chipOf(vid: Int, pid: Int): Chip? = when {
@@ -22,6 +22,7 @@ interface SerialPort {
             vid == 0x0483 && pid == 0x5740 -> Chip.NATIVE_USB                   // Flipper Zero (USB-UART bridge to its ESP32 board)
             vid == 0x10C4 && pid == 0xEA60 -> Chip.CP210X                       // Silicon Labs CP2102 / CP2104
             vid == 0x1A86 && pid in setOf(0x7523, 0x5523, 0x55D4) -> Chip.CH34X // WCH CH340 / CH341 / CH9102
+            vid == 0x093C && pid == 0x205A -> Chip.FREEWILI                     // FREE-WiLi 2 console (its ESP32-C5 does WiFi)
             else -> null
         }
 
@@ -29,6 +30,7 @@ interface SerialPort {
         fun open(conn: UsbDeviceConnection, device: UsbDevice): SerialPort? =
             when (chipOf(device.vendorId, device.productId)) {
                 Chip.NATIVE_USB -> CdcAcmPort(conn, device).takeIf { it.open() }
+                Chip.FREEWILI -> CdcAcmPort(conn, device, raiseDtr = false).takeIf { it.open() }
                 Chip.CP210X -> Cp210xPort(conn, device).takeIf { it.open() }
                 Chip.CH34X -> Ch34xPort(conn, device).takeIf { it.open() }
                 null -> null
@@ -70,8 +72,11 @@ abstract class BulkPort(protected val conn: UsbDeviceConnection) : SerialPort {
     }
 }
 
-/** USB CDC-ACM: ESP32-S2/S3/C3/C6 native USB. DTR is raised so the firmware sees a host. */
-class CdcAcmPort(conn: UsbDeviceConnection, private val device: UsbDevice) : BulkPort(conn) {
+/**
+ * USB CDC-ACM: ESP32-S2/S3/C3/C6 native USB. DTR is raised so the firmware sees a host
+ * ([raiseDtr] false for the FREE-WiLi 2, whose console is opened without it).
+ */
+class CdcAcmPort(conn: UsbDeviceConnection, private val device: UsbDevice, private val raiseDtr: Boolean = true) : BulkPort(conn) {
     fun open(): Boolean {
         var comm: UsbInterface? = null
         var data: UsbInterface? = null
@@ -91,7 +96,7 @@ class CdcAcmPort(conn: UsbDeviceConnection, private val device: UsbDevice) : Bul
         // SET_LINE_CODING 115200 8N1, then SET_CONTROL_LINE_STATE with DTR.
         val coding = byteArrayOf(0x00, 0xC2.toByte(), 0x01, 0x00, 0, 0, 8)
         conn.controlTransfer(0x21, 0x20, 0, index, coding, coding.size, 1000)
-        conn.controlTransfer(0x21, 0x22, 0x01, index, null, 0, 1000)
+        conn.controlTransfer(0x21, 0x22, if (raiseDtr) 0x01 else 0x00, index, null, 0, 1000)
         return true
     }
 }

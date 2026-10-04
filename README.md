@@ -75,7 +75,7 @@
 |---|---|
 | **What** | A non-rooted Android app that lists every Bluetooth LE and WiFi device around you with its vendor, type and signal, and flags law-enforcement and surveillance equipment |
 | **How** | Receive-only: reads advertisements, beacons and cell info that devices broadcast publicly. Never transmits to, connects to or jams anything |
-| **Runs on** | Android 8.0+ phones, Android Auto, plus optional ESP32 boards (OUI-Spy, GhostESP, Marauder, Flipper Zero + BFFB) |
+| **Runs on** | Android 8.0+ phones, Android Auto, plus optional ESP32 boards (OUI-Spy, GhostESP, Marauder, Flipper Zero + BFFB, FREE-WiLi 2) and USB WiFi adapters |
 | **Costs** | Nothing. GPL-3.0, no ads, no account, no subscription, no analytics |
 
 ## What it detects
@@ -141,7 +141,7 @@ Every match shows its evidence, its source and a confidence tier: **weak** (< 50
 
 **Hardware**
 - ESP32 boards over USB OTG (OUI-Spy, GhostESP, Marauder incl. dual-band ESP32-C5 boards, or through a Flipper Zero) or Bluetooth (OUI-SPY App-Controlled) add their detections and extend range
-- **USB WiFi adapters in monitor mode** over OTG, no root: RTL8811AU / RTL8821AU (e.g. ALFA AWUS036ACS, 2.4 GHz) and **RTL8812BU / RTL8822BU** (2.4 + 5 GHz, e.g. TP-Link Archer T3U, Wise Tiger AC1200). No Android scan limit, longer range, and **client devices** (laptops, phones, cameras connected to a network) the phone's WiFi scan can't see. Single-antenna dongles are detected and handled automatically
+- **USB WiFi adapters in monitor mode** over OTG, no root: RTL8811AU / RTL8821AU (e.g. ALFA AWUS036ACS, 2.4 GHz), **RTL8812BU / RTL8822BU** (2.4 + 5 GHz, e.g. TP-Link Archer T3U, Wise Tiger AC1200), **RTL8814AU** (ALFA AWUS1900, 2.4 + 5 GHz), **MT7612U** (ALFA AWUS036ACM, 2.4 + 5 GHz), **RTL8187** (ALFA AWUS036H), **RT3070** (ALFA AWUS036NH / NEH) and, experimental, **AR9271** (ALFA AWUS036NHA). No Android scan limit, longer range, and **client devices** (laptops, phones, cameras connected to a network) the phone's WiFi scan can't see. Single-antenna dongles are detected and handled automatically
 - **Requested networks:** the WiFi names nearby devices ask for (probe requests), from a USB adapter or a Marauder board, in an optional list; **watch** a name to get an alert whenever any device asks for it
 - **More from every frame:** WPS maker / model / device name, a **probe fingerprint** that survives MAC randomization (watchable: "every device of this type"), and the real name of **hidden networks** when a device joins them
 
@@ -332,6 +332,7 @@ merges into the list with a blue **ESP32** badge.
 | [OUI-Spy](https://github.com/colonelpanichacks/oui-spy-unified-blue) (recommended) | USB | Flock-You, Detector and Sky Spy detections as they happen: Flock cameras, the board's watchlist matches, Remote ID drones with position |
 | [OUI-SPY App-Controlled](https://github.com/lukeswitz/oui-spy-unified-blue) | Bluetooth | Flock-BLE, Flock-WiFi, Sky Spy, Detector and (optional) Wardrive survey engines |
 | [GhostESP](https://github.com/GhostESP-Revival/GhostESP) | USB | The WiFi networks it scans, about every 10 s |
+| [FREE-WiLi 2](https://freewili.com) | USB | The WiFi networks its ESP32-C5 scans from its console's WiFi menu (2.4 + 5 GHz) |
 | [ESP32 Marauder](https://github.com/justcallmekoko/ESP32Marauder) | USB, or through a Flipper Zero | WiFi networks and client devices from its passive beacon and probe sniffers, batched every 2 s; on ESP32-C5 boards (Marauder v8, BFFB v2, LilyGo T-Dongle C5, C5 DevKit) both 2.4 and 5 GHz |
 
 Native-USB boards (ESP32-S2/S3/C3/C5/C6) and boards with a CP210x or CH340 bridge
@@ -365,8 +366,8 @@ only. The board's UniPwn, PCAP and Foxhunter engines are never used.
 Plug a supported USB WiFi adapter into the phone with an OTG cable while
 scanning and allow USB access on the prompt. RF Sentinel drives it directly
 over Android's USB host API (no root, no kernel driver), puts it in
-**receive-only monitor mode** and hops the channels (2.4 GHz on 88xxau; 2.4 GHz,
-the common 5 GHz channels and the radar channels in rotation on 88x2bu). Access points
+**receive-only monitor mode** and hops the channels (2.4 GHz on 88xxau, RTL8187,
+RT3070 and AR9271; 2.4 GHz and 5 GHz on 88x2bu, 8814au and MT7612U). Access points
 (beacons, probe responses) and client devices (probe requests, data frames)
 go through RF Sentinel's own rules like everything else, with a purple
 **USB WIFI** badge.
@@ -375,10 +376,18 @@ go through RF Sentinel's own rules like everything else, with a purple
 |---|---|---|
 | Realtek RTL8811AU / RTL8821AU (`0bda:0811`) | ALFA AWUS036ACS | Supported (2.4 GHz) |
 | Realtek RTL8812BU / RTL8822BU (`0bda:b812`, `0bda:b82c` and ~35 other IDs) | TP-Link Archer T3U, ASUS USB-AC53/AC55/AC58, Edimax EW-7822U*, Wise Tiger AC1200 | Supported (2.4 + 5 GHz), tested on a Wise Tiger 8812BU |
-| RTL8812AU, RTL8814AU, AR9271, MT7612U, RT3070, RTL8187 | AWUS036ACH, AWUS1900, AWUS036NHA... | Detected and named, not supported yet |
+| Realtek RTL8814AU (`0bda:8813` and 13 other IDs) | ALFA AWUS1900, TP-Link Archer T9UH, ASUS USB-AC68, Netgear A7000 | Supported (2.4 + 5 GHz), not yet tested on hardware |
+| MediaTek MT7612U / MT7632U (`0e8d:7612` and 16 other IDs) | ALFA AWUS036ACM, ASUS USB-AC55, Netgear A6210 | Supported (2.4 + 5 GHz), not yet tested on hardware |
+| Realtek RTL8187L / RTL8187B (`0bda:8187` and 20 other IDs) | ALFA AWUS036H, Netgear WG111v2/v3 | Supported (2.4 GHz), not yet tested on hardware |
+| Ralink RT3070 (`148f:3070` and 4 other IDs) | ALFA AWUS036NH / AWUS036NEH | Supported (2.4 GHz), not yet tested on hardware |
+| Atheros AR9271 (`0cf3:9271` and 17 other IDs) | ALFA AWUS036NHA, TP-Link TL-WN722N v1 | Experimental (2.4 GHz) |
+| RTL8812AU, RTL8811CU / 8821CU, RT5370, MT7610U, AR7010 | AWUS036ACH... | Detected and named, not supported yet |
 
-The adapter never transmits. Settings shows its status and can share its
-driver log for troubleshooting.
+The adapter never transmits (on the MT7612U and RT3070 even the automatic ACK
+replies are switched off).
+Settings shows its status, and **Export USB WiFi adapter log** saves a text
+file (app and phone version, the USB devices plugged in, the driver log) to
+send to the developer - no nearby devices' addresses or network names are in it.
 
 On a single-antenna 8812BU dongle the antenna sits on one of the chip's two
 receive paths, while the chip hears 2.4 GHz beacons on path A only. RF Sentinel
@@ -633,7 +642,13 @@ whose register tables come from Realtek's 88xxau Linux driver
 PMKID capture was left out. The RTL8812BU / RTL8822BU driver is ported from the
 receive path of [devourer](https://github.com/OpenIPC/devourer) by OpenIPC
 (GPL-2.0), with the firmware and register tables from Realtek's rtl88x2bu
-driver; every transmit path was left out. The map's anchored point layer follows
+driver; every transmit path was left out. The RTL8814AU, MT7612U, RT3070 and
+AR9271 drivers and the FREE-WiLi 2 reader are ported from Wardrive Go too
+(checked against and fixed from the Linux rt2800usb, mt76x2u and ath9k_htc
+drivers), and the RTL8187 driver from the Linux rtl8187 driver with Kismet's
+Android PCAP Capture as the USB reference. Their firmware (Ralink rt2870.bin,
+MediaTek mt7662, open ath9k_htc) is the unmodified linux-firmware images, with
+their licences in `assets/usbwifi/`; see `usb/NOTICE.md`. The map's anchored point layer follows
 Wardrive Go's approach - thank you.
 
 Part of the MAC-prefix data was cross-checked with, and extended from, the lists
