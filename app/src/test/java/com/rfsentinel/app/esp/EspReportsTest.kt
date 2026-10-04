@@ -88,6 +88,8 @@ class EspReportsTest {
         assertTrue(probe.client)
         assertNull(probe.name)
         assertEquals(2462, probe.frequencyMhz)
+        assertEquals(listOf("Home"), probe.probedSsids)
+        assertTrue(MarauderReports.parse("-60 Ch: 1 Client: 02:11:22:33:44:55 Requesting: ")!!.probedSsids.isEmpty()) // wildcard
         assertNull(MarauderReports.parse("Beacon sniff"))
         assertTrue(MarauderReports.recognises("============ Commands ============\nchannel [-s <channel>]"))
         assertTrue(MarauderReports.isFlipperCli("Welcome to Flipper Zero Command Line Interface!\n>: "))

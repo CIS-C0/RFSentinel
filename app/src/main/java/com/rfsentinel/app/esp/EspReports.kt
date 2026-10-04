@@ -26,7 +26,9 @@ data class EspSighting(
     /** Matches the board itself reported. */
     val hits: List<Hit> = emptyList(),
     /** A Wi-Fi client device (heard sending probe requests), not an access point. */
-    val client: Boolean = false
+    val client: Boolean = false,
+    /** Network names a client asked for by name (probe requests). */
+    val probedSsids: List<String> = emptyList()
 )
 
 /**
@@ -165,7 +167,7 @@ object MarauderReports {
 
     private val ANSI = Regex("""\u001B\[[0-9;]*m""")
     private val BEACON = Regex("""^\s*(-?\d+)\s+Ch:\s*(\d+)\s+([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})\s+ESSID:\s?(.*)$""")
-    private val PROBE = Regex("""^\s*(-?\d+)\s+Ch:\s*(\d+)\s+Client:\s*([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})\s+Requesting:.*$""")
+    private val PROBE = Regex("""^\s*(-?\d+)\s+Ch:\s*(\d+)\s+Client:\s*([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})\s+Requesting:\s?(.*)$""")
 
     /** Marauder's `help` header, or its name in a boot banner. */
     fun recognises(text: String): Boolean =
@@ -195,7 +197,8 @@ object MarauderReports {
         PROBE.find(t)?.let { m ->
             return EspSighting(
                 mac = m.groupValues[3].uppercase(), rssi = m.groupValues[1].toInt(), ble = false,
-                frequencyMhz = frequencyOf(m.groupValues[2].toInt()), client = true
+                frequencyMhz = frequencyOf(m.groupValues[2].toInt()), client = true,
+                probedSsids = listOfNotNull(m.groupValues[4].trim().takeIf { com.rfsentinel.app.usb.MonitorFrames.validSsid(it) })
             )
         }
         return null

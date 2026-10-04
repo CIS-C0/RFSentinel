@@ -390,6 +390,23 @@ class SettingsActivity : AppCompatActivity() {
         binding.shortVoiceSwitch.isChecked = Prefs.shortVoice(this)
         setupVoiceControls()
         binding.discreetSwitch.isChecked = Prefs.discreetMode(this)
+        binding.floatingMapSwitch.isChecked = Prefs.floatingMap(this) && Settings.canDrawOverlays(this)
+        binding.floatingMapSwitch.setOnCheckedChangeListener { sw, on ->
+            if (on && !Settings.canDrawOverlays(this)) {
+                sw.isChecked = false
+                AlertDialog.Builder(this)
+                    .setTitle("Allow the floating map")
+                    .setMessage("Android needs the \"Display over other apps\" permission for the floating map. " +
+                        "Turn it on for RF Sentinel on the next screen, then come back and switch the map on.")
+                    .setPositiveButton("Open settings") { _, _ ->
+                        runCatching {
+                            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName")))
+                        }
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+        }
         binding.bubbleSwitch.isChecked = Prefs.threatBubble(this) && Settings.canDrawOverlays(this)
         binding.bubbleSwitch.setOnCheckedChangeListener { sw, on ->
             if (on && !Settings.canDrawOverlays(this)) {
@@ -617,6 +634,8 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setDiscreetMode(this, binding.discreetSwitch.isChecked)
         Prefs.setThreatBubble(this, binding.bubbleSwitch.isChecked)
         if (!binding.bubbleSwitch.isChecked) com.rfsentinel.app.ui.ThreatBubble.hide(this)
+        Prefs.setFloatingMap(this, binding.floatingMapSwitch.isChecked)
+        if (!binding.floatingMapSwitch.isChecked) com.rfsentinel.app.ui.FloatingMap.hide(this)
         val dedupeMin = binding.dedupeInput.text.toString().toLongOrNull() ?: 5L
         Prefs.setDedupeWindowMs(this, dedupeMin.coerceAtLeast(1) * 60000L)
 

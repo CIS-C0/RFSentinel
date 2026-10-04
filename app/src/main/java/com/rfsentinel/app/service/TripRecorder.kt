@@ -141,7 +141,7 @@ object TripRecorder {
     /** Called for every observation while recording (cheap, in memory). */
     fun onDevice(
         mac: String, rssi: Int, source: String, best: Hit?, name: String?, vendor: String?, type: String?,
-        loc: Location?, now: Long
+        loc: Location?, now: Long, probed: List<String> = emptyList()
     ) {
         val id = activeTripId ?: return
         devices.compute(mac) { _, old ->
@@ -162,10 +162,18 @@ object TripRecorder {
                 lastSeen = now,
                 bestRssi = if (stronger) rssi else old!!.bestRssi,
                 lat = if (stronger && loc != null) loc.latitude else old?.lat ?: loc?.latitude,
-                lon = if (stronger && loc != null) loc.longitude else old?.lon ?: loc?.longitude
+                lon = if (stronger && loc != null) loc.longitude else old?.lon ?: loc?.longitude,
+                probed = mergeProbed(old?.probedList.orEmpty(), probed)
             )
         }
         dirty += mac
+    }
+
+    /** Network names asked for so far plus new ones, oldest first, at most 16 (null when none). */
+    internal fun mergeProbed(old: List<String>, new: List<String>): String? {
+        if (new.isEmpty()) return old.ifEmpty { null }?.joinToString("\n")
+        val all = LinkedHashSet(old).apply { new.forEach { remove(it); add(it) } }.toList().takeLast(16)
+        return all.joinToString("\n")
     }
 
     /** Writes buffered points / changed devices and the trip's running totals. */

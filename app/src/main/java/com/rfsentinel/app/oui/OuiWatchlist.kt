@@ -33,11 +33,14 @@ object OuiWatchlist {
         val byHex: Map<String, OuiEntry>,
         val nameRules: List<OuiEntry>,
         val vendorRules: List<OuiEntry>,
+        /** Requested-network rules keyed by the lower-cased network name. */
+        val probeRules: Map<String, OuiEntry>,
+        val fingerprintRules: Map<String, OuiEntry>,
         val all: List<OuiEntry>
     )
 
     @Volatile
-    private var state = State(emptyMap(), emptyList(), emptyList(), emptyList())
+    private var state = State(emptyMap(), emptyList(), emptyList(), emptyMap(), emptyMap(), emptyList())
 
     val availablePresets = listOf("global", "canada", "us")
 
@@ -50,9 +53,11 @@ object OuiWatchlist {
         readCustom(context).forEach { byKey[it.prefix] = it }
         val all = byKey.values.toList()
         state = State(
-            byHex = all.filter { !it.isNameRule && !it.isVendorRule }.associateBy { MacUtil.hex(it.prefix) },
+            byHex = all.filter { !it.isNameRule && !it.isVendorRule && !it.isProbeRule && !it.isFingerprintRule }.associateBy { MacUtil.hex(it.prefix) },
             nameRules = all.filter { it.isNameRule && it.ruleText.isNotEmpty() },
             vendorRules = all.filter { it.isVendorRule && it.ruleText.isNotEmpty() },
+            probeRules = all.filter { it.isProbeRule && it.ruleText.isNotEmpty() }.associateBy { it.ruleText.lowercase() },
+            fingerprintRules = all.filter { it.isFingerprintRule && it.ruleText.isNotEmpty() }.associateBy { it.ruleText.lowercase() },
             all = all
         )
     }
@@ -85,6 +90,8 @@ object OuiWatchlist {
         return when {
             k.startsWith(OuiEntry.NAME, ignoreCase = true) -> OuiEntry.NAME + k.substringAfter(':').trim()
             k.startsWith(OuiEntry.VENDOR, ignoreCase = true) -> OuiEntry.VENDOR + k.substringAfter(':').trim()
+            k.startsWith(OuiEntry.PROBE, ignoreCase = true) -> OuiEntry.PROBE + k.substringAfter(':').trim()
+            k.startsWith(OuiEntry.FINGERPRINT, ignoreCase = true) -> OuiEntry.FINGERPRINT + k.substringAfter(':').trim().lowercase()
             else -> MacUtil.normalize(k)
         }
     }
@@ -150,7 +157,8 @@ object OuiWatchlist {
     /** Valid keys: IEEE block prefix (24/28/36-bit), full MAC, or a non-empty name:/vendor: rule. */
     fun isValidKey(prefix: String): Boolean {
         val k = prefix.trim()
-        if (k.startsWith(OuiEntry.NAME, true) || k.startsWith(OuiEntry.VENDOR, true)) {
+        if (k.startsWith(OuiEntry.NAME, true) || k.startsWith(OuiEntry.VENDOR, true) || k.startsWith(OuiEntry.PROBE, true) ||
+            k.startsWith(OuiEntry.FINGERPRINT, true)) {
             return k.substringAfter(':').isNotBlank()
         }
         return MacUtil.isValidBlock(k) || MacUtil.isValidMac(k)
@@ -190,6 +198,29 @@ object OuiWatchlist {
             }
         }
         return out
+    }
+
+    /** Hits for devices asking for watched network names ([probed]: names one device requested). */
+    fun probeHits(probed: Collection<String>): List<Hit> = probeHits(state.probeRules, probed)
+
+    /** Hits for a device whose probe requests have a watched fingerprint. */
+    fun fingerprintHits(fp: String?): List<Hit> = fp?.let { state.fingerprintRules[it.lowercase()] }
+        ?.let { listOf(it.toHit("Its probe requests match the watched fingerprint $fp")) }.orEmpty()
+
+    fun isFingerprintWatched(fp: String): Boolean = fp.lowercase() in state.fingerprintRules
+
+    /** Watchlist name / maker rules against what a device's WPS block names. */
+    fun wpsHits(wps: com.rfsentinel.app.usb.ProbeIntel.Wps?): List<Hit> =
+        if (wps == null) emptyList() else hits("", wps.text.ifEmpty { null }, listOfNotNull(wps.manufacturer))
+
+    /** Whether requests for [ssid] raise an alert. */
+    fun isProbeWatched(ssid: String): Boolean = ssid.trim().lowercase() in state.probeRules
+
+    internal fun probeHits(rules: Map<String, OuiEntry>, probed: Collection<String>): List<Hit> {
+        if (rules.isEmpty()) return emptyList()
+        return probed.mapNotNull { ssid ->
+            rules[ssid.trim().lowercase()]?.toHit("Asked for the watched network \"${ssid.trim()}\"")
+        }.distinctBy { it.label }
     }
 
     /** The custom (user-added) entry keyed exactly by [prefix], if any. */

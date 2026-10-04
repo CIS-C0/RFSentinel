@@ -29,6 +29,7 @@ object TripExport {
         d.category?.let { append(" - ").append(it).append(' ').append(d.confidence).append('%') }
         append(" - best ").append(d.bestRssi).append(" dBm")
         d.evidence?.let { append(" - ").append(it) }
+        d.probedList.takeIf { it.isNotEmpty() }?.let { append(" - asked for: ").append(it.joinToString(", ")) }
     }
 
     /** GPX 1.1: one track segment + a waypoint per positioned device. */
@@ -108,6 +109,7 @@ object TripExport {
                     addProperty("name", d.name); addProperty("vendor", d.vendor); addProperty("deviceType", d.deviceType)
                     addProperty("source", d.source); addProperty("category", d.category); addProperty("confidence", d.confidence)
                     addProperty("evidence", d.evidence); addProperty("bestRssi", d.bestRssi)
+                    add("requestedNetworks", JsonArray().apply { d.probedList.forEach { add(it) } })
                     addProperty("firstSeen", iso(d.firstSeen)); addProperty("lastSeen", iso(d.lastSeen))
                 })
             })
@@ -121,13 +123,14 @@ object TripExport {
 
     /** Spreadsheet of every device heard on the trip. */
     fun devicesCsv(devices: List<TripDeviceEntity>): String {
-        val sb = StringBuilder("mac,label,name,vendor,device_type,source,flagged,category,confidence,evidence,first_seen,last_seen,best_rssi,latitude,longitude\n")
+        val sb = StringBuilder("mac,label,name,vendor,device_type,source,flagged,category,confidence,evidence,first_seen,last_seen,best_rssi,latitude,longitude,requested_networks\n")
         devices.forEach { d ->
             sb.append(d.mac).append(',').append(q(d.label)).append(',').append(q(d.name)).append(',')
                 .append(q(d.vendor)).append(',').append(q(d.deviceType)).append(',').append(d.source).append(',')
                 .append(d.flagged).append(',').append(d.category ?: "").append(',').append(d.confidence).append(',')
                 .append(q(d.evidence)).append(',').append(local(d.firstSeen)).append(',').append(local(d.lastSeen)).append(',')
-                .append(d.bestRssi).append(',').append(d.lat ?: "").append(',').append(d.lon ?: "").append('\n')
+                .append(d.bestRssi).append(',').append(d.lat ?: "").append(',').append(d.lon ?: "").append(',')
+                .append(q(d.probedList.joinToString("; ").ifEmpty { null })).append('\n')
         }
         return sb.toString()
     }

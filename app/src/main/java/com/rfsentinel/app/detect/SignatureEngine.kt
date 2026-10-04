@@ -274,6 +274,30 @@ object SignatureEngine {
         return hits
     }
 
+    /**
+     * In-car network names police vehicles get from their vendors' setup guides:
+     *  - Axon Fleet (in-car video on a Cradlepoint): Axon's guide names the 5 GHz network
+     *    after the vehicle - its examples are "8554-5g" and "Axon12-5g".
+     *  - Cradlepoint vehicle routers left on their default name: model + last 3 address
+     *    digits ("IBR900-3ab", "-5g" on 5 GHz). Also ambulances, transit and utility fleets.
+     */
+    internal fun policeVehicleSsid(ssid: String): Hit? = when {
+        AXON_FLEET_SSID.matches(ssid) -> Hit(Category.PUBLIC_SAFETY, "Police car network - Axon Fleet in-car video", 80,
+            "WiFi network \"$ssid\" follows Axon's Fleet naming (\"Axon12-5g\")", AXON_FLEET_GUIDE)
+        VEHICLE_NUMBER_5G_SSID.matches(ssid) -> Hit(Category.PUBLIC_SAFETY, "Possible police car network (vehicle number + -5g)", 45,
+            "WiFi network \"$ssid\" is a vehicle number + \"-5g\", Axon's Fleet naming (\"8554-5g\"). Weak alone: " +
+                "stronger when the router is a Cradlepoint or Sierra Wireless", AXON_FLEET_GUIDE)
+        CRADLEPOINT_VEHICLE_SSID.matches(ssid) -> Hit(Category.PUBLIC_SAFETY, "Cradlepoint vehicle router (default network name)", 40,
+            "WiFi network \"$ssid\" is a Cradlepoint in-vehicle router's default name (model + last 3 address digits). " +
+                "Police cars, but also ambulances, buses and utility fleets", "Cradlepoint default SSID (product label); $IEEE")
+        else -> null
+    }
+
+    private val AXON_FLEET_SSID = Regex("^axon[-_ ]?\\d{1,6}[-_ ]?5g$", RegexOption.IGNORE_CASE)
+    private val VEHICLE_NUMBER_5G_SSID = Regex("^\\d{2,6}[-_ ]5g$", RegexOption.IGNORE_CASE)
+    private val CRADLEPOINT_VEHICLE_SSID = Regex("^(ibr\\d{3,4}[a-z]{0,4}|r1900|r2100)-[0-9a-f]{3}(-5g)?$", RegexOption.IGNORE_CASE)
+    private const val AXON_FLEET_GUIDE = "Axon Fleet 2/3 network and Cradlepoint configuration guides (axon.com)"
+
     private fun classifyWifi(a: Advert): List<Hit> {
         val hits = mutableListOf<Hit>()
         val ssid = a.name?.trim().orEmpty()
@@ -286,6 +310,9 @@ object SignatureEngine {
             hits += Hit(Category.NETWORK_CAMERA, "Arlo camera base station", 88,
                 "WiFi network \"$ssid\" (Arlo base-station SSID)", "$ACAB (field capture)")
         }
+        // Vendor-documented in-car network names (access points only: a client's name is
+        // its WPS device name, not a network).
+        if (a.wifi?.client != true) policeVehicleSsid(ssid)?.let { hits += it }
         a.wifi?.infoElements?.firstOrNull { it.first == 221 && RemoteId.isWifiIe(it.second) }?.let {
             hits += Hit(Category.DRONE, "Drone broadcasting Remote ID (WiFi)", 95,
                 "ASTM F3411 vendor information element (OUI FA:0B:BC) in the WiFi beacon", ASTM)

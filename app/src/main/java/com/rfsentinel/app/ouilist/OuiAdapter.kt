@@ -30,6 +30,8 @@ class OuiAdapter(
         holder.binding.prefixText.text = when {
             item.isNameRule -> "Name contains \"${item.ruleText}\""
             item.isVendorRule -> "Maker contains \"${item.ruleText}\""
+            item.isProbeRule -> "Asks for network \"${item.ruleText}\""
+            item.isFingerprintRule -> "Probe fingerprint ${item.ruleText}"
             else -> item.prefix
         }
         holder.binding.labelText.text = item.label

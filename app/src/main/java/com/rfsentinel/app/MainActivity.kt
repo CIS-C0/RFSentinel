@@ -544,6 +544,7 @@ class MainActivity : AppCompatActivity() {
         return when (item.itemId) {
             R.id.action_match_log -> { startActivity(Intent(this, DetectionLogActivity::class.java)); true }
             R.id.action_settings -> { startActivity(Intent(this, SettingsActivity::class.java)); true }
+            R.id.action_probes -> { startActivity(Intent(this, com.rfsentinel.app.probes.ProbeListActivity::class.java)); true }
             R.id.action_whitelist -> { startActivity(Intent(this, WhitelistActivity::class.java)); true }
             R.id.action_oui_list -> { startActivity(Intent(this, OuiListActivity::class.java)); true }
             R.id.action_export -> { Exporter.showExportMenu(this); true }

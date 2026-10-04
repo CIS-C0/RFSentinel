@@ -22,7 +22,7 @@ class TripExportTest {
         TripDeviceEntity(1, "00:25:DF:00:00:01", "Axon body camera", null, "Axon Enterprise, Inc.", "Body camera", "BLE",
             "BODY_CAM", 90, "BWCDEVICE \"tag\"", 1_010_000L, 1_020_000L, -61, 10.505, -20.565),
         TripDeviceEntity(1, "C0:00:00:00:00:02", "Phone", "Pixel", null, "Phone", "BLE",
-            null, 0, null, 1_040_000L, 1_050_000L, -80, 10.515, -20.555),
+            null, 0, null, 1_040_000L, 1_050_000L, -80, 10.515, -20.555, probed = "PD-MDT\nHome"),
         TripDeviceEntity(1, "C0:00:00:00:00:03", "No fix", null, null, null, "WIFI",
             null, 0, null, 1_040_000L, 1_050_000L, -85, null, null)
     )
@@ -69,5 +69,21 @@ class TripExportTest {
         assertEquals(4, lines.size)
         assertTrue(lines[1].contains("\"BWCDEVICE \"\"tag\"\"\""))
         assertFalse(lines[3].contains("null"))
+    }
+
+    @Test
+    fun requestedNetworksGoIntoTheExports() {
+        assertTrue(TripExport.devicesCsv(devices).lines()[0].endsWith("requested_networks"))
+        assertTrue(TripExport.devicesCsv(devices).lines()[2].contains("PD-MDT; Home"))
+        assertTrue(TripExport.kml(trip, points, devices, onlyFlagged = false).contains("asked for: PD-MDT, Home"))
+    }
+
+    @Test
+    fun requestedNetworksMergeAcrossObservations() {
+        val r = com.rfsentinel.app.service.TripRecorder
+        assertEquals(null, r.mergeProbed(emptyList(), emptyList()))
+        assertEquals("A\nB", r.mergeProbed(listOf("A"), listOf("B")))
+        assertEquals("B\nA", r.mergeProbed(listOf("A", "B"), listOf("A")))
+        assertEquals(16, r.mergeProbed((1..16).map { "n$it" }, listOf("x"))!!.lines().size)
     }
 }

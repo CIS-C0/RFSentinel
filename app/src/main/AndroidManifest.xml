@@ -67,6 +67,7 @@
         <activity android:name=".settings.SettingsActivity" android:exported="false" />
         <activity android:name=".whitelist.WhitelistActivity" android:exported="false" />
         <activity android:name=".ouilist.OuiListActivity" android:exported="false" />
+        <activity android:name=".probes.ProbeListActivity" android:exported="false" />
         <activity android:name=".ui.DetectionLogActivity" android:exported="false" />
         <activity android:name=".ui.CellTowersActivity" android:exported="false" />
         <activity android:name=".ui.WifiAnalyzerActivity" android:exported="false" />

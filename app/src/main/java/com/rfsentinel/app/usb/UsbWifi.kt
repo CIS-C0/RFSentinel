@@ -20,7 +20,13 @@ data class MonitorSighting(
     /** Access point (beacon / probe response) or a client device (probe request, data). */
     val isAccessPoint: Boolean,
     /** The access point a client was talking to, when known. */
-    val bssid: String? = null
+    val bssid: String? = null,
+    /** Network names a client device asked for by name (probe requests). */
+    val probedSsids: List<String> = emptyList(),
+    /** Maker / model / device name from its WPS block. */
+    val wps: ProbeIntel.Wps? = null,
+    /** How it builds its probe requests: marks a device model / OS ([ProbeIntel.fingerprint]). */
+    val fingerprint: String? = null
 )
 
 /**

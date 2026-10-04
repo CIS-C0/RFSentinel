@@ -66,9 +66,12 @@ data class TripDeviceEntity(
     val lastSeen: Long,
     val bestRssi: Int,
     val lat: Double?,
-    val lon: Double?
+    val lon: Double?,
+    /** WiFi network names it asked for (probe requests via a USB adapter / Marauder), one per line. */
+    val probed: String? = null
 ) {
     val flagged: Boolean get() = category != null
+    val probedList: List<String> get() = probed?.split('\n')?.filter { it.isNotEmpty() }.orEmpty()
 }
 
 @Dao

@@ -13,6 +13,12 @@ class MonitorFrames {
         var ssid: String? = null; var bssid: String? = null
         var rssi = NOMINAL_RSSI; var rssiAt = 0L; var measured = false; var channel = 0
         var lastSeen = 0L
+        /** Network names this client asked for (probe requests), oldest first. */
+        val probed = LinkedHashSet<String>()
+        /** Maker / model / device name from its WPS block, when it sends one. */
+        var wps: ProbeIntel.Wps? = null
+        /** How it builds its probe requests ([ProbeIntel.fingerprint]). */
+        var fingerprint: String? = null
         // Per-window counters for driver diagnostics (debug builds).
         var winHits = 0; var winMeasured = 0; var winMax = -128; var winSum = 0L
         var winOfdm = 0; var winA = -128; var winB = -128
@@ -63,10 +69,20 @@ class MonitorFrames {
                     touch(a3, ap = true, ch = ies.channel.takeIf { validChannel(it) } ?: channel)?.let {
                         it.isAp = true
                         if (ies.ssid != null && it.ssid == null) it.ssid = ies.ssid
+                        ies.wps?.let { w -> it.wps = w }
                     }
                 }
-                // Probe request: a device looking for networks (e.g. a laptop or a Flock camera).
-                4 -> if (captureClients) touch(a2, ap = false)
+                // Probe request: a device looking for networks (e.g. a laptop or a Flock camera),
+                // often by name - the networks it has joined before.
+                4 -> if (captureClients) touch(a2, ap = false)?.let { s ->
+                    val ies = Ies.read(b, d + 24, end)
+                    ies.wps?.let { s.wps = it }
+                    ProbeIntel.fingerprint(b, d + 24, end)?.let { s.fingerprint = it }
+                    ies.ssid?.takeIf { validSsid(it) }?.let { name ->
+                        s.probed.remove(name); s.probed.add(name)
+                        if (s.probed.size > MAX_PROBED) s.probed.remove(s.probed.first())
+                    }
+                }
                 0, 2, 10, 11, 12 -> if (captureClients) touch(a2, ap = false)?.let { it.bssid = mac(b, a3) }
             }
             2 -> if (captureClients) when {
@@ -93,7 +109,10 @@ class MonitorFrames {
                 rssi = s.rssi.coerceIn(-120, -20),
                 frequencyMhz = frequencyOf(s.channel),
                 isAccessPoint = s.isAp,
-                bssid = s.bssid
+                bssid = s.bssid,
+                probedSsids = s.probed.toList(),
+                wps = s.wps,
+                fingerprint = s.fingerprint
             )
         }
         sightings.entries.removeAll { now - it.value.lastSeen > pruneMs }
@@ -116,10 +135,10 @@ class MonitorFrames {
     }
 
     /** Network name and channel from a management frame's information elements. */
-    data class Ies(val ssid: String?, val channel: Int) {
+    data class Ies(val ssid: String?, val channel: Int, val wps: ProbeIntel.Wps? = null) {
         companion object {
             fun read(b: ByteArray, from: Int, end: Int): Ies {
-                var ssid: String? = null; var ds = 0; var ht = 0
+                var ssid: String? = null; var ds = 0; var ht = 0; var wps: ProbeIntel.Wps? = null
                 var i = from
                 while (i + 2 <= end) {
                     val tag = b[i].toInt() and 0xff; val tl = b[i + 1].toInt() and 0xff
@@ -128,10 +147,14 @@ class MonitorFrames {
                         0 -> if (ssid == null) ssid = String(b, i + 2, tl, Charsets.UTF_8).trim { it <= ' ' }
                         3 -> if (tl >= 1) ds = b[i + 2].toInt() and 0xff // DS parameter set (2.4 GHz)
                         61 -> if (tl >= 1) ht = b[i + 2].toInt() and 0xff // HT operation: primary channel
+                        221 -> if (tl >= 4 && b[i + 2].toInt() == 0x00 && b[i + 3].toInt() == 0x50 &&
+                            (b[i + 4].toInt() and 0xff) == 0xF2 && b[i + 5].toInt() == 0x04) {
+                            ProbeIntel.parseWps(b, i + 6, i + 2 + tl)?.let { wps = it } // WPS
+                        }
                     }
                     i += 2 + tl
                 }
-                return Ies(ssid, if (ds != 0) ds else ht)
+                return Ies(ssid, if (ds != 0) ds else ht, wps)
             }
         }
     }
@@ -143,6 +166,11 @@ class MonitorFrames {
         private const val RSSI_WINDOW_MS = 2_000L
 
         fun validChannel(ch: Int) = ch in 1..14 || ch in 32..177
+
+        /** A network name worth keeping: not empty (a wildcard probe), no control characters. */
+        fun validSsid(s: String) = s.isNotEmpty() && s.length <= 32 && s.none { it < ' ' || it == '�' }
+
+        private const val MAX_PROBED = 16
 
         /** Centre frequency of a 20 MHz WiFi channel, 0 when unknown. */
         fun frequencyOf(ch: Int): Int = when (ch) {

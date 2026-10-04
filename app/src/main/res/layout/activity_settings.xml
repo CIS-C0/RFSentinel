@@ -317,6 +317,12 @@
             android:text="Floating threat bubble over other apps (e.g. Waze, Maps) while scanning" />
 
         <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/floatingMapSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Floating mini map over other apps while scanning: the devices around you, like the app's map (drag to move, pinch to zoom, corner handle to resize, tap to open the full map)" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/discreetSwitch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

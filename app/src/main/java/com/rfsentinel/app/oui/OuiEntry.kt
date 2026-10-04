@@ -10,6 +10,9 @@ data class OuiEntry(
      *  - "AA:BB:CC:DD:EE:FF"   one exact device
      *  - "name:<text>"         advertised name / SSID contains <text> (case-insensitive)
      *  - "vendor:<text>"       manufacturer (IEEE registrant or Bluetooth company) contains <text>
+     *  - "probe:<ssid>"        a device asks for this exact WiFi network name (probe request,
+     *                          heard by a USB WiFi adapter or an ESP32 Marauder board)
+     *  - "fp:<8 hex>"          a device whose probe requests have this fingerprint (same model / OS)
      */
     val prefix: String,
     val label: String,
@@ -26,6 +29,8 @@ data class OuiEntry(
     val isCustom get() = confidence == "custom"
     val isNameRule get() = prefix.startsWith(NAME, ignoreCase = true)
     val isVendorRule get() = prefix.startsWith(VENDOR, ignoreCase = true)
+    val isProbeRule get() = prefix.startsWith(PROBE, ignoreCase = true)
+    val isFingerprintRule get() = prefix.startsWith(FINGERPRINT, ignoreCase = true)
     val ruleText get() = prefix.substringAfter(':').trim()
 
     val effectiveScore: Int
@@ -49,5 +54,7 @@ data class OuiEntry(
     companion object {
         const val NAME = "name:"
         const val VENDOR = "vendor:"
+        const val PROBE = "probe:"
+        const val FINGERPRINT = "fp:"
     }
 }

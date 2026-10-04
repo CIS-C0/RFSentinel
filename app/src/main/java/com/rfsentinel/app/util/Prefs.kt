@@ -158,6 +158,10 @@ object Prefs {
     fun setShortVoice(context: Context, value: Boolean) = setBool(context, "short_voice", value)
 
     /** Leave Apple Find My tags (AirTags and compatible) out of the Trackers category. */
+    /** Keep the WiFi network names devices around you ask for (USB WiFi adapter / ESP32 Marauder). */
+    fun recordProbes(context: Context): Boolean = bool(context, "record_probes", false)
+    fun setRecordProbes(context: Context, value: Boolean) = sp(context).edit().putBoolean("record_probes", value).apply()
+
     fun excludeAirTags(context: Context): Boolean = bool(context, "exclude_airtags", false)
     fun setExcludeAirTags(context: Context, value: Boolean) {
         setBool(context, "exclude_airtags", value)
@@ -183,6 +187,10 @@ object Prefs {
     fun setStartedByCar(context: Context, value: Boolean) = setBool(context, "started_by_car", value)
 
     /** Floating threat bubble over other apps while scanning. */
+    /** Floating mini map with the devices around you, drawn over other apps while scanning. */
+    fun floatingMap(context: Context): Boolean = bool(context, "floating_map", false)
+    fun setFloatingMap(context: Context, value: Boolean) = setBool(context, "floating_map", value)
+
     fun threatBubble(context: Context): Boolean = bool(context, "threat_bubble", false)
     fun setThreatBubble(context: Context, value: Boolean) = setBool(context, "threat_bubble", value)
 

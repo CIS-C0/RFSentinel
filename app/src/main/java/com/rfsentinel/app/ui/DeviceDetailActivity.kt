@@ -181,7 +181,9 @@ class DeviceDetailActivity : AppCompatActivity() {
         }
 
         // Action labels
+        val fp = com.rfsentinel.app.usb.ProbeIntel.of(mac)?.fingerprint
         val custom = OuiWatchlist.customEntry(mac) ?: OuiWatchlist.customEntry(MacUtil.oui(mac))
+            ?: fp?.let { OuiWatchlist.customEntry(com.rfsentinel.app.oui.OuiEntry.FINGERPRINT + it) }
         binding.actionWatchlist.text = if (custom != null) "Remove from watchlist" else "Add to watchlist"
         binding.actionWhitelist.text = when {
             com.rfsentinel.app.data.TrackerMutes.isMuted(mac) -> "Stop ignoring"
@@ -236,6 +238,16 @@ class DeviceDetailActivity : AppCompatActivity() {
         a?.phy?.let { id += "PHY" to it }
         a?.txPower?.let { id += "Advertised TX power" to "$it dBm" }
         s?.facts?.forEach { id += it }
+        // Heard by a USB WiFi adapter / Marauder board: its WPS block, fingerprint, network requests.
+        com.rfsentinel.app.usb.ProbeIntel.of(mac)?.let { r ->
+            r.wps?.deviceName?.let { id += "Device name (WPS)" to it }
+            r.wps?.product?.let { id += "Maker / model (WPS)" to it }
+            r.fingerprint?.let { fp ->
+                id += "Probe fingerprint" to fp + if (OuiWatchlist.isFingerprintWatched(fp)) " · on your watchlist" else
+                    " (same for every device of this model / OS - Watchlist can watch it)"
+            }
+            if (r.probed.isNotEmpty()) id += "Networks it asked for" to r.probed.reversed().joinToString(", ")
+        }
         if (id.isNotEmpty()) out += "Identity" to id
 
         // Drone Remote ID

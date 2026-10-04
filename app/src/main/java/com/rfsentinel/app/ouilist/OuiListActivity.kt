@@ -57,6 +57,10 @@ class OuiListActivity : AppCompatActivity() {
                     binding.prefixInput.hint = "Text in the manufacturer name (e.g. Motorola)"
                     binding.prefixInput.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
                 }
+                R.id.typeProbe -> {
+                    binding.prefixInput.hint = "Exact WiFi network name a device asks for"
+                    binding.prefixInput.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                }
                 else -> {
                     binding.prefixInput.hint = "Prefix AA:BB:CC or device AA:BB:CC:DD:EE:FF"
                     binding.prefixInput.inputType = InputType.TYPE_CLASS_TEXT or
@@ -71,6 +75,7 @@ class OuiListActivity : AppCompatActivity() {
             val key = when (binding.ruleType.checkedRadioButtonId) {
                 R.id.typeName -> OuiEntry.NAME + text
                 R.id.typeVendor -> OuiEntry.VENDOR + text
+                R.id.typeProbe -> OuiEntry.PROBE + text
                 else -> text
             }
             if (text.isEmpty() || !OuiWatchlist.isValidKey(key)) {

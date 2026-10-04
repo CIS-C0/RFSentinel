@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <com.google.android.material.switchmaterial.SwitchMaterial
+        android:id="@+id/recordSwitch"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Record the networks devices ask for" />
+
+    <TextView
+        android:id="@+id/infoText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="2dp"
+        android:paddingBottom="8dp"
+        android:textSize="12sp"
+        android:textColor="#888888"
+        android:text="Phones and laptops ask by name for WiFi networks they joined before. A USB WiFi adapter or an ESP32 Marauder board hears these requests. Kept only on this phone; a map trace recording always keeps them, with the trace. Tap a name to watch it: you get an alert whenever a device asks for it." />
+
+    <EditText
+        android:id="@+id/filterInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="text|textNoSuggestions"
+        android:importantForAutofill="no"
+        android:hint="Filter by name" />
+
+    <TextView
+        android:id="@+id/emptyText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="16dp"
+        android:visibility="gone" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="8dp" />
+
+    <Button
+        android:id="@+id/clearButton"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Clear the list" />
+
+</LinearLayout>

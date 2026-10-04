@@ -29,6 +29,12 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Maker has" />
+
+        <RadioButton
+            android:id="@+id/typeProbe"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Asks for" />
     </RadioGroup>
 
     <EditText

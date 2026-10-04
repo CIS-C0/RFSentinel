@@ -85,7 +85,18 @@ class UsbWifiDriverTest {
         assertEquals(0 to 2, t.live(0, 1000))
     }
 
+    private fun namedProbe(sa: String, ssid: String): ByteArray = probeRequest(sa).copyOf(24) +
+        byteArrayOf(0, ssid.length.toByte()) + ssid.toByteArray()
+
     @Test
+    fun probeRequestsKeepTheNamesAsked() {
+        val t = MonitorFrames()
+        for (name in listOf("PD-MDT", "Home", "PD-MDT")) namedProbe("da:a1:19:00:00:01", name).let { t.frame(it, 0, it.size, 6, -60, 0) }
+        probeRequest("da:a1:19:00:00:01").let { t.frame(it, 0, it.size, 6, -60, 0) } // wildcard: no name
+        assertEquals(listOf("Home", "PD-MDT"), t.drain(0, 5000).single().probedSsids)
+    }
+
+        @Test
     fun clientCaptureCanBeTurnedOff() {
         val t = MonitorFrames().apply { captureClients = false }
         val p = probeRequest("da:a1:19:00:00:01")

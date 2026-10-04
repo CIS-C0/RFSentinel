@@ -450,6 +450,7 @@ class MapActivity : AppCompatActivity() {
                 vendor?.let { append("\n").append(it) }
                 if (cat != null) append("\n${cat.title} · ${Tier.of(confidence).label} $confidence%")
                 evidence?.let { append("\n").append(it) }
+                probedList.takeIf { it.isNotEmpty() }?.let { append("\nAsked for networks: ").append(it.joinToString(", ")) }
                 append("\nStrongest signal here: $bestRssi dBm")
                 append("\nHeard ${dateFmt.format(Date(firstSeen))}")
             }

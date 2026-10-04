@@ -445,7 +445,8 @@ class ScanForegroundService : Service() {
             TripRecorder.onDevice(
                 mac, a.rssi, a.source.name,
                 if (WhitelistCache.contains(mac)) null else c.hits.firstOrNull(),
-                a.name, c.vendor, c.identity.type, loc, now
+                a.name, c.vendor, c.identity.type, loc, now,
+                com.rfsentinel.app.usb.ProbeIntel.of(mac)?.probed.orEmpty()
             )
         }
 
@@ -480,13 +481,35 @@ class ScanForegroundService : Service() {
     /** Matches an ESP32 board reported, kept a few minutes so re-classification keeps them. */
     private val espHits = HashMap<String, Pair<Long, List<Hit>>>()
 
+    /** Watchlist matches from what external hardware heard in a device's frames, kept like [espHits]. */
+    private val probeHits = HashMap<String, Pair<Long, List<Hit>>>()
+
+    /**
+     * What a USB adapter or a Marauder board heard from [mac] beyond its address: the
+     * network names it asked for (kept in the requested-networks list when that's on),
+     * its WPS maker / model / name and its probe fingerprint. All checked against the watchlist.
+     */
+    private fun noteProbes(mac: String, ssids: List<String>, rssi: Int, now: Long,
+                           wps: com.rfsentinel.app.usb.ProbeIntel.Wps? = null, fingerprint: String? = null) {
+        com.rfsentinel.app.usb.ProbeIntel.note(mac, wps, fingerprint, ssids)
+        // Kept in the requested-networks list when that's on, and always while a trace records.
+        if (ssids.isNotEmpty()) com.rfsentinel.app.data.ProbeLog.record(this, mac, ssids, rssi, now, force = TripRecorder.isRecording)
+        val hits = OuiWatchlist.probeHits(ssids) + OuiWatchlist.fingerprintHits(fingerprint) + OuiWatchlist.wpsHits(wps)
+        if (hits.isEmpty()) return
+        val before = probeHits[mac]
+        probeHits[mac] = now to hits
+        if (before == null || before.second != hits || now - before.first >= ESP_HIT_TTL_MS) classified.remove(mac)
+    }
+
     /** One ESP32 report: becomes a normal observation, with the board's own matches added. */
     private fun processUsbWifi(m: com.rfsentinel.app.usb.MonitorSighting) {
         val now = System.currentTimeMillis()
         val mac = com.rfsentinel.app.util.MacUtil.normalize(m.mac)
         com.rfsentinel.app.esp.HeardBy.usb.mark(mac, now)
+        noteProbes(mac, m.probedSsids, m.rssi, now, m.wps, m.fingerprint)
         process(Advert(
-            mac = mac, source = Advert.Source.WIFI, rssi = m.rssi, name = m.ssid,
+            // A client has no network name; its WPS device name or model says what it is.
+            mac = mac, source = Advert.Source.WIFI, rssi = m.rssi, name = m.ssid ?: m.wps?.label,
             addressType = com.rfsentinel.app.detect.AddressType.ofWifi(mac),
             wifi = Advert.WifiInfo(m.frequencyMhz, "", null, emptyList(), client = !m.isAccessPoint),
             timestamp = now
@@ -496,6 +519,7 @@ class ScanForegroundService : Service() {
     private fun processEsp(e: com.rfsentinel.app.esp.EspSighting) {
         val now = System.currentTimeMillis()
         com.rfsentinel.app.esp.HeardBy.esp.mark(e.mac, now)
+        noteProbes(e.mac, e.probedSsids, e.rssi, now)
         if (e.hits.isNotEmpty()) {
             espHits[e.mac] = now to e.hits
             classified.remove(e.mac) // re-classify with the new evidence
@@ -523,7 +547,8 @@ class ScanForegroundService : Service() {
             OuiWatchlist.hits(a.mac, a.name, listOfNotNull(macVendor) + companyVendors) +
             DeviceRegistry.inheritedHits(a.mac) +
             listOfNotNull(DeviceRegistry.clusterHit(a.mac, now)) +
-            espHits[a.mac]?.takeIf { now - it.first < ESP_HIT_TTL_MS }?.second.orEmpty()
+            espHits[a.mac]?.takeIf { now - it.first < ESP_HIT_TTL_MS }?.second.orEmpty() +
+            probeHits[a.mac]?.takeIf { now - it.first < ESP_HIT_TTL_MS }?.second.orEmpty()
         val noAirTags = Prefs.excludeAirTags(this)
         val hits = EvidenceFusion.fuse(raw.filter {
             Prefs.categoryEnabled(this, it.category) && !(noAirTags && SignatureEngine.isAppleFindMy(it))
@@ -843,17 +868,26 @@ class ScanForegroundService : Service() {
         }
     }
 
-    /** Keeps the floating threat bubble in sync (hidden while our own screens are visible). */
+    /**
+     * Keeps the floating threat bubble and the floating mini map in sync (hidden while
+     * our own screens are visible).
+     */
     private fun startBubble() {
         bubbleJob?.cancel()
-        if (!Prefs.threatBubble(this)) { com.rfsentinel.app.ui.ThreatBubble.hide(this); return }
+        val bubble = Prefs.threatBubble(this); val miniMap = Prefs.floatingMap(this)
+        if (!bubble) com.rfsentinel.app.ui.ThreatBubble.hide(this)
+        if (!miniMap) com.rfsentinel.app.ui.FloatingMap.hide(this)
+        if (!bubble && !miniMap) return
         bubbleJob = serviceScope.launch {
             while (isActive) {
-                if (RFSentinelApp.inForeground || !com.rfsentinel.app.ui.ThreatBubble.canShow(this@ScanForegroundService)) {
-                    com.rfsentinel.app.ui.ThreatBubble.hide(this@ScanForegroundService)
+                val ctx = this@ScanForegroundService
+                if (RFSentinelApp.inForeground || !com.rfsentinel.app.ui.ThreatBubble.canShow(ctx)) {
+                    com.rfsentinel.app.ui.ThreatBubble.hide(ctx)
+                    com.rfsentinel.app.ui.FloatingMap.hide(ctx)
                 } else {
-                    val flagged = DeviceRegistry.snapshot().filter { it.best != null && !WhitelistCache.contains(it.mac) }
-                    val threshold = Prefs.alertThreshold(this@ScanForegroundService)
+                    val devices = DeviceRegistry.snapshot()
+                    val flagged = devices.filter { it.best != null && !WhitelistCache.contains(it.mac) }
+                    val threshold = Prefs.alertThreshold(ctx)
                     val top = flagged.maxOfOrNull { it.best!!.confidence } ?: 0
                     val cellWarning = CellMonitor.lastAnomaly?.takeIf { System.currentTimeMillis() - it.first < 15 * 60_000L }
                     val level = when {
@@ -862,7 +896,17 @@ class ScanForegroundService : Service() {
                         flagged.isNotEmpty() -> com.rfsentinel.app.ui.ThreatBubble.Level.WEAK
                         else -> com.rfsentinel.app.ui.ThreatBubble.Level.CLEAR
                     }
-                    com.rfsentinel.app.ui.ThreatBubble.update(this@ScanForegroundService, level, flagged.size)
+                    if (Prefs.threatBubble(ctx)) com.rfsentinel.app.ui.ThreatBubble.update(ctx, level, flagged.size)
+                    else com.rfsentinel.app.ui.ThreatBubble.hide(ctx)
+                    if (Prefs.floatingMap(ctx)) {
+                        // The same dots as the full map: devices placed where they were heard strongest.
+                        val dots = devices.mapNotNull { s ->
+                            val p = s.bestPosition ?: return@mapNotNull null
+                            com.rfsentinel.app.ui.FloatingMap.Dot(p.lat, p.lon,
+                                com.rfsentinel.app.ui.DeviceColors.forDevice(ctx, s), com.rfsentinel.app.ui.DeviceColors.isFlagged(s))
+                        }
+                        com.rfsentinel.app.ui.FloatingMap.update(ctx, level, flagged.size, lastFix, dots)
+                    } else com.rfsentinel.app.ui.FloatingMap.hide(ctx)
                 }
                 delay(2_000)
             }
@@ -884,6 +928,8 @@ class ScanForegroundService : Service() {
         // External hardware is gone with the scan: its "heard by" marks (External filter, badges) go too.
         com.rfsentinel.app.esp.HeardBy.esp.clear()
         com.rfsentinel.app.esp.HeardBy.usb.clear()
+        com.rfsentinel.app.usb.ProbeIntel.clear()
+        com.rfsentinel.app.data.ProbeLog.flush(this)
         bleEngine.stop()
         wifiEngine.stop()
         if (btStateReceiverRegistered) {
@@ -898,6 +944,7 @@ class ScanForegroundService : Service() {
         pipelineThread.quitSafely()
         cellMonitor?.close()
         com.rfsentinel.app.ui.ThreatBubble.hide(this)
+        com.rfsentinel.app.ui.FloatingMap.hide(this)
         // Take the final history and trace synchronously, so a scan restarted right
         // away (new session, new trace) can't clear or reuse them; write them after.
         val history = takeHistory()

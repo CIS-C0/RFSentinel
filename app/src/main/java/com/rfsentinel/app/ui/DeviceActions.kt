@@ -99,15 +99,25 @@ object DeviceActions {
                 "Watchlist & rules instead."
             b.scopePrefix.isEnabled = false
         }
+        // A probe fingerprint (USB adapter) marks the device model / OS, even across random addresses.
+        val fp = com.rfsentinel.app.usb.ProbeIntel.of(mac)?.fingerprint
+        if (fp != null) {
+            b.scopeFingerprint.visibility = View.VISIBLE
+            b.scopeFingerprint.text = "Every device of this type (probe fingerprint $fp)"
+            if (randomized) b.warningText.text = "This is a randomized (private) address: it may change later. " +
+                "The probe fingerprint below stays the same - watch that to catch this type of device."
+        }
         b.labelInput.setText(name ?: "")
         AlertDialog.Builder(activity)
             .setTitle("Add to watchlist")
             .setView(b.root)
             .setPositiveButton("Add") { _, _ ->
                 val wholePrefix = b.scopePrefix.isChecked
-                val key = if (wholePrefix) oui else mac
-                val label = b.labelInput.text.toString().trim()
-                    .ifEmpty { if (wholePrefix) "Custom prefix $oui" else "Custom device $mac" }
+                val byFingerprint = fp != null && b.scopeFingerprint.isChecked
+                val key = when { byFingerprint -> OuiEntry.FINGERPRINT + fp; wholePrefix -> oui; else -> mac }
+                val label = b.labelInput.text.toString().trim().ifEmpty {
+                    when { byFingerprint -> "Device type $fp"; wholePrefix -> "Custom prefix $oui"; else -> "Custom device $mac" }
+                }
                 OuiWatchlist.addCustomEntry(activity, OuiEntry(key, label, "user-added from live list", "custom"))
                 toast(activity, "Added $key to the watchlist")
             }
