@@ -76,7 +76,7 @@ object UpdateChecker {
                 AlertDialog.Builder(activity)
                     .setTitle("RF Sentinel ${latest.version} is available")
                     .setMessage("You have $current. Download the new APK and install it over this one - your history and settings are kept.")
-                    .setPositiveButton("Download") { _, _ -> open(activity, latest.apkUrl ?: latest.notesUrl) }
+                    .setPositiveButton("Download") { _, _ -> download(activity, latest) }
                     .setNeutralButton("What's new") { _, _ -> open(activity, latest.notesUrl) }
                     .setNegativeButton("Later", null)
                     .show()
@@ -88,6 +88,27 @@ object UpdateChecker {
                     .show()
             }
         }
+    }
+
+    /**
+     * Downloads the APK with Android's download manager into Downloads. Handing the APK link
+     * to the browser instead stalls at 100% in Chrome: a download started by another app
+     * waits on Chrome's "this file can be harmful" check, whose prompt never shows. Tapping
+     * the finished-download notification opens the installer. Falls back to the browser.
+     */
+    private fun download(activity: AppCompatActivity, latest: Latest) {
+        val url = latest.apkUrl ?: return open(activity, latest.notesUrl)
+        val queued = runCatching {
+            val dm = activity.getSystemService(android.app.DownloadManager::class.java)!!
+            dm.enqueue(android.app.DownloadManager.Request(Uri.parse(url))
+                .setTitle("RF Sentinel ${latest.version}")
+                .setDescription("Update - tap when done to install")
+                .setMimeType("application/vnd.android.package-archive")
+                .setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                .setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, url.substringAfterLast('/')))
+        }.isSuccess
+        if (queued) Toast.makeText(activity, "Downloading RF Sentinel ${latest.version}… when it's done, tap its notification (or the file in Downloads) to install", Toast.LENGTH_LONG).show()
+        else open(activity, url)
     }
 
     private fun open(activity: AppCompatActivity, url: String) {
