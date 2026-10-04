@@ -45,6 +45,9 @@ object FloatingMap {
     /** One device on the mini map. */
     data class Dot(val lat: Double, val lon: Double, val color: Int, val flagged: Boolean)
 
+    /** A known camera (OpenStreetMap) on the mini map; faded when you turned its alerts off. */
+    data class Cam(val lat: Double, val lon: Double, val kind: com.rfsentinel.app.alpr.KnownCamera.Kind, val ignored: Boolean)
+
     private const val SIZE_DP = 170
     private const val MIN_DP = 120
     private const val ZOOM = 16.0
@@ -60,11 +63,14 @@ object FloatingMap {
     private var border: GradientDrawable? = null
     private var dots: PointsOverlay<Unit>? = null
     private var me: PointsOverlay<Unit>? = null
+    private var cams: PointsOverlay<Unit>? = null
+    private var camIcons: Map<com.rfsentinel.app.alpr.KnownCamera.Kind, android.graphics.Bitmap> = emptyMap()
 
     fun canShow(context: Context) = Settings.canDrawOverlays(context)
 
     /** Shows or updates the mini map (any thread). [here] is your last fix, null while waiting for GPS. */
-    fun update(context: Context, level: ThreatBubble.Level, flagged: Int, here: Location?, devices: List<Dot>) = main.post {
+    fun update(context: Context, level: ThreatBubble.Level, flagged: Int, here: Location?, devices: List<Dot>,
+               cameras: List<Cam> = emptyList()) = main.post {
         val app = context.applicationContext
         if (!canShow(app)) { removeNow(app); return@post }
         if (root == null) add(app) ?: return@post
@@ -72,6 +78,10 @@ object FloatingMap {
         badge?.apply {
             text = if (flagged == 0) "✓" else if (flagged > 99) "99+" else flagged.toString()
             background = GradientDrawable().apply { cornerRadius = dp(app, 11f).toFloat(); setColor(level.color) }
+        }
+        cams?.points = cameras.mapNotNull { c ->
+            val icon = camIcons[c.kind] ?: return@mapNotNull null
+            PointsOverlay.Point(c.lat, c.lon, Unit, icon = icon, alpha = if (c.ignored) 90 else 255)
         }
         dots?.points = devices.sortedBy { it.flagged }.map {
             PointsOverlay.Point(it.lat, it.lon, Unit, color = it.color, sizeDp = if (it.flagged) 15f else 9f)
@@ -92,7 +102,7 @@ object FloatingMap {
         val r = root ?: return
         runCatching { (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).removeView(r) }
         runCatching { map?.onDetach() }
-        root = null; map = null; badge = null; waiting = null; border = null; dots = null; me = null
+        root = null; map = null; badge = null; waiting = null; border = null; dots = null; me = null; cams = null
         ScanForegroundService.mapHidden(context)
     }
 
@@ -140,6 +150,9 @@ object FloatingMap {
         }
         val dotLayer = PointsOverlay<Unit>(d) {}
         val meLayer = PointsOverlay<Unit>(d) {}
+        val camLayer = PointsOverlay<Unit>(d) {}
+        if (camIcons.isEmpty()) camIcons = com.rfsentinel.app.alpr.KnownCamera.Kind.entries.associateWith { MapIcons.cameraIcon(d * 0.85f, it) }
+        m.overlays.add(camLayer)
         m.overlays.add(dotLayer)
         m.overlays.add(meLayer)
         val inset = dp(context, 3f)
@@ -242,7 +255,7 @@ object FloatingMap {
         return runCatching {
             wm.addView(frame, lp)
             m.onResume()
-            root = frame; map = m; badge = count; waiting = wait; dots = dotLayer; me = meLayer
+            root = frame; map = m; badge = count; waiting = wait; dots = dotLayer; me = meLayer; cams = camLayer
             ScanForegroundService.mapShown(context)
             frame
         }.getOrNull()

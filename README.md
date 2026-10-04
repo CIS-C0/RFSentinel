@@ -124,12 +124,14 @@ Every match shows its evidence, its source and a confidence tier: **weak** (< 50
 - **Short spoken alerts** option ("Body cam", "Police car", "Speed camera, 50")
 - Discreet mode, adjustable alert threshold, mute from the app or the car
 - **Floating threat bubble** over Waze, Google Maps or any app
+- **Floating mini map** over other apps: the devices and known cameras around you, like the app's map (pinch to zoom, drag, resize)
+- Android Auto alert cards say what it is, how sure, about how far and how many more are flagged ("BODY CAM · strong · ~40 m · near (-58 dBm) · +2 more flagged")
 - Notification, Quick Settings tile and home-screen widget
 
 **Map & history**
 - OpenStreetMap map with your GPS trace and every device pinned exactly where its signal peaked (tap a spot to list everything heard there), the same filter chips as the list, self-centering
 - Optional **cell tower layer** (or the map's **Cells** chip): every tower seen while scanning, at the spot where its signal was strongest
-- **Record traces** of your route and the devices along it, with the screen off
+- **Record traces** of your route and the devices along it, with the screen off (with the network names each device asked for, when a USB adapter or Marauder board is plugged in)
 - **History map & timeline:** heatmap of where flagged equipment showed up, and when (hour of day, day of week)
 
 **Driving**
@@ -139,10 +141,12 @@ Every match shows its evidence, its source and a confidence tier: **weak** (< 50
 
 **Hardware**
 - ESP32 boards over USB OTG (OUI-Spy, GhostESP, Marauder incl. dual-band ESP32-C5 boards, or through a Flipper Zero) or Bluetooth (OUI-SPY App-Controlled) add their detections and extend range
-- **USB WiFi adapters in monitor mode** (RTL8811AU / RTL8821AU, e.g. ALFA AWUS036ACS) over OTG, no root: continuous 2.4 GHz channel hopping with no Android scan limit, longer range, and **client devices** (laptops, phones, cameras connected to a network) the phone's WiFi scan can't see
+- **USB WiFi adapters in monitor mode** over OTG, no root: RTL8811AU / RTL8821AU (e.g. ALFA AWUS036ACS, 2.4 GHz) and **RTL8812BU / RTL8822BU** (2.4 + 5 GHz, e.g. TP-Link Archer T3U, Wise Tiger AC1200). No Android scan limit, longer range, and **client devices** (laptops, phones, cameras connected to a network) the phone's WiFi scan can't see. Single-antenna dongles are detected and handled automatically
+- **Requested networks:** the WiFi names nearby devices ask for (probe requests), from a USB adapter or a Marauder board, in an optional list; **watch** a name to get an alert whenever any device asks for it
+- **More from every frame:** WPS maker / model / device name, a **probe fingerprint** that survives MAC randomization (watchable: "every device of this type"), and the real name of **hidden networks** when a device joins them
 
 **Interface**
-- Live list and radar view, filter chips with live counts (flagged, trackers, drones, favorites, new, Bluetooth, WiFi, cells, ESP32), search
+- Live list and radar view, filter chips with live counts (flagged, trackers, drones, favorites, new, Bluetooth, WiFi, cells, external hardware), search
 - **Tools** (button next to the map button): **Cell towers** (serving and neighbour cells with network, IDs, channel and signal, plus every tower seen while scanning), **WiFi channels** and **WiFi spectrum** analyzers for 2.4 / 5 / 6 GHz
 - **Cell towers in the live list:** the serving cell and its neighbours appear under *All*, after the devices
 - **Scan watchdog:** a scanner that goes silent is restarted on its own
@@ -205,11 +209,16 @@ Details: [How it works](https://cis-c0.github.io/RFSentinel/how-it-works.html) a
   next to it. On the radar, closer to the centre means a stronger signal; the
   angle is not a direction (a phone can't measure one).
 - **Filters and search:** All, Flagged, Trackers, Drones, Favorites, New,
-  Bluetooth, WiFi, Cells, ESP32. Search matches name, address, vendor and type.
+  Bluetooth, WiFi, Cells, External (heard by an ESP32 board or a USB WiFi
+  adapter). Search matches name, address, vendor and type.
 - **Tap** a device for details. **Long-press** for watchlist, whitelist,
   favorite, copy, ignore, and **Report unknown device**.
 - **Floating bubble** (Settings, needs *Display over other apps*): green when
   clear, orange for probable, red for strong or a follower, with the count.
+- **Floating mini map** (Settings, same permission): the devices and known
+  cameras around you over Waze, Google Maps or any app, centred on you, with a
+  threat-colour border. Pinch to zoom, drag to move, the corner handle resizes
+  it, tap to open the full map.
 - **In the car** (Settings → *Start scanning automatically in the car*): pick
   your car's Bluetooth; scanning starts when the phone connects to it or to
   Android Auto, and stops when you leave if the car started it.
@@ -356,18 +365,37 @@ only. The board's UniPwn, PCAP and Foxhunter engines are never used.
 Plug a supported USB WiFi adapter into the phone with an OTG cable while
 scanning and allow USB access on the prompt. RF Sentinel drives it directly
 over Android's USB host API (no root, no kernel driver), puts it in
-**receive-only monitor mode** and hops the 2.4 GHz channels. Access points
+**receive-only monitor mode** and hops the channels (2.4 GHz on 88xxau; 2.4 GHz,
+the common 5 GHz channels and the radar channels in rotation on 88x2bu). Access points
 (beacons, probe responses) and client devices (probe requests, data frames)
 go through RF Sentinel's own rules like everything else, with a purple
 **USB WIFI** badge.
 
 | Chip | Example adapters | Status |
 |---|---|---|
-| Realtek RTL8811AU / RTL8821AU (`0bda:0811`) | ALFA AWUS036ACS | Supported |
+| Realtek RTL8811AU / RTL8821AU (`0bda:0811`) | ALFA AWUS036ACS | Supported (2.4 GHz) |
+| Realtek RTL8812BU / RTL8822BU (`0bda:b812`, `0bda:b82c` and ~35 other IDs) | TP-Link Archer T3U, ASUS USB-AC53/AC55/AC58, Edimax EW-7822U*, Wise Tiger AC1200 | Supported (2.4 + 5 GHz), tested on a Wise Tiger 8812BU |
 | RTL8812AU, RTL8814AU, AR9271, MT7612U, RT3070, RTL8187 | AWUS036ACH, AWUS1900, AWUS036NHA... | Detected and named, not supported yet |
 
 The adapter never transmits. Settings shows its status and can share its
 driver log for troubleshooting.
+
+On a single-antenna 8812BU dongle the antenna sits on one of the chip's two
+receive paths, while the chip hears 2.4 GHz beacons on path A only. RF Sentinel
+compares both paths on the first seconds of traffic and moves 2.4 GHz reception
+to the one with the antenna (about 30 dB better on the dongle we tested - more
+than Realtek's own Windows driver gets from it).
+
+**Requested networks** (Menu → *Requested networks*): phones and laptops ask by
+name for networks they joined before. With an adapter or a Marauder board
+plugged in, RF Sentinel can keep these names (off by default: they're other
+people's network names; always kept while a map trace records). Tap **Watch** on
+one to get an alert whenever any device asks for it. Devices also show their
+**WPS** maker / model / name, a **probe fingerprint** you can watch ("every
+device of this type", even with random addresses), and hidden networks show
+their real name once a device joins them. Built in: Axon Fleet in-car network
+names ("Axon12-5g", vehicle number + "-5g") and Cradlepoint vehicle routers on
+their default names.
 
 ## Themes
 
@@ -602,8 +630,11 @@ RTL8821AU adapters (`app/src/main/java/com/rfsentinel/app/usb/`) is ported from
 whose register tables come from Realtek's 88xxau Linux driver
 ([aircrack-ng/rtl8812au](https://github.com/aircrack-ng/rtl8812au), GPL-2.0; see
 `usb/NOTICE.md`); its handshake /
-PMKID capture was left out. The map's anchored point layer follows Wardrive Go's
-approach - thank you.
+PMKID capture was left out. The RTL8812BU / RTL8822BU driver is ported from the
+receive path of [devourer](https://github.com/OpenIPC/devourer) by OpenIPC
+(GPL-2.0), with the firmware and register tables from Realtek's rtl88x2bu
+driver; every transmit path was left out. The map's anchored point layer follows
+Wardrive Go's approach - thank you.
 
 Part of the MAC-prefix data was cross-checked with, and extended from, the lists
 in [Flock You](https://github.com/colonelpanichacks/flock-you) and

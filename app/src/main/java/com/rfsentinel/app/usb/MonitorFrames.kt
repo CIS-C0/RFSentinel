@@ -19,12 +19,17 @@ class MonitorFrames {
         var wps: ProbeIntel.Wps? = null
         /** How it builds its probe requests ([ProbeIntel.fingerprint]). */
         var fingerprint: String? = null
+        /** An access point that hides its name (blank name in its beacons). */
+        var hidden = false
         // Per-window counters for driver diagnostics (debug builds).
         var winHits = 0; var winMeasured = 0; var winMax = -128; var winSum = 0L
         var winOfdm = 0; var winA = -128; var winB = -128
     }
 
     private val sightings = LinkedHashMap<String, Sighting>()
+
+    /** Names of hidden networks seen in connection requests before their access point was heard. */
+    private val pendingNames = LinkedHashMap<String, String>()
 
     val tracked: Int get() = sightings.size
 
@@ -68,7 +73,12 @@ class MonitorFrames {
                     val ies = Ies.read(b, d + 36, end)
                     touch(a3, ap = true, ch = ies.channel.takeIf { validChannel(it) } ?: channel)?.let {
                         it.isAp = true
-                        if (ies.ssid != null && it.ssid == null) it.ssid = ies.ssid
+                        val name = ies.ssid?.takeIf { n -> validSsid(n) }
+                        // A hidden network beacons a blank name, but answers a device that asks for
+                        // it by name with the real one (probe response).
+                        if (name == null) { if (sub == 8) it.hidden = true }
+                        else if (it.ssid == null) it.ssid = name
+                        if (it.ssid == null) pendingNames.remove(it.mac)?.let { n -> it.ssid = n }
                         ies.wps?.let { w -> it.wps = w }
                     }
                 }
@@ -83,13 +93,29 @@ class MonitorFrames {
                         if (s.probed.size > MAX_PROBED) s.probed.remove(s.probed.first())
                     }
                 }
-                0, 2, 10, 11, 12 -> if (captureClients) touch(a2, ap = false)?.let { it.bssid = mac(b, a3) }
+                0, 2, 10, 11, 12 -> {
+                    // A device joining a network names it in its (re)association request: that
+                    // also reveals a hidden network's name.
+                    if (sub == 0 || sub == 2) revealFromAssociation(b, d + 24 + (if (sub == 0) 4 else 10), end, mac(b, a3))
+                    if (captureClients) touch(a2, ap = false)?.let { it.bssid = mac(b, a3) }
+                }
             }
             2 -> if (captureClients) when {
                 toDs == 1 && fromDs == 0 -> touch(a2, ap = false)?.let { it.bssid = mac(b, a1) }
                 toDs == 0 && fromDs == 1 -> touch(a1, ap = false)?.let { it.bssid = mac(b, a2) }
                 else -> touch(a2, ap = false)
             }
+        }
+    }
+
+    private fun revealFromAssociation(b: ByteArray, from: Int, end: Int, bssid: String) {
+        if (from >= end) return
+        val name = Ies.read(b, from, end).ssid?.takeIf { validSsid(it) } ?: return
+        val ap = sightings[bssid]
+        if (ap != null) { if (ap.ssid == null) ap.ssid = name }
+        else {
+            pendingNames[bssid] = name
+            if (pendingNames.size > 200) pendingNames.remove(pendingNames.keys.first())
         }
     }
 
@@ -112,7 +138,8 @@ class MonitorFrames {
                 bssid = s.bssid,
                 probedSsids = s.probed.toList(),
                 wps = s.wps,
-                fingerprint = s.fingerprint
+                fingerprint = s.fingerprint,
+                hiddenNetwork = s.hidden
             )
         }
         sightings.entries.removeAll { now - it.value.lastSeen > pruneMs }

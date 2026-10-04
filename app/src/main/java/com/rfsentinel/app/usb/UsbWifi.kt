@@ -26,7 +26,9 @@ data class MonitorSighting(
     /** Maker / model / device name from its WPS block. */
     val wps: ProbeIntel.Wps? = null,
     /** How it builds its probe requests: marks a device model / OS ([ProbeIntel.fingerprint]). */
-    val fingerprint: String? = null
+    val fingerprint: String? = null,
+    /** An access point hiding its name; [ssid] is then the name revealed by a device joining or asking for it. */
+    val hiddenNetwork: Boolean = false
 )
 
 /**

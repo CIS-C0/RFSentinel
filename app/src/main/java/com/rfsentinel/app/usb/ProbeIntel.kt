@@ -84,15 +84,16 @@ object ProbeIntel {
     private fun hex(b: ByteArray, at: Int, len: Int) = (at until at + len).joinToString("") { "%02x".format(b[it].toInt() and 0xff) }
 
     /** What external hardware learned about a device this scan, for its detail screen. */
-    data class Record(val wps: Wps?, val fingerprint: String?, val probed: List<String>)
+    data class Record(val wps: Wps?, val fingerprint: String?, val probed: List<String>, val hidden: Boolean = false)
 
     private val byMac = ConcurrentHashMap<String, Record>()
 
-    fun note(mac: String, wps: Wps?, fingerprint: String?, probed: List<String>) {
-        if (wps == null && fingerprint == null && probed.isEmpty()) return
+    fun note(mac: String, wps: Wps?, fingerprint: String?, probed: List<String>, hidden: Boolean = false) {
+        if (wps == null && fingerprint == null && probed.isEmpty() && !hidden) return
         val key = mac.uppercase()
         val old = byMac[key]
-        byMac[key] = Record(wps ?: old?.wps, fingerprint ?: old?.fingerprint, probed.ifEmpty { old?.probed.orEmpty() })
+        byMac[key] = Record(wps ?: old?.wps, fingerprint ?: old?.fingerprint, probed.ifEmpty { old?.probed.orEmpty() },
+            hidden || old?.hidden == true)
         if (byMac.size > 5000) byMac.keys.take(500).forEach { byMac.remove(it) }
     }
 

@@ -618,9 +618,9 @@
 </details>
 
 <details class="faq" id="usb-wifi-adapter">
-<summary>Can I use a USB WiFi adapter like the ALFA AWUS036ACS with Android?</summary>
+<summary>Can I use a USB WiFi adapter like the ALFA AWUS036ACS or an RTL8812BU dongle with Android?</summary>
 <div>
-<p>Yes, with RF Sentinel 2.11+. Plug an RTL8811AU / RTL8821AU adapter (e.g. AWUS036ACS) into the phone with an OTG cable while scanning and allow USB access. RF Sentinel drives it directly over Android's USB host API (no root), in receive-only monitor mode on the 2.4 GHz channels: no 30-second scan limit, longer range, and it hears client devices (laptops, phones, cameras on a network) that a phone's WiFi scan can't. The driver is ported from Wardrive Go (GPL-3.0). Other chips (RTL8812AU, RTL8814AU, AR9271, MT7612U) are recognised but not supported yet.</p>
+<p>Yes, with RF Sentinel 2.11+. Plug an RTL8811AU / RTL8821AU adapter (e.g. AWUS036ACS) into the phone with an OTG cable while scanning and allow USB access. RF Sentinel drives it directly over Android's USB host API (no root), in receive-only monitor mode on the 2.4 GHz channels: no 30-second scan limit, longer range, and it hears client devices (laptops, phones, cameras on a network) that a phone's WiFi scan can't. The driver is ported from Wardrive Go (GPL-3.0). Since 2.12, RTL8812BU / RTL8822BU adapters (TP-Link Archer T3U, ASUS USB-AC53/AC55/AC58, Edimax EW-7822U*, generic AC1200 dongles) work too, on 2.4 and 5 GHz, with a driver ported from OpenIPC devourer (GPL-2.0); single-antenna dongles are handled automatically. With an adapter plugged in, RF Sentinel can also list the WiFi names nearby devices ask for (Menu → Requested networks) and alert when a watched name is asked for. Other chips (RTL8812AU, RTL8814AU, AR9271, MT7612U) are recognised but not supported yet.</p>
 </div>
 </details>
 
@@ -641,7 +641,7 @@
 <details class="faq" id="flipper">
 <summary>Does it work with Flipper Zero or a WiFi Pineapple?</summary>
 <div>
-<p>A Flipper Zero with an ESP32 board running Marauder (for example the BFFB) works since 2.11.1: plug the Flipper into the phone and open <b>GPIO → USB-UART Bridge</b>. A WiFi Pineapple isn't supported. Other supported hardware: ESP32 boards running OUI-Spy, GhostESP or Marauder, and RTL8811AU / 8821AU USB WiFi adapters.</p>
+<p>A Flipper Zero with an ESP32 board running Marauder (for example the BFFB) works since 2.11.1: plug the Flipper into the phone and open <b>GPIO → USB-UART Bridge</b>. A WiFi Pineapple isn't supported. Other supported hardware: ESP32 boards running OUI-Spy, GhostESP or Marauder, and RTL8811AU / 8821AU or RTL8812BU / 8822BU USB WiFi adapters.</p>
 </div>
 </details>
 

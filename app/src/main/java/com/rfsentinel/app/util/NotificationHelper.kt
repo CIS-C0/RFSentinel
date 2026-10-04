@@ -199,6 +199,19 @@ object NotificationHelper {
     }
 
     /** Posts the match notification; sound/vibration/voice are played by the caller. */
+    /**
+     * The car heads-up's line, readable at a glance: what it is, how sure, about how far,
+     * signal, and how many other devices are flagged around you.
+     * e.g. "BODY CAM · strong · ~40 m · near (-58 dBm) · +2 more flagged"
+     */
+    internal fun carAlertText(hit: Hit, rssi: Int, distanceM: Double?, othersFlagged: Int): String = listOfNotNull(
+        hit.category.shortTag,
+        hit.tier.label.substringBefore(" -"),
+        distanceM?.let { com.rfsentinel.app.detect.DeviceIntel.formatDistance(it) },
+        "${ProximityUtil.band(rssi).lowercase()} ($rssi dBm)",
+        othersFlagged.takeIf { it > 0 }?.let { "+$it more flagged" }
+    ).joinToString(" · ")
+
     fun sendAlert(context: Context, mac: String, hit: Hit, rssi: Int, following: Boolean = false) {
         // A drone with a Remote ID position is logged where it is; anything else where you were.
         val rid = com.rfsentinel.app.service.DeviceRegistry.get(mac)?.remoteId?.takeIf { it.hasPosition }
@@ -216,7 +229,11 @@ object NotificationHelper {
             following -> "May be following you: ${hit.label}"
             else -> "Nearby: ${hit.label}"
         }
-        val text = "${hit.category.title} · ${hit.tier.label} (${hit.confidence}%) · $rssi dBm"
+        val snap = com.rfsentinel.app.service.DeviceRegistry.get(mac)
+        val others = com.rfsentinel.app.service.DeviceRegistry.snapshot()
+            .count { it.mac != mac && com.rfsentinel.app.ui.DeviceColors.isFlagged(it) }
+        val text = "${hit.category.title} · ${hit.tier.label} (${hit.confidence}%) · $rssi dBm" +
+            (snap?.let { " · " + com.rfsentinel.app.detect.DeviceIntel.formatDistance(it.distanceM) } ?: "")
 
         val publicVersion = NotificationCompat.Builder(context, CHANNEL_ALERTS)
             .setContentTitle("RF Sentinel")
@@ -242,7 +259,7 @@ object NotificationHelper {
             .extend(
                 CarAppExtender.Builder()
                     .setContentTitle(if (discreet) "RF Sentinel" else title)
-                    .setContentText(if (discreet) "New alert" else "${hit.category.shortTag} \u00b7 ${hit.tier.label} \u00b7 $rssi dBm")
+                    .setContentText(if (discreet) "New alert" else carAlertText(hit, rssi, snap?.distanceM, others))
                     .setSmallIcon(R.drawable.ic_tile_scan)
                     .setImportance(NotificationManagerCompat.IMPORTANCE_HIGH)
                     .setContentIntent(

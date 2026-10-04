@@ -240,6 +240,8 @@ class DeviceDetailActivity : AppCompatActivity() {
         s?.facts?.forEach { id += it }
         // Heard by a USB WiFi adapter / Marauder board: its WPS block, fingerprint, network requests.
         com.rfsentinel.app.usb.ProbeIntel.of(mac)?.let { r ->
+            if (r.hidden) id += "Hidden network" to (s?.name?.let { "Its name, \"$it\", was revealed by a device joining or asking for it" }
+                ?: "It hides its name - shown once a device joins or asks for it (USB WiFi adapter)")
             r.wps?.deviceName?.let { id += "Device name (WPS)" to it }
             r.wps?.product?.let { id += "Maker / model (WPS)" to it }
             r.fingerprint?.let { fp ->

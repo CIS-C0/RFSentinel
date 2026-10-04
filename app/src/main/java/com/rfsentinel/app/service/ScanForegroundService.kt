@@ -490,8 +490,8 @@ class ScanForegroundService : Service() {
      * its WPS maker / model / name and its probe fingerprint. All checked against the watchlist.
      */
     private fun noteProbes(mac: String, ssids: List<String>, rssi: Int, now: Long,
-                           wps: com.rfsentinel.app.usb.ProbeIntel.Wps? = null, fingerprint: String? = null) {
-        com.rfsentinel.app.usb.ProbeIntel.note(mac, wps, fingerprint, ssids)
+                           wps: com.rfsentinel.app.usb.ProbeIntel.Wps? = null, fingerprint: String? = null, hidden: Boolean = false) {
+        com.rfsentinel.app.usb.ProbeIntel.note(mac, wps, fingerprint, ssids, hidden)
         // Kept in the requested-networks list when that's on, and always while a trace records.
         if (ssids.isNotEmpty()) com.rfsentinel.app.data.ProbeLog.record(this, mac, ssids, rssi, now, force = TripRecorder.isRecording)
         val hits = OuiWatchlist.probeHits(ssids) + OuiWatchlist.fingerprintHits(fingerprint) + OuiWatchlist.wpsHits(wps)
@@ -506,7 +506,7 @@ class ScanForegroundService : Service() {
         val now = System.currentTimeMillis()
         val mac = com.rfsentinel.app.util.MacUtil.normalize(m.mac)
         com.rfsentinel.app.esp.HeardBy.usb.mark(mac, now)
-        noteProbes(mac, m.probedSsids, m.rssi, now, m.wps, m.fingerprint)
+        noteProbes(mac, m.probedSsids, m.rssi, now, m.wps, m.fingerprint, m.hiddenNetwork)
         process(Advert(
             // A client has no network name; its WPS device name or model says what it is.
             mac = mac, source = Advert.Source.WIFI, rssi = m.rssi, name = m.ssid ?: m.wps?.label,
@@ -905,7 +905,16 @@ class ScanForegroundService : Service() {
                             com.rfsentinel.app.ui.FloatingMap.Dot(p.lat, p.lon,
                                 com.rfsentinel.app.ui.DeviceColors.forDevice(ctx, s), com.rfsentinel.app.ui.DeviceColors.isFlagged(s))
                         }
-                        com.rfsentinel.app.ui.FloatingMap.update(ctx, level, flagged.size, lastFix, dots)
+                        // Known cameras within ~5 km, when the map shows them.
+                        val fix = lastFix
+                        val cams = if (fix == null || !Prefs.showKnownAlpr(ctx)) emptyList() else
+                            com.rfsentinel.app.alpr.AlprStore.cameras.asSequence()
+                                .filter { kotlin.math.abs(it.lat - fix.latitude) < 0.045 && kotlin.math.abs(it.lon - fix.longitude) < 0.065 }
+                                .take(400)
+                                .map { com.rfsentinel.app.ui.FloatingMap.Cam(it.lat, it.lon, it.type,
+                                    com.rfsentinel.app.alpr.IgnoredCameras.contains(ctx, it.osmId)) }
+                                .toList()
+                        com.rfsentinel.app.ui.FloatingMap.update(ctx, level, flagged.size, fix, dots, cams)
                     } else com.rfsentinel.app.ui.FloatingMap.hide(ctx)
                 }
                 delay(2_000)

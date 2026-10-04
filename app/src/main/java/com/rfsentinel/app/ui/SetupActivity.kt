@@ -256,7 +256,7 @@ class SetupActivity : AppCompatActivity() {
             Prefs.setCellChangeAlerts(this, it)
         }
         para("Extra hardware works on its own once plugged in while scanning: ESP32 boards (OUI-Spy, GhostESP, Marauder - also ESP32-C5 boards for 5 GHz, and a Flipper Zero with its ESP32 board) " +
-            "and USB WiFi adapters such as the ALFA AWUS036ACS. An OUI-SPY board over Bluetooth is paired in Settings.", small = true)
+            "and USB WiFi adapters (RTL8811AU / 8821AU such as the ALFA AWUS036ACS, or RTL8812BU / 8822BU). An OUI-SPY board over Bluetooth is paired in Settings.", small = true)
     }
 
     private fun permissions() {
