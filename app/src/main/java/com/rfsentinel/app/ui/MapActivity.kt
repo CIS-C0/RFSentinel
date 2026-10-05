@@ -93,6 +93,8 @@ class MapActivity : AppCompatActivity() {
     private val pins by lazy { PointsOverlay<Pin>(resources.displayMetrics.density) { showPins(it) } }
     /** Live drones from Remote ID: aircraft, operator and the line between them. */
     private val drones = FolderOverlay()
+    /** Aircraft from the ADS-B feeds (Settings > What to detect > Police / government aircraft). */
+    private val aircraft = FolderOverlay()
     /** Plate-reader cameras mapped in OpenStreetMap (downloaded on request). */
     private val knownAlpr by lazy {
         PointsOverlay<com.rfsentinel.app.alpr.KnownCamera>(resources.displayMetrics.density) { showKnownCamera(it.first()) }
@@ -176,6 +178,7 @@ class MapActivity : AppCompatActivity() {
         map.overlays.add(trace)
         map.overlays.add(pins)
         map.overlays.add(drones)
+        map.overlays.add(aircraft)
         // Redraw the camera layer for the visible area after panning / zooming.
         map.addMapListener(object : org.osmdroid.events.MapListener {
             override fun onScroll(event: org.osmdroid.events.ScrollEvent?) = false.also {
@@ -338,6 +341,7 @@ class MapActivity : AppCompatActivity() {
         drawPins(drawn)
         updateFilterCounts(devices)
         drawDrones(devices.filter { it.remoteId?.hasPosition == true })
+        drawAircraft()
 
         val positioned = devices.count { it.bestPosition != null }
         binding.statusText.text = when {
@@ -516,6 +520,82 @@ class MapActivity : AppCompatActivity() {
                 setOnMarkerClickListener { _, _ -> showDrone(s, details); true }
             })
         }
+    }
+
+    /**
+     * Aircraft from the latest ADS-B poll: police / government / circling ones in bold
+     * purple with their agency and altitude, every other aircraft small and grey, each
+     * pointing along its track. Tap one for its details.
+     */
+    private fun drawAircraft() {
+        aircraft.items.clear()
+        val list = com.rfsentinel.app.online.PoliceAircraft.latest
+        if (list.isEmpty() || System.currentTimeMillis() - com.rfsentinel.app.online.PoliceAircraft.latestAt > 3 * 60_000L) return
+        val dp = resources.displayMetrics.density
+        // Ordinary traffic first, so flagged aircraft are drawn on top.
+        for ((p, hit) in list.sortedBy { it.hit != null }) {
+            val flagged = hit != null
+            val at = GeoPoint(p.lat, p.lon)
+            aircraft.add(Marker(binding.map).apply {
+                position = at
+                icon = android.graphics.drawable.BitmapDrawable(resources, MapIcons.planeIcon(dp, flagged))
+                rotation = -(p.trackDeg ?: 0.0).toFloat() // osmdroid rotates counter-clockwise
+                isFlat = true
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                setOnMarkerClickListener { _, _ -> showAircraft(p, hit); true }
+            })
+            if (flagged) {
+                val label = listOfNotNull(
+                    hit!!.label.substringAfter(": ", hit.label).take(28),
+                    p.altitudeFt?.takeIf { it > 0 }?.let { "$it ft" }
+                ).joinToString(" · ")
+                aircraft.add(Marker(binding.map).apply {
+                    position = at
+                    icon = android.graphics.drawable.BitmapDrawable(resources, aircraftLabel(dp, label))
+                    setAnchor(Marker.ANCHOR_CENTER, -0.9f) // just below the plane, never rotated
+                    setOnMarkerClickListener { _, _ -> showAircraft(p, hit); true }
+                })
+            }
+        }
+    }
+
+    private fun aircraftLabel(dp: Float, text: String): android.graphics.Bitmap {
+        val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = 11 * dp
+            color = android.graphics.Color.WHITE
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        val pad = 4 * dp
+        val w = (p.measureText(text) + 2 * pad).toInt()
+        val h = (p.textSize + 2 * pad).toInt()
+        val bmp = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+        val c = android.graphics.Canvas(bmp)
+        val bg = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = MapIcons.POLICE_AIRCRAFT_COLOR }
+        c.drawRoundRect(android.graphics.RectF(0f, 0f, w.toFloat(), h.toFloat()), 4 * dp, 4 * dp, bg)
+        c.drawText(text, pad, h - pad - p.descent() / 2, p)
+        return bmp
+    }
+
+    private fun showAircraft(p: com.rfsentinel.app.online.PoliceAircraft.Plane, hit: com.rfsentinel.app.detect.Hit?) {
+        val me = myLocation.myLocation
+        val text = buildString {
+            hit?.let { append(it.evidence).append("\n\n") }
+            p.registration?.let { append("Registration: $it\n") }
+            p.callsign?.let { append("Callsign: $it\n") }
+            p.type?.let { append("Type: $it\n") }
+            p.owner?.let { append("Owner / operator: $it\n") }
+            p.altitudeFt?.let { append(if (it <= 0) "On the ground\n" else "Altitude: $it ft\n") }
+            p.speedKt?.let { append(String.format(Locale.US, "Speed: %.0f kt (%.0f km/h)\n", it, it * 1.852)) }
+            p.trackDeg?.let { append(String.format(Locale.US, "Heading: %.0f°\n", it)) }
+            me?.let { append(String.format(Locale.US, "Distance: %.1f km\n",
+                DeviceRegistry.metersBetween(it.latitude, it.longitude, p.lat, p.lon) / 1000)) }
+            append("ICAO address: ${p.hex.uppercase()}\nSource: community ADS-B (adsb.fi / adsb.lol)")
+        }
+        AlertDialog.Builder(this)
+            .setTitle(hit?.label ?: (p.registration ?: p.callsign ?: "Aircraft"))
+            .setMessage(text)
+            .setPositiveButton("OK", null)
+            .show()
     }
 
     private fun droneDetails(s: DeviceRegistry.Snapshot, r: com.rfsentinel.app.detect.RemoteId.Info) = buildString {

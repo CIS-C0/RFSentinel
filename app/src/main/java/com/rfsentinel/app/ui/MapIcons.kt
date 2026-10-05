@@ -45,6 +45,47 @@ object MapIcons {
         return bmp
     }
 
+    const val POLICE_AIRCRAFT_COLOR = 0xFF5E35B1.toInt()
+
+    /**
+     * An aircraft seen from above, nose up (the marker rotates it to its track). Police /
+     * government aircraft: bold purple with a white outline; other traffic: small and grey.
+     */
+    fun planeIcon(dp: Float, police: Boolean): Bitmap {
+        val s = ((if (police) 30 else 18) * dp).toInt()
+        val bmp = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val w = s.toFloat()
+        val path = android.graphics.Path().apply {
+            moveTo(w * 0.50f, w * 0.04f)              // nose
+            lineTo(w * 0.57f, w * 0.38f)
+            lineTo(w * 0.96f, w * 0.56f)              // right wing
+            lineTo(w * 0.96f, w * 0.64f)
+            lineTo(w * 0.57f, w * 0.56f)
+            lineTo(w * 0.55f, w * 0.80f)
+            lineTo(w * 0.70f, w * 0.90f)              // right tail
+            lineTo(w * 0.70f, w * 0.96f)
+            lineTo(w * 0.50f, w * 0.91f)
+            lineTo(w * 0.30f, w * 0.96f)
+            lineTo(w * 0.30f, w * 0.90f)              // left tail
+            lineTo(w * 0.45f, w * 0.80f)
+            lineTo(w * 0.43f, w * 0.56f)
+            lineTo(w * 0.04f, w * 0.64f)
+            lineTo(w * 0.04f, w * 0.56f)              // left wing
+            lineTo(w * 0.43f, w * 0.38f)
+            close()
+        }
+        val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        p.color = if (police) POLICE_AIRCRAFT_COLOR else 0xB3707C80.toInt()
+        c.drawPath(path, p)
+        p.style = Paint.Style.STROKE
+        p.strokeJoin = Paint.Join.ROUND
+        p.strokeWidth = (if (police) 1.8f else 1f) * dp
+        p.color = if (police) Color.WHITE else 0xCCFFFFFF.toInt()
+        c.drawPath(path, p)
+        return bmp
+    }
+
     /** A cell tower: a mast with two radio waves on a dark disc. */
     fun towerIcon(dp: Float): Bitmap {
         val s = (20 * dp).toInt()

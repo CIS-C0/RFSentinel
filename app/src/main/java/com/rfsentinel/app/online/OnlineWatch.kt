@@ -46,6 +46,7 @@ class OnlineWatch(
             }
         } else if (!wantAir) {
             aircraftJob?.cancel(); aircraftJob = null; AmbientThreats.aircraft = null; aircraftStatus = ""
+            PoliceAircraft.latest = emptyList()
         }
         val wantWaze = Prefs.categoryEnabled(context, Category.POLICE_REPORT) && Prefs.wazeAccepted(context)
         // A new or changed key is tried right away, not at the next 4-minute round.
@@ -64,22 +65,27 @@ class OnlineWatch(
         aircraftJob?.cancel(); wazeJob?.cancel()
         aircraftJob = null; wazeJob = null
         AmbientThreats.clear()
+        PoliceAircraft.latest = emptyList()
     }
 
     private fun pollAircraft() {
         val me = location() ?: run { aircraftStatus = "Waiting for a GPS fix"; return }
         val registry = PoliceAircraft.load(context)
         var lastError: String? = null
-        val json = PoliceAircraft.feedUrls(me.latitude, me.longitude).firstNotNullOfOrNull { url ->
+        val radiusKm = Prefs.aircraftRadiusKm(context)
+        val json = PoliceAircraft.feedUrls(me.latitude, me.longitude, radiusKm).firstNotNullOfOrNull { url ->
             runCatching { get(url, emptyMap()) }.onFailure { lastError = it.message }.getOrNull()
         } ?: run { aircraftStatus = "ADS-B feeds unreachable" + (lastError?.let { " ($it)" } ?: ""); return }
         val planes = PoliceAircraft.parseFeed(json)
         val now = System.currentTimeMillis()
         var best: Hit? = null
+        val seen = ArrayList<PoliceAircraft.Seen>(planes.size)
         synchronized(loiter) {
             for (p in planes) {
                 val circling = loiter.update(p, now)
-                val hit = PoliceAircraft.classify(p, registry, circling, PoliceAircraft.distance(p, me.latitude, me.longitude)) ?: continue
+                val hit = PoliceAircraft.classify(p, registry, circling, PoliceAircraft.distance(p, me.latitude, me.longitude))
+                seen += PoliceAircraft.Seen(p, hit)
+                if (hit == null) continue
                 if (best == null || hit.confidence > best!!.confidence) best = hit
                 // One report per aircraft per 20 minutes (or sooner if it starts circling).
                 val last = lastAircraftHit[p.hex] ?: 0L
@@ -91,8 +97,10 @@ class OnlineWatch(
             loiter.prune(now)
             lastAircraftHit.entries.removeAll { now - it.value > AIRCRAFT_REPEAT_MS }
         }
+        PoliceAircraft.latest = seen
+        PoliceAircraft.latestAt = now
         AmbientThreats.aircraft = best?.let { now to AmbientThreats.Threat(it.confidence, it.label, Category.AIRCRAFT) }
-        aircraftStatus = "Updated ${clock(now)}: ${planes.size} aircraft within 15 km" +
+        aircraftStatus = "Updated ${clock(now)}: ${planes.size} aircraft within $radiusKm km" +
             (best?.let { " · ${it.label}" } ?: ", none police")
     }
 

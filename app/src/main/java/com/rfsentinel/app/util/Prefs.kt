@@ -117,6 +117,10 @@ object Prefs {
     fun setSpeedCameraAlerts(context: Context, value: Boolean) = setBool(context, "speed_camera_alerts", value)
     /** Fetch known cameras for the map area on screen (and around you in the car) automatically. */
     /** Radius of "download the cameras around me" (Settings, setup wizard, map menu), in km. */
+    /** How far to look for aircraft (ADS-B feeds), 10-50 km. */
+    fun aircraftRadiusKm(context: Context): Int = int(context, "aircraft_radius_km", 30).coerceIn(10, 50)
+    fun setAircraftRadiusKm(context: Context, km: Int) = setInt(context, "aircraft_radius_km", km.coerceIn(10, 50))
+
     fun cameraRadiusKm(context: Context): Int = int(context, "camera_radius_km", 100).coerceIn(10, 200)
     fun setCameraRadiusKm(context: Context, km: Int) = setInt(context, "camera_radius_km", km.coerceIn(10, 200))
 

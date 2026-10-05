@@ -425,6 +425,37 @@ class SettingsActivity : AppCompatActivity() {
         view.visibility = if (text.isBlank()) View.GONE else View.VISIBLE
     }
 
+    /** Aircraft search radius (10-50 km) and the feed status, under the aircraft switch. */
+    private fun addAircraftControls(sw: SwitchMaterial) {
+        val dp = resources.displayMetrics.density
+        val box = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding((24 * dp).toInt(), 0, 0, (6 * dp).toInt())
+        }
+        val radiusText = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
+        fun showRadius(km: Int) { radiusText.text = "Look for aircraft within $km km" }
+        val km = Prefs.aircraftRadiusKm(this)
+        showRadius(km)
+        box.addView(radiusText)
+        box.addView(com.google.android.material.slider.Slider(this).apply {
+            valueFrom = 10f; valueTo = 50f; stepSize = 5f
+            value = (km - km % 5).coerceIn(10, 50).toFloat()
+            contentDescription = "Aircraft search radius in kilometres"
+            setLabelFormatter { "${it.toInt()} km" }
+            addOnChangeListener { _, v, fromUser ->
+                if (!fromUser) return@addOnChangeListener
+                Prefs.setAircraftRadiusKm(this@SettingsActivity, v.toInt())
+                showRadius(v.toInt())
+            }
+        })
+        aircraftStatusText = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
+        box.addView(aircraftStatusText)
+        showNote(aircraftStatusText, com.rfsentinel.app.online.OnlineWatch.aircraftStatus)
+        box.visibility = if (sw.isChecked) View.VISIBLE else View.GONE
+        binding.categoryContainer.addView(box)
+        sw.setOnCheckedChangeListener { _, on -> box.visibility = if (on) View.VISIBLE else View.GONE }
+    }
+
     /**
      * Waze police reports: off by default, enabled only after the use-at-your-own-risk
      * warning is accepted; the user's OpenWeb Ninja key is kept encrypted (SecureStore).
@@ -598,10 +629,7 @@ class SettingsActivity : AppCompatActivity() {
                 sw.setOnCheckedChangeListener { _, on -> airTagSwitch?.isEnabled = on }
                 binding.categoryContainer.addView(airTagSwitch)
             }
-            if (c == Category.AIRCRAFT) {
-                aircraftStatusText = indentedNote(com.rfsentinel.app.online.OnlineWatch.aircraftStatus)
-                binding.categoryContainer.addView(aircraftStatusText)
-            }
+            if (c == Category.AIRCRAFT) addAircraftControls(sw)
             if (c == Category.POLICE_REPORT) addWazeControls(sw)
         }
         val enabledPresets = OuiWatchlist.getEnabledPresets(this)

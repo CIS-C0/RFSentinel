@@ -174,16 +174,21 @@ object PoliceAircraft {
     /** Ground distance in metres. */
     fun distance(p: Plane, lat: Double, lon: Double): Double = DeviceRegistry.metersBetween(lat, lon, p.lat, p.lon)
 
-    /** Feed radius, in nautical miles (about 15 km). */
-    const val RADIUS_NM = 8
+    /** One aircraft as last heard, with what it matched (null: ordinary traffic). */
+    data class Seen(val plane: Plane, val hit: Hit?)
 
-    fun feedUrls(lat: Double, lon: Double): List<String> {
+    /** Every aircraft from the latest poll, for the map; empty when the source is off. */
+    @Volatile var latest: List<Seen> = emptyList()
+    @Volatile var latestAt = 0L
+
+    fun feedUrls(lat: Double, lon: Double, radiusKm: Int): List<String> {
+        val nm = Math.round(radiusKm / 1.852).toInt().coerceIn(1, 250)
         // Rounded to ~1 km: the feeds don't need your exact position.
         val la = String.format(java.util.Locale.US, "%.2f", lat)
         val lo = String.format(java.util.Locale.US, "%.2f", lon)
         return listOf(
-            "https://opendata.adsb.fi/api/v2/lat/$la/lon/$lo/dist/$RADIUS_NM",
-            "https://api.adsb.lol/v2/point/$la/$lo/$RADIUS_NM"
+            "https://opendata.adsb.fi/api/v2/lat/$la/lon/$lo/dist/$nm",
+            "https://api.adsb.lol/v2/point/$la/$lo/$nm"
         )
     }
 
