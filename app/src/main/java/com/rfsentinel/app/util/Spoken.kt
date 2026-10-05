@@ -38,6 +38,8 @@ object Spoken {
         Category.GLASSES -> "Camera glasses"
         Category.NETWORK_CAMERA -> "Camera"
         Category.CELL_ANOMALY -> "Cell warning"
+        Category.RADIO -> "Radio nearby"
+        Category.GNSS -> "GPS warning"
         Category.CUSTOM -> "Watchlist"
     }
 }

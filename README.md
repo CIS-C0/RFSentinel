@@ -395,6 +395,26 @@ compares both paths on the first seconds of traffic and moves 2.4 GHz reception
 to the one with the antenna (about 30 dB better on the dongle we tested - more
 than Realtek's own Windows driver gets from it).
 
+### RTL-SDR: two-way radio transmitting nearby
+
+Plug an RTL-SDR dongle (R820T / R820T2 / R860 tuner, e.g. RTL-SDR Blog V3, or the
+RTL-SDR Blog V4) into the phone with an OTG cable while scanning. RF Sentinel
+sweeps the North American public-safety radio bands - the 700 and 800 MHz bands
+where police, fire and EMS radios (not towers) transmit, and the shared VHF / UHF
+land-mobile bands - and measures only **how much energy each 12.5 kHz channel
+carries**. Nothing is demodulated, decoded, recorded or decrypted: it can't know
+what was said or who said it.
+
+It first learns which channels are busy all the time where you are (towers,
+repeaters, trunking control channels, pagers) and ignores them; a strong burst on
+a normally quiet channel means a radio is transmitting close by, and raises a
+**Two-way radio transmitting nearby** alert (category *RADIO*, can be switched off
+in Settings). On 700 / 800 MHz that's a probable sign of a public-safety radio; on
+VHF / UHF, which businesses, schools and transit share, only a very strong signal
+counts, and only as a weak sign. Consumer walkie-talkies (FRS / GMRS, MURS),
+marine, railroad, weather and paging channels are skipped. The dongle's log is in
+the exported USB adapter log.
+
 **Requested networks** (Menu → *Requested networks*): phones and laptops ask by
 name for networks they joined before. With an adapter or a Marauder board
 plugged in, RF Sentinel can keep these names (off by default: they're other

@@ -111,10 +111,12 @@ class MainActivity : AppCompatActivity() {
                 menu.add(0, 1, 0, "Cell towers")
                 menu.add(0, 2, 1, "WiFi channels")
                 menu.add(0, 3, 2, "WiFi spectrum")
+                menu.add(0, 4, 3, "Satellites (GPS, Galileo, GLONASS, BeiDou)")
                 setOnMenuItemClickListener { item ->
                     when (item.itemId) {
                         1 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.CellTowersActivity::class.java))
                         2 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.WifiAnalyzerActivity::class.java))
+                        4 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.GnssActivity::class.java))
                         else -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.WifiAnalyzerActivity::class.java)
                             .putExtra(com.rfsentinel.app.ui.WifiAnalyzerActivity.EXTRA_SPECTRUM, true))
                     }

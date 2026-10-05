@@ -211,7 +211,9 @@ class SettingsActivity : AppCompatActivity() {
             s.ifBlank { "plug one in with an OTG cable while scanning to add its detections" }
         binding.usbWifiText.text = "USB WiFi adapter in monitor mode (RTL8811AU / 8821AU such as the ALFA AWUS036ACS, RTL8812BU / 8822BU, " +
             "RTL8814AU (AWUS1900), MT7612U (AWUS036ACM), RTL8187 (AWUS036H), RT3070 (AWUS036NH / NEH) or, experimental, AR9271 (AWUS036NHA)): " +
-            com.rfsentinel.app.usb.UsbWifi.status.ifBlank { "plug one in with an OTG cable while scanning - longer range, and it hears devices connected to networks" }
+            com.rfsentinel.app.usb.UsbWifi.status.ifBlank { "plug one in with an OTG cable while scanning - longer range, and it hears devices connected to networks" } +
+            "\nRTL-SDR dongle (two-way radio transmitting nearby, signal strength only): " +
+            com.rfsentinel.app.sdr.SdrRadio.status.ifBlank { "plug one in while scanning" }
         val board = Prefs.ouiSpyBoard(this)
         binding.ouiSpyText.text = if (board == null)
             "OUI-SPY over Bluetooth (App-Controlled firmware): not paired"

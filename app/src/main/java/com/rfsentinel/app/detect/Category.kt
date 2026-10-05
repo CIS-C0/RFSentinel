@@ -20,6 +20,8 @@ enum class Category(
     GLASSES("Smart / recording glasses", "GLASSES", 0xFF00796B.toInt(), true),
     NETWORK_CAMERA("Network / home security camera", "CAMERA", 0xFF5D6D7E.toInt(), false),
     CELL_ANOMALY("Fake cell tower signs (IMSI catcher)", "CELL", 0xFF7B1FA2.toInt(), true),
+    GNSS("GPS / satellite jamming or spoofing signs", "GNSS", 0xFF00838F.toInt(), true),
+    RADIO("Two-way radio transmitting nearby (needs an RTL-SDR)", "RADIO", 0xFF0277BD.toInt(), true),
     CUSTOM("Your watchlist", "WATCHLIST", 0xFFC8431A.toInt(), true);
 
     companion object {

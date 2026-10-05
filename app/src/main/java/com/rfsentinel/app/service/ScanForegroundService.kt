@@ -261,6 +261,9 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.esp.EspBoards.start(this) { list -> pipeline.post { list.forEach(::processEsp) } }
         // A USB WiFi adapter in monitor mode (e.g. AWUS036ACS): access points and client devices.
         com.rfsentinel.app.usb.UsbWifi.start(this) { list -> pipeline.post { list.forEach(::processUsbWifi) } }
+        // An RTL-SDR dongle: strong two-way radio transmissions nearby (signal strength only).
+        if (Prefs.categoryEnabled(this, Category.RADIO)) com.rfsentinel.app.sdr.SdrRadio.start(this) { e -> pipeline.post { onRadio(e) } }
+        else com.rfsentinel.app.sdr.SdrRadio.stop(this)
         // An OUI-SPY board paired over Bluetooth (App-Controlled firmware).
         Prefs.ouiSpyBoard(this)?.let { addr ->
             com.rfsentinel.app.esp.OuiSpyBle.start(this, addr, Prefs.ouiSpyRelayAll(this)) { list -> pipeline.post { list.forEach(::processEsp) } }
@@ -268,6 +271,7 @@ class ScanForegroundService : Service() {
         updateLocationUpdates()
         startHousekeeping()
         startCellChecks()
+        startGnssChecks()
         startBubble()
 
         isRunning = true
@@ -844,6 +848,73 @@ class ScanForegroundService : Service() {
         }
     }
 
+    /**
+     * A strong two-way radio transmission on a normally quiet public-safety channel, from
+     * an RTL-SDR ([com.rfsentinel.app.sdr.RadioWatch]): logged, and an alert when it clears
+     * the alert threshold. Only signal strength is known - nothing that was said.
+     */
+    private fun onRadio(e: com.rfsentinel.app.sdr.RadioWatch.Event) {
+        if (!Prefs.categoryEnabled(this, Category.RADIO)) return
+        val now = System.currentTimeMillis()
+        val near = when { e.snrDb >= 40 -> "very close"; e.snrDb >= 30 -> "close" else -> "nearby" }
+        val detail = "A radio transmitted on ${e.mhz} MHz (${e.band.label}), ${e.snrDb} dB above the noise - $near. " +
+            if (e.band.kind == com.rfsentinel.app.sdr.RadioWatch.Kind.PUBLIC_SAFETY_MOBILE)
+                "Public-safety radios (police, fire, EMS) transmit on this band; not proof of who it is."
+            else "Police use this band, but so do businesses, schools and transit; a weak sign on its own."
+        val hit = Hit(Category.RADIO, "Two-way radio transmitting nearby", e.confidence, detail, "RTL-SDR signal strength (no decoding)")
+        val loc = lastLocation
+        val tag = Prefs.gpsTaggingEnabled(this)
+        serviceScope.launch {
+            AppDatabase.getInstance(this@ScanForegroundService).detectionDao().insert(
+                DetectionEntity(
+                    mac = "RADIO " + e.mhz + " MHz", label = hit.label, source = "SDR", rssi = e.snrDb,
+                    timestamp = now,
+                    latitude = if (tag) loc?.latitude else null, longitude = if (tag) loc?.longitude else null,
+                    category = Category.RADIO.name, confidence = e.confidence, evidence = detail
+                )
+            )
+        }
+        if (e.confidence >= Prefs.alertThreshold(this) && now >= Prefs.alertsSnoozedUntil(this)) {
+            NotificationHelper.sendMapAlert(this, "radio:" + e.freqHz, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java)
+            AlertPlayer.play(this, hit.tier, "Radio transmitting nearby")
+        }
+    }
+
+    private var gnssWatching = false
+    private val gnssListener: (com.rfsentinel.app.detect.GnssAnalyzer.Anomaly) -> Unit = { a -> pipeline.post { onGnssAnomaly(a) } }
+
+    /**
+     * GPS / Galileo / GLONASS / BeiDou jamming and spoofing signs ([GnssWatch]): heard
+     * whenever GPS is on (map, traces, camera warnings); it doesn't turn GPS on itself.
+     */
+    private fun startGnssChecks() {
+        val want = Prefs.categoryEnabled(this, Category.GNSS) && hasFineLocation()
+        if (want && !gnssWatching) { GnssWatch.start(this, gnssListener); gnssWatching = true }
+        else if (!want && gnssWatching) { GnssWatch.stop(this, gnssListener); gnssWatching = false }
+    }
+
+    private fun onGnssAnomaly(a: com.rfsentinel.app.detect.GnssAnalyzer.Anomaly) {
+        if (!Prefs.categoryEnabled(this, Category.GNSS)) return
+        val now = System.currentTimeMillis()
+        val hit = Hit(Category.GNSS, a.title, a.confidence, a.detail, "Phone satellite receiver (heuristic, not proof)")
+        val loc = lastLocation
+        val tag = Prefs.gpsTaggingEnabled(this)
+        serviceScope.launch {
+            AppDatabase.getInstance(this@ScanForegroundService).detectionDao().insert(
+                DetectionEntity(
+                    mac = "GNSS " + a.key, label = a.title, source = "GNSS", rssi = 0,
+                    timestamp = now,
+                    latitude = if (tag) loc?.latitude else null, longitude = if (tag) loc?.longitude else null,
+                    category = Category.GNSS.name, confidence = a.confidence, evidence = a.detail
+                )
+            )
+        }
+        if (a.confidence >= Prefs.alertThreshold(this) && now >= Prefs.alertsSnoozedUntil(this)) {
+            NotificationHelper.sendMapAlert(this, "gnss:" + a.key, hit, com.rfsentinel.app.ui.GnssActivity::class.java)
+            AlertPlayer.play(this, hit.tier, a.title)
+        }
+    }
+
     private fun onCellAnomaly(a: com.rfsentinel.app.detect.CellAnalyzer.Anomaly) {
         val now = System.currentTimeMillis()
         if (now - (lastCellAlert[a.key] ?: 0L) < CELL_REPEAT_MS) return
@@ -933,6 +1004,8 @@ class ScanForegroundService : Service() {
     override fun onDestroy() {
         com.rfsentinel.app.esp.EspBoards.stop(this)
         com.rfsentinel.app.usb.UsbWifi.stop(this)
+        com.rfsentinel.app.sdr.SdrRadio.stop(this)
+        if (gnssWatching) { GnssWatch.stop(this, gnssListener); gnssWatching = false }
         com.rfsentinel.app.esp.OuiSpyBle.stop()
         // External hardware is gone with the scan: its "heard by" marks (External filter, badges) go too.
         com.rfsentinel.app.esp.HeardBy.esp.clear()
