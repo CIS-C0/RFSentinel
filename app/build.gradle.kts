@@ -95,6 +95,8 @@ dependencies {
     // Android Auto (Car App Library, template-based UI; "projected" = phone-driven Android Auto)
     implementation("androidx.car.app:app:1.7.0")
     implementation("androidx.car.app:app-projected:1.7.0")
+    // Android Auto media-style screen (MediaBrowserServiceCompat).
+    implementation("androidx.media:media:1.7.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("androidx.car.app:app-testing:1.7.0")

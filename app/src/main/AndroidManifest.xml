@@ -92,17 +92,27 @@
             android:exported="false"
             android:parentActivityName=".MainActivity" />
 
-        <!-- Android Auto (Car App Library). Sideloaded builds need Android Auto's
-             developer setting "Unknown sources". -->
+        <!-- Android Auto (Car App Library). A real car only runs Car App Library apps
+             installed from a trusted store (Google Play, ONE store); Android Auto's
+             "Unknown sources" setting doesn't cover them, so a GitHub APK shows only on
+             the Desktop Head Unit (developer.android.com/training/cars/testing). -->
         <service
             android:name=".car.RFSentinelCarAppService"
             android:exported="true">
             <intent-filter>
                 <action android:name="androidx.car.app.CarAppService" />
-                <!-- POI is the category every Android Auto version lists; IOT kept as a
-                     secondary so newer hosts can file it there too. -->
+                <!-- POI only: its map templates and surface drawing are what the car
+                     screens use (IOT apps may not draw maps). -->
                 <category android:name="androidx.car.app.category.POI" />
-                <category android:name="androidx.car.app.category.IOT" />
+            </intent-filter>
+        </service>
+        <!-- Android Auto media-style screen: tabs (threats, cameras, alerts, status) and
+             a "now playing" card. Works in a real car from the GitHub APK. -->
+        <service
+            android:name=".car.RFSentinelMediaService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
         <meta-data
@@ -154,6 +164,10 @@
         <!-- "Mute 30 min" / "Ignore" buttons on alerts shown on the car screen. -->
         <receiver
             android:name=".receiver.AlertActionReceiver"
+            android:exported="false" />
+        <!-- Reply / mark-as-read on the alert conversation shown in Android Auto. -->
+        <receiver
+            android:name=".receiver.CarMessageReceiver"
             android:exported="false" />
 
         <receiver

@@ -312,7 +312,8 @@ class MapActivity : AppCompatActivity() {
         binding.recordButton.setTextColor(recordFg)
         binding.recordButton.iconTint = android.content.res.ColorStateList.valueOf(recordFg)
 
-        trace.setPoints(TripRecorder.livePoints().map { GeoPoint(it.lat, it.lon) })
+        // Only the trace being recorded right now; a stopped one is under Traces.
+        trace.setPoints(if (recording) TripRecorder.livePoints().map { GeoPoint(it.lat, it.lon) } else emptyList())
 
         // Includes devices from a scan that just stopped: the registry drops them after 3 minutes.
         val devices = DeviceRegistry.snapshot()

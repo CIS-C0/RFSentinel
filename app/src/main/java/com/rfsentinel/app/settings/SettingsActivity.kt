@@ -103,9 +103,8 @@ class SettingsActivity : AppCompatActivity() {
             }.getOrNull().orEmpty()
             chosen.map { a -> bonded.firstOrNull { it.address == a }?.let { runCatching { it.name }.getOrNull() } ?: a }
         } else chosen.toList()
-        binding.carDevicesText.text = if (names.isEmpty())
-            "No car chosen yet. Android Auto also starts it when the app opens on the car screen."
-        else "Car: " + names.joinToString() + ". Android Auto also starts it."
+        binding.carDevicesText.text = "Car: " + names.joinToString()
+        binding.carDevicesText.visibility = if (names.isEmpty()) View.GONE else View.VISIBLE
     }
 
     /** Ignored trackers (long-press a tracker > Ignore this tracker) and a paused follow warning. */
@@ -114,19 +113,20 @@ class SettingsActivity : AppCompatActivity() {
         val until = Prefs.trackerFollowPausedUntil(this)
         val paused = until > System.currentTimeMillis()
         val parts = buildList {
-            add(if (n == 0) "No ignored trackers (long-press a tracker to ignore your own tag)" else "$n ignored tracker${if (n == 1) "" else "s"}")
-            if (paused) add("tracker follow warnings paused until " +
+            if (n > 0) add("$n ignored tracker${if (n == 1) "" else "s"}")
+            if (paused) add("follow warnings paused until " +
                 java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(until)))
         }
         binding.trackerIgnoreText.text = parts.joinToString("; ")
+        binding.trackerIgnoreText.visibility = if (parts.isEmpty()) View.GONE else View.VISIBLE
         binding.trackerIgnoreButton.visibility = if (n > 0 || paused) android.view.View.VISIBLE else android.view.View.GONE
     }
 
     /** Known cameras silenced from the map (tap a camera > Ignore alerts). */
     private fun updateIgnoredCamerasText() {
         val n = com.rfsentinel.app.alpr.IgnoredCameras.count(this)
-        binding.ignoredCamerasText.text = if (n == 0) "No ignored cameras (tap a camera on the map to turn off its alerts)"
-            else "$n camera${if (n == 1) "" else "s"} with alerts turned off (shown faded on the map)"
+        binding.ignoredCamerasText.text = "$n camera${if (n == 1) "" else "s"} with alerts turned off (faded on the map)"
+        binding.ignoredCamerasText.visibility = if (n > 0) View.VISIBLE else View.GONE
         binding.ignoredCamerasButton.visibility = if (n > 0) android.view.View.VISIBLE else android.view.View.GONE
     }
 
@@ -207,17 +207,12 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun updateEspStatus() {
         val s = com.rfsentinel.app.esp.EspBoards.status
-        binding.espStatusText.text = "ESP32 on USB (OUI-Spy, GhostESP or Marauder; also through a Flipper Zero; FREE-WiLi 2): " +
-            s.ifBlank { "plug one in with an OTG cable while scanning to add its detections" }
-        binding.usbWifiText.text = "USB WiFi adapter in monitor mode (RTL8811AU / 8821AU such as the ALFA AWUS036ACS, RTL8812BU / 8822BU, " +
-            "RTL8814AU (AWUS1900), MT7612U (AWUS036ACM), RTL8187 (AWUS036H), RT3070 (AWUS036NH / NEH) or, experimental, AR9271 (AWUS036NHA)): " +
-            com.rfsentinel.app.usb.UsbWifi.status.ifBlank { "plug one in with an OTG cable while scanning - longer range, and it hears devices connected to networks" } +
-            "\nRTL-SDR dongle (two-way radio transmitting nearby, signal strength only): " +
-            com.rfsentinel.app.sdr.SdrRadio.status.ifBlank { "plug one in while scanning" }
+        binding.espStatusText.text = s.ifBlank { "ESP32 board on USB: not connected" }
+        binding.usbWifiText.text = com.rfsentinel.app.usb.UsbWifi.status.ifBlank { "USB WiFi adapter: not connected" }
+        binding.sdrStatusText.text = com.rfsentinel.app.sdr.SdrRadio.status.ifBlank { "RTL-SDR: not connected" }
         val board = Prefs.ouiSpyBoard(this)
-        binding.ouiSpyText.text = if (board == null)
-            "OUI-SPY over Bluetooth (App-Controlled firmware): not paired"
-        else "OUI-SPY board $board: " + com.rfsentinel.app.esp.OuiSpyBle.status.ifBlank { "connects while scanning" }
+        binding.ouiSpyText.text = if (board == null) "OUI-SPY over Bluetooth: not paired"
+        else com.rfsentinel.app.esp.OuiSpyBle.status.ifBlank { "OUI-SPY $board: connects while scanning" }
         binding.ouiSpyButton.text = if (board == null) "Pair OUI-SPY board (Bluetooth)" else "Change or forget OUI-SPY board"
     }
 
@@ -266,6 +261,136 @@ class SettingsActivity : AppCompatActivity() {
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    /** A foldable settings section: its header, its content and what the ⓘ button explains. */
+    private class Section(val key: String, val header: android.widget.TextView, val body: View, val info: String)
+
+    private fun sections() = listOf(
+        Section("general", binding.headerGeneral, binding.sectionGeneral,
+            "Setup wizard: walks through the permissions and main choices again.\n\n" +
+                "Update check: asks GitHub at most every 6 hours and only speaks up when a new version is out.\n\n" +
+                "Discreet mode: hides details on the lock screen and in notifications.\n\n" +
+                "Screen: \"On while charging\" suits a car or a desk; \"Normal\" turns off like other apps."),
+        Section("appearance", binding.headerAppearance, binding.sectionAppearance,
+            "Banner image: shown above the animated header in the styled themes (Night Drive, Synthwave...); " +
+                "in DedSec and fsociety it replaces the poster. The image is copied privately into the app."),
+        Section("scanning", binding.headerScanning, binding.sectionScanning,
+            "Bluetooth intensity: Battery saver misses short broadcasts.\n\n" +
+                "WiFi interval: Android allows about one WiFi scan per 30 s unless \"Wi-Fi scan throttling\" " +
+                "is turned off in Developer options; then down to 5 s works, at some battery cost.\n\n" +
+                "Background scanning: lets the scan keep running with the screen off."),
+        Section("autostart", binding.headerAutoStart, binding.sectionAutoStart,
+            "When the phone starts: begins scanning after a reboot.\n\n" +
+                "In the car: starts scanning when the phone connects to your car's Bluetooth and stops when you leave. " +
+                "Android Auto also starts it when RF Sentinel opens on the car screen."),
+        Section("detect", binding.headerDetect, binding.sectionDetect,
+            "Each type of equipment can be turned on or off. Network / home cameras are off by default (many false alarms).\n\n" +
+                "GPS / satellite checks cover every system the phone hears: GPS, GLONASS, Galileo, BeiDou, QZSS and NavIC.\n\n" +
+                "Two-way radio needs an RTL-SDR dongle on USB.\n\n" +
+                "Watchlist presets are lists of vendor MAC prefixes:\n" +
+                "• Global: Axon, Flock, Zepcam, WatchGuard, Digital Ally, ShotSpotter, traffic cameras...\n" +
+                "• Canada: Axon, Cyberkar, Getac, Genetec, Motorola, ticket printers...\n" +
+                "• United States"),
+        Section("alerts", binding.headerAlerts, binding.sectionAlerts,
+            "Threshold: \"Weak\" alerts on every match (more false alarms); \"Strong only\" on near-certain ones.\n\n" +
+                "Vibration: 1 pulse weak, 2 probable, 3 strong.\n\n" +
+                "Re-alert: how long before the same device can alert again."),
+        Section("voice", binding.headerVoice, binding.sectionVoice,
+            "Speaks each alert, for example while driving. Short alerts say just the type " +
+                "(\"Body cam\", \"Police car\", \"Speed camera, 50\")."),
+        Section("overlay", binding.headerOverlay, binding.sectionOverlay,
+            "Shown over other apps (Waze, Maps...) while scanning. Needs Android's \"Display over other apps\" permission.\n\n" +
+                "Mini map: the devices around you, like the app's map. Drag to move, pinch to zoom, " +
+                "corner handle to resize, tap to open the full map."),
+        Section("follow", binding.headerFollow, binding.sectionFollow,
+            "Warns when a tracker or flagged device keeps moving with you for at least the time and distance set here.\n\n" +
+                "Your own tag: long-press it in the list > Ignore this tracker."),
+        Section("cameras", binding.headerCameras, binding.sectionCameras,
+            "Plate-reader and speed / red-light camera positions come from OpenStreetMap.\n\n" +
+                "Show on the map: downloads the cameras of the area you look at (the Overpass server sees that area, like map tiles).\n\n" +
+                "Download around me: saves the cameras within the radius for offline use. Larger areas take longer and use more data.\n\n" +
+                "US & Canada: every plate reader in DeFlock's hourly OpenStreetMap snapshot " +
+                "(cdn.deflock.me sees only the download, not your position); refreshes weekly on Wi-Fi.\n\n" +
+                "To silence one camera: tap it on the map > Ignore alerts."),
+        Section("cell", binding.headerCell, binding.sectionCell,
+            "Tower change alerts are frequent while driving; most useful when parked.\n\n" +
+                "Turning off \"Allow 2G\" (Android 12+) is the strongest protection against fake towers: " +
+                "2G has no network authentication, which is what IMSI catchers exploit.\n\n" +
+                "Android 15+ (e.g. Pixel 8+) can itself warn you when a network asks for your SIM's identity or turns " +
+                "encryption off: Security & privacy > More security & privacy > Cellular security > Network notifications."),
+        Section("hardware", binding.headerHardware, binding.sectionHardware,
+            "Plug these in with an OTG cable while scanning:\n\n" +
+                "• ESP32 boards with OUI-Spy, GhostESP or Marauder firmware (also through a Flipper Zero), FREE-WiLi 2.\n\n" +
+                "• USB WiFi adapters in monitor mode: longer range, and they hear devices connected to networks. " +
+                "RTL8811AU / 8821AU (ALFA AWUS036ACS), RTL8812BU / 8822BU, RTL8814AU (AWUS1900), MT7612U (AWUS036ACM), " +
+                "RTL8187 (AWUS036H), RT3070 (AWUS036NH / NEH), AR9271 (AWUS036NHA, experimental).\n\n" +
+                "• RTL-SDR dongle: notices two-way radios transmitting nearby (signal strength only, nothing is decoded).\n\n" +
+                "OUI-SPY over Bluetooth needs its App-Controlled firmware. Relay mode passes on every network and device it hears " +
+                "so RF Sentinel's own lists check them (the board also sends standard Wi-Fi scan probes).\n\n" +
+                "Adapter not working? Export its log and send it to the developer."),
+        Section("location", binding.headerLocation, binding.sectionLocation,
+            "Traces: records your route while scanning, to view on the map.\n\n" +
+                "Saving the GPS position with matches is privacy-sensitive: the log then shows where you were."),
+        Section("data", binding.headerData, binding.sectionData,
+            "Everything stays on this phone. History older than the set number of days is deleted (0 keeps it forever).\n\n" +
+                "Forget device history: new / returning status, detect counts and the cell towers remembered for the " +
+                "fake-cell checks start over. Favorites are kept.\n\n" +
+                "Changes on this screen are saved automatically.")
+    )
+
+    /** Folds each section under a tappable header (remembered) with an ⓘ button for the details. */
+    private fun setupSections() {
+        val ui = getSharedPreferences("settings_sections", MODE_PRIVATE)
+        val defaultOpen = setOf("general", "detect", "alerts")
+        val dp = resources.displayMetrics.density
+        val ripple = android.util.TypedValue().also { theme.resolveAttribute(android.R.attr.selectableItemBackground, it, true) }.resourceId
+        val divider = androidx.core.graphics.ColorUtils.setAlphaComponent(
+            com.google.android.material.color.MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorOnSurface), 0x22)
+        sections().forEachIndexed { i, s ->
+            val parent = s.header.parent as android.widget.LinearLayout
+            val at = parent.indexOfChild(s.header)
+            parent.removeView(s.header)
+            val title = s.header.text.toString()
+            s.header.layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            s.header.setPadding(0, (14 * dp).toInt(), 0, (14 * dp).toInt())
+            val info = android.widget.TextView(this).apply {
+                text = "ⓘ"
+                textSize = 20f
+                setTextColor(s.header.currentTextColor)
+                setPadding((14 * dp).toInt(), (8 * dp).toInt(), (6 * dp).toInt(), (8 * dp).toInt())
+                setBackgroundResource(ripple)
+                contentDescription = "About $title"
+                setOnClickListener {
+                    AlertDialog.Builder(this@SettingsActivity).setTitle(title).setMessage(s.info)
+                        .setPositiveButton("OK", null).show()
+                }
+            }
+            val row = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setBackgroundResource(ripple)
+                addView(s.header)
+                addView(info)
+            }
+            parent.addView(row, at, android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT))
+            if (i > 0) parent.addView(View(this).apply { setBackgroundColor(divider) }, at,
+                android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, maxOf(1, dp.toInt())))
+            s.body.setPadding(0, 0, 0, (10 * dp).toInt())
+            var open = ui.getBoolean(s.key, s.key in defaultOpen)
+            fun show() {
+                s.body.visibility = if (open) View.VISIBLE else View.GONE
+                s.header.text = (if (open) "▾  " else "▸  ") + title
+                row.contentDescription = "$title, ${if (open) "expanded" else "collapsed"}"
+            }
+            show()
+            row.setOnClickListener {
+                open = !open
+                ui.edit().putBoolean(s.key, open).apply()
+                show()
+            }
+        }
     }
 
     private fun updateBannerButtons() {
@@ -329,6 +454,7 @@ class SettingsActivity : AppCompatActivity() {
             Toast.makeText(this, "Banner removed", Toast.LENGTH_SHORT).show()
         }
         updateBannerButtons()
+        setupSections()
 
         // Scanning
         binding.bleSwitch.isChecked = Prefs.bleEnabled(this)
@@ -386,7 +512,7 @@ class SettingsActivity : AppCompatActivity() {
             categorySwitches[c] = sw
             if (c == Category.TRACKER) {
                 airTagSwitch = SwitchMaterial(this).apply {
-                    text = "Exclude Apple AirTags (Find My tags) from Trackers"
+                    text = "Exclude Apple AirTags"
                     isChecked = Prefs.excludeAirTags(this@SettingsActivity)
                     setPadding((24 * resources.displayMetrics.density).toInt(), 0, 0, 0)
                     isEnabled = sw.isChecked
@@ -481,9 +607,8 @@ class SettingsActivity : AppCompatActivity() {
         binding.autoCamerasSwitch.isChecked = Prefs.autoCameras(this)
         binding.autoUpdateSwitch.isChecked = Prefs.autoUpdateCheck(this)
         fun showRadius(km: Int) {
-            binding.cameraRadiusText.text = "Download radius: $km km" +
-                if (km > 100) " (larger areas take longer and use more data)" else ""
-            binding.prefetchCamerasButton.text = "Download cameras around me (~$km km)"
+            binding.cameraRadiusText.text = "Download radius: $km km"
+            binding.prefetchCamerasButton.text = "Download cameras around me"
         }
         Prefs.cameraRadiusKm(this).let { km -> binding.cameraRadiusSlider.value = km.toFloat(); showRadius(km) }
         binding.cameraRadiusSlider.setLabelFormatter { "${it.toInt()} km" }
@@ -519,7 +644,7 @@ class SettingsActivity : AppCompatActivity() {
                 is com.rfsentinel.app.alpr.DeflockBulk.State.Failed -> s.reason
                 else -> if (last > 0) "Last downloaded " +
                     android.text.format.DateUtils.getRelativeTimeSpanString(last) + "; refreshes weekly on Wi-Fi."
-                else "Every plate reader mapped in OpenStreetMap, from DeFlock's hourly snapshot (cdn.deflock.me sees only the download, not your position)."
+                else "From DeFlock's OpenStreetMap snapshot"
             }
         }
 
@@ -558,10 +683,9 @@ class SettingsActivity : AppCompatActivity() {
     private fun updateWifiThrottleHint() {
         val throttled = wifiScanThrottled()
         binding.wifiThrottleText.text = if (throttled)
-            "Android limits apps to 4 WiFi scans per 2 minutes, so values under 30 s are wasted. " +
-                "To scan faster, turn off \"Wi-Fi scan throttling\" in Developer options."
+            "Android throttles WiFi scans: under 30 s is wasted unless you turn it off"
         else
-            "Wi-Fi scan throttling is off: intervals down to 5 s work, at some battery cost."
+            "Scan throttling is off: down to 5 s works"
         binding.wifiThrottleButton.visibility = if (throttled) View.VISIBLE else View.GONE
     }
 

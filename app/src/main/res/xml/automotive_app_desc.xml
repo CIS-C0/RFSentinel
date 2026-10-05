@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <automotiveApp>
     <uses name="template" />
+    <!-- The media-style screen (RFSentinelMediaService) and the alert messages
+         (CarMessages): unlike the template screens, both also reach a real car from
+         the GitHub APK when Android Auto's "Unknown sources" is on. -->
+    <uses name="media" />
+    <uses name="notification" />
 </automotiveApp>

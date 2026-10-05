@@ -87,7 +87,11 @@ object TripRecorder {
             id, pendingPoints.toList(), changed, distanceM, points.size,
             devices.size, devices.values.count { it.flagged }
         ).also {
-            pendingPoints.clear()
+            // Drop the live trace too: the process often outlives the scan (and a swiped-away
+            // app), and the live map would keep drawing the old route.
+            points.clear(); pendingPoints.clear()
+            devices.clear(); dirty.clear()
+            distanceM = 0.0
             activeTripId = null
         }
     }

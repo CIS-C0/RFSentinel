@@ -8,6 +8,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import androidx.car.app.notification.CarAppExtender
+import androidx.car.app.notification.CarNotificationManager
 import androidx.car.app.notification.CarPendingIntent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -144,8 +145,8 @@ object NotificationHelper {
         lat: Double? = null, lon: Double? = null
     ) {
         recordAlert(context, key, null, hit, null, false, lat, lon)
-        val nm = context.getSystemService(NotificationManager::class.java)
         val discreet = Prefs.discreetMode(context)
+        if (toCar(context, if (discreet) "New alert" else "${hit.label}. ${hit.evidence}", null)) return
         val open = PendingIntent.getActivity(
             context, key.hashCode(),
             Intent(context, target).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
@@ -174,7 +175,9 @@ object NotificationHelper {
                     .build()
             )
         try {
-            nm.notify(ALERT_NOTIFICATION_ID_BASE + key.hashCode(), builder.build())
+            // Through CarNotificationManager: Android Auto shows CarAppExtender alerts only
+            // when they're posted this way (it also posts the normal phone notification).
+            CarNotificationManager.from(context).notify(ALERT_NOTIFICATION_ID_BASE + key.hashCode(), builder)
         } catch (e: SecurityException) {
             // POST_NOTIFICATIONS denied - sound and voice still alert.
         }
@@ -198,6 +201,25 @@ object NotificationHelper {
         }
     }
 
+    /**
+     * On Android Auto the alert goes into the car's message conversation ([CarMessages])
+     * instead of a phone notification: that's what reaches a real car from the GitHub
+     * APK. Nothing is posted while alerts are muted. True when handled.
+     */
+    private fun toCar(context: Context, text: String, mac: String?): Boolean {
+        if (!com.rfsentinel.app.car.CarState.connected) return false
+        if (System.currentTimeMillis() >= Prefs.alertsSnoozedUntil(context)) CarMessages.post(context, text, mac)
+        return true
+    }
+
+    /** One spoken-friendly line, e.g. "Nearby: Axon body camera. Strong match, about 40 m, signal -58 dBm." */
+    internal fun carMessageText(title: String, hit: Hit, rssi: Int, distanceM: Double?): String =
+        "$title. " + listOfNotNull(
+            hit.tier.label.substringBefore(" -").replaceFirstChar { it.uppercase() } + " match",
+            distanceM?.let { "about " + com.rfsentinel.app.detect.DeviceIntel.formatDistance(it).removePrefix("~") },
+            "signal $rssi dBm"
+        ).joinToString(", ") + "."
+
     /** Posts the match notification; sound/vibration/voice are played by the caller. */
     /**
      * The car heads-up's line, readable at a glance: what it is, how sure, about how far,
@@ -216,7 +238,6 @@ object NotificationHelper {
         // A drone with a Remote ID position is logged where it is; anything else where you were.
         val rid = com.rfsentinel.app.service.DeviceRegistry.get(mac)?.remoteId?.takeIf { it.hasPosition }
         recordAlert(context, mac, mac, hit, rssi, following, rid?.latitude, rid?.longitude)
-        val nm = context.getSystemService(NotificationManager::class.java)
         val discreet = Prefs.discreetMode(context)
         val detail = PendingIntent.getActivity(
             context, mac.hashCode(),
@@ -230,6 +251,7 @@ object NotificationHelper {
             else -> "Nearby: ${hit.label}"
         }
         val snap = com.rfsentinel.app.service.DeviceRegistry.get(mac)
+        if (toCar(context, if (discreet) "New alert" else carMessageText(title, hit, rssi, snap?.distanceM), mac)) return
         val others = com.rfsentinel.app.service.DeviceRegistry.snapshot()
             .count { it.mac != mac && com.rfsentinel.app.ui.DeviceColors.isFlagged(it) }
         val text = "${hit.category.title} · ${hit.tier.label} (${hit.confidence}%) · $rssi dBm" +
@@ -280,7 +302,7 @@ object NotificationHelper {
                     .build()
             )
         try {
-            nm.notify(ALERT_NOTIFICATION_ID_BASE + mac.hashCode(), builder.build())
+            CarNotificationManager.from(context).notify(ALERT_NOTIFICATION_ID_BASE + mac.hashCode(), builder)
         } catch (e: SecurityException) {
             // POST_NOTIFICATIONS denied - the in-app list and sound still alert.
         }

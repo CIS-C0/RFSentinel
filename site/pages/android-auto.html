@@ -34,13 +34,15 @@
 <li><b>Phone screen off:</b> Android limits Bluetooth scanning then. The car warns you when a scan starts that way and shows "Bluetooth limited" on its home screen; WiFi, cell checks and known cameras keep working.</li>
 </ul>
 
-<h2 id="setup">Setup for a sideloaded app</h2>
+<h2 id="setup">The GitHub APK in a real car</h2>
+<p>Google lets apps built with its Car App Library, as RF Sentinel is, run in a real car only when they're installed from a trusted store (Google Play or ONE store). Android Auto's <b>Unknown sources</b> developer setting covers media and messaging apps, not these (<a href="https://developer.android.com/training/cars/testing#real-vehicles">Google's testing guide</a>). So the GitHub APK doesn't appear in a real car's launcher, whatever its settings; its car screens run on Google's <a href="https://developer.android.com/training/cars/testing/dhu">Desktop Head Unit</a> emulator.</p>
+<p><b>The GitHub APK still works in a real car</b>, through the two app types that setting does cover:</p>
 <ol>
-<li>Open <b>Android Auto settings</b> on the phone.</li>
-<li>Tap <b>Version</b> ten times to unlock developer mode.</li>
-<li><b>⋮ → Developer settings</b> → enable <b>Unknown sources</b>.</li>
-<li>Install (or reinstall) the APK, open RF Sentinel once on the phone, reconnect to the car.</li>
-<li>Still missing? <b>Customize launcher</b> may list it under hidden apps.</li>
+<li>Open <b>Android Auto settings</b> on the phone and tap <b>Version</b> ten times to unlock developer mode.</li>
+<li><b>⋮ → Developer settings</b> → enable <b>Unknown sources</b>, then reconnect to the car.</li>
+<li><b>RF Sentinel screen (media-style):</b> tabs for <b>Threats</b>, <b>Cameras</b> (nearest known cameras, the one ahead first), <b>Alerts</b> and <b>Status</b> (start / stop scanning, mute, cell towers, hardware), plus a card with the current threat and <b>Scan</b> / <b>Mute</b> buttons. It never plays anything, so your music keeps playing and keeps the steering-wheel buttons.</li>
+<li><b>Alerts as messages:</b> every alert arrives as a message from RF Sentinel, which the car shows and can read aloud. Reply <b>"mute"</b> to silence alerts for 30 minutes, or <b>"ignore"</b> to stop alerting about the latest device.</li>
+<li>If RF Sentinel is missing from the car's launcher, tick it under <b>Customize launcher</b>. The live map needs the full car app, so it stays on the Desktop Head Unit.</li>
 </ol>
 
 <h2 id="auto-start">Auto start</h2>

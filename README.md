@@ -316,10 +316,31 @@ A driver-safe, template-based Android Auto app:
 - Screens only redraw when what they show has changed, and a screen that fails
   to build shows a short message instead of closing the app.
 
-**Sideloaded apps need one-time setup:** Android Auto settings → tap **Version**
-ten times → **⋮ → Developer settings** → enable **Unknown sources**. Then
-install (or reinstall) the APK, open RF Sentinel once on the phone, and
-reconnect. Still missing? Check **Customize launcher** for hidden apps.
+**In a real car, Android Auto only shows apps like this one when they come
+from a trusted store.** Google lets apps built with its Car App Library (as
+RF Sentinel is) run in a real car only when they're installed from Google Play
+or ONE store, and Android Auto's **Unknown sources** developer setting doesn't
+cover them ([Google's testing guide](https://developer.android.com/training/cars/testing#real-vehicles)).
+The GitHub APK's car screens therefore run only on Google's
+[Desktop Head Unit](https://developer.android.com/training/cars/testing/dhu)
+emulator.
+
+**The GitHub APK still works in a real car**, through the two app types that
+setting does cover. Android Auto settings → tap **Version** ten times →
+**⋮ → Developer settings** → enable **Unknown sources**, then reconnect:
+
+- **RF Sentinel screen (media-style):** tabs for **Threats**, **Cameras**
+  (nearest known cameras, the one ahead first), **Alerts** and **Status**
+  (start / stop scanning, mute, cell towers, hardware), plus a card with the
+  current threat and **Scan** / **Mute** buttons. It never plays anything, so
+  your music keeps playing and keeps the steering-wheel buttons.
+- **Alerts as messages:** every alert arrives as a message from RF Sentinel,
+  which the car shows and can read aloud. Reply **"mute"** to silence alerts
+  for 30 minutes or **"ignore"** to stop alerting about the latest device.
+
+If RF Sentinel is missing from the car's launcher, tick it under
+**Customize launcher**. The live map needs the full car app, so it stays on
+the Desktop Head Unit.
 
 ## ESP32 boards (optional)
 

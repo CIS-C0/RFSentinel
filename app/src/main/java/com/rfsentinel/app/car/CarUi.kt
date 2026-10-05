@@ -28,7 +28,7 @@ object CarUi {
 
     /** Where the driver is: the scanner's latest fix, else the phone's last known position. */
     @android.annotation.SuppressLint("MissingPermission") // checked via Permissions
-    fun currentLocation(context: CarContext): android.location.Location? {
+    fun currentLocation(context: android.content.Context): android.location.Location? {
         // Debug demo only: a made-up position, so screenshots never show the real one.
         com.rfsentinel.app.ui.DemoData.fakeLocation?.let { return it }
         // Navigation keeps its own 1 s GPS fixes; use whichever fix is newer.
@@ -122,7 +122,7 @@ object CarUi {
      * The next known camera on your way (see KnownCameras.ahead): needs a GPS heading
      * while moving; parked, the nearest within 1 km. Silenced cameras are left out.
      */
-    fun nextCamera(context: CarContext): Pair<com.rfsentinel.app.alpr.KnownCamera, Double>? {
+    fun nextCamera(context: android.content.Context): Pair<com.rfsentinel.app.alpr.KnownCamera, Double>? {
         val cams = com.rfsentinel.app.alpr.AlprStore.cameras
         if (cams.isEmpty()) return null
         val me = currentLocation(context) ?: return null
@@ -133,7 +133,7 @@ object CarUi {
     }
 
     /** Alert sound state for the home screen and the More screen ("" when sound is on). */
-    fun silencedText(context: CarContext, now: Long = System.currentTimeMillis()): String {
+    fun silencedText(context: android.content.Context, now: Long = System.currentTimeMillis()): String {
         val until = com.rfsentinel.app.util.Prefs.alertsSnoozedUntil(context)
         return when {
             com.rfsentinel.app.util.Prefs.alertsMuted(context) -> "Alert sound muted"

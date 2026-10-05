@@ -129,7 +129,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:contentDescription="Tools: cell towers, WiFi channels and WiFi spectrum"
+            android:contentDescription="Tools: cell towers, WiFi channels, WiFi spectrum and satellites"
             android:minWidth="56dp"
             android:minHeight="52dp"
             app:icon="@drawable/ic_tools"

@@ -21,7 +21,11 @@ object CarState {
                 val now = type == CarConnection.CONNECTION_TYPE_PROJECTION ||
                     type == CarConnection.CONNECTION_TYPE_NATIVE
                 if (now && !connected) com.rfsentinel.app.receiver.CarAutoStart.onCarConnected(app, "Android Auto connected")
-                if (!now && connected) com.rfsentinel.app.receiver.CarAutoStart.onCarDisconnected(app, "Android Auto disconnected")
+                if (!now && connected) {
+                    com.rfsentinel.app.receiver.CarAutoStart.onCarDisconnected(app, "Android Auto disconnected")
+                    // The next drive starts a fresh alert conversation.
+                    com.rfsentinel.app.util.CarMessages.clear(app)
+                }
                 connected = now
             }
         }

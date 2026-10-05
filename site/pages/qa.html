@@ -581,7 +581,7 @@
 <details class="faq" id="android-auto-missing">
 <summary>RF Sentinel doesn't show up in Android Auto. How do I fix it?</summary>
 <div>
-<p>Android Auto hides sideloaded apps until you enable them: open Android Auto settings on the phone, tap <b>Version</b> ten times to unlock developer mode, open <b>⋮ → Developer settings</b> and enable <b>Unknown sources</b>, then reinstall the APK, open RF Sentinel once on the phone, and reconnect. Also check <b>Customize launcher</b> for hidden apps.</p>
+<p>In a real car, Android Auto only shows apps built with Google's Car App Library, like RF Sentinel, when they were installed from a trusted store (Google Play or ONE store). Its <b>Unknown sources</b> developer setting covers media and messaging apps, not these (<a href="https://developer.android.com/training/cars/testing#real-vehicles">Google's testing guide</a>), so the GitHub APK's car screens can't appear there; they run on Google's Desktop Head Unit emulator. It still works in the car through the app types that setting covers: in Android Auto settings tap <b>Version</b> ten times, open <b>⋮ → Developer settings</b>, enable <b>Unknown sources</b> and reconnect. RF Sentinel then shows a media-style screen (threats, cameras, alerts, status, with Scan and Mute buttons), and each alert arrives as a message you can have read aloud; reply "mute" to silence alerts for 30 minutes. Tick it under <b>Customize launcher</b> if it's missing.</p>
 </div>
 </details>
 
