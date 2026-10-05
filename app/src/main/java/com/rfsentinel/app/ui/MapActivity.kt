@@ -95,6 +95,7 @@ class MapActivity : AppCompatActivity() {
     private val drones = FolderOverlay()
     /** Aircraft from the ADS-B feeds (Settings > What to detect > Police / government aircraft). */
     private val aircraft = FolderOverlay()
+    private var planeZoomStep = -1
     /** Plate-reader cameras mapped in OpenStreetMap (downloaded on request). */
     private val knownAlpr by lazy {
         PointsOverlay<com.rfsentinel.app.alpr.KnownCamera>(resources.displayMetrics.density) { showKnownCamera(it.first()) }
@@ -188,6 +189,9 @@ class MapActivity : AppCompatActivity() {
             }
             override fun onZoom(event: org.osmdroid.events.ZoomEvent?) = false.also {
                 drawKnownAlprSoon()
+                // Plane icons grow as you zoom in (and shrink as you zoom out).
+                val step = kotlin.math.round(binding.map.zoomLevelDouble * 2).toInt()
+                if (step != planeZoomStep) { planeZoomStep = step; drawAircraft() }
             }
         })
 
@@ -529,16 +533,20 @@ class MapActivity : AppCompatActivity() {
      */
     private fun drawAircraft() {
         aircraft.items.clear()
+        binding.map.invalidate()
         val list = com.rfsentinel.app.online.PoliceAircraft.latest
         if (list.isEmpty() || System.currentTimeMillis() - com.rfsentinel.app.online.PoliceAircraft.latestAt > 3 * 60_000L) return
         val dp = resources.displayMetrics.density
+        // Sized to the zoom: 0.5x at a city-wide view (zoom 10), 1x at zoom 13, 2.2x at street level (17+).
+        val scale = (0.5 + (binding.map.zoomLevelDouble - 10.0) * (1.7 / 7.0)).coerceIn(0.5, 2.2).toFloat()
+        val icons = HashMap<Boolean, android.graphics.drawable.BitmapDrawable>()
         // Ordinary traffic first, so flagged aircraft are drawn on top.
         for ((p, hit) in list.sortedBy { it.hit != null }) {
             val flagged = hit != null
             val at = GeoPoint(p.lat, p.lon)
             aircraft.add(Marker(binding.map).apply {
                 position = at
-                icon = android.graphics.drawable.BitmapDrawable(resources, MapIcons.planeIcon(dp, flagged))
+                icon = icons.getOrPut(flagged) { android.graphics.drawable.BitmapDrawable(resources, MapIcons.planeIcon(dp, flagged, scale)) }
                 rotation = -(p.trackDeg ?: 0.0).toFloat() // osmdroid rotates counter-clockwise
                 isFlat = true
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)

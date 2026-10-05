@@ -51,8 +51,8 @@ object MapIcons {
      * An aircraft seen from above, nose up (the marker rotates it to its track). Police /
      * government aircraft: bold purple with a white outline; other traffic: small and grey.
      */
-    fun planeIcon(dp: Float, police: Boolean): Bitmap {
-        val s = ((if (police) 30 else 18) * dp).toInt()
+    fun planeIcon(dp: Float, police: Boolean, scale: Float = 1f): Bitmap {
+        val s = ((if (police) 30 else 18) * dp * scale).toInt().coerceAtLeast(8)
         val bmp = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         val w = s.toFloat()
@@ -80,7 +80,7 @@ object MapIcons {
         c.drawPath(path, p)
         p.style = Paint.Style.STROKE
         p.strokeJoin = Paint.Join.ROUND
-        p.strokeWidth = (if (police) 1.8f else 1f) * dp
+        p.strokeWidth = (if (police) 1.8f else 1f) * dp * scale.coerceIn(0.7f, 1.5f)
         p.color = if (police) Color.WHITE else 0xCCFFFFFF.toInt()
         c.drawPath(path, p)
         return bmp
