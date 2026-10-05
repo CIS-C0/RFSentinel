@@ -378,8 +378,8 @@ go through RF Sentinel's own rules like everything else, with a purple
 | Realtek RTL8812BU / RTL8822BU (`0bda:b812`, `0bda:b82c` and ~35 other IDs) | TP-Link Archer T3U, ASUS USB-AC53/AC55/AC58, Edimax EW-7822U*, Wise Tiger AC1200 | Supported (2.4 + 5 GHz), tested on a Wise Tiger 8812BU |
 | Realtek RTL8814AU (`0bda:8813` and 13 other IDs) | ALFA AWUS1900, TP-Link Archer T9UH, ASUS USB-AC68, Netgear A7000 | Supported (2.4 + 5 GHz), not yet tested on hardware |
 | MediaTek MT7612U / MT7632U (`0e8d:7612` and 16 other IDs) | ALFA AWUS036ACM, ASUS USB-AC55, Netgear A6210 | Supported (2.4 + 5 GHz), not yet tested on hardware |
-| Realtek RTL8187L / RTL8187B (`0bda:8187` and 20 other IDs) | ALFA AWUS036H, Netgear WG111v2/v3 | Supported (2.4 GHz), not yet tested on hardware |
-| Ralink RT3070 (`148f:3070` and 4 other IDs) | ALFA AWUS036NH / AWUS036NEH | Supported (2.4 GHz), not yet tested on hardware |
+| Realtek RTL8187L / RTL8187B (`0bda:8187` and 20 other IDs) | ALFA AWUS036H, Netgear WG111v2/v3 | Supported (2.4 GHz), tested on an ALFA AWUS036H |
+| Ralink RT3070 (`148f:3070` and 4 other IDs) | ALFA AWUS036NH / AWUS036NEH | Supported (2.4 GHz), tested on an ALFA AWUS036NEH |
 | Atheros AR9271 (`0cf3:9271` and 17 other IDs) | ALFA AWUS036NHA, TP-Link TL-WN722N v1 | Experimental (2.4 GHz) |
 | RTL8812AU, RTL8811CU / 8821CU, RT5370, MT7610U, AR7010 | AWUS036ACH... | Detected and named, not supported yet |
 
