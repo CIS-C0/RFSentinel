@@ -114,6 +114,7 @@ object SignatureEngine {
 
     private val PENGUIN = Regex("^Penguin-\\d+$")
     private val FS_HEX = Regex("^FS-[0-9A-Fa-f]+$")
+    private val PENGUIN_NUMERIC = Regex("^\\d{8,12}$")
     /** Zebra's default Bluetooth name is the serial: 2-char plant, 3-letter model code, YYWW + 5 digits. */
     private val ZEBRA_SERIAL = Regex("^[A-Z0-9]{2}[A-Z]{3}\\d{9}$")
 
@@ -210,9 +211,17 @@ object SignatureEngine {
                 hits += Hit(Category.ALPR, "Flock Safety device", if (xuntong) 80 else 70,
                     "Name pattern \"FS-<hex>\"" + if (xuntong) " plus XUNTONG module ID 0x09C8" else " (generic white-label prefix - verify)",
                     "$ACAB (field capture 2026-06)")
+            // Penguin batteries on firmware from March 2025 advertise a bare 8-12 digit ID.
+            xuntong && PENGUIN_NUMERIC.matches(name) ->
+                hits += Hit(Category.ALPR, "Flock Safety device", 80,
+                    "Numeric name \"$name\" plus XUNTONG module ID 0x09C8 (newer Penguin firmware)",
+                    "$ACAB (flock-detection research)")
             name.startsWith("Flock", ignoreCase = true) ->
                 hits += Hit(Category.ALPR, "Possible Flock Safety device", 55,
                     "Advertised name starts with \"Flock\" (brand string - verify)", ACAB)
+            name.contains("Pigvision", ignoreCase = true) ->
+                hits += Hit(Category.ALPR, "Possible Flock Safety device", 55,
+                    "Advertised name \"$name\" (Pigvision: Flock camera name - verify)", "$ACAB (flock-detection research)")
             xuntong ->
                 hits += Hit(Category.ALPR, "XUNTONG Bluetooth module (used in Flock hardware)", 45,
                     "Company ID 0x09C8 - shared silicon, also in other products", "$SIG; $ACAB")
@@ -323,6 +332,11 @@ object SignatureEngine {
             hits += Hit(Category.ALPR, "Flock Safety camera", 88,
                 "WiFi network \"$ssid\" (Flock- prefix: the vendor names its own AP)",
                 "$ACAB (ryanohoro, GainSec research)")
+        }
+        else if (Regex("flockos|flocksafety|pigvision|fs ext battery", RegexOption.IGNORE_CASE).containsMatchIn(ssid) ||
+            Regex("^Penguin-\\d+$").matches(ssid)) {
+            hits += Hit(Category.ALPR, "Possible Flock Safety device", 60,
+                "WiFi network \"$ssid\" (Flock product name - verify)", "$ACAB (flock-detection / flock-you research)")
         }
         if (ssid.startsWith("ARLO_VMB_") || ssid.startsWith("NTGR_VMB_")) {
             hits += Hit(Category.NETWORK_CAMERA, "Arlo camera base station", 88,
