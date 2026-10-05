@@ -103,7 +103,7 @@ TEMPLATE = """<!doctype html>
   <div class="wrap">
     <div class="cols">
       <div>
-        <h4>RF Sentinel</h4>
+        <p class="foot-title">RF Sentinel</p>
         <ul>
           <li><a href="{releases}">Download the APK</a></li>
           <li><a href="{rel}install.html">Install &amp; update</a></li>
@@ -112,11 +112,11 @@ TEMPLATE = """<!doctype html>
         </ul>
       </div>
       <div>
-        <h4>Guides</h4>
+        <p class="foot-title">Guides</p>
         <ul>{guides}</ul>
       </div>
       <div>
-        <h4>Community</h4>
+        <p class="foot-title">Community</p>
         <ul>
           <li><a href="{discord}" rel="noopener">Discord server</a></li>
           <li><a href="{repo}" rel="noopener">GitHub repository</a></li>

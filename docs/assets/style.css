@@ -168,7 +168,8 @@ details.faq { scroll-margin-top: 120px; }
 /* Footer */
 footer { border-top: 1px solid var(--line); margin-top: 48px; padding: 28px 0 40px; font-size: .9rem; color: var(--muted); }
 footer .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 18px; }
-footer h4 { font-size: .95rem; color: var(--accent); margin: 0 0 .5em; }
+footer .foot-title { font-family: var(--mono); font-size: .95rem; color: var(--accent); margin: 0 0 .5em; line-height: 1.2; letter-spacing: .01em; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 footer ul { list-style: none; padding: 0; margin: 0; }
 footer a { color: var(--muted); }
 footer a:hover { color: var(--accent); }
