@@ -1,7 +1,7 @@
 """Generates RF Sentinel's adaptive launcher icon (DedSec-inspired, original art).
 
 One geometry source -> Android vector drawables (foreground, background,
-monochrome) plus an SVG preview (docs/icon-preview.html). Canvas is the
+monochrome) plus an SVG preview (tools/icon-preview.html, not published). Canvas is the
 108x108 adaptive-icon grid; everything meaningful sits inside the 66x66 safe
 zone (21..87), since launchers crop to roughly the middle 72x72.
 
@@ -176,7 +176,7 @@ if __name__ == '__main__':
                 '    <foreground android:drawable="@drawable/ic_launcher_foreground" />\n'
                 '    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />\n'
                 '</adaptive-icon>\n')
-    out = os.path.join(ROOT, 'docs', 'icon-preview.html')
+    out = os.path.join(ROOT, 'tools', 'icon-preview.html')
     with open(out, 'w', encoding='utf-8', newline='\n') as f:
         f.write('<!doctype html><html><head><title>Icon preview</title></head>'
                 '<body style="margin:0;background:#1b1b1f;display:flex;gap:36px;padding:36px;align-items:center">'

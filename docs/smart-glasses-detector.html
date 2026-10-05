@@ -3,28 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Smart glasses detector for Android - Ray-Ban Meta, Spectacles, Vuzix | RF Sentinel</title>
-<meta name="description" content="Detect Ray-Ban Meta smart glasses, Snap Spectacles, Vuzix and HeyCyan-based camera glasses nearby from their Bluetooth LE advertisements on Android. Which identifiers are reliable and which are shared with Quest headsets.">
+<title>Smart Glasses Detector for Android: Ray-Ban Meta &amp; More</title>
+<meta name="description" content="Detect Ray-Ban Meta, Oakley Meta, Snap Spectacles, Vuzix and HeyCyan camera glasses nearby from their Bluetooth signals on Android. Free, open source, no root.">
 <link rel="canonical" href="https://cis-c0.github.io/RFSentinel/smart-glasses-detector.html">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="theme-color" content="#050507">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="RF Sentinel">
-<meta property="og:title" content="Smart glasses detector for Android - Ray-Ban Meta, Spectacles, Vuzix | RF Sentinel">
-<meta property="og:description" content="Detect Ray-Ban Meta smart glasses, Snap Spectacles, Vuzix and HeyCyan-based camera glasses nearby from their Bluetooth LE advertisements on Android. Which identifiers are reliable and which are shared with Quest headsets.">
+<meta property="og:title" content="Smart Glasses Detector for Android: Ray-Ban Meta &amp; More">
+<meta property="og:description" content="Detect Ray-Ban Meta, Oakley Meta, Snap Spectacles, Vuzix and HeyCyan camera glasses nearby from their Bluetooth signals on Android. Free, open source, no root.">
 <meta property="og:url" content="https://cis-c0.github.io/RFSentinel/smart-glasses-detector.html">
 <meta property="og:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="640">
 <meta property="og:image:alt" content="RF Sentinel - BLE and WiFi police scanner for Android">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Smart glasses detector for Android - Ray-Ban Meta, Spectacles, Vuzix | RF Sentinel">
-<meta name="twitter:description" content="Detect Ray-Ban Meta smart glasses, Snap Spectacles, Vuzix and HeyCyan-based camera glasses nearby from their Bluetooth LE advertisements on Android. Which identifiers are reliable and which are shared with Quest headsets.">
+<meta name="twitter:title" content="Smart Glasses Detector for Android: Ray-Ban Meta &amp; More">
+<meta name="twitter:description" content="Detect Ray-Ban Meta, Oakley Meta, Snap Spectacles, Vuzix and HeyCyan camera glasses nearby from their Bluetooth signals on Android. Free, open source, no root.">
 <meta name="twitter:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preload" href="assets/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="stylesheet" href="assets/style.css">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "Smart glasses detector", "item": "https://cis-c0.github.io/RFSentinel/smart-glasses-detector.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does a match mean I'm being recorded?", "acceptedAnswer": {"@type": "Answer", "text": "No. It means camera glasses are nearby and advertising. Recording state isn't broadcast; look for the capture LED."}}, {"@type": "Question", "name": "Will it see glasses that are folded or in their case?", "acceptedAnswer": {"@type": "Answer", "text": "Usually not: glasses stop advertising when off or charging in the case."}}]}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "Smart glasses detector", "item": "https://cis-c0.github.io/RFSentinel/smart-glasses-detector.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does a match mean I'm being recorded?", "acceptedAnswer": {"@type": "Answer", "text": "No. It means camera glasses are nearby and advertising. Recording state isn't broadcast; look for the capture LED."}}, {"@type": "Question", "name": "Will it see glasses that are folded or in their case?", "acceptedAnswer": {"@type": "Answer", "text": "Usually not: glasses stop advertising when off or charging in the case."}}, {"@type": "Question", "name": "Does it need root or a special phone?", "acceptedAnswer": {"@type": "Answer", "text": "No. It uses Android's normal Bluetooth LE scanning on any phone with Android 8.0 or later. It also merges detections from an ESP32 board running OUI-Spy if you connect one."}}, {"@type": "Question", "name": "Why did a Meta Quest headset show up?", "acceptedAnswer": {"@type": "Answer", "text": "Quest headsets use the same Meta company ID as the glasses. That rule is kept as a weak match for that reason; the stronger Ray-Ban and Oakley rules only match the glasses."}}]}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -49,19 +49,40 @@
   </div>
 </div>
 
-<h2 id="rules">Rules</h2>
+<h2 id="how">How camera glasses give themselves away</h2>
+<p>Smart glasses with a camera stay paired to a phone app (Meta AI for Ray-Ban and Oakley Meta, Snapchat for Spectacles, Vuzix's own app) so photos and videos can sync. To keep that link, they advertise over Bluetooth Low Energy while worn: a short radio packet several times a second that any phone nearby can receive.</p>
+<p>RF Sentinel listens to those packets passively. It never connects to the glasses and never sends anything to them. Each packet carries identifiers registered with the Bluetooth SIG: a <b>company ID</b> in the manufacturer data and sometimes a <b>service UUID</b>. Those identifiers belong to the glasses' maker, so they name the product even when the device's name and address are hidden or change.</p>
+
+<h2 id="rules">Detection rules</h2>
 <div class="table-wrap"><table>
 <thead><tr><th>Glasses</th><th>Identifier</th><th>Score</th></tr></thead>
 <tbody>
 <tr><td>Ray-Ban Meta (Luxottica)</td><td>Company ID <code>0x0D53</code></td><td>70</td></tr>
-<tr><td>Ray-Ban Meta</td><td>Company ID <code>0x058E</code> with the <code>META_RB_GLASS</code> token only</td><td>72</td></tr>
-<tr><td>Snap Spectacles</td><td>Company ID <code>0x03C2</code></td><td>70</td></tr>
+<tr><td>Ray-Ban / Oakley Meta</td><td>Company ID <code>0x058E</code> with the <code>META_RB_GLASS</code> token only</td><td>72</td></tr>
+<tr><td>Snap Spectacles</td><td>Company ID <code>0x03C2</code> or service UUID <code>0xFE45</code></td><td>70</td></tr>
 <tr><td>Vuzix</td><td>Company ID <code>0x060C</code></td><td>70</td></tr>
-<tr><td>Glasses UUID</td><td><code>0xFE45</code></td><td>70</td></tr>
 <tr><td>HeyCyan SDK glasses</td><td>UUID <code>7905FFF0-B5CE-4E99-A40F-4B1E122D00D0</code>, full 16-byte match</td><td>68</td></tr>
 <tr><td>Meta (corporate)</td><td>Company ID <code>0x01AB</code>, UUID <code>0xFEB7</code> / <code>0xFEB8</code></td><td>45, Quest headsets share it</td></tr>
 </tbody></table></div>
-<p><code>0x058E</code> alone is deliberately not matched: Quest headsets use it too.</p>
+<p><code>0x058E</code> alone is deliberately not matched: Quest headsets use it too. The HeyCyan rule needs all 16 bytes because Apple's notification service UUID differs from it by only two.</p>
+
+<h2 id="scores">What the score means</h2>
+<p>Scores of 50 and above are <b>probable</b> matches and alert with the default settings; the product-specific rules above (68 to 72) all land there. The generic Meta rule scores 45, a <b>weak</b> match: it shows in the list with a "verify" label but doesn't alert unless you lower the alert threshold in Settings, because a Quest headset in the next car would trigger it too.</p>
+
+<h2 id="find">Finding the glasses</h2>
+<ul>
+<li><b>Signal and distance:</b> each match shows its signal strength and a rough distance. Bluetooth from glasses usually reaches a few metres to a few tens of metres, depending on walls and bodies in between.</li>
+<li><b>Locate mode:</b> open the device and turn on Locate; it beeps faster as you walk closer.</li>
+<li><b>Look for the LED:</b> Ray-Ban Meta and Spectacles light a capture LED while recording. RF Sentinel can tell you glasses are near, not whether they are recording.</li>
+</ul>
+
+<h2 id="limits">Limits</h2>
+<ul>
+<li>Glasses that are off, folded and asleep, or charging in their case usually stop advertising, so they can't be heard.</li>
+<li>Glasses connected to their phone may advertise less often; keep scanning for a minute in a room before concluding none are there.</li>
+<li>Camera glasses without Bluetooth, or models not in the table, aren't detected. New identifiers can be added to your watchlist or reported on GitHub.</li>
+<li>A match means the hardware is nearby, not who is wearing it.</li>
+</ul>
 
 <h2 id="faq-glasses">Questions</h2>
 <details class="faq" id="q-glasses-record">
@@ -71,6 +92,14 @@
 <details class="faq" id="q-glasses-off">
 <summary>Will it see glasses that are folded or in their case?</summary>
 <div><p>Usually not: glasses stop advertising when off or charging in the case.</p></div>
+</details>
+<details class="faq" id="q-glasses-root">
+<summary>Does it need root or a special phone?</summary>
+<div><p>No. It uses Android's normal Bluetooth LE scanning on any phone with Android 8.0 or later. It also merges detections from an ESP32 board running OUI-Spy if you connect one.</p></div>
+</details>
+<details class="faq" id="q-glasses-quest">
+<summary>Why did a Meta Quest headset show up?</summary>
+<div><p>Quest headsets use the same Meta company ID as the glasses. That rule is kept as a weak match for that reason; the stronger Ray-Ban and Oakley rules only match the glasses.</p></div>
 </details>
 <section class="community" aria-label="Community">
   <a class="dc" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span><strong>Join the Discord</strong>Help, ideas, new signatures, field captures and ESP32 builds.</span></a>

@@ -170,6 +170,28 @@ def text_of(fragment):
     return re.sub(r"\s+", " ", t).strip()
 
 
+def last_changed(path, today):
+    """Date a file last changed: today while it has uncommitted edits, else its last commit."""
+    try:
+        import subprocess
+        rel = os.path.relpath(path, ROOT)
+        if subprocess.run(["git", "status", "--porcelain", "--", rel], cwd=ROOT,
+                          capture_output=True, text=True).stdout.strip():
+            return today
+        out = subprocess.run(["git", "log", "-1", "--format=%cs", "--", rel], cwd=ROOT,
+                             capture_output=True, text=True).stdout.strip()
+        return out or today
+    except Exception:
+        return today
+
+
+def app_version():
+    """versionName from app/build.gradle.kts, for the app's structured data."""
+    m = re.search(r'appVersionName\s*=\s*"([^"]+)"',
+                  open(os.path.join(ROOT, "app", "build.gradle.kts"), encoding="utf-8").read())
+    return m.group(1) if m else None
+
+
 def build():
     pages = sorted(f for f in os.listdir(SRC) if f.endswith(".html"))
     today = datetime.date.today().isoformat()
@@ -218,6 +240,8 @@ def build():
                 "programmingLanguage": "Kotlin",
                 "image": BASE + "assets/og.png",
                 "screenshot": BASE + "screenshots/list-dedsec.jpg",
+                "softwareVersion": app_version(),
+                "dateModified": last_changed(os.path.join(ROOT, "app", "build.gradle.kts"), today),
                 "author": {"@type": "Organization", "name": "CIS-C0", "url": "https://github.com/CIS-C0"},
                 "sameAs": [REPO, DISCORD],
             })
@@ -282,7 +306,7 @@ def build():
         open(os.path.join(OUT, name), "w", encoding="utf-8", newline="\n").write(page)
         if not noindex:
             prio = "1.0" if slug == "index" else ("0.9" if slug == "qa" else "0.8")
-            sitemap.append(f"  <url><loc>{url}</loc><lastmod>{today}</lastmod><priority>{prio}</priority></url>")
+            sitemap.append(f"  <url><loc>{url}</loc><lastmod>{last_changed(os.path.join(SRC, name), today)}</lastmod><priority>{prio}</priority></url>")
 
     xml = ('<?xml version="1.0" encoding="UTF-8"?>\n'
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
