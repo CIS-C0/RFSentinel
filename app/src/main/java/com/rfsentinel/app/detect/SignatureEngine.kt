@@ -325,6 +325,18 @@ object SignatureEngine {
     private val CRADLEPOINT_VEHICLE_SSID = Regex("^(ibr\\d{3,4}[a-z]{0,4}|r1900|r2100)-[0-9a-f]{3}(-5g)?$", RegexOption.IGNORE_CASE)
     private const val AXON_FLEET_GUIDE = "Axon Fleet 2/3 network and Cradlepoint configuration guides (axon.com)"
 
+    /**
+     * WiFi module prefixes found in Flock Safety cameras (flock-you dataset, NitekryDPaul /
+     * DeFlock research). They're generic chip makers (Liteon, Espressif, Silicon Labs...),
+     * so they only count together with a Flock product network name or a hidden network.
+     */
+    private val FLOCK_MODULE_PREFIXES = setOf(
+        "70C94E", "3C9180", "D8F3BC", "803049", "B83532", "145AFC", "744CA1", "083A88", "9C2F9D", "C03532",
+        "940853", "E4AAEA", "F46ADD", "F8A2D6", "24B2B9", "00F48D", "D03957", "E8D0FC", "E04F43", "B81EA4",
+        "700894", "588E81", "EC1BBD", "3C71BF", "5800E3", "9035EA", "5C93A2", "646E69", "4827EA", "A4CF12", "826BF2"
+    )
+    private val FLOCK_PRODUCT_SSID = Regex("^(flock|falcon|sparrow|raven|penguin)[_-]", RegexOption.IGNORE_CASE)
+
     private fun classifyWifi(a: Advert): List<Hit> {
         val hits = mutableListOf<Hit>()
         val ssid = a.name?.trim().orEmpty()
@@ -337,6 +349,18 @@ object SignatureEngine {
             Regex("^Penguin-\\d+$").matches(ssid)) {
             hits += Hit(Category.ALPR, "Possible Flock Safety device", 60,
                 "WiFi network \"$ssid\" (Flock product name - verify)", "$ACAB (flock-detection / flock-you research)")
+        }
+        // A Flock-used WiFi module: strong with a Flock product name, weak on a hidden network.
+        if (a.wifi?.client != true && a.mac.replace(":", "").uppercase().take(6) in FLOCK_MODULE_PREFIXES) {
+            if (FLOCK_PRODUCT_SSID.containsMatchIn(ssid) && !ssid.startsWith("Flock-", ignoreCase = true)) {
+                hits += Hit(Category.ALPR, "Flock Safety camera", 85,
+                    "WiFi network \"$ssid\" (Flock product name) on a WiFi module Flock cameras use (${fmtPrefix(a.mac.replace(":", "").uppercase().take(6))})",
+                    "$ACAB (flock-you / MILLIE research)")
+            } else if (ssid.isEmpty()) {
+                hits += Hit(Category.ALPR, "Possible Flock camera (hidden network)", 35,
+                    "Hidden WiFi network on a module Flock cameras use (${fmtPrefix(a.mac.replace(":", "").uppercase().take(6))}); " +
+                        "the same chips are in many ordinary devices - verify", "$ACAB (flock-you / MILLIE research)")
+            }
         }
         if (ssid.startsWith("ARLO_VMB_") || ssid.startsWith("NTGR_VMB_")) {
             hits += Hit(Category.NETWORK_CAMERA, "Arlo camera base station", 88,

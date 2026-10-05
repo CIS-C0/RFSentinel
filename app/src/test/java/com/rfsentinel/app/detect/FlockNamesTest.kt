@@ -20,4 +20,17 @@ class FlockNamesTest {
     fun pigvisionName() {
         assertTrue(SignatureEngine.classify(ble("Pigvision-01", xuntong = false)).any { it.label == "Possible Flock Safety device" })
     }
+
+    private fun ap(mac: String, ssid: String) = Advert(
+        mac = mac, source = Advert.Source.WIFI, rssi = -60, name = ssid,
+        wifi = Advert.WifiInfo(2437, "", null, emptyList()), timestamp = 0L
+    )
+
+    @Test
+    fun flockModuleNeedsProductNameOrHiddenNetwork() {
+        assertEquals(85, SignatureEngine.classify(ap("70:C9:4E:11:22:33", "Falcon-1234")).first { it.category == Category.ALPR }.confidence)
+        assertEquals(35, SignatureEngine.classify(ap("70:C9:4E:11:22:33", "")).first { it.category == Category.ALPR }.confidence)
+        assertTrue(SignatureEngine.classify(ap("70:C9:4E:11:22:33", "HomeWifi")).none { it.category == Category.ALPR })
+        assertTrue(SignatureEngine.classify(ap("11:22:33:44:55:66", "Falcon-1234")).none { it.category == Category.ALPR })
+    }
 }
