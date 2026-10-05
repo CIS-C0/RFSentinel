@@ -4,9 +4,12 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="database" path="." />
+        <!-- Encrypted with a Keystore key that never leaves this phone: useless elsewhere. -->
+        <exclude domain="sharedpref" path="secure_store.xml" />
     </cloud-backup>
     <device-transfer>
         <include domain="database" path="." />
         <include domain="sharedpref" path="." />
+        <exclude domain="sharedpref" path="secure_store.xml" />
     </device-transfer>
 </data-extraction-rules>

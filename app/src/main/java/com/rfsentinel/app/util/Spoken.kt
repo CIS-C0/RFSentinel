@@ -40,6 +40,8 @@ object Spoken {
         Category.CELL_ANOMALY -> "Cell warning"
         Category.RADIO -> "Radio nearby"
         Category.GNSS -> "GPS warning"
+        Category.AIRCRAFT -> if (hit.label.startsWith("Police")) "Police aircraft" else "Aircraft circling"
+        Category.POLICE_REPORT -> "Waze police"
         Category.CUSTOM -> "Watchlist"
     }
 }

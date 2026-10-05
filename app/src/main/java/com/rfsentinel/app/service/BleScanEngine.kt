@@ -139,6 +139,10 @@ class BleScanEngine(
         for (short in intArrayOf(0xFC81, 0xFE6B, 0xFE6C, 0x3100, 0xFD8E, 0xFE04, 0xFE79, 0xFD66, 0xFE45, 0xFEB7, 0xFEB8)) {
             out += ScanFilter.Builder().setServiceUuid(ParcelUuid(Advert.uuid16(short))).build()
         }
+        // HeyCyan-SDK camera glasses (e.g. Nilox Smart AI Glasses), as a service or service data.
+        val heyCyan = ParcelUuid.fromString("7905fff0-b5ce-4e99-a40f-4b1e122d00d0")
+        out += ScanFilter.Builder().setServiceUuid(heyCyan).build()
+        out += ScanFilter.Builder().setServiceData(heyCyan, ByteArray(0)).build()
         // Controllers offload a limited number of filters; keep the total around 40.
         watchedMacs.take(8).forEach { mac ->
             runCatching { out += ScanFilter.Builder().setDeviceAddress(mac).build() }

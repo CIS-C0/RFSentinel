@@ -22,6 +22,10 @@ enum class Category(
     CELL_ANOMALY("Fake cell tower signs (IMSI catcher)", "CELL", 0xFF7B1FA2.toInt(), true),
     GNSS("GPS / satellite jamming or spoofing signs", "GNSS", 0xFF00838F.toInt(), true),
     RADIO("Two-way radio transmitting nearby (needs an RTL-SDR)", "RADIO", 0xFF0277BD.toInt(), true),
+    /** Online (ADS-B feeds): off by default, it sends a rounded position to adsb.fi / adsb.lol. */
+    AIRCRAFT("Police / government aircraft overhead (online: adsb.fi, adsb.lol)", "AIRCRAFT", 0xFF5E35B1.toInt(), false),
+    /** Online (the user's OpenWeb Ninja key): off by default, third-party service used at the user's own risk. */
+    POLICE_REPORT("Police reported on Waze (online: your OpenWeb Ninja key)", "WAZE", 0xFF1E88E5.toInt(), false),
     CUSTOM("Your watchlist", "WATCHLIST", 0xFFC8431A.toInt(), true);
 
     companion object {

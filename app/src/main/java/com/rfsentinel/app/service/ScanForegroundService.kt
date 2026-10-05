@@ -272,6 +272,7 @@ class ScanForegroundService : Service() {
         startHousekeeping()
         startCellChecks()
         startGnssChecks()
+        onlineWatch.sync()
         startBubble()
 
         isRunning = true
@@ -368,7 +369,8 @@ class ScanForegroundService : Service() {
     @SuppressLint("MissingPermission") // checked by hasFineLocation()
     fun updateLocationUpdates() {
         val wanted = hasFineLocation() &&
-            (Prefs.gpsTaggingEnabled(this) || Prefs.followerAlerts(this) || TripRecorder.isRecording || knownAlprActive() || mapVisible)
+            (Prefs.gpsTaggingEnabled(this) || Prefs.followerAlerts(this) || TripRecorder.isRecording || knownAlprActive() ||
+                mapVisible || onlineActive())
         // Frequent fixes while recording a trace or watching for known cameras
         // (at highway speed a 20 s interval could skip right past one).
         val fast = TripRecorder.isRecording || knownAlprActive() || mapVisible
@@ -880,6 +882,38 @@ class ScanForegroundService : Service() {
         }
     }
 
+    /** Police aircraft (ADS-B) and Waze reports: internet sources, both off by default. */
+    private val onlineWatch by lazy {
+        com.rfsentinel.app.online.OnlineWatch(this, serviceScope, { lastLocation ?: lastFix }) { hit, lat, lon, key ->
+            pipeline.post { onOnlineHit(hit, lat, lon, key) }
+        }
+    }
+
+    private fun onlineActive() = Prefs.categoryEnabled(this, Category.AIRCRAFT) ||
+        (Prefs.categoryEnabled(this, Category.POLICE_REPORT) && Prefs.wazeAccepted(this))
+
+    /** A police aircraft overhead or a Waze police report: logged, and an alert above the threshold. */
+    private fun onOnlineHit(hit: Hit, lat: Double, lon: Double, key: String) {
+        if (!Prefs.categoryEnabled(this, hit.category)) return
+        val now = System.currentTimeMillis()
+        val loc = lastLocation
+        val tag = Prefs.gpsTaggingEnabled(this)
+        serviceScope.launch {
+            AppDatabase.getInstance(this@ScanForegroundService).detectionDao().insert(
+                DetectionEntity(
+                    mac = key.substringBefore(':').uppercase() + " " + key.substringAfter(':'), label = hit.label,
+                    source = "ONLINE", rssi = 0, timestamp = now,
+                    latitude = if (tag) loc?.latitude else null, longitude = if (tag) loc?.longitude else null,
+                    category = hit.category.name, confidence = hit.confidence, evidence = hit.evidence
+                )
+            )
+        }
+        if (hit.confidence >= Prefs.alertThreshold(this) && now >= Prefs.alertsSnoozedUntil(this)) {
+            NotificationHelper.sendMapAlert(this, key, hit, lat = lat, lon = lon)
+            AlertPlayer.play(this, hit.tier, com.rfsentinel.app.util.Spoken.shortWord(hit))
+        }
+    }
+
     private var gnssWatching = false
     private val gnssListener: (com.rfsentinel.app.detect.GnssAnalyzer.Anomaly) -> Unit = { a -> pipeline.post { onGnssAnomaly(a) } }
 
@@ -1006,6 +1040,7 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.usb.UsbWifi.stop(this)
         com.rfsentinel.app.sdr.SdrRadio.stop(this)
         if (gnssWatching) { GnssWatch.stop(this, gnssListener); gnssWatching = false }
+        onlineWatch.stop()
         com.rfsentinel.app.esp.OuiSpyBle.stop()
         // External hardware is gone with the scan: its "heard by" marks (External filter, badges) go too.
         com.rfsentinel.app.esp.HeardBy.esp.clear()

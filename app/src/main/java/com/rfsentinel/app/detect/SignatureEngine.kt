@@ -87,6 +87,17 @@ object SignatureEngine {
             listOf("E0508B", "3CEF8C", "4C11BF", "A0BD1D", "9002A9").associateWith { "Dahua" } +
             listOf("00408C", "ACCC8E", "B8A44F", "E82725").associateWith { "Axis" } +
             listOf("000918").associateWith { "Hanwha Vision (Wisenet)" } +
+            listOf("44B423", "E43022").associateWith { "Hanwha Vision (Wisenet)" } +
+            // Commercial / city surveillance camera makers, registrants checked against IEEE.
+            listOf("E0A700").associateWith { "Verkada" } +
+            listOf("701AD5").associateWith { "Avigilon Alta" } +
+            listOf("001BD8", "00407F").associateWith { "FLIR" } +
+            listOf("0010BE", "001281").associateWith { "March Networks" } +
+            listOf("0013E2").associateWith { "GeoVision" } +
+            listOf("0003C5").associateWith { "Mobotix" } +
+            listOf("001C27").associateWith { "Sunell" } +
+            listOf("000131", "000463", "50FACB9").associateWith { "Bosch Security" } +
+            listOf("000322", "6C27C83").associateWith { "IDIS" } +
             listOf("48EA63", "6CF17E", "88263F", "C47905").associateWith { "Uniview" } +
             listOf("0002D1").associateWith { "Vivotek" } +
             listOf("9C8ECD").associateWith { "Amcrest" } +
@@ -247,8 +258,15 @@ object SignatureEngine {
         // ---- Smart / recording glasses --------------------------------------
         if (a.serviceUuids.any { it == HEYCYAN || it == HEYCYAN_REVERSED } ||
             a.serviceData.keys.any { it == HEYCYAN || it == HEYCYAN_REVERSED }) {
-            hits += Hit(Category.GLASSES, "Camera smart glasses (HeyCyan SDK)", 68,
+            hits += Hit(Category.GLASSES, "Camera smart glasses (HeyCyan SDK, e.g. Nilox Smart AI Glasses)", 68,
                 "HeyCyan glasses SDK service UUID (full 128-bit match)", "$ACAB (yj_nearbyglasses)")
+        } else if (Regex("heycyan|nilox", RegexOption.IGNORE_CASE).containsMatchIn(name)) {
+            hits += Hit(Category.GLASSES, "Camera smart glasses (HeyCyan SDK, e.g. Nilox Smart AI Glasses)", 55,
+                "Advertised name \"$name\" (HeyCyan / Nilox; names can be changed - verify)", "yj_nearbyglasses name tokens")
+        }
+        if (CID_LUXOTTICA !in a.manufacturerData && Regex("ray-?ban", RegexOption.IGNORE_CASE).containsMatchIn(name)) {
+            hits += Hit(Category.GLASSES, "Ray-Ban Meta smart glasses", 55,
+                "Advertised name \"$name\" (names can be changed - verify)", "yj_nearbyglasses name tokens")
         }
         if (CID_LUXOTTICA in a.manufacturerData) {
             hits += Hit(Category.GLASSES, "Ray-Ban Meta smart glasses", 70, "Company ID 0x0D53 (Luxottica)", SIG)

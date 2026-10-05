@@ -144,10 +144,21 @@ object CarUi {
     }
 
     /** Headline for the home screen, mirroring the phone's threat banner. */
-    fun threat(devices: List<DeviceRegistry.Snapshot>, threshold: Int): Pair<Int, String> {
+    fun threat(
+        devices: List<DeviceRegistry.Snapshot>, threshold: Int,
+        ambient: com.rfsentinel.app.online.AmbientThreats.Threat? = null
+    ): Pair<Int, String> {
         val flagged = devices.filter { isFlagged(it) }
         val following = flagged.firstOrNull { it.following }
         val top = flagged.maxByOrNull { it.best!!.confidence }
+        // A camera close by, a police aircraft or a Waze report, when it outranks the devices.
+        if (ambient != null && following == null && ambient.score > (top?.best?.confidence ?: 0)) {
+            return when {
+                ambient.score >= 85 -> DANGER_COLOR
+                ambient.score >= threshold -> Category.BODY_CAM.colorArgb
+                else -> WEAK_COLOR
+            } to ambient.label
+        }
         return when {
             following != null -> DANGER_COLOR to "${following.best!!.label} may be following you"
             top == null -> CLEAR_COLOR to "All clear - no flagged equipment"

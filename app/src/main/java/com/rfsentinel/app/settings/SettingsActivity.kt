@@ -25,6 +25,16 @@ import kotlinx.coroutines.launch
 class SettingsActivity : AppCompatActivity() {
 
     companion object {
+        const val WAZE_WARNING_SHORT = "Use at your own risk. Reports come from OpenWeb Ninja, a third-party paid service " +
+            "RF Sentinel doesn't run or endorse; your key, your account, your responsibility."
+        const val WAZE_WARNING = "Waze police reports are read through OpenWeb Ninja's Waze API with your own API key.\n\n" +
+            "• Use this feature at your own risk.\n" +
+            "• OpenWeb Ninja and Waze are third-party services. RF Sentinel isn't affiliated with them, doesn't endorse them, " +
+            "and does not grant you any right to use them or their data: you're responsible for following their terms and your local laws.\n" +
+            "• Each request sends a box of about 4 km around your position to OpenWeb Ninja, and may cost you money on your plan.\n" +
+            "• Reports are unverified crowd reports and can be wrong or out of date.\n\n" +
+            "It stays off unless you enable it, and you can turn it off at any time."
+
         /**
          * Scroll position to restore after a theme change restyles this screen
          * (possibly twice: ours + AppCompat's night-mode switch).
@@ -36,6 +46,9 @@ class SettingsActivity : AppCompatActivity() {
     private var stopObservingDeflock: (() -> Unit)? = null
     private val categorySwitches = mutableMapOf<Category, SwitchMaterial>()
     private var airTagSwitch: SwitchMaterial? = null
+    private var wazeKeyInput: android.widget.EditText? = null
+    private var aircraftStatusText: android.widget.TextView? = null
+    private var wazeStatusText: android.widget.TextView? = null
 
     private val bannerPicker = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.GetContent()
@@ -288,6 +301,10 @@ class SettingsActivity : AppCompatActivity() {
             "Each type of equipment can be turned on or off. Network / home cameras are off by default (many false alarms).\n\n" +
                 "GPS / satellite checks cover every system the phone hears: GPS, GLONASS, Galileo, BeiDou, QZSS and NavIC.\n\n" +
                 "Two-way radio needs an RTL-SDR dongle on USB.\n\n" +
+                "Police aircraft and Waze reports are online sources, off by default. Aircraft: every minute, a position " +
+                "rounded to about 1 km goes to the community ADS-B feeds adsb.fi / adsb.lol; matched against a list of " +
+                "about 1,400 US and Canadian law-enforcement aircraft, plus unlisted aircraft circling low overhead. " +
+                "Waze: police reports within 2 km through your own OpenWeb Ninja key, at your own risk.\n\n" +
                 "Watchlist presets are lists of vendor MAC prefixes:\n" +
                 "• Global: Axon, Flock, Zepcam, WatchGuard, Digital Ally, ShotSpotter, traffic cameras...\n" +
                 "• Canada: Axon, Cyberkar, Getac, Genetec, Motorola, ticket printers...\n" +
@@ -390,6 +407,67 @@ class SettingsActivity : AppCompatActivity() {
                 ui.edit().putBoolean(s.key, open).apply()
                 show()
             }
+        }
+    }
+
+    /** A small grey line under a category switch, indented like the AirTag option. */
+    private fun indentedNote(text: String) = android.widget.TextView(this).apply {
+        this.text = text
+        textSize = 12f
+        alpha = 0.75f
+        setPadding((24 * resources.displayMetrics.density).toInt(), 0, 0, (6 * resources.displayMetrics.density).toInt())
+        visibility = if (text.isBlank()) View.GONE else View.VISIBLE
+    }
+
+    private fun showNote(view: android.widget.TextView?, text: String) {
+        view ?: return
+        view.text = text
+        view.visibility = if (text.isBlank()) View.GONE else View.VISIBLE
+    }
+
+    /**
+     * Waze police reports: off by default, enabled only after the use-at-your-own-risk
+     * warning is accepted; the user's OpenWeb Ninja key is kept encrypted (SecureStore).
+     */
+    private fun addWazeControls(sw: SwitchMaterial) {
+        val dp = resources.displayMetrics.density
+        val box = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding((24 * dp).toInt(), 0, 0, (8 * dp).toInt())
+        }
+        box.addView(android.widget.TextView(this).apply {
+            text = WAZE_WARNING_SHORT
+            textSize = 12f
+            alpha = 0.75f
+        })
+        wazeKeyInput = android.widget.EditText(this).apply {
+            hint = "OpenWeb Ninja API key"
+            isSingleLine = true
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setText(com.rfsentinel.app.util.SecureStore.get(this@SettingsActivity, com.rfsentinel.app.online.OnlineWatch.WAZE_KEY_NAME).orEmpty())
+        }
+        box.addView(wazeKeyInput)
+        wazeStatusText = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
+        box.addView(wazeStatusText)
+        showNote(wazeStatusText, com.rfsentinel.app.online.OnlineWatch.wazeStatus)
+        box.visibility = if (sw.isChecked) View.VISIBLE else View.GONE
+        binding.categoryContainer.addView(box)
+        sw.setOnCheckedChangeListener { _, on ->
+            if (on && !Prefs.wazeAccepted(this)) {
+                sw.isChecked = false
+                AlertDialog.Builder(this)
+                    .setTitle("Waze police reports: use at your own risk")
+                    .setMessage(WAZE_WARNING)
+                    .setPositiveButton("I understand, enable") { _, _ ->
+                        Prefs.setWazeAccepted(this, true)
+                        sw.isChecked = true
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+                return@setOnCheckedChangeListener
+            }
+            box.visibility = if (on) View.VISIBLE else View.GONE
         }
     }
 
@@ -520,6 +598,11 @@ class SettingsActivity : AppCompatActivity() {
                 sw.setOnCheckedChangeListener { _, on -> airTagSwitch?.isEnabled = on }
                 binding.categoryContainer.addView(airTagSwitch)
             }
+            if (c == Category.AIRCRAFT) {
+                aircraftStatusText = indentedNote(com.rfsentinel.app.online.OnlineWatch.aircraftStatus)
+                binding.categoryContainer.addView(aircraftStatusText)
+            }
+            if (c == Category.POLICE_REPORT) addWazeControls(sw)
         }
         val enabledPresets = OuiWatchlist.getEnabledPresets(this)
         binding.presetGlobal.isChecked = "global" in enabledPresets
@@ -678,6 +761,8 @@ class SettingsActivity : AppCompatActivity() {
         super.onResume()
         // The user may be coming back from Developer options.
         updateWifiThrottleHint()
+        showNote(aircraftStatusText, com.rfsentinel.app.online.OnlineWatch.aircraftStatus)
+        showNote(wazeStatusText, com.rfsentinel.app.online.OnlineWatch.wazeStatus)
     }
 
     private fun updateWifiThrottleHint() {
@@ -757,6 +842,11 @@ class SettingsActivity : AppCompatActivity() {
 
         categorySwitches.forEach { (c, sw) -> Prefs.setCategoryEnabled(this, c, sw.isChecked) }
         airTagSwitch?.let { Prefs.setExcludeAirTags(this, it.isChecked) }
+        wazeKeyInput?.let { input ->
+            val key = input.text.toString().trim()
+            val name = com.rfsentinel.app.online.OnlineWatch.WAZE_KEY_NAME
+            if (key != com.rfsentinel.app.util.SecureStore.get(this, name).orEmpty()) com.rfsentinel.app.util.SecureStore.put(this, name, key)
+        }
         val presets = mutableSetOf<String>()
         if (binding.presetGlobal.isChecked) presets.add("global")
         if (binding.presetCanada.isChecked) presets.add("canada")

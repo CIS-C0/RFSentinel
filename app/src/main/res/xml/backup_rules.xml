@@ -3,4 +3,6 @@
      device list reveals where you've been, so keep them out of cloud backups. -->
 <full-backup-content>
     <exclude domain="database" path="." />
+    <!-- Encrypted with a Keystore key that never leaves this phone: useless elsewhere. -->
+    <exclude domain="sharedpref" path="secure_store.xml" />
 </full-backup-content>

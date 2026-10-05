@@ -180,6 +180,20 @@ object KnownCameras {
      * (capped at 600 m), so there's time to notice on a highway. Speed cameras
      * get ~30 s (300-900 m) so there's time to slow down.
      */
+    /**
+     * Threat score of a known camera by distance (0-100): 90 within 50 m, 75 at 100 m,
+     * 50 at 200 m, fading to 0 at 500 m. Feeds the threat headline, so it rises as you
+     * get closer instead of a single warning.
+     */
+    fun proximityScore(distanceM: Double): Int {
+        val pts = doubleArrayOf(0.0, 50.0, 100.0, 200.0, 500.0)
+        val score = doubleArrayOf(90.0, 90.0, 75.0, 50.0, 0.0)
+        if (distanceM >= pts.last()) return 0
+        val i = (1 until pts.size).first { distanceM <= pts[it] }
+        val t = (distanceM - pts[i - 1]) / (pts[i] - pts[i - 1])
+        return (score[i - 1] + t * (score[i] - score[i - 1])).toInt()
+    }
+
     fun warnRadius(speedMs: Float?, kind: KnownCamera.Kind = KnownCamera.Kind.ALPR): Double {
         val v = (speedMs ?: 0f).toDouble()
         return if (kind == KnownCamera.Kind.ALPR) max(150.0, minOf(600.0, v * 20.0))

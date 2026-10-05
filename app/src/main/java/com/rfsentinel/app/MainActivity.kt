@@ -467,6 +467,18 @@ class MainActivity : AppCompatActivity() {
         banner.visibility = View.VISIBLE
         val following = flagged.firstOrNull { it.following }
         val top = flagged.maxByOrNull { it.best!!.confidence }
+        // A camera close by, a police aircraft or a Waze report, when it outranks the devices.
+        val ambient = com.rfsentinel.app.online.AmbientThreats.top(this)
+            ?.takeIf { following == null && it.score > (top?.best?.confidence ?: 0) }
+        if (ambient != null) {
+            banner.text = "⚠ ${ambient.label}"
+            banner.background.mutate().setTint(when {
+                ambient.score >= 85 -> 0xFFB3261E.toInt()
+                ambient.score >= threshold -> 0xFFC8431A.toInt()
+                else -> WEAK_COLOR
+            })
+            return
+        }
         val (color, text) = when {
             following != null -> 0xFFB3261E.toInt() to "⚠ ${following.best!!.label} may be following you"
             top == null -> 0xFF2E7D32.toInt() to "✓ All clear - no flagged equipment nearby"

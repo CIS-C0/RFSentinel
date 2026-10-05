@@ -287,10 +287,13 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
         val running = ScanForegroundService.isRunning
         if (!running) return Card(HEADLINE, "Not scanning", "Tap Start scanning below", null, CarUi.WEAK_COLOR, "OFF", "RF Sentinel")
         val devices = DeviceRegistry.snapshot()
-        val (color, text) = CarUi.threat(devices, Prefs.alertThreshold(this))
+        val ambient = com.rfsentinel.app.online.AmbientThreats.top(this)
+        val (color, text) = CarUi.threat(devices, Prefs.alertThreshold(this), ambient)
+        val lead = ambient?.takeIf { it.label == text }
         val top = devices.filter { CarUi.isFlagged(it) }.maxByOrNull { it.best!!.confidence }
         val line = listOf("${devices.size} nearby · ${devices.count { CarUi.isFlagged(it) }} flagged", CarUi.silencedText(this))
             .filter { it.isNotEmpty() }.joinToString(" · ")
+        if (lead != null) return Card(HEADLINE, text, line, null, color, lead.category.shortTag, "${lead.score}%")
         return Card(HEADLINE, text, line, top?.let { CarUi.signalLine(it) }, color,
             top?.best?.category?.shortTag ?: "CLEAR", top?.best?.let { "${it.tier.label.substringBefore(" -")} ${it.confidence}%" })
     }

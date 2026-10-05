@@ -90,12 +90,15 @@
 | **Public-safety gear** | P25 / TETRA radios, in-car cellular routers (Sierra Wireless, Cradlepoint, Peplink, Inseego), in-car printers (Zebra, Brother), police radar makers, vehicle upfit, breath / drug screening devices, cell-site simulator and forensic makers | Company IDs, UUIDs, IEEE prefixes, Zebra factory-serial names |
 | **Trackers** | AirTag & Find My, Google Find Hub, Samsung SmartTag, Tile | Separated-from-owner frames, then follow detection |
 | **Drones** | Any ASTM F3411 / FAA / EU Remote ID broadcaster | Decoded Remote ID over BLE and WiFi: serial, position, altitude, speed, operator location |
-| **Camera glasses** | Ray-Ban Meta, Snap Spectacles, Vuzix, HeyCyan-based glasses | Company IDs `0x0D53`, `0x03C2`, `0x060C`, Meta UUIDs |
+| **Camera glasses** | Ray-Ban / Oakley Meta, Snap Spectacles, Vuzix, HeyCyan-based glasses such as Nilox Smart AI Glasses | Company IDs `0x0D53`, `0x03C2`, `0x060C`, Meta UUIDs, the HeyCyan SDK UUID, name tokens |
 | **Fake cell towers** | IMSI catchers / cell-site simulators | Test network codes, sudden 4G→2G, cloned or reserved cell identities, unexpected networks |
-| **Network cameras** *(off by default)* | Arlo, Blink, Ezviz, Wyze, Amcrest, Swann, Night Owl... | SSIDs and IEEE blocks |
+| **Police aircraft** *(online, off by default)* | Police, sheriff, state patrol, federal and RCMP / provincial police aircraft, and unlisted aircraft circling low overhead | Community ADS-B feeds (adsb.fi / adsb.lol) matched against ~1,400 law-enforcement airframes from the FAA and Transport Canada registries |
+| **Waze police reports** *(online, off by default)* | Police reported by Waze users within 2 km | Your own OpenWeb Ninja API key; scored by distance and age; third-party service, at your own risk |
+| **Network cameras** *(off by default)* | Arlo, Blink, Ezviz, Wyze, Ring, Verkada, Avigilon Alta, Axis, Hanwha, Bosch, FLIR, March Networks, GeoVision, Mobotix, Sunell, IDIS... | SSIDs and IEEE blocks |
 
 Every match shows its evidence, its source and a confidence tier: **weak** (< 50),
-**probable** (50-79) or **strong** (80+). Full reference: [docs/SIGNATURES.md](docs/SIGNATURES.md).
+**probable** (50-79) or **strong** (80+). Known cameras also raise the threat
+headline as you get closer (strong within 50 m, fading out by 500 m). Full reference: [docs/SIGNATURES.md](docs/SIGNATURES.md).
 
 ## Features
 
@@ -499,6 +502,13 @@ Pick a theme in the setup wizard or under **Settings → Appearance**.
   automatically* to fetch only when you tap a download. In Android Auto,
   navigation uses Nominatim and OSRM only when you search or start a route.
   Map data © OpenStreetMap contributors (ODbL).
+- **Two optional online sources, off by default:** *Police / government
+  aircraft* sends a position rounded to about 1 km to the community ADS-B
+  feeds adsb.fi / adsb.lol every minute while scanning. *Police reported on
+  Waze* uses your own OpenWeb Ninja API key (stored encrypted on the phone)
+  and sends a box of about 4 km around you every 4 minutes. OpenWeb Ninja and
+  Waze are third-party services RF Sentinel isn't affiliated with and doesn't
+  endorse; using them is at your own risk and under their terms.
 - **Data leaves the phone only when you export or share it.**
 - **Optional permissions:** *Nearby devices → connect* only to list your paired
   Bluetooth devices when you pick your car; *Display over other apps* only for

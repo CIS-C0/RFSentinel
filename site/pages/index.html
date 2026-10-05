@@ -30,8 +30,10 @@
 <tr><td>Public-safety gear</td><td>P25 / TETRA radio makers, in-car cellular routers (Sierra Wireless, Cradlepoint, Peplink, Inseego), in-car printers (Zebra, Brother), police radar makers, vehicle upfit, breath / drug screening devices</td><td>Company IDs, UUIDs, IEEE prefixes, Zebra factory-serial names</td></tr>
 <tr><td>Trackers</td><td>AirTag &amp; Find My, Google Find Hub, Samsung SmartTag, Tile</td><td>Separated-from-owner frames, then follow detection (default 10 min and 800 m with you)</td></tr>
 <tr><td>Drones</td><td>Any ASTM F3411 / FAA Remote ID broadcaster (DJI, Skydio, Autel, Parrot...)</td><td>Decoded Remote ID over BLE and WiFi: serial, position, altitude, speed, heading, operator location</td></tr>
-<tr><td>Camera glasses</td><td>Ray-Ban Meta, Snap Spectacles, Vuzix, HeyCyan-based glasses</td><td>Luxottica <code>0x0D53</code>, Snap <code>0x03C2</code>, Vuzix <code>0x060C</code>, Meta UUIDs</td></tr>
+<tr><td>Camera glasses</td><td>Ray-Ban / Oakley Meta, Snap Spectacles, Vuzix, HeyCyan-based glasses such as Nilox Smart AI Glasses</td><td>Luxottica <code>0x0D53</code>, Snap <code>0x03C2</code>, Vuzix <code>0x060C</code>, Meta UUIDs</td></tr>
 <tr><td>Fake cell towers</td><td>IMSI catchers / cell-site simulators</td><td>Test MCCs, sudden 4G→2G, cloned or reserved cell IDs, unexpected networks (no root)</td></tr>
+<tr><td>Police aircraft <i>(online, optional)</i></td><td>Police, sheriff, state patrol, federal and RCMP / provincial police aircraft; unlisted aircraft circling low overhead</td><td>Community ADS-B feeds (adsb.fi / adsb.lol) matched against ~1,400 law-enforcement airframes from the FAA and Transport Canada registries</td></tr>
+<tr><td>Waze police reports <i>(online, optional)</i></td><td>Police reported by Waze users within 2 km</td><td>Your own OpenWeb Ninja API key, scored by distance and age; third-party service, at your own risk</td></tr>
 </tbody>
 </table></div>
 <p>Every match shows its evidence, its source and a confidence tier: <b>weak</b> (&lt; 50), <b>probable</b> (50-79) or <b>strong</b> (80+). Full rules: <a href="how-it-works.html">how detection works</a> and the <a href="{{REPO}}/blob/main/docs/SIGNATURES.md" rel="noopener">signature reference</a>.</p>
@@ -109,6 +111,6 @@
 <ul>
   <li><b>Receive-only.</b> The app never transmits, jams, spoofs or connects to the devices it detects.</li>
   <li><b>No accounts, no cloud, no analytics.</b> Detections live in a local database excluded from cloud backup.</li>
-  <li><b>Network use:</b> OpenStreetMap map tiles and camera data (Overpass API, DeFlock CDN), and in Android Auto, Nominatim search and OSRM routing, only when used. Those servers see your IP and the area or route, never your scans.</li>
+  <li><b>Network use:</b> OpenStreetMap map tiles and camera data (Overpass API, DeFlock CDN), and in Android Auto, Nominatim search and OSRM routing, only when used. Those servers see your IP and the area or route, never your scans. Two optional sources are off by default: police aircraft (a position rounded to ~1 km goes to the ADS-B feeds adsb.fi / adsb.lol) and Waze police reports through your own OpenWeb Ninja key, at your own risk.</li>
   <li><b>Data leaves the phone only when you export or share it.</b></li>
 </ul>

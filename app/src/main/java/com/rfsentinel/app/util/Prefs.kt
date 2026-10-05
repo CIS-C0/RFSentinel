@@ -67,6 +67,10 @@ object Prefs {
     }
 
     /** Master mute for alert sound and voice (phone menu and Android Auto button). Vibration unaffected. */
+    /** The user read and accepted the Waze / OpenWeb Ninja use-at-your-own-risk warning. */
+    fun wazeAccepted(context: Context): Boolean = bool(context, "waze_accepted", false)
+    fun setWazeAccepted(context: Context, value: Boolean) = setBool(context, "waze_accepted", value)
+
     fun alertsMuted(context: Context): Boolean = bool(context, "alerts_muted", false)
     fun setAlertsMuted(context: Context, value: Boolean) = setBool(context, "alerts_muted", value)
 
