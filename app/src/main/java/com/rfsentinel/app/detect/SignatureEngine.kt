@@ -47,7 +47,35 @@ object SignatureEngine {
     // --- 16-bit service UUIDs ------------------------------------------------
     private val AXON_UUIDS = mapOf(0xFC81 to "Axon Enterprise", 0xFE6B to "TASER International", 0xFE6C to "TASER International")
     private val MOTOROLA_UUIDS = setOf(0xFD8E, 0xFE04)
-    private val RAVEN_SHORTS = mapOf(0x3100 to "GPS", 0x3200 to "power", 0x3300 to "network", 0x3400 to "upload", 0x3500 to "error")
+    private val RAVEN_SHORTS = mapOf(0x3100 to "GPS", 0x3101 to "GPS", 0x3102 to "GPS", 0x3200 to "power", 0x3300 to "network",
+        0x3400 to "upload", 0x3500 to "error")
+    /** Flock's accessory GATT service, from a Flock camera's firmware (Flock-You issue #15, SquachWatch). */
+    private val FLOCK_GATT = UUID.fromString("e8ccbb38-9532-46a8-9fe5-1814df172e6f")
+    private const val UUID_TILE_2 = 0xFEEC         // Tile, Inc. (second SIG-assigned UUID)
+
+    /**
+     * Plate-reader / traffic-enforcement makers by IEEE registration (ACAB alpr_candidates):
+     * Jenoptik, Kapsch, Elsag (Leonardo) and its predecessor Selex, Neology, Ubicquia
+     * (streetlight nodes that host ALPR cameras). Their gear rarely shows over the air, but
+     * when it does it's enforcement hardware.
+     */
+    private val ALPR_MAKER_PREFIXES = PrefixTable(mapOf(
+        "00044C" to "Jenoptik", "48E3C3" to "Jenoptik", "00E06A" to "Kapsch", "0040DE" to "Elsag (Leonardo)",
+        "70B3D51C0" to "Elsag (Leonardo)", "70B3D5520" to "Selex ES (Elsag)", "70B3D5F50" to "Selex ES (Elsag)",
+        "00173D" to "Neology", "947BBE" to "Ubicquia"
+    ))
+
+    /**
+     * Camera / security makers matched by the IEEE registrant name, so every prefix they hold
+     * counts (Hikvision alone has 100+), not just a hand-picked few.
+     */
+    private val CAMERA_MAKER_NAME = Regex(
+        "hikvision|zhejiang dahua|ezviz|lorex|amcrest|swann communications|wyze labs|^ring llc|arlo technologies|reolink|" +
+            "vivint|simplisafe|uniview|vivotek|avigilon|verkada|geovision|mobotix|sunell|march networks|" +
+            "ava security|hanwha vision|hanwha techwin|samsung techwin|axis communications|" +
+            "fantasia trading|shenzhen phaten|tp-link.*tapo",
+        RegexOption.IGNORE_CASE
+    )
     private const val UUID_REMOTE_ID = 0xFFFA      // ASTM Remote ID (SIG SDO UUID)
     private const val UUID_SMARTTAG = 0xFD5A       // Samsung Electronics
     private const val UUID_TILE = 0xFEED           // Tile, Inc.
@@ -226,6 +254,10 @@ object SignatureEngine {
                 hits += Hit(Category.ALPR, "XUNTONG Bluetooth module (used in Flock hardware)", 45,
                     "Company ID 0x09C8 - shared silicon, also in other products", "$SIG; $ACAB")
         }
+        if (a.serviceUuids.contains(FLOCK_GATT) || a.serviceData.keys.contains(FLOCK_GATT)) {
+            hits += Hit(Category.ALPR, "Flock Safety device", 80,
+                "Flock accessory service UUID e8ccbb38-... (from Flock camera firmware)", "Flock-You research; SquachWatch")
+        }
         RAVEN_SHORTS.keys.filter { it in shorts }.takeIf { it.isNotEmpty() }?.let { found ->
             hits += Hit(Category.AUDIO_SENSOR, "Flock Raven audio / gunshot sensor", 80,
                 "Raven service UUIDs: " + found.joinToString { String.format("0x%04X (%s)", it, RAVEN_SHORTS[it]) },
@@ -260,8 +292,8 @@ object SignatureEngine {
             hits += Hit(Category.TRACKER, "Samsung SmartTag", 55,
                 "Service data on UUID 0xFD5A (Samsung)", "$SIG; arXiv 2501.17452")
         }
-        a.serviceData[Advert.uuid16(UUID_TILE)]?.takeIf { it.isNotEmpty() }?.let {
-            hits += Hit(Category.TRACKER, "Tile tracker", 55, "Service data on UUID 0xFEED (Tile, Inc.)", SIG)
+        (a.serviceData[Advert.uuid16(UUID_TILE)] ?: a.serviceData[Advert.uuid16(UUID_TILE_2)])?.takeIf { it.isNotEmpty() }?.let {
+            hits += Hit(Category.TRACKER, "Tile tracker", 55, "Service data on UUID 0xFEED / 0xFEEC (Tile, Inc.)", SIG)
         }
 
         // ---- Smart / recording glasses --------------------------------------
@@ -374,9 +406,20 @@ object SignatureEngine {
                 "ASTM F3411 vendor information element (OUI FA:0B:BC) in the WiFi beacon", ASTM)
         }
         if (!isLocallyAdministered(a.mac)) {
-            CAMERA_PREFIXES.match(a.mac)?.let { (prefix, vendor) ->
+            val listed = CAMERA_PREFIXES.match(a.mac)
+            listed?.let { (prefix, vendor) ->
                 hits += Hit(Category.NETWORK_CAMERA, "$vendor camera, hub or recorder", 65,
                     "WiFi address in $vendor's registered block ${fmtPrefix(prefix)}", "$IEEE; $ACAB")
+            }
+            // Any other block registered to a camera / security maker.
+            if (listed == null) VendorDb.macVendor(a.mac)?.takeIf { CAMERA_MAKER_NAME.containsMatchIn(it) }?.let { owner ->
+                hits += Hit(Category.NETWORK_CAMERA, "${cameraMaker(owner)} camera, hub or recorder", 60,
+                    "WiFi address registered to $owner", "$IEEE; $ACAB")
+            }
+            ALPR_MAKER_PREFIXES.match(a.mac)?.let { (prefix, maker) ->
+                hits += Hit(Category.ALPR, "$maker traffic / plate-camera hardware", 60,
+                    "WiFi address in $maker's registered block ${fmtPrefix(prefix)} - enforcement-camera maker, verify",
+                    "$IEEE; $ACAB (alpr_candidates)")
             }
         }
         droneByPrefix(a)?.let { hits += it }
@@ -389,6 +432,20 @@ object SignatureEngine {
         return Hit(Category.DRONE, "$vendor equipment (drone or controller)", 60,
             "Address in $vendor's registered block ${fmtPrefix(prefix)}; no Remote ID decoded",
             "$IEEE; $ACAB")
+    }
+
+    /** A short maker name from an IEEE registrant ("Hangzhou Hikvision Digital Technology Co.,Ltd" -> "Hikvision"). */
+    internal fun cameraMaker(owner: String): String {
+        val o = owner.lowercase()
+        return listOf(
+            "hikvision" to "Hikvision", "dahua" to "Dahua", "ezviz" to "Ezviz", "lorex" to "Lorex", "amcrest" to "Amcrest",
+            "swann" to "Swann", "wyze" to "Wyze", "ring llc" to "Ring (Amazon)", "arlo" to "Arlo", "reolink" to "Reolink",
+            "vivint" to "Vivint", "simplisafe" to "SimpliSafe", "uniview" to "Uniview", "vivotek" to "Vivotek",
+            "avigilon" to "Avigilon", "verkada" to "Verkada", "geovision" to "GeoVision", "mobotix" to "Mobotix",
+            "sunell" to "Sunell", "march networks" to "March Networks", "ava security" to "Ava Security",
+            "hanwha" to "Hanwha Vision", "samsung techwin" to "Hanwha Vision", "axis" to "Axis", "blink" to "Blink (Amazon)",
+            "fantasia trading" to "Eufy (Anker)", "phaten" to "Phaten (camera OEM)", "tapo" to "TP-Link Tapo"
+        ).firstOrNull { it.first in o }?.second ?: owner
     }
 
     private fun isLocallyAdministered(mac: String): Boolean =
