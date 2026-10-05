@@ -42,6 +42,8 @@ object Spoken {
         Category.GNSS -> "GPS warning"
         Category.AIRCRAFT -> if (hit.label.startsWith("Police")) "Police aircraft" else "Aircraft circling"
         Category.POLICE_REPORT -> "Waze police"
+        Category.SKIMMER -> "Card skimmer"
+        Category.HACKER -> "Hacking tool"
         Category.CUSTOM -> "Watchlist"
     }
 }

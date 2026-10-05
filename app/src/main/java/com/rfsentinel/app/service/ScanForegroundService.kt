@@ -435,8 +435,10 @@ class ScanForegroundService : Service() {
         }
 
         val prev = classified[mac]
+        // A newly heard address counts toward a Bluetooth spam flood (HackerWatch).
+        val spam = if (prev == null) com.rfsentinel.app.detect.HackerWatch.bleSpam(a, now) else null
         val c = if (prev == null || now - prev.time >= CLASSIFY_INTERVAL_MS) {
-            classify(a, now).also { classified[mac] = it }
+            classify(a, now, listOfNotNull(spam, com.rfsentinel.app.detect.HackerWatch.evilTwin(a))).also { classified[mac] = it }
         } else {
             prev
         }
@@ -542,7 +544,7 @@ class ScanForegroundService : Service() {
         process(advert, e.remoteId)
     }
 
-    private fun classify(a: Advert, now: Long): Classified {
+    private fun classify(a: Advert, now: Long, extra: List<Hit> = emptyList()): Classified {
         val macVendor = VendorDb.macVendor(a.mac)
         val identity = DeviceIntel.identify(a, macVendor)
         val companyVendors = a.manufacturerData.keys.mapNotNull { VendorDb.company(it) }
@@ -554,7 +556,8 @@ class ScanForegroundService : Service() {
             DeviceRegistry.inheritedHits(a.mac) +
             listOfNotNull(DeviceRegistry.clusterHit(a.mac, now)) +
             espHits[a.mac]?.takeIf { now - it.first < ESP_HIT_TTL_MS }?.second.orEmpty() +
-            probeHits[a.mac]?.takeIf { now - it.first < ESP_HIT_TTL_MS }?.second.orEmpty()
+            probeHits[a.mac]?.takeIf { now - it.first < ESP_HIT_TTL_MS }?.second.orEmpty() +
+            extra
         val noAirTags = Prefs.excludeAirTags(this)
         val hits = EvidenceFusion.fuse(raw.filter {
             Prefs.categoryEnabled(this, it.category) && !(noAirTags && SignatureEngine.isAppleFindMy(it))

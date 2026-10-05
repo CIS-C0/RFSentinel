@@ -147,7 +147,7 @@ object SignatureEngine {
     private val ZEBRA_SERIAL = Regex("^[A-Z0-9]{2}[A-Z]{3}\\d{9}$")
 
     fun classify(a: Advert): List<Hit> {
-        val hits = if (a.isBle) classifyBle(a) else classifyWifi(a)
+        val hits = (if (a.isBle) classifyBle(a) else classifyWifi(a)) + HackerWatch.signatures(a)
         return hits.sortedByDescending { it.confidence }
     }
 

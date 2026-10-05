@@ -94,6 +94,8 @@
 | **Fake cell towers** | IMSI catchers / cell-site simulators | Test network codes, sudden 4G→2G, cloned or reserved cell identities, unexpected networks |
 | **Police aircraft** *(online, off by default)* | Police, sheriff, state patrol, federal and RCMP / provincial police aircraft, and unlisted aircraft circling low overhead | Community ADS-B feeds (adsb.fi / adsb.lol) matched against ~1,400 law-enforcement airframes from the FAA and Transport Canada registries |
 | **Waze police reports** *(online, off by default)* | Police reported by Waze users within 2 km | Your own OpenWeb Ninja API key; scored by distance and age; third-party service, at your own risk |
+| **Card skimmers** | Bluetooth modules inside gas-pump and ATM skimmers | HC-05 / HC-06 / HC-03 / RN42 / BT04-A names, serial-port service |
+| **Hacking tools** *(off by default)* | Flipper Zero, Pwnagotchi, WiFi Pineapple, ESP deauthers, evil twin WiFi networks, Bluetooth spam floods | Flipper UUIDs / company ID `0x0E29` / IEEE block, Pwnagotchi beacon JSON, default SSIDs, same network name from two makers with mismatched security, bursts of new pairing pop-ups |
 | **Network cameras** *(off by default)* | Arlo, Blink, Ezviz, Wyze, Ring, Verkada, Avigilon Alta, Axis, Hanwha, Bosch, FLIR, March Networks, GeoVision, Mobotix, Sunell, IDIS... | SSIDs and IEEE blocks |
 
 Every match shows its evidence, its source and a confidence tier: **weak** (< 50),

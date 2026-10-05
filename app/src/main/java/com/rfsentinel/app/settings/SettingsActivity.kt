@@ -305,6 +305,9 @@ class SettingsActivity : AppCompatActivity() {
                 "rounded to about 1 km goes to the community ADS-B feeds adsb.fi / adsb.lol; matched against a list of " +
                 "about 1,400 US and Canadian law-enforcement aircraft, plus unlisted aircraft circling low overhead. " +
                 "Waze: police reports within 2 km through your own OpenWeb Ninja key, at your own risk.\n\n" +
+                "Card skimmers: the Bluetooth modules built into gas-pump and ATM skimmers (HC-05 / HC-06 style names). " +
+                "Hacking tools (off by default): Flipper Zero, Pwnagotchi, WiFi Pineapple, deauthers, evil twin WiFi " +
+                "networks (one network name, two makers, one open) and Bluetooth pairing-pop-up spam floods.\n\n" +
                 "Watchlist presets are lists of vendor MAC prefixes:\n" +
                 "• Global: Axon, Flock, Zepcam, WatchGuard, Digital Ally, ShotSpotter, traffic cameras...\n" +
                 "• Canada: Axon, Cyberkar, Getac, Genetec, Motorola, ticket printers...\n" +
