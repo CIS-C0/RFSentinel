@@ -127,9 +127,10 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 
 **Alerts**
 - Sound, vibration pattern per tier (1 / 2 / 3 pulses) and spoken announcements through the phone's own speech engine (prioritised, voice and speed pickers)
+- **Radar-detector beeps** option: after an alert, beeps speed up as the flagged device gets closer
 - **Short spoken alerts** option ("Body cam", "Police car", "Speed camera, 50")
 - Discreet mode, adjustable alert threshold, mute from the app or the car
-- **Floating threat bubble** over Waze, Google Maps or any app
+- **Floating threat bubble** over Waze, Google Maps or any app, with a pop-up card saying what was just detected
 - **Floating mini map** over other apps: the devices and known cameras around you, like the app's map (pinch to zoom, drag, resize)
 - Android Auto alert cards say what it is, how sure, about how far and how many more are flagged ("BODY CAM · strong · ~40 m · near (-58 dBm) · +2 more flagged")
 - Notification, Quick Settings tile and home-screen widget
@@ -221,6 +222,7 @@ Details: [How it works](https://cis-c0.github.io/RFSentinel/how-it-works.html) a
   favorite, copy, ignore, and **Report unknown device**.
 - **Floating bubble** (Settings, needs *Display over other apps*): green when
   clear, orange for probable, red for strong or a follower, with the count.
+  Each new alert shows a small card beside it for a few seconds (what, type, distance).
 - **Floating mini map** (Settings, same permission): the devices and known
   cameras around you over Waze, Google Maps or any app, centred on you, with a
   threat-colour border. Pinch to zoom, drag to move, the corner handle resizes

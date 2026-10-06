@@ -316,12 +316,15 @@ class SettingsActivity : AppCompatActivity() {
         Section("alerts", binding.headerAlerts, binding.sectionAlerts,
             "Threshold: \"Weak\" alerts on every match (more false alarms); \"Strong only\" on near-certain ones.\n\n" +
                 "Vibration: 1 pulse weak, 2 probable, 3 strong.\n\n" +
+                "Radar-detector beeps (off by default): after a device alert, keeps beeping faster as its signal " +
+                "gets stronger, like a radar detector; stops when it's gone or after 2 minutes.\n\n" +
                 "Re-alert: how long before the same device can alert again."),
         Section("voice", binding.headerVoice, binding.sectionVoice,
             "Speaks each alert, for example while driving. Short alerts say just the type " +
                 "(\"Body cam\", \"Police car\", \"Speed camera, 50\")."),
         Section("overlay", binding.headerOverlay, binding.sectionOverlay,
             "Shown over other apps (Waze, Maps...) while scanning. Needs Android's \"Display over other apps\" permission.\n\n" +
+                "Bubble: each new alert shows what was detected in a small card beside it for a few seconds.\n\n" +
                 "Mini map: the devices around you, like the app's map. Drag to move, pinch to zoom, " +
                 "corner handle to resize, tap to open the full map."),
         Section("follow", binding.headerFollow, binding.sectionFollow,
@@ -684,6 +687,7 @@ class SettingsActivity : AppCompatActivity() {
         )
         binding.soundSwitch.isChecked = Prefs.soundEnabled(this)
         binding.vibrateSwitch.isChecked = Prefs.vibrateEnabled(this)
+        binding.radarBeepSwitch.isChecked = Prefs.radarBeep(this)
         binding.voiceSwitch.isChecked = Prefs.voiceEnabled(this)
         binding.shortVoiceSwitch.isChecked = Prefs.shortVoice(this)
         setupVoiceControls()
@@ -926,6 +930,7 @@ class SettingsActivity : AppCompatActivity() {
             }
         )
         Prefs.setSoundEnabled(this, binding.soundSwitch.isChecked)
+        Prefs.setRadarBeep(this, binding.radarBeepSwitch.isChecked)
         Prefs.setVibrateEnabled(this, binding.vibrateSwitch.isChecked)
         Prefs.setVoiceEnabled(this, binding.voiceSwitch.isChecked)
         Prefs.setShortVoice(this, binding.shortVoiceSwitch.isChecked)

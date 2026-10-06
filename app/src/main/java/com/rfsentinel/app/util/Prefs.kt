@@ -211,6 +211,10 @@ object Prefs {
     fun floatingMap(context: Context): Boolean = bool(context, "floating_map", false)
     fun setFloatingMap(context: Context, value: Boolean) = setBool(context, "floating_map", value)
 
+    /** Radar-detector mode: after a device alert, keep beeping faster as its signal gets stronger. */
+    fun radarBeep(context: Context): Boolean = bool(context, "radar_beep", false)
+    fun setRadarBeep(context: Context, value: Boolean) = setBool(context, "radar_beep", value)
+
     fun threatBubble(context: Context): Boolean = bool(context, "threat_bubble", false)
     fun setThreatBubble(context: Context, value: Boolean) = setBool(context, "threat_bubble", value)
 

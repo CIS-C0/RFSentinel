@@ -146,6 +146,8 @@ object NotificationHelper {
     ) {
         recordAlert(context, key, null, hit, null, false, lat, lon)
         val discreet = Prefs.discreetMode(context)
+        com.rfsentinel.app.ui.ThreatBubble.popup(context, if (discreet) "New alert" else hit.label,
+            if (discreet) null else hit.category.shortTag, hit.category.colorArgb)
         if (toCar(context, if (discreet) "New alert" else "${hit.label}. ${hit.evidence}", null)) return
         val open = PendingIntent.getActivity(
             context, key.hashCode(),
@@ -239,6 +241,13 @@ object NotificationHelper {
         val rid = com.rfsentinel.app.service.DeviceRegistry.get(mac)?.remoteId?.takeIf { it.hasPosition }
         recordAlert(context, mac, mac, hit, rssi, following, rid?.latitude, rid?.longitude)
         val discreet = Prefs.discreetMode(context)
+        com.rfsentinel.app.ui.ThreatBubble.popup(context,
+            if (discreet) "New alert" else if (following) "Following you: ${hit.label}" else hit.label,
+            if (discreet) null else listOfNotNull(hit.category.shortTag,
+                com.rfsentinel.app.service.DeviceRegistry.get(mac)?.distanceM?.takeIf { it > 0 }
+                    ?.let { "~" + com.rfsentinel.app.detect.DeviceIntel.formatDistance(it) },
+                ProximityUtil.band(rssi).lowercase()).joinToString(" · "),
+            hit.category.colorArgb)
         val detail = PendingIntent.getActivity(
             context, mac.hashCode(),
             Intent(context, DeviceDetailActivity::class.java)

@@ -26,6 +26,10 @@ object Beeper {
         else -> List(beeps.coerceIn(1, 3)) { i -> 140 to if (i == beeps - 1) 0 else 110 }
     }
 
+    /** Milliseconds between radar ticks: -95 dBm -> 1.6 s, -40 dBm and closer -> 0.15 s (like Locate). */
+    fun tickIntervalMs(rssi: Int): Long = (1600 - ((rssi + 95).coerceIn(0, 55) / 55.0) * 1450).toLong()
+
+
     fun durationMs(pattern: List<Pair<Int, Int>>) = pattern.sumOf { it.first + it.second }
 
     /** 16-bit mono PCM for a pattern (pure; unit-tested). */

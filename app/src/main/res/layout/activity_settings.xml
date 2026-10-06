@@ -215,6 +215,12 @@
                 android:layout_height="wrap_content"
                 android:text="Vibration" />
 
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/radarBeepSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Radar-detector beeps (faster as it gets closer)" />
+
             <TextView style="@style/SettingsLabel" android:text="Re-alert the same device after (minutes)" />
 
             <EditText

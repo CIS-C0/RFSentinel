@@ -6,14 +6,22 @@ import android.content.Intent
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.PixelFormat
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.text.style.RelativeSizeSpan
+import android.text.style.StyleSpan
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.TextView
 import androidx.core.content.edit
 import com.rfsentinel.app.MainActivity
 import kotlin.math.abs
@@ -24,7 +32,8 @@ import kotlin.math.min
  * scanning: green = all clear, orange = a probable match, red = a strong match
  * or something following you, with the number of flagged devices. Tap to open
  * the app, drag to move. Needs the "Display over other apps" permission; hidden
- * while RF Sentinel itself is on screen.
+ * while RF Sentinel itself is on screen. Each new alert also shows a small card
+ * next to the bubble for a few seconds saying what was detected.
  */
 object ThreatBubble {
 
@@ -33,6 +42,9 @@ object ThreatBubble {
     private val main = Handler(Looper.getMainLooper())
     private var view: BubbleView? = null
     private var params: WindowManager.LayoutParams? = null
+    private var popupView: TextView? = null
+    private val hidePopup = Runnable { popupView?.let { removePopupNow(it.context) } }
+    private const val POPUP_MS = 6_000L
 
     fun canShow(context: Context) = Settings.canDrawOverlays(context)
 
@@ -46,7 +58,69 @@ object ThreatBubble {
 
     fun hide(context: Context) = main.post { removeNow(context.applicationContext) }
 
+    /**
+     * Shows what was just detected in a small card beside the bubble (any thread);
+     * a newer alert replaces it. Only while the bubble itself is showing.
+     */
+    fun popup(context: Context, title: String, detail: String?, color: Int) = main.post {
+        val app = context.applicationContext
+        val lp = params ?: return@post
+        if (view == null || !canShow(app)) return@post
+        val wm = app.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val d = app.resources.displayMetrics.density
+        val text = SpannableStringBuilder(title).apply {
+            setSpan(StyleSpan(Typeface.BOLD), 0, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            if (!detail.isNullOrBlank()) {
+                val start = length
+                append("\n").append(detail)
+                setSpan(RelativeSizeSpan(0.85f), start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                setSpan(ForegroundColorSpan(0xFFCFD8DC.toInt()), start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
+        // Beside the bubble, on whichever side has more room.
+        val size = lp.width
+        val onLeft = lp.x + size / 2 < app.resources.displayMetrics.widthPixels / 2
+        val plp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+            lp.type,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or (if (onLeft) Gravity.START else Gravity.END)
+            x = if (onLeft) lp.x + size + (6 * d).toInt() else app.resources.displayMetrics.widthPixels - lp.x + (6 * d).toInt()
+            y = lp.y + (4 * d).toInt()
+        }
+        val pv = popupView ?: TextView(app).apply {
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 14f
+            maxWidth = (240 * d).toInt()
+            setPadding((12 * d).toInt(), (7 * d).toInt(), (12 * d).toInt(), (7 * d).toInt())
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        }
+        pv.text = text
+        pv.background = GradientDrawable().apply {
+            cornerRadius = 12 * d
+            setColor(0xEE202124.toInt())
+            setStroke((2 * d).toInt(), color or 0xFF000000.toInt())
+        }
+        if (popupView == null) {
+            if (runCatching { wm.addView(pv, plp) }.isFailure) return@post
+            popupView = pv
+        } else runCatching { wm.updateViewLayout(pv, plp) }
+        main.removeCallbacks(hidePopup)
+        main.postDelayed(hidePopup, POPUP_MS)
+    }
+
+    private fun removePopupNow(context: Context) {
+        main.removeCallbacks(hidePopup)
+        val pv = popupView ?: return
+        runCatching { (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).removeView(pv) }
+        popupView = null
+    }
+
     private fun removeNow(context: Context) {
+        removePopupNow(context)
         val v = view ?: return
         runCatching { (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).removeView(v) }
         view = null; params = null
@@ -76,7 +150,7 @@ object ThreatBubble {
                 MotionEvent.ACTION_DOWN -> { downX = e.rawX; downY = e.rawY; startX = lp.x; startY = lp.y; moved = false }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = e.rawX - downX; val dy = e.rawY - downY
-                    if (abs(dx) > 8 * d || abs(dy) > 8 * d) moved = true
+                    if (!moved && (abs(dx) > 8 * d || abs(dy) > 8 * d)) { moved = true; removePopupNow(context) }
                     if (moved) { lp.x = startX + dx.toInt(); lp.y = startY + dy.toInt(); runCatching { wm.updateViewLayout(v, lp) } }
                 }
                 MotionEvent.ACTION_UP -> {

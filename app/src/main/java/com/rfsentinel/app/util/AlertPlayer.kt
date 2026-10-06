@@ -92,6 +92,17 @@ object AlertPlayer {
         }
     }
 
+    /**
+     * One short radar-detector tick (no vibration, no voice). Same rules as the alert
+     * beeps: off when alerts are muted or the sound is off, and on the phone also in
+     * silent / vibrate / Do Not Disturb.
+     */
+    fun tick(context: Context) {
+        val inCar = CarState.connected
+        if (Prefs.alertsSilenced(context) || !Prefs.soundEnabled(context) || !(inCar || ringerAllowsSound(context))) return
+        Beeper.play(if (inCar) carToneAttributes else phoneToneAttributes, listOf(70 to 0))
+    }
+
     /** A spoken navigation instruction (no beep, no vibration); silent when alerts are muted. */
     fun announce(context: Context, text: String) {
         if (Prefs.alertsSilenced(context)) return

@@ -64,6 +64,11 @@ import java.util.concurrent.ConcurrentHashMap
 class ScanForegroundService : Service() {
 
     companion object {
+        /** Radar beeps: start after the alert's own beeps, last up to 2 min, stop 10 s after the device is lost. */
+        private const val RADAR_QUIET_MS = 2_500L
+        private const val RADAR_HOLD_MS = 120_000L
+        private const val RADAR_LOST_MS = 10_000L
+
         private const val TAG = "ScanForegroundService"
         const val ACTION_STOP = "com.rfsentinel.app.action.STOP"
         /** Re-evaluates location updates, e.g. after trace recording starts or stops. */
@@ -166,6 +171,7 @@ class ScanForegroundService : Service() {
     private var housekeepingJob: Job? = null
     private var cellJob: Job? = null
     private var bubbleJob: Job? = null
+    private var radarJob: Job? = null
     private var cellMonitor: CellMonitor? = null
     private val lastCellAlert = HashMap<String, Long>()
     private var btStateReceiverRegistered = false
@@ -274,6 +280,7 @@ class ScanForegroundService : Service() {
         startGnssChecks()
         onlineWatch.sync()
         startBubble()
+        startRadarBeep()
 
         isRunning = true
         refreshTile()
@@ -980,6 +987,32 @@ class ScanForegroundService : Service() {
      * Keeps the floating threat bubble and the floating mini map in sync (hidden while
      * our own screens are visible).
      */
+    /**
+     * Radar-detector beeps: after a device alert, tick faster as the flagged device's
+     * signal gets stronger and stop when it's gone. Each alerted device beeps for at
+     * most [RADAR_HOLD_MS], so one parked next to you doesn't beep forever; it starts
+     * again when the device re-alerts.
+     */
+    private fun startRadarBeep() {
+        radarJob?.cancel()
+        radarJob = serviceScope.launch {
+            while (isActive) {
+                val ctx = this@ScanForegroundService
+                val now = System.currentTimeMillis()
+                val target = if (!Prefs.radarBeep(ctx)) null else lastAlerted.entries
+                    .filter { now - it.value in RADAR_QUIET_MS..RADAR_HOLD_MS && !WhitelistCache.contains(it.key) }
+                    .mapNotNull { DeviceRegistry.get(it.key) }
+                    .filter { now - it.lastSeen <= RADAR_LOST_MS }
+                    .maxByOrNull { it.rssi }
+                if (target == null) delay(1_000L)
+                else {
+                    AlertPlayer.tick(ctx)
+                    delay(com.rfsentinel.app.util.Beeper.tickIntervalMs(target.rssi))
+                }
+            }
+        }
+    }
+
     private fun startBubble() {
         bubbleJob?.cancel()
         val bubble = Prefs.threatBubble(this); val miniMap = Prefs.floatingMap(this)

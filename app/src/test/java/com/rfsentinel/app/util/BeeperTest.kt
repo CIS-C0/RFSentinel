@@ -7,6 +7,13 @@ import org.junit.Test
 class BeeperTest {
 
     @Test
+    fun radarTicksSpeedUpAsTheSignalGetsStronger() {
+        assertEquals(1600L, Beeper.tickIntervalMs(-100))
+        assertEquals(150L, Beeper.tickIntervalMs(-30))
+        assertTrue(Beeper.tickIntervalMs(-60) < Beeper.tickIntervalMs(-80))
+    }
+
+    @Test
     fun patternMatchesTierAndFollowing() {
         assertEquals(1, Beeper.pattern(1, following = false).size)
         assertEquals(3, Beeper.pattern(3, following = false).size)
