@@ -43,7 +43,7 @@ object Spoken {
         Category.AIRCRAFT -> if (hit.label.startsWith("Police")) "Police aircraft" else "Aircraft circling"
         Category.POLICE_REPORT -> "Waze police"
         Category.SKIMMER -> "Card skimmer"
-        Category.OTHER_CAMERA -> if (hit.label.startsWith("Insta360")) "Insta360 camera" else "GoPro camera"
+        Category.OTHER_CAMERA -> if (hit.label.startsWith("Hidden")) "Hidden camera" else "Action camera"
         Category.HACKER -> "Hacking tool"
         Category.CUSTOM -> "Watchlist"
     }

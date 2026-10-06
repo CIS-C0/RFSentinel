@@ -18,13 +18,45 @@ object HackerWatch {
     private const val OUI_FLIPPER = "0CFA22"
     private val HAK5_LA = setOf("02C0CA", "021337")
 
-    // ---- GoPro / Insta360 action cameras (Category.OTHER_CAMERA) ------------------------------
+    // ---- Action cameras (Category.OTHER_CAMERA) ------------------------------------------------
     private const val CID_ARASHI = 0x10D7   // Arashi Vision Inc. (Insta360)
     private const val UUID_ARASHI = 0xFC30  // Arashi Vision Inc. (Insta360)
     private const val CID_GOPRO = 0x02F2    // GoPro, Inc.
     private val UUID_GOPRO = setOf(0xFEA5, 0xFEA6) // GoPro, Inc.
     private val OTHER_CAMERA_PREFIXES = listOf("044169", "045747", "2474F7", "AC04AA", "D43260", "D4D919", "D89685", "F4DD9E")
-        .associateWith { "GoPro camera" } + mapOf("F05582" to "Insta360 camera")
+        .associateWith { "GoPro camera" } + mapOf(
+        "F05582" to "Insta360 camera",
+        "201F55" to "DJI Osmo camera",          // DJI Osmo Technology (Osmo Action / Pocket / 360)
+        "5870C6" to "YI camera"                 // Shanghai Xiaoyi (YI action and home cameras)
+    )
+
+    /**
+     * Setup hotspots of cheap WiFi spy cameras (clock, charger, smoke-detector and mini cams).
+     * They broadcast these while unconfigured or in hotspot mode; once joined to a home
+     * network they look like any other device. V380: "MV" + 8 digits; LookCam Pro:
+     * DGK-XXXXXX-XXXXX; TinyCam Pro: AI_XXXXXXX; HDSmartIPC: AI + 12 characters
+     * (V380 setup guide; SpyGearGadgets setup notes).
+     */
+    private val HIDDEN_CAMERA_SSIDS = listOf(
+        Regex("^MV\\d{8}$") to Pair("V380", 75),
+        Regex("^DGK-[A-Z0-9]{6}-[A-Z0-9]{5}$", RegexOption.IGNORE_CASE) to Pair("LookCam Pro", 80),
+        Regex("^AI_[A-Z0-9]{6,12}$", RegexOption.IGNORE_CASE) to Pair("TinyCam Pro", 60),
+        Regex("^AI[A-Z0-9]{12}$") to Pair("HDSmartIPC", 55)
+    )
+
+    /** Default WiFi / Bluetooth names of action cameras whose makers use generic chips. */
+    private val ACTION_CAMERA_NAMES = listOf(
+        Regex("osmo ?(action|pocket|360)", RegexOption.IGNORE_CASE) to "DJI Osmo camera",
+        Regex("^(hero\\d{1,2}\\b|gp\\d{8}$)", RegexOption.IGNORE_CASE) to "GoPro camera",
+        Regex("^(sjcam|sj\\d{1,2}(pro|air|c)?\\b|sj\\d{4})", RegexOption.IGNORE_CASE) to "SJCAM camera",
+        Regex("akaso", RegexOption.IGNORE_CASE) to "AKASO camera",
+        Regex("^(ydxj_|yi[ _-]?(4k|lite|action|discovery))", RegexOption.IGNORE_CASE) to "YI action camera",
+        Regex("^virb", RegexOption.IGNORE_CASE) to "Garmin VIRB camera",
+        Regex("^theta", RegexOption.IGNORE_CASE) to "Ricoh THETA 360 camera",
+        Regex("pixpro", RegexOption.IGNORE_CASE) to "Kodak PIXPRO camera",
+        Regex("(hdr-as|fdr-x)\\d", RegexOption.IGNORE_CASE) to "Sony action camera",
+        Regex("apeman|campark|crosstour|victure|dragon ?touch", RegexOption.IGNORE_CASE) to "Action camera"
+    )
 
     private fun otherCameras(a: Advert, name: String, prefix: String): Hit? {
         val reg = "IEEE / Bluetooth SIG registries"
@@ -42,6 +74,16 @@ object HackerWatch {
                 "GoPro service UUID 0xFEA5 / 0xFEA6", reg)
             if (name.startsWith("GoPro", ignoreCase = true)) return Hit(Category.OTHER_CAMERA, "GoPro camera", 70,
                 "Advertised name \"$name\"", reg)
+        }
+        if (a.source == Advert.Source.WIFI) HIDDEN_CAMERA_SSIDS.firstOrNull { it.first.matches(name) }?.let { (_, app) ->
+            return Hit(Category.OTHER_CAMERA, "Hidden / spy camera (${app.first} type)", app.second,
+                "WiFi network \"$name\": the setup hotspot of cheap ${app.first} WiFi cameras, often sold hidden in clocks, " +
+                    "chargers and smoke detectors. Some are ordinary indoor cameras - check the room.",
+                "V380 setup guide; SpyGearGadgets setup notes")
+        }
+        if (name.isNotEmpty()) ACTION_CAMERA_NAMES.firstOrNull { it.first.containsMatchIn(name) }?.let { (_, label) ->
+            return Hit(Category.OTHER_CAMERA, label, 65, "${if (a.source == Advert.Source.WIFI) "WiFi network" else "Advertised name"} " +
+                "\"$name\" (the camera's default name - names can be changed)", "Manufacturer defaults")
         }
         OTHER_CAMERA_PREFIXES[prefix]?.let { label ->
             return Hit(Category.OTHER_CAMERA, label, 75, "Address in the registered block ${prefix.chunked(2).joinToString(":")} " +
