@@ -984,10 +984,6 @@ class ScanForegroundService : Service() {
     }
 
     /**
-     * Keeps the floating threat bubble and the floating mini map in sync (hidden while
-     * our own screens are visible).
-     */
-    /**
      * Radar-detector beeps: after a device alert, tick faster as the flagged device's
      * signal gets stronger and stop when it's gone. Each alerted device beeps for at
      * most [RADAR_HOLD_MS], so one parked next to you doesn't beep forever; it starts
@@ -1013,6 +1009,10 @@ class ScanForegroundService : Service() {
         }
     }
 
+    /**
+     * Keeps the floating threat bubble and the floating mini map in sync (hidden while
+     * our own screens are visible).
+     */
     private fun startBubble() {
         bubbleJob?.cancel()
         val bubble = Prefs.threatBubble(this); val miniMap = Prefs.floatingMap(this)
