@@ -96,6 +96,7 @@
 | **Waze police reports** *(online, off by default)* | Police reported by Waze users within 2 km | Your own OpenWeb Ninja API key; scored by distance and age; third-party service, at your own risk |
 | **Card skimmers** | Bluetooth modules inside gas-pump and ATM skimmers | HC-05 / HC-06 / HC-03 / RN42 / BT04-A names, serial-port service |
 | **Hacking tools** *(off by default)* | Flipper Zero, Pwnagotchi, WiFi Pineapple, ESP deauthers, evil twin WiFi networks, Bluetooth spam floods | Flipper UUIDs / company ID `0x0E29` / IEEE block, Pwnagotchi beacon JSON, default SSIDs, same network name from two makers with mismatched security, bursts of new pairing pop-ups |
+| **Action cameras & traffic systems** *(off by default)* | GoPro, Insta360, Redflex traffic cameras, Neology tolling / plate readers | GoPro company ID `0x02F2` / UUIDs `0xFEA5` `0xFEA6`, Insta360 (Arashi Vision) `0x10D7` / `0xFC30`, IEEE blocks, names |
 | **Network cameras** *(off by default)* | Arlo, Blink, Ezviz, Wyze, Ring, Verkada, Avigilon Alta, Axis, Hanwha, Bosch, FLIR, March Networks, GeoVision, Mobotix, Sunell, IDIS... | SSIDs and IEEE blocks |
 
 Every match shows its evidence, its source and a confidence tier: **weak** (< 50),

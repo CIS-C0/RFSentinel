@@ -62,7 +62,7 @@ object SignatureEngine {
     private val ALPR_MAKER_PREFIXES = PrefixTable(mapOf(
         "00044C" to "Jenoptik", "48E3C3" to "Jenoptik", "00E06A" to "Kapsch", "0040DE" to "Elsag (Leonardo)",
         "70B3D51C0" to "Elsag (Leonardo)", "70B3D5520" to "Selex ES (Elsag)", "70B3D5F50" to "Selex ES (Elsag)",
-        "00173D" to "Neology", "947BBE" to "Ubicquia"
+        "947BBE" to "Ubicquia"
     ))
 
     /**

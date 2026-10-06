@@ -18,11 +18,46 @@ object HackerWatch {
     private const val OUI_FLIPPER = "0CFA22"
     private val HAK5_LA = setOf("02C0CA", "021337")
 
+    // ---- Insta360 cameras, Redflex / Neology traffic systems (Category.OTHER_CAMERA) -----------
+    private const val CID_ARASHI = 0x10D7   // Arashi Vision Inc. (Insta360)
+    private const val UUID_ARASHI = 0xFC30  // Arashi Vision Inc. (Insta360)
+    private const val CID_GOPRO = 0x02F2    // GoPro, Inc.
+    private val UUID_GOPRO = setOf(0xFEA5, 0xFEA6) // GoPro, Inc.
+    private val OTHER_CAMERA_PREFIXES = listOf("044169", "045747", "2474F7", "AC04AA", "D43260", "D4D919", "D89685", "F4DD9E")
+        .associateWith { "GoPro camera" } + mapOf(
+        "F05582" to "Insta360 camera", "00307E" to "Redflex traffic camera system", "00173D" to "Neology traffic / tolling system"
+    )
+
+    private fun otherCameras(a: Advert, name: String, prefix: String): Hit? {
+        val reg = "IEEE / Bluetooth SIG registries"
+        if (a.source == Advert.Source.BLE) {
+            val shorts = a.serviceUuids.mapNotNull { Advert.shortOf(it) } + a.serviceData.keys.mapNotNull { Advert.shortOf(it) }
+            if (CID_ARASHI in a.manufacturerData) return Hit(Category.OTHER_CAMERA, "Insta360 camera", 85,
+                "Company ID 0x10D7 (Arashi Vision, maker of Insta360)", reg)
+            if (UUID_ARASHI in shorts) return Hit(Category.OTHER_CAMERA, "Insta360 camera", 85,
+                "Service UUID 0xFC30 (Arashi Vision, maker of Insta360)", reg)
+            if (name.contains("Insta360", ignoreCase = true)) return Hit(Category.OTHER_CAMERA, "Insta360 camera", 70,
+                "Advertised name \"$name\"", reg)
+            if (CID_GOPRO in a.manufacturerData) return Hit(Category.OTHER_CAMERA, "GoPro camera", 85,
+                "Company ID 0x02F2 (GoPro, Inc.)", reg)
+            if (shorts.any { it in UUID_GOPRO }) return Hit(Category.OTHER_CAMERA, "GoPro camera", 85,
+                "GoPro service UUID 0xFEA5 / 0xFEA6", reg)
+            if (name.startsWith("GoPro", ignoreCase = true)) return Hit(Category.OTHER_CAMERA, "GoPro camera", 70,
+                "Advertised name \"$name\"", reg)
+        }
+        OTHER_CAMERA_PREFIXES[prefix]?.let { label ->
+            return Hit(Category.OTHER_CAMERA, label, 75, "Address in the registered block ${prefix.chunked(2).joinToString(":")} " +
+                "(${VendorDb.macVendor(a.mac) ?: label})", reg)
+        }
+        return null
+    }
+
     /** Per-advert signatures (no memory). */
     fun signatures(a: Advert): List<Hit> {
         val hits = ArrayList<Hit>()
         val name = a.name?.trim().orEmpty()
         val prefix = a.mac.replace(":", "").uppercase().take(6)
+        otherCameras(a, name, prefix)?.let { hits += it }
         if (a.source == Advert.Source.BLE) {
             val shorts = a.serviceUuids.mapNotNull { Advert.shortOf(it) }.toSet()
             if (SKIMMER_NAME.containsMatchIn(name)) {

@@ -52,4 +52,13 @@ class HackerWatchTest {
         assertNull(HackerWatch.bleSpam(ble("AA:BB:CC:00:01:00", mfr = popup), 10_000L)) // one alert, then quiet
         assertNull(HackerWatch.bleSpam(ble("AA:BB:CC:00:01:01"), 10_000L))              // not a pop-up
     }
+
+    @Test
+    fun actionCamerasAndTrafficSystems() {
+        assertEquals("GoPro camera", SignatureEngine.classify(ble("AA:00:00:00:00:10", mfr = mapOf(0x02F2 to ByteArray(2)))).first().label)
+        assertEquals("GoPro camera", SignatureEngine.classify(ble("AA:00:00:00:00:11", uuids = listOf(0xFEA6))).first().label)
+        assertEquals("Insta360 camera", SignatureEngine.classify(ble("AA:00:00:00:00:12", mfr = mapOf(0x10D7 to ByteArray(2)))).first().label)
+        assertEquals(Category.OTHER_CAMERA, SignatureEngine.classify(ap("00:30:7E:11:22:33", "x", "[ESS]")).first().category)
+        assertTrue(SignatureEngine.classify(ap("00:17:3D:11:22:33", "x", "[ESS]")).all { it.category == Category.OTHER_CAMERA })
+    }
 }
