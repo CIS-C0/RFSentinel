@@ -292,7 +292,8 @@ class SettingsActivity : AppCompatActivity() {
             "Bluetooth intensity: Battery saver misses short broadcasts.\n\n" +
                 "WiFi interval: Android allows about one WiFi scan per 30 s unless \"Wi-Fi scan throttling\" " +
                 "is turned off in Developer options; then down to 5 s works, at some battery cost.\n\n" +
-                "Background scanning: lets the scan keep running with the screen off."),
+                "Background scanning: lets the scan keep running with the screen off.\n\n" +
+                "Remove from the list: how long an ordinary device stays in the list and radar once it stops being heard (default 30 s Bluetooth, 60 s WiFi). Flagged, favourite and following devices always stay 3 minutes."),
         Section("autostart", binding.headerAutoStart, binding.sectionAutoStart,
             "When the phone starts: begins scanning after a reboot.\n\n" +
                 "In the car: starts scanning when the phone connects to your car's Bluetooth and stops when you leave. " +
@@ -426,6 +427,37 @@ class SettingsActivity : AppCompatActivity() {
         view ?: return
         view.text = text
         view.visibility = if (text.isBlank()) View.GONE else View.VISIBLE
+    }
+
+    /**
+     * How long ordinary devices stay in the list and radar after they're last heard
+     * (flagged, favourite and following ones always stay 3 minutes). Saved as you slide.
+     */
+    private fun addLiveWindowSliders() {
+        fun slider(label: (Int) -> String, from: Int, to: Int, value: Int, save: (Int) -> Unit) {
+            val text = android.widget.TextView(this).apply {
+                textSize = 13f
+                setPadding(0, (10 * resources.displayMetrics.density).toInt(), 0, 0)
+                this.text = label(value)
+            }
+            binding.sectionScanning.addView(text)
+            binding.sectionScanning.addView(com.google.android.material.slider.Slider(this).apply {
+                valueFrom = from.toFloat(); valueTo = to.toFloat(); stepSize = 5f
+                this.value = (value - value % 5).coerceIn(from, to).toFloat()
+                setLabelFormatter { "${it.toInt()} s" }
+                contentDescription = label(value)
+                addOnChangeListener { _, v, fromUser ->
+                    if (!fromUser) return@addOnChangeListener
+                    save(v.toInt()); text.text = label(v.toInt())
+                }
+            })
+        }
+        slider({ "Remove Bluetooth devices from the list after $it s out of range" }, 10, 180, Prefs.liveBleSec(this)) {
+            Prefs.setLiveBleSec(this, it)
+        }
+        slider({ "Remove WiFi devices from the list after $it s out of range" }, 30, 180, Prefs.liveWifiSec(this)) {
+            Prefs.setLiveWifiSec(this, it)
+        }
     }
 
     /** Aircraft search radius (10-50 km) and the feed status, under the aircraft switch. */
@@ -602,6 +634,7 @@ class SettingsActivity : AppCompatActivity() {
             ).show()
         }
         updateWifiThrottleHint()
+        addLiveWindowSliders()
         binding.bootSwitch.isChecked = Prefs.autoStartOnBoot(this)
         binding.carAutoSwitch.isChecked = Prefs.carAutoStart(this)
         binding.carAutoSwitch.setOnCheckedChangeListener { _, on ->

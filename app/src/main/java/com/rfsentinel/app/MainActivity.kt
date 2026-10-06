@@ -305,9 +305,10 @@ class MainActivity : AppCompatActivity() {
     private fun render() {
         val now = System.currentTimeMillis()
         // Ordinary devices leave the list and radar soon after they're out of range (LiveWindow).
-        val scanInterval = Prefs.scanIntervalMs(this)
+        val bleMs = Prefs.liveBleSec(this) * 1000L
+        val wifiMs = Prefs.liveWifiSec(this) * 1000L
         val all = DeviceRegistry.snapshot(now).filter {
-            com.rfsentinel.app.ui.LiveWindow.keep(it, it.best != null && !WhitelistCache.contains(it.mac), now, scanInterval)
+            com.rfsentinel.app.ui.LiveWindow.keep(it, it.best != null && !WhitelistCache.contains(it.mac), now, bleMs, wifiMs)
         }
         val threshold = Prefs.alertThreshold(this)
         deviceCount = all.size

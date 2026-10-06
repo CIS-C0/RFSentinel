@@ -118,6 +118,12 @@ object Prefs {
     /** Fetch known cameras for the map area on screen (and around you in the car) automatically. */
     /** Radius of "download the cameras around me" (Settings, setup wizard, map menu), in km. */
     /** How far to look for aircraft (ADS-B feeds), 10-50 km. */
+    /** How long an ordinary device stays in the list / radar after it was last heard (seconds). */
+    fun liveBleSec(context: Context): Int = int(context, "live_ble_sec", 30).coerceIn(10, 180)
+    fun setLiveBleSec(context: Context, sec: Int) = setInt(context, "live_ble_sec", sec.coerceIn(10, 180))
+    fun liveWifiSec(context: Context): Int = int(context, "live_wifi_sec", 60).coerceIn(30, 180)
+    fun setLiveWifiSec(context: Context, sec: Int) = setInt(context, "live_wifi_sec", sec.coerceIn(30, 180))
+
     fun aircraftRadiusKm(context: Context): Int = int(context, "aircraft_radius_km", 30).coerceIn(10, 50)
     fun setAircraftRadiusKm(context: Context, km: Int) = setInt(context, "aircraft_radius_km", km.coerceIn(10, 50))
 
