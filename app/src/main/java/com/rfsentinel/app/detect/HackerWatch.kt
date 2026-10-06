@@ -18,15 +18,13 @@ object HackerWatch {
     private const val OUI_FLIPPER = "0CFA22"
     private val HAK5_LA = setOf("02C0CA", "021337")
 
-    // ---- Insta360 cameras, Redflex / Neology traffic systems (Category.OTHER_CAMERA) -----------
+    // ---- GoPro / Insta360 action cameras (Category.OTHER_CAMERA) ------------------------------
     private const val CID_ARASHI = 0x10D7   // Arashi Vision Inc. (Insta360)
     private const val UUID_ARASHI = 0xFC30  // Arashi Vision Inc. (Insta360)
     private const val CID_GOPRO = 0x02F2    // GoPro, Inc.
     private val UUID_GOPRO = setOf(0xFEA5, 0xFEA6) // GoPro, Inc.
     private val OTHER_CAMERA_PREFIXES = listOf("044169", "045747", "2474F7", "AC04AA", "D43260", "D4D919", "D89685", "F4DD9E")
-        .associateWith { "GoPro camera" } + mapOf(
-        "F05582" to "Insta360 camera", "00307E" to "Redflex traffic camera system", "00173D" to "Neology traffic / tolling system"
-    )
+        .associateWith { "GoPro camera" } + mapOf("F05582" to "Insta360 camera")
 
     private fun otherCameras(a: Advert, name: String, prefix: String): Hit? {
         val reg = "IEEE / Bluetooth SIG registries"

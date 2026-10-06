@@ -55,14 +55,14 @@ object SignatureEngine {
 
     /**
      * Plate-reader / traffic-enforcement makers by IEEE registration (ACAB alpr_candidates):
-     * Jenoptik, Kapsch, Elsag (Leonardo) and its predecessor Selex, Neology, Ubicquia
+     * Jenoptik, Kapsch, Elsag (Leonardo) and its predecessor Selex, Neology, Redflex, Ubicquia
      * (streetlight nodes that host ALPR cameras). Their gear rarely shows over the air, but
      * when it does it's enforcement hardware.
      */
     private val ALPR_MAKER_PREFIXES = PrefixTable(mapOf(
         "00044C" to "Jenoptik", "48E3C3" to "Jenoptik", "00E06A" to "Kapsch", "0040DE" to "Elsag (Leonardo)",
         "70B3D51C0" to "Elsag (Leonardo)", "70B3D5520" to "Selex ES (Elsag)", "70B3D5F50" to "Selex ES (Elsag)",
-        "947BBE" to "Ubicquia"
+        "00173D" to "Neology", "00307E" to "Redflex", "947BBE" to "Ubicquia"
     ))
 
     /**

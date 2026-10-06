@@ -26,8 +26,8 @@ enum class Category(
     AIRCRAFT("Police / government aircraft overhead (online: adsb.fi, adsb.lol)", "AIRCRAFT", 0xFF5E35B1.toInt(), false),
     /** Online (the user's OpenWeb Ninja key): off by default, third-party service used at the user's own risk. */
     POLICE_REPORT("Police reported on Waze (online: your OpenWeb Ninja key)", "WAZE", 0xFF1E88E5.toInt(), false),
-    /** Off by default: GoPro / Insta360 cameras and Redflex / Neology traffic-enforcement gear. */
-    OTHER_CAMERA("Action cameras (GoPro, Insta360), Redflex and Neology traffic systems", "OTHER CAM", 0xFF00897B.toInt(), false),
+    /** Off by default: GoPro / Insta360 action cameras. */
+    OTHER_CAMERA("Action cameras (GoPro, Insta360)", "ACTION CAM", 0xFF00897B.toInt(), false),
     /** Bluetooth serial modules built into gas-pump / ATM card skimmers (BLE names, receive-only). */
     SKIMMER("Card skimmers (gas pumps, ATMs)", "SKIMMER", 0xFF6D4C41.toInt(), true),
     /** Off by default: plenty of hobbyists carry a Flipper. */
