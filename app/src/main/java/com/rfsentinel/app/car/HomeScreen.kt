@@ -48,7 +48,7 @@ class HomeScreen(carContext: CarContext) : LiveScreen(carContext) {
         return Model(
             running = running,
             devices = devices.size,
-            flagged = devices.count { CarUi.isFlagged(it) },
+            flagged = devices.count { com.rfsentinel.app.ui.LiveWindow.alerting(it) },
             headline = if (running) CarUi.threat(devices, Prefs.alertThreshold(carContext),
                 com.rfsentinel.app.online.AmbientThreats.top(carContext)) else null,
             camera = CarUi.nextCamera(carContext),

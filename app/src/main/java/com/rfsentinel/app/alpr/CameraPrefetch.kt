@@ -116,7 +116,14 @@ object CameraPrefetch {
                     failed = p.failed
                     set(State.Downloading(p.done, p.total, p.found, p.detail))
                 }
-                set(State.Done(n, failed, radius))
+                if (com.rfsentinel.app.util.Prefs.showCctv(app)) {
+                    runCatching {
+                        CctvStore.downloadAround(app, here.latitude, here.longitude, radius.toDouble()) { p ->
+                            set(State.Downloading(0, 0, n, "CCTV cameras: $p"))
+                        }
+                    }
+                }
+                set(State.Done(n, failed + if (com.rfsentinel.app.util.Prefs.showCctv(app)) CctvStore.missingAreas else 0, radius))
                 // A running scan starts watching for the new cameras.
                 if (ScanForegroundService.isRunning) runCatching {
                     app.startService(Intent(app, ScanForegroundService::class.java).setAction(ScanForegroundService.ACTION_REFRESH_LOCATION))

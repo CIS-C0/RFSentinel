@@ -185,6 +185,7 @@
             <CheckBox android:id="@+id/presetGlobal" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Global" />
             <CheckBox android:id="@+id/presetCanada" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Canada" />
             <CheckBox android:id="@+id/presetUs" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="United States" />
+            <CheckBox android:id="@+id/presetFrance" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="France" />
         </LinearLayout>
 
         <!-- ================= Alerts ================= -->
@@ -220,6 +221,32 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Radar-detector beeps (faster as it gets closer)" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/detectorSoundSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Radar-detector sound (Ka / K / X tones, GPS connected)" />
+
+            <Button
+                android:id="@+id/detectorEffectButton"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Detector sound effect" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/scanIntroSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Intro sound when a scan starts" />
+
+            <Button
+                android:id="@+id/testIntroButton"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Test intro" />
 
             <TextView style="@style/SettingsLabel" android:text="Re-alert the same device after (minutes)" />
 
@@ -369,6 +396,35 @@
         </LinearLayout>
 
         <!-- ================= Known cameras ================= -->
+        <TextView android:id="@+id/headerMap" style="@style/SettingsHeader" android:text="Map" />
+        <LinearLayout android:id="@+id/sectionMap" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/mapKnownCamerasSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Show plate, speed and red-light cameras" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/mapTowersSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Show cell towers" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/mapTracesButton"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Recorded traces" />
+            </LinearLayout>
+        </LinearLayout>
+
         <TextView android:id="@+id/headerCameras" style="@style/SettingsHeader" android:text="Known cameras" />
         <LinearLayout android:id="@+id/sectionCameras" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
 
@@ -388,7 +444,20 @@
                 android:id="@+id/autoCamerasSwitch"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Show known cameras on the map" />
+                android:text="Download cameras automatically for the map area" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/mapCctvSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Show CCTV cameras (OpenStreetMap)" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/mapCctvPrivateSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="24dp"
+                android:text="Include private and indoor CCTV" />
 
             <!-- Radius of "download the cameras around me" (also the setup wizard and the map menu). -->
             <TextView
@@ -412,6 +481,13 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Download cameras around me" />
+
+            <Button
+                android:id="@+id/mapDeleteCamerasButton"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Delete downloaded cameras" />
 
             <TextView
                 android:id="@+id/prefetchCamerasText"

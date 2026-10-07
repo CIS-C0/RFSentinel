@@ -16,6 +16,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.button.MaterialButton
+import com.rfsentinel.app.util.AlertPlayer
 import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.DetectionEntity
 import com.rfsentinel.app.data.Favorites
@@ -438,9 +439,9 @@ class DeviceDetailActivity : AppCompatActivity() {
         locateJob = lifecycleScope.launch {
             while (isActive) {
                 val rssi = DeviceRegistry.get(mac)?.rssi ?: -100
-                // -95 dBm -> ~1.6 s between beeps, -40 dBm -> ~0.1 s.
-                val interval = (1600 - ((rssi + 95).coerceIn(0, 55) / 55.0) * 1500).toLong()
-                tone?.startTone(ToneGenerator.TONE_PROP_BEEP, 60)
+                // Faster as the signal gets stronger (same curve as the radar beeps).
+                val interval = com.rfsentinel.app.util.Beeper.tickIntervalMs(rssi)
+                if (!AlertPlayer.locateTick(this@DeviceDetailActivity)) tone?.startTone(ToneGenerator.TONE_PROP_BEEP, 60)
                 delay(interval)
             }
         }

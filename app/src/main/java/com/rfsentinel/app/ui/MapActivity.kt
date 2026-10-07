@@ -101,6 +101,11 @@ class MapActivity : AppCompatActivity() {
         PointsOverlay<com.rfsentinel.app.alpr.KnownCamera>(resources.displayMetrics.density) { showKnownCamera(it.first()) }
     }
     private var knownAlprDrawnFor: BoundingBox? = null
+    /** CCTV cameras mapped in OpenStreetMap (map menu, off by default): icons over their view cones. */
+    private val cctv by lazy {
+        PointsOverlay<com.rfsentinel.app.alpr.CctvCamera>(resources.displayMetrics.density) { showCctv(it.first()) }
+    }
+    private val cctvCones by lazy { CctvConeOverlay(resources.displayMetrics.density) }
     /** Cell towers seen while scanning, at their estimated (strongest-signal) spot. */
     private val towers by lazy {
         PointsOverlay<com.rfsentinel.app.service.CellTowerStore.Tower>(resources.displayMetrics.density) { showTower(it.first()) }
@@ -174,6 +179,8 @@ class MapActivity : AppCompatActivity() {
             color = if (tripId == null) TRACE_COLOR else PAST_TRACE_COLOR
             strokeWidth = 7f * resources.displayMetrics.density / 2
         }
+        map.overlays.add(cctvCones)
+        map.overlays.add(cctv)
         map.overlays.add(knownAlpr)
         map.overlays.add(towers)
         map.overlays.add(trace)
@@ -226,7 +233,14 @@ class MapActivity : AppCompatActivity() {
         }
         // Precise GPS while the map is on screen, so devices land where they were heard.
         if (tripId == null) ScanForegroundService.mapShown(this)
+        // Back from Settings > Map: show what's switched on now (and nothing that was switched off).
         drawTowers()
+        drawKnownAlpr()
+        if (com.rfsentinel.app.util.Prefs.showCctv(this)) lifecycleScope.launch {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.rfsentinel.app.alpr.CctvStore.load(this@MapActivity) }
+            drawCctv()
+            maybeDownloadCctv()
+        } else drawCctv()
     }
 
     override fun onPause() {
@@ -238,6 +252,7 @@ class MapActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         stopObservingBulk?.invoke()
+        com.rfsentinel.app.alpr.CctvStore.onChanged = null
         myLocation.disableMyLocation()
         binding.map.removeCallbacks(autoDownloadCameras)
         binding.map.removeCallbacks(redrawKnownAlpr)
@@ -362,7 +377,7 @@ class MapActivity : AppCompatActivity() {
             }
             positioned == 0 -> "Scanning · waiting for GPS to place devices"
             else -> "Scanning · ${drawn.size} on map" + if (filter != DeviceFilter.ALL) " (${filter.label} only)" else ""
-        }
+        } + (cctvLine?.let { "\n$it" } ?: "")
         binding.statusText.background.mutate().setTint(if (recording) 0xFFB3261E.toInt() else 0xCC0B5C63.toInt())
         binding.map.invalidate()
     }
@@ -650,6 +665,132 @@ class MapActivity : AppCompatActivity() {
     private fun drawKnownAlprSoon() {
         binding.map.removeCallbacks(redrawKnownAlpr)
         binding.map.postDelayed(redrawKnownAlpr, 250)
+        binding.map.removeCallbacks(redrawCctv)
+        binding.map.postDelayed(redrawCctv, 250)
+    }
+
+    // ---- CCTV cameras (OpenStreetMap) ---------------------------------------------------------------
+
+    private val redrawCctv = Runnable { drawCctv() }
+    private fun drawCctvSoon() {
+        binding.map.removeCallbacks(redrawCctv)
+        binding.map.postDelayed(redrawCctv, 300)
+    }
+    private val downloadCctv = Runnable { maybeDownloadCctv() }
+
+    /** Below this zoom the layer is hidden (cities hold thousands of cameras); view cones from [cctvConeZoom]. */
+    private val cctvMinZoom = 12.0
+    private val cctvConeZoom = 15.0
+
+    /** What the CCTV layer is doing, added to the status line (null while the layer is off). */
+    @Volatile private var cctvLine: String? = null
+
+    private fun setCctvLine(text: String?) {
+        if (text == cctvLine) return
+        cctvLine = text
+        if (tripId == null) renderLive()
+    }
+
+    private fun drawCctv() {
+        com.rfsentinel.app.alpr.CctvStore.onChanged = { if (!isFinishing && !isDestroyed) drawCctvSoon() }
+        val map = binding.map
+        val on = com.rfsentinel.app.util.Prefs.showCctv(this) && tripId == null
+        if (!on || map.zoomLevelDouble < cctvMinZoom) {
+            if (cctv.points.isNotEmpty() || cctvCones.cameras.isNotEmpty()) {
+                cctv.points = emptyList(); cctvCones.cameras = emptyList(); map.invalidate()
+            }
+            setCctvLine(if (!on) null else com.rfsentinel.app.alpr.CctvStore.progress?.let { "CCTV: downloading around you, $it" }
+                ?: "CCTV: zoom in to see the cameras")
+            return
+        }
+        map.removeCallbacks(downloadCctv)
+        map.postDelayed(downloadCctv, 1_200)
+        val private = com.rfsentinel.app.util.Prefs.cctvPrivate(this)
+        val box = map.boundingBox.increaseByScale(1.5f)
+        val center = map.mapCenter
+        val inView = com.rfsentinel.app.alpr.CctvStore.cameras.filter {
+            (private || !it.isPrivate) && it.lat in box.latSouth..box.latNorth && it.lon in box.lonWest..box.lonEast
+        }.let { all ->
+            // Zoomed out over a city: the ones nearest the centre of the screen.
+            if (all.size <= 3000) all
+            else all.sortedBy { (it.lat - center.latitude).let { d -> d * d } + (it.lon - center.longitude).let { d -> d * d } }.take(3000)
+        }
+        val dp = resources.displayMetrics.density
+        val publicIcon = MapIcons.cctvIcon(dp, false); val privateIcon = MapIcons.cctvIcon(dp, true)
+        cctvCones.cameras = if (map.zoomLevelDouble >= cctvConeZoom) inView else emptyList()
+        cctv.points = inView.map { PointsOverlay.Point(it.lat, it.lon, it, icon = if (it.isPrivate) privateIcon else publicIcon) }
+        map.invalidate()
+        val store = com.rfsentinel.app.alpr.CctvStore
+        val view = map.boundingBox
+        val hiddenPrivate = if (private) 0 else store.cameras.count {
+            it.isPrivate && it.lat in view.latSouth..view.latNorth && it.lon in view.lonWest..view.lonEast
+        }
+        val shown = inView.count { it.lat in view.latSouth..view.latNorth && it.lon in view.lonWest..view.lonEast }
+        setCctvLine(when {
+            store.progress != null -> "CCTV: downloading around you, ${store.progress}"
+            store.isBusy -> "CCTV: downloading..."
+            System.currentTimeMillis() - store.lastFailureAt < 60_000 -> "CCTV: map server busy - retrying"
+            store.missingAreas > 0 && shown > 0 -> "CCTV: $shown in view - ${store.missingAreas} area(s) around you still missing (servers busy), retried next time"
+            shown == 0 && store.needsDownload(view.latSouth, view.lonWest, view.latNorth, view.lonEast) -> "CCTV: downloading..."
+            shown == 0 && hiddenPrivate > 0 -> "CCTV: only private ones here ($hiddenPrivate) - Settings > Known cameras > Include private"
+            shown == 0 -> "CCTV: none mapped here"
+            else -> "CCTV: $shown in view" + if (hiddenPrivate > 0) " (+$hiddenPrivate private hidden)" else ""
+        })
+    }
+
+    /**
+     * Fetches the CCTV cameras within the download radius around you (once, in the
+     * background), and the area on screen when you look somewhere outside it.
+     */
+    private fun maybeDownloadCctv() {
+        val map = binding.map
+        if (!com.rfsentinel.app.util.Prefs.showCctv(this) || tripId != null) return
+        val store = com.rfsentinel.app.alpr.CctvStore
+        if (map.isAnimating || store.isBusy) { map.postDelayed(downloadCctv, 2_000); return }
+        val here = myLocation.myLocation ?: ScanForegroundService.lastFix?.let { GeoPoint(it.latitude, it.longitude) }
+        if (here != null) {
+            val radius = com.rfsentinel.app.util.Prefs.cameraRadiusKm(this).toDouble()
+            store.ensureAround(this, here.latitude, here.longitude, radius)
+            if (store.isBusy) return
+        }
+        if (map.zoomLevelDouble < cctvMinZoom) return
+        val box = map.boundingBox
+        lifecycleScope.launch {
+            com.rfsentinel.app.alpr.CctvStore.autoDownload(this@MapActivity, box.latSouth, box.lonWest, box.latNorth, box.lonEast)
+            // Redraw either way: new cameras, or the status line (none mapped / server busy).
+            drawCctv()
+            // After a failure, try again once the back-off has passed.
+            if (System.currentTimeMillis() - com.rfsentinel.app.alpr.CctvStore.lastFailureAt < 60_000)
+                binding.map.postDelayed(downloadCctv, 61_000)
+        }
+    }
+
+    private fun showCctv(c: com.rfsentinel.app.alpr.CctvCamera) {
+        val text = buildString {
+            append(when (c.zone) {
+                "public" -> "Watches a public space (street, square, station...).\n"
+                "outdoor" -> "A private camera that watches outside (an entrance, a car park...).\n"
+                "indoor" -> "Inside a building or shop.\n"
+                else -> "Whether it watches public space isn't mapped.\n"
+            })
+            c.area?.let { append("Watches: $it\n") }
+            c.operator?.let { append("Operator: $it\n") }
+            c.mount?.let { append("Mounted on: $it\n") }
+            c.height?.let { append("Height: ${"%.0f".format(it)} m\n") }
+            c.direction?.let { append("Faces: $it°" + (c.angle?.let { a -> ", $a° wide" } ?: "") + "\n") }
+            append("OSM: ${c.osmId}\n\n")
+            append("Mapped by OpenStreetMap volunteers. Most of these cameras are wired and give off no Bluetooth or WiFi " +
+                "signal, so the scan can't detect them - this layer shows the ones that have been mapped. " +
+                "The shaded area is an estimate of what it sees.\n\nMap data © OpenStreetMap contributors (ODbL).")
+        }
+        AlertDialog.Builder(this)
+            .setTitle(com.rfsentinel.app.alpr.Cctv.title(c))
+            .setMessage(text)
+            .setPositiveButton("Close", null)
+            .setNeutralButton("Open in OpenStreetMap") { _, _ ->
+                runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.openstreetmap.org/${c.osmId}"))) }
+            }
+            .show()
     }
 
     private val autoDownloadCameras = Runnable { maybeAutoDownloadCameras() }
@@ -786,40 +927,6 @@ class MapActivity : AppCompatActivity() {
             .show()
     }
 
-    /**
-     * DeFlock's snapshot - all of the US & Canada, or with [nearby] only within
-     * the download radius set in Settings around you (or the map centre without a GPS fix). Progress in the status
-     * bar; the map redraws when done.
-     */
-    private fun downloadAllPlateCameras(nearby: Boolean = false) {
-        val bulk = com.rfsentinel.app.alpr.DeflockBulk
-        val radius = com.rfsentinel.app.util.Prefs.cameraRadiusKm(this)
-        announceWhere = if (nearby) "within ~$radius km" else "(US & Canada)"
-        // One download at a time: tapping again while one runs just follows its progress (bar on the map).
-        if (bulk.isRunning) return
-        val around = if (!nearby) null else {
-            val fix = myLocation.myLocation ?: binding.map.mapCenter.let { GeoPoint(it.latitude, it.longitude) }
-            fix.latitude to fix.longitude
-        }
-        bulk.start(this, around, radius.toDouble())
-    }
-
-    /** Picks the radius (same setting as in Settings and the setup wizard), then downloads. */
-    private fun askNearbyRadius() {
-        val d = resources.displayMetrics.density
-        val body = CameraRadiusSlider.create(this).apply {
-            setPadding((24 * d).toInt(), (8 * d).toInt(), (24 * d).toInt(), 0)
-        }
-        AlertDialog.Builder(this)
-            .setTitle("Download nearby cameras")
-            .setView(body)
-            .setPositiveButton("Download") { _, _ -> downloadAllPlateCameras(nearby = true) }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    /** Set when a download was started (or followed) from this screen: show its result. */
-    private var announceWhere: String? = null
     private var stopObservingBulk: (() -> Unit)? = null
 
     /** Status text while a DeFlock download runs, or null when none does. */
@@ -851,17 +958,9 @@ class MapActivity : AppCompatActivity() {
                 is com.rfsentinel.app.alpr.DeflockBulk.State.Done -> {
                     bar.visibility = View.GONE
                     drawKnownAlpr(); refreshServiceLocation()
-                    announceWhere?.let { where ->
-                        Toast.makeText(this, "${s.cameras} plate cameras saved $where" +
-                            if (s.extrasSkipped) " (OpenStreetMap was busy - a few extras will come next time)" else "",
-                            Toast.LENGTH_LONG).show()
-                    }
-                    announceWhere = null
                 }
                 is com.rfsentinel.app.alpr.DeflockBulk.State.Failed -> {
                     bar.visibility = View.GONE
-                    announceWhere?.let { Toast.makeText(this, s.reason, Toast.LENGTH_LONG).show() }
-                    announceWhere = null
                 }
                 com.rfsentinel.app.alpr.DeflockBulk.State.Idle -> bar.visibility = View.GONE
             }
@@ -877,15 +976,10 @@ class MapActivity : AppCompatActivity() {
             menu.add(0, 2, 1, "Rename")
             menu.add(0, 3, 2, "Delete")
         } else {
-            menu.add(0, 4, 0, "Recorded traces")
-            menu.add(0, 5, 1, "Download nearby cameras...")
-            menu.add(0, 8, 1, "Download all US & CA")
-            menu.add(0, 6, 2, "Show known cameras").apply {
-                isCheckable = true; isChecked = com.rfsentinel.app.util.Prefs.showKnownAlpr(this@MapActivity)
-            }
-            menu.add(0, 7, 3, "Delete downloaded cameras")
-            menu.add(0, 9, 4, "Show cell towers").apply {
-                isCheckable = true; isChecked = com.rfsentinel.app.util.Prefs.showCellTowers(this@MapActivity)
+            // The map's options live in Settings > Map.
+            menu.add(0, 12, 0, "Map settings").apply {
+                setIcon(com.rfsentinel.app.R.drawable.ic_settings)
+                setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
             }
         }
         return true
@@ -897,27 +991,11 @@ class MapActivity : AppCompatActivity() {
             1 -> { id?.let { Exporter.showTripExport(this, it) }; true }
             2 -> { id?.let { rename(it) }; true }
             3 -> { id?.let { confirmDelete(it) }; true }
-            4 -> { startActivity(Intent(this, TripsActivity::class.java)); true }
-            5 -> { askNearbyRadius(); true }
-            6 -> {
-                val show = !com.rfsentinel.app.util.Prefs.showKnownAlpr(this)
-                com.rfsentinel.app.util.Prefs.setShowKnownAlpr(this, show)
-                item.isChecked = show
-                drawKnownAlpr(); true
-            }
-            7 -> {
-                // Stop a running download first, or it would put cameras back afterwards.
-                com.rfsentinel.app.alpr.DeflockBulk.cancel()
-                com.rfsentinel.app.alpr.AlprStore.clear(this)
-                drawKnownAlpr(); refreshServiceLocation()
-                Toast.makeText(this, "Downloaded cameras deleted", Toast.LENGTH_SHORT).show(); true
-            }
-            8 -> { downloadAllPlateCameras(); true }
-            9 -> {
-                val show = !com.rfsentinel.app.util.Prefs.showCellTowers(this)
-                com.rfsentinel.app.util.Prefs.setShowCellTowers(this, show)
-                item.isChecked = show
-                drawTowers(); true
+            12 -> {
+                startActivity(Intent(this, com.rfsentinel.app.settings.SettingsActivity::class.java)
+                    .putExtra(com.rfsentinel.app.settings.SettingsActivity.EXTRA_SECTION,
+                        com.rfsentinel.app.settings.SettingsActivity.SECTION_MAP))
+                true
             }
             android.R.id.home -> { finish(); true }
             else -> super.onOptionsItemSelected(item)

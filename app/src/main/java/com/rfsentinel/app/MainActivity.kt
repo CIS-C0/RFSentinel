@@ -47,8 +47,6 @@ class MainActivity : AppCompatActivity() {
         private const val CELL_ROW = "cell:"
         private const val BLUETOOTH_TAG_COLOR = 0xFF1565C0.toInt()
         private const val WIFI_TAG_COLOR = 0xFF00838F.toInt()
-        /** A flagged row flashes while its device was heard within this window. */
-        private const val FLASH_WINDOW_MS = 60_000L
         private const val REFRESH_MS = 1_000L
         private const val WEAK_COLOR = 0xFFB26A00.toInt()
         private const val WHITELIST_COLOR = 0xFF6B7B80.toInt()
@@ -308,11 +306,12 @@ class MainActivity : AppCompatActivity() {
         val bleMs = Prefs.liveBleSec(this) * 1000L
         val wifiMs = Prefs.liveWifiSec(this) * 1000L
         val all = DeviceRegistry.snapshot(now).filter {
-            com.rfsentinel.app.ui.LiveWindow.keep(it, it.best != null && !WhitelistCache.contains(it.mac), now, bleMs, wifiMs)
+            com.rfsentinel.app.ui.LiveWindow.keep(it, now, bleMs, wifiMs)
         }
         val threshold = Prefs.alertThreshold(this)
         deviceCount = all.size
-        val flagged = all.filter { it.best != null && !WhitelistCache.contains(it.mac) }
+        // The banner and radar alert only for flagged devices still in range.
+        val flagged = all.filter { com.rfsentinel.app.ui.LiveWindow.alerting(it, now) }
         flaggedCount = flagged.size
         updateBanner(flagged, threshold)
         updateStatus()
@@ -334,7 +333,7 @@ class MainActivity : AppCompatActivity() {
 
         if (binding.radarView.visibility == View.VISIBLE) {
             binding.radarView.setBlips(visible.take(200).map { s ->
-                val alert = s.best != null && !WhitelistCache.contains(s.mac)
+                val alert = com.rfsentinel.app.ui.LiveWindow.alerting(s, now)
                 RadarView.Blip(
                     s.mac, s.rssi,
                     if (alert) colorFor(s) else binding.radarView.ordinaryColor(),
@@ -454,7 +453,8 @@ class MainActivity : AppCompatActivity() {
                 else -> colorFor(s)
             },
             highlight = if (alert) colorFor(s) else null,
-            flashing = alert && now - s.lastSeen < FLASH_WINDOW_MS &&
+            // Flashes only while still in range (like the beeps); a gone device keeps a steady tint.
+            flashing = alert && com.rfsentinel.app.ui.LiveWindow.inRange(s, now) &&
                 (s.following || (best!!.confidence >= threshold && best.category != Category.TRACKER)),
             bold = alert,
             heardByEsp = com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac, now),

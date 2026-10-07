@@ -89,7 +89,7 @@
 | **Patrol vehicles** | Two or more kinds of police-type gear travelling together | Signal correlation between body cams, radios, in-car routers, printers, rugged laptops |
 | **Public-safety gear** | P25 / TETRA radios, in-car cellular routers (Sierra Wireless, Cradlepoint, Peplink, Inseego), in-car printers (Zebra, Brother), police radar makers, vehicle upfit, breath / drug screening devices, cell-site simulator and forensic makers | Company IDs, UUIDs, IEEE prefixes, Zebra factory-serial names |
 | **Trackers** | AirTag & Find My, Google Find Hub, Samsung SmartTag, Tile | Separated-from-owner frames, then follow detection |
-| **Drones** | Any ASTM F3411 / FAA / EU Remote ID broadcaster | Decoded Remote ID over BLE and WiFi: serial, position, altitude, speed, operator location |
+| **Drones** | Any ASTM F3411 / FAA / EU Remote ID broadcaster, and the French *signalement électronique* | Decoded Remote ID over BLE and WiFi: serial, position, altitude, speed, operator / take-off location |
 | **Camera glasses** | Ray-Ban / Oakley Meta, Snap Spectacles, Vuzix, HeyCyan-based glasses such as Nilox Smart AI Glasses | Company IDs `0x0D53`, `0x03C2`, `0x060C`, Meta UUIDs, the HeyCyan SDK UUID, name tokens |
 | **Fake cell towers** | IMSI catchers / cell-site simulators | Test network codes, sudden 4G→2G, cloned or reserved cell identities, unexpected networks |
 | **Police aircraft** *(online, off by default)* | Police, sheriff, state patrol, federal and RCMP / provincial police aircraft, and unlisted aircraft circling low overhead | Community ADS-B feeds (adsb.fi / adsb.lol) matched against ~1,400 law-enforcement airframes from the FAA and Transport Canada registries |
@@ -116,7 +116,7 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 - **Fake cell tower signs** checked every 15 s, with persistence, call and border suppression (modelled on [EFF's Rayhunter](https://github.com/EFForg/rayhunter) as far as Android allows without root)
 - **Hidden WiFi networks** identified from WPS data, Cisco AP names and vendor elements, and linked to the visible network on the same router
 - Ordinary devices named precisely: exact AirPods / Beats model, device class, IEEE registrant; decoded Apple Continuity, iBeacon, Eddystone, Fast Pair
-- Editable **watchlist** (exact addresses, prefixes, name / vendor rules) with Global, Canada and US presets; per-category on/off switches
+- Editable **watchlist** (exact addresses, prefixes, name / vendor rules) with Global, Canada, US and France presets; per-category on/off switches
 - Bluetooth 5 extended advertising and LE Coded (long range) where the phone supports it
 
 **Known cameras**
@@ -207,7 +207,7 @@ Details: [How it works](https://cis-c0.github.io/RFSentinel/how-it-works.html) a
 ### Main screen
 
 - **Threat banner:** all clear, weak, probable or strong, or *may be following you*.
-- **Live list:** every device heard in the last 3 minutes, with vendor, type,
+- **Live list:** every device in range (each leaves 30 s after it was last heard on Bluetooth, 60 s on WiFi, adjustable), with vendor, type,
   radio, signal, rough distance, and NEW / ★ / FOLLOWING badges. A green
   **INTERNAL** badge means the phone heard it; a blue **ESP32** badge means a
   connected board reported it. Flagged devices sort first and flash in their
@@ -246,15 +246,23 @@ the raw advertisement.
   heard around you, placed where your phone was when its signal was strongest.
   That's an approximation, not a fix. Each dot stays pinned to its spot as you
   pan and zoom; tap a spot where several devices were heard to pick one from a list.
-- **Cell towers** (map menu ⋮ → *Show cell towers*): towers seen while scanning,
+- **Cell towers** (map ⚙ → Settings → *Map* → *Show cell towers*): towers seen while scanning,
   at the spot where your phone heard them strongest - an estimate, not the
   tower's real position (looking that up online would reveal where you are).
-- **Known cameras** (map menu ⋮): *Download nearby cameras* fetches plate readers
-  within your radius (10-200 km, 100 by default); *Download Flock* fetches every
+- **Known cameras** (Settings → *Known cameras*): *Download cameras around me* fetches plate readers
+  within your radius (10-200 km, 100 by default); *US & Canada plate cameras* fetches every
   plate reader mapped in the US and Canada (~18 MB, refreshed weekly on WiFi).
   Both use [DeFlock](https://deflock.org)'s hourly snapshot of OpenStreetMap,
   plus cameras it leaves out, straight from OpenStreetMap. Tap a camera →
   *Ignore alerts* to never be warned about it again.
+- **CCTV cameras** (Settings → *Known cameras* → *Show CCTV cameras*, off by default):
+  ordinary surveillance cameras mapped in OpenStreetMap - city street cameras,
+  shop and building cameras. Everything within your camera download radius is
+  fetched in the background (also by *Download cameras around me*); they show from
+  city zoom, with a shaded view cone where the direction is mapped when you zoom in.
+  Public ones by default; *Include private and indoor CCTV* adds the rest. Map only
+  (no alerts). Most are wired, so no scanner can detect them; this shows the ones
+  volunteers have mapped (the same data as [Surveillance under Surveillance](https://sunders.uber.space/)).
 - **Record trace** saves your route and every device heard along it, with the
   screen off, and can start with each scan.
 - **Screen:** *always on*, *on while charging* (default) or *normal*.
@@ -669,6 +677,7 @@ detection and WiFi identification, is in [docs/SIGNATURES.md](docs/SIGNATURES.md
 
 - **all-cameras-are-beacons** signature reference (Apache-2.0): signature values and confidence ladder
 - **opendroneid-core-c** (Apache-2.0): Remote ID message layout
+- **droneID_FR** (github.com/khancyr/droneID_FR): French electronic drone ID beacon layout
 - **IEEE Registration Authority:** vendor database
 - **Bluetooth SIG assigned numbers:** company IDs, service UUIDs, appearance values
 

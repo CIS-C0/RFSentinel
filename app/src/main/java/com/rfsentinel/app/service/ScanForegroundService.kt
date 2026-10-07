@@ -64,10 +64,11 @@ import java.util.concurrent.ConcurrentHashMap
 class ScanForegroundService : Service() {
 
     companion object {
-        /** Radar beeps: start after the alert's own beeps, last up to 2 min, stop 10 s after the device is lost. */
+        /** Radar beeps: start after the alert's own beeps, last up to 2 min, stop once the device is out of range. */
         private const val RADAR_QUIET_MS = 2_500L
         private const val RADAR_HOLD_MS = 120_000L
-        private const val RADAR_LOST_MS = 10_000L
+        /** "GPS connected" again only after the fix was lost this long. */
+        private const val GPS_RECONNECT_MS = 120_000L
 
         private const val TAG = "ScanForegroundService"
         const val ACTION_STOP = "com.rfsentinel.app.action.STOP"
@@ -180,7 +181,15 @@ class ScanForegroundService : Service() {
     @Volatile private var lastLocation: Location? = null
     private var locationListening = false
     private var locationFastMode = false
+    /** Radar-detector sound style: last good GPS fix, to say "GPS connected" when it locks or comes back. */
+    private var lastGoodGpsAt = 0L
+
     private val locationListener = LocationListener {
+        if (it.provider == LocationManager.GPS_PROVIDER && it.hasAccuracy() && it.accuracy <= 50f) {
+            val now = System.currentTimeMillis()
+            if (now - lastGoodGpsAt > GPS_RECONNECT_MS) AlertPlayer.gpsConnected(this)
+            lastGoodGpsAt = now
+        }
         lastLocation = it
         lastFix = it
         TripRecorder.onLocation(it)
@@ -257,6 +266,9 @@ class ScanForegroundService : Service() {
             }
             DeviceRegistry.startSession()
             classified.clear()
+            lastGoodGpsAt = 0L
+            AlertPlayer.preload(this)
+            AlertPlayer.startup(this)
             serviceScope.launch { pruneOldData() }
         }
 
@@ -358,7 +370,9 @@ class ScanForegroundService : Service() {
             while (isActive) {
                 holdAwake()
                 wifiEngine.requestScan()
-                delay(Prefs.scanIntervalMs(this@ScanForegroundService))
+                val interval = Prefs.scanIntervalMs(this@ScanForegroundService)
+                com.rfsentinel.app.ui.LiveWindow.wifiScanMs = interval
+                delay(interval)
             }
         }
     }
@@ -431,6 +445,7 @@ class ScanForegroundService : Service() {
     private fun process(a: Advert, reportedRemoteId: RemoteId.Info? = null) {
         val now = a.timestamp
         val mac = a.mac
+        if (OuiWatchlist.version != watchlistVersion) recheckWatchlist(now)
 
         // Remote ID messages arrive one type at a time; merge every packet.
         var remoteId: RemoteId.Info? = reportedRemoteId
@@ -551,6 +566,24 @@ class ScanForegroundService : Service() {
         process(advert, e.remoteId)
     }
 
+    /** The watchlist version the cached classifications were made with. */
+    private var watchlistVersion = OuiWatchlist.version
+
+    /**
+     * The watchlist changed (entry added or removed, preset switched): re-check every device
+     * now instead of waiting for cached results and held matches to expire. A device that is
+     * no longer flagged stops its radar beeps and can alert again if it's re-added.
+     */
+    private fun recheckWatchlist(now: Long) {
+        watchlistVersion = OuiWatchlist.version
+        classified.clear()
+        for (a in DeviceRegistry.lastAdverts()) {
+            val c = classify(a, now)
+            DeviceRegistry.replaceHits(a.mac, c.hits)
+            if (c.hits.isEmpty()) lastAlerted.remove(a.mac)
+        }
+    }
+
     private fun classify(a: Advert, now: Long, extra: List<Hit> = emptyList()): Classified {
         val macVendor = VendorDb.macVendor(a.mac)
         val identity = DeviceIntel.identify(a, macVendor)
@@ -566,7 +599,7 @@ class ScanForegroundService : Service() {
             probeHits[a.mac]?.takeIf { now - it.first < ESP_HIT_TTL_MS }?.second.orEmpty() +
             extra
         val noAirTags = Prefs.excludeAirTags(this)
-        val hits = EvidenceFusion.fuse(raw.filter {
+        val hits = EvidenceFusion.fuse(com.rfsentinel.app.detect.FlockNoise.filter(raw, a.name, OuiWatchlist.flockRegion).filter {
             Prefs.categoryEnabled(this, it.category) && !(noAirTags && SignatureEngine.isAppleFindMy(it))
         })
         return Classified(now, hits, identity, vendor)
@@ -736,7 +769,7 @@ class ScanForegroundService : Service() {
                 delay(STATUS_INTERVAL_MS)
                 holdAwake()
                 val devices = DeviceRegistry.snapshot()
-                val flagged = devices.count { d -> d.best != null && !WhitelistCache.contains(d.mac) }
+                val flagged = devices.count { d -> com.rfsentinel.app.ui.LiveWindow.alerting(d) }
                 val text = "${devices.size} device${if (devices.size == 1) "" else "s"} nearby" +
                     if (flagged > 0) " · $flagged flagged" else ""
                 NotificationHelper.updateServiceNotification(this@ScanForegroundService, text)
@@ -998,7 +1031,7 @@ class ScanForegroundService : Service() {
                 val target = if (!Prefs.radarBeep(ctx)) null else lastAlerted.entries
                     .filter { now - it.value in RADAR_QUIET_MS..RADAR_HOLD_MS && !WhitelistCache.contains(it.key) }
                     .mapNotNull { DeviceRegistry.get(it.key) }
-                    .filter { now - it.lastSeen <= RADAR_LOST_MS }
+                    .filter { com.rfsentinel.app.ui.LiveWindow.alerting(it, now) }
                     .maxByOrNull { it.rssi }
                 if (target == null) delay(1_000L)
                 else {
@@ -1027,7 +1060,8 @@ class ScanForegroundService : Service() {
                     com.rfsentinel.app.ui.FloatingMap.hide(ctx)
                 } else {
                     val devices = DeviceRegistry.snapshot()
-                    val flagged = devices.filter { it.best != null && !WhitelistCache.contains(it.mac) }
+                    // Only devices still in range: the bubble clears as soon as a threat is gone.
+                    val flagged = devices.filter { com.rfsentinel.app.ui.LiveWindow.alerting(it) }
                     val threshold = Prefs.alertThreshold(ctx)
                     val top = flagged.maxOfOrNull { it.best!!.confidence } ?: 0
                     val cellWarning = CellMonitor.lastAnomaly?.takeIf { System.currentTimeMillis() - it.first < 15 * 60_000L }
@@ -1093,6 +1127,7 @@ class ScanForegroundService : Service() {
             runCatching { (getSystemService(LOCATION_SERVICE) as LocationManager).removeUpdates(locationListener) }
             locationListening = false
         }
+        AlertPlayer.stopIntro()
         serviceScope.cancel()
         pipelineThread.quitSafely()
         cellMonitor?.close()

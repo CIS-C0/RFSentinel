@@ -119,10 +119,25 @@ object Prefs {
     /** Radius of "download the cameras around me" (Settings, setup wizard, map menu), in km. */
     /** How far to look for aircraft (ADS-B feeds), 10-50 km. */
     /** How long an ordinary device stays in the list / radar after it was last heard (seconds). */
-    fun liveBleSec(context: Context): Int = int(context, "live_ble_sec", 30).coerceIn(10, 180)
-    fun setLiveBleSec(context: Context, sec: Int) = setInt(context, "live_ble_sec", sec.coerceIn(10, 180))
-    fun liveWifiSec(context: Context): Int = int(context, "live_wifi_sec", 60).coerceIn(30, 180)
-    fun setLiveWifiSec(context: Context, sec: Int) = setInt(context, "live_wifi_sec", sec.coerceIn(30, 180))
+    fun liveBleSec(context: Context): Int = int(context, "live_ble_sec", 30).coerceIn(5, 180)
+    fun setLiveBleSec(context: Context, sec: Int) = setInt(context, "live_ble_sec", sec.coerceIn(5, 180))
+    fun liveWifiSec(context: Context): Int = int(context, "live_wifi_sec", 60).coerceIn(minLiveWifiSec(context), 180)
+
+    /**
+     * The WiFi list window can go below 30 s only when Developer options are on and the WiFi
+     * scan interval is under 30 s (i.e. scan throttling turned off): otherwise devices would
+     * drop out between two scans.
+     */
+    fun minLiveWifiSec(context: Context, intervalMs: Long = scanIntervalMs(context)): Int =
+        if (fastWifiScans(context, intervalMs)) 5 else 30
+
+    fun fastWifiScans(context: Context, intervalMs: Long = scanIntervalMs(context)): Boolean =
+        intervalMs < 30_000L && runCatching {
+            android.provider.Settings.Global.getInt(context.contentResolver,
+                android.provider.Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) == 1
+        }.getOrDefault(false)
+    // Stored as chosen (down to 5 s); [liveWifiSec] raises it to 30 s whenever fast WiFi scans are off.
+    fun setLiveWifiSec(context: Context, sec: Int) = setInt(context, "live_wifi_sec", sec.coerceIn(5, 180))
 
     fun aircraftRadiusKm(context: Context): Int = int(context, "aircraft_radius_km", 30).coerceIn(10, 50)
     fun setAircraftRadiusKm(context: Context, km: Int) = setInt(context, "aircraft_radius_km", km.coerceIn(10, 50))
@@ -191,6 +206,12 @@ object Prefs {
     /** Alert each time the phone switches to another serving cell tower (off by default: frequent while driving). */
     fun cellChangeAlerts(context: Context): Boolean = bool(context, "cell_change_alerts", false)
     fun setCellChangeAlerts(context: Context, value: Boolean) = setBool(context, "cell_change_alerts", value)
+    /** Map layer: ordinary CCTV cameras mapped in OpenStreetMap (off by default); private ones on request. */
+    fun showCctv(context: Context): Boolean = bool(context, "show_cctv", false)
+    fun setShowCctv(context: Context, value: Boolean) = setBool(context, "show_cctv", value)
+    fun cctvPrivate(context: Context): Boolean = bool(context, "cctv_private", false)
+    fun setCctvPrivate(context: Context, value: Boolean) = setBool(context, "cctv_private", value)
+
     fun showCellTowers(context: Context): Boolean = bool(context, "show_cell_towers", false)
     fun setShowCellTowers(context: Context, value: Boolean) = setBool(context, "show_cell_towers", value)
     fun showKnownAlpr(context: Context): Boolean = bool(context, "show_known_alpr", true)
@@ -214,6 +235,21 @@ object Prefs {
     /** Radar-detector mode: after a device alert, keep beeping faster as its signal gets stronger. */
     fun radarBeep(context: Context): Boolean = bool(context, "radar_beep", false)
     fun setRadarBeep(context: Context, value: Boolean) = setBool(context, "radar_beep", value)
+
+    /** Radar-detector sound style: Ka / K / X style tones, startup sweep, "GPS connected", short voice. */
+    fun detectorSound(context: Context): Boolean = bool(context, "detector_sound", false)
+    fun setDetectorSound(context: Context, value: Boolean) = setBool(context, "detector_sound", value)
+
+    /**
+     * Radar-detector sound effect: 0 = by strength (1 strong, 2 probable, 3 weak, 4 following),
+     * 1-4 = always that effect. The proximity beeps use a pulse of the same effect.
+     */
+    fun detectorEffect(context: Context): Int = int(context, "detector_effect", 0).coerceIn(0, 4)
+    fun setDetectorEffect(context: Context, value: Int) = setInt(context, "detector_effect", value.coerceIn(0, 4))
+
+    /** Play the intro sound when a scan starts. */
+    fun scanIntro(context: Context): Boolean = bool(context, "scan_intro", false)
+    fun setScanIntro(context: Context, value: Boolean) = setBool(context, "scan_intro", value)
 
     fun threatBubble(context: Context): Boolean = bool(context, "threat_bubble", false)
     fun setThreatBubble(context: Context, value: Boolean) = setBool(context, "threat_bubble", value)

@@ -158,10 +158,12 @@ class SetupActivity : AppCompatActivity() {
         listOf(
             "global" to "Global - body cams (Axon, Zepcam, WatchGuard...), Flock, ShotSpotter, traffic cameras, radios",
             "canada" to "Canada - adds Cyberkar in-car systems, Getac body cams, Genetec plate readers",
-            "us" to "United States"
+            "us" to "United States",
+            "france" to "France - Motorola VB400 body cams of the Police nationale and Gendarmerie, Zepcam, TETRAPOL radios"
         ).forEach { (key, label) ->
             check(label, key in enabled) { on ->
                 if (on) enabled += key else enabled -= key
+                if (on && key == "france") FranceNotice.show(this)
                 OuiWatchlist.setEnabledPresets(this, enabled)
             }
         }

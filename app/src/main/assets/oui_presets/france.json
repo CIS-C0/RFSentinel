@@ -1,0 +1,106 @@
+[
+  {
+    "prefix": "4C:CC:34",
+    "label": "Motorola Solutions - in France: VB400 body cams of the Police nationale and Gendarmerie (~30,000 since 2021), also municipal police; radios",
+    "source": "IEEE MA-L registry; French Interior Ministry body-cam contract awarded to Motorola Solutions (VB400, Wi-Fi + Bluetooth, Bluetooth holster trigger), interieur.gouv.fr / AEF info. Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:1F:92",
+    "label": "Motorola Solutions - in France: VB400 body cams of the Police nationale and Gendarmerie (~30,000 since 2021), also municipal police; radios",
+    "source": "IEEE MA-L registry; French Interior Ministry body-cam contract awarded to Motorola Solutions (VB400, Wi-Fi + Bluetooth, Bluetooth holster trigger), interieur.gouv.fr / AEF info. Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:18:85",
+    "label": "Motorola Solutions - in France: VB400 body cams of the Police nationale and Gendarmerie (~30,000 since 2021), also municipal police; radios",
+    "source": "IEEE MA-L registry; French Interior Ministry body-cam contract awarded to Motorola Solutions (VB400, Wi-Fi + Bluetooth, Bluetooth holster trigger), interieur.gouv.fr / AEF info. Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:04:7D",
+    "label": "Motorola Solutions - in France: VB400 body cams of the Police nationale and Gendarmerie (~30,000 since 2021), also municipal police; radios",
+    "source": "IEEE MA-L registry; French Interior Ministry body-cam contract awarded to Motorola Solutions (VB400, Wi-Fi + Bluetooth, Bluetooth holster trigger), interieur.gouv.fr / AEF info. Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "10:74:6F",
+    "label": "Motorola Solutions - in France: VB400 body cams of the Police nationale and Gendarmerie (~30,000 since 2021), also municipal police; radios",
+    "source": "IEEE MA-L registry; French Interior Ministry body-cam contract awarded to Motorola Solutions (VB400, Wi-Fi + Bluetooth, Bluetooth holster trigger), interieur.gouv.fr / AEF info. Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "B8:E2:8C",
+    "label": "Motorola Solutions - in France: VB400 body cams of the Police nationale and Gendarmerie (~30,000 since 2021), also municipal police; radios",
+    "source": "IEEE MA-L registry; French Interior Ministry body-cam contract awarded to Motorola Solutions (VB400, Wi-Fi + Bluetooth, Bluetooth holster trigger), interieur.gouv.fr / AEF info. Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "9C:86:2B",
+    "label": "Motorola Solutions - in France: VB400 body cams of the Police nationale and Gendarmerie (~30,000 since 2021), also municipal police; radios",
+    "source": "IEEE MA-L registry; French Interior Ministry body-cam contract awarded to Motorola Solutions (VB400, Wi-Fi + Bluetooth, Bluetooth holster trigger), interieur.gouv.fr / AEF info. Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "48:46:8D",
+    "label": "Zepcam body camera - used by French municipal police",
+    "source": "IEEE MA-L registry (Zepcam B.V.); Zepcam supplied the first French municipal police body cams",
+    "confidence": "confirmed",
+    "score": 75,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "00:25:DF",
+    "label": "Axon (TASER of the Police nationale / Gendarmerie; body cams at some municipal police)",
+    "source": "IEEE MA-L registry (Axon Enterprise); Axon has supplied the French Interior Ministry since 2005-2006",
+    "confidence": "confirmed",
+    "score": 75,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "00:0A:3E",
+    "label": "EADS / Airbus TETRAPOL radio (INPT / ACROPOL police and RUBIS gendarmerie networks)",
+    "source": "IEEE MA-L registry (EADS Telecom); TETRAPOL is the French police / gendarmerie radio network. Weak: firefighters use it too",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "C4:7C:8D:9",
+    "label": "Airbus DS SLC (TETRAPOL TPH900 radios, Réseau Radio du Futur of French police, gendarmerie and fire services)",
+    "source": "IEEE MA-M registry (Airbus DS - SLC, Élancourt); Airbus co-leads the RRF consortium. Match all 28 bits",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:23:B9",
+    "label": "Airbus Defence and Space (TETRAPOL radios of French police / gendarmerie)",
+    "source": "IEEE MA-L registry; public-safety radio maker. Weak: also defence equipment",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:24:AE",
+    "label": "Idemia Public Security France (police fingerprint / ID terminals, plate readers)",
+    "source": "IEEE MA-L registry (Idemia Public Security France); French maker of police biometric terminals and LAPI plate readers",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "ALPR"
+  }
+]

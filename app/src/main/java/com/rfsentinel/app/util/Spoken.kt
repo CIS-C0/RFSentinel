@@ -11,7 +11,9 @@ import com.rfsentinel.app.detect.Hit
  */
 object Spoken {
 
-    fun short(context: Context) = Prefs.shortVoice(context)
+    /** Short phrases; always in the radar-detector sound style, which speaks like a detector. */
+    /** Short phrases; always in the radar-detector sound style, which speaks like a detector. */
+    fun short(context: Context) = Prefs.shortVoice(context) || Prefs.detectorSound(context) || Prefs.detectorSound(context)
 
     fun device(context: Context, hit: Hit, following: Boolean = false): String {
         if (!short(context)) return if (following) "Warning. ${hit.label} may be following you." else "${hit.label} nearby"

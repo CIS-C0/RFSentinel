@@ -121,6 +121,7 @@ object AlprStore {
         var found = 0
         var ok = 0
         var lastError: Exception? = null
+        val failed = mutableListOf<Int>()
         tiles.forEachIndexed { i, t ->
             val report = { detail: String -> onProgress(Progress(i + 1, i, tiles.size, found, i - ok, "${name(i)}: $detail")) }
             try {
@@ -130,9 +131,31 @@ object AlprStore {
                 throw e
             } catch (e: Exception) {
                 lastError = e
+                failed += i
             }
             onProgress(Progress(i + 1, i + 1, tiles.size, found, i + 1 - ok,
-                if (ok == i + 1) "${name(i)} done" else "${name(i)} failed - the map will fetch it later"))
+                if (ok == i + 1) "${name(i)} done" else "${name(i)} failed - retrying at the end"))
+        }
+        // The public servers rate-limit bursts: give the refused areas one more go after a pause.
+        if (failed.isNotEmpty()) {
+            onProgress(Progress(tiles.size, tiles.size, tiles.size, found, failed.size,
+                "retrying ${failed.size} area(s) the servers refused in 30 s"))
+            kotlinx.coroutines.delay(30_000)
+            for (i in failed) {
+                val t = tiles[i]
+                try {
+                    found += download(context, t[0], t[1], t[2], t[3]) { d ->
+                        onProgress(Progress(i + 1, tiles.size, tiles.size, found, tiles.size - ok, "${name(i)} (retry): $d"))
+                    }
+                    ok++
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    lastError = e
+                }
+            }
+            onProgress(Progress(tiles.size, tiles.size, tiles.size, found, tiles.size - ok,
+                if (ok == tiles.size) "all areas done" else "${tiles.size - ok} area(s) failed - the map will fetch them later"))
         }
         if (ok == 0) throw lastError ?: java.io.IOException("No answer")
         return found
@@ -181,7 +204,7 @@ object AlprStore {
      * answer wins and the other requests are cancelled right away (their
      * connections closed). Throws an IOException when every server failed.
      */
-    private suspend fun fetchFirst(body: String, status: (String) -> Unit): String {
+    internal suspend fun fetchFirst(body: String, status: (String) -> Unit): String {
         val requests = kotlinx.coroutines.CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
         val result = kotlinx.coroutines.CompletableDeferred<String>()
         val failures = kotlinx.coroutines.flow.MutableStateFlow(0)

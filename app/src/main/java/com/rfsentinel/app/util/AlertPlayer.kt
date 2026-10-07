@@ -62,11 +62,25 @@ object AlertPlayer {
         var beepMs = 0
         if (!muted && Prefs.soundEnabled(context) && (inCar || ringerAllowsSound(context))) {
             // Speech holds its own audio focus for exactly as long as it talks; this covers the beeps.
-            duckOthers(context, 2_500L)
+            val detector = Prefs.detectorSound(context)
+            duckOthers(context, if (detector) 4_500L else 2_500L)
             // Our own beeps (1 weak, 2 probable, 3 strong, long-short-long following) at
             // media volume, like Locate: the notification chime was too soft and too quiet.
             val beeps = when (tier) { Tier.STRONG -> 3; Tier.MEDIUM -> 2; else -> 1 }
-            beepMs = Beeper.play(if (inCar) carToneAttributes else phoneToneAttributes, Beeper.pattern(beeps, following))
+            val attrs = if (inCar) carToneAttributes else phoneToneAttributes
+            beepMs = if (detector) {
+                val chosen = Prefs.detectorEffect(context)
+                val clip = SoundClips.Clip.effect(when {
+                    chosen != 0 -> chosen
+                    following -> 4
+                    beeps == 3 -> 1
+                    beeps == 2 -> 2
+                    else -> 3
+                })
+                SoundClips.play(context, attrs, clip).takeIf { it > 0 }
+                    ?: Beeper.playTones(attrs, Beeper.detectorAlert(if (following) 3 else beeps))
+            } else Beeper.play(attrs, Beeper.pattern(beeps, following))
+            alertSoundUntil = System.currentTimeMillis() + beepMs
         }
         if (Prefs.vibrateEnabled(context)) {
             val pattern = when {
@@ -100,7 +114,79 @@ object AlertPlayer {
     fun tick(context: Context) {
         val inCar = CarState.connected
         if (Prefs.alertsSilenced(context) || !Prefs.soundEnabled(context) || !(inCar || ringerAllowsSound(context))) return
-        Beeper.play(if (inCar) carToneAttributes else phoneToneAttributes, listOf(70 to 0))
+        // Never over an alert sound that is still playing.
+        if (System.currentTimeMillis() < alertSoundUntil) return
+        val attrs = if (inCar) carToneAttributes else phoneToneAttributes
+        if (Prefs.detectorSound(context)) detectorTick(context, attrs) else Beeper.play(attrs, listOf(70 to 0))
+    }
+
+    /** The recorded detector pulse, or the synthesized chirp until the clips are loaded. */
+    private fun detectorTick(context: Context, attrs: AudioAttributes) {
+        val tick = SoundClips.Clip.tick(Prefs.detectorEffect(context).takeIf { it != 0 } ?: 1)
+        if (SoundClips.play(context, attrs, tick) == 0) Beeper.playTones(attrs, Beeper.detectorTick)
+    }
+
+    /** Settings preview of a detector effect (0 = the strong one), whatever the alert settings. */
+    fun previewEffect(context: Context, effect: Int) {
+        main.removeCallbacks(retryPreview)
+        val clip = SoundClips.Clip.effect(effect.takeIf { it != 0 } ?: 1)
+        if (SoundClips.playPreview(context, phoneToneAttributes, clip)) return
+        // First use: the clips are still loading.
+        retryPreview = Runnable { SoundClips.playPreview(context, phoneToneAttributes, clip) }
+        main.postDelayed(retryPreview, 250L)
+    }
+
+    private var retryPreview = Runnable { }
+
+    /** Stops a Settings preview (an effect or the intro test). */
+    fun stopPreview(stopIntro: Boolean) {
+        main.removeCallbacks(retryPreview)
+        SoundClips.stopPreview()
+        if (stopIntro) SoundClips.stopIntro()
+    }
+
+    /** The Settings "Test intro" button: plays the intro, or stops it if playing. True if it started. */
+    fun testIntro(context: Context, onDone: () -> Unit): Boolean {
+        stopPreview(false)
+        if (SoundClips.introPlaying()) { SoundClips.stopIntro(); return false }
+        SoundClips.playIntro(context, phoneToneAttributes) { main.post(onDone) }
+        return true
+    }
+
+    /** Until when an alert sound plays (radar ticks wait for it). */
+    @Volatile private var alertSoundUntil = 0L
+
+    /** Loads the recorded sounds so the first alert can use them. */
+    fun preload(context: Context) = SoundClips.preload(context, phoneToneAttributes)
+
+    /**
+     * One Locate tick (the device screen's proximity beeps) in the radar-detector sound style.
+     * Started by the user, so it plays whatever the alert settings; false when the style is off.
+     */
+    fun locateTick(context: Context): Boolean {
+        if (!Prefs.detectorSound(context)) return false
+        detectorTick(context, phoneToneAttributes)
+        return true
+    }
+
+    /**
+     * When a scan starts: the optional intro sound, else the radar-detector power-on sweep
+     * (in that sound style). Same rules as the alert sound.
+     */
+    fun startup(context: Context) {
+        val inCar = CarState.connected
+        val intro = Prefs.scanIntro(context)
+        if (!intro && !Prefs.detectorSound(context)) return
+        if (Prefs.alertsSilenced(context) || !Prefs.soundEnabled(context) || !(inCar || ringerAllowsSound(context))) return
+        val attrs = if (inCar) carToneAttributes else phoneToneAttributes
+        if (intro) SoundClips.playIntro(context, attrs) else Beeper.playTones(attrs, Beeper.detectorStartup)
+    }
+
+    fun stopIntro() = SoundClips.stopIntro()
+
+    /** Radar-detector sound style: "GPS connected" once the first good fix arrives. */
+    fun gpsConnected(context: Context) {
+        if (Prefs.detectorSound(context)) announce(context, "GPS connected")
     }
 
     /** A spoken navigation instruction (no beep, no vibration); silent when alerts are muted. */

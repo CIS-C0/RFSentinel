@@ -46,7 +46,7 @@ object HackerWatch {
 
     /** Default WiFi / Bluetooth names of action cameras whose makers use generic chips. */
     private val ACTION_CAMERA_NAMES = listOf(
-        Regex("osmo ?(action|pocket|360)", RegexOption.IGNORE_CASE) to "DJI Osmo camera",
+        Regex("osmo ?(action|pocket|360|nano)", RegexOption.IGNORE_CASE) to "DJI Osmo camera",
         Regex("^(hero\\d{1,2}\\b|gp\\d{8}$)", RegexOption.IGNORE_CASE) to "GoPro camera",
         Regex("^(sjcam|sj\\d{1,2}(pro|air|c)?\\b|sj\\d{4})", RegexOption.IGNORE_CASE) to "SJCAM camera",
         Regex("akaso", RegexOption.IGNORE_CASE) to "AKASO camera",

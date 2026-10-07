@@ -15,6 +15,24 @@ import java.io.File
 /** Map pieces shared by the phone map and the Android Auto map. */
 object MapIcons {
 
+    /** A small CCTV camera (body on a bracket) for the OpenStreetMap CCTV layer. */
+    fun cctvIcon(dp: Float, private: Boolean): Bitmap {
+        val w = (16 * dp).toInt(); val h = (14 * dp).toInt()
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        val color = if (private) CctvConeOverlay.PRIVATE_COLOR else CctvConeOverlay.PUBLIC_COLOR
+        val body = RectF(1.5f * dp, 2 * dp, w - 3 * dp, 8 * dp)
+        p.color = color
+        c.drawRoundRect(body, 2 * dp, 2 * dp, p)
+        c.drawRect(w / 2f - 1 * dp, 8 * dp, w / 2f + 1 * dp, h - 1.5f * dp, p)
+        p.style = Paint.Style.STROKE; p.strokeWidth = 1.2f * dp; p.color = Color.WHITE
+        c.drawRoundRect(body, 2 * dp, 2 * dp, p)
+        p.style = Paint.Style.FILL
+        c.drawCircle(w - 4.5f * dp, 5 * dp, 1.3f * dp, p)
+        return bmp
+    }
+
     /** osmdroid: identify ourselves to the tile server (OSM tile policy), cache tiles privately. */
     fun configureOsm(context: Context) {
         Configuration.getInstance().apply {

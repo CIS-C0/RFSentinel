@@ -148,7 +148,7 @@ object CarUi {
         devices: List<DeviceRegistry.Snapshot>, threshold: Int,
         ambient: com.rfsentinel.app.online.AmbientThreats.Threat? = null
     ): Pair<Int, String> {
-        val flagged = devices.filter { isFlagged(it) }
+        val flagged = devices.filter { com.rfsentinel.app.ui.LiveWindow.alerting(it) }
         val following = flagged.firstOrNull { it.following }
         val top = flagged.maxByOrNull { it.best!!.confidence }
         // A camera close by, a police aircraft or a Waze report, when it outranks the devices.

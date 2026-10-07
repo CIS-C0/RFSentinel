@@ -11,6 +11,9 @@ package com.rfsentinel.app.detect
  *    [0x0D app code][counter][25-byte message or message pack]
  *  - WiFi beacons: vendor IE (221) with OUI FA:0B:BC, type 0x0D, then
  *    [counter][message pack]
+ *  - The French "signalement electronique" (decree / arrêté of 27 Dec 2019, required in
+ *    France since June 2020 for drones of 800 g and more): vendor IE with OUI 6A:5C:35,
+ *    type 0x01, then TLVs (layout from the reference beacon github.com/khancyr/droneID_FR).
  */
 object RemoteId {
 
@@ -55,13 +58,64 @@ object RemoteId {
 
     /** Decodes a WiFi vendor IE payload (starting at the OUI), merging into [prev]. */
     fun decodeWifiIe(ie: ByteArray, prev: Info?): Info? {
-        if (!isWifiIe(ie) || ie.size < 5 + 3) return null
+        if (isFrenchIe(ie)) return decodeFrench(ie, prev ?: Info())
+        if (!isAstmWifiIe(ie) || ie.size < 5 + 3) return null
         return decodeMessage(ie, 5, prev ?: Info())
     }
 
-    fun isWifiIe(ie: ByteArray): Boolean =
+    /** ASTM F3411 or French drone ID vendor IE. */
+    fun isWifiIe(ie: ByteArray): Boolean = isAstmWifiIe(ie) || isFrenchIe(ie)
+
+    fun isAstmWifiIe(ie: ByteArray): Boolean =
         ie.size >= 4 && Bytes.u8(ie, 0) == 0xFA && Bytes.u8(ie, 1) == 0x0B &&
             Bytes.u8(ie, 2) == 0xBC && Bytes.u8(ie, 3) == APP_CODE
+
+    fun isFrenchIe(ie: ByteArray): Boolean =
+        ie.size >= 4 && Bytes.u8(ie, 0) == 0x6A && Bytes.u8(ie, 1) == 0x5C &&
+            Bytes.u8(ie, 2) == 0x35 && Bytes.u8(ie, 3) == 0x01
+
+    /**
+     * French TLVs: 2 = French ID (30 chars), 3 = ANSI/CTA-2063 serial, 4/5 = latitude /
+     * longitude (int32 big-endian, degrees x 1e5), 6 = altitude MSL (int16 m), 7 = height
+     * above take-off (int16 m), 8/9 = take-off point, 10 = ground speed (m/s), 11 = heading (deg).
+     */
+    private fun decodeFrench(b: ByteArray, info: Info): Info {
+        var acc = info.copy(uaType = info.uaType ?: "Drone (French electronic ID)")
+        var i = 4
+        while (i + 2 <= b.size) {
+            val type = Bytes.u8(b, i)
+            val len = Bytes.u8(b, i + 1)
+            val v = i + 2
+            if (v + len > b.size) break
+            fun int(): Int {
+                var x = 0
+                for (k in 0 until len) x = (x shl 8) or Bytes.u8(b, v + k)
+                val bits = len * 8
+                return if (bits in 1..31 && x and (1 shl (bits - 1)) != 0) x - (1 shl bits) else x
+            }
+            acc = when (type) {
+                2 -> Bytes.ascii(b, v, len)?.trim()?.takeIf { it.isNotEmpty() }
+                    ?.let { acc.copy(uasId = it, idType = "French ID (signalement électronique)") } ?: acc
+                3 -> if (acc.idType?.startsWith("French") == true) acc else Bytes.ascii(b, v, len)?.trim()
+                    ?.takeIf { it.isNotEmpty() }?.let { acc.copy(uasId = it, idType = ID_TYPES[1]) } ?: acc
+                4 -> if (len == 4) acc.copy(latitude = int() * 1e-5) else acc
+                5 -> if (len == 4) acc.copy(longitude = int() * 1e-5) else acc
+                6 -> if (len == 2) acc.copy(altitudeGeoM = int().toDouble()) else acc
+                7 -> if (len == 2) acc.copy(heightM = int().toDouble()) else acc
+                8 -> if (len == 4) acc.copy(operatorLatitude = int() * 1e-5) else acc
+                9 -> if (len == 4) acc.copy(operatorLongitude = int() * 1e-5) else acc
+                10 -> if (len == 1) acc.copy(speedMs = Bytes.u8(b, v).toDouble()) else acc
+                11 -> if (len == 2) acc.copy(directionDeg = int().takeIf { it in 0..359 } ?: acc.directionDeg) else acc
+                else -> acc
+            }
+            i = v + len
+        }
+        // (0, 0) means no GPS fix yet.
+        if (acc.latitude == 0.0 && acc.longitude == 0.0) acc = acc.copy(latitude = info.latitude, longitude = info.longitude)
+        if (acc.operatorLatitude == 0.0 && acc.operatorLongitude == 0.0)
+            acc = acc.copy(operatorLatitude = info.operatorLatitude, operatorLongitude = info.operatorLongitude)
+        return acc
+    }
 
     fun isBleRemoteId(serviceData: ByteArray): Boolean =
         serviceData.size >= 2 + MESSAGE_SIZE && Bytes.u8(serviceData, 0) == APP_CODE

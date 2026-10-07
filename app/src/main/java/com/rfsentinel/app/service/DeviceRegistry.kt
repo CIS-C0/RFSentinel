@@ -286,6 +286,21 @@ object DeviceRegistry {
     }
 
     /** Full snapshot (history, path, raw advert) for the detail screen. */
+    /** The last advert of every device in this session (to re-check them after the watchlist changes). */
+    fun lastAdverts(): List<Advert> = tracks.values.mapNotNull { t -> synchronized(t) { t.advert } }
+
+    /**
+     * Replaces a device's matches right away (watchlist changed): a held match that the
+     * fresh evaluation no longer produces is dropped instead of lingering for [HIT_HOLD_MS].
+     */
+    fun replaceHits(mac: String, hits: List<Hit>) {
+        val t = tracks[mac] ?: return
+        synchronized(t) {
+            if (t.heldHit?.let { h -> hits.none { it.label == h.label } } == true) { t.heldHit = null; t.heldUntil = 0L }
+            t.hits = hits.sortedByDescending { it.confidence }
+        }
+    }
+
     fun get(mac: String): Snapshot? = tracks[mac]?.let { t -> synchronized(t) { snap(t, full = true) } }
 
     /** Devices heard since [since] with their summary, for persisting to known_devices. */

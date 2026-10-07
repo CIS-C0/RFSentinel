@@ -39,15 +39,31 @@ object OuiWatchlist {
         val all: List<OuiEntry>
     )
 
+    /**
+     * False when only the France preset is on among the regional ones (no US / Canada): Flock
+     * isn't deployed there, so its weak module-prefix clues are ignored (see FlockNoise).
+     */
+    @Volatile
+    var flockRegion = true
+        private set
+
+    /** Bumped on every (re)load, so a running scan can re-check devices against the new list. */
+    @Volatile
+    var version = 0
+        private set
+
     @Volatile
     private var state = State(emptyMap(), emptyList(), emptyList(), emptyMap(), emptyMap(), emptyList())
 
-    val availablePresets = listOf("global", "canada", "us")
+    /** Load order: regional presets after "global", so their labels win for shared prefixes. */
+    val availablePresets = listOf("global", "canada", "us", "france")
 
     @Synchronized
     fun load(context: Context) {
         val byKey = linkedMapOf<String, OuiEntry>()
-        for (preset in getEnabledPresets(context)) {
+        val enabled = getEnabledPresets(context)
+        flockRegion = "france" !in enabled || "us" in enabled || "canada" in enabled
+        for (preset in availablePresets.filter { it in enabled }) {
             loadPresetAsset(context, preset).forEach { byKey[it.prefix] = it }
         }
         readCustom(context).forEach { byKey[it.prefix] = it }
@@ -60,6 +76,7 @@ object OuiWatchlist {
             fingerprintRules = all.filter { it.isFingerprintRule && it.ruleText.isNotEmpty() }.associateBy { it.ruleText.lowercase() },
             all = all
         )
+        version++
     }
 
     private fun loadPresetAsset(context: Context, preset: String): List<OuiEntry> {

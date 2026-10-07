@@ -22,7 +22,7 @@ data class DeviceRow(
     val tagColor: Int,
     /** Row tint colour for flagged devices, else null. */
     val highlight: Int?,
-    /** Pulse the tint (flagged, above the alert threshold, heard within the last minute). */
+    /** Pulse the tint (flagged, above the alert threshold, still in range). */
     val flashing: Boolean,
     val bold: Boolean,
     /** Heard by an ESP32 board (blue badge) and/or the phone's own radios (green badge). */

@@ -8,9 +8,21 @@ class BeeperTest {
 
     @Test
     fun radarTicksSpeedUpAsTheSignalGetsStronger() {
-        assertEquals(1600L, Beeper.tickIntervalMs(-100))
-        assertEquals(150L, Beeper.tickIntervalMs(-30))
+        assertEquals(1300L, Beeper.tickIntervalMs(-100))
+        assertEquals(60L, Beeper.tickIntervalMs(-30))
+        assertTrue(Beeper.tickIntervalMs(-55) < 200 && Beeper.tickIntervalMs(-75) > 350)
         assertTrue(Beeper.tickIntervalMs(-60) < Beeper.tickIntervalMs(-80))
+    }
+
+    @Test
+    fun detectorTonesGetFasterAndHigherWithStrength() {
+        val ka = Beeper.detectorAlert(3); val k = Beeper.detectorAlert(2); val x = Beeper.detectorAlert(1)
+        assertTrue(ka.size > k.size && k.size > x.size)
+        assertTrue(ka.maxOf { it.toHz } > k.maxOf { it.fromHz } && k.maxOf { it.fromHz } > x.maxOf { it.fromHz })
+        assertTrue(Beeper.toneDurationMs(ka) < 1_000 && Beeper.toneDurationMs(Beeper.detectorStartup) < 1_000)
+        val pcm = Beeper.tonePcm(Beeper.detectorStartup)
+        assertEquals(Beeper.toneDurationMs(Beeper.detectorStartup) * 22_050 / 1000, pcm.size)
+        assertTrue(pcm.maxOf { it.toInt() } > 20_000)
     }
 
     @Test

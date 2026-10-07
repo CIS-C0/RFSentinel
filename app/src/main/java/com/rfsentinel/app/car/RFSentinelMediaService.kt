@@ -181,7 +181,7 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
         val silenced = CarUi.silencedText(this)
         return listOfNotNull(
             playable(ACTION_SCAN, if (running) "Stop scanning" else "Start scanning",
-                if (running) "Scanning · ${devices.size} nearby · ${devices.count { CarUi.isFlagged(it) }} flagged" else "Not scanning",
+                if (running) "Scanning · ${devices.size} nearby · ${devices.count { com.rfsentinel.app.ui.LiveWindow.alerting(it) }} flagged" else "Not scanning",
                 dot(if (running) CarUi.CLEAR_COLOR else CarUi.WEAK_COLOR)),
             playable(ACTION_MUTE, if (silenced.isEmpty()) "Mute alerts for 30 minutes" else "Turn alert sound back on",
                 silenced.ifEmpty { "Alert sound and voice are on" }, dot(if (silenced.isEmpty()) CarUi.CLEAR_COLOR else CarUi.WEAK_COLOR)),
@@ -215,6 +215,12 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
                 ACTION_SCAN -> toggleScan()
                 ACTION_MUTE -> toggleMute()
             }
+            refresh()
+        }
+
+        /** Voice "play RF Sentinel" in the car: starts scanning (never stops it). */
+        override fun onPlayFromSearch(query: String?, extras: Bundle?) {
+            if (!ScanForegroundService.isRunning) toggleScan()
             refresh()
         }
 
@@ -290,8 +296,8 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
         val ambient = com.rfsentinel.app.online.AmbientThreats.top(this)
         val (color, text) = CarUi.threat(devices, Prefs.alertThreshold(this), ambient)
         val lead = ambient?.takeIf { it.label == text }
-        val top = devices.filter { CarUi.isFlagged(it) }.maxByOrNull { it.best!!.confidence }
-        val line = listOf("${devices.size} nearby · ${devices.count { CarUi.isFlagged(it) }} flagged", CarUi.silencedText(this))
+        val top = devices.filter { com.rfsentinel.app.ui.LiveWindow.alerting(it) }.maxByOrNull { it.best!!.confidence }
+        val line = listOf("${devices.size} nearby · ${devices.count { com.rfsentinel.app.ui.LiveWindow.alerting(it) }} flagged", CarUi.silencedText(this))
             .filter { it.isNotEmpty() }.joinToString(" · ")
         if (lead != null) return Card(HEADLINE, text, line, null, color, lead.category.shortTag, "${lead.score}%")
         return Card(HEADLINE, text, line, top?.let { CarUi.signalLine(it) }, color,

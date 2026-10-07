@@ -402,7 +402,11 @@ object SignatureEngine {
         // its WPS device name, not a network).
         if (a.wifi?.client != true) policeVehicleSsid(ssid)?.let { hits += it }
         a.wifi?.infoElements?.firstOrNull { it.first == 221 && RemoteId.isWifiIe(it.second) }?.let {
-            hits += Hit(Category.DRONE, "Drone broadcasting Remote ID (WiFi)", 95,
+            hits += if (RemoteId.isFrenchIe(it.second))
+                Hit(Category.DRONE, "Drone broadcasting its French electronic ID (WiFi)", 95,
+                    "French \"signalement électronique\" vendor information element (OUI 6A:5C:35) in the WiFi beacon",
+                    "Arrêté of 27 December 2019 (France); github.com/khancyr/droneID_FR")
+            else Hit(Category.DRONE, "Drone broadcasting Remote ID (WiFi)", 95,
                 "ASTM F3411 vendor information element (OUI FA:0B:BC) in the WiFi beacon", ASTM)
         }
         if (!isLocallyAdministered(a.mac)) {
@@ -426,8 +430,12 @@ object SignatureEngine {
         return hits
     }
 
+    /** DJI's handheld cameras and gimbals share its address blocks; they aren't drones. */
+    private val DJI_HANDHELD = Regex("^(dji ?)?osmo|^om ?\\d", RegexOption.IGNORE_CASE)
+
     private fun droneByPrefix(a: Advert): Hit? {
         if (isLocallyAdministered(a.mac)) return null
+        if (a.name?.trim()?.let { DJI_HANDHELD.containsMatchIn(it) } == true) return null
         val (prefix, vendor) = DRONE_PREFIXES.match(a.mac) ?: return null
         return Hit(Category.DRONE, "$vendor equipment (drone or controller)", 60,
             "Address in $vendor's registered block ${fmtPrefix(prefix)}; no Remote ID decoded",

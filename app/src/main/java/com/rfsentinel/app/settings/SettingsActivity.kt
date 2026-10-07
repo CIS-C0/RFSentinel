@@ -25,6 +25,9 @@ import kotlinx.coroutines.launch
 class SettingsActivity : AppCompatActivity() {
 
     companion object {
+        /** Opens Settings on one section (expanded and scrolled to): e.g. [SECTION_MAP] from the map. */
+        const val EXTRA_SECTION = "open_section"
+        const val SECTION_MAP = "map"
         const val WAZE_WARNING_SHORT = "Use at your own risk. Reports come from OpenWeb Ninja, a third-party paid service " +
             "RF Sentinel doesn't run or endorse; your key, your account, your responsibility."
         const val WAZE_WARNING = "Waze police reports are read through OpenWeb Ninja's Waze API with your own API key.\n\n" +
@@ -293,7 +296,8 @@ class SettingsActivity : AppCompatActivity() {
                 "WiFi interval: Android allows about one WiFi scan per 30 s unless \"Wi-Fi scan throttling\" " +
                 "is turned off in Developer options; then down to 5 s works, at some battery cost.\n\n" +
                 "Background scanning: lets the scan keep running with the screen off.\n\n" +
-                "Remove from the list: how long an ordinary device stays in the list and radar once it stops being heard (default 30 s Bluetooth, 60 s WiFi). Flagged, favourite and following devices always stay 3 minutes."),
+                "Remove from the list: how long an ordinary device stays in the list and radar once it stops being heard (default 30 s Bluetooth, 60 s WiFi). Flagged devices follow these too; favourite and following devices stay 3 minutes. " +
+                "Both can go down to 5 s (WiFi only when Developer options are on and the WiFi interval is under 30 s)."),
         Section("autostart", binding.headerAutoStart, binding.sectionAutoStart,
             "When the phone starts: begins scanning after a reboot.\n\n" +
                 "In the car: starts scanning when the phone connects to your car's Bluetooth and stops when you leave. " +
@@ -312,12 +316,20 @@ class SettingsActivity : AppCompatActivity() {
                 "Watchlist presets are lists of vendor MAC prefixes:\n" +
                 "• Global: Axon, Flock, Zepcam, WatchGuard, Digital Ally, ShotSpotter, traffic cameras...\n" +
                 "• Canada: Axon, Cyberkar, Getac, Genetec, Motorola, ticket printers...\n" +
-                "• United States"),
+                "• United States\n" +
+                "• France: Motorola VB400 body cams (Police nationale, Gendarmerie), Zepcam, Axon, TETRAPOL radios, Idemia. " +
+                "French drone electronic IDs are decoded in every region. With France on (and not US / Canada), " +
+                "the weak Flock clues are ignored: Flock isn't used in France."),
         Section("alerts", binding.headerAlerts, binding.sectionAlerts,
             "Threshold: \"Weak\" alerts on every match (more false alarms); \"Strong only\" on near-certain ones.\n\n" +
                 "Vibration: 1 pulse weak, 2 probable, 3 strong.\n\n" +
                 "Radar-detector beeps (off by default): after a device alert, keeps beeping faster as its signal " +
                 "gets stronger, like a radar detector; stops when it's gone or after 2 minutes.\n\n" +
+                "Radar-detector sound (off by default): radar-detector alert sounds instead of the plain beeps - " +
+                "by strength (effect 1 strong, 2 probable, 3 weak, 4 following) or always the effect you pick - then " +
+                "the short voice says what it is (\"Body cam\"); the proximity beeps use a pulse of the same effect. " +
+                "A power-on sweep when a scan starts, and \"GPS connected\" when the GPS locks.\n\n" +
+                "Intro sound (off by default): plays when a scan starts.\n\n" +
                 "Re-alert: how long before the same device can alert again."),
         Section("voice", binding.headerVoice, binding.sectionVoice,
             "Speaks each alert, for example while driving. Short alerts say just the type " +
@@ -330,13 +342,22 @@ class SettingsActivity : AppCompatActivity() {
         Section("follow", binding.headerFollow, binding.sectionFollow,
             "Warns when a tracker or flagged device keeps moving with you for at least the time and distance set here.\n\n" +
                 "Your own tag: long-press it in the list > Ignore this tracker."),
+        Section("map", binding.headerMap, binding.sectionMap,
+            "What the map shows.\n\n" +
+                "Plate, speed and red-light cameras: from OpenStreetMap (Known cameras has the downloads, warnings and CCTV).\n\n" +
+                "Cell towers: placed where your phone heard each one strongest - an estimate, not the tower's real position."),
         Section("cameras", binding.headerCameras, binding.sectionCameras,
             "Plate-reader and speed / red-light camera positions come from OpenStreetMap.\n\n" +
-                "Show on the map: downloads the cameras of the area you look at (the Overpass server sees that area, like map tiles).\n\n" +
+                "Download automatically: fetches the cameras of the map area you look at (the Overpass server sees that area, like map tiles).\n\n" +
                 "Download around me: saves the cameras within the radius for offline use. Larger areas take longer and use more data.\n\n" +
                 "US & Canada: every plate reader in DeFlock's hourly OpenStreetMap snapshot " +
                 "(cdn.deflock.me sees only the download, not your position); refreshes weekly on Wi-Fi.\n\n" +
-                "To silence one camera: tap it on the map > Ignore alerts."),
+                "To silence one camera: tap it on the map > Ignore alerts.\n\n" +
+                "CCTV cameras: ordinary surveillance cameras volunteers mapped in OpenStreetMap (street, shop, building cameras). " +
+                "Everything within the download radius around you is fetched in the background; they show from city zoom, with a " +
+                "shaded area where their direction is mapped when you zoom in close. Most are wired, so the scan can't detect them. " +
+                "Public ones by default; private outdoor and indoor ones on request. Map only, no alerts.\n\n" +
+                "Delete downloaded cameras: removes the saved plate, speed, red-light and CCTV cameras (they download again as you use the map)."),
         Section("cell", binding.headerCell, binding.sectionCell,
             "Tower change alerts are frequent while driving; most useful when parked.\n\n" +
                 "Turning off \"Allow 2G\" (Android 12+) is the strongest protection against fake towers: " +
@@ -402,6 +423,8 @@ class SettingsActivity : AppCompatActivity() {
             if (i > 0) parent.addView(View(this).apply { setBackgroundColor(divider) }, at,
                 android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, maxOf(1, dp.toInt())))
             s.body.setPadding(0, 0, 0, (10 * dp).toInt())
+            val requested = intent.getStringExtra(EXTRA_SECTION) == s.key
+            if (requested) ui.edit().putBoolean(s.key, true).apply()
             var open = ui.getBoolean(s.key, s.key in defaultOpen)
             fun show() {
                 s.body.visibility = if (open) View.VISIBLE else View.GONE
@@ -409,11 +432,51 @@ class SettingsActivity : AppCompatActivity() {
                 row.contentDescription = "$title, ${if (open) "expanded" else "collapsed"}"
             }
             show()
+            // After the sections above have laid out (expanded / collapsed), so the header lands on top.
+            if (requested) binding.root.postDelayed({ if (!isFinishing) binding.root.smoothScrollTo(0, row.top) }, 250)
             row.setOnClickListener {
                 open = !open
                 ui.edit().putBoolean(s.key, open).apply()
                 show()
             }
+        }
+    }
+
+    /** Settings > Map: what the map shows (moved here from the map's menu). Saved as you switch. */
+    private fun setupMapSection() {
+        binding.mapKnownCamerasSwitch.isChecked = Prefs.showKnownAlpr(this)
+        binding.mapKnownCamerasSwitch.setOnCheckedChangeListener { _, on -> Prefs.setShowKnownAlpr(this, on) }
+        binding.mapTowersSwitch.isChecked = Prefs.showCellTowers(this)
+        binding.mapTowersSwitch.setOnCheckedChangeListener { _, on -> Prefs.setShowCellTowers(this, on) }
+        binding.mapCctvSwitch.isChecked = Prefs.showCctv(this)
+        binding.mapCctvPrivateSwitch.isChecked = Prefs.cctvPrivate(this)
+        binding.mapCctvPrivateSwitch.isEnabled = binding.mapCctvSwitch.isChecked
+        binding.mapCctvSwitch.setOnCheckedChangeListener { _, on ->
+            Prefs.setShowCctv(this, on)
+            binding.mapCctvPrivateSwitch.isEnabled = on
+        }
+        binding.mapCctvPrivateSwitch.setOnCheckedChangeListener { _, on -> Prefs.setCctvPrivate(this, on) }
+        binding.mapTracesButton.setOnClickListener {
+            startActivity(Intent(this, com.rfsentinel.app.ui.TripsActivity::class.java))
+        }
+        binding.mapDeleteCamerasButton.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Delete downloaded cameras?")
+                .setMessage("Removes the saved plate, speed, red-light and CCTV cameras. They download again as you use the map.")
+                .setPositiveButton("Delete") { _, _ ->
+                    // Stop a running download first, or it would put cameras back afterwards.
+                    com.rfsentinel.app.alpr.DeflockBulk.cancel()
+                    com.rfsentinel.app.alpr.AlprStore.clear(this)
+                    com.rfsentinel.app.alpr.CctvStore.clear(this)
+                    // A running scan drops the deleted cameras from its warnings too.
+                    if (com.rfsentinel.app.service.ScanForegroundService.isRunning) runCatching {
+                        startService(Intent(this, com.rfsentinel.app.service.ScanForegroundService::class.java)
+                            .setAction(com.rfsentinel.app.service.ScanForegroundService.ACTION_REFRESH_LOCATION))
+                    }
+                    Toast.makeText(this, "Downloaded cameras deleted", Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
         }
     }
 
@@ -436,15 +499,46 @@ class SettingsActivity : AppCompatActivity() {
      * How long ordinary devices stay in the list and radar after they're last heard
      * (flagged, favourite and following ones always stay 3 minutes). Saved as you slide.
      */
+    /** True while the "Test intro" button's intro plays. */
+    private var introTesting = false
+
+    private val detectorEffectNames = arrayOf(
+        "By strength (1 strong, 2 probable, 3 weak, 4 following)",
+        "Effect 1", "Effect 2", "Effect 3", "Effect 4"
+    )
+
+    private fun updateDetectorEffectButton() {
+        binding.detectorEffectButton.text = "Detector sound effect: " +
+            detectorEffectNames[Prefs.detectorEffect(this)].substringBefore(" (")
+    }
+
+    /** Pick the radar-detector sound effect; each choice plays as a preview. */
+    private fun chooseDetectorEffect() {
+        var picked = Prefs.detectorEffect(this)
+        AlertDialog.Builder(this)
+            .setTitle("Detector sound effect")
+            .setSingleChoiceItems(detectorEffectNames, picked) { _, which ->
+                picked = which
+                com.rfsentinel.app.util.AlertPlayer.previewEffect(this, which)
+            }
+            .setPositiveButton("OK") { _, _ ->
+                Prefs.setDetectorEffect(this, picked)
+                updateDetectorEffectButton()
+            }
+            .setNegativeButton("Cancel", null)
+            .setOnDismissListener { com.rfsentinel.app.util.AlertPlayer.stopPreview(false) }
+            .show()
+    }
+
     private fun addLiveWindowSliders() {
-        fun slider(label: (Int) -> String, from: Int, to: Int, value: Int, save: (Int) -> Unit) {
+        fun slider(label: (Int) -> String, from: Int, to: Int, value: Int, save: (Int) -> Unit): com.google.android.material.slider.Slider {
             val text = android.widget.TextView(this).apply {
                 textSize = 13f
                 setPadding(0, (10 * resources.displayMetrics.density).toInt(), 0, 0)
                 this.text = label(value)
             }
             binding.sectionScanning.addView(text)
-            binding.sectionScanning.addView(com.google.android.material.slider.Slider(this).apply {
+            val s = com.google.android.material.slider.Slider(this).apply {
                 valueFrom = from.toFloat(); valueTo = to.toFloat(); stepSize = 5f
                 this.value = (value - value % 5).coerceIn(from, to).toFloat()
                 setLabelFormatter { "${it.toInt()} s" }
@@ -453,14 +547,35 @@ class SettingsActivity : AppCompatActivity() {
                     if (!fromUser) return@addOnChangeListener
                     save(v.toInt()); text.text = label(v.toInt())
                 }
-            })
+            }
+            binding.sectionScanning.addView(s)
+            return s
         }
-        slider({ "Remove Bluetooth devices from the list after $it s out of range" }, 10, 180, Prefs.liveBleSec(this)) {
+        slider({ "Remove Bluetooth devices from the list after $it s out of range" }, 5, 180, Prefs.liveBleSec(this)) {
             Prefs.setLiveBleSec(this, it)
         }
-        slider({ "Remove WiFi devices from the list after $it s out of range" }, 30, 180, Prefs.liveWifiSec(this)) {
+        // Below 30 s only with Developer options on and a WiFi scan interval under 30 s.
+        val wifiLabel = { s: Int -> "Remove WiFi devices from the list after $s s out of range" }
+        val wifiSlider = slider(wifiLabel, Prefs.minLiveWifiSec(this), 180, Prefs.liveWifiSec(this)) {
             Prefs.setLiveWifiSec(this, it)
         }
+        // Follow the WiFi interval as it's typed.
+        binding.intervalInput.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val sec = s?.toString()?.toLongOrNull() ?: return
+                val min = Prefs.minLiveWifiSec(this@SettingsActivity, sec.coerceAtLeast(5) * 1000L)
+                if (wifiSlider.valueFrom.toInt() == min) return
+                if (wifiSlider.value < min) {
+                    wifiSlider.value = min.toFloat()
+                    Prefs.setLiveWifiSec(this@SettingsActivity, min)
+                    (binding.sectionScanning.getChildAt(binding.sectionScanning.indexOfChild(wifiSlider) - 1)
+                        as? android.widget.TextView)?.text = wifiLabel(min)
+                }
+                wifiSlider.valueFrom = min.toFloat()
+            }
+        })
     }
 
     /** Aircraft search radius (10-50 km) and the feed status, under the aircraft switch. */
@@ -675,6 +790,8 @@ class SettingsActivity : AppCompatActivity() {
         binding.presetGlobal.isChecked = "global" in enabledPresets
         binding.presetCanada.isChecked = "canada" in enabledPresets
         binding.presetUs.isChecked = "us" in enabledPresets
+        binding.presetFrance.isChecked = "france" in enabledPresets
+        binding.presetFrance.setOnCheckedChangeListener { _, on -> if (on) com.rfsentinel.app.ui.FranceNotice.show(this) }
 
         // Alerts
         val threshold = Prefs.alertThreshold(this)
@@ -688,6 +805,19 @@ class SettingsActivity : AppCompatActivity() {
         binding.soundSwitch.isChecked = Prefs.soundEnabled(this)
         binding.vibrateSwitch.isChecked = Prefs.vibrateEnabled(this)
         binding.radarBeepSwitch.isChecked = Prefs.radarBeep(this)
+        binding.detectorSoundSwitch.isChecked = Prefs.detectorSound(this)
+        binding.scanIntroSwitch.isChecked = Prefs.scanIntro(this)
+        updateDetectorEffectButton()
+        binding.detectorEffectButton.isEnabled = binding.detectorSoundSwitch.isChecked
+        binding.detectorSoundSwitch.setOnCheckedChangeListener { _, on -> binding.detectorEffectButton.isEnabled = on }
+        binding.detectorEffectButton.setOnClickListener { chooseDetectorEffect() }
+        binding.testIntroButton.setOnClickListener {
+            introTesting = com.rfsentinel.app.util.AlertPlayer.testIntro(this) {
+                introTesting = false
+                binding.testIntroButton.text = "Test intro"
+            }
+            binding.testIntroButton.text = if (introTesting) "Stop intro" else "Test intro"
+        }
         binding.voiceSwitch.isChecked = Prefs.voiceEnabled(this)
         binding.shortVoiceSwitch.isChecked = Prefs.shortVoice(this)
         setupVoiceControls()
@@ -756,6 +886,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.cellChangeSwitch.isChecked = Prefs.cellChangeAlerts(this)
         binding.speedCameraSwitch.isChecked = Prefs.speedCameraAlerts(this)
         binding.autoCamerasSwitch.isChecked = Prefs.autoCameras(this)
+        setupMapSection()
         binding.autoUpdateSwitch.isChecked = Prefs.autoUpdateCheck(this)
         fun showRadius(km: Int) {
             binding.cameraRadiusText.text = "Download radius: $km km"
@@ -843,18 +974,22 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     /**
-     * Opens Developer options, where "Wi-Fi scan throttling" lives (Networking
-     * section). If they aren't unlocked yet, opens About phone instead and says how.
+     * Opens Developer options scrolled to "Wi-Fi scan throttling", highlighted (Settings'
+     * fragment-args key; ignored on phones that don't support it, which just open the
+     * list). If they aren't unlocked yet, opens About phone instead and says how.
      */
     private fun openWifiThrottleSetting() {
         val devEnabled = runCatching {
             Settings.Global.getInt(contentResolver, Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) != 0
         }.getOrDefault(false)
         if (devEnabled && runCatching {
-                startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))
+                startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
+                    .putExtra(":settings:fragment_args_key", "wifi_scan_throttling")
+                    .putExtra(":settings:show_fragment_args",
+                        android.os.Bundle().apply { putString(":settings:fragment_args_key", "wifi_scan_throttling") }))
             }.isSuccess
         ) {
-            Toast.makeText(this, "Scroll to Networking and turn off \"Wi-Fi scan throttling\"", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Turn off the highlighted \"Wi-Fi scan throttling\"", Toast.LENGTH_LONG).show()
             return
         }
         // Explain first, then open About phone: a dialog shown behind it would go unseen.
@@ -874,8 +1009,11 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     /** Android's WiFi scan throttle (Developer options), on unless the user disabled it. */
+    /** Android 11+ keeps the developer toggle in the WiFi service; older versions in a global setting. */
     private fun wifiScanThrottled(): Boolean =
-        runCatching { Settings.Global.getInt(contentResolver, "wifi_scan_throttle_enabled", 1) != 0 }.getOrDefault(true)
+        if (android.os.Build.VERSION.SDK_INT >= 30)
+            runCatching { getSystemService(android.net.wifi.WifiManager::class.java).isScanThrottleEnabled }.getOrDefault(true)
+        else runCatching { Settings.Global.getInt(contentResolver, "wifi_scan_throttle_enabled", 1) != 0 }.getOrDefault(true)
 
     private fun confirm(title: String, message: String, action: () -> Unit) {
         AlertDialog.Builder(this)
@@ -888,6 +1026,9 @@ class SettingsActivity : AppCompatActivity() {
 
     /** Settings save themselves: whenever this screen is left (back, home, another screen). */
     override fun onPause() {
+        // Leaving Settings ends any sound preview (not an intro played by a starting scan).
+        com.rfsentinel.app.util.AlertPlayer.stopPreview(stopIntro = introTesting)
+        if (introTesting) { introTesting = false; binding.testIntroButton.text = "Test intro" }
         super.onPause()
         if (loaded) save()
     }
@@ -919,6 +1060,7 @@ class SettingsActivity : AppCompatActivity() {
         if (binding.presetGlobal.isChecked) presets.add("global")
         if (binding.presetCanada.isChecked) presets.add("canada")
         if (binding.presetUs.isChecked) presets.add("us")
+        if (binding.presetFrance.isChecked) presets.add("france")
         OuiWatchlist.setEnabledPresets(this, presets)
 
         Prefs.setAlertThreshold(
@@ -931,6 +1073,8 @@ class SettingsActivity : AppCompatActivity() {
         )
         Prefs.setSoundEnabled(this, binding.soundSwitch.isChecked)
         Prefs.setRadarBeep(this, binding.radarBeepSwitch.isChecked)
+        Prefs.setDetectorSound(this, binding.detectorSoundSwitch.isChecked)
+        Prefs.setScanIntro(this, binding.scanIntroSwitch.isChecked)
         Prefs.setVibrateEnabled(this, binding.vibrateSwitch.isChecked)
         Prefs.setVoiceEnabled(this, binding.voiceSwitch.isChecked)
         Prefs.setShortVoice(this, binding.shortVoiceSwitch.isChecked)
