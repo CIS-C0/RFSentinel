@@ -797,7 +797,6 @@ class SettingsActivity : AppCompatActivity() {
         binding.presetFrance.setOnCheckedChangeListener { _, on -> if (on) com.rfsentinel.app.ui.RegionNotice.show(this, "france") }
         binding.presetUk.isChecked = "uk" in enabledPresets
         binding.presetPortugal.isChecked = "portugal" in enabledPresets
-        binding.presetPortugal.setOnCheckedChangeListener { _, on -> if (on) com.rfsentinel.app.ui.RegionNotice.show(this, "portugal") }
 
         // Alerts
         val threshold = Prefs.alertThreshold(this)

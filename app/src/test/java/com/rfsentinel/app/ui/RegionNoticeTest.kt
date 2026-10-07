@@ -11,7 +11,7 @@ class RegionNoticeTest {
     @Test
     fun noticesOnlyWhereTheLawRestrictsDetectors() {
         assertNotNull(RegionNotice.textFor("france"))
-        assertTrue(RegionNotice.textFor("portugal")!!.second.contains("art. 84"))
+        assertNull(RegionNotice.textFor("portugal"))
         assertNull(RegionNotice.textFor("uk"))
         assertNull(RegionNotice.textFor("us"))
     }

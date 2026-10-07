@@ -5,8 +5,8 @@ import androidx.appcompat.app.AlertDialog
 
 /**
  * Shown when a regional preset with driving rules worth knowing is switched on: France bans
- * radar detectors and speed-camera warnings; Portugal bans radar detectors but allows
- * camera-warning apps. The UK allows both (laser jammers aside), so it has no notice.
+ * apps that signal speed cameras. Elsewhere (UK, Portugal...) camera warnings are allowed, and
+ * RF Sentinel doesn't detect radar, so there's no notice.
  */
 object RegionNotice {
 
@@ -17,16 +17,9 @@ object RegionNotice {
         "and Waze police reports, and don't use RF Sentinel to locate speed-enforcement equipment. " +
         "You are responsible for complying with the law."
 
-    const val PORTUGAL = "In Portugal, devices that detect or disturb speed radars are illegal (Código da Estrada, " +
-        "art. 84: €500 to €2,500 fine, device and vehicle papers seized). Apps that warn about known camera " +
-        "locations, like RF Sentinel's Known cameras, are allowed.\n\n" +
-        "RF Sentinel listens for Bluetooth and WiFi, not radar - but don't use it to hunt for speed-enforcement " +
-        "equipment while driving. You are responsible for complying with the law."
-
     /** The notice for a preset key, or null when that region has none. */
     fun textFor(preset: String): Pair<String, String>? = when (preset) {
         "france" -> "Driving in France" to FRANCE
-        "portugal" -> "Driving in Portugal" to PORTUGAL
         else -> null
     }
 
