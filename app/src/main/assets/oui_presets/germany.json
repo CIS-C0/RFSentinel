@@ -1,0 +1,82 @@
+[
+  {
+    "prefix": "4C:CC:34",
+    "label": "Motorola Solutions - in Germany: VB400 body cams of several state police forces and BOS digital radios (200,000+ TETRA terminals)",
+    "source": "IEEE MA-L registry; Motorola VB400 contracts in Thuringia, Saxony-Anhalt and Mecklenburg-Western Pomerania; BDBOS-certified TETRA terminals. Weak: the same blocks carry other radios and gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:1F:92",
+    "label": "Motorola Solutions - in Germany: VB400 body cams of several state police forces and BOS digital radios (200,000+ TETRA terminals)",
+    "source": "IEEE MA-L registry; Motorola VB400 contracts in Thuringia, Saxony-Anhalt and Mecklenburg-Western Pomerania; BDBOS-certified TETRA terminals. Weak: the same blocks carry other radios and gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:18:85",
+    "label": "Motorola Solutions - in Germany: VB400 body cams of several state police forces and BOS digital radios (200,000+ TETRA terminals)",
+    "source": "IEEE MA-L registry; Motorola VB400 contracts in Thuringia, Saxony-Anhalt and Mecklenburg-Western Pomerania; BDBOS-certified TETRA terminals. Weak: the same blocks carry other radios and gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:04:7D",
+    "label": "Motorola Solutions - in Germany: VB400 body cams of several state police forces and BOS digital radios (200,000+ TETRA terminals)",
+    "source": "IEEE MA-L registry; Motorola VB400 contracts in Thuringia, Saxony-Anhalt and Mecklenburg-Western Pomerania; BDBOS-certified TETRA terminals. Weak: the same blocks carry other radios and gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "10:74:6F",
+    "label": "Motorola Solutions - in Germany: VB400 body cams of several state police forces and BOS digital radios (200,000+ TETRA terminals)",
+    "source": "IEEE MA-L registry; Motorola VB400 contracts in Thuringia, Saxony-Anhalt and Mecklenburg-Western Pomerania; BDBOS-certified TETRA terminals. Weak: the same blocks carry other radios and gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "B8:E2:8C",
+    "label": "Motorola Solutions - in Germany: VB400 body cams of several state police forces and BOS digital radios (200,000+ TETRA terminals)",
+    "source": "IEEE MA-L registry; Motorola VB400 contracts in Thuringia, Saxony-Anhalt and Mecklenburg-Western Pomerania; BDBOS-certified TETRA terminals. Weak: the same blocks carry other radios and gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "9C:86:2B",
+    "label": "Motorola Solutions - in Germany: VB400 body cams of several state police forces and BOS digital radios (200,000+ TETRA terminals)",
+    "source": "IEEE MA-L registry; Motorola VB400 contracts in Thuringia, Saxony-Anhalt and Mecklenburg-Western Pomerania; BDBOS-certified TETRA terminals. Weak: the same blocks carry other radios and gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:1E:96",
+    "label": "Sepura (BOS digital radios of police, fire and rescue services)",
+    "source": "IEEE MA-L registry (Sepura Limited); BDBOS-certified TETRA terminals. Weak: also other users",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:23:B9",
+    "label": "Airbus Defence and Space (BOS digital radio network maker)",
+    "source": "IEEE MA-L registry (Airbus Defence and Space Deutschland GmbH). Weak: also defence equipment",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:25:DF",
+    "label": "Axon (body cam / TASER)",
+    "source": "IEEE MA-L registry (Axon Enterprise)",
+    "confidence": "confirmed",
+    "score": 75,
+    "category": "BODY_CAM"
+  }
+]

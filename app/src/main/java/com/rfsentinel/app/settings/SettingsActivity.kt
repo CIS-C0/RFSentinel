@@ -321,7 +321,10 @@ class SettingsActivity : AppCompatActivity() {
                 "• United Kingdom: Motorola VB400 / VB300 and Axon body cams, Sepura and Motorola Airwave radios, " +
                 "Jenoptik SPECS / VECTOR ANPR and speed cameras.\n" +
                 "• Portugal: Motorola SIRESP radios of PSP, GNR and INEM; PSP / GNR body cams are still being bought.\n" +
-                "French drone electronic IDs are decoded in every region. With France, UK or Portugal on (and not US / Canada), " +
+                "• Germany: Motorola VB400 body cams of several state police forces, Motorola and Sepura BOS digital radios.\n" +
+                "• Spain: Axon body cams of the Policia Nacional, Teltronic TETRA radios.\n" +
+                "• Italy: Leonardo / Selex TETRA radios of the Polizia di Stato, Selea and Elsag plate readers.\n" +
+                "French drone electronic IDs are decoded in every region. With a European preset on (and not US / Canada), " +
                 "the weak Flock clues are ignored: Flock isn't used there."),
         Section("alerts", binding.headerAlerts, binding.sectionAlerts,
             "Threshold: \"Weak\" alerts on every match (more false alarms); \"Strong only\" on near-certain ones.\n\n" +
@@ -797,6 +800,10 @@ class SettingsActivity : AppCompatActivity() {
         binding.presetFrance.setOnCheckedChangeListener { _, on -> if (on) com.rfsentinel.app.ui.RegionNotice.show(this, "france") }
         binding.presetUk.isChecked = "uk" in enabledPresets
         binding.presetPortugal.isChecked = "portugal" in enabledPresets
+        binding.presetGermany.isChecked = "germany" in enabledPresets
+        binding.presetGermany.setOnCheckedChangeListener { _, on -> if (on) com.rfsentinel.app.ui.RegionNotice.show(this, "germany") }
+        binding.presetSpain.isChecked = "spain" in enabledPresets
+        binding.presetItaly.isChecked = "italy" in enabledPresets
 
         // Alerts
         val threshold = Prefs.alertThreshold(this)
@@ -1069,6 +1076,9 @@ class SettingsActivity : AppCompatActivity() {
         if (binding.presetFrance.isChecked) presets.add("france")
         if (binding.presetUk.isChecked) presets.add("uk")
         if (binding.presetPortugal.isChecked) presets.add("portugal")
+        if (binding.presetGermany.isChecked) presets.add("germany")
+        if (binding.presetSpain.isChecked) presets.add("spain")
+        if (binding.presetItaly.isChecked) presets.add("italy")
         OuiWatchlist.setEnabledPresets(this, presets)
 
         Prefs.setAlertThreshold(

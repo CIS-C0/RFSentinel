@@ -1,0 +1,18 @@
+[
+  {
+    "prefix": "00:25:DF",
+    "label": "Axon (body cams of the Policia Nacional; TASER)",
+    "source": "IEEE MA-L registry (Axon Enterprise); Policia Nacional body-cam contract (2020, with Nidec Defense Group)",
+    "confidence": "confirmed",
+    "score": 75,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "00:04:18",
+    "label": "Teltronic (Spanish TETRA radio maker: public-safety and transport networks)",
+    "source": "IEEE MA-L registry (Teltronic S.A.U.). Weak: not confirmed for a given police force",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  }
+]

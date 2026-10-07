@@ -1,0 +1,50 @@
+[
+  {
+    "prefix": "00:17:28",
+    "label": "Selex Communications (Leonardo TETRA radios of the Polizia di Stato network)",
+    "source": "IEEE MA-L registry (Selex Communications); Leonardo / Selex ES built the Polizia di Stato TETRA network. Weak: also other users",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "70:B3:D5:11:1",
+    "label": "Leonardo Sistemi Integrati (public-safety communications)",
+    "source": "IEEE MA-S registry (Leonardo Sistemi Integrati S.r.l.). Match all 36 bits. Weak",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "78:13:05:A",
+    "label": "Leonardo SpA (secure / public-safety communications)",
+    "source": "IEEE MA-M registry (Leonardo SpA). Match all 28 bits. Weak: also defence",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:07:98",
+    "label": "Selea (Italian plate-reader cameras, used by local police for Targa System style checks)",
+    "source": "IEEE MA-L registry (Selea SRL); Italian ALPR maker",
+    "confidence": "candidate",
+    "score": 55,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:40:DE",
+    "label": "Elsag Datamat (Leonardo plate-reader cameras)",
+    "source": "IEEE MA-L registry (Elsag Datamat spa); Elsag ALPR",
+    "confidence": "candidate",
+    "score": 55,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "00:25:DF",
+    "label": "Axon (body cam / TASER)",
+    "source": "IEEE MA-L registry (Axon Enterprise). Italian police body cams are being bought (law 80/2025, supplier not public)",
+    "confidence": "confirmed",
+    "score": 75,
+    "category": "BODY_CAM"
+  }
+]

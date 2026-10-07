@@ -13,11 +13,14 @@ class RegionNoticeTest {
         assertNotNull(RegionNotice.textFor("france"))
         assertNull(RegionNotice.textFor("portugal"))
         assertNull(RegionNotice.textFor("uk"))
+        assertTrue(RegionNotice.textFor("germany")!!.second.contains("23 Abs. 1c"))
+        assertNull(RegionNotice.textFor("spain"))
+        assertNull(RegionNotice.textFor("italy"))
         assertNull(RegionNotice.textFor("us"))
     }
 
     @Test
     fun newRegionsAreAvailable() {
-        assertTrue(OuiWatchlist.availablePresets.containsAll(listOf("france", "uk", "portugal")))
+        assertTrue(OuiWatchlist.availablePresets.containsAll(listOf("france", "uk", "portugal", "germany", "spain", "italy")))
     }
 }

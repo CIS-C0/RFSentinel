@@ -40,7 +40,7 @@ object OuiWatchlist {
     )
 
     /**
-     * False when a non-Flock region (France, UK, Portugal) is on without US / Canada: Flock
+     * False when a European region (France, UK, Portugal, Germany, Spain, Italy) is on without US / Canada: Flock
      * isn't deployed there, so its weak module-prefix clues are ignored (see FlockNoise).
      */
     @Volatile
@@ -56,10 +56,10 @@ object OuiWatchlist {
     private var state = State(emptyMap(), emptyList(), emptyList(), emptyMap(), emptyMap(), emptyList())
 
     /** Load order: regional presets after "global", so their labels win for shared prefixes. */
-    val availablePresets = listOf("global", "canada", "us", "france", "uk", "portugal")
+    val availablePresets = listOf("global", "canada", "us", "france", "uk", "portugal", "germany", "spain", "italy")
 
     /** Regions where Flock isn't deployed: their presets turn the weak Flock clues off (FlockNoise). */
-    private val NON_FLOCK_REGIONS = setOf("france", "uk", "portugal")
+    private val NON_FLOCK_REGIONS = setOf("france", "uk", "portugal", "germany", "spain", "italy")
 
     @Synchronized
     fun load(context: Context) {

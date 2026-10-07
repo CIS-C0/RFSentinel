@@ -188,6 +188,9 @@
             <CheckBox android:id="@+id/presetFrance" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="France" />
             <CheckBox android:id="@+id/presetUk" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="United Kingdom" />
             <CheckBox android:id="@+id/presetPortugal" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Portugal" />
+            <CheckBox android:id="@+id/presetGermany" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Germany" />
+            <CheckBox android:id="@+id/presetSpain" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Spain" />
+            <CheckBox android:id="@+id/presetItaly" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Italy" />
         </LinearLayout>
 
         <!-- ================= Alerts ================= -->

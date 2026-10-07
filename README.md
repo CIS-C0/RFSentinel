@@ -116,7 +116,7 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 - **Fake cell tower signs** checked every 15 s, with persistence, call and border suppression (modelled on [EFF's Rayhunter](https://github.com/EFForg/rayhunter) as far as Android allows without root)
 - **Hidden WiFi networks** identified from WPS data, Cisco AP names and vendor elements, and linked to the visible network on the same router
 - Ordinary devices named precisely: exact AirPods / Beats model, device class, IEEE registrant; decoded Apple Continuity, iBeacon, Eddystone, Fast Pair
-- Editable **watchlist** (exact addresses, prefixes, name / vendor rules) with Global, Canada, US, France, UK and Portugal presets; per-category on/off switches
+- Editable **watchlist** (exact addresses, prefixes, name / vendor rules) with Global, Canada, US, France, UK, Portugal, Germany, Spain and Italy presets; per-category on/off switches
 - Bluetooth 5 extended advertising and LE Coded (long range) where the phone supports it
 
 **Known cameras**
