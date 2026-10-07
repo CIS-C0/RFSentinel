@@ -1,0 +1,74 @@
+[
+  {
+    "prefix": "4C:CC:34",
+    "label": "Motorola Solutions - in Portugal: SIRESP TETRA network and radios of PSP, GNR, Policia Judiciaria and INEM",
+    "source": "IEEE MA-L registry; Motorola built and runs the SIRESP network; PSP and GNR received 17,000 new portable radios. Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:1F:92",
+    "label": "Motorola Solutions - in Portugal: SIRESP TETRA network and radios of PSP, GNR, Policia Judiciaria and INEM",
+    "source": "IEEE MA-L registry; Motorola built and runs the SIRESP network; PSP and GNR received 17,000 new portable radios. Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:18:85",
+    "label": "Motorola Solutions - in Portugal: SIRESP TETRA network and radios of PSP, GNR, Policia Judiciaria and INEM",
+    "source": "IEEE MA-L registry; Motorola built and runs the SIRESP network; PSP and GNR received 17,000 new portable radios. Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:04:7D",
+    "label": "Motorola Solutions - in Portugal: SIRESP TETRA network and radios of PSP, GNR, Policia Judiciaria and INEM",
+    "source": "IEEE MA-L registry; Motorola built and runs the SIRESP network; PSP and GNR received 17,000 new portable radios. Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "10:74:6F",
+    "label": "Motorola Solutions - in Portugal: SIRESP TETRA network and radios of PSP, GNR, Policia Judiciaria and INEM",
+    "source": "IEEE MA-L registry; Motorola built and runs the SIRESP network; PSP and GNR received 17,000 new portable radios. Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "B8:E2:8C",
+    "label": "Motorola Solutions - in Portugal: SIRESP TETRA network and radios of PSP, GNR, Policia Judiciaria and INEM",
+    "source": "IEEE MA-L registry; Motorola built and runs the SIRESP network; PSP and GNR received 17,000 new portable radios. Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "9C:86:2B",
+    "label": "Motorola Solutions - in Portugal: SIRESP TETRA network and radios of PSP, GNR, Policia Judiciaria and INEM",
+    "source": "IEEE MA-L registry; Motorola built and runs the SIRESP network; PSP and GNR received 17,000 new portable radios. Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:25:DF",
+    "label": "Axon (body cam / TASER)",
+    "source": "IEEE MA-L registry (Axon Enterprise). PSP / GNR body cams are being bought in 2026 (supplier not yet public)",
+    "confidence": "confirmed",
+    "score": 75,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "00:04:18",
+    "label": "Teltronic (TETRA radios, used by Iberian public-safety networks)",
+    "source": "IEEE MA-L registry (Teltronic S.A.U.). Weak: not confirmed on SIRESP",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  }
+]

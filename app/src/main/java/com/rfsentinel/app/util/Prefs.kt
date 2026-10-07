@@ -247,6 +247,10 @@ object Prefs {
     fun detectorEffect(context: Context): Int = int(context, "detector_effect", 0).coerceIn(0, 4)
     fun setDetectorEffect(context: Context, value: Int) = setInt(context, "detector_effect", value.coerceIn(0, 4))
 
+    /** Radar-detector sound style: the power-on sweep when a scan starts (off by default). */
+    fun startupSweep(context: Context): Boolean = bool(context, "startup_sweep", false)
+    fun setStartupSweep(context: Context, value: Boolean) = setBool(context, "startup_sweep", value)
+
     /** Play the intro sound when a scan starts. */
     fun scanIntro(context: Context): Boolean = bool(context, "scan_intro", false)
     fun setScanIntro(context: Context, value: Boolean) = setBool(context, "scan_intro", value)

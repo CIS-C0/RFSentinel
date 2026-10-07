@@ -318,8 +318,11 @@ class SettingsActivity : AppCompatActivity() {
                 "• Canada: Axon, Cyberkar, Getac, Genetec, Motorola, ticket printers...\n" +
                 "• United States\n" +
                 "• France: Motorola VB400 body cams (Police nationale, Gendarmerie), Zepcam, Axon, TETRAPOL radios, Idemia. " +
-                "French drone electronic IDs are decoded in every region. With France on (and not US / Canada), " +
-                "the weak Flock clues are ignored: Flock isn't used in France."),
+                "• United Kingdom: Motorola VB400 / VB300 and Axon body cams, Sepura and Motorola Airwave radios, " +
+                "Jenoptik SPECS / VECTOR ANPR and speed cameras.\n" +
+                "• Portugal: Motorola SIRESP radios of PSP, GNR and INEM; PSP / GNR body cams are still being bought.\n" +
+                "French drone electronic IDs are decoded in every region. With France, UK or Portugal on (and not US / Canada), " +
+                "the weak Flock clues are ignored: Flock isn't used there."),
         Section("alerts", binding.headerAlerts, binding.sectionAlerts,
             "Threshold: \"Weak\" alerts on every match (more false alarms); \"Strong only\" on near-certain ones.\n\n" +
                 "Vibration: 1 pulse weak, 2 probable, 3 strong.\n\n" +
@@ -328,7 +331,7 @@ class SettingsActivity : AppCompatActivity() {
                 "Radar-detector sound (off by default): radar-detector alert sounds instead of the plain beeps - " +
                 "by strength (effect 1 strong, 2 probable, 3 weak, 4 following) or always the effect you pick - then " +
                 "the short voice says what it is (\"Body cam\"); the proximity beeps use a pulse of the same effect. " +
-                "A power-on sweep when a scan starts, and \"GPS connected\" when the GPS locks.\n\n" +
+                "\"GPS connected\" when the GPS locks; optional start beep (power-on sweep) when a scan starts, off by default.\n\n" +
                 "Intro sound (off by default): plays when a scan starts.\n\n" +
                 "Re-alert: how long before the same device can alert again."),
         Section("voice", binding.headerVoice, binding.sectionVoice,
@@ -791,7 +794,10 @@ class SettingsActivity : AppCompatActivity() {
         binding.presetCanada.isChecked = "canada" in enabledPresets
         binding.presetUs.isChecked = "us" in enabledPresets
         binding.presetFrance.isChecked = "france" in enabledPresets
-        binding.presetFrance.setOnCheckedChangeListener { _, on -> if (on) com.rfsentinel.app.ui.FranceNotice.show(this) }
+        binding.presetFrance.setOnCheckedChangeListener { _, on -> if (on) com.rfsentinel.app.ui.RegionNotice.show(this, "france") }
+        binding.presetUk.isChecked = "uk" in enabledPresets
+        binding.presetPortugal.isChecked = "portugal" in enabledPresets
+        binding.presetPortugal.setOnCheckedChangeListener { _, on -> if (on) com.rfsentinel.app.ui.RegionNotice.show(this, "portugal") }
 
         // Alerts
         val threshold = Prefs.alertThreshold(this)
@@ -806,6 +812,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.vibrateSwitch.isChecked = Prefs.vibrateEnabled(this)
         binding.radarBeepSwitch.isChecked = Prefs.radarBeep(this)
         binding.detectorSoundSwitch.isChecked = Prefs.detectorSound(this)
+        binding.startupSweepSwitch.isChecked = Prefs.startupSweep(this)
         binding.scanIntroSwitch.isChecked = Prefs.scanIntro(this)
         updateDetectorEffectButton()
         binding.detectorEffectButton.isEnabled = binding.detectorSoundSwitch.isChecked
@@ -1061,6 +1068,8 @@ class SettingsActivity : AppCompatActivity() {
         if (binding.presetCanada.isChecked) presets.add("canada")
         if (binding.presetUs.isChecked) presets.add("us")
         if (binding.presetFrance.isChecked) presets.add("france")
+        if (binding.presetUk.isChecked) presets.add("uk")
+        if (binding.presetPortugal.isChecked) presets.add("portugal")
         OuiWatchlist.setEnabledPresets(this, presets)
 
         Prefs.setAlertThreshold(
@@ -1074,6 +1083,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setSoundEnabled(this, binding.soundSwitch.isChecked)
         Prefs.setRadarBeep(this, binding.radarBeepSwitch.isChecked)
         Prefs.setDetectorSound(this, binding.detectorSoundSwitch.isChecked)
+        Prefs.setStartupSweep(this, binding.startupSweepSwitch.isChecked)
         Prefs.setScanIntro(this, binding.scanIntroSwitch.isChecked)
         Prefs.setVibrateEnabled(this, binding.vibrateSwitch.isChecked)
         Prefs.setVoiceEnabled(this, binding.voiceSwitch.isChecked)

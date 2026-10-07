@@ -176,7 +176,8 @@ object AlertPlayer {
     fun startup(context: Context) {
         val inCar = CarState.connected
         val intro = Prefs.scanIntro(context)
-        if (!intro && !Prefs.detectorSound(context)) return
+        // The power-on sweep only with the detector sound style and its start beep on (off by default).
+        if (!intro && !(Prefs.detectorSound(context) && Prefs.startupSweep(context))) return
         if (Prefs.alertsSilenced(context) || !Prefs.soundEnabled(context) || !(inCar || ringerAllowsSound(context))) return
         val attrs = if (inCar) carToneAttributes else phoneToneAttributes
         if (intro) SoundClips.playIntro(context, attrs) else Beeper.playTones(attrs, Beeper.detectorStartup)

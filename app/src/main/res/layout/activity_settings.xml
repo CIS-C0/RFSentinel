@@ -186,6 +186,8 @@
             <CheckBox android:id="@+id/presetCanada" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Canada" />
             <CheckBox android:id="@+id/presetUs" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="United States" />
             <CheckBox android:id="@+id/presetFrance" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="France" />
+            <CheckBox android:id="@+id/presetUk" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="United Kingdom" />
+            <CheckBox android:id="@+id/presetPortugal" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Portugal" />
         </LinearLayout>
 
         <!-- ================= Alerts ================= -->
@@ -227,6 +229,13 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Radar-detector sound (Ka / K / X tones, GPS connected)" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/startupSweepSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="24dp"
+                android:text="Start beep when a scan starts" />
 
             <Button
                 android:id="@+id/detectorEffectButton"

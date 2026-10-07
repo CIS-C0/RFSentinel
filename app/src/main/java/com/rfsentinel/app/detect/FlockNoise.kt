@@ -6,7 +6,7 @@ package com.rfsentinel.app.detect
  * generic "FS-<hex>" name are shared with speakers, scooters, bulbs and meeting-room boxes:
  *  - a module-prefix match is dropped when the device names itself as something else
  *    (a Flock module has no name or a Flock-style one);
- *  - outside Flock's market (France preset on, US and Canada off) both are dropped entirely.
+ *  - outside Flock's market (France, UK or Portugal preset on, US and Canada off) both are dropped entirely.
  * Strong Flock signatures (Penguin / Falcon / Raven names, Flock's own service, the
  * battery name, XUNTONG ID) are never touched.
  */

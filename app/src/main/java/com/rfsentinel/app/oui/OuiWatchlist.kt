@@ -40,7 +40,7 @@ object OuiWatchlist {
     )
 
     /**
-     * False when only the France preset is on among the regional ones (no US / Canada): Flock
+     * False when a non-Flock region (France, UK, Portugal) is on without US / Canada: Flock
      * isn't deployed there, so its weak module-prefix clues are ignored (see FlockNoise).
      */
     @Volatile
@@ -56,13 +56,16 @@ object OuiWatchlist {
     private var state = State(emptyMap(), emptyList(), emptyList(), emptyMap(), emptyMap(), emptyList())
 
     /** Load order: regional presets after "global", so their labels win for shared prefixes. */
-    val availablePresets = listOf("global", "canada", "us", "france")
+    val availablePresets = listOf("global", "canada", "us", "france", "uk", "portugal")
+
+    /** Regions where Flock isn't deployed: their presets turn the weak Flock clues off (FlockNoise). */
+    private val NON_FLOCK_REGIONS = setOf("france", "uk", "portugal")
 
     @Synchronized
     fun load(context: Context) {
         val byKey = linkedMapOf<String, OuiEntry>()
         val enabled = getEnabledPresets(context)
-        flockRegion = "france" !in enabled || "us" in enabled || "canada" in enabled
+        flockRegion = enabled.none { it in NON_FLOCK_REGIONS } || "us" in enabled || "canada" in enabled
         for (preset in availablePresets.filter { it in enabled }) {
             loadPresetAsset(context, preset).forEach { byKey[it.prefix] = it }
         }

@@ -1,0 +1,90 @@
+[
+  {
+    "prefix": "4C:CC:34",
+    "label": "Motorola Solutions - in the UK: VB400 / VB300 body cams (Police Scotland ~10,500 VB400; national body-worn video framework 2025) and Airwave TETRA radios",
+    "source": "IEEE MA-L registry; Police Scotland contract (May 2024) and the 2025 national BWV framework (Axon, Motorola, Reveal Media). Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:1F:92",
+    "label": "Motorola Solutions - in the UK: VB400 / VB300 body cams (Police Scotland ~10,500 VB400; national body-worn video framework 2025) and Airwave TETRA radios",
+    "source": "IEEE MA-L registry; Police Scotland contract (May 2024) and the 2025 national BWV framework (Axon, Motorola, Reveal Media). Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:18:85",
+    "label": "Motorola Solutions - in the UK: VB400 / VB300 body cams (Police Scotland ~10,500 VB400; national body-worn video framework 2025) and Airwave TETRA radios",
+    "source": "IEEE MA-L registry; Police Scotland contract (May 2024) and the 2025 national BWV framework (Axon, Motorola, Reveal Media). Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:04:7D",
+    "label": "Motorola Solutions - in the UK: VB400 / VB300 body cams (Police Scotland ~10,500 VB400; national body-worn video framework 2025) and Airwave TETRA radios",
+    "source": "IEEE MA-L registry; Police Scotland contract (May 2024) and the 2025 national BWV framework (Axon, Motorola, Reveal Media). Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "10:74:6F",
+    "label": "Motorola Solutions - in the UK: VB400 / VB300 body cams (Police Scotland ~10,500 VB400; national body-worn video framework 2025) and Airwave TETRA radios",
+    "source": "IEEE MA-L registry; Police Scotland contract (May 2024) and the 2025 national BWV framework (Axon, Motorola, Reveal Media). Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "B8:E2:8C",
+    "label": "Motorola Solutions - in the UK: VB400 / VB300 body cams (Police Scotland ~10,500 VB400; national body-worn video framework 2025) and Airwave TETRA radios",
+    "source": "IEEE MA-L registry; Police Scotland contract (May 2024) and the 2025 national BWV framework (Axon, Motorola, Reveal Media). Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "9C:86:2B",
+    "label": "Motorola Solutions - in the UK: VB400 / VB300 body cams (Police Scotland ~10,500 VB400; national body-worn video framework 2025) and Airwave TETRA radios",
+    "source": "IEEE MA-L registry; Police Scotland contract (May 2024) and the 2025 national BWV framework (Axon, Motorola, Reveal Media). Weak: the same blocks carry radios and other gear",
+    "confidence": "candidate",
+    "score": 50,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:25:DF",
+    "label": "Axon (body cams and TASER of many UK police forces; national body-worn video framework 2025)",
+    "source": "IEEE MA-L registry (Axon Enterprise); UK national BWV / in-vehicle video framework awarded April 2025",
+    "confidence": "confirmed",
+    "score": 75,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "00:1E:96",
+    "label": "Sepura (UK TETRA radio maker: SC20 / SC21 radios on the Airwave police network)",
+    "source": "IEEE MA-L registry (Sepura Limited); Sepura SC20 approved for Airwave. Weak: also transport and utilities",
+    "confidence": "candidate",
+    "score": 55,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:04:4C",
+    "label": "Jenoptik (SPECS average-speed and VECTOR ANPR cameras, common on UK roads)",
+    "source": "IEEE MA-L registry (Jenoptik); SPECS3 / SPECS3 VECTOR are Home Office type-approved",
+    "confidence": "candidate",
+    "score": 55,
+    "category": "ALPR"
+  },
+  {
+    "prefix": "48:E3:C3",
+    "label": "Jenoptik Advanced Systems (SPECS / VECTOR ANPR and speed cameras)",
+    "source": "IEEE MA-L registry (JENOPTIK Advanced Systems GmbH); Home Office type-approved enforcement cameras",
+    "confidence": "candidate",
+    "score": 55,
+    "category": "ALPR"
+  }
+]
