@@ -68,10 +68,10 @@ class GnssAnalyzerTest {
     @Test
     fun clockSkewAndImpossibleJumps() {
         val a = GnssAnalyzer()
-        assertTrue(a.onFix(GnssAnalyzer.Fix(1_000_000, 1_000_000, 45.0, -73.0, 5f)).isEmpty())
-        val jump = a.onFix(GnssAnalyzer.Fix(1_002_000, 1_002_000, 46.0, -73.0, 5f)) // ~111 km in 2 s
+        assertTrue(a.onFix(GnssAnalyzer.Fix(1_000_000, 1_000_000, 10.0, -20.0, 5f)).isEmpty())
+        val jump = a.onFix(GnssAnalyzer.Fix(1_002_000, 1_002_000, 11.0, -20.0, 5f)) // ~111 km in 2 s
         assertEquals("jump", jump.single().key)
-        val skew = a.onFix(GnssAnalyzer.Fix(1_004_000 + 3_600_000, 1_004_000, 46.0, -73.0, 5f))
+        val skew = a.onFix(GnssAnalyzer.Fix(1_004_000 + 3_600_000, 1_004_000, 11.0, -20.0, 5f))
         assertTrue(skew.any { it.key == "time" })
     }
 }

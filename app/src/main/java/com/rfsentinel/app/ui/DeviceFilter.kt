@@ -19,6 +19,8 @@ enum class DeviceFilter(val label: String) {
     WIFI("WiFi"),
     /** Cell towers: not devices, listed from the cell snapshot (list only, not the map). */
     CELLS("Cells"),
+    /** Waze reports: not devices, drawn on the map from the Waze poll (map only). */
+    WAZE("Waze"),
     /** Heard by external hardware: an ESP32 board (USB or OUI-SPY over Bluetooth) or a USB WiFi adapter. */
     EXTERNAL("External");
 
@@ -29,7 +31,7 @@ enum class DeviceFilter(val label: String) {
             s.deviceType.contains("tracker", true) || s.deviceType.contains("Find My", true))
         DRONES -> s.hits.any { it.category == Category.DRONE } || s.remoteId != null
         NEW -> s.isNew
-        CELLS -> false
+        CELLS, WAZE -> false
         EXTERNAL -> com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac) || com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac)
         FAVORITES -> Favorites.contains(s.mac)
         BLE -> Advert.Source.BLE in s.sources

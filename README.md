@@ -93,7 +93,7 @@
 | **Camera glasses** | Ray-Ban / Oakley Meta, Snap Spectacles, Vuzix, HeyCyan-based glasses such as Nilox Smart AI Glasses | Company IDs `0x0D53`, `0x03C2`, `0x060C`, Meta UUIDs, the HeyCyan SDK UUID, name tokens |
 | **Fake cell towers** | IMSI catchers / cell-site simulators | Test network codes, sudden 4G→2G, cloned or reserved cell identities, unexpected networks |
 | **Police aircraft** *(online, off by default)* | Police, sheriff, state patrol, federal and RCMP / provincial police aircraft, and unlisted aircraft circling low overhead | Community ADS-B feeds (adsb.fi / adsb.lol) matched against ~1,400 law-enforcement airframes from the FAA and Transport Canada registries |
-| **Waze police reports** *(online, off by default)* | Police reported by Waze users within 2 km | Your own OpenWeb Ninja API key; scored by distance and age; third-party service, at your own risk |
+| **Waze reports** *(online, off by default)* | Police reported by Waze users, and any other kind you tick (accidents, hazards, road closures, traffic jams), each with its own level: sound and voice, notification only, or silent. Shows what Waze says it is (hiding, mobile speed camera...) | Two sources: your own OpenWeb Ninja API key, or *Waze direct* (opt-in: no key, free, sends Waze your IP address and a position rounded to a 1 km grid). You set the alert range (100 m to 10 km), the map range, and how often Waze is asked (15 s to 5 min direct, 2 to 10 min OpenWeb Ninja), slower when parked and faster on fast roads. Scored by distance, age and driver confirmations and re-scored every second as you move, so an alert fires the moment a report comes into range, not at the next check. Optional: only alert for reports ahead of you, and spoken call-outs at 1 km, 500 m and 200 m. Third-party service, at your own risk |
 | **Card skimmers** | Bluetooth modules inside gas-pump and ATM skimmers | HC-05 / HC-06 / HC-03 / RN42 / BT04-A names, serial-port service |
 | **Hacking tools** *(off by default)* | Flipper Zero, Pwnagotchi, WiFi Pineapple, ESP deauthers, evil twin WiFi networks, Bluetooth spam floods | Flipper UUIDs / company ID `0x0E29` / IEEE block, Pwnagotchi beacon JSON, default SSIDs, same network name from two makers with mismatched security, bursts of new pairing pop-ups |
 | **Action & hidden cameras** *(off by default)* | GoPro, Insta360, DJI Osmo, YI, SJCAM, AKASO, Garmin VIRB, Ricoh THETA, Kodak PIXPRO, Sony action cams, Apeman, Campark...; WiFi spy cameras in setup mode (V380, LookCam Pro, TinyCam Pro, HDSmartIPC) | GoPro company ID `0x02F2` / UUIDs `0xFEA5` `0xFEA6`, Insta360 (Arashi Vision) `0x10D7` / `0xFC30`, IEEE blocks, names |
@@ -136,7 +136,7 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 - Notification, Quick Settings tile and home-screen widget
 
 **Map & history**
-- OpenStreetMap map with your GPS trace and every device pinned exactly where its signal peaked (tap a spot to list everything heard there), the same filter chips as the list, self-centering
+- OpenStreetMap map with your GPS trace and every device pinned exactly where its signal peaked (tap a spot to list everything heard there), the same filter chips as the list (including Waze, which draws reports as coloured dots by type), self-centering
 - Optional **cell tower layer** (or the map's **Cells** chip): every tower seen while scanning, at the spot where its signal was strongest
 - **Record traces** of your route and the devices along it, with the screen off (with the network names each device asked for, when a USB adapter or Marauder board is plugged in)
 - **History map & timeline:** heatmap of where flagged equipment showed up, and when (hour of day, day of week)
@@ -153,7 +153,7 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 - **More from every frame:** WPS maker / model / device name, a **probe fingerprint** that survives MAC randomization (watchable: "every device of this type"), and the real name of **hidden networks** when a device joins them
 
 **Interface**
-- Live list and radar view, filter chips with live counts (flagged, trackers, drones, favorites, new, Bluetooth, WiFi, cells, external hardware), search
+- Live list and radar view, filter chips with live counts (flagged, trackers, drones, favorites, new, Bluetooth, WiFi, cells, Waze, external hardware), search; Waze reports in range show nearest first with their exact distance and direction from you (ahead / behind / left / right while driving), and flash at the top once they reach your alert threshold; pull the list down (or use the menu) to check Waze right now, and the Waze status screen shows what is sent and when
 - **Tools** (button next to the map button): **Cell towers** (serving and neighbour cells with network, IDs, channel and signal, plus every tower seen while scanning), **WiFi channels** and **WiFi spectrum** analyzers for 2.4 / 5 / 6 GHz
 - **Cell towers in the live list:** the serving cell and its neighbours appear under *All*, after the devices
 - **Scan watchdog:** a scanner that goes silent is restarted on its own
@@ -517,9 +517,16 @@ Pick a theme in the setup wizard or under **Settings → Appearance**.
   Map data © OpenStreetMap contributors (ODbL).
 - **Two optional online sources, off by default:** *Police / government
   aircraft* sends a position rounded to about 1 km to the community ADS-B
-  feeds adsb.fi / adsb.lol every minute while scanning. *Police reported on
-  Waze* uses your own OpenWeb Ninja API key (stored encrypted on the phone)
-  and sends a box of about 4 km around you every 4 minutes. OpenWeb Ninja and
+  feeds adsb.fi / adsb.lol every minute while scanning. *Waze reports* use
+  either your own OpenWeb Ninja API key (stored encrypted on the phone; a box
+  around you at the interval you pick, 4 minutes by default) or, if you choose
+  it in Settings, *Waze direct*: an anonymous Waze account made on the phone
+  (stored encrypted), presented to Waze as the Waze app, that sends Waze (a
+  Google service) your IP address and your position rounded to a 1 km grid, so
+  never closer than about 500 m, at the interval you pick (every minute by
+  default). Direct's protocol layer is vendored from
+  highway-radar-sabre-plus (MIT), see
+  `app/src/main/java/com/rfsentinel/app/online/wazert/LICENSE`. OpenWeb Ninja and
   Waze are third-party services RF Sentinel isn't affiliated with and doesn't
   endorse; using them is at your own risk and under their terms.
 - **Data leaves the phone only when you export or share it.**

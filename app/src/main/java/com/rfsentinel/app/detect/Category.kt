@@ -25,7 +25,7 @@ enum class Category(
     /** Online (ADS-B feeds): off by default, it sends a rounded position to adsb.fi / adsb.lol. */
     AIRCRAFT("Police / government aircraft overhead (online: adsb.fi, adsb.lol)", "AIRCRAFT", 0xFF5E35B1.toInt(), false),
     /** Online (the user's OpenWeb Ninja key): off by default, third-party service used at the user's own risk. */
-    POLICE_REPORT("Police reported on Waze (online: your OpenWeb Ninja key)", "WAZE", 0xFF1E88E5.toInt(), false),
+    POLICE_REPORT("Waze reports (online: OpenWeb Ninja key or Waze direct)", "WAZE", 0xFF1E88E5.toInt(), false),
     /** Off by default: action cameras (GoPro, Insta360, DJI Osmo...) and WiFi spy cameras in setup mode. */
     OTHER_CAMERA("Action & hidden cameras (GoPro, Insta360, DJI Osmo, V380 / LookCam spy cams...)", "CAMERA+", 0xFF00897B.toInt(), false),
     /** Bluetooth serial modules built into gas-pump / ATM card skimmers (BLE names, receive-only). */

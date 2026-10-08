@@ -86,6 +86,8 @@ class MapActivity : AppCompatActivity() {
     private var filter = DeviceFilter.ALL
     private val filterChips = HashMap<DeviceFilter, com.google.android.material.chip.Chip>()
     private var centeredOnce = false
+    /** The live map opened on a world view because nothing was known about where you are: zoom in with the first fix. */
+    private var startedOnWorld = false
     /** The map keeps your position centred until you pan it yourself. */
     private var following = false
 
@@ -95,6 +97,8 @@ class MapActivity : AppCompatActivity() {
     private val drones = FolderOverlay()
     /** Aircraft from the ADS-B feeds (Settings > What to detect > Police / government aircraft). */
     private val aircraft = FolderOverlay()
+    /** Waze reports (Settings > What to detect > Waze): shown on the All and Waze chips. */
+    private val wazeLayer = FolderOverlay()
     private var planeZoomStep = -1
     /** Plate-reader cameras mapped in OpenStreetMap (downloaded on request). */
     private val knownAlpr by lazy {
@@ -154,9 +158,15 @@ class MapActivity : AppCompatActivity() {
             binding.recordButton.setOnClickListener { toggleRecording() }
             lifecycleScope.launch {
                 repeatOnLifecycle(Lifecycle.State.STARTED) {
-                    while (isActive) {
-                        renderLive()
-                        delay(3_000)
+                    // A new or cleared Waze report is drawn at once, not at the next 3 s tick.
+                    val stopWaze = com.rfsentinel.app.online.WazePolice.addListener { runOnUiThread { if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) renderLive() } }
+                    try {
+                        while (isActive) {
+                            renderLive()
+                            delay(3_000)
+                        }
+                    } finally {
+                        stopWaze()
                     }
                 }
             }
@@ -171,7 +181,19 @@ class MapActivity : AppCompatActivity() {
         map.setTileSource(TileSourceFactory.MAPNIK)
         map.setMultiTouchControls(true)
         map.zoomController.setVisibility(CustomZoomButtonsController.Visibility.SHOW_AND_FADEOUT)
-        map.controller.setZoom(16.0)
+        // Open where you are, not on (0, 0): the live map used to sit on open sea until the first GPS fix.
+        val liveHere = tripId == null && !intent.hasExtra(EXTRA_CENTER_LAT)
+        val knownFix = if (liveHere) knownFix() else null
+        val start = if (liveHere) MapStart.pick(
+            listOf(knownFix?.let { MapStart.Fix(it.latitude, it.longitude, it.time) }),
+            com.rfsentinel.app.util.Prefs.lastMapCenter(this), com.rfsentinel.app.util.Prefs.mapZoom(this), System.currentTimeMillis()
+        ) else null
+        map.controller.setZoom(start?.zoom ?: if (liveHere) MapStart.WORLD_ZOOM else MapStart.DEFAULT_ZOOM)
+        startedOnWorld = liveHere && start == null
+        if (start != null) {
+            map.controller.setCenter(GeoPoint(start.lat, start.lon))
+            if (start.fresh) centeredOnce = true // already where you are: the first GPS fix need not move the map
+        }
         map.minZoomLevel = 3.0
         map.maxZoomLevel = 20.0
 
@@ -186,6 +208,7 @@ class MapActivity : AppCompatActivity() {
         map.overlays.add(trace)
         map.overlays.add(pins)
         map.overlays.add(drones)
+        map.overlays.add(wazeLayer)
         map.overlays.add(aircraft)
         // Redraw the camera layer for the visible area after panning / zooming.
         map.addMapListener(object : org.osmdroid.events.MapListener {
@@ -212,10 +235,20 @@ class MapActivity : AppCompatActivity() {
                 centeredOnce = true
             } else if (tripId == null) {
                 // Live map: keep your position centred from the first fix until you pan away.
-                setFollow(true)
+                setFollow(true, quiet = true)
                 myLocation.runOnFirstFix {
-                    runOnUiThread { if (!centeredOnce) { centeredOnce = true; if (following) centerOnMe() } }
+                    runOnUiThread {
+                        if (!centeredOnce) {
+                            centeredOnce = true
+                            if (following) {
+                                if (startedOnWorld) { startedOnWorld = false; binding.map.controller.setZoom(MapStart.DEFAULT_ZOOM) }
+                                centerOnMe()
+                            }
+                        }
+                    }
                 }
+                // A current position puts the arrow on the map straight away instead of after the first GPS update.
+                if (start?.fresh == true) knownFix?.let { myLocation.onLocationChanged(it, null) }
             }
         }
         map.overlays.add(myLocation)
@@ -244,6 +277,7 @@ class MapActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
+        saveView()
         if (tripId == null) ScanForegroundService.mapHidden(this)
         myLocation.disableMyLocation()
         binding.map.onPause()
@@ -256,6 +290,9 @@ class MapActivity : AppCompatActivity() {
         myLocation.disableMyLocation()
         binding.map.removeCallbacks(autoDownloadCameras)
         binding.map.removeCallbacks(redrawKnownAlpr)
+        // These two were left pending: one firing after onDetach() below touches detached overlays and crashes.
+        binding.map.removeCallbacks(redrawCctv)
+        binding.map.removeCallbacks(downloadCctv)
         binding.map.onDetach()
         super.onDestroy()
     }
@@ -289,17 +326,21 @@ class MapActivity : AppCompatActivity() {
     private fun updateFilterCounts(devices: List<DeviceRegistry.Snapshot>) {
         val placed = devices.filter { it.bestPosition != null }
         for ((f, chip) in filterChips) {
-            val n = if (f == DeviceFilter.CELLS) towerCount else placed.count { f.matches(it) }
+            val n = when (f) {
+                DeviceFilter.CELLS -> towerCount
+                DeviceFilter.WAZE -> currentWaze().size
+                else -> placed.count { f.matches(it) }
+            }
             chip.text = if (f == DeviceFilter.ALL || n > 0) "${f.label} $n" else f.label
         }
     }
 
     /** Turns following on (re-centres now and keeps you centred) or off (after you pan). */
-    private fun setFollow(on: Boolean) {
+    private fun setFollow(on: Boolean, quiet: Boolean = false) {
         following = on
         if (on) {
             myLocation.enableFollowLocation()
-            centerOnMe()
+            centerOnMe(quiet)
         } else {
             myLocation.disableFollowLocation()
         }
@@ -316,11 +357,42 @@ class MapActivity : AppCompatActivity() {
         binding.centerButton.contentDescription = if (on) "Following your position" else "Follow my position"
     }
 
-    private fun centerOnMe() {
+    private fun centerOnMe(quiet: Boolean = false) {
         val fix = myLocation.myLocation
             ?: TripRecorder.livePoints().lastOrNull()?.let { GeoPoint(it.lat, it.lon) }
-        if (fix != null) binding.map.controller.animateTo(fix)
-        else Toast.makeText(this, "Waiting for a GPS fix...", Toast.LENGTH_SHORT).show()
+        if (fix != null) goTo(fix)
+        else if (!quiet) Toast.makeText(this, "Waiting for a GPS fix...", Toast.LENGTH_SHORT).show()
+    }
+
+    /** Glides to a nearby place; jumps when it is far (an old position, or the first fix after a long trip). */
+    private fun goTo(p: GeoPoint) {
+        val map = binding.map
+        val here = map.mapCenter
+        val far = !map.isLayoutOccurred ||
+            DeviceRegistry.metersBetween(here.latitude, here.longitude, p.latitude, p.longitude) > 3_000
+        if (far) map.controller.setCenter(p) else map.controller.animateTo(p)
+    }
+
+    /** The best position known before this screen's own GPS answers: the running scan's fix, else the system's last known. */
+    private fun knownFix(): android.location.Location? =
+        listOfNotNull(ScanForegroundService.lastFix, systemLastKnown()).maxByOrNull { it.time }
+
+    @android.annotation.SuppressLint("MissingPermission")
+    private fun systemLastKnown(): android.location.Location? {
+        if (!Permissions.granted(this, android.Manifest.permission.ACCESS_FINE_LOCATION) &&
+            !Permissions.granted(this, android.Manifest.permission.ACCESS_COARSE_LOCATION)) return null
+        val manager = getSystemService(LOCATION_SERVICE) as? android.location.LocationManager ?: return null
+        return runCatching {
+            manager.getProviders(true).mapNotNull { runCatching { manager.getLastKnownLocation(it) }.getOrNull() }.maxByOrNull { it.time }
+        }.getOrNull()
+    }
+
+    /** Remembers where the live map is looking, so it can open there next time. */
+    private fun saveView() {
+        if (tripId != null || intent.hasExtra(EXTRA_CENTER_LAT)) return
+        val c = binding.map.mapCenter
+        if (kotlin.math.abs(c.latitude) < 1e-4 && kotlin.math.abs(c.longitude) < 1e-4) return // it never looked anywhere
+        com.rfsentinel.app.util.Prefs.saveMapView(this, c.latitude, c.longitude, binding.map.zoomLevelDouble)
     }
 
     // ---- Live mode ----------------------------------------------------------------
@@ -361,6 +433,7 @@ class MapActivity : AppCompatActivity() {
         updateFilterCounts(devices)
         drawDrones(devices.filter { it.remoteId?.hasPosition == true })
         drawAircraft()
+        drawWaze()
 
         val positioned = devices.count { it.bestPosition != null }
         binding.statusText.text = when {
@@ -539,6 +612,44 @@ class MapActivity : AppCompatActivity() {
                 setOnMarkerClickListener { _, _ -> showDrone(s, details); true }
             })
         }
+    }
+
+    /** The Waze reports from the checker, which clears them when it stops. */
+    private fun currentWaze(): List<com.rfsentinel.app.online.WazePolice.Shown> = com.rfsentinel.app.online.WazePolice.latest
+
+    /**
+     * Waze reports as coloured dots (blue police, red accident, orange hazard, brown closure,
+     * purple jam) with a white outline. Tap one for what it is, how far, how old, how many confirmed.
+     */
+    private fun drawWaze() {
+        wazeLayer.items.clear()
+        val show = tripId == null && (filter == DeviceFilter.ALL || filter == DeviceFilter.WAZE)
+        if (show) {
+            val dp = resources.displayMetrics.density
+            for (w in currentWaze()) {
+                wazeLayer.add(Marker(binding.map).apply {
+                    position = GeoPoint(w.report.lat, w.report.lon)
+                    icon = GradientDrawable().apply {
+                        shape = GradientDrawable.OVAL
+                        setColor(w.report.type.color)
+                        setStroke((2 * dp).toInt(), android.graphics.Color.WHITE)
+                        setSize((20 * dp).toInt(), (20 * dp).toInt())
+                    }
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    title = w.hit.label
+                    setOnMarkerClickListener { _, _ -> showWaze(w); true }
+                })
+            }
+        }
+        binding.map.invalidate()
+    }
+
+    private fun showWaze(w: com.rfsentinel.app.online.WazePolice.Shown) {
+        AlertDialog.Builder(this)
+            .setTitle(w.hit.label)
+            .setMessage("${w.hit.tier.label} ${w.hit.confidence}%\n${com.rfsentinel.app.online.WazePolice.relativeText(w.where, w.trend)}\n${w.hit.evidence}")
+            .setNegativeButton("Close", null)
+            .show()
     }
 
     /**
@@ -976,6 +1087,8 @@ class MapActivity : AppCompatActivity() {
             menu.add(0, 2, 1, "Rename")
             menu.add(0, 3, 2, "Delete")
         } else {
+            menu.add(0, 13, 1, "Check Waze now")
+            menu.add(0, 14, 2, "Waze status")
             // The map's options live in Settings > Map.
             menu.add(0, 12, 0, "Map settings").apply {
                 setIcon(com.rfsentinel.app.R.drawable.ic_settings)
@@ -997,6 +1110,8 @@ class MapActivity : AppCompatActivity() {
                         com.rfsentinel.app.settings.SettingsActivity.SECTION_MAP))
                 true
             }
+            13 -> { WazeUi.checkNow(this); true }
+            14 -> { WazeUi.openStatus(this); true }
             android.R.id.home -> { finish(); true }
             else -> super.onOptionsItemSelected(item)
         }

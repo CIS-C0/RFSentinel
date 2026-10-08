@@ -30,6 +30,39 @@ object Spoken {
         }
     }
 
+    /** A distance said aloud: "300 meters" (to the nearest 50), "1 kilometer", "1.2 kilometers". */
+    fun distanceWords(m: Double): String {
+        val r = Math.round(m / 50.0) * 50
+        if (r < 1000) return "${r.coerceAtLeast(50)} meters"
+        val km = Math.round(m / 100.0) / 10.0
+        return if (km == Math.floor(km)) "${km.toLong()} kilometer${if (km == 1.0) "" else "s"}" else "$km kilometers"
+    }
+
+    /** Where a report is, said aloud; empty when the heading is unknown. */
+    fun sideWords(side: com.rfsentinel.app.online.WazePolice.Side?): String = when (side) {
+        com.rfsentinel.app.online.WazePolice.Side.AHEAD -> "ahead"
+        com.rfsentinel.app.online.WazePolice.Side.BEHIND -> "behind you"
+        com.rfsentinel.app.online.WazePolice.Side.LEFT -> "on your left"
+        com.rfsentinel.app.online.WazePolice.Side.RIGHT -> "on your right"
+        null -> ""
+    }
+
+    /**
+     * What is said for a Waze report: "Police ahead, 800 meters" (short), or
+     * "Police reported on Waze, 800 meters ahead" (full). The same short form is used as you get closer.
+     */
+    fun wazePhrase(type: com.rfsentinel.app.online.WazePolice.Type, distanceM: Double,
+                   side: com.rfsentinel.app.online.WazePolice.Side?, short: Boolean): String {
+        val where = sideWords(side)
+        val dist = distanceWords(distanceM)
+        return if (short) type.singular + (if (where.isEmpty()) "" else " $where") + ", $dist"
+        else "${type.singular} reported on Waze, $dist" + (if (where.isEmpty()) "" else " $where")
+    }
+
+    /** [wazePhrase] in the style Settings asks for (short spoken alerts, or the radar-detector style). */
+    fun waze(context: Context, type: com.rfsentinel.app.online.WazePolice.Type, distanceM: Double,
+             side: com.rfsentinel.app.online.WazePolice.Side?): String = wazePhrase(type, distanceM, side, short(context))
+
     fun shortWord(hit: Hit): String = when (hit.category) {
         Category.BODY_CAM -> "Body cam"
         Category.ALPR -> "Plate camera"
@@ -43,7 +76,8 @@ object Spoken {
         Category.RADIO -> "Radio nearby"
         Category.GNSS -> "GPS warning"
         Category.AIRCRAFT -> if (hit.label.startsWith("Police")) "Police aircraft" else "Aircraft circling"
-        Category.POLICE_REPORT -> "Waze police"
+        Category.POLICE_REPORT -> "Waze " + (com.rfsentinel.app.online.WazePolice.Type.entries
+            .firstOrNull { hit.label.startsWith(it.singular) }?.singular?.lowercase() ?: "report")
         Category.SKIMMER -> "Card skimmer"
         Category.OTHER_CAMERA -> if (hit.label.startsWith("Hidden")) "Hidden camera" else "Action camera"
         Category.HACKER -> "Hacking tool"

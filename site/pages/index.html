@@ -36,7 +36,7 @@
 <tr><td>Hacking tools <i>(optional)</i></td><td>Flipper Zero, Pwnagotchi, WiFi Pineapple, deauthers, evil twin WiFi, Bluetooth spam floods</td><td>Flipper IDs, Pwnagotchi beacon JSON, default network names, same network name from two makers with mismatched security, bursts of pairing pop-ups</td></tr>
 <tr><td>Action &amp; hidden cameras <i>(optional)</i></td><td>GoPro, Insta360, DJI Osmo, YI, SJCAM, AKASO and other action cams; WiFi spy cameras in setup mode (V380, LookCam Pro...)</td><td>Bluetooth company IDs and services, maker prefixes, default camera and setup-hotspot network names</td></tr>
 <tr><td>Police aircraft <i>(online, optional)</i></td><td>Police, sheriff, state patrol, federal and RCMP / provincial police aircraft; unlisted aircraft circling low overhead</td><td>Community ADS-B feeds (adsb.fi / adsb.lol) matched against ~1,400 law-enforcement airframes from the FAA and Transport Canada registries</td></tr>
-<tr><td>Waze police reports <i>(online, optional)</i></td><td>Police reported by Waze users within 2 km</td><td>Your own OpenWeb Ninja API key, scored by distance and age; third-party service, at your own risk</td></tr>
+<tr><td>Waze reports <i>(online, optional)</i></td><td>Police reported by Waze users, and any other kind you tick (accidents, hazards, road closures, traffic jams), inside an alert range you choose</td><td>Your own OpenWeb Ninja API key, or Waze direct (opt-in: sends Waze your IP address and a position rounded to a 1 km grid); scored by distance and age and re-scored every second as you move; third-party service, at your own risk</td></tr>
 </tbody>
 </table></div>
 <p>Every match shows its evidence, its source and a confidence tier: <b>weak</b> (&lt; 50), <b>probable</b> (50-79) or <b>strong</b> (80+). Full rules: <a href="how-it-works.html">how detection works</a> and the <a href="{{REPO}}/blob/main/docs/SIGNATURES.md" rel="noopener">signature reference</a>.</p>
@@ -114,6 +114,6 @@
 <ul>
   <li><b>Receive-only.</b> The app never transmits, jams, spoofs or connects to the devices it detects.</li>
   <li><b>No accounts, no cloud, no analytics.</b> Detections live in a local database excluded from cloud backup.</li>
-  <li><b>Network use:</b> OpenStreetMap map tiles and camera data (Overpass API, DeFlock CDN), and in Android Auto, Nominatim search and OSRM routing, only when used. Those servers see your IP and the area or route, never your scans. Two optional sources are off by default: police aircraft (a position rounded to ~1 km goes to the ADS-B feeds adsb.fi / adsb.lol) and Waze police reports through your own OpenWeb Ninja key, at your own risk.</li>
+  <li><b>Network use:</b> OpenStreetMap map tiles and camera data (Overpass API, DeFlock CDN), and in Android Auto, Nominatim search and OSRM routing, only when used. Those servers see your IP and the area or route, never your scans. Two optional sources are off by default: police aircraft (a position rounded to ~1 km goes to the ADS-B feeds adsb.fi / adsb.lol) and Waze reports, either through your own OpenWeb Ninja key or straight from Waze (Waze direct: your IP address and a position rounded to a 1 km grid), at your own risk.</li>
   <li><b>Data leaves the phone only when you export or share it.</b></li>
 </ul>

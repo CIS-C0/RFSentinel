@@ -28,8 +28,8 @@ class SettingsActivity : AppCompatActivity() {
         /** Opens Settings on one section (expanded and scrolled to): e.g. [SECTION_MAP] from the map. */
         const val EXTRA_SECTION = "open_section"
         const val SECTION_MAP = "map"
-        const val WAZE_WARNING_SHORT = "Use at your own risk. Reports come from OpenWeb Ninja, a third-party paid service " +
-            "RF Sentinel doesn't run or endorse; your key, your account, your responsibility."
+        const val WAZE_WARNING_SHORT = "Use at your own risk. Reports come from third-party services RF Sentinel doesn't run or endorse " +
+            "(OpenWeb Ninja with your own key, or Waze itself); your account, your responsibility."
         const val WAZE_WARNING = "Waze police reports are read through OpenWeb Ninja's Waze API with your own API key.\n\n" +
             "• Use this feature at your own risk.\n" +
             "• OpenWeb Ninja and Waze are third-party services. RF Sentinel isn't affiliated with them, doesn't endorse them, " +
@@ -37,6 +37,14 @@ class SettingsActivity : AppCompatActivity() {
             "• Each request sends a box of about 4 km around your position to OpenWeb Ninja, and may cost you money on your plan.\n" +
             "• Reports are unverified crowd reports and can be wrong or out of date.\n\n" +
             "It stays off unless you enable it, and you can turn it off at any time."
+
+        const val WAZE_DIRECT_WARNING = "Direct reads Waze police reports from Waze itself, using the Waze app's own protocol.\n\n" +
+            "• Use this feature at your own risk.\n" +
+            "• RF Sentinel registers an anonymous Waze account on this phone (stored encrypted) and presents itself to Waze as the Waze app. " +
+            "Each update sends Waze, a Google service, your IP address and your position rounded to a 1 km grid (about 500 m off at most), as often as you set below (every minute by default).\n" +
+            "• Waze isn't affiliated with RF Sentinel and may change or block this at any time; you're responsible for following their terms and your local laws.\n" +
+            "• Reports are unverified crowd reports and can be wrong or out of date. Only police reports are used.\n\n" +
+            "It stays off unless you enable it, and you can switch back to OpenWeb Ninja or turn it off at any time."
 
         /**
          * Scroll position to restore after a theme change restyles this screen
@@ -309,7 +317,16 @@ class SettingsActivity : AppCompatActivity() {
                 "Police aircraft and Waze reports are online sources, off by default. Aircraft: every minute, a position " +
                 "rounded to about 1 km goes to the community ADS-B feeds adsb.fi / adsb.lol; matched against a list of " +
                 "about 1,400 US and Canadian law-enforcement aircraft, plus unlisted aircraft circling low overhead. " +
-                "Waze: police reports within 2 km through your own OpenWeb Ninja key, at your own risk.\n\n" +
+                "Waze: crowd reports (police, and any other kind you tick), at your own risk. Either through your own OpenWeb Ninja key " +
+                "(Waze never sees you), or Waze direct: no key, free, but an anonymous Waze account on this phone sends Waze (Google) your " +
+                "IP address and a position rounded to a 1 km grid.\n" +
+                "• Alert range: how close a report must be to alert. Map range: how far the map shows them.\n" +
+                "• Check every: how often Waze is asked. Slower when parked, faster on fast roads (direct), if you leave that on. " +
+                "OpenWeb Ninja bills every check.\n" +
+                "• Only alert for reports ahead: while you drive, reports behind you stay on the list but stay quiet.\n" +
+                "• Call out again: speaks at 1 km, 500 m and 200 m as a report gets closer (voice alerts on, or in the car).\n" +
+                "• Each kind of report has its own level: sound and voice, notification only, or silent (list and map only).\n" +
+                "• Pull the list down, or use the menu, to check right now. Waze status shows what is sent, and when.\n\n" +
                 "Card skimmers: the Bluetooth modules built into gas-pump and ATM skimmers (HC-05 / HC-06 style names). " +
                 "Hacking tools (off by default): Flipper Zero, Pwnagotchi, WiFi Pineapple, deauthers, evil twin WiFi " +
                 "networks (one network name, two makers, one open) and Bluetooth pairing-pop-up spam floods.\n\n" +
@@ -382,7 +399,7 @@ class SettingsActivity : AppCompatActivity() {
                 "Adapter not working? Export its log and send it to the developer."),
         Section("location", binding.headerLocation, binding.sectionLocation,
             "Traces: records your route while scanning, to view on the map.\n\n" +
-                "Saving the GPS position with matches is privacy-sensitive: the log then shows where you were."),
+                "Saving the GPS position with matches is privacy-sensitive: the log then shows where you were. It also lets the map remember where it last looked, so it can open there before the GPS answers."),
         Section("data", binding.headerData, binding.sectionData,
             "Everything stays on this phone. History older than the set number of days is deleted (0 keeps it forever).\n\n" +
                 "Forget device history: new / returning status, detect counts and the cell towers remembered for the " +
@@ -630,6 +647,156 @@ class SettingsActivity : AppCompatActivity() {
             textSize = 12f
             alpha = 0.75f
         })
+        val ninjaBtn = android.widget.RadioButton(this).apply { id = View.generateViewId(); text = "OpenWeb Ninja (your own API key; Waze never sees you)" }
+        val directBtn = android.widget.RadioButton(this).apply { id = View.generateViewId(); text = "Waze direct (no key; sends a position rounded to 1 km to Waze)" }
+        val backendGroup = android.widget.RadioGroup(this).apply { addView(ninjaBtn); addView(directBtn) }
+        box.addView(backendGroup)
+        // Two independent ranges (both backends): how close a report must be to alert, and how far the map shows them.
+        fun rangeSlider(label: String, from: Float, to: Float, km: Int, desc: String, save: (Int) -> Unit) {
+            val text = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
+            fun show(v: Int) { text.text = "$label $v km" }
+            show(km)
+            box.addView(text)
+            box.addView(com.google.android.material.slider.Slider(this).apply {
+                valueFrom = from; valueTo = to; stepSize = 1f
+                value = km.toFloat().coerceIn(from, to)
+                contentDescription = desc
+                setLabelFormatter { "${it.toInt()} km" }
+                addOnChangeListener { _, v, fromUser ->
+                    if (!fromUser) return@addOnChangeListener
+                    save(v.toInt()); show(v.toInt())
+                }
+            })
+        }
+        // The alert range steps through fixed distances, from 100 m up.
+        val steps = Prefs.WAZE_ALERT_STEPS_M
+        val alertText = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
+        fun showAlert(m: Int) { alertText.text = "Alert when a report is within ${Prefs.formatRange(m)}" }
+        val alertNow = Prefs.wazeAlertM(this)
+        showAlert(alertNow)
+        box.addView(alertText)
+        box.addView(com.google.android.material.slider.Slider(this).apply {
+            valueFrom = 0f; valueTo = (steps.size - 1).toFloat(); stepSize = 1f
+            value = steps.indexOf(alertNow).coerceAtLeast(0).toFloat()
+            contentDescription = "Waze alert distance"
+            setLabelFormatter { Prefs.formatRange(steps[it.toInt().coerceIn(0, steps.size - 1)]) }
+            addOnChangeListener { _, v, fromUser ->
+                if (!fromUser) return@addOnChangeListener
+                val m = steps[v.toInt().coerceIn(0, steps.size - 1)]
+                Prefs.setWazeAlertM(this@SettingsActivity, m); showAlert(m)
+            }
+        })
+        rangeSlider("Show reports on the map within", 1f, 20f, Prefs.wazeViewKm(this), "Waze map view range in kilometres") { Prefs.setWazeViewKm(this, it) }
+        // How often Waze is asked. Each backend has its own steps; only the chosen backend's slider shows.
+        fun intervalBlock(direct: Boolean): android.widget.LinearLayout {
+            val steps = if (direct) Prefs.WAZE_DIRECT_INTERVALS_S else Prefs.WAZE_NINJA_INTERVALS_S
+            val col = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.VERTICAL }
+            val text = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
+            val hint = android.widget.TextView(this).apply { textSize = 11f; alpha = 0.6f }
+            fun show(sec: Int) {
+                text.text = "Check for new reports every ${Prefs.formatInterval(sec)}"
+                hint.text = when {
+                    !direct -> "OpenWeb Ninja bills every check (about half a cent each on pay-as-you-go, check your plan): ${3600 / sec} an hour at this setting."
+                    sec < 60 -> "Fresher reports, but your position goes to Waze more often."
+                    sec > 90 -> "Over 90 s Waze ends the session in between, so each check logs in again (more data)."
+                    else -> ""
+                }
+                hint.visibility = if (hint.text.isEmpty()) View.GONE else View.VISIBLE
+            }
+            val now = Prefs.wazeIntervalS(this, direct)
+            show(now)
+            col.addView(text)
+            col.addView(com.google.android.material.slider.Slider(this).apply {
+                valueFrom = 0f; valueTo = (steps.size - 1).toFloat(); stepSize = 1f
+                value = steps.indexOf(now).coerceAtLeast(0).toFloat()
+                contentDescription = "How often to check Waze"
+                setLabelFormatter { Prefs.formatInterval(steps[it.toInt().coerceIn(0, steps.size - 1)]) }
+                addOnChangeListener { _, v, fromUser ->
+                    if (!fromUser) return@addOnChangeListener
+                    val sec = steps[v.toInt().coerceIn(0, steps.size - 1)]
+                    Prefs.setWazeIntervalS(this@SettingsActivity, direct, sec); show(sec)
+                }
+            })
+            col.addView(hint)
+            return col
+        }
+        val directInterval = intervalBlock(true)
+        val ninjaInterval = intervalBlock(false)
+        box.addView(directInterval)
+        box.addView(ninjaInterval)
+        // Behaviour switches: each has a line under it saying what it does.
+        fun switchRow(label: String, hint: String, checked: Boolean, save: (Boolean) -> Unit) {
+            box.addView(SwitchMaterial(this).apply {
+                text = label
+                isChecked = checked
+                setOnCheckedChangeListener { _, on -> save(on) }
+            })
+            box.addView(android.widget.TextView(this).apply { text = hint; textSize = 11f; alpha = 0.6f })
+        }
+        switchRow("Slower when parked, faster on fast roads",
+            "Parked for 90 s: checks run 4 times less often. Over 80 km/h: twice as often (Waze direct only).",
+            Prefs.wazeAdaptive(this)) { Prefs.setWazeAdaptive(this, it) }
+        switchRow("Only alert for reports ahead of me",
+            "While you drive, reports behind you stay on the list but don't alert, flash or speak.",
+            Prefs.wazeAheadOnly(this)) { Prefs.setWazeAheadOnly(this, it) }
+        switchRow("Call out again as I get closer",
+            "Speaks at 1 km, 500 m and 200 m when voice alerts are on, or in the car.",
+            Prefs.wazeApproach(this)) { Prefs.setWazeApproach(this, it) }
+        // What to watch (ticked) and what an alert of that kind does (the menu beside it).
+        box.addView(android.widget.TextView(this).apply { text = "What to alert on, and how loud"; textSize = 12f; alpha = 0.75f })
+        val levels = com.rfsentinel.app.online.WazePolice.Level.entries
+        for (t in com.rfsentinel.app.online.WazePolice.Type.entries) {
+            val row = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+            }
+            row.addView(com.google.android.material.checkbox.MaterialCheckBox(this).apply {
+                layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                text = t.label
+                isChecked = t.name in Prefs.wazeTypes(this@SettingsActivity)
+                setOnCheckedChangeListener { _, on ->
+                    val now = Prefs.wazeTypes(this@SettingsActivity).toMutableSet()
+                    if (on) now.add(t.name) else now.remove(t.name)
+                    if (now.isEmpty()) { isChecked = true; return@setOnCheckedChangeListener } // keep at least one
+                    Prefs.setWazeTypes(this@SettingsActivity, now)
+                }
+            })
+            row.addView(androidx.appcompat.widget.AppCompatSpinner(this).apply {
+                adapter = android.widget.ArrayAdapter(this@SettingsActivity, android.R.layout.simple_spinner_item, levels.map { it.label }).also {
+                    it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                }
+                setSelection(Prefs.wazeLevel(this@SettingsActivity, t).ordinal)
+                contentDescription = "What a ${t.label.lowercase()} alert does"
+                onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                    override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                        Prefs.setWazeLevel(this@SettingsActivity, t, levels[position])
+                    }
+                    override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+                }
+            })
+            box.addView(row)
+        }
+        val jamNote = android.widget.TextView(this).apply {
+            text = "OpenWeb Ninja doesn't offer traffic jams as alerts; they only come through Waze direct."
+            textSize = 11f; alpha = 0.6f
+        }
+        box.addView(jamNote)
+        val directNote = android.widget.TextView(this).apply {
+            text = "Direct: free and live. Uses an anonymous Waze account on this phone."
+            textSize = 12f; alpha = 0.75f
+        }
+        val forgetBtn = android.widget.Button(this).apply {
+            text = "Forget Waze account"
+            setOnClickListener {
+                com.rfsentinel.app.online.wazert.WazeRtFetcher.forgetStoredAccount(this@SettingsActivity)
+                android.widget.Toast.makeText(this@SettingsActivity, "Waze account forgotten; a new one is made on the next poll", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+        val directBox = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            addView(directNote); addView(forgetBtn)
+        }
+        box.addView(directBox)
         wazeKeyInput = android.widget.EditText(this).apply {
             hint = "OpenWeb Ninja API key"
             isSingleLine = true
@@ -638,19 +805,53 @@ class SettingsActivity : AppCompatActivity() {
             setText(com.rfsentinel.app.util.SecureStore.get(this@SettingsActivity, com.rfsentinel.app.online.OnlineWatch.WAZE_KEY_NAME).orEmpty())
         }
         box.addView(wazeKeyInput)
+        fun showBackend(direct: Boolean) {
+            wazeKeyInput?.visibility = if (direct) View.GONE else View.VISIBLE
+            directInterval.visibility = if (direct) View.VISIBLE else View.GONE
+            jamNote.visibility = if (direct) View.GONE else View.VISIBLE
+            ninjaInterval.visibility = if (direct) View.GONE else View.VISIBLE
+            directBox.visibility = if (direct) View.VISIBLE else View.GONE
+        }
+        val directNow = Prefs.wazeBackend(this) == Prefs.WAZE_DIRECT
+        backendGroup.check(if (directNow) directBtn.id else ninjaBtn.id)
+        showBackend(directNow)
+        backendGroup.setOnCheckedChangeListener { _, id ->
+            if (id == directBtn.id) {
+                if (Prefs.wazeDirectAccepted(this)) { Prefs.setWazeBackend(this, Prefs.WAZE_DIRECT); showBackend(true) }
+                else {
+                    backendGroup.check(ninjaBtn.id)
+                    AlertDialog.Builder(this)
+                        .setTitle("Waze direct: use at your own risk")
+                        .setMessage(WAZE_DIRECT_WARNING)
+                        .setPositiveButton("I understand, use direct") { _, _ ->
+                            Prefs.setWazeDirectAccepted(this, true)
+                            Prefs.setWazeBackend(this, Prefs.WAZE_DIRECT)
+                            backendGroup.check(directBtn.id)
+                        }
+                        .setNegativeButton("Cancel", null)
+                        .show()
+                }
+            } else { Prefs.setWazeBackend(this, Prefs.WAZE_NINJA); showBackend(false) }
+        }
         wazeStatusText = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
         box.addView(wazeStatusText)
         showNote(wazeStatusText, com.rfsentinel.app.online.OnlineWatch.wazeStatus)
+        box.addView(android.widget.Button(this).apply {
+            text = "Waze status"
+            setOnClickListener { com.rfsentinel.app.ui.WazeUi.openStatus(this@SettingsActivity) }
+        })
         box.visibility = if (sw.isChecked) View.VISIBLE else View.GONE
         binding.categoryContainer.addView(box)
         sw.setOnCheckedChangeListener { _, on ->
-            if (on && !Prefs.wazeAccepted(this)) {
+            if (on && !Prefs.wazeReady(this)) {
                 sw.isChecked = false
+                val direct = Prefs.wazeBackend(this) == Prefs.WAZE_DIRECT
                 AlertDialog.Builder(this)
-                    .setTitle("Waze police reports: use at your own risk")
-                    .setMessage(WAZE_WARNING)
+                    .setTitle("Waze reports: use at your own risk")
+                    .setMessage(if (direct) WAZE_DIRECT_WARNING else WAZE_WARNING)
                     .setPositiveButton("I understand, enable") { _, _ ->
                         Prefs.setWazeAccepted(this, true)
+                        if (direct) Prefs.setWazeDirectAccepted(this, true)
                         sw.isChecked = true
                     }
                     .setNegativeButton("Cancel", null)

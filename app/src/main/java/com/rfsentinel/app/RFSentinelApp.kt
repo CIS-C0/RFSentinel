@@ -59,6 +59,13 @@ class RFSentinelApp : Application() {
                 }
             }
         }
+        // Open the map's tile database off the main thread now, so the first map of the session does not wait for it.
+        appScope.launch(Dispatchers.IO) {
+            runCatching {
+                com.rfsentinel.app.ui.MapIcons.configureOsm(this@RFSentinelApp)
+                org.osmdroid.tileprovider.modules.SqlTileWriter().onDetach()
+            }
+        }
         appScope.launch(Dispatchers.IO) {
             runCatching { VendorDb.load { assets.open(it) } }
                 .onFailure { Log.e("RFSentinelApp", "Vendor database failed to load", it) }

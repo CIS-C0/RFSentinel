@@ -12,6 +12,8 @@
         android:icon="@drawable/ic_car_volume"
         android:title="Mute alerts"
         app:showAsAction="ifRoom" />
+    <item android:id="@+id/action_waze_now" android:title="Check Waze now" app:showAsAction="never" />
+    <item android:id="@+id/action_waze_status" android:title="Waze status" app:showAsAction="never" />
     <item android:id="@+id/action_match_log" android:title="Match history" app:showAsAction="never" />
     <item android:id="@+id/action_traces" android:title="Recorded traces" app:showAsAction="never" />
     <item android:id="@+id/action_history" android:title="History map &amp; timeline" app:showAsAction="never" />

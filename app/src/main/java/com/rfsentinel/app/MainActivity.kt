@@ -45,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         /** Row id prefix of the live cell tower rows (not devices). */
         private const val CELL_ROW = "cell:"
+        private const val WAZE_ROW = "waze:"
         private const val BLUETOOTH_TAG_COLOR = 0xFF1565C0.toInt()
         private const val WIFI_TAG_COLOR = 0xFF00838F.toInt()
         private const val REFRESH_MS = 1_000L
@@ -83,12 +84,26 @@ class MainActivity : AppCompatActivity() {
         adapter = DeviceAdapter(
             onClick = {
                 if (it.mac.startsWith(CELL_ROW)) startActivity(Intent(this, com.rfsentinel.app.ui.CellTowersActivity::class.java))
+                else if (it.mac.startsWith(WAZE_ROW)) {
+                    com.rfsentinel.app.online.WazePolice.latest.firstOrNull { w -> WAZE_ROW + w.report.id == it.mac }?.let { w ->
+                        startActivity(Intent(this, com.rfsentinel.app.ui.MapActivity::class.java)
+                            .putExtra(com.rfsentinel.app.ui.MapActivity.EXTRA_CENTER_LAT, w.report.lat)
+                            .putExtra(com.rfsentinel.app.ui.MapActivity.EXTRA_CENTER_LON, w.report.lon))
+                    }
+                }
                 else DeviceActions.openDetails(this, it.mac)
             },
-            onLongPress = { if (!it.mac.startsWith(CELL_ROW)) DeviceActions.showQuickActions(this, it.mac) }
+            onLongPress = { if (!it.mac.startsWith(CELL_ROW) && !it.mac.startsWith(WAZE_ROW)) DeviceActions.showQuickActions(this, it.mac) }
         )
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
+        binding.wazeSwipe.setColorSchemeColors(com.rfsentinel.app.ui.ChipStyle.accent(this).first)
+        binding.wazeSwipe.setOnRefreshListener {
+            if (com.rfsentinel.app.ui.WazeUi.checkNow(this)) {
+                refreshAskedAt = System.currentTimeMillis()
+                binding.wazeSwipe.postDelayed({ binding.wazeSwipe.isRefreshing = false }, 12_000) // never spin for ever
+            } else binding.wazeSwipe.isRefreshing = false
+        }
         // Rows rebind every second (RSSI / "seen Xs ago"); the default change
         // crossfade would make the whole list flicker and fight the match flash.
         (binding.recyclerView.itemAnimator as? SimpleItemAnimator)?.supportsChangeAnimations = false
@@ -208,6 +223,7 @@ class MainActivity : AppCompatActivity() {
         val radar = Prefs.radarView(this)
         binding.radarView.visibility = if (radar) View.VISIBLE else View.GONE
         binding.recyclerView.visibility = if (radar) View.GONE else View.VISIBLE
+        binding.wazeSwipe.visibility = if (radar) View.GONE else View.VISIBLE
         binding.disclaimerText.visibility =
             if (radar || !binding.recyclerView.canScrollVertically(-1)) View.VISIBLE else View.GONE
     }
@@ -292,9 +308,22 @@ class MainActivity : AppCompatActivity() {
     private fun observeDevices() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                while (true) {
-                    render()
-                    delay(REFRESH_MS)
+                // A new or cleared Waze report redraws the list at once, not at the next tick.
+                val stopWaze = com.rfsentinel.app.online.WazePolice.addListener {
+                    runOnUiThread {
+                        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return@runOnUiThread
+                        // The answer to a pull-down check ends the spinner.
+                        if (binding.wazeSwipe.isRefreshing && com.rfsentinel.app.online.WazePolice.latestAt >= refreshAskedAt) binding.wazeSwipe.isRefreshing = false
+                        render()
+                    }
+                }
+                try {
+                    while (true) {
+                        render()
+                        delay(REFRESH_MS)
+                    }
+                } finally {
+                    stopWaze()
                 }
             }
         }
@@ -309,6 +338,7 @@ class MainActivity : AppCompatActivity() {
             com.rfsentinel.app.ui.LiveWindow.keep(it, now, bleMs, wifiMs)
         }
         val threshold = Prefs.alertThreshold(this)
+        binding.wazeSwipe.isEnabled = com.rfsentinel.app.ui.WazeUi.on(this) && binding.radarView.visibility != View.VISIBLE
         deviceCount = all.size
         // The banner and radar alert only for flagged devices still in range.
         val flagged = all.filter { com.rfsentinel.app.ui.LiveWindow.alerting(it, now) }
@@ -318,7 +348,11 @@ class MainActivity : AppCompatActivity() {
 
         // Live counts on the chips ("Trackers 2"); empty filters stay unlabelled.
         for ((f, chip) in filterChips) {
-            val n = if (f == com.rfsentinel.app.ui.DeviceFilter.CELLS) liveCellCount(now) else all.count { f.matches(it) }
+            val n = when (f) {
+                com.rfsentinel.app.ui.DeviceFilter.CELLS -> liveCellCount(now)
+                com.rfsentinel.app.ui.DeviceFilter.WAZE -> currentWaze(now).size
+                else -> all.count { f.matches(it) }
+            }
             val label = if (f == com.rfsentinel.app.ui.DeviceFilter.ALL || n > 0) "${f.label} $n" else f.label
             if (chip.text != label) chip.text = label
         }
@@ -343,13 +377,18 @@ class MainActivity : AppCompatActivity() {
             })
         } else {
             val cells = cellRows(now)
-            adapter.submitList(visible.map { toRow(it, now, threshold) } + cells)
-            shownCells = cells.size
+            val waze = wazeRows(now, threshold)
+            // Waze reports that meet the alert threshold flash at the very top; the rest follow the devices.
+            val (urgent, quiet) = waze.partition { it.flashing }
+            adapter.submitList(urgent + visible.map { toRow(it, now, threshold) } + cells + quiet)
+            shownCells = cells.size + waze.size
         }
         binding.emptyText.visibility = if (visible.isEmpty() && (binding.radarView.visibility == View.VISIBLE || shownCells == 0)) View.VISIBLE else View.GONE
         binding.emptyText.text = when {
             all.isEmpty() && !ScanForegroundService.isRunning -> "Not scanning.\nTap Start scanning to begin."
             all.isEmpty() -> "Listening... no devices heard yet."
+            filter == com.rfsentinel.app.ui.DeviceFilter.WAZE ->
+                "No Waze reports in range.\nTurn on Waze police reports in Settings and keep scanning."
             filter == com.rfsentinel.app.ui.DeviceFilter.CELLS ->
                 "No cell towers yet - they're read every 15 s while scanning\n(needs the Fake cell tower category on in Settings)."
             else -> "No devices match this filter."
@@ -375,6 +414,48 @@ class MainActivity : AppCompatActivity() {
             com.rfsentinel.app.service.CellTowerStore.current.size else 0
 
     private var shownCells = 0
+    /** When the list was last pulled down to check Waze. */
+    private var refreshAskedAt = 0L
+
+    /**
+     * The Waze reports inside the alert range (Settings > Waze), kept live by the checker: distance, direction
+     * and score follow you as you drive. The map still shows the wider view range.
+     */
+    private fun currentWaze(now: Long): List<com.rfsentinel.app.online.WazePolice.Shown> {
+        if (!ScanForegroundService.isRunning) return emptyList()
+        val alertM = Prefs.wazeAlertM(this).toDouble()
+        return com.rfsentinel.app.online.WazePolice.latest.filter { it.distanceM <= alertM }
+    }
+
+    /**
+     * The Waze reports in range, nearest first, under the All and Waze filters. One that reaches the alert
+     * threshold (and is not silenced for its type, nor behind you when only reports ahead count) is tinted,
+     * flashes, and is pinned to the top.
+     */
+    private fun wazeRows(now: Long, threshold: Int): List<DeviceRow> {
+        if (filter != com.rfsentinel.app.ui.DeviceFilter.ALL && filter != com.rfsentinel.app.ui.DeviceFilter.WAZE) return emptyList()
+        val aheadOnly = Prefs.wazeAheadOnly(this)
+        return currentWaze(now)
+            .sortedBy { it.distanceM }
+            .filter { query.isBlank() || it.hit.label.contains(query.trim(), ignoreCase = true) }
+            .map { w ->
+                val urgent = w.level != com.rfsentinel.app.online.WazePolice.Level.LOG &&
+                    w.hit.confidence >= threshold && !(aheadOnly && w.where.isBehind)
+                val ago = w.report.publishedMs?.let { "${((now - it) / 60_000).coerceAtLeast(0)} min ago" } ?: "just now"
+                DeviceRow(
+                    mac = WAZE_ROW + w.report.id,
+                    title = w.hit.label,
+                    subtitle = com.rfsentinel.app.online.WazePolice.relativeText(w.where, w.trend),
+                    meta = "Reported $ago" + listOfNotNull(w.report.street, w.report.city).joinToString(", ").takeIf { it.isNotEmpty() }?.let { " · $it" }.orEmpty() +
+                        (if (w.report.thumbsUp > 0) " · ${w.report.thumbsUp} confirmed" else ""),
+                    tag = "WAZE · ${w.hit.tier.label.lowercase()} ${w.hit.confidence}%",
+                    tagColor = w.report.type.color,
+                    highlight = if (urgent) w.report.type.color else null,
+                    flashing = urgent,
+                    bold = urgent
+                )
+            }
+    }
 
     private fun cellRows(now: Long): List<DeviceRow> {
         if ((filter != com.rfsentinel.app.ui.DeviceFilter.ALL && filter != com.rfsentinel.app.ui.DeviceFilter.CELLS) ||
@@ -530,6 +611,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
+        val wazeOn = com.rfsentinel.app.ui.WazeUi.on(this)
+        menu.findItem(R.id.action_waze_now)?.isVisible = wazeOn
+        menu.findItem(R.id.action_waze_status)?.isVisible = wazeOn
         val muted = Prefs.alertsMuted(this)
         menu.findItem(R.id.action_mute)?.apply {
             setIcon(if (muted) R.drawable.ic_car_volume_off else R.drawable.ic_car_volume)
@@ -562,6 +646,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.action_waze_now -> { com.rfsentinel.app.ui.WazeUi.checkNow(this); true }
+            R.id.action_waze_status -> { com.rfsentinel.app.ui.WazeUi.openStatus(this); true }
             R.id.action_match_log -> { startActivity(Intent(this, DetectionLogActivity::class.java)); true }
             R.id.action_settings -> { startActivity(Intent(this, SettingsActivity::class.java)); true }
             R.id.action_probes -> { startActivity(Intent(this, com.rfsentinel.app.probes.ProbeListActivity::class.java)); true }

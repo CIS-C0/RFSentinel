@@ -71,6 +71,71 @@ object Prefs {
     fun wazeAccepted(context: Context): Boolean = bool(context, "waze_accepted", false)
     fun setWazeAccepted(context: Context, value: Boolean) = setBool(context, "waze_accepted", value)
 
+    /** Waze backend: "ninja" (OpenWeb Ninja key, default) or "direct" (Waze app protocol, anonymous account). */
+    const val WAZE_NINJA = "ninja"
+    const val WAZE_DIRECT = "direct"
+    fun wazeBackend(context: Context): String =
+        if (sp(context).getString("waze_backend", WAZE_NINJA) == WAZE_DIRECT) WAZE_DIRECT else WAZE_NINJA
+    fun setWazeBackend(context: Context, value: String) = sp(context).edit { putString("waze_backend", value) }
+    /** How far away (km, 1-20, default 5) Waze reports are drawn on the map. */
+    fun wazeViewKm(context: Context): Int = int(context, "waze_view_km", 5).coerceIn(1, 20)
+    fun setWazeViewKm(context: Context, km: Int) = setInt(context, "waze_view_km", km.coerceIn(1, 20))
+    /** The distances the Waze alert-range slider steps through, in metres (100 m up to 10 km). */
+    val WAZE_ALERT_STEPS_M = intArrayOf(100, 200, 300, 500, 750, 1000, 1500, 2000, 3000, 5000, 7500, 10000)
+    /** How close (metres, default 2000) a Waze report must be to alert, independent of the view range. */
+    fun wazeAlertM(context: Context): Int {
+        val m = int(context, "waze_alert_m", 2000)
+        return WAZE_ALERT_STEPS_M.minByOrNull { kotlin.math.abs(it - m) } ?: 2000
+    }
+    fun setWazeAlertM(context: Context, m: Int) = setInt(context, "waze_alert_m", m)
+    /** "100 m", "750 m", "1.5 km", "10 km". */
+    fun formatRange(m: Int): String = if (m < 1000) "$m m" else if (m % 1000 == 0) "${m / 1000} km" else "${m / 1000.0} km"
+    /** How often Waze is asked for reports, in seconds: each backend has its own steps and default. */
+    val WAZE_DIRECT_INTERVALS_S get() = com.rfsentinel.app.online.WazeTiming.DIRECT_STEPS_S
+    val WAZE_NINJA_INTERVALS_S get() = com.rfsentinel.app.online.WazeTiming.NINJA_STEPS_S
+    private fun wazeIntervalKey(direct: Boolean) = if (direct) "waze_interval_direct_s" else "waze_interval_ninja_s"
+    fun wazeIntervalS(context: Context, direct: Boolean): Int {
+        val steps = com.rfsentinel.app.online.WazeTiming.steps(direct)
+        val v = int(context, wazeIntervalKey(direct),
+            if (direct) com.rfsentinel.app.online.WazeTiming.DIRECT_DEFAULT_S else com.rfsentinel.app.online.WazeTiming.NINJA_DEFAULT_S)
+        return steps.minByOrNull { kotlin.math.abs(it - v) } ?: steps[0]
+    }
+    fun setWazeIntervalS(context: Context, direct: Boolean, seconds: Int) = setInt(context, wazeIntervalKey(direct), seconds)
+    /** "15 s", "90 s", "2 min", "10 min". */
+    fun formatInterval(seconds: Int): String = if (seconds < 120) "$seconds s" else "${seconds / 60} min"
+
+    /** Slower checks when parked and faster on fast roads (Waze direct only). On by default. */
+    fun wazeAdaptive(context: Context): Boolean = bool(context, "waze_adaptive", true)
+    fun setWazeAdaptive(context: Context, value: Boolean) = setBool(context, "waze_adaptive", value)
+    /** Alert only for reports that are not behind you while you drive. Off by default. */
+    fun wazeAheadOnly(context: Context): Boolean = bool(context, "waze_ahead_only", false)
+    fun setWazeAheadOnly(context: Context, value: Boolean) = setBool(context, "waze_ahead_only", value)
+    /** Speak again as a report gets closer (1 km, 500 m, 200 m). On by default. */
+    fun wazeApproach(context: Context): Boolean = bool(context, "waze_approach", true)
+    fun setWazeApproach(context: Context, value: Boolean) = setBool(context, "waze_approach", value)
+    /** Waze checks paused from the Waze status screen (nothing is asked or shown). */
+    fun wazePaused(context: Context): Boolean = bool(context, "waze_paused", false)
+    fun setWazePaused(context: Context, value: Boolean) = setBool(context, "waze_paused", value)
+    /** What an alert of one Waze event type does: sound and voice, a notification only, or nothing beyond the list and map. */
+    fun wazeLevel(context: Context, type: com.rfsentinel.app.online.WazePolice.Type): com.rfsentinel.app.online.WazePolice.Level {
+        val levels = com.rfsentinel.app.online.WazePolice.Level.entries
+        return levels.getOrNull(int(context, "waze_level_${type.name}", type.defaultLevel.ordinal)) ?: type.defaultLevel
+    }
+    fun setWazeLevel(context: Context, type: com.rfsentinel.app.online.WazePolice.Type, level: com.rfsentinel.app.online.WazePolice.Level) =
+        setInt(context, "waze_level_${type.name}", level.ordinal)
+
+    /** Which Waze event kinds to alert on (WazePolice.Type names); police only by default. */
+    fun wazeTypes(context: Context): Set<String> =
+        sp(context).getStringSet("waze_types", null)?.takeIf { it.isNotEmpty() } ?: setOf("POLICE")
+    fun setWazeTypes(context: Context, value: Set<String>) = sp(context).edit { putStringSet("waze_types", value) }
+
+    /** The user read and accepted the warning that "direct" sends a (blurred) position to Waze, a Google service. */
+    fun wazeDirectAccepted(context: Context): Boolean = bool(context, "waze_direct_accepted", false)
+    fun setWazeDirectAccepted(context: Context, value: Boolean) = setBool(context, "waze_direct_accepted", value)
+    /** True when the chosen Waze backend's warning has been accepted. */
+    fun wazeReady(context: Context): Boolean =
+        wazeAccepted(context) && (wazeBackend(context) != WAZE_DIRECT || wazeDirectAccepted(context))
+
     fun alertsMuted(context: Context): Boolean = bool(context, "alerts_muted", false)
     fun setAlertsMuted(context: Context, value: Boolean) = setBool(context, "alerts_muted", value)
 
@@ -157,6 +222,23 @@ object Prefs {
      * Map device filter (a [com.rfsentinel.app.ui.DeviceFilter] name). Older
      * versions had only "all devices" on/off: off becomes Flagged.
      */
+    /** The live map's last zoom. A zoom level is not a place, so it is always kept. */
+    fun mapZoom(context: Context): Double? = sp(context).getFloat("map_zoom", -1f).takeIf { it > 0f }?.toDouble()
+
+    /** Where the live map last looked; remembered only with GPS tagging on, like the other saved positions. */
+    fun lastMapCenter(context: Context): Pair<Double, Double>? {
+        if (!gpsTaggingEnabled(context)) return null
+        val parts = sp(context).getString("map_center", null)?.split(',') ?: return null
+        val lat = parts.getOrNull(0)?.toDoubleOrNull() ?: return null
+        val lon = parts.getOrNull(1)?.toDoubleOrNull() ?: return null
+        return lat to lon
+    }
+
+    fun saveMapView(context: Context, lat: Double, lon: Double, zoom: Double) = sp(context).edit {
+        putFloat("map_zoom", zoom.toFloat())
+        if (gpsTaggingEnabled(context)) putString("map_center", "$lat,$lon") else remove("map_center")
+    }
+
     fun mapFilter(context: Context): String =
         sp(context).getString("map_filter", null) ?: if (bool(context, "map_show_all", true)) "ALL" else "FLAGGED"
     fun setMapFilter(context: Context, name: String) = sp(context).edit { putString("map_filter", name) }    /** Last destinations picked in the car (newest first, kept on this phone only). */

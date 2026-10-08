@@ -76,6 +76,7 @@
         <activity android:name=".ui.DetectionLogActivity" android:exported="false" />
         <activity android:name=".ui.CellTowersActivity" android:exported="false" />
         <activity android:name=".ui.GnssActivity" android:exported="false" />
+        <activity android:name=".ui.WazeStatusActivity" android:exported="false" />
         <activity android:name=".ui.WifiAnalyzerActivity" android:exported="false" />
         <activity
             android:name=".ui.SetupActivity"

@@ -23,7 +23,8 @@ object AmbientThreats {
     @Volatile var waze: Pair<Long, Threat>? = null
 
     private const val ONLINE_TTL_MS = 3 * 60_000L
-    private const val WAZE_TTL_MS = 6 * 60_000L
+    /** How long a Waze report keeps the headline up: a little over two polls, never under 6 minutes (set by OnlineWatch). */
+    @Volatile var wazeTtlMs = 6 * 60_000L
 
     fun clear() {
         aircraft = null
@@ -34,7 +35,7 @@ object AmbientThreats {
     fun top(context: Context, now: Long = System.currentTimeMillis()): Threat? = listOfNotNull(
         camera(context),
         aircraft?.takeIf { now - it.first < ONLINE_TTL_MS }?.second,
-        waze?.takeIf { now - it.first < WAZE_TTL_MS }?.second
+        waze?.takeIf { now - it.first < wazeTtlMs }?.second
     ).filter { it.score >= 40 }.maxByOrNull { it.score }
 
     private fun camera(context: Context): Threat? {

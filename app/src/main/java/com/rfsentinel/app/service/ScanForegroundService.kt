@@ -927,33 +927,41 @@ class ScanForegroundService : Service() {
 
     /** Police aircraft (ADS-B) and Waze reports: internet sources, both off by default. */
     private val onlineWatch by lazy {
-        com.rfsentinel.app.online.OnlineWatch(this, serviceScope, { lastLocation ?: lastFix }) { hit, lat, lon, key ->
-            pipeline.post { onOnlineHit(hit, lat, lon, key) }
+        com.rfsentinel.app.online.OnlineWatch(this, serviceScope, { lastLocation ?: lastFix },
+            onCallout = { text -> pipeline.post { AlertPlayer.callout(this, text) } }) { alert ->
+            pipeline.post { onOnlineHit(alert) }
         }
     }
 
     private fun onlineActive() = Prefs.categoryEnabled(this, Category.AIRCRAFT) ||
-        (Prefs.categoryEnabled(this, Category.POLICE_REPORT) && Prefs.wazeAccepted(this))
+        (Prefs.categoryEnabled(this, Category.POLICE_REPORT) && Prefs.wazeReady(this))
 
-    /** A police aircraft overhead or a Waze police report: logged, and an alert above the threshold. */
-    private fun onOnlineHit(hit: Hit, lat: Double, lon: Double, key: String) {
+    /**
+     * A police aircraft overhead or a Waze report: logged, and an alert above the threshold. What the alert
+     * does depends on its level (sound and voice, a notification only, or nothing beyond the log).
+     */
+    private fun onOnlineHit(alert: com.rfsentinel.app.online.OnlineWatch.Alert) {
+        val hit = alert.hit
         if (!Prefs.categoryEnabled(this, hit.category)) return
         val now = System.currentTimeMillis()
         val loc = lastLocation
         val tag = Prefs.gpsTaggingEnabled(this)
-        serviceScope.launch {
+        if (alert.log) serviceScope.launch {
             AppDatabase.getInstance(this@ScanForegroundService).detectionDao().insert(
                 DetectionEntity(
-                    mac = key.substringBefore(':').uppercase() + " " + key.substringAfter(':'), label = hit.label,
+                    mac = alert.key.substringBefore(':').uppercase() + " " + alert.key.substringAfter(':'), label = hit.label,
                     source = "ONLINE", rssi = 0, timestamp = now,
                     latitude = if (tag) loc?.latitude else null, longitude = if (tag) loc?.longitude else null,
                     category = hit.category.name, confidence = hit.confidence, evidence = hit.evidence
                 )
             )
         }
-        if (hit.confidence >= Prefs.alertThreshold(this) && now >= Prefs.alertsSnoozedUntil(this)) {
-            NotificationHelper.sendMapAlert(this, key, hit, lat = lat, lon = lon)
-            AlertPlayer.play(this, hit.tier, com.rfsentinel.app.util.Spoken.shortWord(hit))
+        if (alert.level != com.rfsentinel.app.online.WazePolice.Level.LOG &&
+            hit.confidence >= Prefs.alertThreshold(this) && now >= Prefs.alertsSnoozedUntil(this)) {
+            NotificationHelper.sendMapAlert(this, alert.key, hit, lat = alert.lat, lon = alert.lon)
+            if (alert.level == com.rfsentinel.app.online.WazePolice.Level.LOUD) {
+                AlertPlayer.play(this, hit.tier, alert.spoken ?: com.rfsentinel.app.util.Spoken.shortWord(hit))
+            }
         }
     }
 

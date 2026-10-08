@@ -3,11 +3,12 @@ import java.util.Properties
 plugins {
     id("com.android.application")
     id("com.google.devtools.ksp")
+    id("com.google.protobuf")
 }
 
 // Bump both for every release. versionName ends up in the APK file name.
-val appVersionCode = 39
-val appVersionName = "2.15.3"
+val appVersionCode = 40
+val appVersionName = "2.16.0"
 
 // Release signing credentials live in keystore.properties (git-ignored).
 // Without that file, release builds are produced unsigned.
@@ -74,11 +75,21 @@ android {
     }
 }
 
+// Generates WazeProto (the Waze direct backend's wire format) from src/main/proto/waze.proto.
+protobuf {
+    protoc { artifact = "com.google.protobuf:protoc:4.35.0" }
+    generateProtoTasks {
+        all().forEach { task -> task.builtins { maybeCreate("java").option("lite") } }
+    }
+}
+
 dependencies {
     implementation("androidx.core:core-ktx:1.19.1")
     implementation("androidx.appcompat:appcompat:1.8.0")
     implementation("com.google.android.material:material:1.14.0")
     implementation("androidx.recyclerview:recyclerview:1.4.0")
+    // Pull the list down to check Waze now.
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.2.0")
     implementation("androidx.lifecycle:lifecycle-service:2.11.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.11.0")
     implementation("androidx.activity:activity-ktx:1.13.0")
@@ -88,6 +99,8 @@ dependencies {
     ksp("androidx.room:room-compiler:2.8.5")
 
     implementation("com.google.code.gson:gson:2.14.0")
+    // Waze direct backend: lite protobuf runtime for the app protocol.
+    implementation("com.google.protobuf:protobuf-javalite:4.35.0")
 
     // OpenStreetMap map view (Apache-2.0, no API key). Tiles are the only network use.
     implementation("org.osmdroid:osmdroid-android:6.1.20")

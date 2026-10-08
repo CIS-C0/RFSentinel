@@ -196,6 +196,16 @@ object AlertPlayer {
         Voice.say(context.applicationContext, text, VoiceQueue.STRONG, if (CarState.connected) carSpeechAttributes else phoneSpeechAttributes)
     }
 
+    /**
+     * A spoken call-out only, no beep or vibration (Waze reports getting closer). It follows the voice
+     * settings: spoken when voice alerts are on or Android Auto is connected, and never when muted or snoozed.
+     */
+    fun callout(context: Context, text: String) {
+        val inCar = CarState.connected
+        if (Prefs.alertsSilenced(context) || !(Prefs.voiceEnabled(context) || (inCar && Prefs.carVoice(context)))) return
+        Voice.say(context.applicationContext, text, VoiceQueue.STRONG, if (inCar) carSpeechAttributes else phoneSpeechAttributes)
+    }
+
     /** The Settings "Test voice" button: speaks right away with the chosen voice and speed. */
     fun testVoice(context: Context, short: Boolean = Prefs.shortVoice(context)) {
         Voice.test(context.applicationContext, if (short) "Body cam" else "RF Sentinel voice alerts. Axon body camera nearby.",

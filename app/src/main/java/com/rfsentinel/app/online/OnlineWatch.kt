@@ -6,7 +6,6 @@ import com.rfsentinel.app.BuildConfig
 import com.rfsentinel.app.detect.Category
 import com.rfsentinel.app.detect.Hit
 import com.rfsentinel.app.util.Prefs
-import com.rfsentinel.app.util.SecureStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -17,27 +16,42 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * The two internet sources, both off by default: police / government aircraft from
- * community ADS-B feeds (every 60 s) and Waze police reports through the user's
- * OpenWeb Ninja key (every 4 min). Each sends only a position rounded to ~1 km (ADS-B)
- * or a ~4 km box (Waze). New sightings go to [onHit]; the strongest current one feeds
- * the threat headline ([AmbientThreats]); [aircraftStatus] / [wazeStatus] say how each
- * source is doing (shown in Settings).
+ * The two internet sources, both off by default: police / government aircraft from community ADS-B
+ * feeds (every 60 s), and Waze reports ([WazeWatch]: through the user's OpenWeb Ninja key or straight
+ * from Waze, as often as Settings says). Aircraft send a position rounded to ~1 km. New sightings go to
+ * [onAlert]; the strongest current one feeds the threat headline ([AmbientThreats]); [aircraftStatus] /
+ * [wazeStatus] say how each source is doing (shown in Settings).
  */
 class OnlineWatch(
     private val context: Context,
     private val scope: CoroutineScope,
     private val location: () -> Location?,
-    private val onHit: (hit: Hit, lat: Double, lon: Double, key: String) -> Unit
+    onCallout: (String) -> Unit = {},
+    private val onAlert: (Alert) -> Unit
 ) {
+    /** A new sighting for the service to log and, if it clears the alert threshold, to alert on. */
+    data class Alert(
+        val hit: Hit,
+        val lat: Double,
+        val lon: Double,
+        val key: String,
+        /** What to say aloud; null for the short word of the hit. */
+        val spoken: String? = null,
+        /** Sound and voice, a notification only, or nothing beyond the log. */
+        val level: WazePolice.Level = WazePolice.Level.LOUD,
+        /** False for a sighting already logged that only now clears the alert threshold. */
+        val log: Boolean = true
+    )
+
+    /** An answer other than 200. */
+    internal class HttpError(val code: Int) : Exception("HTTP $code")
+
     private var aircraftJob: Job? = null
-    private var wazeJob: Job? = null
     private val loiter = PoliceAircraft.LoiterTracker()
     private val lastAircraftHit = HashMap<String, Long>()
-    private val wazeSeen = HashMap<String, Long>()
-    private var wazeKey: String? = null
+    private val waze = WazeWatch(context, scope, location, onAlert, onCallout)
 
-    /** Starts or stops each source to match Settings (call on every scan (re)start). */
+    /** Starts or stops each source to match Settings (call on every scan (re)start and when Settings closes). */
     fun sync() {
         val wantAir = Prefs.categoryEnabled(context, Category.AIRCRAFT)
         if (wantAir && aircraftJob?.isActive != true) {
@@ -48,22 +62,13 @@ class OnlineWatch(
             aircraftJob?.cancel(); aircraftJob = null; AmbientThreats.aircraft = null; aircraftStatus = ""
             PoliceAircraft.latest = emptyList()
         }
-        val wantWaze = Prefs.categoryEnabled(context, Category.POLICE_REPORT) && Prefs.wazeAccepted(context)
-        // A new or changed key is tried right away, not at the next 4-minute round.
-        val key = SecureStore.get(context, WAZE_KEY_NAME)
-        if (key != wazeKey) { wazeKey = key; wazeJob?.cancel(); wazeJob = null }
-        if (wantWaze && wazeJob?.isActive != true) {
-            wazeJob = scope.launch(Dispatchers.IO) {
-                while (isActive) { runCatching { pollWaze() }.onFailure { wazeStatus = "Error: ${it.message}" }; delay(WAZE_MS) }
-            }
-        } else if (!wantWaze) {
-            wazeJob?.cancel(); wazeJob = null; AmbientThreats.waze = null; wazeStatus = ""
-        }
+        waze.sync()
     }
 
     fun stop() {
-        aircraftJob?.cancel(); wazeJob?.cancel()
-        aircraftJob = null; wazeJob = null
+        aircraftJob?.cancel()
+        aircraftJob = null
+        waze.stop()
         AmbientThreats.clear()
         PoliceAircraft.latest = emptyList()
     }
@@ -74,7 +79,7 @@ class OnlineWatch(
         var lastError: String? = null
         val radiusKm = Prefs.aircraftRadiusKm(context)
         val json = PoliceAircraft.feedUrls(me.latitude, me.longitude, radiusKm).firstNotNullOfOrNull { url ->
-            runCatching { get(url, emptyMap()) }.onFailure { lastError = it.message }.getOrNull()
+            runCatching { httpGet(url, emptyMap()) }.onFailure { lastError = it.message }.getOrNull()
         } ?: run { aircraftStatus = "ADS-B feeds unreachable" + (lastError?.let { " ($it)" } ?: ""); return }
         val planes = PoliceAircraft.parseFeed(json)
         val now = System.currentTimeMillis()
@@ -91,7 +96,7 @@ class OnlineWatch(
                 val last = lastAircraftHit[p.hex] ?: 0L
                 if (now - last >= AIRCRAFT_REPEAT_MS) {
                     lastAircraftHit[p.hex] = now
-                    onHit(hit, p.lat, p.lon, "air:" + p.hex)
+                    onAlert(Alert(hit, p.lat, p.lon, "air:" + p.hex))
                 }
             }
             loiter.prune(now)
@@ -104,60 +109,31 @@ class OnlineWatch(
             (best?.let { " · ${it.label}" } ?: ", none police")
     }
 
-    private fun pollWaze() {
-        val key = SecureStore.get(context, WAZE_KEY_NAME)
-        if (key.isNullOrBlank()) { wazeStatus = "Add your OpenWeb Ninja API key"; return }
-        val me = location() ?: run { wazeStatus = "Waiting for a GPS fix"; return }
-        val json = try {
-            get(WazePolice.url(me.latitude, me.longitude), mapOf("x-api-key" to key))
-        } catch (e: HttpError) {
-            wazeStatus = when (e.code) {
-                401, 403 -> "API key rejected (HTTP ${e.code})"
-                429 -> "OpenWeb Ninja limit reached (HTTP 429)"
-                else -> "OpenWeb Ninja answered HTTP ${e.code}"
-            }
-            return
-        }
-        val now = System.currentTimeMillis()
-        val hits = WazePolice.parse(json).mapNotNull { r -> WazePolice.hit(r, me.latitude, me.longitude, now)?.let { r to it.first } }
-        for ((r, hit) in hits) {
-            if (r.id in wazeSeen) continue
-            wazeSeen[r.id] = now
-            onHit(hit, r.lat, r.lon, "waze:" + r.id)
-        }
-        wazeSeen.entries.removeAll { now - it.value > WazePolice.MAX_AGE_MS * 2 }
-        val best = hits.maxByOrNull { it.second.confidence }?.second
-        AmbientThreats.waze = best?.let { now to AmbientThreats.Threat(it.confidence, it.label, Category.POLICE_REPORT) }
-        wazeStatus = "Updated ${clock(now)}: ${hits.size} police report${if (hits.size == 1) "" else "s"} within 2 km"
-    }
-
-    private class HttpError(val code: Int) : Exception("HTTP $code")
-
-    private fun get(url: String, headers: Map<String, String>): String {
-        val c = (URL(url).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 10_000
-            readTimeout = 20_000
-            setRequestProperty("User-Agent", "${BuildConfig.APPLICATION_ID}/${BuildConfig.VERSION_NAME}")
-            setRequestProperty("Accept", "application/json")
-            headers.forEach { (k, v) -> setRequestProperty(k, v) }
-        }
-        try {
-            if (c.responseCode != 200) throw HttpError(c.responseCode)
-            return c.inputStream.bufferedReader().use { it.readText() }
-        } finally {
-            c.disconnect()
-        }
-    }
-
     private fun clock(t: Long) = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(t))
 
     companion object {
         const val WAZE_KEY_NAME = "openwebninja_api_key"
         private const val AIRCRAFT_MS = 60_000L
-        private const val WAZE_MS = 4 * 60_000L
         private const val AIRCRAFT_REPEAT_MS = 20 * 60_000L
 
         @Volatile var aircraftStatus = ""
         @Volatile var wazeStatus = ""
+
+        /** A plain GET returning the body as text; throws [HttpError] for any answer other than 200. */
+        internal fun httpGet(url: String, headers: Map<String, String>): String {
+            val c = (URL(url).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 10_000
+                readTimeout = 20_000
+                setRequestProperty("User-Agent", "${BuildConfig.APPLICATION_ID}/${BuildConfig.VERSION_NAME}")
+                setRequestProperty("Accept", "application/json")
+                headers.forEach { (k, v) -> setRequestProperty(k, v) }
+            }
+            try {
+                if (c.responseCode != 200) throw HttpError(c.responseCode)
+                return c.inputStream.bufferedReader().use { it.readText() }
+            } finally {
+                c.disconnect()
+            }
+        }
     }
 }
