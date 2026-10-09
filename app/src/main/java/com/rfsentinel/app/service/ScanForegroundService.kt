@@ -280,7 +280,12 @@ class ScanForegroundService : Service() {
         // A USB WiFi adapter in monitor mode (e.g. AWUS036ACS): access points and client devices.
         com.rfsentinel.app.usb.UsbWifi.start(this) { list -> pipeline.post { list.forEach(::processUsbWifi) } }
         // An RTL-SDR dongle: strong two-way radio transmissions nearby (signal strength only).
-        if (Prefs.categoryEnabled(this, Category.RADIO)) com.rfsentinel.app.sdr.SdrRadio.start(this) { e -> pipeline.post { onRadio(e) } }
+        if (Prefs.categoryEnabled(this, Category.RADIO)) {
+            // Settings > RTL-SDR radio: bands, excluded ranges, watched frequencies, sensitivity (re-read on every refresh).
+            com.rfsentinel.app.sdr.SdrRadio.config = com.rfsentinel.app.sdr.RadioSettings.config(this)
+            com.rfsentinel.app.sdr.FreqNames.load(this)
+            com.rfsentinel.app.sdr.SdrRadio.start(this) { e -> pipeline.post { onRadio(e) } }
+        }
         else com.rfsentinel.app.sdr.SdrRadio.stop(this)
         // An OUI-SPY board paired over Bluetooth (App-Controlled firmware).
         Prefs.ouiSpyBoard(this)?.let { addr ->
@@ -776,6 +781,12 @@ class ScanForegroundService : Service() {
                 StatusWidget.updateAll(this@ScanForegroundService, devices.size, flagged)
                 runCatching { TripRecorder.flush(this@ScanForegroundService) }
                     .onFailure { Log.w(TAG, "Trace flush failed", it) }
+                // Settings > Data > Live export: files another mapping app can read (every 30 s).
+                runCatching {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        com.rfsentinel.app.util.LiveExport.maybeWrite(this@ScanForegroundService, DeviceRegistry.sessionStart, lastLocation ?: lastFix)
+                    }
+                }.onFailure { Log.w(TAG, "Live export failed", it) }
                 if (System.currentTimeMillis() - lastHistoryFlush >= HISTORY_FLUSH_MS) {
                     runCatching { flushHistory() }.onFailure { Log.w(TAG, "History flush failed", it) }
                 }
@@ -901,12 +912,31 @@ class ScanForegroundService : Service() {
     private fun onRadio(e: com.rfsentinel.app.sdr.RadioWatch.Event) {
         if (!Prefs.categoryEnabled(this, Category.RADIO)) return
         val now = System.currentTimeMillis()
+        // Who uses this frequency: a watched frequency's own label, the imported list, or RadioReference.
+        val named = com.rfsentinel.app.sdr.FreqNames.lookup(e.freqHz, Prefs.radioMatchKhz(this) * 1000L)
+        val name = e.target?.label ?: named?.name
+        if (named == null && com.rfsentinel.app.sdr.RadioReference.ready(this)) (lastLocation ?: lastFix)?.let { l ->
+            serviceScope.launch { com.rfsentinel.app.sdr.RadioReference.refreshAround(this@ScanForegroundService, l.latitude, l.longitude) }
+        }
+        val threshold = Prefs.alertThreshold(this)
+        val trend = com.rfsentinel.app.sdr.RadioLog.observe(e, name, Prefs.radioTrendDb(this), now)
+        if (trend != null && e.confidence >= threshold && now >= Prefs.alertsSnoozedUntil(this)) {
+            AlertPlayer.callout(this, "Radio ${spokenMhz(e.freqHz)} " +
+                if (trend == com.rfsentinel.app.sdr.RadioLog.Trend.CLOSER) "getting closer" else "moving away")
+        }
+        if (e.repeat) return // same channel within 2 minutes: list and trend only, no new log entry or alert
         val near = when { e.snrDb >= 40 -> "very close"; e.snrDb >= 30 -> "close" else -> "nearby" }
         val detail = "A radio transmitted on ${e.mhz} MHz (${e.band.label}), ${e.snrDb} dB above the noise - $near. " +
-            if (e.band.kind == com.rfsentinel.app.sdr.RadioWatch.Kind.PUBLIC_SAFETY_MOBILE)
-                "Public-safety radios (police, fire, EMS) transmit on this band; not proof of who it is."
-            else "Police use this band, but so do businesses, schools and transit; a weak sign on its own."
-        val hit = Hit(Category.RADIO, "Two-way radio transmitting nearby", e.confidence, detail, "RTL-SDR signal strength (no decoding)")
+            (named?.let { "Matches ${"%.4f".format(java.util.Locale.US, it.hz / 1e6)} MHz: ${it.name} (${it.source}). " } ?: "") +
+            when (e.band.kind) {
+                com.rfsentinel.app.sdr.RadioWatch.Kind.PUBLIC_SAFETY_MOBILE ->
+                    "Public-safety radios (police, fire, EMS) transmit on this band; not proof of who it is."
+                com.rfsentinel.app.sdr.RadioWatch.Kind.TARGET -> "One of the frequencies you watch (Settings > RTL-SDR radio)."
+                com.rfsentinel.app.sdr.RadioWatch.Kind.CUSTOM -> "A band you added in Settings > RTL-SDR radio."
+                else -> "Police use this band, but so do businesses, schools and transit; a weak sign on its own."
+            }
+        val label = name?.let { "Radio transmitting: $it" } ?: "Two-way radio transmitting nearby"
+        val hit = Hit(Category.RADIO, label, e.confidence, detail, "RTL-SDR signal strength (no decoding)")
         val loc = lastLocation
         val tag = Prefs.gpsTaggingEnabled(this)
         serviceScope.launch {
@@ -919,11 +949,18 @@ class ScanForegroundService : Service() {
                 )
             )
         }
-        if (e.confidence >= Prefs.alertThreshold(this) && now >= Prefs.alertsSnoozedUntil(this)) {
+        if (e.confidence >= threshold && now >= Prefs.alertsSnoozedUntil(this)) {
             NotificationHelper.sendMapAlert(this, "radio:" + e.freqHz, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java)
-            AlertPlayer.play(this, hit.tier, "Radio transmitting nearby")
+            // Spoken: the frequency (and its name) when that's on, else the short phrase.
+            val spoken = if (Prefs.radioSpeakFreq(this)) "Radio ${spokenMhz(e.freqHz)}" + (name?.let { ", $it" } ?: "")
+                else "Radio transmitting nearby"
+            AlertPlayer.play(this, hit.tier, spoken)
         }
     }
+
+    /** "154.43" for 154.430 MHz: three decimals, trailing zeros dropped, read well by the voice. */
+    private fun spokenMhz(hz: Long): String =
+        "%.3f".format(java.util.Locale.US, hz / 1e6).trimEnd('0').trimEnd('.')
 
     /** Police aircraft (ADS-B) and Waze reports: internet sources, both off by default. */
     private val onlineWatch by lazy {

@@ -25,6 +25,7 @@ class RFSentinelApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        com.rfsentinel.app.util.CrashLog.install(this)
         com.rfsentinel.app.ui.DeviceFilter.excludeAirTags = com.rfsentinel.app.util.Prefs.excludeAirTags(this)
         com.rfsentinel.app.ui.ThemeManager.install(this)
         com.rfsentinel.app.ui.ScreenAwake.install(this)

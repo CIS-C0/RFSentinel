@@ -26,6 +26,8 @@ object SdrRadio {
     private const val SETTLE_READS = 2        // samples after a retune are discarded
 
     @Volatile var status: String = ""; private set
+    /** What to watch (Settings > RTL-SDR radio); picked up at the next sweep. */
+    @Volatile var config = RadioWatch.Config()
     private var receiver: BroadcastReceiver? = null
     private var onEvent: ((RadioWatch.Event) -> Unit)? = null
     @Volatile private var runningDevice: String? = null
@@ -108,15 +110,22 @@ object SdrRadio {
         sdr.setSampleRate(SAMPLE_RATE)
         sdr.setGain(GAIN_TENTHS_DB)
         sdr.resetBuffer()
-        val plan = RadioWatch.plan()
+        var cfg = config
+        var plan = RadioWatch.plan(cfg)
         val watch = RadioWatch()
-        UsbWifi.log("RTL-SDR: ${sdr.sampleRate} S/s, gain ${GAIN_TENTHS_DB / 10.0} dB, ${plan.size} chunks per sweep over " +
-            RadioWatch.BANDS.joinToString { "%.1f-%.1f MHz".format(it.startHz / 1e6, it.endHz / 1e6) } + ", USB errors ${sdr.ctlErrors}")
+        watch.config = cfg
+        fun logPlan() = UsbWifi.log("RTL-SDR: ${sdr.sampleRate} S/s, gain ${GAIN_TENTHS_DB / 10.0} dB, ${plan.size} chunks per sweep over " +
+            cfg.bands.joinToString { "%.1f-%.1f MHz".format(it.startHz / 1e6, it.endHz / 1e6) } +
+            (if (cfg.targets.isNotEmpty()) ", ${cfg.targets.size} watched frequencies" else "") +
+            ", reporting from ${cfg.minSnrDb} dB, USB errors ${sdr.ctlErrors}")
+        logPlan()
         val buf = ByteArray(XFER)
         val iq = ByteArray(XFER * READS_PER_CHUNK)
         var lastLog = 0L; var sweepStart = System.currentTimeMillis(); var sweepMs = 0L
         var events = 0; var unlocked = 0; var readErrors = 0
         while (!stop) {
+            // Settings changed: the new bands / targets / sensitivity from this sweep on.
+            if (config != cfg) { cfg = config; plan = RadioWatch.plan(cfg); watch.config = cfg; logPlan() }
             for (center in plan) {
                 if (stop) break
                 if (!sdr.tune(center)) { unlocked++; continue }
@@ -130,8 +139,10 @@ object SdrRadio {
                 if (got < 2 * 1024) continue
                 val psd = RadioWatch.powerSpectrum(iq, got / 2)
                 for (e in watch.analyze(center, psd, sdr.sampleRate, System.currentTimeMillis())) {
-                    events++
-                    UsbWifi.log("RTL-SDR: transmission ${e.mhz} MHz, ${e.snrDb} dB above the noise (${e.band.label})")
+                    if (!e.repeat) {
+                        events++
+                        UsbWifi.log("RTL-SDR: transmission ${e.mhz} MHz, ${e.snrDb} dB above the noise (${e.band.label})")
+                    }
                     onEvent?.invoke(e)
                 }
             }
@@ -139,7 +150,7 @@ object SdrRadio {
             val now = System.currentTimeMillis()
             sweepMs = now - sweepStart; sweepStart = now
             status = if (watch.sweeps < 6) "RTL-SDR · learning the radio bands here…"
-                     else "RTL-SDR · watching police radio bands · $events transmissions nearby so far"
+                     else "RTL-SDR · live · sweep ${sweepMs / 100 / 10.0} s · $events transmissions nearby so far"
             if (now - lastLog > (if (watch.sweeps < 20) 10_000 else 60_000)) {
                 lastLog = now
                 UsbWifi.log("RTL-SDR: sweep ${watch.sweeps} in $sweepMs ms, ${watch.learnedChannels} channels, ${watch.busyChannels} always busy, " +

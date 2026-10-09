@@ -302,7 +302,10 @@ object UsbWifi {
                 val onStatus: (String) -> Unit = { s -> status = s }
                 val onFrames: (List<MonitorSighting>) -> Unit = { list -> onSightings?.invoke(list) }
                 when (chip.driver) {
-                    Driver.RTL88XXAU -> Rtl8821auMonitor.run(context, d, onStatus, onFrames)
+                    Driver.RTL88XXAU -> {
+                        Rtl8821auMonitor.scan5g = com.rfsentinel.app.util.Prefs.rtl8821au5g(context)
+                        Rtl8821auMonitor.run(context, d, onStatus, onFrames)
+                    }
                     Driver.RTL88X2BU -> Rtl8822buMonitor.run(context, d, chip.name, onStatus, onFrames)
                     Driver.RTL8187 -> Rtl8187Monitor.run(context, d, chip.name, onStatus, onFrames)
                     Driver.RT3070 -> Rt3070Monitor.run(context, d, chip.name, onStatus, onFrames)

@@ -294,6 +294,10 @@ object Prefs {
     fun cctvPrivate(context: Context): Boolean = bool(context, "cctv_private", false)
     fun setCctvPrivate(context: Context, value: Boolean) = setBool(context, "cctv_private", value)
 
+    /** Live map turned to the direction of travel instead of north up (map button; off = north up). */
+    fun mapHeadingUp(context: Context): Boolean = bool(context, "map_heading_up", false)
+    fun setMapHeadingUp(context: Context, value: Boolean) = setBool(context, "map_heading_up", value)
+
     fun showCellTowers(context: Context): Boolean = bool(context, "show_cell_towers", false)
     fun setShowCellTowers(context: Context, value: Boolean) = setBool(context, "show_cell_towers", value)
     fun showKnownAlpr(context: Context): Boolean = bool(context, "show_known_alpr", true)
@@ -337,6 +341,56 @@ object Prefs {
     fun scanIntro(context: Context): Boolean = bool(context, "scan_intro", false)
     fun setScanIntro(context: Context, value: Boolean) = setBool(context, "scan_intro", value)
 
+    // ---- RTL-SDR radio (Settings > RTL-SDR radio) ----
+
+    private fun str(c: Context, key: String) = sp(c).getString(key, "").orEmpty()
+    private fun setStr(c: Context, key: String, v: String) = sp(c).edit { putString(key, v) }
+
+    /** Report a radio from this many dB above the noise (15-50; 30 = the original sensitivity). */
+    fun radioMinSnr(context: Context): Int = int(context, "radio_min_snr", com.rfsentinel.app.sdr.RadioWatch.DEFAULT_MIN_SNR).coerceIn(15, 50)
+    fun setRadioMinSnr(context: Context, v: Int) = setInt(context, "radio_min_snr", v.coerceIn(15, 50))
+    /** Built-in bands switched off ("700", "800", "vhf", "uhf"). */
+    fun radioBandsOff(context: Context): Set<String> = sp(context).getStringSet("radio_bands_off", emptySet()).orEmpty()
+    fun setRadioBandsOff(context: Context, v: Set<String>) = sp(context).edit { putStringSet("radio_bands_off", v) }
+    /** The user's own bands, one "start-end MHz label" per line. */
+    fun radioCustomBands(context: Context) = str(context, "radio_custom_bands")
+    fun setRadioCustomBands(context: Context, v: String) = setStr(context, "radio_custom_bands", v)
+    /** Ranges never to report, one "start-end MHz" per line (e.g. a business band). */
+    fun radioExcluded(context: Context) = str(context, "radio_excluded")
+    fun setRadioExcluded(context: Context, v: String) = setStr(context, "radio_excluded", v)
+    /** Frequencies to watch, one "MHz label" per line. */
+    fun radioTargets(context: Context) = str(context, "radio_targets")
+    fun setRadioTargets(context: Context, v: String) = setStr(context, "radio_targets", v)
+    /** Say the frequency (and its name when known) instead of "Radio transmitting nearby". */
+    fun radioSpeakFreq(context: Context): Boolean = bool(context, "radio_speak_freq", false)
+    fun setRadioSpeakFreq(context: Context, v: Boolean) = setBool(context, "radio_speak_freq", v)
+    /** Call out "closer" / "farther" after the signal moved this many dB (0 = off). */
+    fun radioTrendDb(context: Context): Int = int(context, "radio_trend_db", 6).coerceIn(0, 20)
+    fun setRadioTrendDb(context: Context, v: Int) = setInt(context, "radio_trend_db", v.coerceIn(0, 20))
+    /** A hit matches a named frequency within ± this many kHz. */
+    fun radioMatchKhz(context: Context): Int = int(context, "radio_match_khz", 7).coerceIn(1, 50)
+    fun setRadioMatchKhz(context: Context, v: Int) = setInt(context, "radio_match_khz", v.coerceIn(1, 50))
+    /** Name hits from RadioReference (needs the user's own Premium login and developer key; off by default). */
+    fun radioReferenceOn(context: Context): Boolean = bool(context, "radio_reference_on", false)
+    fun setRadioReferenceOn(context: Context, v: Boolean) = setBool(context, "radio_reference_on", v)
+
+    // ---- Live export (Settings > Data) ----
+
+    /** Keep a live copy of matches, devices and radio hits in a folder other apps can read (off by default). */
+    fun liveExport(context: Context): Boolean = bool(context, "live_export", false)
+    fun setLiveExport(context: Context, v: Boolean) = setBool(context, "live_export", v)
+    /** The folder picked for it (a storage-access tree URI). */
+    fun liveExportTree(context: Context): String? = sp(context).getString("live_export_tree", null)
+    fun setLiveExportTree(context: Context, v: String?) = sp(context).edit { putString("live_export_tree", v) }
+
+    /** ALFA AWUS036ACS / RTL8811AU-8821AU: also hop 5 GHz (experimental, off by default). */
+    fun rtl8821au5g(context: Context): Boolean = bool(context, "rtl8821au_5g", false)
+    fun setRtl8821au5g(context: Context, value: Boolean) = setBool(context, "rtl8821au_5g", value)
+
+    /** Hide trusted (whitelisted) devices from the live list and radar (off by default). */
+    fun hideWhitelisted(context: Context): Boolean = bool(context, "hide_whitelisted", false)
+    fun setHideWhitelisted(context: Context, value: Boolean) = setBool(context, "hide_whitelisted", value)
+
     fun threatBubble(context: Context): Boolean = bool(context, "threat_bubble", false)
     fun setThreatBubble(context: Context, value: Boolean) = setBool(context, "threat_bubble", value)
 
@@ -360,4 +414,29 @@ object Prefs {
 
     fun radarView(context: Context): Boolean = bool(context, "radar_view", false)
     fun setRadarView(context: Context, value: Boolean) = setBool(context, "radar_view", value)
+
+    /** The main screen's views, any mix of "map", "radar" and "list", shown in that order; older installs only knew list / radar. */
+    fun viewPanes(context: Context): Set<String> =
+        sp(context).getString("view_panes", null)?.split(',')?.filter { it in PANES }?.toSet()?.takeIf { it.isNotEmpty() }
+            ?: if (radarView(context)) setOf("radar") else setOf("list")
+    fun setViewPanes(context: Context, value: Set<String>) {
+        val panes = PANES.filter { it in value }.ifEmpty { listOf("list") }
+        sp(context).edit().putString("view_panes", panes.joinToString(",")).apply()
+        setRadarView(context, panes == listOf("radar"))
+    }
+    val PANES = listOf("map", "radar", "list")
+
+    /** Each view's share of the screen when several show together (dragging a handle moves it). */
+    fun paneWeight(context: Context, pane: String): Float =
+        sp(context).getFloat("pane_weight_$pane", if (pane == "list") 1.2f else 1f).coerceIn(0.1f, 10f)
+    fun setPaneWeight(context: Context, pane: String, value: Float) = sp(context).edit().putFloat("pane_weight_$pane", value).apply()
+
+    /** 3D driving view: heading up, tilted in perspective, your position low on screen (map button, third step). */
+    fun map3d(context: Context): Boolean = bool(context, "map_3d", false)
+    fun setMap3d(context: Context, value: Boolean) = setBool(context, "map_3d", value)
+
+    /** Light or dark map tiles (the map's sun / moon button); null = follow the phone's dark mode. */
+    fun mapDark(context: Context): Boolean? =
+        if (sp(context).contains("map_dark")) sp(context).getBoolean("map_dark", false) else null
+    fun setMapDark(context: Context, value: Boolean) = setBool(context, "map_dark", value)
 }

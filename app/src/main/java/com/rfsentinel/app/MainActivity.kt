@@ -21,11 +21,9 @@ import com.rfsentinel.app.detect.Advert
 import com.rfsentinel.app.detect.Category
 import com.rfsentinel.app.detect.DeviceIntel
 import com.rfsentinel.app.detect.Tier
-import com.rfsentinel.app.ouilist.OuiListActivity
 import com.rfsentinel.app.service.DeviceRegistry
 import com.rfsentinel.app.service.ScanForegroundService
 import com.rfsentinel.app.settings.SettingsActivity
-import com.rfsentinel.app.ui.AboutDialog
 import com.rfsentinel.app.ui.DetectionLogActivity
 import com.rfsentinel.app.ui.DeviceActions
 import com.rfsentinel.app.ui.DeviceAdapter
@@ -36,7 +34,6 @@ import com.rfsentinel.app.util.Permissions
 import com.rfsentinel.app.util.Prefs
 import com.rfsentinel.app.util.ProximityUtil
 import com.rfsentinel.app.util.applySystemBarInsets
-import com.rfsentinel.app.whitelist.WhitelistActivity
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -46,6 +43,9 @@ class MainActivity : AppCompatActivity() {
         /** Row id prefix of the live cell tower rows (not devices). */
         private const val CELL_ROW = "cell:"
         private const val WAZE_ROW = "waze:"
+        private const val RADIO_ROW = "radio:"
+        /** A radio row flashes while its transmitter was heard this recently. */
+        private const val RADIO_LIVE_MS = 15_000L
         private const val BLUETOOTH_TAG_COLOR = 0xFF1565C0.toInt()
         private const val WIFI_TAG_COLOR = 0xFF00838F.toInt()
         private const val REFRESH_MS = 1_000L
@@ -55,6 +55,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var adapter: DeviceAdapter
+    private lateinit var panes: com.rfsentinel.app.ui.MainPanes
     private var filter = com.rfsentinel.app.ui.DeviceFilter.ALL
     private val filterChips = HashMap<com.rfsentinel.app.ui.DeviceFilter, com.google.android.material.chip.Chip>()
     private var query = ""
@@ -84,6 +85,7 @@ class MainActivity : AppCompatActivity() {
         adapter = DeviceAdapter(
             onClick = {
                 if (it.mac.startsWith(CELL_ROW)) startActivity(Intent(this, com.rfsentinel.app.ui.CellTowersActivity::class.java))
+                else if (it.mac.startsWith(RADIO_ROW)) startActivity(Intent(this, com.rfsentinel.app.ui.DetectionLogActivity::class.java))
                 else if (it.mac.startsWith(WAZE_ROW)) {
                     com.rfsentinel.app.online.WazePolice.latest.firstOrNull { w -> WAZE_ROW + w.report.id == it.mac }?.let { w ->
                         startActivity(Intent(this, com.rfsentinel.app.ui.MapActivity::class.java)
@@ -93,10 +95,19 @@ class MainActivity : AppCompatActivity() {
                 }
                 else DeviceActions.openDetails(this, it.mac)
             },
-            onLongPress = { if (!it.mac.startsWith(CELL_ROW) && !it.mac.startsWith(WAZE_ROW)) DeviceActions.showQuickActions(this, it.mac) }
+            onLongPress = { if (!it.mac.startsWith(CELL_ROW) && !it.mac.startsWith(WAZE_ROW) && !it.mac.startsWith(RADIO_ROW)) DeviceActions.showQuickActions(this, it.mac) }
         )
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
+        binding.newAlertPill.setOnClickListener {
+            binding.recyclerView.smoothScrollToPosition(0)
+            showNewAlertPill(false)
+        }
+        binding.recyclerView.addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+            override fun onScrolled(rv: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
+                if (!rv.canScrollVertically(-1)) showNewAlertPill(false)
+            }
+        })
         binding.wazeSwipe.setColorSchemeColors(com.rfsentinel.app.ui.ChipStyle.accent(this).first)
         binding.wazeSwipe.setOnRefreshListener {
             if (com.rfsentinel.app.ui.WazeUi.checkNow(this)) {
@@ -108,16 +119,21 @@ class MainActivity : AppCompatActivity() {
         // crossfade would make the whole list flicker and fight the match flash.
         (binding.recyclerView.itemAnimator as? SimpleItemAnimator)?.supportsChangeAnimations = false
         binding.radarView.onBlipClick = { DeviceActions.openDetails(this, it) }
+        panes = com.rfsentinel.app.ui.MainPanes(this, binding)
 
+        binding.startStopButton.addOnLayoutChangeListener { _, l, _, r, _, ol, _, or, _ -> if (r - l != or - ol) fitStartButton() }
         binding.startStopButton.setOnClickListener {
             if (ScanForegroundService.isRunning) stopScanning() else requestPermissionsAndStart()
         }
         styleViewToggle()
-        binding.viewToggle.check(if (Prefs.radarView(this)) R.id.viewRadarButton else R.id.viewListButton)
-        binding.viewToggle.addOnButtonCheckedListener { _, id, checked ->
-            if (!checked) return@addOnButtonCheckedListener
-            Prefs.setRadarView(this, id == R.id.viewRadarButton)
+        // Any mix of list, radar and live map: one fills the screen, more share it.
+        for ((pane, id) in paneButtons) if (pane in panes.panes) binding.viewToggle.check(id)
+        binding.viewToggle.addOnButtonCheckedListener { group, _, _ ->
+            val chosen = paneButtons.filter { it.second in group.checkedButtonIds }.map { it.first }.toSet()
+            if (chosen.isEmpty() || chosen == panes.panes) return@addOnButtonCheckedListener
+            panes.setPanes(chosen)
             applyViewMode()
+            render()
         }
         binding.toolsButton.setOnClickListener { v ->
             androidx.appcompat.widget.PopupMenu(this, v).apply {
@@ -137,25 +153,15 @@ class MainActivity : AppCompatActivity() {
                 }
             }.show()
         }
-        binding.mapButton.setOnClickListener {
-            startActivity(Intent(this, com.rfsentinel.app.ui.MapActivity::class.java))
-        }
-        // The disclaimer line at the bottom steps aside once the list is scrolled.
-        binding.recyclerView.addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
-            override fun onScrolled(rv: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
-                val atTop = !rv.canScrollVertically(-1)
-                if (dy > 8 && !atTop) binding.disclaimerText.visibility = View.GONE
-                else if (atTop) binding.disclaimerText.visibility = View.VISIBLE
-            }
-        })
         setupFilterChips()
+        panes.setFilter(filter)
 
         // Debug builds only: made-up devices for screenshots (see DemoData).
         if (BuildConfig.DEBUG && intent.getBooleanExtra("demo", false)) {
             demoMode = true
             // So the Android Auto screens show the demo as a running scan too.
             ScanForegroundService.isRunning = true
-            intent.getStringExtra("view")?.let { Prefs.setRadarView(this, it == "radar") }
+            intent.getStringExtra("view")?.split(',')?.toSet()?.let { Prefs.setViewPanes(this, it) }
             val demoLat = intent.getFloatExtra("lat", Float.NaN)
             val demoLon = intent.getFloatExtra("lon", Float.NaN)
             if (!demoLat.isNaN() && !demoLon.isNaN()) {
@@ -183,12 +189,14 @@ class MainActivity : AppCompatActivity() {
         // Only on a real fresh start - a theme change recreates this screen too.
         if (savedInstanceState == null && !Prefs.onboardingDone(this)) showOnboarding()
         else if (savedInstanceState == null) com.rfsentinel.app.util.UpdateChecker.checkOnStartup(this)
+        if (savedInstanceState == null) com.rfsentinel.app.util.CrashLog.offerAfterCrash(this)
     }
 
     override fun onResume() {
         super.onResume()
         updateStatus()
     }
+
 
     /** Styled themes: their own title, animated wordmark and the user's banner image. */
     private fun applyThemeHeader() {
@@ -219,13 +227,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val paneButtons get() = listOf("list" to R.id.viewListButton, "radar" to R.id.viewRadarButton, "map" to R.id.viewMapButton)
+
     private fun applyViewMode() {
-        val radar = Prefs.radarView(this)
-        binding.radarView.visibility = if (radar) View.VISIBLE else View.GONE
-        binding.recyclerView.visibility = if (radar) View.GONE else View.VISIBLE
-        binding.wazeSwipe.visibility = if (radar) View.GONE else View.VISIBLE
-        binding.disclaimerText.visibility =
-            if (radar || !binding.recyclerView.canScrollVertically(-1)) View.VISIBLE else View.GONE
+        panes.apply()
+        // The "nothing heard" note sits over the list, or over the radar when there is no list.
+        val home = if (!panes.listShown && panes.radarShown) binding.radarPane else binding.listFrame
+        if (binding.emptyText.parent !== home) {
+            (binding.emptyText.parent as? android.view.ViewGroup)?.removeView(binding.emptyText)
+            home.addView(binding.emptyText, android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT, android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+                android.view.Gravity.CENTER))
+        }
     }
 
     /** Filter chips from [com.rfsentinel.app.ui.DeviceFilter] (same rules as the map), counts filled in by render(). */
@@ -235,6 +248,8 @@ class MainActivity : AppCompatActivity() {
                 id = View.generateViewId()
                 text = f.label
                 isCheckable = true
+                // No invisible 48 dp touch frame around each chip: the row is 16 dp shorter.
+                setEnsureMinTouchTargetSize(false)
                 com.rfsentinel.app.ui.ChipStyle.apply(this)
             }
             filterChips[f] = chip
@@ -243,6 +258,7 @@ class MainActivity : AppCompatActivity() {
         }
         binding.filterChips.setOnCheckedStateChangeListener { _, ids ->
             filter = filterChips.entries.firstOrNull { it.value.id == ids.firstOrNull() }?.key ?: return@setOnCheckedStateChangeListener
+            panes.setFilter(filter)
             render()
         }
     }
@@ -253,13 +269,11 @@ class MainActivity : AppCompatActivity() {
         val text = com.rfsentinel.app.ui.ChipStyle.onSurface(this)
         val checked = intArrayOf(android.R.attr.state_checked)
         val none = intArrayOf()
-        for (b in listOf(binding.viewListButton, binding.viewRadarButton)) {
+        for (b in listOf(binding.viewListButton, binding.viewRadarButton, binding.viewMapButton)) {
             b.backgroundTintList = android.content.res.ColorStateList(arrayOf(checked, none), intArrayOf(accent, 0x00000000))
             b.iconTint = android.content.res.ColorStateList(arrayOf(checked, none), intArrayOf(onAccent, text))
             b.strokeColor = android.content.res.ColorStateList.valueOf(accent)
         }
-        binding.mapButton.iconTint = android.content.res.ColorStateList.valueOf(accent)
-        binding.mapButton.strokeColor = android.content.res.ColorStateList.valueOf(accent)
         binding.toolsButton.iconTint = android.content.res.ColorStateList.valueOf(accent)
         binding.toolsButton.strokeColor = android.content.res.ColorStateList.valueOf(accent)
     }
@@ -273,9 +287,8 @@ class MainActivity : AppCompatActivity() {
             // Start: theme highlight with a play icon; Stop: red with a stop icon.
             val (accent, onAccent) = com.rfsentinel.app.ui.ChipStyle.accent(this)
             val red = com.rfsentinel.app.ui.ThemeManager.ink(this, 0xFFB3261E.toInt())
-            binding.startStopButton.text = if (running) "Stop" else "Start"
             binding.startStopButton.contentDescription = if (running) "Stop scanning" else "Start scanning"
-            binding.startStopButton.setIconResource(if (running) R.drawable.ic_car_stop else R.drawable.ic_car_play)
+            fitStartButton()
             binding.startStopButton.backgroundTintList = android.content.res.ColorStateList.valueOf(if (running) red else accent)
             val fg = if (running) 0xFFFFFFFF.toInt() else onAccent
             binding.startStopButton.setTextColor(fg)
@@ -295,7 +308,75 @@ class MainActivity : AppCompatActivity() {
                         java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(it.first)) } ?: "") +
                 com.rfsentinel.app.esp.OuiSpyBle.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
                 com.rfsentinel.app.esp.EspBoards.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
-                com.rfsentinel.app.usb.UsbWifi.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty()
+                com.rfsentinel.app.usb.UsbWifi.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
+                com.rfsentinel.app.sdr.SdrRadio.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
+                com.rfsentinel.app.sdr.RadioReference.status.takeIf { it.isNotBlank() && com.rfsentinel.app.util.Prefs.radioReferenceOn(this) }
+                    ?.let { "\n$it" }.orEmpty()
+        }
+    }
+
+    /**
+     * Start / Stop with its icon when both fit; with large text the icon goes first, then the
+     * word (the colour and the icon still tell them apart), so the label is never cut off.
+     */
+    private var startIconPadding = -1
+
+    private fun fitStartButton() {
+        val b = binding.startStopButton
+        val running = shownRunning == true
+        val label = if (running) "Stop" else "Start"
+        val icon = if (running) R.drawable.ic_car_stop else R.drawable.ic_car_play
+        if (b.width == 0) { b.text = label; b.setIconResource(icon); return }
+        val room = b.width - b.paddingStart - b.paddingEnd
+        val drawn = b.transformationMethod?.getTransformation(label, b)?.toString() ?: label
+        val textW = b.paint.measureText(drawn) + 2 * resources.displayMetrics.density
+        if (startIconPadding < 0) startIconPadding = b.iconPadding
+        val iconW = (b.iconSize.takeIf { it > 0 } ?: (24 * resources.displayMetrics.density).toInt()) + startIconPadding
+        when {
+            textW + iconW <= room -> { b.text = label; b.setIconResource(icon); b.iconPadding = startIconPadding }
+            textW <= room -> { b.text = label; b.icon = null }
+            else -> { b.text = ""; b.setIconResource(icon); b.iconPadding = 0 }
+        }
+    }
+
+    /** Alerts (flagged rows) already shown, so a new one above the screen can be pointed out. */
+    private var seenAlerts: Set<String> = emptySet()
+
+    /**
+     * At the top of the list, the list stays at the top: a new alert inserted above appears in
+     * view instead of just off screen. Scrolled down, the rows you are reading stay put, and a
+     * "New alert" pill shows instead; tap it (or scroll up) to see it.
+     */
+    private fun submitRows(rows: List<DeviceRow>) {
+        val rv = binding.recyclerView
+        val atTop = !rv.canScrollVertically(-1)
+        val alerts = rows.filter { it.highlight != null || it.flashing }.map { it.mac }.toSet()
+        val fresh = alerts - seenAlerts
+        seenAlerts = alerts
+        adapter.submitList(rows) {
+            if (atTop) {
+                rv.scrollToPosition(0)
+                showNewAlertPill(false)
+            } else if (fresh.isNotEmpty()) {
+                val first = (rv.layoutManager as LinearLayoutManager).findFirstVisibleItemPosition()
+                if (rows.withIndex().any { (i, r) -> r.mac in fresh && i < first }) showNewAlertPill(true)
+            }
+        }
+    }
+
+    private fun showNewAlertPill(show: Boolean) {
+        val pill = binding.newAlertPill
+        if (show == (pill.visibility == View.VISIBLE)) return
+        if (show) {
+            val (accent, onAccent) = com.rfsentinel.app.ui.ChipStyle.accent(this)
+            pill.background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = 18 * resources.displayMetrics.density; setColor(accent)
+            }
+            pill.setTextColor(onAccent)
+            pill.alpha = 0f; pill.visibility = View.VISIBLE
+            pill.animate().alpha(1f).setDuration(150).start()
+        } else {
+            pill.animate().alpha(0f).setDuration(150).withEndAction { pill.visibility = View.GONE }.start()
         }
     }
 
@@ -334,11 +415,13 @@ class MainActivity : AppCompatActivity() {
         // Ordinary devices leave the list and radar soon after they're out of range (LiveWindow).
         val bleMs = Prefs.liveBleSec(this) * 1000L
         val wifiMs = Prefs.liveWifiSec(this) * 1000L
+        // Settings > Scanning: trusted (whitelisted) devices can be left out of the list and radar.
+        val hideTrusted = Prefs.hideWhitelisted(this)
         val all = DeviceRegistry.snapshot(now).filter {
-            com.rfsentinel.app.ui.LiveWindow.keep(it, now, bleMs, wifiMs)
+            com.rfsentinel.app.ui.LiveWindow.keep(it, now, bleMs, wifiMs) && !(hideTrusted && WhitelistCache.contains(it.mac))
         }
         val threshold = Prefs.alertThreshold(this)
-        binding.wazeSwipe.isEnabled = com.rfsentinel.app.ui.WazeUi.on(this) && binding.radarView.visibility != View.VISIBLE
+        binding.wazeSwipe.isEnabled = com.rfsentinel.app.ui.WazeUi.on(this) && panes.listShown
         deviceCount = all.size
         // The banner and radar alert only for flagged devices still in range.
         val flagged = all.filter { com.rfsentinel.app.ui.LiveWindow.alerting(it, now) }
@@ -351,6 +434,7 @@ class MainActivity : AppCompatActivity() {
             val n = when (f) {
                 com.rfsentinel.app.ui.DeviceFilter.CELLS -> liveCellCount(now)
                 com.rfsentinel.app.ui.DeviceFilter.WAZE -> currentWaze(now).size
+                com.rfsentinel.app.ui.DeviceFilter.RADIO -> if (ScanForegroundService.isRunning) com.rfsentinel.app.sdr.RadioLog.current(now).size else 0
                 else -> all.count { f.matches(it) }
             }
             val label = if (f == com.rfsentinel.app.ui.DeviceFilter.ALL || n > 0) "${f.label} $n" else f.label
@@ -365,7 +449,9 @@ class MainActivity : AppCompatActivity() {
                     .thenBy { it.firstSeen }
             )
 
-        if (binding.radarView.visibility == View.VISIBLE) {
+        // The map and radar frames take the top alert's colour.
+        panes.update(flagged.maxByOrNull { it.best?.confidence ?: 0 }?.let { colorFor(it) })
+        if (panes.radarShown) {
             binding.radarView.setBlips(visible.take(200).map { s ->
                 val alert = com.rfsentinel.app.ui.LiveWindow.alerting(s, now)
                 RadarView.Blip(
@@ -375,20 +461,26 @@ class MainActivity : AppCompatActivity() {
                     if (alert) s.best?.label else null
                 )
             })
-        } else {
+        }
+        if (panes.listShown) {
             val cells = cellRows(now)
             val waze = wazeRows(now, threshold)
-            // Waze reports that meet the alert threshold flash at the very top; the rest follow the devices.
+            val radio = radioRows(now, threshold)
+            // Waze reports and radios on the air that meet the alert threshold flash at the very top;
+            // the rest follow the devices.
             val (urgent, quiet) = waze.partition { it.flashing }
-            adapter.submitList(urgent + visible.map { toRow(it, now, threshold) } + cells + quiet)
-            shownCells = cells.size + waze.size
+            val (radioLive, radioOld) = radio.partition { it.flashing }
+            submitRows(radioLive + urgent + visible.map { toRow(it, now, threshold) } + radioOld + cells + quiet)
+            shownCells = cells.size + waze.size + radio.size
         }
-        binding.emptyText.visibility = if (visible.isEmpty() && (binding.radarView.visibility == View.VISIBLE || shownCells == 0)) View.VISIBLE else View.GONE
+        binding.emptyText.visibility = if (visible.isEmpty() && (!panes.listShown || shownCells == 0)) View.VISIBLE else View.GONE
         binding.emptyText.text = when {
             all.isEmpty() && !ScanForegroundService.isRunning -> "Not scanning.\nTap Start scanning to begin."
             all.isEmpty() -> "Listening... no devices heard yet."
             filter == com.rfsentinel.app.ui.DeviceFilter.WAZE ->
                 "No Waze reports in range.\nTurn on Waze police reports in Settings and keep scanning."
+            filter == com.rfsentinel.app.ui.DeviceFilter.RADIO ->
+                "No radio transmissions heard in the last 5 minutes.\nNeeds an RTL-SDR on USB and the Police radio category on in Settings."
             filter == com.rfsentinel.app.ui.DeviceFilter.CELLS ->
                 "No cell towers yet - they're read every 15 s while scanning\n(needs the Fake cell tower category on in Settings)."
             else -> "No devices match this filter."
@@ -453,6 +545,41 @@ class MainActivity : AppCompatActivity() {
                     highlight = if (urgent) w.report.type.color else null,
                     flashing = urgent,
                     bold = urgent
+                )
+            }
+    }
+
+    /**
+     * RTL-SDR transmissions of the last few minutes (the radio log), under the All and Radio
+     * filters: frequency, its name when known, signal and closer / farther trend. One on the air
+     * right now at or above the alert threshold is tinted, flashes and is pinned to the top.
+     */
+    private fun radioRows(now: Long, threshold: Int): List<DeviceRow> {
+        if ((filter != com.rfsentinel.app.ui.DeviceFilter.ALL && filter != com.rfsentinel.app.ui.DeviceFilter.RADIO) ||
+            !ScanForegroundService.isRunning) return emptyList()
+        val color = com.rfsentinel.app.ui.ThemeManager.ink(this, Category.RADIO.colorArgb)
+        return com.rfsentinel.app.sdr.RadioLog.current(now)
+            .filter { r -> query.isBlank() || listOfNotNull(r.mhz, r.name, r.bandLabel).any { it.contains(query.trim(), ignoreCase = true) } }
+            .map { r ->
+                val live = now - r.lastSeen <= RADIO_LIVE_MS
+                val urgent = live && r.confidence >= threshold
+                val ago = (now - r.lastSeen) / 1000
+                val trend = when (r.trend) {
+                    com.rfsentinel.app.sdr.RadioLog.Trend.CLOSER -> "getting closer ↑"
+                    com.rfsentinel.app.sdr.RadioLog.Trend.FARTHER -> "moving away ↓"
+                    else -> null
+                }
+                DeviceRow(
+                    mac = RADIO_ROW + r.freqHz,
+                    title = "Radio ${r.mhz} MHz" + (r.name?.let { " · $it" } ?: ""),
+                    subtitle = listOfNotNull("${r.snrDb} dB above the noise (peak ${r.peakSnrDb})", trend, r.bandLabel).joinToString(" · "),
+                    meta = (if (ago < 3) "On the air now" else "Last heard ${ago}s ago") +
+                        " · first ${java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(r.firstSeen))}",
+                    tag = "RADIO · ${r.confidence}%",
+                    tagColor = color,
+                    highlight = if (urgent) color else null,
+                    flashing = urgent,
+                    bold = live
                 )
             }
     }
@@ -651,14 +778,9 @@ class MainActivity : AppCompatActivity() {
             R.id.action_match_log -> { startActivity(Intent(this, DetectionLogActivity::class.java)); true }
             R.id.action_settings -> { startActivity(Intent(this, SettingsActivity::class.java)); true }
             R.id.action_probes -> { startActivity(Intent(this, com.rfsentinel.app.probes.ProbeListActivity::class.java)); true }
-            R.id.action_whitelist -> { startActivity(Intent(this, WhitelistActivity::class.java)); true }
-            R.id.action_oui_list -> { startActivity(Intent(this, OuiListActivity::class.java)); true }
             R.id.action_export -> { Exporter.showExportMenu(this); true }
-            R.id.action_export_all -> { Exporter.showExportAll(this); true }
             R.id.action_traces -> { startActivity(Intent(this, com.rfsentinel.app.ui.TripsActivity::class.java)); true }
             R.id.action_history -> { startActivity(Intent(this, com.rfsentinel.app.ui.HistoryActivity::class.java)); true }
-            R.id.action_about -> { AboutDialog.show(this); true }
-            R.id.action_check_update -> { com.rfsentinel.app.util.UpdateChecker.check(this); true }
             R.id.action_mute -> {
                 val muted = !Prefs.alertsMuted(this)
                 Prefs.setAlertsMuted(this, muted)

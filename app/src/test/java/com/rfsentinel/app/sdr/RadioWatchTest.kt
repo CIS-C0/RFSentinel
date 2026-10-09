@@ -52,8 +52,10 @@ class RadioWatchTest {
         assertEquals(radio, ev[0].freqHz)
         assertEquals(75, ev[0].confidence)
         assertEquals(RadioWatch.Kind.PUBLIC_SAFETY_MOBILE, ev[0].band.kind)
-        // the same channel isn't reported again right away
-        assertTrue(w.analyze(center, psd(center, radio to 42), rate, t + 2_500).isEmpty())
+        // the same channel isn't a new report right away - only a repeat, for the live list and trend
+        val again = w.analyze(center, psd(center, radio to 42), rate, t + 2_500)
+        assertTrue(again.all { it.repeat })
+        assertEquals(radio, again.single().freqHz)
     }
 
     @Test
@@ -107,5 +109,43 @@ class RadioWatchTest {
         val p = RadioWatch.powerSpectrum(iq, count, n)
         val peak = p.indices.maxByOrNull { p[it] }!!
         assertEquals(n / 2 + (tone / binHz).roundToInt(), peak)
+    }
+
+    // ---- Settings > RTL-SDR radio ----
+
+    @Test
+    fun sensitivityMovesTheThresholds() {
+        val w = RadioWatch()
+        w.config = RadioWatch.Config(minSnrDb = 20)
+        val t = learn(w, 8)
+        // 25 dB: below the default 30, above a sensitivity of 20.
+        val ev = w.analyze(center, psd(center, tower to 40, radio to 25), rate, t)
+        assertEquals(60, ev.single().confidence)
+        val dflt = RadioWatch()
+        val t2 = learn(dflt, 8)
+        assertTrue(dflt.analyze(center, psd(center, tower to 40, radio to 25), rate, t2).isEmpty())
+    }
+
+    @Test
+    fun excludedRangesAndWatchedFrequencies() {
+        val w = RadioWatch()
+        w.config = RadioWatch.Config(
+            excluded = listOf(807_300_000L..807_330_000L),
+            targets = listOf(RadioWatch.Target(806_812_500L, "Dispatch"))
+        )
+        val t = learn(w, 8)
+        val ev = w.analyze(center, psd(center, tower to 40, radio to 42, 806_812_500L to 20), rate, t)
+        assertTrue(ev.none { it.freqHz == radio })                 // excluded
+        val target = ev.single { it.target != null }
+        assertEquals("Dispatch", target.target!!.label)
+        assertEquals(RadioWatch.Kind.TARGET, target.band.kind)
+    }
+
+    @Test
+    fun watchedFrequenciesOutsideTheBandsGetTheirOwnChunk() {
+        val cfg = RadioWatch.Config(targets = listOf(RadioWatch.Target(121_500_000L, "x")))
+        val plan = RadioWatch.plan(cfg)
+        assertEquals(RadioWatch.plan().size + 1, plan.size)
+        assertTrue(plan.any { kotlin.math.abs(121_500_000L - it) in 20_000L..800_000L })
     }
 }

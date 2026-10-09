@@ -21,14 +21,33 @@ import kotlin.math.sin
  */
 class RadioWatch {
 
-    enum class Kind { PUBLIC_SAFETY_MOBILE, SHARED }
+    enum class Kind { PUBLIC_SAFETY_MOBILE, SHARED, CUSTOM, TARGET }
 
     data class Band(val label: String, val startHz: Long, val endHz: Long, val kind: Kind)
 
-    /** A strong transmission on a normally quiet channel. */
-    data class Event(val freqHz: Long, val snrDb: Int, val band: Band, val confidence: Int) {
+    /** A frequency the user asked to watch (Settings > RTL-SDR radio): reported whenever it's active. */
+    data class Target(val freqHz: Long, val label: String)
+
+    /** What to watch and how sensitive (Settings > RTL-SDR radio); read at the start of every sweep. */
+    data class Config(
+        val bands: List<Band> = BANDS,
+        /** The user's own excluded ranges (e.g. a business band), on top of the built-in ones. */
+        val excluded: List<LongRange> = emptyList(),
+        val targets: List<Target> = emptyList(),
+        /** A transmission counts from this many dB above the noise (lower = more sensitive). */
+        val minSnrDb: Int = DEFAULT_MIN_SNR
+    )
+
+    /**
+     * A strong transmission on a normally quiet channel. [repeat]: the same channel again within
+     * [REPEAT_MS] - not a new alert, but it keeps the live list and the closer / farther trend current.
+     */
+    data class Event(val freqHz: Long, val snrDb: Int, val band: Band, val confidence: Int,
+                     val target: Target? = null, val repeat: Boolean = false) {
         val mhz: String get() = "%.4f".format(java.util.Locale.US, freqHz / 1e6)
     }
+
+    @Volatile var config = Config()
 
     private class Channel {
         var visits = 0
@@ -61,12 +80,13 @@ class RadioWatch {
         val floor = median(FloatArray(2 * usableBins) { psdDb[(n / 2 - usableBins + it).coerceIn(0, n - 1)] })
         val half = maxOf(1, (CHANNEL_HALF_HZ / binHz).roundToInt())
         val found = ArrayList<Event>()
-        for (band in BANDS) {
+        val cfg = config
+        for (band in cfg.bands) {
             var f = ((maxOf(band.startHz, centerHz - USABLE_HZ.toLong()) + STEP_HZ - 1) / STEP_HZ) * STEP_HZ
             val last = minOf(band.endHz, centerHz + USABLE_HZ.toLong())
             while (f <= last) {
                 val off = f - centerHz
-                if (kotlin.math.abs(off) > DC_GUARD_HZ && !excluded(f)) {
+                if (kotlin.math.abs(off) > DC_GUARD_HZ && !excluded(f, cfg)) {
                     val mid = n / 2 + (off / binHz).roundToInt()
                     var p = -200f
                     for (k in mid - half..mid + half) if (k in 0 until n && psdDb[k] > p) p = psdDb[k]
@@ -75,29 +95,46 @@ class RadioWatch {
                     val active = snr >= ACTIVE_DB
                     ch.recent = (ch.recent shl 1) or (if (active) 1L else 0L)
                     ch.visits++
-                    if (active) eventFor(f, snr, band, ch, now)?.let { found += it }
+                    if (active) eventFor(f, snr, band, ch, now, cfg.minSnrDb)?.let { found += it }
                 }
                 f += STEP_HZ
             }
         }
-        // A strong signal spills into the channels next to it: keep the strongest of a cluster.
-        val kept = found.sortedByDescending { it.snrDb }.fold(ArrayList<Event>()) { acc, e ->
-            if (acc.none { kotlin.math.abs(it.freqHz - e.freqHz) <= SPLATTER_HZ }) acc += e
-            acc
+        // Watched frequencies: any burst counts (no learning, no busy filter - the user asked for them).
+        for (t in cfg.targets) {
+            val off = t.freqHz - centerHz
+            if (kotlin.math.abs(off) > USABLE_HZ || kotlin.math.abs(off) <= DC_GUARD_HZ) continue
+            val mid = n / 2 + (off / binHz).roundToInt()
+            var p = -200f
+            for (k in mid - half..mid + half) if (k in 0 until n && psdDb[k] > p) p = psdDb[k]
+            val snr = (p - floor).roundToInt()
+            val st = targetState.getOrPut(t.freqHz) { Channel() }
+            if (snr < maxOf(ACTIVE_DB, cfg.minSnrDb - 10)) continue
+            found += Event(t.freqHz, snr, Band(t.label, t.freqHz, t.freqHz, Kind.TARGET), TARGET_CONFIDENCE, t,
+                repeat = now - st.lastEvent < REPEAT_MS)
         }
-        for (e in kept) channels[e.freqHz]?.lastEvent = now
+        // A strong signal spills into the channels next to it: keep the strongest of a cluster
+        // (a watched frequency wins a tie).
+        val kept = found.sortedWith(compareByDescending<Event> { it.snrDb }.thenByDescending { it.target != null })
+            .fold(ArrayList<Event>()) { acc, e ->
+                if (acc.none { kotlin.math.abs(it.freqHz - e.freqHz) <= SPLATTER_HZ }) acc += e
+                acc
+            }
+        for (e in kept) if (!e.repeat) (if (e.target != null) targetState else channels)[e.freqHz]?.lastEvent = now
         return kept
     }
 
-    private fun eventFor(f: Long, snr: Int, band: Band, ch: Channel, now: Long): Event? {
+    private val targetState = HashMap<Long, Channel>()
+
+    /** [min]: the sensitivity setting; at the default (30 dB) the thresholds are the original ones. */
+    private fun eventFor(f: Long, snr: Int, band: Band, ch: Channel, now: Long, min: Int = DEFAULT_MIN_SNR): Event? {
         if (sweeps < LEARN_SWEEPS) return null                                   // still learning what's always there
         if (ch.visits >= MIN_VISITS_BUSY && ch.busyRatio() >= BUSY_RATIO) return null // tower / control channel / pager
-        if (now - ch.lastEvent < REPEAT_MS) return null
         val confidence = when (band.kind) {
-            Kind.PUBLIC_SAFETY_MOBILE -> when { snr >= 40 -> 75; snr >= 30 -> 60; else -> return null }
-            Kind.SHARED -> when { snr >= 45 -> 55; snr >= 35 -> 35; else -> return null }
+            Kind.PUBLIC_SAFETY_MOBILE -> when { snr >= min + 10 -> 75; snr >= min -> 60; else -> return null }
+            else -> when { snr >= min + 15 -> 55; snr >= min + 5 -> 35; else -> return null }
         }
-        return Event(f, snr, band, confidence)
+        return Event(f, snr, band, confidence, repeat = now - ch.lastEvent < REPEAT_MS)
     }
 
     companion object {
@@ -112,6 +149,9 @@ class RadioWatch {
         private const val MIN_VISITS_BUSY = 6
         private const val LEARN_SWEEPS = 6 // = MIN_VISITS_BUSY: no alert before always-on channels are known
         private const val REPEAT_MS = 120_000L
+        /** Default sensitivity: 30 dB above the noise (the original public-safety threshold). */
+        const val DEFAULT_MIN_SNR = 30
+        private const val TARGET_CONFIDENCE = 70
 
         /** North American (FCC) public-safety land-mobile bands. */
         val BANDS = listOf(
@@ -132,12 +172,22 @@ class RadioWatch {
         ) + listOf(152_007_500L, 152_240_000L, 152_480_000L, 157_740_000L, 158_100_000L, 158_700_000L) // paging
             .map { it - 6_250L..it + 6_250L }
 
-        fun excluded(hz: Long) = EXCLUDED.any { hz in it }
+        fun excluded(hz: Long, cfg: Config = Config()) = EXCLUDED.any { hz in it } || cfg.excluded.any { hz in it }
 
-        /** Tuning plan: chunk centres covering every band with the usable middle of the spectrum. */
-        fun plan(): List<Long> = BANDS.flatMap { b ->
+        /**
+         * Tuning plan: chunk centres covering every band with the usable middle of the spectrum,
+         * plus a chunk for each watched frequency outside them.
+         */
+        fun plan(cfg: Config = Config()): List<Long> {
             val step = (2 * USABLE_HZ).toLong()
-            generateSequence(b.startHz + step / 2) { it + step }.takeWhile { it - step / 2 < b.endHz }.toList()
+            val chunks = cfg.bands.flatMap { b ->
+                generateSequence(b.startHz + step / 2) { it + step }.takeWhile { it - step / 2 < b.endHz }.toList()
+            }.toMutableList()
+            for (t in cfg.targets) {
+                // Inside a chunk's usable middle but clear of its centre (DC): nothing to add.
+                if (chunks.none { kotlin.math.abs(t.freqHz - it) in (DC_GUARD_HZ + 1)..USABLE_HZ.toLong() }) chunks += t.freqHz + step / 4
+            }
+            return chunks
         }
 
         private fun median(a: FloatArray): Float { a.sort(); return if (a.isEmpty()) 0f else a[a.size / 2] }

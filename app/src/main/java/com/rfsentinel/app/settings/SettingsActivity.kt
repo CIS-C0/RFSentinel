@@ -290,6 +290,14 @@ class SettingsActivity : AppCompatActivity() {
     /** A foldable settings section: its header, its content and what the ⓘ button explains. */
     private class Section(val key: String, val header: android.widget.TextView, val body: View, val info: String)
 
+    /** A folded section on screen, for the search: its header row, divider, body and fold state. */
+    private class SectionUi(
+        val title: String, val info: String, val row: View, val divider: View?, val body: View,
+        val restore: () -> Unit, val expand: () -> Unit
+    )
+
+    private val sectionUi = mutableListOf<SectionUi>()
+
     private fun sections() = listOf(
         Section("general", binding.headerGeneral, binding.sectionGeneral,
             "Setup wizard: walks through the permissions and main choices again.\n\n" +
@@ -305,6 +313,7 @@ class SettingsActivity : AppCompatActivity() {
                 "is turned off in Developer options; then down to 5 s works, at some battery cost.\n\n" +
                 "Background scanning: lets the scan keep running with the screen off.\n\n" +
                 "Remove from the list: how long an ordinary device stays in the list and radar once it stops being heard (default 30 s Bluetooth, 60 s WiFi). Flagged devices follow these too; favourite and following devices stay 3 minutes. " +
+                "Hide trusted devices: whitelisted devices are left out of the list and radar (they stay in the history). " +
                 "Both can go down to 5 s (WiFi only when Developer options are on and the WiFi interval is under 30 s)."),
         Section("autostart", binding.headerAutoStart, binding.sectionAutoStart,
             "When the phone starts: begins scanning after a reboot.\n\n" +
@@ -393,18 +402,43 @@ class SettingsActivity : AppCompatActivity() {
                 "• USB WiFi adapters in monitor mode: longer range, and they hear devices connected to networks. " +
                 "RTL8811AU / 8821AU (ALFA AWUS036ACS), RTL8812BU / 8822BU, RTL8814AU (AWUS1900), MT7612U (AWUS036ACM), " +
                 "RTL8187 (AWUS036H), RT3070 (AWUS036NH / NEH), AR9271 (AWUS036NHA, experimental).\n\n" +
+                "AWUS036ACS 5 GHz (experimental, off by default): the RTL8811AU / 8821AU also hops 5 GHz channels 36-48 and " +
+                "149-165. Untested on every unit: if it misbehaves, turn it off and send the adapter log. Applies when the adapter is plugged in.\n\n" +
                 "• RTL-SDR dongle: notices two-way radios transmitting nearby (signal strength only, nothing is decoded).\n\n" +
                 "OUI-SPY over Bluetooth needs its App-Controlled firmware. Relay mode passes on every network and device it hears " +
                 "so RF Sentinel's own lists check them (the board also sends standard Wi-Fi scan probes).\n\n" +
                 "Adapter not working? Export its log and send it to the developer."),
+        Section("radio", binding.headerRadio, binding.sectionRadio,
+            "An RTL-SDR dongle on USB notices two-way radios transmitting nearby, from signal strength only - nothing is " +
+                "decoded or recorded. Needs the Police radio category on (What to detect).\n\n" +
+                "Sensitivity: how far above the noise a burst must be to count. Lower hears farther radios, and more false alarms.\n\n" +
+                "Bands: the built-in North American public-safety bands, your own bands (one per line, \"380-400 TETRA\"), " +
+                "ranges never to report (\"462-469 business band\"), and frequencies to watch (\"154.4300 County fire\"), " +
+                "which are reported whenever they're active.\n\n" +
+                "Hits show in the main list (Radio filter). Closer / moving away: called out when the signal changes by the set " +
+                "amount - a rough guide only.\n\n" +
+                "Frequency names: import a CSV (RadioReference's export, CHIRP, or any file with a frequency and a name column), " +
+                "or let RadioReference name the FCC licences near you (US): needs your own RadioReference Premium login and a " +
+                "RadioReference developer key; your position rounded to ~1 km is sent to RadioReference, at most once a day per area.\n\n" +
+                "Changes apply from the next sweep while scanning."),
         Section("location", binding.headerLocation, binding.sectionLocation,
             "Traces: records your route while scanning, to view on the map.\n\n" +
                 "Saving the GPS position with matches is privacy-sensitive: the log then shows where you were. It also lets the map remember where it last looked, so it can open there before the GPS answers."),
         Section("data", binding.headerData, binding.sectionData,
             "Everything stays on this phone. History older than the set number of days is deleted (0 keeps it forever).\n\n" +
+                "Live export (off by default): while scanning, rewrites three files every 30 s in the folder you choose - " +
+                "rfsentinel_live_matches.csv, rfsentinel_live_matches.kml and rfsentinel_live.geojson (devices on the map and " +
+                "your position) - so another mapping app can show them close to live. Anything that can read that folder can read them.\n\n" +
                 "Forget device history: new / returning status, detect counts and the cell towers remembered for the " +
                 "fake-cell checks start over. Favorites are kept.\n\n" +
-                "Changes on this screen are saved automatically.")
+                "Changes on this screen are saved automatically."),
+        Section("more", binding.headerMore, binding.sectionMore,
+            "Watchlist & rules: the vendor prefixes and rules that flag a device; add your own.\n\n" +
+                "Whitelist: devices you trust, never flagged.\n\n" +
+                "Check for updates: asks GitHub for a newer version now.\n\n" +
+                "About & sources: version, licence, where the signatures come from, and the app's limits.\n\n" +
+                "Crash log: if RF Sentinel ever closes unexpectedly, what went wrong is saved on this phone (never sent " +
+                "automatically). Export it to send to the developer; the app also offers this the next time it opens.")
     )
 
     /** Folds each section under a tappable header (remembered) with an ⓘ button for the details. */
@@ -443,8 +477,9 @@ class SettingsActivity : AppCompatActivity() {
             }
             parent.addView(row, at, android.widget.LinearLayout.LayoutParams(
                 android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT))
-            if (i > 0) parent.addView(View(this).apply { setBackgroundColor(divider) }, at,
-                android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, maxOf(1, dp.toInt())))
+            val dividerView = if (i == 0) null else View(this).apply { setBackgroundColor(divider) }
+            dividerView?.let { parent.addView(it, at,
+                android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, maxOf(1, dp.toInt()))) }
             s.body.setPadding(0, 0, 0, (10 * dp).toInt())
             val requested = intent.getStringExtra(EXTRA_SECTION) == s.key
             if (requested) ui.edit().putBoolean(s.key, true).apply()
@@ -462,6 +497,293 @@ class SettingsActivity : AppCompatActivity() {
                 ui.edit().putBoolean(s.key, open).apply()
                 show()
             }
+            sectionUi += SectionUi(title, s.info, row, dividerView, s.body, restore = { show() }, expand = {
+                s.body.visibility = View.VISIBLE
+                s.header.text = "▾  $title"
+            })
+        }
+    }
+
+    // ---- Search ----------------------------------------------------------------------------
+
+    /** Views tinted as search matches, with the background they had before. */
+    private val highlighted = mutableListOf<Pair<View, android.graphics.drawable.Drawable?>>()
+    private lateinit var searchInput: android.widget.EditText
+
+    /** The search field pinned above the scrolling settings (with a clear button). */
+    private fun searchBar(): View {
+        val dp = resources.displayMetrics.density
+        searchInput = android.widget.EditText(this).apply {
+            hint = "Search settings"
+            isSingleLine = true
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
+            setCompoundDrawablesRelativeWithIntrinsicBounds(android.R.drawable.ic_menu_search, 0, 0, 0)
+            compoundDrawablePadding = (6 * dp).toInt()
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+        }
+        val clear = android.widget.TextView(this).apply {
+            text = "✕"
+            textSize = 18f
+            setPadding((12 * dp).toInt(), (8 * dp).toInt(), (12 * dp).toInt(), (8 * dp).toInt())
+            contentDescription = "Clear search"
+            visibility = View.GONE
+            setOnClickListener { searchInput.setText("") }
+        }
+        // Back only puts the keyboard away (the search stays); the keyboard's search key does too.
+        searchInput.setOnEditorActionListener { v, actionId, _ ->
+            if (actionId != android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) return@setOnEditorActionListener false
+            getSystemService(android.view.inputmethod.InputMethodManager::class.java)?.hideSoftInputFromWindow(v.windowToken, 0)
+            true
+        }
+        searchInput.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val q = s?.toString().orEmpty()
+                clear.visibility = if (q.isEmpty()) View.GONE else View.VISIBLE
+                filterSettings(q)
+            }
+        })
+        return android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding((16 * dp).toInt(), (4 * dp).toInt(), (4 * dp).toInt(), 0)
+            addView(searchInput, android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(clear)
+        }
+    }
+
+    /**
+     * Shows only the sections with a setting (or ⓘ text) matching [raw], unfolded, tints the
+     * matching settings and scrolls to the first one. Empty: everything back as it was.
+     */
+    private fun filterSettings(raw: String) {
+        highlighted.forEach { (v, bg) -> v.background = bg }
+        highlighted.clear()
+        val q = raw.trim().lowercase()
+        if (q.isEmpty()) {
+            sectionUi.forEach { it.row.visibility = View.VISIBLE; it.divider?.visibility = View.VISIBLE; it.restore() }
+            return
+        }
+        val tint = androidx.core.graphics.ColorUtils.setAlphaComponent(
+            com.google.android.material.color.MaterialColors.getColor(binding.root, androidx.appcompat.R.attr.colorPrimary), 0x40)
+        var first: View? = null
+        for (s in sectionUi) {
+            val hits = mutableListOf<View>()
+            collectMatches(s.body, q, hits)
+            val show = hits.isNotEmpty() || s.title.lowercase().contains(q) || s.info.lowercase().contains(q)
+            s.row.visibility = if (show) View.VISIBLE else View.GONE
+            s.divider?.visibility = s.row.visibility
+            if (!show) { s.body.visibility = View.GONE; continue }
+            s.expand()
+            for (v in hits) {
+                highlighted += v to v.background
+                v.background = android.graphics.drawable.ColorDrawable(tint)
+            }
+            if (first == null) first = hits.firstOrNull() ?: s.row
+        }
+        val target = first ?: return
+        binding.root.post {
+            if (isFinishing) return@post
+            val content = binding.root.getChildAt(0) as? android.view.ViewGroup ?: return@post
+            val r = android.graphics.Rect()
+            target.getDrawingRect(r)
+            runCatching { content.offsetDescendantRectToMyCoords(target, r) }.onSuccess {
+                binding.root.scrollTo(0, maxOf(0, r.top - (24 * resources.displayMetrics.density).toInt()))
+            }
+        }
+    }
+
+    /** Visible settings under [v] whose label, text or hint contains [q]. */
+    private fun collectMatches(v: View, q: String, out: MutableList<View>) {
+        if (v is android.view.ViewGroup) {
+            for (i in 0 until v.childCount) {
+                val c = v.getChildAt(i)
+                if (c.visibility == View.VISIBLE) collectMatches(c, q, out)
+            }
+        } else if (v is android.widget.TextView) {
+            val text = v.text?.toString().orEmpty().lowercase()
+            val hint = v.hint?.toString().orEmpty().lowercase()
+            if (text.contains(q) || hint.contains(q)) out += v
+        }
+    }
+
+    // ---- RTL-SDR radio -------------------------------------------------------------------
+
+    private val freqListPicker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        lifecycleScope.launch {
+            val n = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    val text = contentResolver.openInputStream(uri)?.use { com.rfsentinel.app.sdr.FreqNames.readLimited(it) }.orEmpty()
+                    com.rfsentinel.app.sdr.FreqNames.importCsv(this@SettingsActivity, text, "your list")
+                }.getOrDefault(-1)
+            }
+            Toast.makeText(this@SettingsActivity,
+                if (n > 0) "$n frequencies imported" else "No frequencies found in that file (needs a frequency column in MHz)",
+                Toast.LENGTH_LONG).show()
+            updateFreqListText()
+        }
+    }
+
+    private var freqListText: android.widget.TextView? = null
+
+    private fun updateFreqListText() {
+        val n = com.rfsentinel.app.sdr.FreqNames.importedCount
+        freqListText?.text = if (n == 0) "No frequency list imported" else "$n named frequencies imported"
+    }
+
+    /** Settings > RTL-SDR radio, built in code; everything is saved as you change it. */
+    private fun setupRadioSection() {
+        val box = binding.sectionRadio
+        val dp = resources.displayMetrics.density
+        fun label(t: String, small: Boolean = false) = android.widget.TextView(this).apply {
+            text = t; textSize = if (small) 12f else 14f
+            if (small) alpha = 0.75f
+            setPadding(0, (if (small) 0 else 10 * dp).toInt(), 0, (2 * dp).toInt())
+        }.also { box.addView(it) }
+        fun slider(from: Int, to: Int, value: Int, text: (Int) -> String, save: (Int) -> Unit) {
+            val l = label(text(value))
+            box.addView(com.google.android.material.slider.Slider(this).apply {
+                valueFrom = from.toFloat(); valueTo = to.toFloat(); stepSize = 1f
+                this.value = value.coerceIn(from, to).toFloat()
+                contentDescription = text(value)
+                addOnChangeListener { _, v, fromUser -> if (fromUser) { save(v.toInt()); l.text = text(v.toInt()) } }
+            })
+        }
+        fun lines(title: String, hint: String, value: String, save: (String) -> Unit) {
+            label(title)
+            box.addView(android.widget.EditText(this).apply {
+                setText(value); this.hint = hint
+                minLines = 2; maxLines = 8; gravity = android.view.Gravity.TOP
+                inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+                addTextChangedListener(object : android.text.TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                    override fun afterTextChanged(s: android.text.Editable?) { save(s?.toString().orEmpty()) }
+                })
+            })
+        }
+        fun switch(t: String, on: Boolean, save: (Boolean) -> Unit) = SwitchMaterial(this).apply {
+            text = t; isChecked = on
+            setOnCheckedChangeListener { _, v -> save(v) }
+        }.also { box.addView(it) }
+
+        slider(15, 50, Prefs.radioMinSnr(this), { "Sensitivity: report a radio from $it dB above the noise (lower = hears farther, more false alarms)" }) {
+            Prefs.setRadioMinSnr(this, it)
+        }
+        label("Bands to sweep")
+        val off = Prefs.radioBandsOff(this).toMutableSet()
+        for ((key, band) in com.rfsentinel.app.sdr.RadioSettings.BUILT_IN) {
+            box.addView(android.widget.CheckBox(this).apply {
+                text = "%s (%.1f-%.1f MHz)".format(java.util.Locale.US, band.label, band.startHz / 1e6, band.endHz / 1e6)
+                isChecked = key !in off
+                setOnCheckedChangeListener { _, on ->
+                    if (on) off -= key else off += key
+                    Prefs.setRadioBandsOff(this@SettingsActivity, off.toSet())
+                }
+            })
+        }
+        lines("Your own bands (one per line, in MHz)", "380-400 TETRA\n220-222", Prefs.radioCustomBands(this)) { Prefs.setRadioCustomBands(this, it) }
+        lines("Never report these ranges", "462-469 business band\n151.8-152.0", Prefs.radioExcluded(this)) { Prefs.setRadioExcluded(this, it) }
+        lines("Watch these frequencies (always reported when active)", "154.4300 County fire dispatch\n460.125", Prefs.radioTargets(this)) { Prefs.setRadioTargets(this, it) }
+        switch("Say the frequency (and its name) instead of \"Radio transmitting nearby\"", Prefs.radioSpeakFreq(this)) { Prefs.setRadioSpeakFreq(this, it) }
+        slider(0, 20, Prefs.radioTrendDb(this), { if (it == 0) "Closer / moving away: off" else "Say \"getting closer\" / \"moving away\" when the signal changes by $it dB" }) {
+            Prefs.setRadioTrendDb(this, it)
+        }
+        slider(1, 50, Prefs.radioMatchKhz(this), { "A hit takes a frequency's name within ± $it kHz" }) { Prefs.setRadioMatchKhz(this, it) }
+
+        label("Frequency names")
+        freqListText = label("", small = true)
+        com.rfsentinel.app.sdr.FreqNames.load(this)
+        updateFreqListText()
+        box.addView(android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            addView(com.google.android.material.button.MaterialButton(this@SettingsActivity, null,
+                android.R.attr.borderlessButtonStyle).apply {
+                text = "Import CSV"
+                setOnClickListener { freqListPicker.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel", "*/*")) }
+            })
+            addView(com.google.android.material.button.MaterialButton(this@SettingsActivity, null,
+                android.R.attr.borderlessButtonStyle).apply {
+                text = "Clear list"
+                setOnClickListener { com.rfsentinel.app.sdr.FreqNames.clearImported(this@SettingsActivity); updateFreqListText() }
+            })
+        })
+
+        val rrSwitch = switch("Name hits from RadioReference (your own Premium login)", Prefs.radioReferenceOn(this)) {
+            Prefs.setRadioReferenceOn(this, it)
+        }
+        fun secret(title: String, key: String, password: Boolean) {
+            box.addView(android.widget.EditText(this).apply {
+                hint = title
+                setText(com.rfsentinel.app.util.SecureStore.get(this@SettingsActivity, key).orEmpty())
+                isSingleLine = true
+                inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                    (if (password) android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD else android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS)
+                importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+                setOnFocusChangeListener { v, has ->
+                    if (!has) com.rfsentinel.app.util.SecureStore.put(this@SettingsActivity, key, (v as android.widget.EditText).text.toString().trim())
+                }
+                secretFields += this to key
+            })
+        }
+        secret("RadioReference username (not your email)", com.rfsentinel.app.sdr.RadioReference.USER_KEY, false)
+        secret("RadioReference password", com.rfsentinel.app.sdr.RadioReference.PASS_KEY, true)
+        secret("RadioReference developer key", com.rfsentinel.app.sdr.RadioReference.APPKEY_KEY, true)
+        val rrStatus = label(com.rfsentinel.app.sdr.RadioReference.status.ifEmpty { "Stored encrypted on this phone." }, small = true)
+        box.addView(com.google.android.material.button.MaterialButton(this, null, android.R.attr.borderlessButtonStyle).apply {
+            text = "Test login"
+            setOnClickListener {
+                saveSecrets()
+                rrStatus.text = "Checking…"
+                lifecycleScope.launch { rrStatus.text = com.rfsentinel.app.sdr.RadioReference.test(this@SettingsActivity) }
+            }
+        })
+        rrSwitch.isChecked = Prefs.radioReferenceOn(this)
+    }
+
+    /** The RadioReference fields, saved (encrypted) when they lose focus and when leaving Settings. */
+    private val secretFields = mutableListOf<Pair<android.widget.EditText, String>>()
+
+    private fun saveSecrets() {
+        for ((field, key) in secretFields) com.rfsentinel.app.util.SecureStore.put(this, key, field.text.toString().trim())
+    }
+
+    // ---- Live export (Settings > Data) ---------------------------------------------------
+
+    private val liveExportFolder = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri == null) { if (Prefs.liveExportTree(this) == null) binding.liveExportSwitch.isChecked = false; return@registerForActivityResult }
+        runCatching {
+            contentResolver.takePersistableUriPermission(uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        }
+        Prefs.setLiveExportTree(this, uri.toString())
+        com.rfsentinel.app.util.LiveExport.reset()
+        updateLiveExportText()
+    }
+
+    private fun setupLiveExport() {
+        binding.liveExportSwitch.isChecked = Prefs.liveExport(this)
+        binding.liveExportSwitch.setOnCheckedChangeListener { _, on ->
+            Prefs.setLiveExport(this, on)
+            if (on && Prefs.liveExportTree(this) == null) liveExportFolder.launch(null)
+            updateLiveExportText()
+        }
+        binding.liveExportFolderButton.setOnClickListener { liveExportFolder.launch(null) }
+        updateLiveExportText()
+    }
+
+    private fun updateLiveExportText() {
+        val tree = Prefs.liveExportTree(this)?.let { android.net.Uri.parse(it) }
+        val folder = tree?.let { runCatching { android.provider.DocumentsContract.getTreeDocumentId(it).substringAfter(':') }.getOrNull() }
+        binding.liveExportText.text = when {
+            !Prefs.liveExport(this) -> "Off"
+            tree == null -> "Choose a folder"
+            else -> "Folder: ${folder?.ifEmpty { "storage root" } ?: tree}" +
+                com.rfsentinel.app.util.LiveExport.status.takeIf { it.isNotEmpty() }?.let { "\n$it" }.orEmpty()
         }
     }
 
@@ -880,8 +1202,17 @@ class SettingsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivitySettingsBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        binding.root.applySystemBarInsets()
+        // The search field stays pinned above the scrolling settings.
+        val page = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            // The page holds focus, so opening Settings doesn't pop the keyboard up.
+            isFocusableInTouchMode = true
+            addView(searchBar())
+            addView(binding.root, android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        }
+        setContentView(page)
+        page.applySystemBarInsets()
+        page.requestFocus()
         title = "Settings"
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
@@ -1101,6 +1432,12 @@ class SettingsActivity : AppCompatActivity() {
         binding.speedCameraSwitch.isChecked = Prefs.speedCameraAlerts(this)
         binding.autoCamerasSwitch.isChecked = Prefs.autoCameras(this)
         setupMapSection()
+        setupRadioSection()
+        setupLiveExport()
+        binding.hideTrustedSwitch.isChecked = Prefs.hideWhitelisted(this)
+        binding.hideTrustedSwitch.setOnCheckedChangeListener { _, on -> Prefs.setHideWhitelisted(this, on) }
+        binding.rtl5gSwitch.isChecked = Prefs.rtl8821au5g(this)
+        binding.rtl5gSwitch.setOnCheckedChangeListener { _, on -> Prefs.setRtl8821au5g(this, on) }
         binding.autoUpdateSwitch.isChecked = Prefs.autoUpdateCheck(this)
         fun showRadius(km: Int) {
             binding.cameraRadiusText.text = "Download radius: $km km"
@@ -1147,6 +1484,16 @@ class SettingsActivity : AppCompatActivity() {
         // Data
         binding.retentionInput.setText(Prefs.retentionDays(this).toString())
         binding.exportAllButton.setOnClickListener { com.rfsentinel.app.util.Exporter.showExportMenu(this) }
+        // Lists, tools & about (moved here from the main screen's menu).
+        binding.openWatchlistButton.setOnClickListener { startActivity(Intent(this, com.rfsentinel.app.ouilist.OuiListActivity::class.java)) }
+        binding.openWhitelistButton.setOnClickListener { startActivity(Intent(this, com.rfsentinel.app.whitelist.WhitelistActivity::class.java)) }
+        binding.checkUpdateButton.setOnClickListener { com.rfsentinel.app.util.UpdateChecker.check(this) }
+        binding.aboutButton.setOnClickListener { com.rfsentinel.app.ui.AboutDialog.show(this) }
+        binding.exportCrashLogButton.setOnClickListener { com.rfsentinel.app.util.CrashLog.share(this) }
+        binding.clearCrashLogButton.setOnClickListener {
+            com.rfsentinel.app.util.CrashLog.clear(this)
+            Toast.makeText(this, "Crash log cleared", Toast.LENGTH_SHORT).show()
+        }
         binding.forgetHistoryButton.setOnClickListener {
             confirm("Forget device history?", "New/returning status, detect counts and the cell towers remembered for the fake-cell checks start over. Favorites are kept.") {
                 lifecycleScope.launch {
@@ -1240,6 +1587,7 @@ class SettingsActivity : AppCompatActivity() {
 
     /** Settings save themselves: whenever this screen is left (back, home, another screen). */
     override fun onPause() {
+        saveSecrets()
         // Leaving Settings ends any sound preview (not an intro played by a starting scan).
         com.rfsentinel.app.util.AlertPlayer.stopPreview(stopIntro = introTesting)
         if (introTesting) { introTesting = false; binding.testIntroButton.text = "Test intro" }

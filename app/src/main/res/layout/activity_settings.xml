@@ -86,6 +86,12 @@
         <LinearLayout android:id="@+id/sectionScanning" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/hideTrustedSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Hide trusted (whitelisted) devices from the list and radar" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/bleSwitch"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -607,7 +613,17 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="OUI-SPY: relay everything it hears" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/rtl5gSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="AWUS036ACS (RTL8811AU / 8821AU): also scan 5 GHz (experimental)" />
         </LinearLayout>
+
+        <!-- ================= RTL-SDR radio (filled in by SettingsActivity.setupRadioSection) ================= -->
+        <TextView android:id="@+id/headerRadio" style="@style/SettingsHeader" android:text="RTL-SDR radio" />
+        <LinearLayout android:id="@+id/sectionRadio" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
 
         <!-- ================= Location & traces ================= -->
         <TextView android:id="@+id/headerLocation" style="@style/SettingsHeader" android:text="Location &amp; traces" />
@@ -629,6 +645,25 @@
         <!-- ================= Data ================= -->
         <TextView android:id="@+id/headerData" style="@style/SettingsHeader" android:text="Data" />
         <LinearLayout android:id="@+id/sectionData" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/liveExportSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Live export for other mapping apps" />
+
+            <Button
+                android:id="@+id/liveExportFolderButton"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Choose folder" />
+
+            <TextView
+                android:id="@+id/liveExportText"
+                style="@style/SettingsLabel"
+                android:paddingTop="0dp"
+                android:textSize="12sp" />
 
             <TextView android:id="@+id/retentionLabel" style="@style/SettingsLabel" android:text="Keep history for (days, 0 = forever)" />
 
@@ -661,6 +696,58 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Clear match history" />
+        </LinearLayout>
+
+        <!-- ================= Lists, tools & about ================= -->
+        <TextView android:id="@+id/headerMore" style="@style/SettingsHeader" android:text="Lists, tools &amp; about" />
+        <LinearLayout android:id="@+id/sectionMore" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+
+            <Button
+                android:id="@+id/openWatchlistButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Watchlist &amp; rules" />
+
+            <Button
+                android:id="@+id/openWhitelistButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Whitelist (trusted devices)" />
+
+            <Button
+                android:id="@+id/checkUpdateButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Check for updates" />
+
+            <Button
+                android:id="@+id/aboutButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="About &amp; sources" />
+
+            <Button
+                android:id="@+id/exportCrashLogButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Export crash log" />
+
+            <Button
+                android:id="@+id/clearCrashLogButton"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Clear crash log" />
         </LinearLayout>
 
     </LinearLayout>

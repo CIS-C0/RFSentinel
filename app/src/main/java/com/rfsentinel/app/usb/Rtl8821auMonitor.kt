@@ -27,7 +27,12 @@ object Rtl8821auMonitor {
     @Volatile private var stop = false
 
     private val frames = MonitorFrames()
-    private val HOP = intArrayOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
+    private val HOP_24 = intArrayOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
+    /** UNII-1 and UNII-3, like the RTL8814AU driver (where most 5 GHz networks are). */
+    private val HOP_5 = intArrayOf(36, 40, 44, 48, 149, 153, 157, 161, 165)
+    /** Settings > External hardware: also hop 5 GHz (experimental); read when the adapter starts. */
+    @Volatile var scan5g = false
+    private var HOP = HOP_24
     private const val DWELL_MS = 350L
 
     private val FRESH_MS get() = (HOP.size * DWELL_MS * 9 / 5).coerceAtLeast(3000L)
@@ -87,6 +92,8 @@ object Rtl8821auMonitor {
             w16(conn, Rtl8821auTables.REG_RXFLTMAP0, Rtl8821auTables.RXFLTMAP_ALL)
             w16(conn, Rtl8821auTables.REG_RXFLTMAP1, Rtl8821auTables.RXFLTMAP_ALL)
             w16(conn, Rtl8821auTables.REG_RXFLTMAP2, Rtl8821auTables.RXFLTMAP_ALL)
+            HOP = if (scan5g) HOP_24 + HOP_5 else HOP_24
+            if (scan5g) UsbWifi.log("RTL8821AU: 5 GHz hopping on (experimental): ${HOP.joinToString()}")
             channelTune(conn, HOP[0])
             UsbWifi.log("RTL8821AU: RCR=0x%08x BB(0x800)=0x%08x — monitor live ch ${HOP[0]}".format(
                 r32(conn, Rtl8821auTables.REG_RCR), r32(conn, 0x800)))
@@ -136,7 +143,7 @@ object Rtl8821auMonitor {
     }
 
     private fun channelTune(conn: UsbDeviceConnection, ch: Int) {
-        for (op in Rtl8821auTables.channelTune(ch)) {
+        for (op in Rtl8821auTables.channelTune(ch, bandSwitch = scan5g)) {
             val kind = op[0]; val addr = op[1]; val mask = op[2]; val v = op[3]
             when (kind) {
                 Rtl8821auTables.RF -> rfMask(conn, addr, mask, v)

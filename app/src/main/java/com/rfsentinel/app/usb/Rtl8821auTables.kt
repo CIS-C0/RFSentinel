@@ -727,7 +727,63 @@ object Rtl8821auTables {
         intArrayOf(0x18, 0x1712A)
     )
 
-    fun channelTune(ch: Int): Array<IntArray> = arrayOf(
+    /**
+     * Tunes to [ch]: the 2.4 GHz table below (unchanged), or the 5 GHz one. With [bandSwitch]
+     * the RTL8811AU's external antenna band switch is set too (one-antenna modules such as the
+     * ALFA AWUS036ACS need it to hear 5 GHz); off, 2.4 GHz tuning is exactly as before.
+     */
+    fun channelTune(ch: Int, bandSwitch: Boolean = false): Array<IntArray> = when {
+        ch > 14 -> extBandSwitch(5) + tune5g(ch)
+        bandSwitch -> extBandSwitch(2) + tune24(ch)
+        else -> tune24(ch)
+    }
+
+    /**
+     * phydm_set_ext_band_switch_8821A: DPDT pins as WLAN-controlled outputs (MAC 0x4C bit 23 = 0,
+     * bit 24 = 1), then 0xCB4[29:28] = 01 for 2.4 GHz, 10 for 5 GHz.
+     */
+    private fun extBandSwitch(ghz: Int): Array<IntArray> = arrayOf(
+        intArrayOf(MAC8, 0x4E, 0x80, 0x0),
+        intArrayOf(MAC8, 0x4F, 0x01, 0x1),
+        intArrayOf(BB, 0xCB4, 0xF, 0x7),
+        intArrayOf(BB, 0xCB4, 0xF0, 0x7),
+        intArrayOf(BB, 0xCB4, 0x30000000, if (ghz == 5) 0x2 else 0x1)
+    )
+
+    /**
+     * 5 GHz receive tuning, from the same Realtek driver: PHY_SwitchWirelessBand8812 (5G branch,
+     * RTL8821: RFE pins, CCK check on, AGC table 1, CCK RX path off) and phy_SwChnl8812 (fc_area
+     * and RF_MOD_AG by sub-band, channel number). The 20 MHz bandwidth writes are the 2.4 GHz ones.
+     */
+    private fun tune5g(ch: Int): Array<IntArray> {
+        val fc = when { ch <= 48 -> 0x494; ch <= 80 -> 0x453; ch <= 116 -> 0x452; else -> 0x412 }
+        val mod = when { ch <= 80 -> 0x101; ch <= 140 -> 0x301; else -> 0x501 }
+        return arrayOf(
+            intArrayOf(BB, 0x808, 0x30000000, 0x3),
+            intArrayOf(BB, 0xCB0, 0xF000, 0x5),
+            intArrayOf(BB, 0xCB0, 0xF0, 0x4),
+            intArrayOf(BB, 0xCB4, 0x100000, 0x0),
+            intArrayOf(BB, 0xCB4, 0x400000, 0x0),
+            intArrayOf(BB, 0xCB0, 0x7, 0x7),
+            intArrayOf(BB, 0xCB0, 0x700, 0x7),
+            intArrayOf(MAC8, 0x454, 0x80, 0x1),
+            intArrayOf(BB, 0xC1C, 0xF00, 0x1),
+            intArrayOf(BB, 0x82C, 0x3, 0x1),
+            intArrayOf(BB, 0x80C, 0xF0, 0x0),
+            intArrayOf(BB, 0xA04, 0xF000000, 0xF),
+            intArrayOf(BB, 0x860, 0x1FFE0000, fc),
+            intArrayOf(RF, 0x18, 0x70300, mod),
+            intArrayOf(RF, 0x18, 0xFF, ch),
+            intArrayOf(MAC16, 0x668, 0x180, 0x0),
+            intArrayOf(MAC8, 0x483, 0xFF, 0x0),
+            intArrayOf(BB, 0x8AC, 0x3003C3, 0x300200),
+            intArrayOf(BB, 0x8C4, 0x40000000, 0x0),
+            intArrayOf(BB, 0x848, 0x3C00000, 0x8),
+            intArrayOf(RF, 0x18, 0xC00, 0x3)
+        )
+    }
+
+    private fun tune24(ch: Int): Array<IntArray> = arrayOf(
         intArrayOf(BB, 0x808, 0x30000000, 0x3),
         intArrayOf(BB, 0xCB0, 0xF000, 0x7),
         intArrayOf(BB, 0xCB0, 0xF0, 0x7),

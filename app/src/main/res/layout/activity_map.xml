@@ -10,6 +10,21 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <!-- 3D view: the map is tilted, so its own attribution can be off screen; this one stays. -->
+    <TextView
+        android:id="@+id/osmCredit"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_marginStart="10dp"
+        android:background="#99FFFFFF"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
+        android:text="© OpenStreetMap contributors"
+        android:textColor="#333333"
+        android:textSize="10sp"
+        android:visibility="gone" />
+
     <!-- Status card, with the camera-download progress bar under it -->
     <LinearLayout
         android:id="@+id/statusBox"
@@ -51,6 +66,45 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:orientation="vertical">
+
+    <!-- On the main screen: open the map full screen. -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fullscreenButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:layout_marginEnd="14dp"
+        android:layout_marginBottom="8dp"
+        android:contentDescription="Open the map full screen"
+        android:src="@drawable/ic_fullscreen"
+        android:visibility="gone"
+        app:fabSize="mini"
+        app:tint="#FFFFFF" />
+
+    <!-- Light / dark map. -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/themeButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:layout_marginEnd="14dp"
+        android:layout_marginBottom="8dp"
+        android:contentDescription="Light / dark map"
+        android:src="@drawable/ic_dark_mode"
+        app:fabSize="mini"
+        app:tint="#FFFFFF" />
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/orientationButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:layout_marginEnd="14dp"
+        android:layout_marginBottom="8dp"
+        android:contentDescription="Map: north up"
+        android:src="@drawable/ic_north_up"
+        app:fabSize="mini"
+        app:tint="#FFFFFF" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/centerButton"
@@ -112,5 +166,35 @@
             android:layout_weight="1"
             android:text="Traces" />
     </LinearLayout>
+    </LinearLayout>
+
+    <!-- On the main screen: Record / Traces as round buttons on the map (the bar above is hidden). -->
+    <LinearLayout
+        android:id="@+id/compactControls"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_marginStart="10dp"
+        android:layout_marginBottom="8dp"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/recordFab"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:contentDescription="Record trace"
+            android:src="@drawable/ic_record"
+            app:fabSize="mini" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/tracesFab"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="Traces"
+            android:src="@drawable/ic_car_history"
+            app:fabSize="mini" />
+
     </LinearLayout>
 </FrameLayout>

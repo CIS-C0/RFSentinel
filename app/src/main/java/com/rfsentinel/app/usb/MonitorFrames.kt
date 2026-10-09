@@ -84,7 +84,8 @@ class MonitorFrames {
                 }
                 // Probe request: a device looking for networks (e.g. a laptop or a Flock camera),
                 // often by name - the networks it has joined before.
-                4 -> if (captureClients) touch(a2, ap = false)?.let { s ->
+                // (Bare scanner probes - a fresh random address each burst - are skipped: see isScannerProbe.)
+                4 -> if (captureClients && !isScannerProbe(b, d, end)) touch(a2, ap = false)?.let { s ->
                     val ies = Ies.read(b, d + 24, end)
                     ies.wps?.let { s.wps = it }
                     ProbeIntel.fingerprint(b, d + 24, end)?.let { s.fingerprint = it }
@@ -106,6 +107,22 @@ class MonitorFrames {
                 else -> touch(a2, ap = false)
             }
         }
+    }
+
+    /**
+     * A bare broadcast probe as sent by ESP32 scanners (OUI-SPY's survey engine, GhostESP):
+     * empty SSID and only the four 802.11b rates, nothing else, from a new random address
+     * after every channel hop. Phones and laptops always add more elements. Counting them
+     * would add a "new device" every second while such a board scans next to the adapter.
+     */
+    internal fun isScannerProbe(b: ByteArray, d: Int, end: Int): Boolean {
+        val body = d + 24
+        val rest = end - (body + 8)
+        if (rest != 0 && rest != 4) return false // + FCS when the driver keeps it
+        fun u8(i: Int) = b[i].toInt() and 0xff
+        if ((u8(d + 10) and 0x02) == 0) return false // locally administered (random) source
+        return u8(body) == 0 && u8(body + 1) == 0 && u8(body + 2) == 1 && u8(body + 3) == 4 &&
+            u8(body + 4) == 0x82 && u8(body + 5) == 0x84 && u8(body + 6) == 0x8B && u8(body + 7) == 0x96
     }
 
     private fun revealFromAssociation(b: ByteArray, from: Int, end: Int, bssid: String) {

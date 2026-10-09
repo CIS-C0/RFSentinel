@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material Design icon "view_in_ar", Apache-2.0: the 3D driving view. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M18.25,7.6l-5.5,-3.18c-0.46,-0.27 -1.04,-0.27 -1.5,0L5.75,7.6C5.29,7.87 5,8.36 5,8.9v6.35c0,0.54 0.29,1.03 0.75,1.3l5.5,3.18c0.46,0.27 1.04,0.27 1.5,0l5.5,-3.18c0.46,-0.27 0.75,-0.76 0.75,-1.3V8.9C19,8.36 18.71,7.87 18.25,7.6zM7,14.96v-4.62l4,2.32v4.61L7,14.96zM12,10.93L8,8.61l4,-2.31l4,2.31L12,10.93zM13,17.27v-4.61l4,-2.32v4.62L13,17.27zM7,2H3.5C2.67,2 2,2.67 2,3.5V7h2V4h3V2zM17,2h3.5C21.33,2 22,2.67 22,3.5V7h-2V4h-3V2zM7,22H3.5C2.67,22 2,21.33 2,20.5V17h2v3h3V22zM17,22h3.5c0.83,0 1.5,-0.67 1.5,-1.5V17h-2v3h-3V22z" />
+</vector>

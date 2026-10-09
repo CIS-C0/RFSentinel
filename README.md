@@ -148,13 +148,13 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 
 **Hardware**
 - ESP32 boards over USB OTG (OUI-Spy, GhostESP, Marauder incl. dual-band ESP32-C5 boards, or through a Flipper Zero) or Bluetooth (OUI-SPY App-Controlled) add their detections and extend range
-- **USB WiFi adapters in monitor mode** over OTG, no root: RTL8811AU / RTL8821AU (e.g. ALFA AWUS036ACS, 2.4 GHz), **RTL8812BU / RTL8822BU** (2.4 + 5 GHz, e.g. TP-Link Archer T3U, Wise Tiger AC1200), **RTL8814AU** (ALFA AWUS1900, 2.4 + 5 GHz), **MT7612U** (ALFA AWUS036ACM, 2.4 + 5 GHz), **RTL8187** (ALFA AWUS036H), **RT3070** (ALFA AWUS036NH / NEH) and, experimental, **AR9271** (ALFA AWUS036NHA). No Android scan limit, longer range, and **client devices** (laptops, phones, cameras connected to a network) the phone's WiFi scan can't see. Single-antenna dongles are detected and handled automatically
+- **USB WiFi adapters in monitor mode** over OTG, no root: RTL8811AU / RTL8821AU (e.g. ALFA AWUS036ACS, 2.4 GHz; 5 GHz experimental, Settings → External hardware), **RTL8812BU / RTL8822BU** (2.4 + 5 GHz, e.g. TP-Link Archer T3U, Wise Tiger AC1200), **RTL8814AU** (ALFA AWUS1900, 2.4 + 5 GHz), **MT7612U** (ALFA AWUS036ACM, 2.4 + 5 GHz), **RTL8187** (ALFA AWUS036H), **RT3070** (ALFA AWUS036NH / NEH) and, experimental, **AR9271** (ALFA AWUS036NHA). No Android scan limit, longer range, and **client devices** (laptops, phones, cameras connected to a network) the phone's WiFi scan can't see. Single-antenna dongles are detected and handled automatically
 - **Requested networks:** the WiFi names nearby devices ask for (probe requests), from a USB adapter or a Marauder board, in an optional list; **watch** a name to get an alert whenever any device asks for it
 - **More from every frame:** WPS maker / model / device name, a **probe fingerprint** that survives MAC randomization (watchable: "every device of this type"), and the real name of **hidden networks** when a device joins them
 
 **Interface**
 - Live list and radar view, filter chips with live counts (flagged, trackers, drones, favorites, new, Bluetooth, WiFi, cells, Waze, external hardware), search; Waze reports in range show nearest first with their exact distance and direction from you (ahead / behind / left / right while driving), and flash at the top once they reach your alert threshold; pull the list down (or use the menu) to check Waze right now, and the Waze status screen shows what is sent and when
-- **Tools** (button next to the map button): **Cell towers** (serving and neighbour cells with network, IDs, channel and signal, plus every tower seen while scanning), **WiFi channels** and **WiFi spectrum** analyzers for 2.4 / 5 / 6 GHz
+- **Tools** (wrench button next to the List / Radar / Map toggle): **Cell towers** (serving and neighbour cells with network, IDs, channel and signal, plus every tower seen while scanning), **WiFi channels** and **WiFi spectrum** analyzers for 2.4 / 5 / 6 GHz
 - **Cell towers in the live list:** the serving cell and its neighbours appear under *All*, after the devices
 - **Scan watchdog:** a scanner that goes silent is restarted on its own
 - Device details: evidence, identity, decoded data, signal graph, **Locate** mode, history, raw advertisement
@@ -212,9 +212,13 @@ Details: [How it works](https://cis-c0.github.io/RFSentinel/how-it-works.html) a
   **INTERNAL** badge means the phone heard it; a blue **ESP32** badge means a
   connected board reported it. Flagged devices sort first and flash in their
   category colour.
-- **List / Radar / Map:** the toggle switches list and radar; **Map** sits right
-  next to it. On the radar, closer to the centre means a stronger signal; the
-  angle is not a direction (a phone can't measure one).
+- **List / Radar / Map:** turn on one view to fill the screen, or two or all
+  three to see them together (stacked, side by side in landscape), with a handle
+  between each to resize. The Map view is the full map with every button; its
+  ⛶ button opens it on its own screen. On the radar, closer to the centre means
+  a stronger signal; the angle is not a direction (a phone can't measure one).
+- **Scrolled to the top**, the list stays there as alerts arrive; scrolled down,
+  a *New alert* pill takes you up.
 - **Filters and search:** All, Flagged, Trackers, Drones, Favorites, New,
   Bluetooth, WiFi, Cells, External (heard by an ESP32 board or a USB WiFi
   adapter). Search matches name, address, vendor and type.
@@ -246,7 +250,11 @@ the raw advertisement.
   heard around you, placed where your phone was when its signal was strongest.
   That's an approximation, not a fix. Each dot stays pinned to its spot as you
   pan and zoom; tap a spot where several devices were heard to pick one from a list.
-- **Cell towers** (map ⚙ → Settings → *Map* → *Show cell towers*): towers seen while scanning,
+- **North up / heading up / 3D:** the compass button steps through north up,
+  heading up (turns with your direction of travel while moving), and a **3D driving
+  view** - tilted in perspective with your position low on the screen, like a car
+  navigation app. The sun / moon button switches the map between light and dark.
+- **Cell towers** (Settings → *Map* → *Show cell towers*): towers seen while scanning,
   at the spot where your phone heard them strongest - an estimate, not the
   tower's real position (looking that up online would reveal where you are).
 - **Known cameras** (Settings → *Known cameras*): *Download cameras around me* fetches plate readers
@@ -266,10 +274,13 @@ the raw advertisement.
 - **Record trace** saves your route and every device heard along it, with the
   screen off, and can start with each scan.
 - **Screen:** *always on*, *on while charging* (default) or *normal*.
+- **Crash log:** if the app ever closes unexpectedly, what went wrong is saved on the
+  phone (never sent automatically); it offers to send it next time, or Settings →
+  *Lists, tools & about* → *Export crash log*.
 
 ### Export
 
-Menu → **Export all devices...** or **Export...**:
+Menu → **Export...** (or Settings → Data → Export all devices):
 
 | Export | Formats |
 |---|---|
@@ -411,7 +422,7 @@ go through RF Sentinel's own rules like everything else, with a purple
 
 | Chip | Example adapters | Status |
 |---|---|---|
-| Realtek RTL8811AU / RTL8821AU (`0bda:0811`) | ALFA AWUS036ACS | Supported (2.4 GHz) |
+| Realtek RTL8811AU / RTL8821AU (`0bda:0811`) | ALFA AWUS036ACS | Supported (2.4 GHz; 5 GHz experimental, opt-in) |
 | Realtek RTL8812BU / RTL8822BU (`0bda:b812`, `0bda:b82c` and ~35 other IDs) | TP-Link Archer T3U, ASUS USB-AC53/AC55/AC58, Edimax EW-7822U*, Wise Tiger AC1200 | Supported (2.4 + 5 GHz), tested on a Wise Tiger 8812BU |
 | Realtek RTL8814AU (`0bda:8813` and 13 other IDs) | ALFA AWUS1900, TP-Link Archer T9UH, ASUS USB-AC68, Netgear A7000 | Supported (2.4 + 5 GHz), not yet tested on hardware |
 | MediaTek MT7612U / MT7632U (`0e8d:7612` and 16 other IDs) | ALFA AWUS036ACM, ASUS USB-AC55, Netgear A6210 | Supported (2.4 + 5 GHz), not yet tested on hardware |
@@ -451,6 +462,22 @@ VHF / UHF, which businesses, schools and transit share, only a very strong signa
 counts, and only as a weak sign. Consumer walkie-talkies (FRS / GMRS, MURS),
 marine, railroad, weather and paging channels are skipped. The dongle's log is in
 the exported USB adapter log.
+
+Hits show in the **main list** (the *Radio* filter, or under *All*): frequency,
+its name when known, signal above the noise, and whether it's **getting closer or
+moving away**. The dongle's status shows on the main screen next to the other
+hardware. **Settings → RTL-SDR radio**:
+
+- **Sensitivity** (how far above the noise a burst must be), the **built-in bands**
+  on / off, **your own bands**, **ranges never to report** (e.g. a business band)
+  and **frequencies to watch** (reported whenever they're active), one per line in MHz.
+- **Say the frequency** (and its name) instead of "Radio transmitting nearby", and
+  a **closer / moving away** call-out when the signal changes by the set number of dB.
+- **Frequency names**: import a CSV (RadioReference's export, CHIRP, or any file with
+  a frequency and a name column), and / or let **RadioReference** name the FCC
+  licences near you (US; your own RadioReference Premium login and developer key,
+  stored encrypted; your position rounded to ~1 km is sent, at most once a day per
+  area). A hit takes the closest name within the set ± kHz.
 
 **Requested networks** (Menu → *Requested networks*): phones and laptops ask by
 name for networks they joined before. With an adapter or a Marauder board
