@@ -80,11 +80,11 @@ object LiveExport {
 
     private val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
 
-    /** Devices at the spot they were heard strongest, plus "you are here" (pure; unit-tested). */
+    /** Devices where they were pinpointed, else at the spot they were heard strongest, plus "you are here" (pure; unit-tested). */
     fun geoJson(devices: List<DeviceRegistry.Snapshot>, here: Location?, now: Long): String {
         val features = JSONArray()
         for (s in devices) {
-            val p = s.bestPosition ?: continue
+            val p = s.place ?: continue
             val best = s.best
             features.put(JSONObject()
                 .put("type", "Feature")
@@ -95,6 +95,7 @@ object LiveExport {
                     .put("vendor", s.vendor ?: JSONObject.NULL)
                     .put("type", s.deviceType)
                     .put("flagged", best != null)
+                    .put("pinpointed_m", s.located?.radiusM?.let { Math.round(it) } ?: JSONObject.NULL)
                     .put("label", best?.label ?: JSONObject.NULL)
                     .put("category", best?.category?.name ?: JSONObject.NULL)
                     .put("confidence", best?.confidence ?: 0)

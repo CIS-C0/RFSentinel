@@ -99,6 +99,8 @@ class ScanForegroundService : Service() {
         private const val PLACING_MAX_AGE_MS = 30_000L
         private const val ESP_HIT_TTL_MS = 5 * 60_000L
         private const val PLACING_MAX_ACCURACY_M = 50f
+        /** Pinpointing: precise 1 s fixes for this long after a flagged device was last heard. */
+        private const val LOCATING_HOLD_MS = 120_000L
 
         /**
          * Maps on screen (phone or car). While any is, location switches to precise
@@ -180,7 +182,17 @@ class ScanForegroundService : Service() {
 
     @Volatile private var lastLocation: Location? = null
     private var locationListening = false
-    private var locationFastMode = false
+    /** 0 = balanced, 1 = precise every 3 s, 2 = precise every second (pinpointing a flagged device). */
+    private var locationMode = 0
+    /** A flagged device was heard recently: GPS runs precise and fast so it can be pinpointed. */
+    @Volatile private var locatingUntil = 0L
+    private val locatingHandler = android.os.Handler(Looper.getMainLooper())
+    private val locatingCheck = object : Runnable {
+        override fun run() {
+            val left = locatingUntil - System.currentTimeMillis()
+            if (left > 0) locatingHandler.postDelayed(this, left + 1_000) else updateLocationUpdates()
+        }
+    }
     /** Radar-detector sound style: last good GPS fix, to say "GPS connected" when it locks or comes back. */
     private var lastGoodGpsAt = 0L
 
@@ -279,6 +291,7 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.esp.EspBoards.start(this) { list -> pipeline.post { list.forEach(::processEsp) } }
         // A USB WiFi adapter in monitor mode (e.g. AWUS036ACS): access points and client devices.
         com.rfsentinel.app.usb.UsbWifi.start(this) { list -> pipeline.post { list.forEach(::processUsbWifi) } }
+        com.rfsentinel.app.usb.DeauthWatch.onAttack = { a -> pipeline.post { onDeauth(a) } }
         // An RTL-SDR dongle: strong two-way radio transmissions nearby (signal strength only).
         if (Prefs.categoryEnabled(this, Category.RADIO)) {
             // Settings > RTL-SDR radio: bands, excluded ranges, watched frequencies, sensitivity (re-read on every refresh).
@@ -339,6 +352,31 @@ class ScanForegroundService : Service() {
     ) == PackageManager.PERMISSION_GRANTED
 
     /** A fix good enough to pin a device on the map: under 30 s old and within ~50 m. */
+    /**
+     * Where you are now: the last fix moved on by your speed and course for the second or two
+     * since it came, so readings taken between fixes aren't placed behind you.
+     */
+    private fun placeNow(l: Location, now: Long): DeviceRegistry.GeoSample {
+        val ageS = (android.os.SystemClock.elapsedRealtimeNanos() - l.elapsedRealtimeNanos) / 1e9
+        val (lat, lon) = if (l.hasSpeed() && l.hasBearing())
+            com.rfsentinel.app.detect.Locator.ahead(l.latitude, l.longitude, l.speed.toDouble(), l.bearing.toDouble(), ageS)
+        else l.latitude to l.longitude
+        return DeviceRegistry.GeoSample(now, lat, lon)
+    }
+
+    /** A flagged device was heard: keep precise, fast GPS on for a while so it can be pinpointed. */
+    private fun noteLocating() {
+        val now = System.currentTimeMillis()
+        val was = now < locatingUntil
+        locatingUntil = now + LOCATING_HOLD_MS
+        // Called for every packet of a flagged device: only the switch-on does the setting / permission checks.
+        if (!was && Prefs.pinpointFlagged(this) && hasFineLocation()) {
+            updateLocationOnMain()
+            locatingHandler.removeCallbacks(locatingCheck)
+            locatingHandler.postDelayed(locatingCheck, LOCATING_HOLD_MS + 1_000)
+        }
+    }
+
     private fun usableForPlacing(l: Location): Boolean {
         val ageMs = (android.os.SystemClock.elapsedRealtimeNanos() - l.elapsedRealtimeNanos) / 1_000_000
         return ageMs in 0..PLACING_MAX_AGE_MS && (!l.hasAccuracy() || l.accuracy <= PLACING_MAX_ACCURACY_M)
@@ -391,22 +429,26 @@ class ScanForegroundService : Service() {
      * Location is needed for GPS tagging, follower alerts, trace recording and
      * known-camera warnings. While recording or watching for cameras, GPS fixes
      * come every ~3 s / 5 m; otherwise balanced fixes every ~20 s / 25 m to save battery.
+     * While a flagged device is in range (pinpointing on), every second.
      */
     @SuppressLint("MissingPermission") // checked by hasFineLocation()
     fun updateLocationUpdates() {
+        val locating = Prefs.pinpointFlagged(this) && System.currentTimeMillis() < locatingUntil
         val wanted = hasFineLocation() &&
             (Prefs.gpsTaggingEnabled(this) || Prefs.followerAlerts(this) || TripRecorder.isRecording || knownAlprActive() ||
-                mapVisible || onlineActive())
+                mapVisible || onlineActive() || locating)
         // Frequent fixes while recording a trace or watching for known cameras
         // (at highway speed a 20 s interval could skip right past one).
-        val fast = TripRecorder.isRecording || knownAlprActive() || mapVisible
+        val fast = TripRecorder.isRecording || knownAlprActive() || mapVisible || locating
+        val mode = when { locating -> 2; fast -> 1; else -> 0 }
+        val intervalMs = if (locating) 1_000L else 3_000L
         val lm = getSystemService(LOCATION_SERVICE) as LocationManager
-        if (locationListening && (!wanted || fast != locationFastMode)) {
+        if (locationListening && (!wanted || mode != locationMode)) {
             lm.removeUpdates(locationListener)
             locationListening = false
         }
         if (wanted && !locationListening) {
-            locationFastMode = fast
+            locationMode = mode
             val providers = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                 lm.hasProvider(LocationManager.FUSED_PROVIDER)
             ) {
@@ -420,15 +462,15 @@ class ScanForegroundService : Service() {
                         // Fused location defaults to "balanced" (often WiFi/cell, ~100 m, and
                         // paused while it thinks you're stationary): too coarse to warn about a
                         // camera a few hundred metres ahead. Fast mode asks for real GPS.
-                        val request = android.location.LocationRequest.Builder(if (fast) 3_000L else 20_000L)
+                        val request = android.location.LocationRequest.Builder(if (fast) intervalMs else 20_000L)
                             .setQuality(
                                 if (fast) android.location.LocationRequest.QUALITY_HIGH_ACCURACY
                                 else android.location.LocationRequest.QUALITY_BALANCED_POWER_ACCURACY
                             )
-                            .setMinUpdateDistanceMeters(if (fast) 5f else 25f)
+                            .setMinUpdateDistanceMeters(if (locating) 0f else if (fast) 5f else 25f)
                             .build()
                         lm.requestLocationUpdates(p, request, mainExecutor, locationListener)
-                    } else if (fast) lm.requestLocationUpdates(p, 3_000L, 5f, locationListener, Looper.getMainLooper())
+                    } else if (fast) lm.requestLocationUpdates(p, intervalMs, if (locating) 0f else 5f, locationListener, Looper.getMainLooper())
                     else lm.requestLocationUpdates(p, 20_000L, 25f, locationListener, Looper.getMainLooper())
                     lm.getLastKnownLocation(p)?.let { if (lastLocation == null) lastLocation = it }
                 } catch (e: Exception) {
@@ -447,7 +489,7 @@ class ScanForegroundService : Service() {
         process(a)
     }
 
-    private fun process(a: Advert, reportedRemoteId: RemoteId.Info? = null) {
+    private fun process(a: Advert, reportedRemoteId: RemoteId.Info? = null, broadcast: DeviceRegistry.GeoSample? = null) {
         val now = a.timestamp
         val mac = a.mac
         if (OuiWatchlist.version != watchlistVersion) recheckWatchlist(now)
@@ -473,8 +515,8 @@ class ScanForegroundService : Service() {
         // Place devices only with a fresh, precise fix: a stale or WiFi/cell-based one
         // (often 100 m+ off) would put the dot far from where the device really was.
         val loc = lastLocation?.takeIf { usableForPlacing(it) }
-        val geo = loc?.let { DeviceRegistry.GeoSample(now, it.latitude, it.longitude) }
-        val isFirst = DeviceRegistry.report(a, c.hits, c.identity, c.vendor, remoteId, geo, now)
+        val geo = loc?.let { placeNow(it, now) }
+        val isFirst = DeviceRegistry.report(a, c.hits, c.identity, c.vendor, remoteId, geo, now, broadcast)
         if (isFirst) serviceScope.launch { loadHistory(mac) }
         if (TripRecorder.isRecording) {
             TripRecorder.onDevice(
@@ -496,6 +538,7 @@ class ScanForegroundService : Service() {
                 this, mac, trackerHit.label, a.rssi, now, DeviceRegistry.linkedFrom(mac))
         ) return
         if (WhitelistCache.contains(mac)) return
+        noteLocating()
 
         maybeLog(a, best, c.vendor, loc, now)
         maybeAlert(a, best, now)
@@ -568,7 +611,7 @@ class ScanForegroundService : Service() {
             mac = e.mac, source = Advert.Source.WIFI, rssi = e.rssi, name = e.name,
             wifi = Advert.WifiInfo(e.frequencyMhz, e.capabilities, null, emptyList(), client = e.client), timestamp = now
         )
-        process(advert, e.remoteId)
+        process(advert, e.remoteId, e.position?.let { DeviceRegistry.GeoSample(now, it.first, it.second) })
     }
 
     /** The watchlist version the cached classifications were made with. */
@@ -920,8 +963,9 @@ class ScanForegroundService : Service() {
         }
         val threshold = Prefs.alertThreshold(this)
         val trend = com.rfsentinel.app.sdr.RadioLog.observe(e, name, Prefs.radioTrendDb(this), now)
+        val cell = e.band.kind == com.rfsentinel.app.sdr.RadioWatch.Kind.CELLULAR_UPLINK
         if (trend != null && e.confidence >= threshold && now >= Prefs.alertsSnoozedUntil(this)) {
-            AlertPlayer.callout(this, "Radio ${spokenMhz(e.freqHz)} " +
+            AlertPlayer.callout(this, (if (cell) "Cellular signal " else "Radio ${spokenMhz(e.freqHz)} ") +
                 if (trend == com.rfsentinel.app.sdr.RadioLog.Trend.CLOSER) "getting closer" else "moving away")
         }
         if (e.repeat) return // same channel within 2 minutes: list and trend only, no new log entry or alert
@@ -935,8 +979,17 @@ class ScanForegroundService : Service() {
                 com.rfsentinel.app.sdr.RadioWatch.Kind.CUSTOM -> "A band you added in Settings > RTL-SDR radio."
                 else -> "Police use this band, but so do businesses, schools and transit; a weak sign on its own."
             }
-        val label = name?.let { "Radio transmitting: $it" } ?: "Two-way radio transmitting nearby"
-        val hit = Hit(Category.RADIO, label, e.confidence, detail, "RTL-SDR signal strength (no decoding)")
+        val cellDetail = "A cellular transmitter is on the air nearby on ${e.mhz} MHz (${e.band.label}), " +
+            "${e.snrDb} dB above the quiet level - $near. Something is transmitting on the phone / modem side of an " +
+            "LTE band: a phone, but also a vehicle modem, a Cradlepoint-style router or a camera with a SIM. Signal " +
+            "strength only, nothing decoded - it can't tell devices or carriers apart. On its own it means little " +
+            "(phones are everywhere); it matters most when it travels with you or lines up with a device flagged over Wi-Fi / Bluetooth."
+        val label = when {
+            cell -> "Cellular transmitter nearby (LTE uplink)"
+            name != null -> "Radio transmitting: $name"
+            else -> "Two-way radio transmitting nearby"
+        }
+        val hit = Hit(Category.RADIO, label, e.confidence, if (cell) cellDetail else detail, "RTL-SDR signal strength (no decoding)")
         val loc = lastLocation
         val tag = Prefs.gpsTaggingEnabled(this)
         serviceScope.launch {
@@ -952,8 +1005,11 @@ class ScanForegroundService : Service() {
         if (e.confidence >= threshold && now >= Prefs.alertsSnoozedUntil(this)) {
             NotificationHelper.sendMapAlert(this, "radio:" + e.freqHz, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java)
             // Spoken: the frequency (and its name) when that's on, else the short phrase.
-            val spoken = if (Prefs.radioSpeakFreq(this)) "Radio ${spokenMhz(e.freqHz)}" + (name?.let { ", $it" } ?: "")
-                else "Radio transmitting nearby"
+            val spoken = when {
+                cell -> "Cellular transmitter nearby"
+                Prefs.radioSpeakFreq(this) -> "Radio ${spokenMhz(e.freqHz)}" + (name?.let { ", $it" } ?: "")
+                else -> "Radio transmitting nearby"
+            }
             AlertPlayer.play(this, hit.tier, spoken)
         }
     }
@@ -1034,6 +1090,35 @@ class ScanForegroundService : Service() {
         if (a.confidence >= Prefs.alertThreshold(this) && now >= Prefs.alertsSnoozedUntil(this)) {
             NotificationHelper.sendMapAlert(this, "gnss:" + a.key, hit, com.rfsentinel.app.ui.GnssActivity::class.java)
             AlertPlayer.play(this, hit.tier, a.title)
+        }
+    }
+
+    /** A WiFi deauthentication flood heard by the USB WiFi adapter (Hacking tools category). */
+    private fun onDeauth(a: com.rfsentinel.app.usb.DeauthWatch.Attack) {
+        if (!Prefs.categoryEnabled(this, Category.HACKER)) return
+        val now = System.currentTimeMillis()
+        val ssid = DeviceRegistry.get(a.bssid)?.name
+        val net = ssid?.let { "\"$it\"" } ?: "network ${a.bssid}"
+        val detail = "${a.frames} deauthentication / disassociation frames in ${a.windowS} s for $net (channel ${a.channel})" +
+            (if (a.broadcast) ", sent to every device on it" else "") + ". Something is knocking devices off this WiFi: a jammer " +
+            "or a hacking tool (ESP32 / ESP8266 deauther, Flipper Zero WiFi board, WiFi Pineapple). A normal network sends a " +
+            "handful, never a stream. Heard by the USB WiFi adapter; nothing is sent."
+        val hit = Hit(Category.HACKER, "WiFi deauth attack on $net", if (a.broadcast) 80 else 70, detail,
+            "802.11 management frames (USB WiFi adapter, receive-only)")
+        val loc = lastLocation
+        val tag = Prefs.gpsTaggingEnabled(this)
+        serviceScope.launch {
+            AppDatabase.getInstance(this@ScanForegroundService).detectionDao().insert(
+                DetectionEntity(
+                    mac = a.bssid, label = hit.label, source = "WIFI", rssi = 0, timestamp = now,
+                    latitude = if (tag) loc?.latitude else null, longitude = if (tag) loc?.longitude else null,
+                    category = Category.HACKER.name, confidence = hit.confidence, evidence = detail, deviceName = ssid
+                )
+            )
+        }
+        if (hit.confidence >= Prefs.alertThreshold(this) && now >= Prefs.alertsSnoozedUntil(this)) {
+            NotificationHelper.sendMapAlert(this, "deauth:" + a.bssid, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java)
+            AlertPlayer.play(this, hit.tier, "WiFi attack nearby")
         }
     }
 
@@ -1119,9 +1204,9 @@ class ScanForegroundService : Service() {
                     if (Prefs.threatBubble(ctx)) com.rfsentinel.app.ui.ThreatBubble.update(ctx, level, flagged.size)
                     else com.rfsentinel.app.ui.ThreatBubble.hide(ctx)
                     if (Prefs.floatingMap(ctx)) {
-                        // The same dots as the full map: devices placed where they were heard strongest.
+                        // The same dots as the full map: pinpointed, else where they were heard strongest.
                         val dots = devices.mapNotNull { s ->
-                            val p = s.bestPosition ?: return@mapNotNull null
+                            val p = s.place ?: return@mapNotNull null
                             com.rfsentinel.app.ui.FloatingMap.Dot(p.lat, p.lon,
                                 com.rfsentinel.app.ui.DeviceColors.forDevice(ctx, s), com.rfsentinel.app.ui.DeviceColors.isFlagged(s))
                         }
@@ -1151,6 +1236,10 @@ class ScanForegroundService : Service() {
     }
 
     override fun onDestroy() {
+        com.rfsentinel.app.usb.DeauthWatch.onAttack = null
+        com.rfsentinel.app.usb.DeauthWatch.clear()
+        com.rfsentinel.app.usb.PcapRecorder.stop()
+        locatingHandler.removeCallbacks(locatingCheck)
         com.rfsentinel.app.esp.EspBoards.stop(this)
         com.rfsentinel.app.usb.UsbWifi.stop(this)
         com.rfsentinel.app.sdr.SdrRadio.stop(this)

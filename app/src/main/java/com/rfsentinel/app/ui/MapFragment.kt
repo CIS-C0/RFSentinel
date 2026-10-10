@@ -43,6 +43,7 @@ import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.overlay.CopyrightOverlay
 import org.osmdroid.views.overlay.FolderOverlay
 import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Polyline
 import org.osmdroid.views.overlay.ScaleBarOverlay
 import org.osmdroid.views.overlay.TilesOverlay
@@ -98,7 +99,10 @@ class MapFragment : Fragment() {
     /** One device to draw, from the live registry or a saved trip. */
     private data class Pin(
         val mac: String, val lat: Double, val lon: Double, val label: String, val flagged: Boolean,
-        val color: Int, val details: String
+        val color: Int, val details: String,
+        /** Pinpointed (see [com.rfsentinel.app.detect.Locator]): the circle it is very likely in. */
+        val radiusM: Double? = null,
+        val whereNote: String = "Position = where your phone was when this device's signal was strongest (approximate)."
     )
 
     private var _binding: ActivityMapBinding? = null
@@ -123,6 +127,8 @@ class MapFragment : Fragment() {
     private var following = false
 
     private val trace = Polyline()
+    /** Pinpointed flagged devices: a faint circle where each one very likely is, under the dots. */
+    private val precision = FolderOverlay()
     private val pins by lazy { PointsOverlay<Pin>(resources.displayMetrics.density) { showPins(it) } }
     /** Live drones from Remote ID: aircraft, operator and the line between them. */
     private val drones = FolderOverlay()
@@ -327,6 +333,7 @@ class MapFragment : Fragment() {
         map.overlays.add(knownAlpr)
         map.overlays.add(towers)
         map.overlays.add(trace)
+        map.overlays.add(precision)
         map.overlays.add(pins)
         map.overlays.add(drones)
         map.overlays.add(wazeLayer)
@@ -729,7 +736,7 @@ class MapFragment : Fragment() {
 
     /** Chip labels with how many devices each filter would show ("Trackers 2"). */
     private fun updateFilterCounts(devices: List<DeviceRegistry.Snapshot>) {
-        val placed = devices.filter { it.bestPosition != null }
+        val placed = devices.filter { it.place != null }
         for ((f, chip) in filterChips) {
             val n = when (f) {
                 DeviceFilter.CELLS -> towerCount
@@ -892,8 +899,9 @@ class MapFragment : Fragment() {
         // Includes devices from a scan that just stopped: the registry drops them after 3 minutes.
         val devices = DeviceRegistry.snapshot()
         val drawn = devices.mapNotNull { s ->
-            val pos = s.bestPosition ?: return@mapNotNull null
+            val pos = s.place ?: return@mapNotNull null
             val flagged = DeviceColors.isFlagged(s)
+            val located = s.located?.takeIf { flagged && s.broadcast == null }
             if (!filter.matches(s) || filter == DeviceFilter.RADIO) return@mapNotNull null
             val best = s.best
             Pin(
@@ -905,17 +913,29 @@ class MapFragment : Fragment() {
                     append(s.mac)
                     s.vendor?.let { append("\n").append(it) }
                     if (best != null) append("\n${best.category.title} · ${best.tier.label} ${best.confidence}%\n${best.evidence}")
-                    append("\nStrongest signal here: ${s.bestRssi} dBm")
-                }
+                    if (located != null) append("\nPinpointed ${com.rfsentinel.app.detect.Locator.describe(located)}")
+                    append("\nStrongest signal: ${s.bestRssi} dBm")
+                },
+                radiusM = located?.radiusM,
+                whereNote = if (s.broadcast != null)
+                    "Position = the vehicle's own GPS, broadcast over V2X (exact, not an estimate)."
+                else if (located != null)
+                    "Position = pinpointed from the signal at the many spots you passed: very likely inside the circle " +
+                        "(${located.radiusM.toInt()} m). The more sides you pass it from, the smaller the circle."
+                else if (flagged)
+                    "Position = where your phone was when this device's signal was strongest (approximate). " +
+                        "Drive or walk past it from another side - around the block - to pinpoint it."
+                else "Position = where your phone was when this device's signal was strongest (approximate)."
             )
         }
         drawPins(drawn)
+        drawPrecision(drawn)
         updateFilterCounts(devices)
         drawDrones(devices.filter { it.remoteId?.hasPosition == true })
         drawAircraft()
         drawWaze()
 
-        val positioned = devices.count { it.bestPosition != null }
+        val positioned = devices.count { it.place != null }
         val status = when {
             bulkStatus() != null -> bulkStatus() // a camera download's progress wins
             System.currentTimeMillis() - com.rfsentinel.app.alpr.AlprStore.lastAutoFailureAt < CAMERA_FAIL_SHOWN_MS ->
@@ -1045,6 +1065,25 @@ class MapFragment : Fragment() {
      * Each device sits exactly where it was heard best. Devices heard from the same
      * spot overlap; tapping there lists them all.
      */
+    /** The circle each pinpointed device is very likely in, in its colour. Taps go through to the dots. */
+    private fun drawPrecision(list: List<Pin>) {
+        val circles = list.filter { it.radiusM != null }
+        if (circles.isEmpty() && precision.items.isEmpty()) return
+        precision.items.clear()
+        val density = resources.displayMetrics.density
+        for (p in circles) {
+            precision.add(Polygon(binding.map).apply {
+                points = Polygon.pointsAsCircle(GeoPoint(p.lat, p.lon), p.radiusM!!)
+                fillPaint.color = (p.color and 0x00FFFFFF) or 0x2E000000
+                outlinePaint.color = (p.color and 0x00FFFFFF) or 0xB4000000.toInt()
+                outlinePaint.strokeWidth = 1.5f * density
+                setOnClickListener { _, _, _ -> false }
+                infoWindow = null
+            })
+        }
+        binding.map.invalidate()
+    }
+
     private fun drawPins(list: List<Pin>) {
         // Ordinary devices first so flagged ones are drawn on top.
         pins.points = list.sortedBy { it.flagged }.map { p ->
@@ -1517,7 +1556,7 @@ class MapFragment : Fragment() {
     private fun showPin(p: Pin) {
         AlertDialog.Builder(act)
             .setTitle(p.label)
-            .setMessage(p.details + "\n\nPosition = where your phone was when this device's signal was strongest (approximate).")
+            .setMessage(p.details + "\n\n" + p.whereNote)
             .setPositiveButton("Details") { _, _ -> DeviceActions.openDetails(act, p.mac) }
             .setNegativeButton("Close", null)
             .show()

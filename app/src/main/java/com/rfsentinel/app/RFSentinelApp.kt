@@ -23,6 +23,21 @@ class RFSentinelApp : Application() {
     /** Lives as long as the process. */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    /**
+     * Settings > General > Screen rotation, while the app is open. The status bar and Android's own
+     * navigation bar or gestures turn with the display and work as usual. Phones like the Pixel never
+     * auto-rotate to upside down, but honour an app that asks for it: "full user" follows auto-rotate in
+     * all four directions (and stays put when rotation is locked); reverse portrait is always upside down.
+     */
+    fun applyOrientation(a: android.app.Activity) {
+        val wanted = when (com.rfsentinel.app.util.Prefs.rotation(a)) {
+            com.rfsentinel.app.util.Prefs.Rotation.UPSIDE_DOWN -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT
+            com.rfsentinel.app.util.Prefs.Rotation.ALL_WAYS -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_USER
+            com.rfsentinel.app.util.Prefs.Rotation.NORMAL -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+        if (a.requestedOrientation != wanted) a.requestedOrientation = wanted
+    }
+
     override fun onCreate() {
         super.onCreate()
         com.rfsentinel.app.util.CrashLog.install(this)
@@ -32,8 +47,8 @@ class RFSentinelApp : Application() {
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityStarted(a: android.app.Activity) { visibleActivities++ }
             override fun onActivityStopped(a: android.app.Activity) { visibleActivities = (visibleActivities - 1).coerceAtLeast(0) }
-            override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) {}
-            override fun onActivityResumed(a: android.app.Activity) {}
+            override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) = applyOrientation(a)
+            override fun onActivityResumed(a: android.app.Activity) = applyOrientation(a)
             override fun onActivityPaused(a: android.app.Activity) {}
             override fun onActivitySaveInstanceState(a: android.app.Activity, b: android.os.Bundle) {}
             override fun onActivityDestroyed(a: android.app.Activity) {}

@@ -9,6 +9,7 @@ import com.rfsentinel.app.detect.PatrolCluster
 import com.rfsentinel.app.detect.WifiFingerprint
 import com.rfsentinel.app.detect.DeviceIntel
 import com.rfsentinel.app.detect.Hit
+import com.rfsentinel.app.detect.Locator
 import com.rfsentinel.app.detect.RemoteId
 import java.util.ArrayDeque
 import java.util.concurrent.ConcurrentHashMap
@@ -40,6 +41,10 @@ object DeviceRegistry {
     private const val RSSI_SMOOTHING = 0.3
     private const val SMOOTH_RESET_MS = 10_000L
     private const val ROTATION_WINDOW_MS = 30_000L
+    /** Pinpointing: readings kept per flagged device, their spacing, and how often the fit is redone. */
+    private const val LOCATE_MAX = 400
+    private const val LOCATE_SPACING_MS = 400L
+    private const val LOCATE_EVERY_MS = 5_000L
 
     data class Sample(val time: Long, val rssi: Int)
     data class GeoSample(val time: Long, val lat: Double, val lon: Double)
@@ -69,9 +74,15 @@ object DeviceRegistry {
         val history: List<Sample>,
         val path: List<GeoSample>,
         /** Where YOUR phone was when this device's signal was strongest (approximate device position). */
-        val bestPosition: GeoSample?
+        val bestPosition: GeoSample?,
+        /** Flagged devices only: pinpointed from readings at many spots (see [Locator]), when you moved enough around it. */
+        val located: Locator.Estimate? = null,
+        /** Where the device says it is (a V2X vehicle's own GPS): exact, so it wins over any estimate. */
+        val broadcast: GeoSample? = null
     ) {
         val best: Hit? get() = hits.firstOrNull()
+        /** Where to put it on a map: the pinpointed spot when there is one, else where YOUR phone heard it strongest. */
+        val place: GeoSample? get() = broadcast ?: located?.let { GeoSample(it.time, it.lat, it.lon) } ?: bestPosition
         /**
          * True when this address has no history from an earlier session. The
          * history row is looked up once, when the device is first heard this
@@ -112,6 +123,12 @@ object DeviceRegistry {
         /** The device's own strongest recent match, held for [HIT_HOLD_MS] after it was last seen. */
         var heldHit: Hit? = null
         var heldUntil = 0L
+        /** Readings (your position + signal) for pinpointing; kept only while it has a match. */
+        val readings = ArrayDeque<Locator.Reading>()
+        var located: Locator.Estimate? = null
+        var locatedAt = 0L
+        var readingsSinceFit = 0
+        var broadcast: GeoSample? = null
     }
 
     private val tracks = ConcurrentHashMap<String, Track>()
@@ -135,7 +152,8 @@ object DeviceRegistry {
         vendor: String?,
         remoteId: RemoteId.Info?,
         location: GeoSample?,
-        now: Long = System.currentTimeMillis()
+        now: Long = System.currentTimeMillis(),
+        broadcast: GeoSample? = null
     ): Boolean {
         var isFirst = false
         val t = tracks.computeIfAbsent(a.mac) { isFirst = true; Track(a.mac, now) }
@@ -150,6 +168,7 @@ object DeviceRegistry {
             if (identity.facts.size >= t.identity.facts.size || t.identity.type == "Device") t.identity = identity
             t.hits = mergeHits(t, hits, now)
             remoteId?.let { t.remoteId = it }
+            broadcast?.let { t.broadcast = it }
             // Smooth for the displayed signal, distance and radar; a jump after a pause is taken as is.
             t.smoothRssi = if (t.smoothRssi.isNaN() || now - t.lastSeen > SMOOTH_RESET_MS) a.rssi.toDouble()
                 else t.smoothRssi + RSSI_SMOOTHING * (a.rssi - t.smoothRssi)
@@ -167,7 +186,13 @@ object DeviceRegistry {
                 t.path.addLast(location)
                 if (t.path.size > 200) t.path.removeFirst()
             }
+            if (location != null && t.hits.isNotEmpty() && (t.readings.isEmpty() || now - t.readings.last.time >= LOCATE_SPACING_MS)) {
+                t.readings.addLast(Locator.Reading(now, location.lat, location.lon, a.rssi))
+                if (t.readings.size > LOCATE_MAX) t.readings.removeFirst()
+                t.readingsSinceFit++
+            }
         }
+        relocate(t, now)
         return isFirst
     }
 
@@ -189,6 +214,30 @@ object DeviceRegistry {
         val merged = if (held != null && hits.none { it.label == held.label }) hits + held else hits
         return merged.sortedByDescending { it.confidence }
     }
+
+    /**
+     * Refits a flagged device's position from its readings, at most every [LOCATE_EVERY_MS] and only
+     * after new readings. A device that travels with you is never pinned to one spot. The fit runs
+     * on its own thread, outside the device's lock, so neither the scanners nor the screens wait for it.
+     */
+    private fun relocate(t: Track, now: Long) {
+        val (readings, wifi) = synchronized(t) {
+            if (t.readingsSinceFit == 0 || now - t.locatedAt < LOCATE_EVERY_MS) return
+            t.locatedAt = now
+            t.readingsSinceFit = 0
+            if (t.following) { t.located = null; return }
+            t.readings.toList() to (t.advert?.isWifi == true)
+        }
+        fitter.execute {
+            val fit = runCatching { Locator.estimate(readings, wifi, now) }.getOrNull()
+            synchronized(t) { t.located = fit }
+        }
+    }
+
+    private val fitter = java.util.concurrent.Executors.newSingleThreadExecutor { Thread(it, "locator").apply { isDaemon = true } }
+
+    /** Waits for the position fits already queued (tests). */
+    fun awaitFits() { fitter.submit {}.get() }
 
     /**
      * Address-rotation linking: if exactly one device with the same advert
@@ -227,6 +276,20 @@ object DeviceRegistry {
             follow.second.forEach { t.path.addLast(it) }
             t.following = t.following || follow.third
         }
+    }
+
+    /**
+     * The address [mac] goes by now: follows its address rotations forward (a tag or phone that changed
+     * its random address and was linked by its advert fingerprint). [mac] itself when it never rotated.
+     */
+    fun currentAddress(mac: String): String {
+        var cur = mac
+        repeat(8) {
+            val next = tracks.values.firstOrNull { t -> synchronized(t) { t.linkedFrom == cur } }?.mac ?: return cur
+            if (next == cur) return cur
+            cur = next
+        }
+        return cur
     }
 
     /** The address this device used before its address rotated, if it was linked. */
@@ -337,7 +400,9 @@ object DeviceRegistry {
         advert = if (full) t.advert else null,
         history = if (full) t.history.toList() else emptyList(),
         path = if (full) t.path.toList() else emptyList(),
-        bestPosition = t.bestPosition
+        bestPosition = t.bestPosition,
+        located = t.located,
+        broadcast = t.broadcast
     )
 
     /**

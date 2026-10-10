@@ -217,8 +217,8 @@ class CarMapRenderer(private val carContext: CarContext, private val scope: Coro
             .sortedBy { DeviceColors.isFlagged(it) }
             .mapNotNull { s ->
                 val rid = s.remoteId?.takeIf { it.hasPosition }
-                val lat = rid?.latitude ?: s.bestPosition?.lat ?: return@mapNotNull null
-                val lon = rid?.longitude ?: s.bestPosition?.lon ?: return@mapNotNull null
+                val lat = rid?.latitude ?: s.place?.lat ?: return@mapNotNull null
+                val lon = rid?.longitude ?: s.place?.lon ?: return@mapNotNull null
                 val best = s.best
                 val color = when {
                     best == null -> DevicesMapScreen.ORDINARY_COLOR

@@ -147,14 +147,14 @@ class NearbyMapScreen(
                         .joinToString(" · ").ifEmpty { "Remote ID" },
                     dLat, dLon, d, drone = true, mac = s.mac)
             }
-            // Flagged devices where your phone heard them best (the same spot as on the phone map).
+            // Flagged devices where they were pinpointed, else where your phone heard them best (the same spot as on the phone map).
             val devices = DeviceRegistry.snapshot().mapNotNull { s ->
                 val best = s.best ?: return@mapNotNull null
                 if (com.rfsentinel.app.data.WhitelistCache.contains(s.mac) || s.remoteId?.hasPosition == true) return@mapNotNull null
-                val pos = s.bestPosition ?: return@mapNotNull null
+                val pos = s.place ?: return@mapNotNull null
                 val d = DeviceRegistry.metersBetween(lat, lon, pos.lat, pos.lon)
                 if (d > SEARCH_RADIUS_M) return@mapNotNull null
-                Item(best.label, best.category.shortTag + " \u00b7 heard here", pos.lat, pos.lon, d, drone = false, mac = s.mac,
+                Item(best.label, best.category.shortTag + if (s.located != null) " \u00b7 pinpointed" else " \u00b7 heard here", pos.lat, pos.lon, d, drone = false, mac = s.mac,
                     deviceColor = if (best.tier == com.rfsentinel.app.detect.Tier.WEAK) com.rfsentinel.app.ui.DeviceColors.WEAK else best.category.colorArgb)
             }
             // Drones first (they move and matter now), then flagged devices, then cameras by distance.

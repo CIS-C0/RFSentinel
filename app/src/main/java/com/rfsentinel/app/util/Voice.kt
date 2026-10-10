@@ -35,6 +35,10 @@ object Voice {
     /** Attributes for queued items (the latest caller's: car or phone). */
     private var nextAttrs: AudioAttributes? = null
 
+    /** The audio session speech plays in, with a loudness boost on it ([Prefs.voiceBoostDb]). */
+    private var sessionId = 0
+    private var enhancer: android.media.audiofx.LoudnessEnhancer? = null
+
     /** English voices on this phone's engine, best first (filled once the engine is up). */
     @Volatile var voices: List<android.speech.tts.Voice> = emptyList()
         private set
@@ -80,11 +84,31 @@ object Voice {
         holdFocus(ctx, attrs)
         engine.setAudioAttributes(attrs)
         engine.setSpeechRate(Prefs.voiceRate(ctx))
-        val params = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1f) }
+        val params = Bundle().apply {
+            putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1f)
+            boostedSession(ctx)?.let { putInt(TextToSpeech.Engine.KEY_PARAM_SESSION_ID, it) }
+        }
         if (engine.speak(item.text, TextToSpeech.QUEUE_FLUSH, params, "rf-${System.nanoTime()}") != TextToSpeech.SUCCESS) {
             speaking = null
             releaseFocus()
         }
+    }
+
+    /**
+     * The audio session to speak in, with Android's loudness enhancer (a gain with a limiter, so it
+     * gets louder without distorting) set to the chosen boost; null with no boost or no enhancer.
+     * The boost is on our own sound before it reaches the car, so it works over Android Auto too.
+     */
+    private fun boostedSession(ctx: Context): Int? {
+        val db = Prefs.voiceBoostDb(ctx)
+        if (db <= 0) { enhancer?.let { runCatching { it.enabled = false } }; return null }
+        return runCatching {
+            if (sessionId == 0) sessionId = ctx.getSystemService(AudioManager::class.java)!!.generateAudioSessionId()
+            val e = enhancer ?: android.media.audiofx.LoudnessEnhancer(sessionId).also { enhancer = it }
+            e.setTargetGain(db * 100)
+            e.enabled = true
+            sessionId
+        }.getOrElse { enhancer = null; null }
     }
 
     private fun start(ctx: Context) {
@@ -163,7 +187,9 @@ object Voice {
     private fun holdFocus(ctx: Context, attrs: AudioAttributes) {
         if (focus != null) return
         val am = ctx.getSystemService(AudioManager::class.java) ?: return
-        val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+        // Music dips under the voice, or pauses for it (Settings), and comes back afterwards.
+        val gain = if (Prefs.voicePausesMusic(ctx)) AudioManager.AUDIOFOCUS_GAIN_TRANSIENT else AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+        val req = AudioFocusRequest.Builder(gain)
             .setAudioAttributes(attrs)
             .build()
         focus = req
@@ -192,5 +218,8 @@ object Voice {
         tts?.shutdown()
         tts = null
         ready = false
+        enhancer?.let { runCatching { it.release() } }
+        enhancer = null
+        sessionId = 0
     }
 }

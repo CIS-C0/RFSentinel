@@ -125,8 +125,8 @@ class DevicesMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs
             DeviceRegistry.snapshot().mapNotNull { s ->
                 if (WhitelistCache.contains(s.mac)) return@mapNotNull null
                 val rid = s.remoteId?.takeIf { it.hasPosition }
-                val pLat = rid?.latitude ?: s.bestPosition?.lat ?: return@mapNotNull null
-                val pLon = rid?.longitude ?: s.bestPosition?.lon ?: return@mapNotNull null
+                val pLat = rid?.latitude ?: s.place?.lat ?: return@mapNotNull null
+                val pLon = rid?.longitude ?: s.place?.lon ?: return@mapNotNull null
                 val best = s.best
                 val flagged = DeviceColors.isFlagged(s)
                 val item = Item(

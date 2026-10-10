@@ -43,6 +43,14 @@ object Rtl8821auMonitor {
     private const val VREQ = 0x05
     private const val REG_RX_DRVINFO_SZ = 0x060F; private const val RCR_APP_PHYST_RXFF = 0x10000000
 
+    /**
+     * The adapter's light: LED pin 2 on the RTL8811AU / 8821AU (as Linux's rtw88 drives it).
+     * Bit 5 = software control, bit 3 = off. Bit 7 belongs to the 5 GHz band switch: kept as is.
+     */
+    private const val REG_LEDCFG2 = 0x4E
+    /** How often the light may toggle while frames arrive (a visible blink, a few writes a second). */
+    private const val BLINK_MS = 150L
+
     private const val rA_LSSIWrite = 0xC90; private const val rHSSIRead = 0x8B0; private const val rA_PIRead = 0xD04
 
     private val rfShadow = HashMap<Int, Int>()
@@ -98,15 +106,24 @@ object Rtl8821auMonitor {
             UsbWifi.log("RTL8821AU: RCR=0x%08x BB(0x800)=0x%08x — monitor live ch ${HOP[0]}".format(
                 r32(conn, Rtl8821auTables.REG_RCR), r32(conn, 0x800)))
             onStatus("RTL8821AU · live · 2.4 GHz monitor")
+            runCatching { led(conn, true) }
+            UsbWifi.log("RTL8821AU: light on, blinks with received traffic")
 
             rxLoop(conn, rx, onFrame, onStatus)
         } catch (e: Exception) {
             UsbWifi.log("RTL8821AU: bring-up error — ${e.message}")
             onStatus("RTL8821AU: error · ${e.message}")
         } finally {
+            runCatching { led(conn, false) }
             runCatching { conn.close() }
             running = false
         }
+    }
+
+    /** Light on or off under software control; the band-switch bit and the rest of the byte are kept. */
+    private fun led(conn: UsbDeviceConnection, on: Boolean) {
+        val v = r8(conn, REG_LEDCFG2)
+        w8(conn, REG_LEDCFG2, if (on) (v and 0x08.inv()) or 0x20 else v or 0x28)
     }
 
     private fun resetMac(conn: UsbDeviceConnection) {
@@ -156,7 +173,9 @@ object Rtl8821auMonitor {
 
     private class RxState {
         var total = 0L; var bufs = 0L; var lastLog = 0L; var hopAt = 0L; var lastEmit = 0L; var hopIdx = 0
-        fun start() { val t = System.currentTimeMillis(); lastLog = t; hopAt = t; lastEmit = t }
+        /** Good frames received, and how many there were at the light's last change. */
+        var frames = 0L; var ledFrames = 0L; var ledAt = 0L; var ledOn = true
+        fun start() { val t = System.currentTimeMillis(); lastLog = t; hopAt = t; lastEmit = t; ledAt = t }
     }
 
     private fun rxTick(conn: UsbDeviceConnection, now: Long, st: RxState,
@@ -167,6 +186,12 @@ object Rtl8821auMonitor {
             st.lastLog = now
         }
         if (now - st.lastEmit > 2000) { emitSightings(onFrame); st.lastEmit = now }
+        // Blinks while frames come in; steady on when the air is quiet (still running).
+        if (now - st.ledAt >= BLINK_MS) {
+            val want = if (st.frames != st.ledFrames) !st.ledOn else true
+            if (want != st.ledOn && runCatching { led(conn, want) }.isSuccess) st.ledOn = want
+            st.ledFrames = st.frames; st.ledAt = now
+        }
         if (now - st.hopAt > DWELL_MS) {
             val ni = (st.hopIdx + 1) % HOP.size
             if (ni != st.hopIdx) { st.hopIdx = ni; runCatching { channelTune(conn, HOP[st.hopIdx]) } }
@@ -220,7 +245,7 @@ object Rtl8821auMonitor {
                                 if (runCatching { nr.queue(b) }.getOrDefault(false)) reqs[idx] = nr
                             }
                         }
-                        if (parseLen > 0) runCatching { parseRxBuf(scratch, parseLen, HOP[st.hopIdx]) }
+                        if (parseLen > 0) runCatching { st.frames += parseRxBuf(scratch, parseLen, HOP[st.hopIdx]) }
                     }
                 }
                 rxTick(conn, now, st, onFrame, onStatus)
@@ -239,16 +264,18 @@ object Rtl8821auMonitor {
         while (!stop) {
             val n = conn.bulkTransfer(epRx, buf, buf.size, 500)
             val now = System.currentTimeMillis()
-            if (n > 0) { st.total += n; st.bufs++; runCatching { parseRxBuf(buf, n, HOP[st.hopIdx]) } }
+            if (n > 0) { st.total += n; st.bufs++; runCatching { st.frames += parseRxBuf(buf, n, HOP[st.hopIdx]) } }
             rxTick(conn, now, st, onFrame, onStatus)
         }
         emitSightings(onFrame)
         UsbWifi.log("RTL8821AU: RX loop stopped (${st.total} B)")
     }
 
-    private fun parseRxBuf(b: ByteArray, n: Int, ch: Int) {
+    /** Parses one USB buffer; returns how many good frames it held. */
+    private fun parseRxBuf(b: ByteArray, n: Int, ch: Int): Int {
         val size = Rtl8821auTables.RXDESC_SIZE
         var off = 0
+        var good = 0
         while (off + size <= n) {
             val d0 = le32(b, off)
             val pkt = d0 and 0x3fff
@@ -262,9 +289,11 @@ object Rtl8821auMonitor {
                 val rate = b[off + 12].toInt() and 0x7f
                 val rssi = if (drv >= 8 && off + size + drv <= n) rtlRssi(b, off + size, rate) else NOMINAL_RSSI
                 frames.frame(b, fs, fe, ch, rssi)
+                good++
             }
             off += (size + drv + shift + pkt + 7) and 7.inv()
         }
+        return good
     }
 
     private fun rtlRssi(b: ByteArray, di: Int, rate: Int): Int {

@@ -1,4 +1,4 @@
-<!--META {"title": "AirTag & Tracker Detector for Android | RF Sentinel", "description": "Is an AirTag following you? Find AirTags, SmartTags, Tile and Google Find Hub trackers on Android, follow them through address changes and locate them.", "nav": "guides", "crumb": "AirTag & tracker detection"} -->
+<!--META {"title": "AirTag & Tracker Detector for Android | RF Sentinel", "description": "Is an AirTag following you? Find AirTags, SmartTags, Tile, Chipolo and Google Find Hub trackers on Android, follow them through address changes and locate them.", "nav": "guides", "crumb": "AirTag & tracker detection"} -->
 <div class="page-head">
   <p class="crumbs"><a href="./">rf_sentinel</a> / guides / tracker-detector</p>
   <h1>AirTag &amp; tracker detection</h1>
@@ -17,6 +17,7 @@
 <tr><td>Google Find Hub tags</td><td>Service data <code>0xFEAA</code>, frame <code>0x41</code> (<code>0x40</code> = near owner, ignored)</td><td>70</td></tr>
 <tr><td>Samsung SmartTag</td><td>Service data <code>0xFD5A</code></td><td>55</td></tr>
 <tr><td>Tile</td><td>Service data <code>0xFEED</code></td><td>55</td></tr>
+<tr><td>Chipolo</td><td>Service UUID <code>0xFE33</code> (even when the tag broadcasts no name)</td><td>55</td></tr>
 </tbody></table></div>
 
 <h2 id="follow">Follow detection</h2>
@@ -24,7 +25,7 @@
 
 <h2 id="find">Finding the tag</h2>
 <ol>
-<li>Tap the device → <b>Locate</b>. The beep rate rises with signal strength.</li>
+<li>Tap the device → <b>Locate</b>. The beep rate rises with signal strength, and it keeps following the tag when the tag changes its address.</li>
 <li>Walk around the car or bag; RSSI changes fast within the last metre.</li>
 <li>Check the signal graph and history on the detail screen to see when it first appeared.</li>
 </ol>

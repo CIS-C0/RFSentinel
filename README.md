@@ -88,14 +88,15 @@
 | **Audio sensors** | Flock Raven | 128-bit service UUIDs `0x3100`-`0x3500` |
 | **Patrol vehicles** | Two or more kinds of police-type gear travelling together | Signal correlation between body cams, radios, in-car routers, printers, rugged laptops |
 | **Public-safety gear** | P25 / TETRA radios, in-car cellular routers (Sierra Wireless, Cradlepoint, Peplink, Inseego), in-car printers (Zebra, Brother), police radar makers, vehicle upfit, breath / drug screening devices, cell-site simulator and forensic makers | Company IDs, UUIDs, IEEE prefixes, Zebra factory-serial names |
-| **Trackers** | AirTag & Find My, Google Find Hub, Samsung SmartTag, Tile | Separated-from-owner frames, then follow detection |
+| **Trackers** | AirTag & Find My, Google Find Hub, Samsung SmartTag, Tile, Chipolo | Separated-from-owner frames and tracker service IDs, then follow detection |
 | **Drones** | Any ASTM F3411 / FAA / EU Remote ID broadcaster, and the French *signalement électronique* | Decoded Remote ID over BLE and WiFi: serial, position, altitude, speed, operator / take-off location |
 | **Camera glasses** | Ray-Ban / Oakley Meta, Snap Spectacles, Vuzix, HeyCyan-based glasses such as Nilox Smart AI Glasses | Company IDs `0x0D53`, `0x03C2`, `0x060C`, Meta UUIDs, the HeyCyan SDK UUID, name tokens |
 | **Fake cell towers** | IMSI catchers / cell-site simulators | Test network codes, sudden 4G→2G, cloned or reserved cell identities, unexpected networks |
 | **Police aircraft** *(online, off by default)* | Police, sheriff, state patrol, federal and RCMP / provincial police aircraft, and unlisted aircraft circling low overhead | Community ADS-B feeds (adsb.fi / adsb.lol) matched against ~1,400 law-enforcement airframes from the FAA and Transport Canada registries |
 | **Waze reports** *(online, off by default)* | Police reported by Waze users, and any other kind you tick (accidents, hazards, road closures, traffic jams), each with its own level: sound and voice, notification only, or silent. Shows what Waze says it is (hiding, mobile speed camera...) | Two sources: your own OpenWeb Ninja API key, or *Waze direct* (opt-in: no key, free, sends Waze your IP address and a position rounded to a 1 km grid). You set the alert range (100 m to 10 km), the map range, and how often Waze is asked (15 s to 5 min direct, 2 to 10 min OpenWeb Ninja), slower when parked and faster on fast roads. Scored by distance, age and driver confirmations and re-scored every second as you move, so an alert fires the moment a report comes into range, not at the next check. Optional: only alert for reports ahead of you, and spoken call-outs at 1 km, 500 m and 200 m. Third-party service, at your own risk |
 | **Card skimmers** | Bluetooth modules inside gas-pump and ATM skimmers | HC-05 / HC-06 / HC-03 / RN42 / BT04-A names, serial-port service |
-| **Hacking tools** *(off by default)* | Flipper Zero, Pwnagotchi, WiFi Pineapple, ESP deauthers, evil twin WiFi networks, Bluetooth spam floods | Flipper UUIDs / company ID `0x0E29` / IEEE block, Pwnagotchi beacon JSON, default SSIDs, same network name from two makers with mismatched security, bursts of new pairing pop-ups |
+| **Hacking tools** *(off by default)* | Flipper Zero, Pwnagotchi, WiFi Pineapple, ESP deauthers, evil twin WiFi networks, Bluetooth spam floods, **WiFi deauth attacks** | Flipper UUIDs / company ID `0x0E29` / IEEE block, Pwnagotchi beacon JSON, default SSIDs, same network name from two makers with mismatched security, bursts of new pairing pop-ups; with a USB WiFi adapter, floods of unprotected deauthentication frames knocking devices off a network |
+| **Emergency vehicles (V2X, Europe)** | Police, fire, ambulance and safety cars that broadcast European car-to-car radio (ITS-G5) | Needs an ESP32-C5 with the [V2X2MAP](https://github.com/pit711/V2X2MAP) firmware: the vehicle's own role, light bar and siren state and position (CAM), and its "emergency vehicle approaching" warnings (DENM). Ordinary cars are counted, not listed. Not in North America, which uses C-V2X |
 | **Action & hidden cameras** *(off by default)* | GoPro, Insta360, DJI Osmo, YI, SJCAM, AKASO, Garmin VIRB, Ricoh THETA, Kodak PIXPRO, Sony action cams, Apeman, Campark...; WiFi spy cameras in setup mode (V380, LookCam Pro, TinyCam Pro, HDSmartIPC) | GoPro company ID `0x02F2` / UUIDs `0xFEA5` `0xFEA6`, Insta360 (Arashi Vision) `0x10D7` / `0xFC30`, IEEE blocks, names |
 | **Network cameras** *(off by default)* | Arlo, Blink, Ezviz, Wyze, Ring, Verkada, Avigilon Alta, Axis, Hanwha, Bosch, FLIR, March Networks, GeoVision, Mobotix, Sunell, IDIS... | SSIDs and IEEE blocks |
 
@@ -109,7 +110,8 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 - Payload, name, UUID and company-ID signatures plus IEEE vendor prefixes (MA-L / MA-M / MA-S), each with a cited source and a confidence
 - **Evidence fusion:** independent matches on one device strengthen each other (noisy-OR, capped at 90)
 - **Patrol-vehicle detection:** police-type gear whose signals rise and fall together is grouped as a possible police vehicle
-- **Address-rotation linking:** keeps following a device when its Bluetooth address changes
+- **Address-rotation linking:** keeps following a device when its Bluetooth address changes, including in Locate
+- **Pinpointing:** a flagged device you pass from more than one side is placed where it most likely is, from its signal at every spot you passed (multilateration), with a circle it's very likely in; a straight road that can't tell the side gets a circle covering both. GPS runs precise every second while a flagged device is in range (Settings → Location, on by default)
 - **Follower alerts:** a tracker or flagged device that stays with you (default 10 min and 800 m, adjustable) raises *may be following you*
 - **Remote ID drones** decoded live, with a *drone overhead* alert within 200 m
 - Optional **cell tower change alert**: says so each time the phone moves to another serving tower (Settings; a change while parked is a classic fake-tower sign)
@@ -129,6 +131,7 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 - Sound, vibration pattern per tier (1 / 2 / 3 pulses) and spoken announcements through the phone's own speech engine (prioritised, voice and speed pickers)
 - **Radar-detector beeps** option: after an alert, beeps speed up as the flagged device gets closer
 - **Short spoken alerts** option ("Body cam", "Police car", "Speed camera, 50")
+- **Voice loudness** boost up to +15 dB (without distorting) for when music drowns the voice, in the car too, and an option to **pause music** while an alert is spoken
 - Discreet mode, adjustable alert threshold, mute from the app or the car
 - **Floating threat bubble** over Waze, Google Maps or any app, with a pop-up card saying what was just detected
 - **Floating mini map** over other apps: the devices and known cameras around you, like the app's map (pinch to zoom, drag, resize)
@@ -136,7 +139,7 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 - Notification, Quick Settings tile and home-screen widget
 
 **Map & history**
-- OpenStreetMap map with your GPS trace and every device pinned exactly where its signal peaked (tap a spot to list everything heard there), the same filter chips as the list (including Waze, which draws reports as coloured dots by type), self-centering
+- OpenStreetMap map with your GPS trace and every device pinned where its signal peaked, flagged devices at their pinpointed spot with its circle (tap a spot to list everything heard there), the same filter chips as the list (including Waze, which draws reports as coloured dots by type), self-centering
 - Optional **cell tower layer** (or the map's **Cells** chip): every tower seen while scanning, at the spot where its signal was strongest
 - **Record traces** of your route and the devices along it, with the screen off (with the network names each device asked for, when a USB adapter or Marauder board is plugged in)
 - **History map & timeline:** heatmap of where flagged equipment showed up, and when (hour of day, day of week)
@@ -150,6 +153,8 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 - ESP32 boards over USB OTG (OUI-Spy, GhostESP, Marauder incl. dual-band ESP32-C5 boards, or through a Flipper Zero) or Bluetooth (OUI-SPY App-Controlled) add their detections and extend range
 - **USB WiFi adapters in monitor mode** over OTG, no root: RTL8811AU / RTL8821AU (e.g. ALFA AWUS036ACS, 2.4 GHz; 5 GHz experimental, Settings → External hardware), **RTL8812BU / RTL8822BU** (2.4 + 5 GHz, e.g. TP-Link Archer T3U, Wise Tiger AC1200), **RTL8814AU** (ALFA AWUS1900, 2.4 + 5 GHz), **MT7612U** (ALFA AWUS036ACM, 2.4 + 5 GHz), **RTL8187** (ALFA AWUS036H), **RT3070** (ALFA AWUS036NH / NEH) and, experimental, **AR9271** (ALFA AWUS036NHA). No Android scan limit, longer range, and **client devices** (laptops, phones, cameras connected to a network) the phone's WiFi scan can't see. Single-antenna dongles are detected and handled automatically
 - **Requested networks:** the WiFi names nearby devices ask for (probe requests), from a USB adapter or a Marauder board, in an optional list; **watch** a name to get an alert whenever any device asks for it
+- **Record frames to .pcap** for Wireshark (Settings → External hardware): every frame a USB WiFi adapter or V2X board hears, with its channel and signal
+- The ALFA AWUS036ACS's light blinks with received traffic
 - **More from every frame:** WPS maker / model / device name, a **probe fingerprint** that survives MAC randomization (watchable: "every device of this type"), and the real name of **hidden networks** when a device joins them
 
 **Interface**
@@ -160,6 +165,7 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 - Device details: evidence, identity, decoded data, signal graph, **Locate** mode, history, raw advertisement
 - Setup wizard (theme, region, alerts and voice, bubble, car start, camera warnings, cell alerts, camera radius, screen, permissions); Settings save themselves
 - **Check for updates** (menu ⋮): compares with the latest GitHub release, only when you tap it
+- **Screen rotation** (Settings → General): normal, auto-rotate **including upside down**, or always upside down with the USB-C port at the top for an antenna or adapter - even on phones like the Pixel that never auto-rotate upside down
 - 13 themes, including the **DedSec** (Watch Dogs 2) and **fsociety** (Mr. Robot) fan themes
 
 **Data & privacy**
@@ -463,6 +469,14 @@ counts, and only as a weak sign. Consumer walkie-talkies (FRS / GMRS, MURS),
 marine, railroad, weather and paging channels are skipped. The dongle's log is in
 the exported USB adapter log.
 
+**Cellular transmitters** (optional, off by default): it can also watch the phone /
+modem side of the in-range LTE bands (600, 700 including Band 14 - the public-safety
+broadband block FirstNet uses in the US - 850 and part of 1700 MHz) for a transmitter
+close to you: a vehicle modem, a Cradlepoint-style router, a camera with a SIM. Energy
+only, nothing decoded or identified, and towers (which use the other half of each band)
+are never watched. A phone counts too, so it's a weak sign on its own; it matters when
+it travels with you or lines up with a device flagged over WiFi / Bluetooth.
+
 Hits show in the **main list** (the *Radio* filter, or under *All*): frequency,
 its name when known, signal above the noise, and whether it's **getting closer or
 moving away**. The dongle's status shows on the main screen next to the other
@@ -731,8 +745,12 @@ detection and WiFi identification, is in [docs/SIGNATURES.md](docs/SIGNATURES.md
 
 Inspired by the nyanBOX hardware device and the RF Party app, which was based
 on Alan Meekins' DEF CON 31 talk *"Snoop Unto Them As They Snoop Unto Us"*.
-Some feature ideas come from SØPHIA and BLE Radar (MetaRadar). No code from
-those projects is included. The USB WiFi monitor-mode driver for RTL8811AU /
+Some feature ideas come from SØPHIA, BLE Radar (MetaRadar) and ESPsoup. No code from
+those projects is included. European V2X (ITS-G5) frames are read the way
+[V2X2MAP](https://github.com/pit711/V2X2MAP) by Peter Holzhauser does (MIT; see
+`esp/V2X2MAP-LICENSE`), with the CAM / DENM messages decoded from ETSI's own ASN.1.
+Tracker service IDs follow [AirGuard](https://github.com/seemoo-lab/AirGuard) by
+SEEMOO / TU Darmstadt (Apache-2.0). The USB WiFi monitor-mode driver for RTL8811AU /
 RTL8821AU adapters (`app/src/main/java/com/rfsentinel/app/usb/`) is ported from
 [Wardrive Go](https://github.com/RocketGod-git/wardrive-go) by RocketGod (GPL-3.0),
 whose register tables come from Realtek's 88xxau Linux driver

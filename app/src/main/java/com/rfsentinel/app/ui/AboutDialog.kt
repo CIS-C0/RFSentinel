@@ -34,7 +34,8 @@ object AboutDialog {
             &bull; all-cameras-are-beacons signature reference (Apache-2.0) - Axon BWCDEVICE tag,
               Flock / Raven signatures, tracker and smart-glasses rules, drone maker prefixes<br/>
             &bull; ASTM F3411 Remote ID, decoded per opendroneid-core-c (Apache-2.0)<br/>
-            &bull; Google Find Hub Network accessory spec; arXiv 2501.17452 (trackers)<br/>
+            &bull; Google Find Hub Network accessory spec; arXiv 2501.17452; AirGuard, SEEMOO / TU Darmstadt (Apache-2.0) (trackers)<br/>
+            &bull; European V2X (ITS-G5) frame layout after V2X2MAP by Peter Holzhauser (MIT); CAM / DENM decoded per ETSI EN 302 637-2 / -3<br/>
             &bull; Research by ryanohoro and GainSec (Flock); Alan Meekins' DEF CON 31 talk (Axon)<br/><br/>
 
             DedSec, fsociety and Night Vision theme font: Share Tech Mono &copy; Carrois Type Design, SIL Open Font

@@ -162,6 +162,23 @@ class SettingsActivity : AppCompatActivity() {
         val current = Prefs.voiceRate(this)
         binding.voiceRateGroup.check(rates.minByOrNull { kotlin.math.abs(it.value - current) }!!.key)
         binding.voiceRateGroup.setOnCheckedChangeListener { _, id -> rates[id]?.let { Prefs.setVoiceRate(this, it) } }
+        // Louder than the phone's volume alone allows: music in the car often drowns the voice.
+        fun boostLabel(db: Int) = "Voice loudness: " + if (db == 0) "normal" else "+$db dB"
+        binding.voiceBoostSlider.value = Prefs.voiceBoostDb(this).toFloat()
+        binding.voiceBoostLabel.text = boostLabel(Prefs.voiceBoostDb(this))
+        binding.voiceBoostSlider.setLabelFormatter { if (it == 0f) "normal" else "+${it.toInt()} dB" }
+        binding.voiceBoostSlider.addOnChangeListener { _, v, fromUser ->
+            binding.voiceBoostLabel.text = boostLabel(v.toInt())
+            if (fromUser) Prefs.setVoiceBoostDb(this, v.toInt())
+        }
+        binding.voiceBoostSlider.addOnSliderTouchListener(object : com.google.android.material.slider.Slider.OnSliderTouchListener {
+            override fun onStartTrackingTouch(slider: com.google.android.material.slider.Slider) {}
+            override fun onStopTrackingTouch(slider: com.google.android.material.slider.Slider) {
+                com.rfsentinel.app.util.AlertPlayer.testVoice(this@SettingsActivity, binding.shortVoiceSwitch.isChecked)
+            }
+        })
+        binding.voicePauseMusicSwitch.isChecked = Prefs.voicePausesMusic(this)
+        binding.voicePauseMusicSwitch.setOnCheckedChangeListener { _, on -> Prefs.setVoicePausesMusic(this, on) }
         // Tests what is on screen (Settings save when you leave), so the short switch counts right away.
         binding.voiceTestButton.setOnClickListener {
             com.rfsentinel.app.util.AlertPlayer.testVoice(this, binding.shortVoiceSwitch.isChecked)
@@ -228,6 +245,57 @@ class SettingsActivity : AppCompatActivity() {
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Export adapter log"))
         }
     }
+
+    /** Starts or stops the .pcap recording of what the USB WiFi adapter / V2X board hears; stopping offers to share it. */
+    private fun togglePcap() {
+        val rec = com.rfsentinel.app.usb.PcapRecorder
+        if (rec.active) {
+            rec.stop()
+            updatePcap()
+            sharePcap()
+            return
+        }
+        if (!com.rfsentinel.app.service.ScanForegroundService.isRunning) {
+            Toast.makeText(this, "Start scanning with the adapter or V2X board plugged in, then record", Toast.LENGTH_LONG).show()
+            return
+        }
+        val dir = java.io.File(cacheDir, "exports")
+        // Only the newest recording is kept: they get big.
+        dir.listFiles { f -> f.name.endsWith(".pcap") }?.forEach { it.delete() }
+        val file = java.io.File(dir, "rfsentinel-${com.rfsentinel.app.util.Exporter.stamp()}.pcap")
+        if (!rec.start(file)) { Toast.makeText(this, "Couldn't create the recording file", Toast.LENGTH_SHORT).show(); return }
+        Toast.makeText(this, "Recording - frames are saved as they're heard; it stops when scanning does", Toast.LENGTH_LONG).show()
+        updatePcap()
+    }
+
+    private fun sharePcap() {
+        val file = com.rfsentinel.app.usb.PcapRecorder.file?.takeIf { it.exists() && it.length() > 24 } ?: run {
+            Toast.makeText(this, "Nothing was recorded (no frames heard)", Toast.LENGTH_SHORT).show(); return
+        }
+        val uri = runCatching { androidx.core.content.FileProvider.getUriForFile(this, "$packageName.fileprovider", file) }.getOrNull() ?: return
+        startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("application/vnd.tcpdump.pcap")
+            .putExtra(Intent.EXTRA_STREAM, uri)
+            .putExtra(Intent.EXTRA_SUBJECT, "RF Sentinel capture ${file.name}")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Share .pcap recording"))
+    }
+
+    /** The recording's size and frame count, refreshed every second while it runs. */
+    private fun updatePcap() {
+        if (isFinishing || isDestroyed) return
+        val rec = com.rfsentinel.app.usb.PcapRecorder
+        val file = rec.file?.takeIf { it.exists() }
+        val mb = String.format(java.util.Locale.US, "%.1f MB", rec.bytes / 1_048_576.0)
+        binding.pcapText.text = when {
+            rec.active -> "● Recording · ${rec.frames} frames · $mb"
+            file != null -> "Last recording: ${rec.frames} frames · $mb" + (rec.stoppedBecause?.let { " (stopped: $it)" } ?: "")
+            else -> "Record what the USB WiFi adapter or V2X board hears, for Wireshark"
+        }
+        binding.pcapButton.text = if (rec.active) "Stop and share" else "Record frames (.pcap)"
+        binding.pcapShareButton.visibility = if (!rec.active && file != null) View.VISIBLE else View.GONE
+        binding.pcapText.removeCallbacks(pcapTicker)
+        if (rec.active) binding.pcapText.postDelayed(pcapTicker, 1_000)
+    }
+    private val pcapTicker = Runnable { updatePcap() }
 
     private fun updateEspStatus() {
         val s = com.rfsentinel.app.esp.EspBoards.status
@@ -303,7 +371,12 @@ class SettingsActivity : AppCompatActivity() {
             "Setup wizard: walks through the permissions and main choices again.\n\n" +
                 "Update check: asks GitHub at most every 6 hours and only speaks up when a new version is out.\n\n" +
                 "Discreet mode: hides details on the lock screen and in notifications.\n\n" +
-                "Screen: \"On while charging\" suits a car or a desk; \"Normal\" turns off like other apps."),
+                "Screen: \"On while charging\" suits a car or a desk; \"Normal\" turns off like other apps.\n\n" +
+                "Screen rotation: phones like the Pixel never auto-rotate upside down. \"Auto-rotate, upside down too\" turns " +
+                "the app whichever way the phone is held, upside down included (rotation lock still applies); \"Always upside down\" " +
+                "keeps the USB-C port at the top (an antenna, a WiFi adapter or an ESP32 board plugged in). The status bar and " +
+                "Android's own navigation buttons or gestures turn with it and work normally. Only while the app is on screen: " +
+                "other apps and the home screen stay as usual."),
         Section("appearance", binding.headerAppearance, binding.sectionAppearance,
             "Banner image: shown above the animated header in the styled themes (Night Drive, Synthwave...); " +
                 "in DedSec and fsociety it replaces the poster. The image is copied privately into the app."),
@@ -365,7 +438,11 @@ class SettingsActivity : AppCompatActivity() {
                 "Re-alert: how long before the same device can alert again."),
         Section("voice", binding.headerVoice, binding.sectionVoice,
             "Speaks each alert, for example while driving. Short alerts say just the type " +
-                "(\"Body cam\", \"Police car\", \"Speed camera, 50\")."),
+                "(\"Body cam\", \"Police car\", \"Speed camera, 50\").\n\n" +
+                "Voice loudness: makes the voice louder than the volume alone allows (up to +15 dB, without distorting), " +
+                "for when music drowns it out - in the car too. Release the slider to hear it.\n\n" +
+                "Pause music while an alert is spoken: music stops for the alert and carries on after it, " +
+                "instead of only getting quieter."),
         Section("overlay", binding.headerOverlay, binding.sectionOverlay,
             "Shown over other apps (Waze, Maps...) while scanning. Needs Android's \"Display over other apps\" permission.\n\n" +
                 "Bubble: each new alert shows what was detected in a small card beside it for a few seconds.\n\n" +
@@ -407,7 +484,18 @@ class SettingsActivity : AppCompatActivity() {
                 "• RTL-SDR dongle: notices two-way radios transmitting nearby (signal strength only, nothing is decoded).\n\n" +
                 "OUI-SPY over Bluetooth needs its App-Controlled firmware. Relay mode passes on every network and device it hears " +
                 "so RF Sentinel's own lists check them (the board also sends standard Wi-Fi scan probes).\n\n" +
-                "Adapter not working? Export its log and send it to the developer."),
+                "Adapter not working? Export its log and send it to the developer.\n\n" +
+                "WiFi deauth attacks (with Hacking tools on): the USB WiFi adapter counts the frames that knock devices off a " +
+                "network; a flood (a jammer, an ESP32 deauther, a Flipper WiFi board, a WiFi Pineapple) raises an alert. " +
+                "Protected (802.11w) frames are ignored, and a normal network never sends enough.\n\n" +
+                "Record frames (.pcap): saves every frame the USB WiFi adapter (or V2X board) hears to a file for Wireshark, " +
+                "with each frame's channel and signal, until you stop it, scanning stops, or it reaches 200 MB. It holds " +
+                "the addresses and names of everything nearby: share it with care. Only the newest recording is kept.\n\n" +
+                "• V2X (Europe): an ESP32-C5 flashed with the V2X2MAP firmware (github.com/pit711/V2X2MAP) hears the 5.9 GHz " +
+                "car-to-car radio (ITS-G5). Emergency vehicles that broadcast it show on the list and map at their own GPS " +
+                "position, with an alert when their light bar or siren is on, or when they warn that they're approaching. " +
+                "Ordinary cars are counted, not listed. North America uses a different V2X radio (C-V2X) that this board can't hear. " +
+                "Receiving V2X may fall under telecom or privacy law where you are."),
         Section("radio", binding.headerRadio, binding.sectionRadio,
             "An RTL-SDR dongle on USB notices two-way radios transmitting nearby, from signal strength only - nothing is " +
                 "decoded or recorded. Needs the Police radio category on (What to detect).\n\n" +
@@ -417,13 +505,23 @@ class SettingsActivity : AppCompatActivity() {
                 "which are reported whenever they're active.\n\n" +
                 "Hits show in the main list (Radio filter). Closer / moving away: called out when the signal changes by the set " +
                 "amount - a rough guide only.\n\n" +
+                "Cellular transmitters (LTE uplink, off by default): also watches the phone / modem side of the in-range LTE " +
+                "bands (600 / 700 / 850 / 1700 MHz, including Band 14, the US public-safety broadband band FirstNet uses) for a transmitter close to you. Energy only, nothing decoded or identified. " +
+                "Few things drive around with a mobile router always transmitting, so a cellular signal that travels with you - or " +
+                "that lines up with a device flagged over Wi-Fi / Bluetooth - is a useful sign; a phone alone is not. It adds time to " +
+                "each sweep while it's on.\n\n" +
                 "Frequency names: import a CSV (RadioReference's export, CHIRP, or any file with a frequency and a name column), " +
                 "or let RadioReference name the FCC licences near you (US): needs your own RadioReference Premium login and a " +
                 "RadioReference developer key; your position rounded to ~1 km is sent to RadioReference, at most once a day per area.\n\n" +
                 "Changes apply from the next sweep while scanning."),
         Section("location", binding.headerLocation, binding.sectionLocation,
             "Traces: records your route while scanning, to view on the map.\n\n" +
-                "Saving the GPS position with matches is privacy-sensitive: the log then shows where you were. It also lets the map remember where it last looked, so it can open there before the GPS answers."),
+                "Saving the GPS position with matches is privacy-sensitive: the log then shows where you were. It also lets the map remember where it last looked, so it can open there before the GPS answers.\n\n" +
+                "Pinpoint flagged devices: while a flagged device is in range, the GPS reads your position every second and " +
+                "its signal is measured at every spot you pass. Once you've passed it from more than one side (around the block), " +
+                "the map puts it where it most likely is, with a circle it is very likely in. Driving one straight road can't tell " +
+                "which side it's on: the circle then covers both. Works for devices that stay put; one that moves with you isn't " +
+                "pinned. Kept in memory, not in the history. Uses more battery while a flagged device is around."),
         Section("data", binding.headerData, binding.sectionData,
             "Everything stays on this phone. History older than the set number of days is deleted (0 keeps it forever).\n\n" +
                 "Live export (off by default): while scanning, rewrites three files every 30 s in the folder you choose - " +
@@ -690,6 +788,10 @@ class SettingsActivity : AppCompatActivity() {
         lines("Never report these ranges", "462-469 business band\n151.8-152.0", Prefs.radioExcluded(this)) { Prefs.setRadioExcluded(this, it) }
         lines("Watch these frequencies (always reported when active)", "154.4300 County fire dispatch\n460.125", Prefs.radioTargets(this)) { Prefs.setRadioTargets(this, it) }
         switch("Say the frequency (and its name) instead of \"Radio transmitting nearby\"", Prefs.radioSpeakFreq(this)) { Prefs.setRadioSpeakFreq(this, it) }
+        switch("Also detect cellular transmitters (LTE uplink, experimental)", Prefs.radioCellOn(this)) { Prefs.setRadioCellOn(this, it) }
+        label("Watches the phone / modem side of the LTE bands for a transmitter travelling near you (a vehicle modem, a " +
+            "Cradlepoint-style router, a camera with a SIM). Energy only, nothing decoded. Adds time to each sweep; " +
+            "a phone counts too, so it is a weak sign on its own.", small = true)
         slider(0, 20, Prefs.radioTrendDb(this), { if (it == 0) "Closer / moving away: off" else "Say \"getting closer\" / \"moving away\" when the signal changes by $it dB" }) {
             Prefs.setRadioTrendDb(this, it)
         }
@@ -1367,6 +1469,13 @@ class SettingsActivity : AppCompatActivity() {
         binding.shortVoiceSwitch.isChecked = Prefs.shortVoice(this)
         setupVoiceControls()
         binding.discreetSwitch.isChecked = Prefs.discreetMode(this)
+        val rotations = mapOf(R.id.rotationNormal to Prefs.Rotation.NORMAL, R.id.rotationAllWays to Prefs.Rotation.ALL_WAYS,
+            R.id.rotationUpsideDown to Prefs.Rotation.UPSIDE_DOWN)
+        binding.rotationGroup.check(rotations.entries.first { it.value == Prefs.rotation(this) }.key)
+        binding.rotationGroup.setOnCheckedChangeListener { _, id ->
+            rotations[id]?.let { Prefs.setRotation(this, it) }
+            (application as com.rfsentinel.app.RFSentinelApp).applyOrientation(this) // turns right away
+        }
         binding.floatingMapSwitch.isChecked = Prefs.floatingMap(this) && Settings.canDrawOverlays(this)
         binding.floatingMapSwitch.setOnCheckedChangeListener { sw, on ->
             if (on && !Settings.canDrawOverlays(this)) {
@@ -1411,6 +1520,9 @@ class SettingsActivity : AppCompatActivity() {
         com.rfsentinel.app.esp.OuiSpyBle.onStatusChanged = { runOnUiThread { updateEspStatus() } }
         binding.ouiSpyButton.setOnClickListener { pairOuiSpy() }
         binding.usbWifiLogButton.setOnClickListener { exportUsbWifiLog() }
+        binding.pcapButton.setOnClickListener { togglePcap() }
+        binding.pcapShareButton.setOnClickListener { sharePcap() }
+        updatePcap()
         binding.trackerIgnoreButton.setOnClickListener {
             com.rfsentinel.app.data.TrackerMutes.clear(this)
             Prefs.setTrackerFollowPausedUntil(this, 0L)
@@ -1420,6 +1532,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.followMinutesInput.setText(Prefs.followMinMinutes(this).toString())
         binding.followMetersInput.setText(Prefs.followMinMeters(this).toString())
         binding.gpsSwitch.isChecked = Prefs.gpsTaggingEnabled(this)
+        binding.pinpointSwitch.isChecked = Prefs.pinpointFlagged(this)
         binding.autoRecordSwitch.isChecked = Prefs.autoRecordTrace(this)
         binding.ouiSpyRelaySwitch.isChecked = Prefs.ouiSpyRelayAll(this)
         binding.screenModeGroup.check(when (Prefs.screenMode(this)) {
@@ -1519,6 +1632,7 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        updatePcap()
         // The user may be coming back from Developer options.
         updateWifiThrottleHint()
         showNote(aircraftStatusText, com.rfsentinel.app.online.OnlineWatch.aircraftStatus)
@@ -1658,6 +1772,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setFollowMinMinutes(this, (binding.followMinutesInput.text.toString().toIntOrNull() ?: 10).coerceIn(2, 240))
         Prefs.setFollowMinMeters(this, (binding.followMetersInput.text.toString().toIntOrNull() ?: 800).coerceIn(100, 50_000))
         Prefs.setGpsTaggingEnabled(this, binding.gpsSwitch.isChecked)
+        Prefs.setPinpointFlagged(this, binding.pinpointSwitch.isChecked)
         Prefs.setAutoRecordTrace(this, binding.autoRecordSwitch.isChecked)
         Prefs.setOuiSpyRelayAll(this, binding.ouiSpyRelaySwitch.isChecked)
         Prefs.setScreenMode(this, when (binding.screenModeGroup.checkedRadioButtonId) {

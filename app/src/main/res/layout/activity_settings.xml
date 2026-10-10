@@ -44,6 +44,18 @@
                 <RadioButton android:id="@+id/screenOnCharging" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="On while charging" />
                 <RadioButton android:id="@+id/screenNormal" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Normal" />
             </RadioGroup>
+
+            <TextView style="@style/SettingsLabel" android:text="Screen rotation" />
+
+            <RadioGroup
+                android:id="@+id/rotationGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <RadioButton android:id="@+id/rotationNormal" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Normal (follows auto-rotate)" />
+                <RadioButton android:id="@+id/rotationAllWays" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Auto-rotate, upside down too" />
+                <RadioButton android:id="@+id/rotationUpsideDown" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Always upside down (USB-C port at the top)" />
+            </RadioGroup>
         </LinearLayout>
 
         <!-- ================= Appearance ================= -->
@@ -305,6 +317,24 @@
                 <RadioButton android:id="@+id/voiceRateNormal" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Normal" />
                 <RadioButton android:id="@+id/voiceRateFast" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Fast" />
             </RadioGroup>
+
+            <TextView android:id="@+id/voiceBoostLabel" style="@style/SettingsLabel" android:text="Voice loudness" />
+
+            <com.google.android.material.slider.Slider
+                android:id="@+id/voiceBoostSlider"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:contentDescription="Extra loudness for spoken alerts, in decibels"
+                android:stepSize="1"
+                android:value="6"
+                android:valueFrom="0"
+                android:valueTo="15" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/voicePauseMusicSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Pause music while an alert is spoken" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -592,6 +622,33 @@
                 android:text="Export USB adapter log" />
 
             <TextView
+                android:id="@+id/pcapText"
+                style="@style/SettingsLabel"
+                android:paddingTop="6dp"
+                android:text="Record what the USB WiFi adapter or V2X board hears, for Wireshark" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/pcapButton"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Record frames (.pcap)" />
+
+                <Button
+                    android:id="@+id/pcapShareButton"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    android:text="Share last recording" />
+            </LinearLayout>
+
+            <TextView
                 android:id="@+id/sdrStatusText"
                 style="@style/SettingsLabel"
                 android:paddingTop="6dp" />
@@ -640,6 +697,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Save GPS position with matches" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/pinpointSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Pinpoint flagged devices on the map" />
         </LinearLayout>
 
         <!-- ================= Data ================= -->

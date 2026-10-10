@@ -28,7 +28,9 @@ data class EspSighting(
     /** A Wi-Fi client device (heard sending probe requests), not an access point. */
     val client: Boolean = false,
     /** Network names a client asked for by name (probe requests). */
-    val probedSsids: List<String> = emptyList()
+    val probedSsids: List<String> = emptyList(),
+    /** Where the device says it is (a V2X vehicle's own GPS), as latitude to longitude. */
+    val position: Pair<Double, Double>? = null
 )
 
 /**

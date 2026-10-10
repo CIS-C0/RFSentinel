@@ -59,6 +59,15 @@ object Prefs {
     fun setVoiceEnabled(context: Context, value: Boolean) = setBool(context, "voice_enabled", value)
     /** Speech rate for spoken alerts (1.0 = the engine's normal speed). */
     fun voiceRate(context: Context): Float = sp(context).getFloat("voice_rate", 1.0f)
+
+    /** Extra loudness for spoken alerts, in dB (0..15): music in the car is often much louder than the voice. */
+    fun voiceBoostDb(context: Context): Int = int(context, "voice_boost_db", 6).coerceIn(0, MAX_VOICE_BOOST_DB)
+    fun setVoiceBoostDb(context: Context, db: Int) = setInt(context, "voice_boost_db", db.coerceIn(0, MAX_VOICE_BOOST_DB))
+    const val MAX_VOICE_BOOST_DB = 15
+
+    /** Pause music (instead of only lowering it) while an alert is spoken. */
+    fun voicePausesMusic(context: Context): Boolean = bool(context, "voice_pauses_music", false)
+    fun setVoicePausesMusic(context: Context, value: Boolean) = setBool(context, "voice_pauses_music", value)
     fun setVoiceRate(context: Context, rate: Float) = sp(context).edit { putFloat("voice_rate", rate) }
     /** The chosen speech-engine voice (null = best English voice on the phone). */
     fun voiceName(context: Context): String? = sp(context).getString("voice_name", null)
@@ -170,6 +179,22 @@ object Prefs {
     fun setGpsTaggingEnabled(context: Context, value: Boolean) = setBool(context, "gps_tagging_enabled", value)
 
     /** Warn when a tracker or flagged device keeps moving with you. Needs location updates. */
+    /** Pinpoint flagged devices from many readings as you move (GPS runs precise every second while one is in range). */
+    fun pinpointFlagged(context: Context): Boolean = bool(context, "pinpoint_flagged", true)
+    fun setPinpointFlagged(context: Context, value: Boolean) = setBool(context, "pinpoint_flagged", value)
+
+    /**
+     * How the app turns: NORMAL follows auto-rotate (never upside down on phones like the Pixel), ALL_WAYS
+     * follows auto-rotate including upside down, UPSIDE_DOWN always has the USB-C port at the top.
+     */
+    enum class Rotation { NORMAL, ALL_WAYS, UPSIDE_DOWN }
+
+    fun rotation(context: Context): Rotation =
+        sp(context).getString("rotation_mode", null)?.let { v -> Rotation.entries.firstOrNull { it.name == v } }
+            // The earlier on/off switch.
+            ?: if (bool(context, "upside_down", false)) Rotation.UPSIDE_DOWN else Rotation.NORMAL
+    fun setRotation(context: Context, value: Rotation) = sp(context).edit { putString("rotation_mode", value.name) }
+
     fun followerAlerts(context: Context): Boolean = bool(context, "follower_alerts", true)
     fun setFollowerAlerts(context: Context, value: Boolean) = setBool(context, "follower_alerts", value)
 
@@ -351,6 +376,10 @@ object Prefs {
     fun setRadioMinSnr(context: Context, v: Int) = setInt(context, "radio_min_snr", v.coerceIn(15, 50))
     /** Built-in bands switched off ("700", "800", "vhf", "uhf"). */
     fun radioBandsOff(context: Context): Set<String> = sp(context).getStringSet("radio_bands_off", emptySet()).orEmpty()
+
+    /** Also sweep the cellular UPLINK bands for a transmitter travelling near you (experimental, off by default). */
+    fun radioCellOn(context: Context): Boolean = bool(context, "radio_cell_on", false)
+    fun setRadioCellOn(context: Context, value: Boolean) = setBool(context, "radio_cell_on", value)
     fun setRadioBandsOff(context: Context, v: Set<String>) = sp(context).edit { putStringSet("radio_bands_off", v) }
     /** The user's own bands, one "start-end MHz label" per line. */
     fun radioCustomBands(context: Context) = str(context, "radio_custom_bands")

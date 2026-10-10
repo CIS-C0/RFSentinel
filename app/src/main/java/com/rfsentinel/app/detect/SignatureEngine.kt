@@ -79,6 +79,7 @@ object SignatureEngine {
     private const val UUID_REMOTE_ID = 0xFFFA      // ASTM Remote ID (SIG SDO UUID)
     private const val UUID_SMARTTAG = 0xFD5A       // Samsung Electronics
     private const val UUID_TILE = 0xFEED           // Tile, Inc.
+    private const val UUID_CHIPOLO = 0xFE33        // CHIPOLO d.o.o. (as AirGuard, SEEMOO / TU Darmstadt, Apache-2.0)
     private const val UUID_GOOGLE_FMDN = 0xFEAA    // Google LLC (Eddystone / Find Hub)
     private const val UUID_SPECTACLES = 0xFE45     // Snapchat Inc
     private val META_UUIDS = setOf(0xFEB7, 0xFEB8) // Meta Platforms, Inc.
@@ -294,6 +295,10 @@ object SignatureEngine {
         }
         (a.serviceData[Advert.uuid16(UUID_TILE)] ?: a.serviceData[Advert.uuid16(UUID_TILE_2)])?.takeIf { it.isNotEmpty() }?.let {
             hits += Hit(Category.TRACKER, "Tile tracker", 55, "Service data on UUID 0xFEED / 0xFEEC (Tile, Inc.)", SIG)
+        }
+        // Chipolo tags often broadcast no name: their own service UUID gives them away.
+        if (a.serviceData.keys.contains(Advert.uuid16(UUID_CHIPOLO)) || a.serviceUuids.contains(Advert.uuid16(UUID_CHIPOLO))) {
+            hits += Hit(Category.TRACKER, "Chipolo tracker", 55, "Service UUID 0xFE33 (CHIPOLO d.o.o.)", "$SIG; AirGuard (SEEMOO, Apache-2.0)")
         }
 
         // ---- Smart / recording glasses --------------------------------------

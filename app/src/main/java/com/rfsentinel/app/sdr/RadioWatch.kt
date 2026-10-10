@@ -21,7 +21,7 @@ import kotlin.math.sin
  */
 class RadioWatch {
 
-    enum class Kind { PUBLIC_SAFETY_MOBILE, SHARED, CUSTOM, TARGET }
+    enum class Kind { PUBLIC_SAFETY_MOBILE, SHARED, CUSTOM, TARGET, CELLULAR_UPLINK }
 
     data class Band(val label: String, val startHz: Long, val endHz: Long, val kind: Kind)
 
@@ -82,6 +82,7 @@ class RadioWatch {
         val found = ArrayList<Event>()
         val cfg = config
         for (band in cfg.bands) {
+            if (band.kind == Kind.CELLULAR_UPLINK) { widebandScan(band, centerHz, psdDb, sampleRate, now, cfg, found); continue }
             var f = ((maxOf(band.startHz, centerHz - USABLE_HZ.toLong()) + STEP_HZ - 1) / STEP_HZ) * STEP_HZ
             val last = minOf(band.endHz, centerHz + USABLE_HZ.toLong())
             while (f <= last) {
@@ -120,11 +121,63 @@ class RadioWatch {
                 if (acc.none { kotlin.math.abs(it.freqHz - e.freqHz) <= SPLATTER_HZ }) acc += e
                 acc
             }
-        for (e in kept) if (!e.repeat) (if (e.target != null) targetState else channels)[e.freqHz]?.lastEvent = now
+        for (e in kept) if (!e.repeat) {
+            (if (e.target != null) targetState else channels)[e.freqHz]?.lastEvent = now
+            cells[e.freqHz]?.lastEvent = now
+        }
         return kept
     }
 
     private val targetState = HashMap<Long, Channel>()
+    private val cells = HashMap<Long, Cell>()
+
+    private class Cell {
+        var visits = 0
+        /** Slowly-learned quiet level of this slice (dB); a transmitter shows as a rise above it. */
+        var baseline = Float.NaN
+        var lastEvent = Long.MIN_VALUE / 2
+    }
+
+    /** Cellular uplink slices learned so far (for the log). */
+    val cellSlices: Int get() = cells.size
+
+    /**
+     * Wideband energy in one ~1.6 MHz slice of a cellular UPLINK band - the side the phone, modem or
+     * router transmits on, not the tower. A device transmitting nearby lifts the whole slice above its
+     * learned quiet level. Signal strength only: nothing is demodulated, and it can't tell one device
+     * or carrier from another - only that something cellular is transmitting close by, and roughly how
+     * close. Towers transmit on the downlink bands, which this never looks at, so a steady uplink rise
+     * that travels with you is a device travelling with you.
+     */
+    private fun widebandScan(band: Band, centerHz: Long, psdDb: FloatArray, sampleRate: Int, now: Long,
+                             cfg: Config, found: ArrayList<Event>) {
+        val nn = psdDb.size
+        val binHz = sampleRate.toDouble() / nn
+        val usableBins = (USABLE_HZ / binHz).toInt()
+        val vals = ArrayList<Float>(2 * usableBins)
+        for (i in nn / 2 - usableBins..nn / 2 + usableBins) {
+            if (i !in 0 until nn) continue
+            val f = centerHz + (((i - nn / 2) * binHz).roundToInt()).toLong()
+            if (kotlin.math.abs(f - centerHz) <= DC_GUARD_HZ) continue
+            if (f < band.startHz || f > band.endHz || excluded(f, cfg)) continue
+            vals += psdDb[i]
+        }
+        if (vals.size < 16) return
+        vals.sort()
+        val floor = vals[vals.size / 2]                 // slice noise floor (median)
+        val level = vals[(vals.size * 7) / 10]          // how high the busier 30 % of the slice sits
+        val cell = cells.getOrPut(centerHz) { Cell() }
+        cell.visits++
+        @Suppress("UNUSED_VARIABLE") val slice = floor  // in-slice noise floor, kept for the log/debug
+        if (cell.baseline.isNaN()) cell.baseline = level
+        val rise = (level - cell.baseline).roundToInt()
+        val active = rise >= CELL_RISE_DB
+        // Learn the quiet level only while nothing is transmitting, so a passing device isn't learned away.
+        if (!active) cell.baseline = cell.baseline * (1 - CELL_ALPHA) + level * CELL_ALPHA
+        if (cell.visits < LEARN_SWEEPS || !active) return
+        val confidence = if (rise >= CELL_RISE_DB * 3) 55 else 40
+        found += Event(centerHz, rise, band, confidence, repeat = now - cell.lastEvent < REPEAT_MS)
+    }
 
     /** [min]: the sensitivity setting; at the default (30 dB) the thresholds are the original ones. */
     private fun eventFor(f: Long, snr: Int, band: Band, ch: Channel, now: Long, min: Int = DEFAULT_MIN_SNR): Event? {
@@ -152,6 +205,26 @@ class RadioWatch {
         /** Default sensitivity: 30 dB above the noise (the original public-safety threshold). */
         const val DEFAULT_MIN_SNR = 30
         private const val TARGET_CONFIDENCE = 70
+        /** A cellular uplink slice must rise this many dB above its learned quiet level to count. */
+        private const val CELL_RISE_DB = 8
+        /** How fast the learned quiet level follows a slow ambient drift (a gentle rise is not a transmitter). */
+        private const val CELL_ALPHA = 0.1f
+
+        /**
+         * North-American LTE/5G FDD UPLINK bands within the RTL-SDR's tuning range (~24-1766 MHz) - the
+         * frequencies a handset, modem or router TRANSMITS on (towers use the paired downlink bands, which
+         * are left out on purpose, so a tower never looks like a device). The 1850-1915 MHz PCS uplink and
+         * the 5G mid-band are above the dongle's range and can't be watched. Receive-only, energy only.
+         */
+        val LTE_UPLINK_BANDS = listOf(
+            Band("Cellular uplink - 600 MHz (Band 71)", 663_000_000L, 698_000_000L, Kind.CELLULAR_UPLINK),
+            Band("Cellular uplink - 700 MHz lower (Band 12/17)", 698_000_000L, 716_000_000L, Kind.CELLULAR_UPLINK),
+            Band("Cellular uplink - 700 MHz upper (Band 13)", 776_000_000L, 788_000_000L, Kind.CELLULAR_UPLINK),
+            // Band 14: the public-safety broadband block (FirstNet in the US; AT&T phones may use spare capacity).
+            Band("Cellular uplink - 700 MHz public-safety broadband (Band 14, FirstNet)", 788_000_000L, 798_000_000L, Kind.CELLULAR_UPLINK),
+            Band("Cellular uplink - 850 MHz (Band 5/26)", 814_000_000L, 849_000_000L, Kind.CELLULAR_UPLINK),
+            Band("Cellular uplink - AWS 1700 MHz (Band 4/66, partial)", 1_710_000_000L, 1_766_000_000L, Kind.CELLULAR_UPLINK)
+        )
 
         /** North American (FCC) public-safety land-mobile bands. */
         val BANDS = listOf(

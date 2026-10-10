@@ -81,6 +81,11 @@ object Spoken {
         Category.SKIMMER -> "Card skimmer"
         Category.OTHER_CAMERA -> if (hit.label.startsWith("Hidden")) "Hidden camera" else "Action camera"
         Category.HACKER -> "Hacking tool"
+        Category.V2X -> when {
+            hit.label.contains("siren", ignoreCase = true) -> "Emergency siren"
+            hit.label.contains("approaching") -> "Emergency approaching"
+            else -> "Emergency vehicle"
+        }
         Category.CUSTOM -> "Watchlist"
     }
 }

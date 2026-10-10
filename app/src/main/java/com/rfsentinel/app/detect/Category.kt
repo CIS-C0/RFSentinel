@@ -31,7 +31,9 @@ enum class Category(
     /** Bluetooth serial modules built into gas-pump / ATM card skimmers (BLE names, receive-only). */
     SKIMMER("Card skimmers (gas pumps, ATMs)", "SKIMMER", 0xFF6D4C41.toInt(), true),
     /** Off by default: plenty of hobbyists carry a Flipper. */
-    HACKER("Hacking tools: Flipper Zero, Pwnagotchi, WiFi Pineapple, evil twin WiFi, Bluetooth spam", "HACKER", 0xFFD81B60.toInt(), false),
+    HACKER("Hacking tools: Flipper Zero, Pwnagotchi, WiFi Pineapple, evil twin WiFi, Bluetooth spam, WiFi deauth attacks", "HACKER", 0xFFD81B60.toInt(), false),
+    /** European V2X (ITS-G5) radio, through an ESP32-C5 running the V2X2MAP firmware. */
+    V2X("Emergency vehicles over V2X radio (Europe, needs an ESP32-C5 with the V2X2MAP firmware)", "V2X", 0xFFD32F2F.toInt(), true),
     CUSTOM("Your watchlist", "WATCHLIST", 0xFFC8431A.toInt(), true);
 
     companion object {

@@ -44,6 +44,7 @@ class MonitorFrames {
      */
     fun frame(b: ByteArray, d: Int, end: Int, channel: Int, rssi: Int?, now: Long = System.currentTimeMillis(),
               pathA: Int? = null, pathB: Int? = null) {
+        PcapRecorder.frame(b, d, end, channel, rssi, now)
         if (end - d < 24 || end > b.size) return
         fun u8(i: Int) = b[i].toInt() and 0xff
         val fc = u8(d); val ftype = (fc shr 2) and 3; val sub = (fc shr 4) and 0xf
@@ -65,6 +66,10 @@ class MonitorFrames {
                 pathA?.let { if (it > s.winA) s.winA = it }; pathB?.let { if (it > s.winB) s.winB = it }
             }
             return s
+        }
+        // Deauthentication (12) / disassociation (10) not protected by 802.11w: counted for flood alarms.
+        if (ftype == 0 && (sub == 12 || sub == 10) && (fc1 and 0x40) == 0 && isReal(b, a3)) {
+            DeauthWatch.frame(mac(b, a3), (0 until 6).all { b[a1 + it] == 0xFF.toByte() }, channel, now)
         }
         when (ftype) {
             0 -> when (sub) {

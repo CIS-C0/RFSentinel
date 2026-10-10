@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AirTag &amp; Tracker Detector for Android | RF Sentinel</title>
-<meta name="description" content="Is an AirTag following you? Find AirTags, SmartTags, Tile and Google Find Hub trackers on Android, follow them through address changes and locate them.">
+<meta name="description" content="Is an AirTag following you? Find AirTags, SmartTags, Tile, Chipolo and Google Find Hub trackers on Android, follow them through address changes and locate them.">
 <link rel="canonical" href="https://cis-c0.github.io/RFSentinel/tracker-detector.html">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="theme-color" content="#050507">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="RF Sentinel">
 <meta property="og:title" content="AirTag &amp; Tracker Detector for Android | RF Sentinel">
-<meta property="og:description" content="Is an AirTag following you? Find AirTags, SmartTags, Tile and Google Find Hub trackers on Android, follow them through address changes and locate them.">
+<meta property="og:description" content="Is an AirTag following you? Find AirTags, SmartTags, Tile, Chipolo and Google Find Hub trackers on Android, follow them through address changes and locate them.">
 <meta property="og:url" content="https://cis-c0.github.io/RFSentinel/tracker-detector.html">
 <meta property="og:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
 <meta property="og:image:width" content="1280">
@@ -19,7 +19,7 @@
 <meta property="og:image:alt" content="RF Sentinel - BLE and WiFi police scanner for Android">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="AirTag &amp; Tracker Detector for Android | RF Sentinel">
-<meta name="twitter:description" content="Is an AirTag following you? Find AirTags, SmartTags, Tile and Google Find Hub trackers on Android, follow them through address changes and locate them.">
+<meta name="twitter:description" content="Is an AirTag following you? Find AirTags, SmartTags, Tile, Chipolo and Google Find Hub trackers on Android, follow them through address changes and locate them.">
 <meta name="twitter:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preload" href="assets/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
@@ -57,6 +57,7 @@
 <tr><td>Google Find Hub tags</td><td>Service data <code>0xFEAA</code>, frame <code>0x41</code> (<code>0x40</code> = near owner, ignored)</td><td>70</td></tr>
 <tr><td>Samsung SmartTag</td><td>Service data <code>0xFD5A</code></td><td>55</td></tr>
 <tr><td>Tile</td><td>Service data <code>0xFEED</code></td><td>55</td></tr>
+<tr><td>Chipolo</td><td>Service UUID <code>0xFE33</code> (even when the tag broadcasts no name)</td><td>55</td></tr>
 </tbody></table></div>
 
 <h2 id="follow">Follow detection</h2>
@@ -64,7 +65,7 @@
 
 <h2 id="find">Finding the tag</h2>
 <ol>
-<li>Tap the device → <b>Locate</b>. The beep rate rises with signal strength.</li>
+<li>Tap the device → <b>Locate</b>. The beep rate rises with signal strength, and it keeps following the tag when the tag changes its address.</li>
 <li>Walk around the car or bag; RSSI changes fast within the last metre.</li>
 <li>Check the signal graph and history on the detail screen to see when it first appeared.</li>
 </ol>

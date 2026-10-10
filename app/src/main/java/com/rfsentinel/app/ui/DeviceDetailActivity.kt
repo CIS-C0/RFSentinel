@@ -133,6 +133,9 @@ class DeviceDetailActivity : AppCompatActivity() {
 
     private fun refresh() {
         val s = DeviceRegistry.get(mac)
+        // The same device under a newer address (it rotated): its live signal is heard there now.
+        val liveMac = DeviceRegistry.currentAddress(mac)
+        val live = if (liveMac != mac) DeviceRegistry.get(liveMac) ?: s else s
         val now = System.currentTimeMillis()
         val whitelisted = WhitelistCache.contains(mac)
         val best = s?.best
@@ -152,26 +155,28 @@ class DeviceDetailActivity : AppCompatActivity() {
         binding.titleText.text = best?.label ?: s?.name ?: known?.name ?: s?.deviceType ?: known?.deviceType ?: "Device"
         binding.subtitleText.text = mac + ((s?.vendor ?: known?.vendor ?: VendorDb.macVendor(mac))?.let { "\n$it" } ?: "")
         binding.presenceText.text = when {
+            liveMac != mac && live != null -> "In range under its new address $liveMac (it changed its address) · heard ${ago(now - live.lastSeen)}"
             s == null -> "Not in range right now" + (known?.let { " · last heard ${dateFmt.format(Date(it.lastSeen))}" } ?: "")
             s.following -> "⚠ Has been moving with you"
             else -> "In range · heard ${ago(now - s.lastSeen)} · ${s.sightings} packets received"
         }
 
-        // Live signal
-        if (s != null) {
-            binding.rssiText.text = "${s.rssi}"
-            val recent = s.history.takeLast(6).dropLast(1)
+        // Live signal (from the newest address when it rotated)
+        if (live != null) {
+            binding.rssiText.text = "${live.rssi}"
+            val recent = live.history.takeLast(6).dropLast(1)
             val trend = if (recent.isEmpty()) "" else {
                 val avg = recent.map { it.rssi }.average()
                 when {
-                    s.rssi > avg + 3 -> "  ↑ getting closer"
-                    s.rssi < avg - 3 -> "  ↓ moving away"
+                    live.rssi > avg + 3 -> "  ↑ getting closer"
+                    live.rssi < avg - 3 -> "  ↓ moving away"
                     else -> "  → steady"
                 }
             }
-            binding.rssiDetail.text = "dBm · ${ProximityUtil.band(s.rssi)} $trend\n" +
-                "${DeviceIntel.formatDistance(s.distanceM)} (rough) · best ${s.bestRssi} dBm"
-            binding.graph.setSamples(s.history)
+            binding.rssiDetail.text = "dBm · ${ProximityUtil.band(live.rssi)} $trend\n" +
+                "${DeviceIntel.formatDistance(live.distanceM)} (rough) · best ${live.bestRssi} dBm" +
+                (if (liveMac != mac) "\nNow heard as $liveMac" else "")
+            binding.graph.setSamples(live.history)
             binding.locateButton.isEnabled = true
         } else {
             binding.rssiText.text = "--"
@@ -294,6 +299,15 @@ class DeviceDetailActivity : AppCompatActivity() {
             val first = s.path.first()
             val moved = s.path.maxOf { DeviceRegistry.metersBetween(first.lat, first.lon, it.lat, it.lon) }
             hist += "Travelled with you" to String.format(Locale.US, "%.0f m while in range", moved)
+        }
+        s?.broadcast?.let { b ->
+            hist += "Position (its own GPS, over V2X)" to String.format(Locale.US, "%.6f, %.6f", b.lat, b.lon)
+        } ?: s?.located?.let { e ->
+            hist += "Pinpointed position" to String.format(Locale.US, "%.6f, %.6f · ", e.lat, e.lon) +
+                com.rfsentinel.app.detect.Locator.describe(e)
+        } ?: s?.takeIf { it.best != null && !it.following && com.rfsentinel.app.util.Prefs.pinpointFlagged(this) }?.let {
+            hist += "Pinpointing" to "Not yet: pass it from more than one side (around the block) and it is placed on the map " +
+                "with the circle it is very likely in"
         }
         out += "History" to hist
 
@@ -432,13 +446,23 @@ class DeviceDetailActivity : AppCompatActivity() {
         if (locateJob != null) stopLocate() else startLocate()
     }
 
+    /** The address Locate is following (changes when the device rotates its address). */
+    private var followed: String? = null
+
     private fun startLocate() {
+        followed = null
         tone = runCatching { ToneGenerator(AudioManager.STREAM_MUSIC, 80) }.getOrNull()
         binding.locateButton.text = "Stop"
         Toast.makeText(this, "Walk around: beeps speed up as the signal gets stronger", Toast.LENGTH_LONG).show()
         locateJob = lifecycleScope.launch {
             while (isActive) {
-                val rssi = DeviceRegistry.get(mac)?.rssi ?: -100
+                // Keeps following it when it changes its address (a tag rotating its random address).
+                val liveMac = DeviceRegistry.currentAddress(mac)
+                if (liveMac != followed) {
+                    if (followed != null) Toast.makeText(this@DeviceDetailActivity, "It changed its address - still following it", Toast.LENGTH_SHORT).show()
+                    followed = liveMac
+                }
+                val rssi = DeviceRegistry.get(liveMac)?.rssi ?: -100
                 // Faster as the signal gets stronger (same curve as the radar beeps).
                 val interval = com.rfsentinel.app.util.Beeper.tickIntervalMs(rssi)
                 if (!AlertPlayer.locateTick(this@DeviceDetailActivity)) tone?.startTone(ToneGenerator.TONE_PROP_BEEP, 60)

@@ -6,8 +6,12 @@ package com.rfsentinel.app.esp
  * Detector mode, `CMD:DUMP_LIVE` (what it has found so far); GhostESP is only
  * asked for `help`, to scan networks and to list them; ESP32 Marauder only for
  * `help` and its passive `sniffbeacon` / `sniffprobe` sniffers; a FREE-WiLi 2 ([freeWili])
- * only gets its console's WiFi-menu keys and its access-point scan.
+ * only gets its console's WiFi-menu keys and its access-point scan. An ESP32-C5 with the
+ * V2X2MAP firmware streams on its own and is never sent anything that changes it ([pollV2x]).
  */
+/** V2X frames carry no signal strength (the board sends the frame only); its position is what counts. */
+private const val V2X_NOMINAL_RSSI = -70
+
 class EspReader(
     private val port: SerialPort,
     private val onStatus: (String) -> Unit,
@@ -23,8 +27,10 @@ class EspReader(
         if (freeWili) { pollFreeWili(buf); return }
         onStatus("ESP32 · listening…")
         // 1. OUI-Spy prints on its own (banners, status, detections).
-        var heard = readFor(buf, 4_000) { OuiSpyReports.recognises(it) }
+        var heard = readFor(buf, 4_000) { OuiSpyReports.recognises(it) || it.contains(V2x.MAGIC) }
         if (stopped) return
+        // An ESP32-C5 with the V2X2MAP firmware streams European V2X frames on its own.
+        if (heard.contains(V2x.MAGIC)) { pollV2x(buf); return }
         // 2. Detector, PCAP and BLE-sniff modes answer a version request.
         if (!OuiSpyReports.recognises(heard)) {
             port.write("CMD:VERSION\n")
@@ -67,7 +73,7 @@ class EspReader(
                 "OUI-Spy is in its mode selector - join its Wi-Fi \"oui-spy\", open 192.168.4.1 and pick Flock-You, Detector or Sky Spy"
             mode == OuiSpyReports.Mode.OTHER ->
                 "This OUI-Spy mode isn't used by RF Sentinel - pick Flock-You, Detector or Sky Spy"
-            mode == null && count == 0 -> "ESP32 connected · waiting for detections (OUI-Spy reports only when it finds something)"
+            mode == null && count == 0 -> "ESP32 connected · waiting for detections (OUI-Spy reports only when it finds something; a V2X board only when equipped vehicles are in range)"
             else -> "OUI-Spy ${mode?.label ?: ""} · live · $count detection${if (count == 1) "" else "s"}"
         })
         fun consume(text: String) {
@@ -93,6 +99,8 @@ class EspReader(
         var askedDump = mode == OuiSpyReports.Mode.DETECTOR
         while (!stopped) {
             val n = port.read(buf, 500)
+            // A quiet V2X board only starts streaming once a vehicle is in range.
+            if (n > 0 && V2x.looksLikeStream(buf, n)) { pollV2x(buf, buf.copyOf(n)); return }
             if (n > 0) consume(String(buf, 0, n))
             if (!askedDump && mode == OuiSpyReports.Mode.DETECTOR) {
                 askedDump = true
@@ -216,6 +224,60 @@ class EspReader(
             onStatus("FREE-WiLi · live · ${seen.size} Wi-Fi networks (sweep $sweeps)")
         }
         runCatching { port.write("q\r") }
+    }
+
+    /**
+     * ESP32-C5 with the V2X2MAP firmware (pit711/V2X2MAP): European V2X (ITS-G5) frames, streamed by
+     * the board without being asked. Emergency vehicles (their role, light bar and siren, and their
+     * "emergency vehicle approaching" warnings) are passed on at the position they broadcast;
+     * ordinary traffic is only counted. Every frame also goes to a .pcap recording when one runs.
+     * Nothing is ever sent to the board.
+     */
+    private fun pollV2x(buf: ByteArray, first: ByteArray? = null) {
+        val stream = V2x.Stream()
+        val stations = HashMap<String, Long>()
+        /** Stations known to be emergency vehicles, with their last match (status-only frames carry no role). */
+        val emergency = HashMap<String, Pair<Long, com.rfsentinel.app.detect.Hit>>()
+        val batch = LinkedHashMap<String, EspSighting>()
+        var frames = 0L
+        fun status() {
+            val now = System.currentTimeMillis()
+            stations.entries.removeAll { now - it.value > 60_000 }
+            emergency.entries.removeAll { now - it.value.first > 5 * 60_000 }
+            val live = emergency.count { now - it.value.first < 60_000 }
+            onStatus("V2X (ITS-G5) · live · ${stations.size} stations in range" +
+                (if (live > 0) " · $live emergency vehicle${if (live == 1) "" else "s"}" else "") + " · $frames frames")
+        }
+        fun handle(bytes: ByteArray, n: Int) {
+            val now = System.currentTimeMillis()
+            for (f in stream.feed(bytes, n)) {
+                frames++
+                com.rfsentinel.app.usb.PcapRecorder.frame(f, 0, f.size, V2x.CCH_MHZ, null, now)
+                val m = V2x.decode(f) ?: continue
+                stations[m.mac] = now
+                val hit = V2x.hit(m) ?: emergency[m.mac]?.second ?: continue
+                emergency[m.mac] = now to hit
+                val lat = m.lat ?: continue; val lon = m.lon ?: continue
+                batch[m.mac] = EspSighting(
+                    mac = m.mac, rssi = V2X_NOMINAL_RSSI, ble = false,
+                    name = "V2X ${V2x.typeName(m.stationType)}", frequencyMhz = V2x.CCH_MHZ,
+                    hits = listOf(hit), position = lat to lon
+                )
+            }
+        }
+        status()
+        first?.let { handle(it, it.size) }
+        var lastFlush = System.currentTimeMillis()
+        while (!stopped) {
+            val n = port.read(buf, 300)
+            if (n > 0) handle(buf, n)
+            val now = System.currentTimeMillis()
+            if (now - lastFlush >= 1_000) {
+                if (batch.isNotEmpty()) { onSightings(batch.values.toList()); batch.clear() }
+                status()
+                lastFlush = now
+            }
+        }
     }
 
     /** Reads for up to [ms], stopping early once [done] is true for what was read. */
