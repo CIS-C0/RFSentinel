@@ -69,11 +69,31 @@
         </LinearLayout>
     </HorizontalScrollView>
 
-    <org.osmdroid.views.MapView
-        android:id="@+id/map"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_weight="1">
+
+        <!-- The map engine's view goes in here (OpenFreeMap or Mapbox, Settings > Map). -->
+        <FrameLayout
+            android:id="@+id/map"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <!-- Map data credit (OpenFreeMap, OpenMapTiles, OpenStreetMap). -->
+        <TextView
+            android:id="@+id/mapCredit"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:layout_margin="4dp"
+            android:background="#99FFFFFF"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:text="© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors"
+            android:textColor="#333333"
+            android:textSize="9sp" />
+    </FrameLayout>
 
     <LinearLayout
         android:id="@+id/panel"

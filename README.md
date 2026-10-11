@@ -75,7 +75,7 @@
 |---|---|
 | **What** | A non-rooted Android app that lists every Bluetooth LE and WiFi device around you with its vendor, type and signal, and flags law-enforcement and surveillance equipment |
 | **How** | Receive-only: reads advertisements, beacons and cell info that devices broadcast publicly. Never transmits to, connects to or jams anything |
-| **Runs on** | Android 8.0+ phones, Android Auto, plus optional ESP32 boards (OUI-Spy, GhostESP, Marauder, Flipper Zero + BFFB, FREE-WiLi 2) and USB WiFi adapters |
+| **Runs on** | Android 8.0+ phones (64-bit ARM), Android Auto, plus optional ESP32 boards (OUI-Spy, GhostESP, Marauder, Flipper Zero + BFFB, FREE-WiLi 2) and USB WiFi adapters |
 | **Costs** | Nothing. GPL-3.0, no ads, no account, no subscription, no analytics |
 
 ## What it detects
@@ -93,7 +93,7 @@
 | **Camera glasses** | Ray-Ban / Oakley Meta, Snap Spectacles, Vuzix, HeyCyan-based glasses such as Nilox Smart AI Glasses | Company IDs `0x0D53`, `0x03C2`, `0x060C`, Meta UUIDs, the HeyCyan SDK UUID, name tokens |
 | **Fake cell towers** | IMSI catchers / cell-site simulators | Test network codes, sudden 4G→2G, cloned or reserved cell identities, unexpected networks |
 | **Police aircraft** *(online, off by default)* | Police, sheriff, state patrol, federal and RCMP / provincial police aircraft, and unlisted aircraft circling low overhead | Community ADS-B feeds (adsb.fi / adsb.lol) matched against ~1,400 law-enforcement airframes from the FAA and Transport Canada registries |
-| **Waze reports** *(online, off by default)* | Police reported by Waze users, and any other kind you tick (accidents, hazards, road closures, traffic jams), each with its own level: sound and voice, notification only, or silent. Shows what Waze says it is (hiding, mobile speed camera...) | Two sources: your own OpenWeb Ninja API key, or *Waze direct* (opt-in: no key, free, sends Waze your IP address and a position rounded to a 1 km grid). You set the alert range (100 m to 10 km), the map range, and how often Waze is asked (15 s to 5 min direct, 2 to 10 min OpenWeb Ninja), slower when parked and faster on fast roads. Scored by distance, age and driver confirmations and re-scored every second as you move, so an alert fires the moment a report comes into range, not at the next check. Optional: only alert for reports ahead of you, and spoken call-outs at 1 km, 500 m and 200 m. Third-party service, at your own risk |
+| **Waze reports** *(online, off by default)* | Police reported by Waze users, and any other kind you tick (accidents, hazards, road closures, traffic jams), each with its own level: sound and voice, notification only, or silent. Shows what Waze says it is (hiding, mobile speed camera...) | Two sources: your own OpenWeb Ninja API key, or *Waze direct* (opt-in: no key, free, sends Waze your IP address and a position rounded to a 1 km grid). You set the alert range (100 m to 10 km), the map range, and how often Waze is asked (15 s to 5 min direct, 2 to 10 min OpenWeb Ninja), slower when parked and faster on fast roads. Scored by distance, age and driver confirmations and re-scored every second as you move, so an alert fires the moment a report comes into range, not at the next check. Optional: only alert for reports on the road you're on, ahead of you (checked against the map's roads: a parallel road, a cross street, an overpass or a report behind you stays quiet), and spoken call-outs at 1 km, 500 m and 200 m. Third-party service, at your own risk |
 | **Card skimmers** | Bluetooth modules inside gas-pump and ATM skimmers | HC-05 / HC-06 / HC-03 / RN42 / BT04-A names, serial-port service |
 | **Hacking tools** *(off by default)* | Flipper Zero, Pwnagotchi, WiFi Pineapple, ESP deauthers, evil twin WiFi networks, Bluetooth spam floods, **WiFi deauth attacks** | Flipper UUIDs / company ID `0x0E29` / IEEE block, Pwnagotchi beacon JSON, default SSIDs, same network name from two makers with mismatched security, bursts of new pairing pop-ups; with a USB WiFi adapter, floods of unprotected deauthentication frames knocking devices off a network |
 | **Emergency vehicles (V2X, Europe)** | Police, fire, ambulance and safety cars that broadcast European car-to-car radio (ITS-G5) | Needs an ESP32-C5 with the [V2X2MAP](https://github.com/pit711/V2X2MAP) firmware: the vehicle's own role, light bar and siren state and position (CAM), and its "emergency vehicle approaching" warnings (DENM). Ordinary cars are counted, not listed. Not in North America, which uses C-V2X |
@@ -139,10 +139,11 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 - Notification, Quick Settings tile and home-screen widget
 
 **Map & history**
-- OpenStreetMap map with your GPS trace and every device pinned where its signal peaked, flagged devices at their pinpointed spot with its circle (tap a spot to list everything heard there), the same filter chips as the list (including Waze, which draws reports as coloured dots by type), self-centering
+- Vector map ([MapLibre](https://maplibre.org) with [OpenFreeMap](https://openfreemap.org), OpenStreetMap data; light and a readable night map with shops, landmarks, one-way arrows and highway shields; optional [Mapbox](https://www.mapbox.com) map) with your GPS trace and every device pinned where its signal peaked, flagged devices at their pinpointed spot with its circle (tap a spot to list everything heard there), the same filter chips as the list (including Waze, which draws reports as coloured dots by type), self-centering
 - Optional **cell tower layer** (or the map's **Cells** chip): every tower seen while scanning, at the spot where its signal was strongest
 - **Record traces** of your route and the devices along it, with the screen off (with the network names each device asked for, when a USB adapter or Marauder board is plugged in)
 - **History map & timeline:** heatmap of where flagged equipment showed up, and when (hour of day, day of week)
+- **Device history (search):** every device the app remembers, in range or not, searchable by address (with or without colons), name, vendor, type or your note, filtered to favorites, flagged before or seen today; tap one for its details page. History is kept as long as you set in Settings → Data
 
 **Driving**
 - **Android Auto** app: threat headline, next camera ahead, recent alerts, filtered device lists, cell towers, hardware status, live map with cameras and drones, OpenStreetMap turn-by-turn navigation, alerts through the car speakers with Mute 30 min / Ignore buttons
@@ -151,10 +152,10 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 
 **Hardware**
 - ESP32 boards over USB OTG (OUI-Spy, GhostESP, Marauder incl. dual-band ESP32-C5 boards, or through a Flipper Zero) or Bluetooth (OUI-SPY App-Controlled) add their detections and extend range
-- **USB WiFi adapters in monitor mode** over OTG, no root: RTL8811AU / RTL8821AU (e.g. ALFA AWUS036ACS, 2.4 GHz; 5 GHz experimental, Settings → External hardware), **RTL8812BU / RTL8822BU** (2.4 + 5 GHz, e.g. TP-Link Archer T3U, Wise Tiger AC1200), **RTL8814AU** (ALFA AWUS1900, 2.4 + 5 GHz), **MT7612U** (ALFA AWUS036ACM, 2.4 + 5 GHz), **RTL8187** (ALFA AWUS036H), **RT3070** (ALFA AWUS036NH / NEH) and, experimental, **AR9271** (ALFA AWUS036NHA). No Android scan limit, longer range, and **client devices** (laptops, phones, cameras connected to a network) the phone's WiFi scan can't see. Single-antenna dongles are detected and handled automatically
+- **USB WiFi adapters in monitor mode** over OTG, no root: RTL8811AU / RTL8821AU (e.g. ALFA AWUS036ACS, 2.4 GHz; 5 GHz experimental, Settings → External hardware), **RTL8812BU / RTL8822BU** (2.4 + 5 GHz, e.g. TP-Link Archer T3U, Wise Tiger AC1200), **RTL8814AU** (ALFA AWUS1900, 2.4 + 5 GHz), **MT7612U** (ALFA AWUS036ACM, 2.4 + 5 GHz), **MT7921AU** (ALFA AWUS036AXML, WiFi 6E: 2.4 + 5 + **6 GHz**, experimental), **RTL8187** (ALFA AWUS036H), **RT3070** (ALFA AWUS036NH / NEH) and, experimental, **AR9271** (ALFA AWUS036NHA). No Android scan limit, longer range, and **client devices** (laptops, phones, cameras connected to a network) the phone's WiFi scan can't see. Single-antenna dongles are detected and handled automatically
 - **Requested networks:** the WiFi names nearby devices ask for (probe requests), from a USB adapter or a Marauder board, in an optional list; **watch** a name to get an alert whenever any device asks for it
 - **Record frames to .pcap** for Wireshark (Settings → External hardware): every frame a USB WiFi adapter or V2X board hears, with its channel and signal
-- The ALFA AWUS036ACS's light blinks with received traffic
+- The ALFA AWUS036ACS's light blinks with received traffic (Settings → External hardware switches it off, for the adapters whose light the app can control)
 - **More from every frame:** WPS maker / model / device name, a **probe fingerprint** that survives MAC randomization (watchable: "every device of this type"), and the real name of **hidden networks** when a device joins them
 
 **Interface**
@@ -175,7 +176,7 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 
 ## Quick start
 
-Requires **Android 8.0 or newer**.
+Requires **Android 8.0 or newer** on a 64-bit ARM phone (almost every phone since 2017; the release APK is about 30 MB).
 
 1. On your phone, tap **Download the app** above, or open the [latest release](https://github.com/CIS-C0/RFSentinel/releases/latest).
 2. Under **Assets**, tap the file ending in **`-release.apk`** (not the "Source code" archives).
@@ -259,7 +260,11 @@ the raw advertisement.
 - **North up / heading up / 3D:** the compass button steps through north up,
   heading up (turns with your direction of travel while moving), and a **3D driving
   view** - tilted in perspective with your position low on the screen, like a car
-  navigation app. The sun / moon button switches the map between light and dark.
+  navigation app. The sun / moon button switches the map between light and dark, the gear
+  opens the map settings. **Settings → Map** sets the **default zoom** (17 is close to Waze;
+  the 3D view pulls back from it as you speed up), the **3D view angle** (30° to 60°) and the
+  **map provider**: OpenFreeMap (free, no account) or Mapbox. The floating mini map always
+  uses OpenFreeMap.
 - **Cell towers** (Settings → *Map* → *Show cell towers*): towers seen while scanning,
   at the spot where your phone heard them strongest - an estimate, not the
   tower's real position (looking that up online would reveal where you are).
@@ -421,7 +426,8 @@ Plug a supported USB WiFi adapter into the phone with an OTG cable while
 scanning and allow USB access on the prompt. RF Sentinel drives it directly
 over Android's USB host API (no root, no kernel driver), puts it in
 **receive-only monitor mode** and hops the channels (2.4 GHz on 88xxau, RTL8187,
-RT3070 and AR9271; 2.4 GHz and 5 GHz on 88x2bu, 8814au and MT7612U). Access points
+RT3070 and AR9271; 2.4 GHz and 5 GHz on 88x2bu, 8814au and MT7612U; 2.4, 5 and 6 GHz on the
+MT7921AU, 6 GHz on its 15 preferred scanning channels, where access points beacon). Access points
 (beacons, probe responses) and client devices (probe requests, data frames)
 go through RF Sentinel's own rules like everything else, with a purple
 **USB WIFI** badge.
@@ -432,6 +438,7 @@ go through RF Sentinel's own rules like everything else, with a purple
 | Realtek RTL8812BU / RTL8822BU (`0bda:b812`, `0bda:b82c` and ~35 other IDs) | TP-Link Archer T3U, ASUS USB-AC53/AC55/AC58, Edimax EW-7822U*, Wise Tiger AC1200 | Supported (2.4 + 5 GHz), tested on a Wise Tiger 8812BU |
 | Realtek RTL8814AU (`0bda:8813` and 13 other IDs) | ALFA AWUS1900, TP-Link Archer T9UH, ASUS USB-AC68, Netgear A7000 | Supported (2.4 + 5 GHz), not yet tested on hardware |
 | MediaTek MT7612U / MT7632U (`0e8d:7612` and 16 other IDs) | ALFA AWUS036ACM, ASUS USB-AC55, Netgear A6210 | Supported (2.4 + 5 GHz), not yet tested on hardware |
+| MediaTek MT7921AU (`0e8d:7961` and 4 other IDs) | ALFA AWUS036AXML, Comfast CF-952AX, Netgear A8000 / A7500, TP-Link TXE50UH | Experimental (2.4 + 5 + 6 GHz), not yet tested on hardware |
 | Realtek RTL8187L / RTL8187B (`0bda:8187` and 20 other IDs) | ALFA AWUS036H, Netgear WG111v2/v3 | Supported (2.4 GHz), tested on an ALFA AWUS036H |
 | Ralink RT3070 (`148f:3070` and 4 other IDs) | ALFA AWUS036NH / AWUS036NEH | Supported (2.4 GHz), tested on an ALFA AWUS036NEH |
 | Atheros AR9271 (`0cf3:9271` and 17 other IDs) | ALFA AWUS036NHA, TP-Link TL-WN722N v1 | Experimental (2.4 GHz) |
@@ -547,15 +554,18 @@ Pick a theme in the setup wizard or under **Settings → Appearance**.
 - **Receive-only.** Nothing is transmitted, jammed, spoofed or connected to.
 - **No accounts, no cloud, no analytics.** Detections live in a local database
   excluded from cloud backup.
-- **Network use is limited to OpenStreetMap data:** map tiles while the map is
-  open, and the known-camera list for the area you look at, fetched once per
+- **Network use is limited to map data:** the map (vector tiles, styles and fonts from
+  OpenFreeMap, OpenStreetMap data; or from Mapbox if you choose it in Settings → Map,
+  with Mapbox's own usage statistics switched off) while the map is open, the road tiles
+  of your area and direction while *Only alert for reports ahead* is on (OpenFreeMap,
+  kept on the phone), and the known-camera list for the area you look at, fetched once per
   area and refreshed weekly from overpass-api.de (or the mirrors
   overpass.kumi.systems and overpass.private.coffee). Camera downloads also
   fetch DeFlock's region files from cdn.deflock.me. These servers see your IP
   address and the area, never your scans. Turn off *Show known cameras
   automatically* to fetch only when you tap a download. In Android Auto,
   navigation uses Nominatim and OSRM only when you search or start a route.
-  Map data © OpenStreetMap contributors (ODbL).
+  Map data © OpenStreetMap contributors (ODbL), © OpenMapTiles, © Mapbox when chosen.
 - **Two optional online sources, off by default:** *Police / government
   aircraft* sends a position rounded to about 1 km to the community ADS-B
   feeds adsb.fi / adsb.lol every minute while scanning. *Waze reports* use
@@ -673,6 +683,11 @@ Requirements: Android Studio, or JDK 17+ with the Android SDK (platform 37).
 ./gradlew testDebugUnitTest lintDebug
 ```
 
+Mapbox is optional: with `MAPBOX_ACCESS_TOKEN=pk...` (your own public token) in
+`local.properties` (git-ignored) the build offers the Mapbox map; without it the app
+builds and runs on OpenFreeMap only. The Mapbox SDK downloads from Mapbox's public
+Maven repository without an account.
+
 The debug APK is written to `app/build/outputs/apk/debug/`. `tools/gen_assets.py`
 regenerates the offline IEEE and Bluetooth SIG databases. The website is built
 from `site/` with `python tools/build_site.py` (see [site/README.md](site/README.md)).
@@ -763,8 +778,11 @@ driver; every transmit path was left out. The RTL8814AU, MT7612U, RT3070 and
 AR9271 drivers and the FREE-WiLi 2 reader are ported from Wardrive Go too
 (checked against and fixed from the Linux rt2800usb, mt76x2u and ath9k_htc
 drivers), and the RTL8187 driver from the Linux rtl8187 driver with Kismet's
-Android PCAP Capture as the USB reference. Their firmware (Ralink rt2870.bin,
-MediaTek mt7662, open ath9k_htc) is the unmodified linux-firmware images, with
+Android PCAP Capture as the USB reference. The MT7921AU (WiFi 6E) driver is ported from
+[mt76-usb-macos](https://github.com/Network-Weather/mt76-usb-macos) by Network Weather
+(BSD-3-Clause-Clear), a transcription of the MT7921 path of the Linux mt76 driver
+(openwrt/mt76, MediaTek and the mt76 authors, BSD-3-Clause-Clear); its transmit path was left out. Their firmware (Ralink rt2870.bin,
+MediaTek mt7662 and MT7961, open ath9k_htc) is the unmodified linux-firmware images, with
 their licences in `assets/usbwifi/`; see `usb/NOTICE.md`. The map's anchored point layer follows
 Wardrive Go's approach - thank you.
 
@@ -779,7 +797,10 @@ was re-checked against its IEEE registrant; see
 [docs/SIGNATURES.md](docs/SIGNATURES.md#community-lists-compared-2026-10). Known
 plate-reader locations come from [DeFlock](https://github.com/FoggedLens/deflock)'s
 snapshot of OpenStreetMap, mapped by its volunteers (data © OpenStreetMap
-contributors, ODbL) - thank you. The DedSec and fsociety theme font is Share Tech
+contributors, ODbL) - thank you. The map is drawn by [MapLibre Native](https://github.com/maplibre/maplibre-native)
+(BSD-2-Clause) on [OpenFreeMap](https://openfreemap.org)'s vector tiles (OpenStreetMap data and [OpenMapTiles](https://openmaptiles.org),
+ODbL / CC-BY 4.0), with the optional [Mapbox Maps SDK](https://docs.mapbox.com/android/maps/) under Mapbox's terms. The
+DedSec and fsociety theme font is Share Tech
 Mono (SIL Open Font License 1.1). The DedSec theme is an unofficial fan homage to
 Watch Dogs; its header poster uses DedSec imagery. Watch Dogs, DedSec, ctOS and Blume
 are trademarks of Ubisoft. The fsociety theme is an unofficial fan homage to Mr. Robot

@@ -26,7 +26,7 @@ class DetectionLogActivity : AppCompatActivity() {
         title = "Match history"
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        val adapter = DetectionAdapter(onClick = { DeviceActions.openDetails(this, it.mac) })
+        val adapter = DetectionAdapter(onClick = { DeviceActions.openDetection(this, it) })
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
 

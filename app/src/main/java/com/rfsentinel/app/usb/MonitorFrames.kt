@@ -221,11 +221,12 @@ class MonitorFrames {
 
         private const val MAX_PROBED = 16
 
-        /** Centre frequency of a 20 MHz WiFi channel, 0 when unknown. */
+        /** Centre frequency of a 20 MHz WiFi channel, 0 when unknown; a 6 GHz channel comes as its MHz already. */
         fun frequencyOf(ch: Int): Int = when (ch) {
             in 1..13 -> 2407 + ch * 5
             14 -> 2484
             in 32..177 -> 5000 + ch * 5
+            in 5955..7115 -> ch
             else -> 0
         }
 

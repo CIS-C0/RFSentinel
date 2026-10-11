@@ -1,28 +1,11 @@
 package com.rfsentinel.app.ui
 
-import android.Manifest
-import android.app.Application
-import android.location.Location
-import android.net.ConnectivityManager
-import android.os.Looper
-import com.rfsentinel.app.R
-import com.rfsentinel.app.service.ScanForegroundService
 import com.rfsentinel.app.ui.MapStart.Fix
-import com.rfsentinel.app.util.Prefs
-import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.osmdroid.views.MapView
-import org.robolectric.Robolectric
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
-import org.robolectric.Shadows.shadowOf
-import org.robolectric.annotation.Config
 
 /** Where the live map opens: on your area at once, not on open sea until the first GPS fix. */
 class MapStartPickTest {
@@ -91,104 +74,47 @@ class MapStartPickTest {
     }
 }
 
-/** The live map screen itself, opened in each situation. Tile downloads are switched off (no network in tests). */
-@RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35], application = Application::class)
+/**
+ * Where the live map's camera opens (vector zoom levels), in each situation: the screen itself runs
+ * the map engine's native code, which unit tests can't load, so the decision is checked here.
+ */
 class LiveMapOpensTest {
-    private val ctx get() = RuntimeEnvironment.getApplication()
-
-    @After
-    fun tearDown() {
-        ScanForegroundService.setLastFixForTest(null)
-    }
-
-    private fun offlineWithLocationPermission(granted: Boolean) {
-        shadowOf(ctx.getSystemService(ConnectivityManager::class.java)).setActiveNetworkInfo(null)
-        if (granted) shadowOf(ctx).grantPermissions(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-    }
-
-    private fun openMap(): Pair<MapActivity, MapView> {
-        val controller = Robolectric.buildActivity(MapActivity::class.java).setup().visible()
-        shadowOf(Looper.getMainLooper()).idle()
-        val activity = controller.get()
-        return activity to activity.findViewById(R.id.map)
-    }
-
-    private fun fix(lat: Double, lon: Double, ageMs: Long) = Location("test").apply {
-        latitude = lat; longitude = lon; time = System.currentTimeMillis() - ageMs
-    }
+    private val now = 1_000_000L
 
     @Test
     fun opensOnTheScansCurrentFixAtStreetZoom() {
-        offlineWithLocationPermission(true)
-        ScanForegroundService.setLastFixForTest(fix(10.5, 20.5, ageMs = 5_000))
-        val (activity, map) = openMap()
-        assertEquals(10.5, map.mapCenter.latitude, 1e-3)
-        assertEquals(20.5, map.mapCenter.longitude, 1e-3)
-        assertEquals(MapStart.DEFAULT_ZOOM, map.zoomLevelDouble, 0.0)
-        activity.finish()
+        val c = MapStart.camera(listOf(Fix(10.5, 20.5, now - 5_000)), null, null, now)
+        assertEquals(10.5, c.lat, 1e-9); assertEquals(20.5, c.lon, 1e-9)
+        assertEquals(MapStart.DEFAULT_ZOOM - MapStart.VECTOR_SHIFT, c.zoom, 0.0)
+        assertTrue(c.fresh)
     }
 
     @Test
     fun opensOnAnOldFixToo() {
-        offlineWithLocationPermission(true)
-        ScanForegroundService.setLastFixForTest(fix(10.5, 20.5, ageMs = 5 * 3_600_000L))
-        val (activity, map) = openMap()
-        assertEquals(10.5, map.mapCenter.latitude, 1e-3)
-        assertEquals(20.5, map.mapCenter.longitude, 1e-3)
-        activity.finish()
+        val c = MapStart.camera(listOf(Fix(10.5, 20.5, now - 5 * 3_600_000L)), null, null, now)
+        assertEquals(10.5, c.lat, 1e-9); assertFalse(c.fresh)
     }
 
     @Test
     fun opensOnTheSavedViewWhenNothingElseIsKnown() {
-        offlineWithLocationPermission(true)
-        Prefs.setGpsTaggingEnabled(ctx, true)
-        Prefs.saveMapView(ctx, 11.0, 22.0, 15.0)
-        val (activity, map) = openMap()
-        assertEquals(11.0, map.mapCenter.latitude, 1e-3)
-        assertEquals(22.0, map.mapCenter.longitude, 1e-3)
-        assertEquals(15.0, map.zoomLevelDouble, 0.0)
-        activity.finish()
+        val c = MapStart.camera(listOf(null), 11.0 to 22.0, 15.0, now)
+        assertEquals(11.0, c.lat, 1e-9); assertEquals(22.0, c.lon, 1e-9)
+        assertEquals("the same scale as the saved view", 15.0 - MapStart.VECTOR_SHIFT, c.zoom, 0.0)
     }
 
     @Test
     fun opensOnAWorldViewWhenNothingAtAllIsKnown() {
-        offlineWithLocationPermission(true)
-        val (activity, map) = openMap()
-        assertEquals(MapStart.WORLD_ZOOM, map.zoomLevelDouble, 0.0)
-        activity.finish()
+        val c = MapStart.camera(emptyList(), null, null, now)
+        assertEquals(MapStart.WORLD_ZOOM - MapStart.VECTOR_SHIFT, c.zoom, 0.0)
+        assertFalse(c.fresh)
     }
 
     @Test
-    fun withoutLocationPermissionItStillOpens() {
-        offlineWithLocationPermission(false)
-        val (activity, map) = openMap()
-        assertNotNull(map)
-        activity.finish()
-    }
-
-    @Test
-    fun leavingRemembersTheZoomAlwaysAndThePlaceOnlyWithGpsTagging() {
-        offlineWithLocationPermission(true)
-        ScanForegroundService.setLastFixForTest(fix(10.5, 20.5, ageMs = 5_000))
-        run {
-            val controller = Robolectric.buildActivity(MapActivity::class.java).setup().visible()
-            shadowOf(Looper.getMainLooper()).idle()
-            controller.pause()
-            assertEquals(MapStart.DEFAULT_ZOOM, Prefs.mapZoom(ctx)!!, 0.0)
-            assertNull("GPS tagging is off: no place is kept", Prefs.lastMapCenter(ctx))
-            controller.destroy()
-        }
-        Prefs.setGpsTaggingEnabled(ctx, true)
-        run {
-            val controller = Robolectric.buildActivity(MapActivity::class.java).setup().visible()
-            shadowOf(Looper.getMainLooper()).idle()
-            controller.pause()
-            val saved = Prefs.lastMapCenter(ctx)
-            assertNotNull(saved)
-            assertEquals(10.5, saved!!.first, 1e-3)
-            assertEquals(20.5, saved.second, 1e-3)
-            controller.destroy()
-        }
+    fun theZoomIsSavedOnTheClassicScale() {
+        // Leaving at street zoom saves the classic street level, so reopening comes back the same.
+        val saved = MapStart.savedZoom(MapStart.DEFAULT_ZOOM - MapStart.VECTOR_SHIFT)
+        assertEquals(MapStart.DEFAULT_ZOOM, saved, 0.0)
+        assertEquals(MapStart.DEFAULT_ZOOM - MapStart.VECTOR_SHIFT,
+            MapStart.camera(listOf(Fix(1.0, 1.0, now)), null, saved, now).zoom, 0.0)
     }
 }

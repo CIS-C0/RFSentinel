@@ -181,6 +181,10 @@ object PoliceAircraft {
     @Volatile var latest: List<Seen> = emptyList()
     @Volatile var latestAt = 0L
 
+    /** Aircraft [hex] (ICAO address) in the latest poll while it's fresh (as the map draws it), or null. */
+    fun current(hex: String, now: Long = System.currentTimeMillis()): Seen? =
+        if (now - latestAt > 3 * 60_000L) null else latest.firstOrNull { it.plane.hex.equals(hex, ignoreCase = true) }
+
     fun feedUrls(lat: Double, lon: Double, radiusKm: Int): List<String> {
         val nm = Math.round(radiusKm / 1.852).toInt().coerceIn(1, 250)
         // Rounded to ~1 km: the feeds don't need your exact position.

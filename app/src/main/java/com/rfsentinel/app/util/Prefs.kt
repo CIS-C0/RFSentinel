@@ -414,6 +414,9 @@ object Prefs {
 
     /** ALFA AWUS036ACS / RTL8811AU-8821AU: also hop 5 GHz (experimental, off by default). */
     fun rtl8821au5g(context: Context): Boolean = bool(context, "rtl8821au_5g", false)
+    /** The USB adapter's own light (only adapters whose light the app can drive: RTL8811AU / 8821AU): on by default. */
+    fun usbAdapterLight(context: Context): Boolean = bool(context, "usb_adapter_light", true)
+    fun setUsbAdapterLight(context: Context, value: Boolean) = setBool(context, "usb_adapter_light", value)
     fun setRtl8821au5g(context: Context, value: Boolean) = setBool(context, "rtl8821au_5g", value)
 
     /** Hide trusted (whitelisted) devices from the live list and radar (off by default). */
@@ -468,4 +471,23 @@ object Prefs {
     fun mapDark(context: Context): Boolean? =
         if (sp(context).contains("map_dark")) sp(context).getBoolean("map_dark", false) else null
     fun setMapDark(context: Context, value: Boolean) = setBool(context, "map_dark", value)
+
+    /**
+     * How close the map follows you: the zoom (vector map's level) at street speed; the 3D driving view
+     * pulls back from it as you speed up, the flat views sit half a level wider. 17 is close to Waze.
+     */
+    const val MAP_ZOOM_WAZE = 17.0
+    fun mapDefaultZoom(context: Context): Double =
+        sp(context).getFloat("map_default_zoom", MAP_ZOOM_WAZE.toFloat()).toDouble().coerceIn(14.5, 18.5)
+    fun setMapDefaultZoom(context: Context, value: Double) = sp(context).edit().putFloat("map_default_zoom", value.toFloat()).apply()
+
+    /** The 3D driving view's tilt (degrees) at street speed; it leans further back by up to 10 degrees on fast roads. */
+    const val MAP_TILT_DEFAULT = 50.0
+    fun map3dTilt(context: Context): Double =
+        sp(context).getFloat("map_3d_tilt", MAP_TILT_DEFAULT.toFloat()).toDouble().coerceIn(30.0, 60.0)
+    fun setMap3dTilt(context: Context, value: Double) = sp(context).edit().putFloat("map_3d_tilt", value.toFloat()).apply()
+
+    /** The map's provider ("openfreemap", the default, or "mapbox"), Settings > Map. */
+    fun mapProvider(context: Context): String? = sp(context).getString("map_provider", null)
+    fun setMapProvider(context: Context, value: String) = sp(context).edit().putString("map_provider", value).apply()
 }

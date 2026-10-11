@@ -150,6 +150,9 @@ object WazePolice {
     @Volatile var latestAt = 0L
         private set
 
+    /** Report [id] while it's still among the current ones, or null (expired, or the checker stopped). */
+    fun current(id: String): Shown? = latest.firstOrNull { it.report.id == id }
+
     private val listeners = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
 
     /**

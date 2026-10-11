@@ -23,6 +23,10 @@ import java.util.Locale
 object Voice {
 
     private const val GOOGLE_TTS = "com.google.android.tts"
+    /** An utterance that hasn't started by then never will (the engine dropped it). */
+    private const val START_TIMEOUT_MS = 5_000L
+    /** An alert said again after a failure, if it's still this fresh. */
+    private const val RETRY_MAX_AGE_MS = 30_000L
 
     private val main = Handler(Looper.getMainLooper())
     private var tts: TextToSpeech? = null
@@ -52,7 +56,7 @@ object Voice {
         val current = speaking
         if (current != null && queue.preempts(priority, current.priority)) {
             tts?.stop() // onDone/onStop isn't guaranteed after stop(): move on ourselves
-            speaking = null
+            done()
         }
         pump()
     }
@@ -62,13 +66,34 @@ object Voice {
         app = context.applicationContext
         queue.clear()
         tts?.stop()
-        speaking = null
+        done()
         nextAttrs = attrs
-        testText = text // bypasses the repeat filter: the button can be pressed again and again
+        // Bypasses the repeat filter: the button can be pressed again and again.
+        pending = VoiceQueue.Item(text, VoiceQueue.FOLLOWING + 1, System.currentTimeMillis())
+        pendingTries = 0
         pump()
     }
 
-    private var testText: String? = null
+    /** Said before the queue: the Test button, or an alert said again after the engine failed it. */
+    private var pending: VoiceQueue.Item? = null
+    private var pendingTries = 0
+    /** The utterance being said, how many times it already failed, and whether it went to the boosted session. */
+    private var utterance: String? = null
+    private var tries = 0
+    private var started = false
+    private var boostedNow = false
+    /** The boosted session failed twice in a row on this phone: speak without it (until the app restarts). */
+    private var boostFailed = false
+
+    /**
+     * The engine went quiet on what's being said: it never started it, or never said it was done (the
+     * speech service was updated or killed in the background). Without this, [speaking] stays set and
+     * every alert after it waits forever, while the Test button, which clears it, still works.
+     */
+    private val watchdog = Runnable {
+        val item = speaking ?: return@Runnable
+        if (started) { done(); pump() } else failed(item)
+    }
 
     private fun pump() {
         if (speaking != null) return
@@ -76,23 +101,59 @@ object Voice {
         val engine = tts
         if (engine == null || !ready) { if (engine == null) start(ctx); return }
         val now = System.currentTimeMillis()
-        val item = testText?.let { VoiceQueue.Item(it, VoiceQueue.FOLLOWING + 1, now) }?.also { testText = null }
-            ?: queue.next(now) ?: run { releaseFocus(); return }
+        val retry = pending?.takeIf { now - it.time <= RETRY_MAX_AGE_MS }
+        val retryTries = pendingTries
+        pending = null
+        val item = retry ?: queue.next(now) ?: run { releaseFocus(); return }
         val attrs = nextAttrs ?: return
+        tries = if (retry != null) retryTries else 0
         speaking = item
         speakingAttrs = attrs
         holdFocus(ctx, attrs)
         engine.setAudioAttributes(attrs)
         engine.setSpeechRate(Prefs.voiceRate(ctx))
+        val session = if (boostFailed) null else boostedSession(ctx)
         val params = Bundle().apply {
             putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1f)
-            boostedSession(ctx)?.let { putInt(TextToSpeech.Engine.KEY_PARAM_SESSION_ID, it) }
+            session?.let { putInt(TextToSpeech.Engine.KEY_PARAM_SESSION_ID, it) }
         }
-        if (engine.speak(item.text, TextToSpeech.QUEUE_FLUSH, params, "rf-${System.nanoTime()}") != TextToSpeech.SUCCESS) {
-            speaking = null
-            releaseFocus()
-        }
+        val id = "rf-${System.nanoTime()}"
+        utterance = id
+        started = false
+        boostedNow = session != null
+        main.removeCallbacks(watchdog)
+        main.postDelayed(watchdog, START_TIMEOUT_MS)
+        // Refused: no longer connected to the engine (updated or killed in the background).
+        if (engine.speak(item.text, TextToSpeech.QUEUE_FLUSH, params, id) != TextToSpeech.SUCCESS) failed(item)
     }
+
+    /** Nothing is being said any more. */
+    private fun done() {
+        main.removeCallbacks(watchdog)
+        speaking = null
+        utterance = null
+    }
+
+    /**
+     * The engine didn't say [item]. Starts it afresh and says [item] again, up to twice; after two
+     * failures in a row in the boosted session, speech goes without the boost (in case that's what
+     * this phone can't play).
+     */
+    private fun failed(item: VoiceQueue.Item) {
+        done()
+        val n = tries + 1
+        if (boostedNow && n >= 2) boostFailed = true
+        if (n <= 2) { pending = item; pendingTries = n }
+        val ctx = app ?: return
+        runCatching { tts?.shutdown() }
+        tts = null
+        ready = false
+        start(ctx)
+    }
+
+    /** Talking takes about this long, with room to spare. */
+    private fun talkMs(text: String, ctx: Context) =
+        4_000L + (text.length * 120L / Prefs.voiceRate(ctx).coerceAtLeast(0.3f)).toLong()
 
     /**
      * The audio session to speak in, with Android's loudness enhancer (a gain with a limiter, so it
@@ -128,11 +189,11 @@ object Voice {
             return
         }
         engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(id: String?) {}
-            override fun onDone(id: String?) = finished()
+            override fun onStart(id: String?) { main.post { onStarted(id) } }
+            override fun onDone(id: String?) = finished(id)
             @Deprecated("Deprecated in Java")
-            override fun onError(id: String?) = finished()
-            override fun onError(id: String?, errorCode: Int) = finished()
+            override fun onError(id: String?) = errored(id)
+            override fun onError(id: String?, errorCode: Int) = errored(id)
             override fun onStop(id: String?, interrupted: Boolean) {}
         })
         voices = englishVoices(engine)
@@ -141,11 +202,29 @@ object Voice {
         pump()
     }
 
-    private fun finished() {
+    private fun onStarted(id: String?) {
+        if (id == null || id != utterance) return
+        started = true
+        // Now it only has to finish.
+        main.removeCallbacks(watchdog)
+        app?.let { main.postDelayed(watchdog, talkMs(speaking?.text.orEmpty(), it)) }
+    }
+
+    /** Late callbacks of an utterance given up on are ignored. */
+    private fun finished(id: String?) {
         main.post {
-            speaking = null
+            if (id == null || id != utterance) return@post
+            done()
             // A short breath between phrases, then the next (or give the audio back).
             main.postDelayed({ pump() }, 250)
+        }
+    }
+
+    private fun errored(id: String?) {
+        main.post {
+            if (id == null || id != utterance) return@post
+            val item = speaking ?: return@post
+            if (started) { done(); main.postDelayed({ pump() }, 250) } else failed(item)
         }
     }
 
@@ -205,15 +284,16 @@ object Voice {
     /** Stops what's being said and drops what's queued (alerts muted); the engine stays ready. */
     fun silence() = main.post {
         queue.clear()
-        testText = null
+        pending = null
         tts?.stop()
-        speaking = null
+        done()
         releaseFocus()
     }
 
     fun shutdown() = main.post {
         queue.clear()
-        speaking = null
+        pending = null
+        done()
         releaseFocus()
         tts?.shutdown()
         tts = null

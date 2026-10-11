@@ -73,66 +73,65 @@ object DeviceExport {
         return sb.toString()
     }
 
-    fun sessionJson(devices: List<DeviceRegistry.Snapshot>, flags: Flags): JsonArray {
-        val arr = JsonArray()
-        devices.forEach { s ->
-            val o = JsonObject()
-            o.addProperty("mac", s.mac)
-            o.addProperty("name", s.name)
-            o.addProperty("vendor", s.vendor)
-            o.addProperty("ieeeRegistrant", VendorDb.macVendor(s.mac))
-            o.addProperty("deviceType", s.deviceType)
-            o.addProperty("addressType", s.addressType.label)
-            o.addProperty("trackability", s.addressType.trackable)
-            o.add("radios", JsonArray().apply { s.sources.forEach { add(it.name) } })
-            o.addProperty("rssi", s.rssi)
-            o.addProperty("bestRssi", s.bestRssi)
-            o.addProperty("distanceMetersRough", Math.round(s.distanceM * 10) / 10.0)
-            o.addProperty("firstSeen", iso(s.firstSeen))
-            o.addProperty("lastSeen", iso(s.lastSeen))
-            o.addProperty("packets", s.sightings)
-            o.addProperty("following", s.following)
-            o.addProperty("whitelisted", flags.whitelisted(s.mac))
-            o.addProperty("favorite", flags.favorite(s.mac))
-            o.add("matches", JsonArray().apply {
-                s.hits.forEach { h ->
+    fun sessionJson(devices: List<DeviceRegistry.Snapshot>, flags: Flags): JsonArray =
+        JsonArray().apply { devices.forEach { add(sessionItem(it, flags)) } }
+
+    private fun sessionItem(s: DeviceRegistry.Snapshot, flags: Flags): JsonObject {
+        val o = JsonObject()
+        o.addProperty("mac", s.mac)
+        o.addProperty("name", s.name)
+        o.addProperty("vendor", s.vendor)
+        o.addProperty("ieeeRegistrant", VendorDb.macVendor(s.mac))
+        o.addProperty("deviceType", s.deviceType)
+        o.addProperty("addressType", s.addressType.label)
+        o.addProperty("trackability", s.addressType.trackable)
+        o.add("radios", JsonArray().apply { s.sources.forEach { add(it.name) } })
+        o.addProperty("rssi", s.rssi)
+        o.addProperty("bestRssi", s.bestRssi)
+        o.addProperty("distanceMetersRough", Math.round(s.distanceM * 10) / 10.0)
+        o.addProperty("firstSeen", iso(s.firstSeen))
+        o.addProperty("lastSeen", iso(s.lastSeen))
+        o.addProperty("packets", s.sightings)
+        o.addProperty("following", s.following)
+        o.addProperty("whitelisted", flags.whitelisted(s.mac))
+        o.addProperty("favorite", flags.favorite(s.mac))
+        o.add("matches", JsonArray().apply {
+            s.hits.forEach { h ->
+                add(JsonObject().apply {
+                    addProperty("category", h.category.name)
+                    addProperty("label", h.label)
+                    addProperty("confidence", h.confidence)
+                    addProperty("tier", h.tier.name)
+                    addProperty("evidence", h.evidence)
+                    addProperty("source", h.source)
+                })
+            }
+        })
+        o.add("facts", JsonObject().apply { s.facts.forEach { (k, v) -> addProperty(k, v) } })
+        s.known?.let { k ->
+            o.add("history", JsonObject().apply {
+                addProperty("firstSeenEver", iso(k.firstSeen))
+                addProperty("sessions", k.sessions)
+                addProperty("detectCount", k.detectCount)
+            })
+        }
+        s.remoteId?.let { o.add("remoteId", gson.toJsonTree(it)) }
+        s.advert?.let { o.add("advertisement", advertJson(it)) }
+        if (s.path.isNotEmpty()) {
+            o.add("positions", JsonArray().apply {
+                s.path.forEach { p ->
                     add(JsonObject().apply {
-                        addProperty("category", h.category.name)
-                        addProperty("label", h.label)
-                        addProperty("confidence", h.confidence)
-                        addProperty("tier", h.tier.name)
-                        addProperty("evidence", h.evidence)
-                        addProperty("source", h.source)
+                        addProperty("time", iso(p.time)); addProperty("lat", p.lat); addProperty("lon", p.lon)
                     })
                 }
             })
-            o.add("facts", JsonObject().apply { s.facts.forEach { (k, v) -> addProperty(k, v) } })
-            s.known?.let { k ->
-                o.add("history", JsonObject().apply {
-                    addProperty("firstSeenEver", iso(k.firstSeen))
-                    addProperty("sessions", k.sessions)
-                    addProperty("detectCount", k.detectCount)
-                })
-            }
-            s.remoteId?.let { o.add("remoteId", gson.toJsonTree(it)) }
-            s.advert?.let { o.add("advertisement", advertJson(it)) }
-            if (s.path.isNotEmpty()) {
-                o.add("positions", JsonArray().apply {
-                    s.path.forEach { p ->
-                        add(JsonObject().apply {
-                            addProperty("time", iso(p.time)); addProperty("lat", p.lat); addProperty("lon", p.lon)
-                        })
-                    }
-                })
-            }
-            if (s.history.isNotEmpty()) {
-                o.add("rssiHistory", JsonArray().apply {
-                    s.history.forEach { h -> add(JsonArray().apply { add(h.time); add(h.rssi) }) }
-                })
-            }
-            arr.add(o)
         }
-        return arr
+        if (s.history.isNotEmpty()) {
+            o.add("rssiHistory", JsonArray().apply {
+                s.history.forEach { h -> add(JsonArray().apply { add(h.time); add(h.rssi) }) }
+            })
+        }
+        return o
     }
 
     private fun advertJson(a: Advert): JsonObject = JsonObject().apply {
@@ -194,36 +193,54 @@ object DeviceExport {
         return sb.toString()
     }
 
-    fun historyJson(rows: List<KnownDeviceEntity>): JsonArray = JsonArray().apply {
-        rows.forEach { r ->
-            add(JsonObject().apply {
-                addProperty("mac", r.mac); addProperty("name", r.name); addProperty("vendor", r.vendor)
-                addProperty("deviceType", r.deviceType); addProperty("firstSeen", iso(r.firstSeen))
-                addProperty("lastSeen", iso(r.lastSeen)); addProperty("sessions", r.sessions)
-                addProperty("detectCount", r.detectCount); addProperty("favorite", r.favorite); addProperty("note", r.note)
-            })
-        }
+    fun historyJson(rows: List<KnownDeviceEntity>): JsonArray = JsonArray().apply { rows.forEach { add(historyItem(it)) } }
+
+    private fun historyItem(r: KnownDeviceEntity) = JsonObject().apply {
+        addProperty("mac", r.mac); addProperty("name", r.name); addProperty("vendor", r.vendor)
+        addProperty("deviceType", r.deviceType); addProperty("firstSeen", iso(r.firstSeen))
+        addProperty("lastSeen", iso(r.lastSeen)); addProperty("sessions", r.sessions)
+        addProperty("detectCount", r.detectCount); addProperty("favorite", r.favorite); addProperty("note", r.note)
     }
 
     fun matchesJson(rows: List<DetectionEntity>): JsonArray = gson.toJsonTree(rows).asJsonArray
 
-    /** One file with everything: session, history, match log, watchlist entries. */
-    fun everythingJson(
+    /**
+     * One file with everything (session, history, match log, watchlist entries), written straight
+     * to [out] one device at a time: a long history (100,000+ devices after some wardriving) built up
+     * as one JSON tree and one string ran the app out of memory. [historyBatches] and [matchBatches]
+     * give the next rows, empty when done.
+     */
+    suspend fun writeEverything(
+        out: java.io.Writer,
         appVersion: String,
         session: List<DeviceRegistry.Snapshot>,
         flags: Flags,
-        history: List<KnownDeviceEntity>,
-        matches: List<DetectionEntity>,
+        historyBatches: suspend () -> List<KnownDeviceEntity>,
+        matchBatches: suspend () -> List<DetectionEntity>,
         watchlist: List<OuiEntry>
-    ): String {
-        val root = JsonObject()
-        root.addProperty("exportedBy", "RF Sentinel $appVersion")
-        root.addProperty("exportedAt", iso(System.currentTimeMillis()))
-        root.add("sessionDevices", sessionJson(session, flags))
-        root.add("deviceHistory", historyJson(history))
-        root.add("matchLog", matchesJson(matches))
-        root.add("watchlist", gson.toJsonTree(watchlist))
-        return gson.toJson(root)
+    ) {
+        val w = gson.newJsonWriter(out)
+        w.beginObject()
+        w.name("exportedBy").value("RF Sentinel $appVersion")
+        w.name("exportedAt").value(iso(System.currentTimeMillis()))
+        w.name("sessionDevices").beginArray()
+        session.forEach { gson.toJson(sessionItem(it, flags), w) }
+        w.endArray()
+        w.name("deviceHistory").beginArray()
+        while (true) { val rows = historyBatches(); if (rows.isEmpty()) break; rows.forEach { gson.toJson(historyItem(it), w) } }
+        w.endArray()
+        w.name("matchLog").beginArray()
+        while (true) { val rows = matchBatches(); if (rows.isEmpty()) break; rows.forEach { gson.toJson(it, DetectionEntity::class.java, w) } }
+        w.endArray()
+        w.name("watchlist"); gson.toJson(gson.toJsonTree(watchlist), w)
+        w.endObject()
+        w.flush()
+    }
+
+    /** [rows] a batch of [size] at a time (for [writeEverything] from rows already in memory). */
+    fun <T> batches(rows: List<T>, size: Int = 500): suspend () -> List<T> {
+        var at = 0
+        return { rows.subList(at.coerceAtMost(rows.size), (at + size).coerceAtMost(rows.size)).also { at += size } }
     }
 
     fun pretty(el: com.google.gson.JsonElement): String = gson.toJson(el)

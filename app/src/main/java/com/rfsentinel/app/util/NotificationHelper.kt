@@ -142,7 +142,9 @@ object NotificationHelper {
         context: Context, key: String, hit: Hit,
         target: Class<out android.app.Activity> = com.rfsentinel.app.ui.MapActivity::class.java,
         /** Where the thing is (a camera); else where you were. */
-        lat: Double? = null, lon: Double? = null
+        lat: Double? = null, lon: Double? = null,
+        /** An internet alert's key ("air:..." aircraft, "waze:..." report): tapping opens the map on it ([lat] / [lon] where it was). */
+        online: String? = null
     ) {
         recordAlert(context, key, null, hit, null, false, lat, lon)
         val discreet = Prefs.discreetMode(context)
@@ -151,7 +153,8 @@ object NotificationHelper {
         if (toCar(context, if (discreet) "New alert" else "${hit.label}. ${hit.evidence}", null)) return
         val open = PendingIntent.getActivity(
             context, key.hashCode(),
-            Intent(context, target).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            (online?.let { com.rfsentinel.app.ui.MapActivity.onlineIntent(context, it, lat, lon) } ?: Intent(context, target))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val builder = NotificationCompat.Builder(context, CHANNEL_ALERTS)

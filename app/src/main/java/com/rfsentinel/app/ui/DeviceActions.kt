@@ -29,6 +29,23 @@ import kotlinx.coroutines.launch
 /** Actions on one device, shared by the list, the radar and the detail screen. */
 object DeviceActions {
 
+    /**
+     * A logged match: the device's details, or for a police aircraft or a Waze report the map on it -
+     * where it is now while the feed still has it, else where it was logged.
+     */
+    fun openDetection(activity: AppCompatActivity, d: com.rfsentinel.app.data.DetectionEntity) {
+        // Internet alerts are logged as "AIR <ICAO address>" / "WAZE <report id>" (their alert key).
+        val key = d.mac.takeIf { d.source == "ONLINE" && ' ' in it }?.let { it.substringBefore(' ').lowercase() + ":" + it.substringAfter(' ') }
+        val intent = key?.let { MapActivity.onlineIntent(activity, it, d.latitude, d.longitude) }
+        if (key == null || intent == null) { openDetails(activity, d.mac); return }
+        if (d.latitude == null && !MapActivity.onlineIsLive(key)) {
+            android.widget.Toast.makeText(activity, "Its position wasn't saved (GPS tagging off) and it's no longer current",
+                android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        activity.startActivity(intent)
+    }
+
     fun openDetails(activity: AppCompatActivity, mac: String) {
         activity.startActivity(
             Intent(activity, DeviceDetailActivity::class.java).putExtra(DeviceDetailActivity.EXTRA_MAC, mac)

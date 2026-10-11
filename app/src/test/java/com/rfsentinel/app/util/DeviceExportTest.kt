@@ -89,8 +89,29 @@ class DeviceExportTest {
         val hist = listOf(KnownDeviceEntity("AA:BB:CC:DD:EE:FF", 1000, 2000, 3, 7, "Tag, \"x\"", null, null))
         val csv = DeviceExport.historyCsv(hist).trimEnd().lines()
         assertEquals(fields(csv[0]), fields(csv[1]))
-        val all = JsonParser.parseString(DeviceExport.everythingJson("test", full(), flags, hist, emptyList(), emptyList())).asJsonObject
+        val all = JsonParser.parseString(everything(hist, emptyList())).asJsonObject
         assertEquals(2, all["sessionDevices"].asJsonArray.size())
         assertEquals(1, all["deviceHistory"].asJsonArray.size())
+    }
+
+    private fun everything(hist: List<KnownDeviceEntity>, matches: List<com.rfsentinel.app.data.DetectionEntity>): String {
+        val out = java.io.StringWriter()
+        kotlinx.coroutines.runBlocking {
+            DeviceExport.writeEverything(out, "test", full(), flags, DeviceExport.batches(hist), DeviceExport.batches(matches), emptyList())
+        }
+        return out.toString()
+    }
+
+    /** A long history goes out a batch at a time - every row once, in order - instead of one string in memory. */
+    @Test
+    fun everythingWritesLongHistoriesInBatches() {
+        val hist = (0 until 1203).map { KnownDeviceEntity("AA:BB:CC:%02X:%02X:%02X".format(it shr 16, (it shr 8) and 0xff, it and 0xff), 1000, 2000L - it, 1, 1, null, null, null) }
+        val matches = (0 until 701).map { com.rfsentinel.app.data.DetectionEntity(id = 701L - it, mac = "AA:BB:CC:00:00:01", label = "x", source = "BLE", rssi = -60, timestamp = 5000L - it) }
+        val all = JsonParser.parseString(everything(hist, matches)).asJsonObject
+        val h = all["deviceHistory"].asJsonArray
+        assertEquals(1203, h.size())
+        assertEquals(hist.map { it.mac }, h.map { it.asJsonObject["mac"].asString })
+        assertEquals(701, all["matchLog"].asJsonArray.size())
+        assertEquals(listOf("exportedBy", "exportedAt", "sessionDevices", "deviceHistory", "matchLog", "watchlist"), all.keySet().toList())
     }
 }

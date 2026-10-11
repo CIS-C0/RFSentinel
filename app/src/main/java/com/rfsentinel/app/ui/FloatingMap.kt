@@ -25,11 +25,23 @@ import android.widget.Toast
 import androidx.core.content.edit
 import com.rfsentinel.app.service.ScanForegroundService
 import com.rfsentinel.app.util.Prefs
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.CustomZoomButtonsController
-import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.TilesOverlay
+import org.maplibre.android.MapLibre
+import org.maplibre.android.camera.CameraPosition
+import org.maplibre.android.camera.CameraUpdateFactory
+import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.maps.MapLibreMap
+import org.maplibre.android.maps.MapLibreMapOptions
+import org.maplibre.android.maps.MapView
+import org.maplibre.android.maps.Style
+import org.maplibre.android.style.expressions.Expression.get
+import org.maplibre.android.style.expressions.Expression.toColor
+import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.layers.SymbolLayer
+import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.geojson.Feature
+import org.maplibre.geojson.FeatureCollection
+import org.maplibre.geojson.Point
 import kotlin.math.abs
 
 /**
@@ -38,7 +50,8 @@ import kotlin.math.abs
  * on top), a border in the threat colour and the flagged count. Drag to move, tap to
  * open the full map, ✕ to turn it off. Needs "Display over other apps"; hidden while
  * RF Sentinel itself is on screen. While it shows, location runs in precise mode, like
- * the full map.
+ * the full map. Always OpenFreeMap (MapLibre), whichever map Settings picks for the app: a window
+ * this small has no room for another provider's logo and info button.
  */
 object FloatingMap {
 
@@ -50,21 +63,26 @@ object FloatingMap {
 
     private const val SIZE_DP = 170
     private const val MIN_DP = 120
+    /** Zoom levels as saved (the old raster map's); the vector map shows the same scale one level lower. */
     private const val ZOOM = 16.0
     private const val MIN_ZOOM = 11.0
     private const val MAX_ZOOM = 19.0
+    private const val ZOOM_SHIFT = 1.0
     private const val ME_COLOR = 0xFF1A73E8.toInt()
 
     private val main = Handler(Looper.getMainLooper())
     private var root: FrameLayout? = null
-    private var map: MapView? = null
+    private var view: MapView? = null
+    private var map: MapLibreMap? = null
     private var badge: TextView? = null
     private var waiting: TextView? = null
     private var border: GradientDrawable? = null
-    private var dots: PointsOverlay<Unit>? = null
-    private var me: PointsOverlay<Unit>? = null
-    private var cams: PointsOverlay<Unit>? = null
-    private var camIcons: Map<com.rfsentinel.app.alpr.KnownCamera.Kind, android.graphics.Bitmap> = emptyMap()
+    /** The latest dots and position, drawn as soon as the map's style is in (and with every update). */
+    private var lastDevices: List<Dot> = emptyList()
+    private var lastCameras: List<Cam> = emptyList()
+    private var lastHere: Location? = null
+    /** Saved-scale zoom (see [ZOOM_SHIFT]). */
+    private var zoom = ZOOM
 
     fun canShow(context: Context) = Settings.canDrawOverlays(context)
 
@@ -79,30 +97,44 @@ object FloatingMap {
             text = if (flagged == 0) "✓" else if (flagged > 99) "99+" else flagged.toString()
             background = GradientDrawable().apply { cornerRadius = dp(app, 11f).toFloat(); setColor(level.color) }
         }
-        cams?.points = cameras.mapNotNull { c ->
-            val icon = camIcons[c.kind] ?: return@mapNotNull null
-            PointsOverlay.Point(c.lat, c.lon, Unit, icon = icon, alpha = if (c.ignored) 90 else 255)
-        }
-        dots?.points = devices.sortedBy { it.flagged }.map {
-            PointsOverlay.Point(it.lat, it.lon, Unit, color = it.color, sizeDp = if (it.flagged) 15f else 9f)
-        }
-        val m = map ?: return@post
-        if (here != null) {
-            val p = GeoPoint(here.latitude, here.longitude)
-            me?.points = listOf(PointsOverlay.Point(p.latitude, p.longitude, Unit, color = ME_COLOR, sizeDp = 14f))
-            m.controller.setCenter(p)
-            waiting?.visibility = View.GONE
-        } else waiting?.visibility = View.VISIBLE
-        m.invalidate()
+        lastDevices = devices; lastCameras = cameras; lastHere = here
+        waiting?.visibility = if (here != null) View.GONE else View.VISIBLE
+        draw()
     }
+
+    /** The cameras, the devices (flagged ones larger, on top) and you, centred. */
+    private fun draw() {
+        val m = map ?: return
+        val style = m.style?.takeIf { it.isFullyLoaded } ?: return
+        runCatching {
+            style.getSourceAs<GeoJsonSource>(CAMS)?.setGeoJson(FeatureCollection.fromFeatures(lastCameras.map { c ->
+                Feature.fromGeometry(Point.fromLngLat(c.lon, c.lat)).apply {
+                    addStringProperty("icon", "fm-cam-${c.kind.name}"); addNumberProperty("opacity", if (c.ignored) 0.35f else 1f)
+                }
+            }))
+            style.getSourceAs<GeoJsonSource>(DOTS)?.setGeoJson(FeatureCollection.fromFeatures(lastDevices.sortedBy { it.flagged }.map { d ->
+                Feature.fromGeometry(Point.fromLngLat(d.lon, d.lat)).apply {
+                    addStringProperty("color", String.format("#%06X", d.color and 0xFFFFFF))
+                    addNumberProperty("r", if (d.flagged) 7.5f else 4.5f)
+                    addNumberProperty("k", if (d.flagged) 1f else 0f)
+                }
+            }))
+            val here = lastHere
+            style.getSourceAs<GeoJsonSource>(ME)?.setGeoJson(FeatureCollection.fromFeatures(
+                if (here == null) emptyList() else listOf(Feature.fromGeometry(Point.fromLngLat(here.longitude, here.latitude)))))
+            if (here != null) m.moveCamera(CameraUpdateFactory.newLatLng(LatLng(here.latitude, here.longitude)))
+        }
+    }
+
+    private const val CAMS = "fm-cams"; private const val DOTS = "fm-dots"; private const val ME = "fm-me"
 
     fun hide(context: Context) = main.post { removeNow(context.applicationContext) }
 
     private fun removeNow(context: Context) {
         val r = root ?: return
         runCatching { (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).removeView(r) }
-        runCatching { map?.onDetach() }
-        root = null; map = null; badge = null; waiting = null; border = null; dots = null; me = null; cams = null
+        view?.let { v -> runCatching { v.onPause(); v.onStop(); v.onDestroy() } }
+        root = null; view = null; map = null; badge = null; waiting = null; border = null
         ScanForegroundService.mapHidden(context)
     }
 
@@ -129,7 +161,7 @@ object FloatingMap {
             y = prefs.getInt("y", dp(context, 120f))
         }
 
-        MapIcons.configureOsm(context)
+        MapLibre.getInstance(context)
         val radius = 18f * d
         val frame = FrameLayout(context).apply {
             background = GradientDrawable().apply { cornerRadius = radius; setColor(Color.BLACK) }.also { border = it }
@@ -139,22 +171,32 @@ object FloatingMap {
             clipToOutline = true
             elevation = 6f * d
         }
-        val m = MapView(context).apply {
-            setTileSource(TileSourceFactory.MAPNIK)
-            setMultiTouchControls(false)
-            zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
-            isTilesScaledToDpi = true
-            controller.setZoom(prefs.getFloat("zoom", ZOOM.toFloat()).toDouble().coerceIn(MIN_ZOOM, MAX_ZOOM))
+        zoom = prefs.getFloat("zoom", ZOOM.toFloat()).toDouble().coerceIn(MIN_ZOOM, MAX_ZOOM)
+        // A window over other apps: the texture view draws there reliably; the map engine needs its
+        // lifecycle by hand (no activity owns it).
+        val m = MapView(context, MapLibreMapOptions.createFromAttributes(context).textureMode(true)
+            .camera(CameraPosition.Builder().target(LatLng(0.0, 0.0)).zoom(zoom - ZOOM_SHIFT).build())
+            .compassEnabled(false).logoEnabled(false).attributionEnabled(false)
+            .scrollGesturesEnabled(false).zoomGesturesEnabled(false).rotateGesturesEnabled(false).tiltGesturesEnabled(false))
+        m.onCreate(null)
+        m.getMapAsync { lm ->
+            map = lm
             val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-            if (night) overlayManager.tilesOverlay.setColorFilter(TilesOverlay.INVERT_COLORS)
+            lm.setStyle(Style.Builder().fromUri(if (night) MapLibreEngine.DARK_STYLE else MapLibreEngine.LIGHT_STYLE)) { style ->
+                runCatching {
+                    com.rfsentinel.app.alpr.KnownCamera.Kind.entries.forEach { style.addImage("fm-cam-${it.name}", MapIcons.cameraIcon(d * 0.85f, it)) }
+                    listOf(CAMS, DOTS, ME).forEach { style.addSource(GeoJsonSource(it)) }
+                    style.addLayer(SymbolLayer(CAMS, CAMS).withProperties(PropertyFactory.iconImage(get("icon")),
+                        PropertyFactory.iconOpacity(get("opacity")), PropertyFactory.iconAllowOverlap(true), PropertyFactory.iconIgnorePlacement(true)))
+                    style.addLayer(CircleLayer(DOTS, DOTS).withProperties(PropertyFactory.circleColor(toColor(get("color"))),
+                        PropertyFactory.circleRadius(get("r")), PropertyFactory.circleSortKey(get("k")),
+                        PropertyFactory.circleStrokeColor("#FFFFFF"), PropertyFactory.circleStrokeWidth(1.2f)))
+                    style.addLayer(CircleLayer(ME, ME).withProperties(PropertyFactory.circleColor(String.format("#%06X", ME_COLOR and 0xFFFFFF)),
+                        PropertyFactory.circleRadius(7f), PropertyFactory.circleStrokeColor("#FFFFFF"), PropertyFactory.circleStrokeWidth(2f)))
+                    draw()
+                }
+            }
         }
-        val dotLayer = PointsOverlay<Unit>(d) {}
-        val meLayer = PointsOverlay<Unit>(d) {}
-        val camLayer = PointsOverlay<Unit>(d) {}
-        if (camIcons.isEmpty()) camIcons = com.rfsentinel.app.alpr.KnownCamera.Kind.entries.associateWith { MapIcons.cameraIcon(d * 0.85f, it) }
-        m.overlays.add(camLayer)
-        m.overlays.add(dotLayer)
-        m.overlays.add(meLayer)
         val inset = dp(context, 3f)
         frame.addView(m, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT).apply {
             setMargins(inset, inset, inset, inset)
@@ -200,8 +242,8 @@ object FloatingMap {
                     // One zoom level per doubling of the finger spread, in or out.
                     val now = span(e)
                     if (now > 1f) {
-                        val z = (m.zoomLevelDouble + Math.log((now / pinchSpan).toDouble()) / Math.log(2.0)).coerceIn(MIN_ZOOM, MAX_ZOOM)
-                        m.controller.setZoom(z)
+                        zoom = (zoom + Math.log((now / pinchSpan).toDouble()) / Math.log(2.0)).coerceIn(MIN_ZOOM, MAX_ZOOM)
+                        map?.moveCamera(CameraUpdateFactory.zoomTo(zoom - ZOOM_SHIFT))
                         pinchSpan = now
                     }
                 } else if (!pinched && e.pointerCount == 1) {
@@ -211,7 +253,7 @@ object FloatingMap {
                     if (moved) { lp.x = startX - dx.toInt(); lp.y = startY + dy.toInt(); runCatching { wm.updateViewLayout(frame, lp) } }
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (pinched) prefs.edit { putFloat("zoom", m.zoomLevelDouble.toFloat()) }
+                    if (pinched) prefs.edit { putFloat("zoom", zoom.toFloat()) }
                     else if (moved) prefs.edit { putInt("x", lp.x); putInt("y", lp.y) }
                     else if (v === close) turnOff(context)
                     else context.startActivity(Intent(context, MapActivity::class.java)
@@ -254,8 +296,8 @@ object FloatingMap {
 
         return runCatching {
             wm.addView(frame, lp)
-            m.onResume()
-            root = frame; map = m; badge = count; waiting = wait; dots = dotLayer; me = meLayer; cams = camLayer
+            m.onStart(); m.onResume()
+            root = frame; view = m; badge = count; waiting = wait
             ScanForegroundService.mapShown(context)
             frame
         }.getOrNull()

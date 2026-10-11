@@ -10,6 +10,11 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // Mapbox Maps SDK (the optional Mapbox map); only Mapbox's own artifacts come from here.
+        maven {
+            url = uri("https://api.mapbox.com/downloads/v2/releases/maven")
+            content { includeGroupByRegex("com[.]mapbox.*") }
+        }
     }
 }
 

@@ -31,7 +31,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 
-    <!-- Only used by the map screen to download OpenStreetMap tiles. Scanning,
+    <!-- Only used for map data (the map's tiles, the roads for the Waze "ahead" check, camera lists). Scanning,
          detections and history never leave the phone. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -74,6 +74,7 @@
         <activity android:name=".ouilist.OuiListActivity" android:exported="false" />
         <activity android:name=".probes.ProbeListActivity" android:exported="false" />
         <activity android:name=".ui.DetectionLogActivity" android:exported="false" />
+        <activity android:name=".ui.DeviceHistoryActivity" android:exported="false" />
         <activity android:name=".ui.CellTowersActivity" android:exported="false" />
         <activity android:name=".ui.GnssActivity" android:exported="false" />
         <activity android:name=".ui.WazeStatusActivity" android:exported="false" />

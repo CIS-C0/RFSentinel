@@ -7,14 +7,22 @@ plugins {
 }
 
 // Bump both for every release. versionName ends up in the APK file name.
-val appVersionCode = 42
-val appVersionName = "2.18.0"
+val appVersionCode = 43
+val appVersionName = "2.19.0"
 
 // Release signing credentials live in keystore.properties (git-ignored).
 // Without that file, release builds are produced unsigned.
 val keystoreProps = Properties().apply {
     val f = rootProject.file("keystore.properties")
     if (f.exists()) f.inputStream().use { load(it) }
+}
+
+// Mapbox public token (Settings > Map > Map provider) from local.properties (git-ignored), never the repo.
+// Without it the Mapbox choice is unavailable and the map stays on OpenFreeMap.
+val mapboxToken: String = Properties().run {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+    getProperty("MAPBOX_ACCESS_TOKEN", "").trim()
 }
 
 // APKs come out as RFSentinel-v<versionName>-<buildType>.apk
@@ -32,6 +40,7 @@ android {
         versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "MAPBOX_TOKEN", "\"$mapboxToken\"")
     }
 
     signingConfigs {
@@ -52,6 +61,9 @@ android {
         }
         release {
             signingConfig = signingConfigs.findByName("release")
+            // The map engines' native libraries are ~15 MB per CPU type: 64-bit ARM phones only (every
+            // phone of the last several years), not 32-bit ARM or the x86 emulator builds, which debug builds keep.
+            ndk { abiFilters += listOf("arm64-v8a") }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -59,6 +71,9 @@ android {
             )
         }
     }
+
+    // Native libraries stored compressed: a much smaller APK to download (unpacked once at install).
+    packaging { jniLibs { useLegacyPackaging = true } }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -104,6 +119,10 @@ dependencies {
 
     // OpenStreetMap map view (Apache-2.0, no API key). Tiles are the only network use.
     implementation("org.osmdroid:osmdroid-android:6.1.20")
+    // Preview of the new map engine (3D driving view): vector maps with a real 3D camera.
+    implementation("org.maplibre.gl:android-sdk:13.6.1")
+    // Optional Mapbox map (Settings > Map > Map provider); needs MAPBOX_ACCESS_TOKEN in local.properties.
+    implementation("com.mapbox.maps:android-ndk27:11.32.0")
 
     // Android Auto (Car App Library, template-based UI; "projected" = phone-driven Android Auto)
     implementation("androidx.car.app:app:1.7.0")

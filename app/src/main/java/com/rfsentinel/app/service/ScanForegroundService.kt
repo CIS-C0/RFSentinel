@@ -1037,21 +1037,21 @@ class ScanForegroundService : Service() {
         val hit = alert.hit
         if (!Prefs.categoryEnabled(this, hit.category)) return
         val now = System.currentTimeMillis()
-        val loc = lastLocation
         val tag = Prefs.gpsTaggingEnabled(this)
+        // Logged where it was (the aircraft's own ADS-B position, the Waze report's spot), so its row opens the map there.
         if (alert.log) serviceScope.launch {
             AppDatabase.getInstance(this@ScanForegroundService).detectionDao().insert(
                 DetectionEntity(
                     mac = alert.key.substringBefore(':').uppercase() + " " + alert.key.substringAfter(':'), label = hit.label,
                     source = "ONLINE", rssi = 0, timestamp = now,
-                    latitude = if (tag) loc?.latitude else null, longitude = if (tag) loc?.longitude else null,
+                    latitude = if (tag) alert.lat else null, longitude = if (tag) alert.lon else null,
                     category = hit.category.name, confidence = hit.confidence, evidence = hit.evidence
                 )
             )
         }
         if (alert.level != com.rfsentinel.app.online.WazePolice.Level.LOG &&
             hit.confidence >= Prefs.alertThreshold(this) && now >= Prefs.alertsSnoozedUntil(this)) {
-            NotificationHelper.sendMapAlert(this, alert.key, hit, lat = alert.lat, lon = alert.lon)
+            NotificationHelper.sendMapAlert(this, alert.key, hit, lat = alert.lat, lon = alert.lon, online = alert.key)
             if (alert.level == com.rfsentinel.app.online.WazePolice.Level.LOUD) {
                 AlertPlayer.play(this, hit.tier, alert.spoken ?: com.rfsentinel.app.util.Spoken.shortWord(hit))
             }
@@ -1099,7 +1099,8 @@ class ScanForegroundService : Service() {
         val now = System.currentTimeMillis()
         val ssid = DeviceRegistry.get(a.bssid)?.name
         val net = ssid?.let { "\"$it\"" } ?: "network ${a.bssid}"
-        val detail = "${a.frames} deauthentication / disassociation frames in ${a.windowS} s for $net (channel ${a.channel})" +
+        val channel = if (a.channel >= 5955) "6 GHz channel ${(a.channel - 5950) / 5}" else "channel ${a.channel}" // 6 GHz comes in MHz
+        val detail = "${a.frames} deauthentication / disassociation frames in ${a.windowS} s for $net ($channel)" +
             (if (a.broadcast) ", sent to every device on it" else "") + ". Something is knocking devices off this WiFi: a jammer " +
             "or a hacking tool (ESP32 / ESP8266 deauther, Flipper Zero WiFi board, WiFi Pineapple). A normal network sends a " +
             "handful, never a stream. Heard by the USB WiFi adapter; nothing is sent."

@@ -33,6 +33,23 @@ object MapStart {
         return null
     }
 
+    /**
+     * The levels here (and the zoom saved in Prefs) are the classic raster map's; the vector map
+     * shows the same scale one level lower (its tiles are 512 pixels).
+     */
+    const val VECTOR_SHIFT = 1.0
+
+    /** Where the vector map's camera first looks (its zoom level). */
+    data class Camera(val lat: Double, val lon: Double, val zoom: Double, val fresh: Boolean)
+
+    /** [pick] as the map's camera: your area at street zoom, else a world view when nothing is known. */
+    fun camera(fixes: List<Fix?>, saved: Pair<Double, Double>?, savedZoom: Double?, now: Long): Camera =
+        pick(fixes, saved, savedZoom, now)?.let { Camera(it.lat, it.lon, it.zoom - VECTOR_SHIFT, it.fresh) }
+            ?: Camera(30.0, 0.0, WORLD_ZOOM - VECTOR_SHIFT, fresh = false)
+
+    /** The vector map's zoom as it is saved (the classic levels, so a saved view means the same scale). */
+    fun savedZoom(vectorZoom: Double) = vectorZoom + VECTOR_SHIFT
+
     /** (0, 0) is what a missing position looks like; it is never a real place to start from. */
     private fun isOrigin(lat: Double, lon: Double) = abs(lat) < 1e-4 && abs(lon) < 1e-4
 }

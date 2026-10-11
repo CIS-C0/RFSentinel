@@ -32,6 +32,8 @@ object Rtl8821auMonitor {
     private val HOP_5 = intArrayOf(36, 40, 44, 48, 149, 153, 157, 161, 165)
     /** Settings > External hardware: also hop 5 GHz (experimental); read when the adapter starts. */
     @Volatile var scan5g = false
+    /** The adapter's light blinks with traffic (Settings > External hardware); off = it stays dark. Changes apply live. */
+    @Volatile var lightEnabled = true
     private var HOP = HOP_24
     private const val DWELL_MS = 350L
 
@@ -106,8 +108,8 @@ object Rtl8821auMonitor {
             UsbWifi.log("RTL8821AU: RCR=0x%08x BB(0x800)=0x%08x — monitor live ch ${HOP[0]}".format(
                 r32(conn, Rtl8821auTables.REG_RCR), r32(conn, 0x800)))
             onStatus("RTL8821AU · live · 2.4 GHz monitor")
-            runCatching { led(conn, true) }
-            UsbWifi.log("RTL8821AU: light on, blinks with received traffic")
+            runCatching { led(conn, lightEnabled) }
+            UsbWifi.log(if (lightEnabled) "RTL8821AU: light on, blinks with received traffic" else "RTL8821AU: light off (Settings)")
 
             rxLoop(conn, rx, onFrame, onStatus)
         } catch (e: Exception) {
@@ -119,6 +121,10 @@ object Rtl8821auMonitor {
             running = false
         }
     }
+
+    /** The light's next state: dark when switched off; else it flips while frames arrive and stays on when the air is quiet. */
+    internal fun nextLight(enabled: Boolean, framesArrived: Boolean, on: Boolean): Boolean =
+        if (!enabled) false else if (framesArrived) !on else true
 
     /** Light on or off under software control; the band-switch bit and the rest of the byte are kept. */
     private fun led(conn: UsbDeviceConnection, on: Boolean) {
@@ -174,7 +180,7 @@ object Rtl8821auMonitor {
     private class RxState {
         var total = 0L; var bufs = 0L; var lastLog = 0L; var hopAt = 0L; var lastEmit = 0L; var hopIdx = 0
         /** Good frames received, and how many there were at the light's last change. */
-        var frames = 0L; var ledFrames = 0L; var ledAt = 0L; var ledOn = true
+        var frames = 0L; var ledFrames = 0L; var ledAt = 0L; var ledOn = lightEnabled
         fun start() { val t = System.currentTimeMillis(); lastLog = t; hopAt = t; lastEmit = t; ledAt = t }
     }
 
@@ -186,9 +192,9 @@ object Rtl8821auMonitor {
             st.lastLog = now
         }
         if (now - st.lastEmit > 2000) { emitSightings(onFrame); st.lastEmit = now }
-        // Blinks while frames come in; steady on when the air is quiet (still running).
+        // Blinks while frames come in; steady on when the air is quiet (still running); dark when switched off.
         if (now - st.ledAt >= BLINK_MS) {
-            val want = if (st.frames != st.ledFrames) !st.ledOn else true
+            val want = nextLight(lightEnabled, st.frames != st.ledFrames, st.ledOn)
             if (want != st.ledOn && runCatching { led(conn, want) }.isSuccess) st.ledOn = want
             st.ledFrames = st.frames; st.ledAt = now
         }

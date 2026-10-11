@@ -5,12 +5,21 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <org.osmdroid.views.MapView
+    <!-- The map engine's view goes in here (OpenFreeMap or Mapbox, Settings > Map). -->
+    <FrameLayout
         android:id="@+id/map"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- 3D view: the map is tilted, so its own attribution can be off screen; this one stays. -->
+    <!-- The map's scale, under the status card (moved there in code). -->
+    <com.rfsentinel.app.ui.ScaleBarView
+        android:id="@+id/scaleBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_marginStart="8dp" />
+
+    <!-- Map data credit (OpenFreeMap, OpenMapTiles, OpenStreetMap), under the scale. -->
     <TextView
         android:id="@+id/osmCredit"
         android:layout_width="wrap_content"
@@ -20,10 +29,9 @@
         android:background="#99FFFFFF"
         android:paddingStart="4dp"
         android:paddingEnd="4dp"
-        android:text="© OpenStreetMap contributors"
+        android:text="© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors"
         android:textColor="#333333"
-        android:textSize="10sp"
-        android:visibility="gone" />
+        android:textSize="9sp" />
 
     <!-- Status card, with the camera-download progress bar under it -->
     <LinearLayout
@@ -78,6 +86,19 @@
         android:contentDescription="Open the map full screen"
         android:src="@drawable/ic_fullscreen"
         android:visibility="gone"
+        app:fabSize="mini"
+        app:tint="#FFFFFF" />
+
+    <!-- Map settings (provider, layers...): Settings > Map. -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/mapSettingsButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:layout_marginEnd="14dp"
+        android:layout_marginBottom="8dp"
+        android:contentDescription="Map settings"
+        android:src="@drawable/ic_settings"
         app:fabSize="mini"
         app:tint="#FFFFFF" />
 

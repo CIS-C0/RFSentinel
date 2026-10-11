@@ -17,11 +17,13 @@ object AboutDialog {
             ABSOLUTELY NO WARRANTY. Source code: github.com/CIS-C0/RFSentinel<br/><br/>
             Passive, receive-only Bluetooth LE and WiFi scanner. It never transmits to,
             connects to, jams or spoofs any device. Scans, detections, history and traces stay
-            on this phone. Internet is used only for OpenStreetMap: map tiles while the map is
-            open, and the list of known plate, speed and red-light cameras for the area you look at on
+            on this phone. Internet is used only for map data: the map (OpenFreeMap, or Mapbox if
+            you choose it in Settings), the road tiles of your area while the Waze "only ahead"
+            option is on, and the list of known plate, speed and red-light cameras for the area you look at on
             screen; in Android Auto, destination search (Nominatim) and routes (OSRM) when you
             navigate. Those servers see your IP and that area or trip, never your scans or detections.
-            Map data &copy; OpenStreetMap contributors (ODbL).<br/><br/>
+            Map data &copy; OpenStreetMap contributors (ODbL), &copy; OpenMapTiles; map engine
+            MapLibre Native (BSD-2-Clause), OpenFreeMap; Mapbox Maps SDK (Mapbox terms) when selected.<br/><br/>
 
             <b>What a match means</b><br/>
             A device with that vendor or payload signature is broadcasting nearby. It is not
@@ -36,6 +38,7 @@ object AboutDialog {
             &bull; ASTM F3411 Remote ID, decoded per opendroneid-core-c (Apache-2.0)<br/>
             &bull; Google Find Hub Network accessory spec; arXiv 2501.17452; AirGuard, SEEMOO / TU Darmstadt (Apache-2.0) (trackers)<br/>
             &bull; European V2X (ITS-G5) frame layout after V2X2MAP by Peter Holzhauser (MIT); CAM / DENM decoded per ETSI EN 302 637-2 / -3<br/>
+            &bull; MT7921AU (WiFi 6E) USB driver after mt76-usb-macos by Network Weather and the Linux mt76 driver (MediaTek, Lorenzo Bianconi, Felix Fietkau; BSD-3-Clause-Clear); MediaTek firmware under its own licence<br/>
             &bull; Research by ryanohoro and GainSec (Flock); Alan Meekins' DEF CON 31 talk (Axon)<br/><br/>
 
             DedSec, fsociety and Night Vision theme font: Share Tech Mono &copy; Carrois Type Design, SIL Open Font

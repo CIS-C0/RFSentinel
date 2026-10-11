@@ -74,6 +74,7 @@ object Exporter {
         when (scope) {
             Scope.MATCHES -> exportLog(activity, format)
             Scope.WATCHLIST -> exportWatchlist(activity)
+            Scope.EVERYTHING -> exportEverything(activity)
             else -> exportDevices(activity, scope, format)
         }
     }
@@ -83,13 +84,63 @@ object Exporter {
         favorite = { com.rfsentinel.app.data.Favorites.contains(it) }
     )
 
-    private fun exportDevices(activity: AppCompatActivity, scope: Scope, format: String) {
+    /**
+     * Runs an export; a failure (out of memory on a huge history, a full disk) says so instead of
+     * taking the app down with it.
+     */
+    private fun launchExport(activity: AppCompatActivity, block: suspend () -> Unit) {
         activity.lifecycleScope.launch {
+            try {
+                block()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                android.util.Log.w("Exporter", "export failed", e)
+                toast(activity, if (e is OutOfMemoryError) "Export failed: not enough memory for this much data"
+                    else "Export failed: ${e.message ?: e.javaClass.simpleName}")
+            }
+        }
+    }
+
+    /** Full snapshots include the raw advertisement, RSSI history and positions. */
+    private fun sessionDevices() = com.rfsentinel.app.service.DeviceRegistry.snapshot()
+        .mapNotNull { com.rfsentinel.app.service.DeviceRegistry.get(it.mac) }
+        .sortedWith(compareByDescending<com.rfsentinel.app.service.DeviceRegistry.Snapshot> { it.best != null }.thenByDescending { it.rssi })
+
+    /**
+     * Everything in one JSON file, written to it as it's read: the device history and the match
+     * log come from the database a batch at a time, so a long history fits in memory.
+     */
+    private fun exportEverything(activity: AppCompatActivity) = launchExport(activity) {
+        val db = AppDatabase.getInstance(activity)
+        val history = db.knownDeviceDao()
+        val detections = db.detectionDao()
+        val session = sessionDevices()
+        shareWritten(activity, "rf_sentinel_full_export_${stamp()}.json", "application/json", "Export") { out ->
+            // The order is fixed first, so devices heard meanwhile don't shift the batches.
+            val macs = history.macsByLastSeen()
+            var at = 0
+            var before = Long.MAX_VALUE
+            DeviceExport.writeEverything(
+                out, com.rfsentinel.app.BuildConfig.VERSION_NAME, session, flags,
+                historyBatches = {
+                    val chunk = macs.subList(at.coerceAtMost(macs.size), (at + BATCH).coerceAtMost(macs.size))
+                    at += BATCH
+                    val order = chunk.withIndex().associate { (i, m) -> m to i }
+                    if (chunk.isEmpty()) emptyList() else history.getAll(chunk).sortedBy { order[it.mac] ?: Int.MAX_VALUE }
+                },
+                matchBatches = { detections.pageBefore(before, BATCH).also { rows -> rows.lastOrNull()?.let { before = it.id } } },
+                watchlist = OuiWatchlist.allEntries().filter { it.isCustom }
+            )
+        }
+    }
+
+    private const val BATCH = 500
+
+    private fun exportDevices(activity: AppCompatActivity, scope: Scope, format: String) {
+        launchExport(activity) {
             val db = AppDatabase.getInstance(activity)
-            // Full snapshots include the raw advertisement, RSSI history and positions.
-            val session = com.rfsentinel.app.service.DeviceRegistry.snapshot()
-                .mapNotNull { com.rfsentinel.app.service.DeviceRegistry.get(it.mac) }
-                .sortedWith(compareByDescending<com.rfsentinel.app.service.DeviceRegistry.Snapshot> { it.best != null }.thenByDescending { it.rssi })
+            val session = sessionDevices()
             val (name, text, mime) = withContext(Dispatchers.Default) {
                 when (scope) {
                     Scope.SESSION -> {
@@ -103,29 +154,20 @@ object Exporter {
                             else -> Triple("nearby_devices", DeviceExport.pretty(DeviceExport.sessionJson(session, flags)), "application/json")
                         }
                     }
-                    Scope.HISTORY -> {
+                    else -> {
                         val rows = db.knownDeviceDao().all()
                         if (rows.isEmpty()) return@withContext null
                         if (format == "csv") Triple("device_history", DeviceExport.historyCsv(rows), "text/csv")
                         else Triple("device_history", DeviceExport.pretty(DeviceExport.historyJson(rows)), "application/json")
                     }
-                    else -> Triple(
-                        "full_export",
-                        DeviceExport.everythingJson(
-                            com.rfsentinel.app.BuildConfig.VERSION_NAME, session, flags,
-                            db.knownDeviceDao().all(), db.detectionDao().allForExport(),
-                            OuiWatchlist.allEntries().filter { it.isCustom }
-                        ),
-                        "application/json"
-                    )
                 }
             } ?: run {
                 toast(activity, if (scope == Scope.SESSION) "No devices heard yet - start scanning first" else "No device history yet")
-                return@launch
+                return@launchExport
             }
             if (mime == "nogps") {
                 toast(activity, "No GPS positions yet - turn on location while scanning (follower alerts or GPS tagging)")
-                return@launch
+                return@launchExport
             }
             share(activity, "rf_sentinel_${name}_${stamp()}.$format", text, mime, "Export")
         }
@@ -160,18 +202,18 @@ object Exporter {
     }
 
     private fun exportTrip(activity: AppCompatActivity, tripId: Long, format: String, onlyFlagged: Boolean) {
-        activity.lifecycleScope.launch {
+        launchExport(activity) {
             // Make sure the latest buffered points are on disk before reading.
             if (com.rfsentinel.app.service.TripRecorder.activeTripId == tripId) {
                 runCatching { com.rfsentinel.app.service.TripRecorder.flush(activity) }
             }
             val dao = AppDatabase.getInstance(activity).tripDao()
-            val trip = dao.get(tripId) ?: run { toast(activity, "Trace not found"); return@launch }
+            val trip = dao.get(tripId) ?: run { toast(activity, "Trace not found"); return@launchExport }
             val points = dao.points(tripId)
             val devices = dao.devices(tripId)
             if (points.isEmpty() && devices.none { it.lat != null } && format != "csv") {
                 toast(activity, "This trace has no GPS points yet")
-                return@launch
+                return@launchExport
             }
             val (text, mime, ext) = withContext(Dispatchers.Default) {
                 when (format) {
@@ -187,7 +229,7 @@ object Exporter {
     }
 
     fun exportLog(activity: AppCompatActivity, format: String) {
-        activity.lifecycleScope.launch {
+        launchExport(activity) {
             val rows = AppDatabase.getInstance(activity).detectionDao().allForExport()
             val usable = if (format == "csv" || format == "json") rows else rows.filter { it.latitude != null && it.longitude != null }
             if (usable.isEmpty()) {
@@ -196,7 +238,7 @@ object Exporter {
                     if (format == "csv" || format == "json") "No matches logged yet"
                     else "No GPS-tagged matches yet - turn on GPS tagging in Settings"
                 )
-                return@launch
+                return@launchExport
             }
             val text = when (format) {
                 "gpx" -> gpx(usable)
@@ -215,7 +257,7 @@ object Exporter {
     }
 
     private fun exportWatchlist(activity: AppCompatActivity) {
-        activity.lifecycleScope.launch {
+        launchExport(activity) {
             val json = OuiWatchlist.exportCustomJson(activity)
             share(activity, "rf_sentinel_watchlist_${stamp()}.json", json, "application/json", "Export watchlist")
         }
@@ -280,15 +322,24 @@ object Exporter {
 
     internal fun stamp() = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
 
-    internal suspend fun share(context: Context, fileName: String, content: String, mime: String, title: String) {
+    internal suspend fun share(context: Context, fileName: String, content: String, mime: String, title: String) =
+        shareWritten(context, fileName, mime, title) { it.write(content) }
+
+    /** Writes the export file with [write] (on a background thread), then offers it in the share sheet. */
+    internal suspend fun shareWritten(context: Context, fileName: String, mime: String, title: String,
+                                      write: suspend (java.io.Writer) -> Unit) {
         val uri: Uri? = withContext(Dispatchers.IO) {
+            val dir = File(context.cacheDir, "exports").apply { mkdirs() }
+            val file = File(dir, fileName)
             try {
-                val dir = File(context.cacheDir, "exports").apply { mkdirs() }
-                val file = File(dir, fileName)
-                file.writeText(content)
+                file.bufferedWriter().use { write(it) }
                 FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
             } catch (e: Exception) {
+                file.delete()
                 null
+            } catch (e: OutOfMemoryError) {
+                file.delete() // no half-written file left behind
+                throw e
             }
         }
         if (uri == null) {

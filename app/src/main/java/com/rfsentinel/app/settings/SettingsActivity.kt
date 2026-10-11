@@ -28,6 +28,7 @@ class SettingsActivity : AppCompatActivity() {
         /** Opens Settings on one section (expanded and scrolled to): e.g. [SECTION_MAP] from the map. */
         const val EXTRA_SECTION = "open_section"
         const val SECTION_MAP = "map"
+        const val SECTION_DATA = "data"
         const val WAZE_WARNING_SHORT = "Use at your own risk. Reports come from third-party services RF Sentinel doesn't run or endorse " +
             "(OpenWeb Ninja with your own key, or Waze itself); your account, your responsibility."
         const val WAZE_WARNING = "Waze police reports are read through OpenWeb Ninja's Waze API with your own API key.\n\n" +
@@ -405,7 +406,8 @@ class SettingsActivity : AppCompatActivity() {
                 "• Alert range: how close a report must be to alert. Map range: how far the map shows them.\n" +
                 "• Check every: how often Waze is asked. Slower when parked, faster on fast roads (direct), if you leave that on. " +
                 "OpenWeb Ninja bills every check.\n" +
-                "• Only alert for reports ahead: while you drive, reports behind you stay on the list but stay quiet.\n" +
+                "• Only alert for reports ahead: while you drive, only reports on your road ahead of you alert (checked against " +
+                "the map's roads, from OpenFreeMap); the others stay on the list but stay quiet.\n" +
                 "• Call out again: speaks at 1 km, 500 m and 200 m as a report gets closer (voice alerts on, or in the car).\n" +
                 "• Each kind of report has its own level: sound and voice, notification only, or silent (list and map only).\n" +
                 "• Pull the list down, or use the menu, to check right now. Waze status shows what is sent, and when.\n\n" +
@@ -454,7 +456,15 @@ class SettingsActivity : AppCompatActivity() {
         Section("map", binding.headerMap, binding.sectionMap,
             "What the map shows.\n\n" +
                 "Plate, speed and red-light cameras: from OpenStreetMap (Known cameras has the downloads, warnings and CCTV).\n\n" +
-                "Cell towers: placed where your phone heard each one strongest - an estimate, not the tower's real position."),
+                "Cell towers: placed where your phone heard each one strongest - an estimate, not the tower's real position.\n\n" +
+                "The map button turns the map: north up, then with your direction of travel, then the 3D driving view - like " +
+                "a car navigation app, your arrow low on the screen, closer in town and further ahead at speed.\n\n" +
+                "3D view angle: how far the driving view leans back; on fast roads it leans up to 10° further (60° at most).\n\n" +
+                "Default zoom: how close the map follows you. The 3D driving view pulls back from it as you speed up; the " +
+                "north-up and heading-up views sit half a level wider. 17 is close to Waze.\n\n" +
+                "Map provider: OpenFreeMap (OpenStreetMap data, free, no account) or Mapbox (Mapbox's own map: 3D buildings, " +
+                "day and night light). Mapbox loads its map from Mapbox's servers, which see the area you look at, like any " +
+                "online map; its usage statistics are switched off. The floating mini map always uses OpenFreeMap."),
         Section("cameras", binding.headerCameras, binding.sectionCameras,
             "Plate-reader and speed / red-light camera positions come from OpenStreetMap.\n\n" +
                 "Download automatically: fetches the cameras of the map area you look at (the Overpass server sees that area, like map tiles).\n\n" +
@@ -478,9 +488,13 @@ class SettingsActivity : AppCompatActivity() {
                 "• ESP32 boards with OUI-Spy, GhostESP or Marauder firmware (also through a Flipper Zero), FREE-WiLi 2.\n\n" +
                 "• USB WiFi adapters in monitor mode: longer range, and they hear devices connected to networks. " +
                 "RTL8811AU / 8821AU (ALFA AWUS036ACS), RTL8812BU / 8822BU, RTL8814AU (AWUS1900), MT7612U (AWUS036ACM), " +
+                "MT7921AU (AWUS036AXML, WiFi 6E: 2.4, 5 and 6 GHz, experimental), " +
                 "RTL8187 (AWUS036H), RT3070 (AWUS036NH / NEH), AR9271 (AWUS036NHA, experimental).\n\n" +
                 "AWUS036ACS 5 GHz (experimental, off by default): the RTL8811AU / 8821AU also hops 5 GHz channels 36-48 and " +
                 "149-165. Untested on every unit: if it misbehaves, turn it off and send the adapter log. Applies when the adapter is plugged in.\n\n" +
+                "Adapter light: the AWUS036ACS blinks with received traffic; switch it off to keep it dark (for example in a car at night). " +
+                "Only adapters whose light the app can control have this option (the RTL8811AU / 8821AU); the others keep their own behaviour. " +
+                "Applies at once.\n\n" +
                 "• RTL-SDR dongle: notices two-way radios transmitting nearby (signal strength only, nothing is decoded).\n\n" +
                 "OUI-SPY over Bluetooth needs its App-Controlled firmware. Relay mode passes on every network and device it hears " +
                 "so RF Sentinel's own lists check them (the board also sends standard Wi-Fi scan probes).\n\n" +
@@ -891,6 +905,9 @@ class SettingsActivity : AppCompatActivity() {
 
     /** Settings > Map: what the map shows (moved here from the map's menu). Saved as you switch. */
     private fun setupMapSection() {
+        setupMapProvider()
+        setupMapZoom()
+        setupMapTilt()
         binding.mapKnownCamerasSwitch.isChecked = Prefs.showKnownAlpr(this)
         binding.mapKnownCamerasSwitch.setOnCheckedChangeListener { _, on -> Prefs.setShowKnownAlpr(this, on) }
         binding.mapTowersSwitch.isChecked = Prefs.showCellTowers(this)
@@ -921,6 +938,70 @@ class SettingsActivity : AppCompatActivity() {
                             .setAction(com.rfsentinel.app.service.ScanForegroundService.ACTION_REFRESH_LOCATION))
                     }
                     Toast.makeText(this, "Downloaded cameras deleted", Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+    }
+
+    /** Settings > Map > 3D view angle: how far the driving view leans back (flatter = more overhead, steeper = further down the road). */
+    private fun setupMapTilt() {
+        fun show(t: Double) {
+            val what = when { t <= 40 -> "flatter, more overhead"; t <= 55 -> "balanced, like Waze"; else -> "steep: far down the road" }
+            binding.map3dTiltText.text = "3D view angle: ${t.toInt()}° ($what)"
+        }
+        val t = Prefs.map3dTilt(this)
+        binding.map3dTiltSlider.value = t.toFloat(); show(t)
+        binding.map3dTiltSlider.setLabelFormatter { "${it.toInt()}°" }
+        binding.map3dTiltSlider.addOnChangeListener { _, v, fromUser ->
+            if (!fromUser) return@addOnChangeListener
+            Prefs.setMap3dTilt(this, v.toDouble()); show(v.toDouble())
+        }
+    }
+
+    /** Settings > Map > Default zoom: how close the map follows you (the "Waze-like" button is the default). */
+    private fun setupMapZoom() {
+        fun show(z: Double) {
+            val what = when {
+                z <= 15.25 -> "wide: a neighbourhood"
+                z <= 16.25 -> "a few blocks"
+                z <= 17.25 -> "street level, close to Waze"
+                else -> "very close: the next intersection"
+            }
+            binding.mapZoomText.text = "Default zoom: ${"%.2f".format(java.util.Locale.US, z).trimEnd('0').trimEnd('.')} ($what)"
+        }
+        val z = Prefs.mapDefaultZoom(this)
+        // The slider counts quarter levels (58 = 14.5 ... 74 = 18.5): whole numbers, no rounding errors.
+        binding.mapZoomSlider.value = Math.round(z * 4).toFloat(); show(z)
+        binding.mapZoomSlider.setLabelFormatter { "%.2f".format(java.util.Locale.US, it / 4.0).trimEnd('0').trimEnd('.') }
+        binding.mapZoomSlider.addOnChangeListener { _, v, fromUser ->
+            if (!fromUser) return@addOnChangeListener
+            Prefs.setMapDefaultZoom(this, v / 4.0); show(v / 4.0)
+        }
+        binding.mapZoomReset.setOnClickListener {
+            Prefs.setMapDefaultZoom(this, Prefs.MAP_ZOOM_WAZE)
+            binding.mapZoomSlider.value = (Prefs.MAP_ZOOM_WAZE * 4).toFloat(); show(Prefs.MAP_ZOOM_WAZE)
+        }
+    }
+
+    /** Settings > Map > Map: OpenFreeMap or Mapbox (the open maps follow it when you're back). */
+    private fun setupMapProvider() {
+        val btn = binding.mapProviderButton
+        fun show() { btn.text = com.rfsentinel.app.ui.MapEngine.chosen(this).label.substringBefore(" (") + "  ▾" }
+        show()
+        btn.setOnClickListener {
+            val all = com.rfsentinel.app.ui.MapEngine.Provider.entries
+            if (!com.rfsentinel.app.ui.MapEngine.mapboxAvailable) {
+                Toast.makeText(this, "Mapbox isn't available in this build", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val current = all.indexOf(com.rfsentinel.app.ui.MapEngine.chosen(this))
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Map provider")
+                .setSingleChoiceItems(all.map { it.label }.toTypedArray(), current) { d, which ->
+                    Prefs.setMapProvider(this, all[which].key)
+                    show()
+                    d.dismiss()
                 }
                 .setNegativeButton("Cancel", null)
                 .show()
@@ -1161,7 +1242,9 @@ class SettingsActivity : AppCompatActivity() {
             "Parked for 90 s: checks run 4 times less often. Over 80 km/h: twice as often (Waze direct only).",
             Prefs.wazeAdaptive(this)) { Prefs.setWazeAdaptive(this, it) }
         switchRow("Only alert for reports ahead of me",
-            "While you drive, reports behind you stay on the list but don't alert, flash or speak.",
+            "While you drive, only reports on the road you're on, ahead of you, alert, flash or speak - checked on the map's " +
+                "roads, so one on a parallel road, a cross street, an overpass or behind you stays quiet (it stays on the list). " +
+                "Where the map can't tell yet, reports behind you stay quiet.",
             Prefs.wazeAheadOnly(this)) { Prefs.setWazeAheadOnly(this, it) }
         switchRow("Call out again as I get closer",
             "Speaks at 1 km, 500 m and 200 m when voice alerts are on, or in the car.",
@@ -1549,6 +1632,11 @@ class SettingsActivity : AppCompatActivity() {
         setupLiveExport()
         binding.hideTrustedSwitch.isChecked = Prefs.hideWhitelisted(this)
         binding.hideTrustedSwitch.setOnCheckedChangeListener { _, on -> Prefs.setHideWhitelisted(this, on) }
+        binding.usbLightSwitch.isChecked = Prefs.usbAdapterLight(this)
+        binding.usbLightSwitch.setOnCheckedChangeListener { _, on ->
+            Prefs.setUsbAdapterLight(this, on)
+            com.rfsentinel.app.usb.Rtl8821auMonitor.lightEnabled = on // live, also while scanning
+        }
         binding.rtl5gSwitch.isChecked = Prefs.rtl8821au5g(this)
         binding.rtl5gSwitch.setOnCheckedChangeListener { _, on -> Prefs.setRtl8821au5g(this, on) }
         binding.autoUpdateSwitch.isChecked = Prefs.autoUpdateCheck(this)

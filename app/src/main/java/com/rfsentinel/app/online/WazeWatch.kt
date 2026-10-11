@@ -60,6 +60,7 @@ class WazeWatch(
     private var via = WazePolice.VIA_DIRECT
     private var lastOkAt = 0L
     private var shownIds: Set<String> = emptySet()
+    private val road = AheadOnRoad()
     private var direct = false
     private var wazeDirect: WazeRtFetcher? = null
     private var wazeDirectRegion = ""
@@ -243,8 +244,16 @@ class WazeWatch(
         }
         trend.keepOnly(known.keys)
 
-        // In the alert range, and (if asked) not behind you.
-        fun counts(s: WazePolice.Shown) = s.distanceM <= alertM && !(aheadOnly && s.where.isBehind)
+        // Only ahead: on the road you're on, ahead of you (the map's roads); where the map can't tell
+        // (no data yet, not driving), not clearly behind you.
+        val verdicts = if (aheadOnly) road.verdicts(context, me, alertM, shown.map { it.report }) else emptyMap()
+        fun quiet(s: WazePolice.Shown) = when (verdicts[s.report.id]) {
+            RoadMatch.Verdict.ON_MY_ROAD -> false
+            RoadMatch.Verdict.OTHER_ROAD, RoadMatch.Verdict.BEHIND -> true
+            else -> s.where.isBehind
+        }
+        // In the alert range, and (if asked) ahead on your road.
+        fun counts(s: WazePolice.Shown) = s.distanceM <= alertM && !(aheadOnly && quiet(s))
 
         var fired = false
         for (s in shown) {

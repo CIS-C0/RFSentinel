@@ -20,6 +20,10 @@ interface DetectionDao {
     @Query("SELECT * FROM detections ORDER BY timestamp DESC")
     suspend fun allForExport(): List<DetectionEntity>
 
+    /** Exports, in batches: the [limit] newest rows logged before row [beforeId] (stable while new ones arrive). */
+    @Query("SELECT * FROM detections WHERE id < :beforeId ORDER BY id DESC LIMIT :limit")
+    suspend fun pageBefore(beforeId: Long, limit: Int): List<DetectionEntity>
+
     @Query("SELECT * FROM detections WHERE timestamp >= :since ORDER BY timestamp DESC")
     suspend fun since(since: Long): List<DetectionEntity>
 

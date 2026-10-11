@@ -43,7 +43,7 @@ object UsbWifi {
     private const val ACTION_PERMISSION = "com.rfsentinel.app.USB_WIFI_PERMISSION"
 
     /** Driver families. */
-    enum class Driver { RTL88XXAU, RTL88X2BU, RTL8187, RT3070, RTL8814AU, MT7612U, AR9271 }
+    enum class Driver { RTL88XXAU, RTL88X2BU, RTL8187, RT3070, RTL8814AU, MT7612U, MT7921U, AR9271 }
 
     /** A supported adapter: the chip name shown to the user and the driver that runs it. */
     data class Chip(val name: String, val driver: Driver)
@@ -56,12 +56,14 @@ object UsbWifi {
     private val AU14 = Chip("RTL8814AU", Driver.RTL8814AU)
     private val MT = Chip("MT7612U", Driver.MT7612U)
     private val ATH = Chip("AR9271", Driver.AR9271)
+    private val MT21 = Chip("MT7921AU", Driver.MT7921U)
 
     /**
      * USB IDs with a working driver: vendor:product -> chip. 88x2bu and 8814au IDs from the
      * Linux rtw88 driver, RTL8187 IDs from rtl8187, RT3070 IDs from rt2800usb (the RT3070
      * driver checks the chip and declines other Ralink chips sharing an ID), MT76x2U IDs from
-     * mt76x2u, AR9271 IDs from ath9k_htc (not its AR7010 ones, which need other firmware).
+     * mt76x2u, MT7921AU IDs from mt7921u (not its MT7902, which needs other firmware), AR9271 IDs
+     * from ath9k_htc (not its AR7010 ones, which need other firmware).
      */
     private val SUPPORTED: Map<Pair<Int, Int>, Chip> = mapOf(
         (0x0bda to 0x0811) to AU, // ALFA AWUS036ACS and other 88xxau dongles
@@ -102,6 +104,9 @@ object UsbWifi {
         (0x0471 to 0x2126) to MT, (0x0471 to 0x7600) to MT, (0x2c4e to 0x0103) to MT,
         (0x0846 to 0x9014) to MT, (0x0846 to 0x9053) to MT, // Netgear WNDA3100v3, A6210
         (0x045e to 0x02e6) to MT, (0x045e to 0x02fe) to MT, (0x2357 to 0x0137) to MT, // Xbox One wireless adapter, TP-Link
+        (0x0e8d to 0x7961) to MT21, // ALFA AWUS036AXML and other MT7921AU (WiFi 6E) dongles
+        (0x3574 to 0x6211) to MT21, (0x0846 to 0x9060) to MT21, (0x0846 to 0x9065) to MT21, // Comfast CF-952AX, Netgear A8000 / A7500
+        (0x35bc to 0x0107) to MT21, // TP-Link TXE50UH
         (0x0cf3 to 0x9271) to ATH, // ALFA AWUS036NHA, TP-Link TL-WN722N v1
         (0x0cf3 to 0x1006) to ATH, (0x0846 to 0x9030) to ATH, (0x07b8 to 0x9271) to ATH, (0x07d1 to 0x3a10) to ATH,
         (0x13d3 to 0x3327) to ATH, (0x13d3 to 0x3328) to ATH, (0x13d3 to 0x3346) to ATH, (0x13d3 to 0x3348) to ATH,
@@ -304,6 +309,7 @@ object UsbWifi {
                 when (chip.driver) {
                     Driver.RTL88XXAU -> {
                         Rtl8821auMonitor.scan5g = com.rfsentinel.app.util.Prefs.rtl8821au5g(context)
+                        Rtl8821auMonitor.lightEnabled = com.rfsentinel.app.util.Prefs.usbAdapterLight(context)
                         Rtl8821auMonitor.run(context, d, onStatus, onFrames)
                     }
                     Driver.RTL88X2BU -> Rtl8822buMonitor.run(context, d, chip.name, onStatus, onFrames)
@@ -311,6 +317,7 @@ object UsbWifi {
                     Driver.RT3070 -> Rt3070Monitor.run(context, d, chip.name, onStatus, onFrames)
                     Driver.RTL8814AU -> Rtl8814auMonitor.run(context, d, chip.name, onStatus, onFrames)
                     Driver.MT7612U -> Mt7612uMonitor.run(context, d, chip.name, onStatus, onFrames)
+                    Driver.MT7921U -> Mt7921uMonitor.run(context, d, chip.name, onStatus, onFrames)
                     Driver.AR9271 -> Ar9271Monitor.run(context, d, "${chip.name} (experimental)", onStatus, onFrames)
                 }
             }.onFailure { log("Driver stopped: ${describe(it)}"); status = "USB WiFi adapter error: ${it.message}" }
@@ -326,6 +333,7 @@ object UsbWifi {
         Rt3070Monitor.abort()
         Rtl8814auMonitor.abort()
         Mt7612uMonitor.abort()
+        Mt7921uMonitor.abort()
         Ar9271Monitor.abort()
         runningDevice = null
         thread = null

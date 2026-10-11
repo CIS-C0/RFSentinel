@@ -37,6 +37,10 @@ interface KnownDeviceDao {
     @Query("SELECT * FROM known_devices ORDER BY lastSeen DESC")
     suspend fun all(): List<KnownDeviceEntity>
 
+    /** Exports, in batches: the order first, then the rows a batch at a time ([getAll]). */
+    @Query("SELECT mac FROM known_devices ORDER BY lastSeen DESC")
+    suspend fun macsByLastSeen(): List<String>
+
     @Query("SELECT * FROM known_devices WHERE mac IN (:macs)")
     suspend fun getAll(macs: List<String>): List<KnownDeviceEntity>
 
@@ -51,6 +55,28 @@ interface KnownDeviceDao {
 
     @Query("SELECT COUNT(*) FROM known_devices")
     suspend fun count(): Int
+
+    /**
+     * Device history search ([com.rfsentinel.app.ui.DeviceHistoryActivity]), newest first: [query] in the
+     * MAC (with or without colons), name, vendor, type or note; only favorites, only devices that were
+     * flagged (in the match log), only those seen since [since].
+     */
+    @Query("""SELECT * FROM known_devices
+        WHERE (:query = '' OR mac LIKE :like ESCAPE '\' OR REPLACE(mac, ':', '') LIKE :likeHex ESCAPE '\'
+               OR name LIKE :like ESCAPE '\' OR vendor LIKE :like ESCAPE '\'
+               OR deviceType LIKE :like ESCAPE '\' OR note LIKE :like ESCAPE '\')
+          AND (:favorites = 0 OR favorite = 1)
+          AND (:flagged = 0 OR mac IN (SELECT mac FROM detections))
+          AND lastSeen >= :since
+        ORDER BY lastSeen DESC LIMIT :limit""")
+    suspend fun search(query: String, like: String, likeHex: String, favorites: Boolean, flagged: Boolean, since: Long, limit: Int): List<KnownDeviceEntity>
+
+    companion object {
+        /** "%text%" for LIKE, with LIKE's own characters taken literally. */
+        fun like(text: String) = "%" + text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        /** A MAC typed without colons (or with dashes) still finds it. */
+        fun likeHex(text: String) = like(text.replace(":", "").replace("-", ""))
+    }
 
     /** Forget non-favorite devices not heard since [before]. */
     @Query("DELETE FROM known_devices WHERE lastSeen < :before AND favorite = 0")

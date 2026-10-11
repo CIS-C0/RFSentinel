@@ -19,6 +19,29 @@ class MapActivity : AppCompatActivity() {
         const val EXTRA_CENTER_LON = MapFragment.EXTRA_CENTER_LON
         /** Turn the cell tower layer on. */
         const val EXTRA_SHOW_TOWERS = MapFragment.EXTRA_SHOW_TOWERS
+        /** Open the map on an aircraft (its ICAO address): where it is now, else its last known position. */
+        const val EXTRA_AIRCRAFT = MapFragment.EXTRA_AIRCRAFT
+        /** Open the map on a Waze report (its id), with its details while it's current. */
+        const val EXTRA_WAZE = MapFragment.EXTRA_WAZE
+
+        /**
+         * The map on what an internet alert is about - [key] "air:<ICAO address>" or "waze:<report id>" -
+         * last seen at [lat] / [lon] (null when not saved); null for any other key.
+         */
+        fun onlineIntent(context: android.content.Context, key: String, lat: Double?, lon: Double?): android.content.Intent? {
+            val extra = when (key.substringBefore(':')) { "air" -> EXTRA_AIRCRAFT; "waze" -> EXTRA_WAZE; else -> return null }
+            return android.content.Intent(context, MapActivity::class.java).apply {
+                putExtra(extra, key.substringAfter(':'))
+                if (lat != null && lon != null) { putExtra(EXTRA_CENTER_LAT, lat); putExtra(EXTRA_CENTER_LON, lon) }
+            }
+        }
+
+        /** Whether what [key] is about is still in the live feed (an aircraft in range, a current Waze report). */
+        fun onlineIsLive(key: String): Boolean = when (key.substringBefore(':')) {
+            "air" -> com.rfsentinel.app.online.PoliceAircraft.current(key.substringAfter(':')) != null
+            "waze" -> com.rfsentinel.app.online.WazePolice.current(key.substringAfter(':')) != null
+            else -> false
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

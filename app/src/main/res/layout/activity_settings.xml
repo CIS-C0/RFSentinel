@@ -447,6 +447,46 @@
         <TextView android:id="@+id/headerMap" style="@style/SettingsHeader" android:text="Map" />
         <LinearLayout android:id="@+id/sectionMap" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
 
+            <TextView android:id="@+id/mapZoomText" style="@style/SettingsLabel" android:text="Default zoom" />
+
+            <com.google.android.material.slider.Slider
+                android:id="@+id/mapZoomSlider"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:contentDescription="Default map zoom"
+                android:stepSize="1"
+                android:value="68"
+                android:valueFrom="58"
+                android:valueTo="74" />
+
+            <Button
+                android:id="@+id/mapZoomReset"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Waze-like zoom" />
+
+            <TextView android:id="@+id/map3dTiltText" style="@style/SettingsLabel" android:text="3D view angle" />
+
+            <com.google.android.material.slider.Slider
+                android:id="@+id/map3dTiltSlider"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:contentDescription="3D driving view angle in degrees"
+                android:stepSize="5"
+                android:value="50"
+                android:valueFrom="30"
+                android:valueTo="60" />
+
+            <TextView style="@style/SettingsLabel" android:text="Map provider" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/mapProviderButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="OpenFreeMap" />
+
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/mapKnownCamerasSwitch"
                 android:layout_width="match_parent"
@@ -676,6 +716,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="AWUS036ACS (RTL8811AU / 8821AU): also scan 5 GHz (experimental)" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/usbLightSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="AWUS036ACS (RTL8811AU / 8821AU): adapter light blinks with traffic" />
         </LinearLayout>
 
         <!-- ================= RTL-SDR radio (filled in by SettingsActivity.setupRadioSection) ================= -->

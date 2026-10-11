@@ -15,13 +15,17 @@ import java.io.File
 /** Map pieces shared by the phone map and the Android Auto map. */
 object MapIcons {
 
+    /** CCTV cameras and their view: public ones slate, private ones brown-grey. */
+    const val CCTV_PUBLIC_COLOR = 0xFF455A64.toInt()
+    const val CCTV_PRIVATE_COLOR = 0xFF8D6E63.toInt()
+
     /** A small CCTV camera (body on a bracket) for the OpenStreetMap CCTV layer. */
     fun cctvIcon(dp: Float, private: Boolean): Bitmap {
         val w = (16 * dp).toInt(); val h = (14 * dp).toInt()
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         val p = Paint(Paint.ANTI_ALIAS_FLAG)
-        val color = if (private) CctvConeOverlay.PRIVATE_COLOR else CctvConeOverlay.PUBLIC_COLOR
+        val color = if (private) CCTV_PRIVATE_COLOR else CCTV_PUBLIC_COLOR
         val body = RectF(1.5f * dp, 2 * dp, w - 3 * dp, 8 * dp)
         p.color = color
         c.drawRoundRect(body, 2 * dp, 2 * dp, p)
