@@ -24,7 +24,7 @@ class RoadMatchTest {
 
     private fun verdict(roads: List<RoadTiles.Road>, x: Double, y: Double, heading: Double = 0.0, maxM: Double = 2000.0,
                         loaded: (Double, Double) -> Boolean = { _, _ -> true }): Pair<Verdict, Double?> {
-        val path = RoadMatch.pathAhead(roads, lat0, lon0, heading, maxM, loaded)
+        val path = RoadMatch.pathAhead(roads, lat0, lon0, heading, maxM, loaded = loaded)
         val (la, lo) = frame.toLatLon(x, y)
         return RoadMatch.check(path, la, lo)
     }

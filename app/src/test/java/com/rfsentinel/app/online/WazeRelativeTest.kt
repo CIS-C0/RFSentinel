@@ -35,4 +35,39 @@ class WazeRelativeTest {
         // Driving east: due north is on the left.
         assertTrue(WazePolice.relative(me(90f, 20f), 10.008, 10.0).endsWith("to your left"))
     }
+
+    /** The corridor along your heading, used when the map's roads can't say which road a report is on. */
+    private fun where(distanceM: Double, relDeg: Float?) =
+        WazePolice.Where(distanceM, "N", null, relDeg)
+
+    @Test
+    fun theCorridorWidensWithDistanceButNeverWithoutLimit() {
+        assertEquals(30.0, WazePolice.corridorM(0.0), 0.01)
+        assertEquals(42.0, WazePolice.corridorM(150.0), 0.01)
+        assertEquals(110.0, WazePolice.corridorM(1_000.0), 0.01)
+        assertEquals("capped", 250.0, WazePolice.corridorM(50_000.0), 0.01)
+    }
+
+    @Test
+    fun sidewaysOffsetIsWhatCounts() {
+        // 150 m away, 20 degrees off: about 51 m to the side, so another road, not the one you are on.
+        assertEquals(51.3, where(150.0, 20f).lateralM!!, 0.5)
+        assertTrue(where(150.0, 5f).maybeOnMyWay())   // 13 m: your road
+        assertTrue(!where(150.0, 20f).maybeOnMyWay()) // 51 m: a parallel or crossing road
+        // The same angle a kilometre out is still within the corridor: the road may bend that way.
+        assertTrue(where(1_000.0, 5f).maybeOnMyWay())
+        assertTrue(!where(1_000.0, 20f).maybeOnMyWay()) // 342 m: too far to the side at any distance
+    }
+
+    @Test
+    fun besideAndBehindYouAreNeverOnYourWay() {
+        assertTrue(!where(150.0, 95f).maybeOnMyWay())
+        assertTrue(!where(150.0, 180f).maybeOnMyWay())
+    }
+
+    @Test
+    fun withNoHeadingNothingIsRuledOut() {
+        assertTrue(where(150.0, null).maybeOnMyWay())
+        assertEquals(null, where(150.0, null).lateralM)
+    }
 }

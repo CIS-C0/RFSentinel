@@ -56,6 +56,8 @@ class WazeWatch(
     private val alerted = HashSet<String>()
     /** The smallest call-out distance already spoken for each report. */
     private val calledBand = HashMap<String, Int>()
+    /** When a report first had to wait for the map along your way (see the hold in [evaluate]). */
+    private val heldSince = HashMap<String, Long>()
     private var known: Map<String, WazePolice.Report> = emptyMap()
     private var via = WazePolice.VIA_DIRECT
     private var lastOkAt = 0L
@@ -245,20 +247,34 @@ class WazeWatch(
         trend.keepOnly(known.keys)
 
         // Only ahead: on the road you're on, ahead of you (the map's roads); where the map can't tell
-        // (no data yet, not driving), not clearly behind you.
+        // (no data yet, not driving), inside a corridor along your heading.
         val verdicts = if (aheadOnly) road.verdicts(context, me, alertM, shown.map { it.report }) else emptyMap()
         fun quiet(s: WazePolice.Shown) = when (verdicts[s.report.id]) {
             RoadMatch.Verdict.ON_MY_ROAD -> false
             RoadMatch.Verdict.OTHER_ROAD, RoadMatch.Verdict.BEHIND -> true
-            else -> s.where.isBehind
+            else -> !s.where.maybeOnMyWay()
         }
         // In the alert range, and (if asked) ahead on your road.
         fun counts(s: WazePolice.Shown) = s.distanceM <= alertM && !(aheadOnly && quiet(s))
+
+        /**
+         * The map hasn't answered for this one yet. Rather than speak up on geometry alone and perhaps be
+         * about a parallel road, a report not yet alerted waits [ROAD_HOLD_MS] for the roads to arrive. It
+         * is on the list and the map meanwhile, and after the wait the corridor test decides as before.
+         */
+        fun waitingForRoad(s: WazePolice.Shown): Boolean {
+            if (!aheadOnly || !road.waitingForRoads) return false
+            val v = verdicts[s.report.id]
+            if (v != null && v != RoadMatch.Verdict.UNKNOWN) return false
+            return now - heldSince.getOrPut(s.report.id) { now } < ROAD_HOLD_MS
+        }
 
         var fired = false
         for (s in shown) {
             if (!counts(s)) continue
             val id = s.report.id
+            if (id !in seen && id !in alerted && waitingForRoad(s)) continue
+
             val first = id !in seen
             if (first) seen[id] = now
             val eligible = s.hit.confidence >= threshold
@@ -283,6 +299,7 @@ class WazeWatch(
         seen.entries.removeAll { now - it.value > WazePolice.MAX_AGE_MS * 2 }
         alerted.retainAll(seen.keys)
         calledBand.keys.retainAll(seen.keys)
+        heldSince.keys.retainAll(known.keys)
 
         // The threat headline: the strongest report that counts and is allowed to be loud enough to matter.
         val headline = shown.filter { counts(it) && it.level != WazePolice.Level.LOG }.maxByOrNull { it.hit.confidence }
@@ -316,9 +333,11 @@ class WazeWatch(
 
     private fun clock(t: Long) = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(t))
 
-    private companion object {
+    internal companion object {
         /** After a skipped check (no fix or key yet), look again this soon. */
         const val RETRY_MS = 5_000L
+        /** How long a new report waits for the map along your way before geometry alone decides. */
+        const val ROAD_HOLD_MS = 10_000L
         /** The distances at which a report coming closer is called out again. */
         val APPROACH_BANDS_M = intArrayOf(200, 500, 1000)
 

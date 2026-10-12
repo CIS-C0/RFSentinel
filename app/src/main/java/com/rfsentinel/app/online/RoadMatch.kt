@@ -34,8 +34,8 @@ object RoadMatch {
         fun endLatLon(): Pair<Double, Double> = frame.toLatLon(xs.last(), ys.last())
     }
 
-    /** Your position counts as on a road within this. */
-    private const val ME_MAX_M = 30.0
+    /** Your position counts as on a road within this (the caller adds room for the fix's own error). */
+    internal const val ME_MAX_M = 30.0
     /** A report counts as on the road within this (Waze places reports on or right beside it). */
     private const val REPORT_MAX_M = 30.0
     /** Your heading and the road's direction must agree within this. */
@@ -47,15 +47,16 @@ object RoadMatch {
 
     /**
      * Your road ahead from ([lat], [lon]) going [headingDeg], up to [maxM] along it; null when you're
-     * not on a known road (or no roads are loaded). [loaded] says whether map data covers a point
-     * (the walk stops there for want of data, not at a dead end).
+     * not on a known road (or no roads are loaded). [meMaxM] is how far from a road you can be and
+     * still be taken as on it (room for the fix's own error). [loaded] says whether map data covers a
+     * point (the walk stops there for want of data, not at a dead end).
      */
     fun pathAhead(roads: List<RoadTiles.Road>, lat: Double, lon: Double, headingDeg: Double, maxM: Double,
-                  loaded: (Double, Double) -> Boolean = { _, _ -> true }): Path? {
+                  meMaxM: Double = ME_MAX_M, loaded: (Double, Double) -> Boolean = { _, _ -> true }): Path? {
         if (roads.isEmpty()) return null
         val f = Frame(lat, lon)
         val idx = Index(roads, f)
-        val start = idx.nearest(0.0, 0.0, ME_MAX_M).mapNotNull { c ->
+        val start = idx.nearest(0.0, 0.0, meMaxM).mapNotNull { c ->
             // Which way along this segment you're going, if either agrees with your heading.
             val d = idx.dirDeg(c.road, c.seg)
             val fwd = angleDiff(d, headingDeg); val back = angleDiff(d + 180, headingDeg)

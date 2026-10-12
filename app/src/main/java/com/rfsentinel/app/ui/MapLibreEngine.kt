@@ -347,7 +347,8 @@ internal class MapLibreEngine(private val context: Context) : MapEngine {
         }
         look(ms)
         lc.setCameraMode(if (mode == MapEngine.Follow.HEADING) CameraMode.TRACKING_GPS else CameraMode.TRACKING, ms, null, null, null, null)
-        if (ms > 0) Runnable { if (component() != null) look(400) }.also { reapply = it; view.postDelayed(it, ms + 250) }
+        // Also after an instant switch (the map opening already in 3D): the angle set above was dropped.
+        Runnable { if (component() != null) look(if (ms > 0) 400 else 0) }.also { reapply = it; view.postDelayed(it, ms + 250) }
         val m = map
         if (mode == MapEngine.Follow.NORTH && m != null && m.cameraPosition.bearing != 0.0) m.animateCamera(CameraUpdateFactory.bearingTo(0.0), 600)
     }

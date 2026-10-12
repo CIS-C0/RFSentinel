@@ -83,8 +83,45 @@ class WazeWatchTest {
         assertTrue(alerts.isEmpty())
         assertTrue("still listed", WazePolice.latest.single().where.isBehind)
         here = fix(10.0, 10.0, bearing = 180f, speed = 10f) // turn round: now it is ahead
+        // No road data in a test, so it waits for the map before geometry alone decides.
         watch.evaluate(2_000L, publish = false)
+        assertTrue("waiting for the map", alerts.isEmpty())
+        watch.evaluate(2_000L + WazeWatch.ROAD_HOLD_MS, publish = false)
         assertEquals(1, alerts.size)
+    }
+
+    /** A report [north] of the origin and [east] of it, in metres. */
+    private fun reportAt(id: String, north: Double, east: Double) = WazePolice.Report(
+        id, 10.0 + north / 110_574.0, 10.0 + east / (111_320.0 * Math.cos(Math.toRadians(10.0))),
+        null, null, null, 0, null, Type.POLICE
+    )
+
+    @Test
+    fun aReportOffToTheSideIsNotOnYourRoadEvenThoughItIsAhead() {
+        Prefs.setWazeAheadOnly(ctx, true)
+        here = fix(10.0, 10.0, bearing = 0f, speed = 15f) // driving north
+        // 150 m up the road but 120 m to the east: a parallel street, not the one you are on.
+        watch.ingest(listOf(reportAt("beside", 150.0, 120.0)), WazePolice.VIA_DIRECT, 1_000L)
+        watch.evaluate(1_000L + WazeWatch.ROAD_HOLD_MS, publish = false)
+        assertTrue(alerts.toString(), alerts.isEmpty())
+        assertEquals("still on the list and the map", 1, WazePolice.latest.size)
+    }
+
+    @Test
+    fun aReportStraightAheadStillAlertsOnceTheWaitIsOver() {
+        Prefs.setWazeAheadOnly(ctx, true)
+        here = fix(10.0, 10.0, bearing = 0f, speed = 15f)
+        watch.ingest(listOf(reportAt("ahead", 150.0, 8.0)), WazePolice.VIA_DIRECT, 1_000L)
+        assertTrue("held while the map is awaited", alerts.isEmpty())
+        watch.evaluate(1_000L + WazeWatch.ROAD_HOLD_MS, publish = false)
+        assertEquals(1, alerts.size)
+    }
+
+    @Test
+    fun theWaitIsOnlyForOnlyAheadMode() {
+        here = fix(10.0, 10.0, bearing = 0f, speed = 15f)
+        watch.ingest(listOf(reportAt("beside", 150.0, 120.0)), WazePolice.VIA_DIRECT, 1_000L)
+        assertEquals("no road filtering asked for: alerts at once", 1, alerts.size)
     }
 
     @Test

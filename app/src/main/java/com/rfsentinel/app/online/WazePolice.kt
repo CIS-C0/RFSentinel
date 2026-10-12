@@ -78,7 +78,33 @@ object WazePolice {
     data class Where(val distanceM: Double, val compass: String, val side: Side?, val relDeg: Float?) {
         /** Clearly behind (more than 100 degrees off your heading); false when the heading is unknown. */
         val isBehind: Boolean get() = relDeg != null && abs(relDeg) > 100f
+
+        /** How far to the side of the line you are driving the report sits, in metres; null without a heading. */
+        val lateralM: Double? get() = relDeg?.let { abs(distanceM * Math.sin(Math.toRadians(it.toDouble()))) }
+
+        /**
+         * Could it be on the road you are driving? Without the map's roads to be sure (none loaded here,
+         * or you are not moving), a report counts only while it is ahead and inside a corridor along your
+         * heading - a road's width, widening with distance to allow for bends. A parallel street, a cross
+         * street or the far side of a dual carriageway falls outside it. True when the heading is unknown:
+         * there is then nothing to go on, so nothing is ruled out.
+         */
+        fun maybeOnMyWay(): Boolean {
+            val rel = relDeg ?: return true
+            if (abs(rel) > 90f) return false
+            return (lateralM ?: return true) <= corridorM(distanceM)
+        }
     }
+
+    /** Half-width of the "could be my road" corridor at [distanceM]: a road's width plus room for bends. */
+    fun corridorM(distanceM: Double): Double = (CORRIDOR_BASE_M + CORRIDOR_SPREAD * distanceM).coerceAtMost(CORRIDOR_MAX_M)
+
+    /** The corridor at your own position: a wide road plus the usual GPS error. */
+    private const val CORRIDOR_BASE_M = 30.0
+    /** How fast it widens with distance, for bends in the road ahead. */
+    private const val CORRIDOR_SPREAD = 0.08
+    /** It never grows past this: further out it would rule nothing out anyway. */
+    private const val CORRIDOR_MAX_M = 250.0
 
     /** Works out [Where] from plain numbers; [heading] is null when the phone is not driving. */
     fun where(meLat: Double, meLon: Double, heading: Double?, lat: Double, lon: Double): Where {
