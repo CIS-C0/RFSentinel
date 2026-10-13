@@ -119,7 +119,10 @@ class MainActivity : AppCompatActivity() {
         // crossfade would make the whole list flicker and fight the match flash.
         (binding.recyclerView.itemAnimator as? SimpleItemAnimator)?.supportsChangeAnimations = false
         binding.radarView.onBlipClick = { DeviceActions.openDetails(this, it) }
+        // The app closed while the map was starting last time: switch it to OpenGL, or leave it off the main screen (and say so).
+        val mapRecovery = com.rfsentinel.app.ui.MapSafety.recover(this)
         panes = com.rfsentinel.app.ui.MainPanes(this, binding)
+        if (mapRecovery != com.rfsentinel.app.ui.MapSafety.Recovery.NONE) binding.root.post { if (!isFinishing && !isDestroyed) com.rfsentinel.app.ui.MapSafetyUi.tell(this, mapRecovery) }
 
         binding.startStopButton.addOnLayoutChangeListener { _, l, _, r, _, ol, _, or, _ -> if (r - l != or - ol) fitStartButton() }
         binding.startStopButton.setOnClickListener {
@@ -180,6 +183,10 @@ class MainActivity : AppCompatActivity() {
                 com.rfsentinel.app.ui.DemoData.populate(anchor)
                 com.rfsentinel.app.ui.DemoData.seedAlerts(this@MainActivity, anchor)
                 anchor?.let { com.rfsentinel.app.ui.DemoData.seedHistory(this@MainActivity, it) }
+            }
+            // --ez demo_alert true: a made-up alert every 12 s, for the alert card on the full screen map.
+            if (intent.getBooleanExtra("demo_alert", false)) lifecycleScope.launch {
+                while (true) { kotlinx.coroutines.delay(12_000L); com.rfsentinel.app.ui.DemoData.publishSampleAlert(com.rfsentinel.app.ui.DemoData.fakeLocation?.let { it.latitude to it.longitude }) }
             }
         }
         applyViewMode()
@@ -316,26 +323,39 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Start / Stop with its icon when both fit; with large text the icon goes first, then the
-     * word (the colour and the icon still tell them apart), so the label is never cut off.
+     * "Start" / "Stop" with its icon when both fit; with less room the icon goes and the word stays. When
+     * even the word would be cut off (large text, a narrow window, the view buttons beside it) the word goes
+     * and the icon stays on its own: a play triangle to start, a stop square to stop (the colour and the
+     * description say the same), centred in the button with no side padding so the icon is never clipped.
      */
     private var startIconPadding = -1
+    private var startPadStart = 0
+    private var startPadEnd = 0
+    private var startMinWidth = 0
 
     private fun fitStartButton() {
         val b = binding.startStopButton
+        val d = resources.displayMetrics.density
         val running = shownRunning == true
         val label = if (running) "Stop" else "Start"
         val icon = if (running) R.drawable.ic_car_stop else R.drawable.ic_car_play
-        if (b.width == 0) { b.text = label; b.setIconResource(icon); return }
-        val room = b.width - b.paddingStart - b.paddingEnd
+        if (startIconPadding < 0) { // the button as the layout made it
+            startIconPadding = b.iconPadding; startPadStart = b.paddingStart; startPadEnd = b.paddingEnd; startMinWidth = b.minWidth
+        }
+        fun withWord() {
+            b.text = label; b.setIconResource(icon); b.iconPadding = startIconPadding
+            b.setPaddingRelative(startPadStart, b.paddingTop, startPadEnd, b.paddingBottom); b.minWidth = startMinWidth
+        }
+        if (b.width == 0) { withWord(); return }
+        val room = b.width - startPadStart - startPadEnd
         val drawn = b.transformationMethod?.getTransformation(label, b)?.toString() ?: label
-        val textW = b.paint.measureText(drawn) + 2 * resources.displayMetrics.density
-        if (startIconPadding < 0) startIconPadding = b.iconPadding
-        val iconW = (b.iconSize.takeIf { it > 0 } ?: (24 * resources.displayMetrics.density).toInt()) + startIconPadding
-        when {
-            textW + iconW <= room -> { b.text = label; b.setIconResource(icon); b.iconPadding = startIconPadding }
-            textW <= room -> { b.text = label; b.icon = null }
-            else -> { b.text = ""; b.setIconResource(icon); b.iconPadding = 0 }
+        val textW = b.paint.measureText(drawn) + 2 * d
+        val iconW = (b.iconSize.takeIf { it > 0 } ?: (24 * d).toInt()) + startIconPadding
+        if (textW + iconW <= room) withWord()
+        else if (textW <= room) { withWord(); b.icon = null }
+        else {
+            b.text = ""; b.setIconResource(icon); b.iconPadding = 0
+            b.setPaddingRelative(0, b.paddingTop, 0, b.paddingBottom); b.minWidth = (48 * d).toInt()
         }
     }
 
@@ -516,7 +536,8 @@ class MainActivity : AppCompatActivity() {
     private fun currentWaze(now: Long): List<com.rfsentinel.app.online.WazePolice.Shown> {
         if (!ScanForegroundService.isRunning) return emptyList()
         val alertM = Prefs.wazeAlertM(this).toDouble()
-        return com.rfsentinel.app.online.WazePolice.latest.filter { it.distanceM <= alertM }
+        return com.rfsentinel.app.online.WazePolice.forList(com.rfsentinel.app.online.WazePolice.latest, alertM,
+            Prefs.wazeAheadOnly(this), Prefs.wazeHideOffWay(this))
     }
 
     /**
@@ -528,16 +549,18 @@ class MainActivity : AppCompatActivity() {
         if (filter != com.rfsentinel.app.ui.DeviceFilter.ALL && filter != com.rfsentinel.app.ui.DeviceFilter.WAZE) return emptyList()
         val aheadOnly = Prefs.wazeAheadOnly(this)
         return currentWaze(now)
-            .sortedBy { it.distanceM }
+            // With "only ahead" on, the ones on your way come first; the others stay listed, quiet, below them.
+            .sortedWith(compareBy<com.rfsentinel.app.online.WazePolice.Shown> { aheadOnly && !it.onMyWay }.thenBy { it.distanceM })
             .filter { query.isBlank() || it.hit.label.contains(query.trim(), ignoreCase = true) }
             .map { w ->
+                val off = aheadOnly && !w.onMyWay // behind you, another street, off your route
                 val urgent = w.level != com.rfsentinel.app.online.WazePolice.Level.LOG &&
-                    w.hit.confidence >= threshold && !(aheadOnly && w.where.isBehind)
+                    w.hit.confidence >= threshold && !off
                 val ago = w.report.publishedMs?.let { "${((now - it) / 60_000).coerceAtLeast(0)} min ago" } ?: "just now"
                 DeviceRow(
                     mac = WAZE_ROW + w.report.id,
                     title = w.hit.label,
-                    subtitle = com.rfsentinel.app.online.WazePolice.relativeText(w.where, w.trend),
+                    subtitle = com.rfsentinel.app.online.WazePolice.relativeText(w.where, w.trend) + if (off) " · not on your way" else "",
                     meta = "Reported $ago" + listOfNotNull(w.report.street, w.report.city).joinToString(", ").takeIf { it.isNotEmpty() }?.let { " · $it" }.orEmpty() +
                         (if (w.report.thumbsUp > 0) " · ${w.report.thumbsUp} confirmed" else ""),
                     tag = "WAZE · ${w.hit.tier.label.lowercase()} ${w.hit.confidence}%",

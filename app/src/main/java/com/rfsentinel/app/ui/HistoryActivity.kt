@@ -59,7 +59,7 @@ class HistoryActivity : AppCompatActivity() {
             e.onClick = { x, y -> onTap(e, x, y) }
             val dark = Prefs.mapDark(this) ?: ((resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
                 android.content.res.Configuration.UI_MODE_NIGHT_YES)
-            if (dark) { binding.mapCredit.setBackgroundColor(0x99000000.toInt()); binding.mapCredit.setTextColor(0xFFDDDDDD.toInt()) }
+            if (dark) { binding.mapCredit.setBackgroundColor(0x40000000); binding.mapCredit.setTextColor(0xFFDDDDDD.toInt()) }
             // Mapbox's logo and info button, top left of the map.
             binding.mapCredit.post { if (!isDestroyed) e.placeBranding(0) }
             e.setStyle(dark) { fresh ->
@@ -119,8 +119,10 @@ class HistoryActivity : AppCompatActivity() {
             "heatmap-color":["interpolate",["linear"],["heatmap-density"],
                 0,"rgba(0,0,0,0)",0.1,"rgba(32,32,160,0.13)",0.3,"rgba(0,229,255,0.44)",
                 0.55,"rgba(0,208,96,0.56)",0.8,"rgba(255,224,0,0.69)",1,"rgba(255,32,32,0.88)"]}}"""))
+        // Mapbox's night look is lit: a dot that gives off no light of its own goes black on it, so there it glows.
+        val glow = if (m.provider == MapEngine.Provider.MAPBOX) "\"circle-emissive-strength\":1," else ""
         m.addLayer(JSONObject("""{"id":"$POINTS","type":"circle","source":"$POINTS","paint":{
-            "circle-color":["to-color",["get","color"]],"circle-radius":6,
+            $glow"circle-color":["to-color",["get","color"]],"circle-radius":6,
             "circle-stroke-color":"#FFFFFF","circle-stroke-width":1.5,"circle-pitch-alignment":"viewport"}}"""))
     }
 

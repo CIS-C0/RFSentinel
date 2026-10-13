@@ -93,7 +93,7 @@
 | **Camera glasses** | Ray-Ban / Oakley Meta, Snap Spectacles, Vuzix, HeyCyan-based glasses such as Nilox Smart AI Glasses | Company IDs `0x0D53`, `0x03C2`, `0x060C`, Meta UUIDs, the HeyCyan SDK UUID, name tokens |
 | **Fake cell towers** | IMSI catchers / cell-site simulators | Test network codes, sudden 4G→2G, cloned or reserved cell identities, unexpected networks |
 | **Police aircraft** *(online, off by default)* | Police, sheriff, state patrol, federal and RCMP / provincial police aircraft, and unlisted aircraft circling low overhead | Community ADS-B feeds (adsb.fi / adsb.lol) matched against ~1,400 law-enforcement airframes from the FAA and Transport Canada registries |
-| **Waze reports** *(online, off by default)* | Police reported by Waze users, and any other kind you tick (accidents, hazards, road closures, traffic jams), each with its own level: sound and voice, notification only, or silent. Shows what Waze says it is (hiding, mobile speed camera...) | Two sources: your own OpenWeb Ninja API key, or *Waze direct* (opt-in: no key, free, sends Waze your IP address and a position rounded to a 1 km grid). You set the alert range (100 m to 10 km), the map range, and how often Waze is asked (15 s to 5 min direct, 2 to 10 min OpenWeb Ninja), slower when parked and faster on fast roads. Scored by distance, age and driver confirmations and re-scored every second as you move, so an alert fires the moment a report comes into range, not at the next check. Optional: only alert for reports on the road you're on, ahead of you (checked against the map's roads: a parallel road, a cross street, an overpass or a report behind you stays quiet), and spoken call-outs at 1 km, 500 m and 200 m. Third-party service, at your own risk |
+| **Waze reports** *(online, off by default)* | Police reported by Waze users, and any other kind you tick (accidents, hazards, road closures, traffic jams), each with its own level: sound and voice, notification only, or silent. Shows what Waze says it is (hiding, mobile speed camera...) | Two sources: your own OpenWeb Ninja API key, or *Waze direct* (opt-in: no key, free, sends Waze your IP address and a position rounded to a 1 km grid). You set the alert range (100 m to 10 km), the map range, and how often Waze is asked (15 s to 5 min direct, 2 to 10 min OpenWeb Ninja), slower when parked and faster on fast roads. Scored by distance, age and driver confirmations and re-scored every second as you move, so an alert fires the moment a report comes into range, not at the next check. Optional: only alert for reports on the road you're on, ahead of you (checked against the map's roads: a parallel road, a cross street, an overpass or a report behind you stays quiet; while you are guided to a destination the route decides: only reports on the part still ahead of you count, corners included; the ones that aren't on your way are left off the list unless you turn that off, and stay on the map), and spoken call-outs at 1 km, 500 m and 200 m. Third-party service, at your own risk |
 | **Card skimmers** | Bluetooth modules inside gas-pump and ATM skimmers | HC-05 / HC-06 / HC-03 / RN42 / BT04-A names, serial-port service |
 | **Hacking tools** *(off by default)* | Flipper Zero, Pwnagotchi, WiFi Pineapple, ESP deauthers, evil twin WiFi networks, Bluetooth spam floods, **WiFi deauth attacks** | Flipper UUIDs / company ID `0x0E29` / IEEE block, Pwnagotchi beacon JSON, default SSIDs, same network name from two makers with mismatched security, bursts of new pairing pop-ups; with a USB WiFi adapter, floods of unprotected deauthentication frames knocking devices off a network |
 | **Emergency vehicles (V2X, Europe)** | Police, fire, ambulance and safety cars that broadcast European car-to-car radio (ITS-G5) | Needs an ESP32-C5 with the [V2X2MAP](https://github.com/pit711/V2X2MAP) firmware: the vehicle's own role, light bar and siren state and position (CAM), and its "emergency vehicle approaching" warnings (DENM). Ordinary cars are counted, not listed. Not in North America, which uses C-V2X |
@@ -134,6 +134,7 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 - **Voice loudness** boost up to +15 dB (without distorting) for when music drowns the voice, in the car too, and an option to **pause music** while an alert is spoken
 - Discreet mode, adjustable alert threshold, mute from the app or the car
 - **Floating threat bubble** over Waze, Google Maps or any app, with a pop-up card saying what was just detected
+- **Alert card on the full screen map:** each alert (a flagged device, a known camera, a Waze report, a cell warning) pops up as a card under the turn banner - what it is, how far, how sure, "on your route" when it is - and goes by itself after a few seconds (longer for a strong match or something following you) or when dismissed; tap it to look at the place. Silent, honours Discreet mode and the alert snooze
 - **Floating mini map** over other apps: the devices and known cameras around you, like the app's map (pinch to zoom, drag, resize)
 - Android Auto alert cards say what it is, how sure, about how far and how many more are flagged ("BODY CAM · strong · ~40 m · near (-58 dBm) · +2 more flagged")
 - Notification, Quick Settings tile and home-screen widget
@@ -289,6 +290,48 @@ the raw advertisement.
   phone (never sent automatically); it offers to send it next time, or Settings →
   *Lists, tools & about* → *Export crash log*.
 
+### Navigation
+
+Turn-by-turn directions on the map, with your scanner running alongside.
+
+- **Where to?** The magnifier button on the map searches places and addresses as you type: your own
+  places that fit show first, results say what kind of place they are ("Park · Munich"), the best name match
+  comes before one that merely mentions the words, and a pair of coordinates works too. Pressing the keyboard's
+  search key (or the *Search for* row) looks in more places at once. Empty, it lists **Home**, **Work**, starred and recent places (all kept on the phone) and kinds of
+  place to look for - petrol, charging, food, parking, shops, pharmacy, hospital, cash, toilets, rest stops -
+  **near you**, and **along your route** while you are guided (a stop to add, in the order you reach them).
+  A **long press** on the map drops a pin: it names what's there, offers *Directions*, and can be starred.
+- **Routes:** up to three, each with its time and the main roads it takes, drawn on the map.
+  *Avoid tolls / highways / ferries* ticked while you plan (or on the trip menu) is remembered for the next
+  destination, and is the same setting as Settings → *Navigation*.
+  **Start** begins guidance - and the scan too, unless you turn that off (Settings → *Navigation*);
+  a scan already running is left as it is, and it keeps going after you arrive.
+- **Guidance:** a banner with the next turn, its distance and street, the **lane arrows** where the map
+  has them, and the turn after it when it follows closely; an arrival bar with your arrival
+  time, time and distance left; *whole route* view; mute; *add a stop*. It follows your north-up /
+  heading-up / 3D choice, zooms in as a turn comes up, keeps the screen on, and carries on with the
+  screen off (a notification shows the next turn). Roundabouts name the exit ("2nd exit"). On the main
+  screen's small map pane there is a slim one-line banner; tap it for the full screen map.
+- **Arrival time** starts from the route's usual driving time and then follows how you really drive
+  (stops at lights, a slow road), so it is closer than a fixed figure without any traffic service.
+- **Night map:** after sunset, worked out on the phone from your position and the time, the map turns to its
+  night look while you are guided (Settings → *Navigation*; the sun / moon button keeps the look you choose).
+- **Spoken directions** ("In 500 meters, keep right", then "Keep right") come as navigation audio, so music
+  dips under them as in Maps, in the voice, speed and loudness chosen under Alerts. A "something is following you"
+  alert cuts in on a direction; the last prompt before a turn cuts in on other alerts; otherwise they take turns.
+  Miles or kilometres by your region, or your choice.
+- **Re-routes** by itself when you leave the route or turn round, and ends when you arrive. *Open in...*
+  hands the destination to Google Maps, Waze or any map app.
+- Not included: live traffic (the arrival time is the route's usual driving time), speed limits and offline routes.
+- Routes come from [Valhalla](https://valhalla.github.io/valhalla/) on the OpenStreetMap Germany server and
+  places from [Photon](https://photon.komoot.io) as you type, and from OpenStreetMap's own
+  [Nominatim](https://nominatim.org) as well when you submit a search (the keyboard's search key, or the
+  *Search for* row) - whichever answers first is shown at once. They see what you search for, where you start,
+  stop and finish, and your IP address - never what you scan - and only when you search, long-press the map
+  or start a route. Search sends your position rounded to about 1 km. Looking for petrol, food and the like asks OpenStreetMap's
+  Overpass servers (the same ones as the camera downloads) for that kind of place around you - your position
+  rounded to about 1 km, or the road ahead as points rounded to about 200 m.
+
 ### Export
 
 Menu → **Export...** (or Settings → Data → Export all devices):
@@ -345,9 +388,9 @@ A driver-safe, template-based Android Auto app:
   devices, known plate / speed / red-light cameras and your position. Drag,
   pinch or **+ / −**; **◎** follows the car again. Needs car API level 7; older
   Android Auto gets car-drawn maps with device and camera lists.
-- **Navigation:** *Navigate to...* searches with [Nominatim](https://nominatim.org)
-  (on submit only), keeps recent destinations on the phone, routes with
-  [OSRM](https://project-osrm.org), speaks turns and re-routes.
+- **Navigation:** *Navigate to...* searches with [Photon](https://photon.komoot.io) and
+  [Nominatim](https://nominatim.org) (on submit only), starts from Home, Work, starred and recent places kept on the phone,
+  routes with [Valhalla](https://valhalla.github.io/valhalla/), speaks turns and re-routes.
 - **Alerts** appear as heads-up cards with **Mute 30 min** and **Ignore**
   buttons, and play through the car speakers as navigation audio, briefly
   lowering your music.
@@ -563,8 +606,10 @@ Pick a theme in the setup wizard or under **Settings → Appearance**.
   overpass.kumi.systems and overpass.private.coffee). Camera downloads also
   fetch DeFlock's region files from cdn.deflock.me. These servers see your IP
   address and the area, never your scans. Turn off *Show known cameras
-  automatically* to fetch only when you tap a download. In Android Auto,
-  navigation uses Nominatim and OSRM only when you search or start a route.
+  automatically* to fetch only when you tap a download. Navigation, on the phone
+  or in Android Auto, uses Photon and Nominatim (place search) and Valhalla (routes) only when you
+  search, long-press the map or start a route; they see the search, your start and
+  destination, and your IP address.
   Map data © OpenStreetMap contributors (ODbL), © OpenMapTiles, © Mapbox when chosen.
 - **Two optional online sources, off by default:** *Police / government
   aircraft* sends a position rounded to about 1 km to the community ADS-B

@@ -295,7 +295,7 @@ class CarMapRenderer(private val carContext: CarContext, private val scope: Coro
 
     private data class DeviceDot(val lat: Double, val lon: Double, val color: Int, val sizeDp: Int)
 
-    private var drawnRoute: com.rfsentinel.app.nav.OsmRouting.Route? = null
+    private var drawnRoute: com.rfsentinel.app.nav.Route? = null
 
     /** Swaps in a new route line when the route changes (osmdroid lines are rebuilt, not edited). */
     private fun syncRoute(m: MapView) {
@@ -304,11 +304,11 @@ class CarMapRenderer(private val carContext: CarContext, private val scope: Coro
         drawnRoute = r
         route?.let { m.overlays.remove(it) }
         route = null
-        if (r == null || r.points.size < 2) return
+        if (r == null || r.size < 2) return
         route = Polyline(m).apply {
             outlinePaint.color = 0xFF1A73E8.toInt()
             outlinePaint.strokeWidth = 10f * m.context.resources.displayMetrics.density
-            setPoints(r.points.map { GeoPoint(it.first, it.second) })
+            setPoints(r.points().map { GeoPoint(it.first, it.second) })
             setInfoWindow(null)
         }
         m.overlays.add(0, route) // under the markers

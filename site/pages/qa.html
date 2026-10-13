@@ -454,6 +454,13 @@
 <p>Some manufacturers kill background apps aggressively. Scanning runs as a foreground service with a notification, but you may still need to set RF Sentinel's battery usage to <b>Unrestricted</b>. Settings has a shortcut to Android's battery optimization screen.</p>
 </div>
 </details>
+
+<details class="faq" id="map-closes-app">
+<summary>The map closes the app (or the app closes when I open the map). What do I do?</summary>
+<div>
+<p>This happened on some older phones (seen on Android 9) whose graphics chip has no Vulkan: earlier builds drew the map with Vulkan only, so opening the map closed the app, and it did it again at every launch until the app's data was cleared. Version 2.20 picks Vulkan only where the phone has it and OpenGL everywhere else. If the app closes while the map starts for any other reason, it now tries the map again with OpenGL at the next launch, and after a second failure it takes the map off the main screen and tells you, so the rest of the app opens (add it back with the Map view button). On an earlier build, clearing the app's data (Android Settings → Apps → RF Sentinel → Storage) opens the app again, but the map will close it again. If it still happens, Settings → Lists, tools &amp; about → <b>Export crash log</b> and send it: it helps to know the phone model and Android version.</p>
+</div>
+</details>
 </section>
 
 <section class="faq-group" id="tech">
@@ -673,7 +680,7 @@
 <details class="faq" id="data-collected">
 <summary>What data does it collect?</summary>
 <div>
-<p>None leaves the phone. No accounts, no analytics, no crash reporting. Detections are stored in a local database excluded from cloud backup. Network requests go only to map services: the map (vector tiles, styles and fonts from OpenFreeMap, built on OpenStreetMap data, or from Mapbox if you choose it in Settings, with its usage statistics switched off), the roads of your area while the Waze option to alert only for reports on your road is on, Overpass camera data from overpass-api.de or its mirrors, DeFlock's region files and, in Android Auto navigation, Nominatim and OSRM. They see your IP and the area or route, never your scans. Two optional sources are off by default: police aircraft (a position rounded to about 1 km is sent to the ADS-B feeds adsb.fi / adsb.lol) and Waze reports, either through your own OpenWeb Ninja API key or straight from Waze (Waze direct: your IP address and a position rounded to a 1 km grid, never your exact position), third-party services used at your own risk.</p>
+<p>None leaves the phone. No accounts, no analytics, no crash reporting. Detections are stored in a local database excluded from cloud backup. Network requests go only to map services: the map (vector tiles, styles and fonts from OpenFreeMap, built on OpenStreetMap data, or from Mapbox if you choose it in Settings, with its usage statistics switched off), the roads of your area while the Waze option to alert only for reports on your road is on, Overpass camera data from overpass-api.de or its mirrors, DeFlock's region files and, navigation (on the phone or in Android Auto), Photon and Nominatim for place search and Valhalla for routes. They see your IP and the area or route, never your scans. Two optional sources are off by default: police aircraft (a position rounded to about 1 km is sent to the ADS-B feeds adsb.fi / adsb.lol) and Waze reports, either through your own OpenWeb Ninja API key or straight from Waze (Waze direct: your IP address and a position rounded to a 1 km grid, never your exact position), third-party services used at your own risk.</p>
 </div>
 </details>
 

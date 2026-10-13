@@ -28,18 +28,19 @@ import java.util.Date
 class LiveMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs = 3_000L, preciseLocation = true) {
 
     private val renderer = CarMapRenderer(carContext, lifecycleScope)
+    private var removeNavListener: (() -> Unit)? = null
 
     init {
         renderer.onFollowingChanged = { invalidate() }
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onCreate(owner: LifecycleOwner) {
                 carContext.getCarService(AppManager::class.java).setSurfaceCallback(renderer)
-                Navigator.onUpdate = { renderer.redraw(); invalidate() }
+                removeNavListener = Navigator.addListener { renderer.redraw(); invalidate() }
             }
             override fun onDestroy(owner: LifecycleOwner) {
                 carContext.getCarService(AppManager::class.java).setSurfaceCallback(null)
                 renderer.release()
-                Navigator.onUpdate = null
+                removeNavListener?.invoke(); removeNavListener = null
             }
         })
     }
@@ -51,9 +52,9 @@ class LiveMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs = 
     }
 
     override fun contentKey(): Any {
-        val p = Navigator.progress
-        return if (Navigator.active) listOf("nav", Navigator.status, p?.nextStep?.instruction,
-            p?.toNextStepM?.let { (it / 10).toInt() }, p?.remainingM?.let { (it / 100).toInt() })
+        val s = Navigator.state
+        return if (Navigator.active) listOf("nav", Navigator.status, s?.stepIndex,
+            s?.toManeuverM?.let { (it / 10).toInt() }, s?.remainingM?.let { (it / 100).toInt() })
         else listOf(ScanForegroundService.isRunning, renderer.counts(), renderer.following)
     }
 
@@ -92,7 +93,7 @@ class LiveMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs = 
             .build())
         list.addItem(Row.Builder()
             .setTitle("Navigate to...")
-            .addText("Search a destination (OpenStreetMap)")
+            .addText("Search a destination (OpenStreetMap data)")
             .setImage(CarUi.icon(carContext, R.drawable.ic_car_navigate))
             .setBrowsable(true)
             .setOnClickListener { screenManager.push(DestinationScreen(carContext, this)) }
@@ -112,21 +113,23 @@ class LiveMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs = 
     }
 
     private fun guidanceRows(list: ItemList.Builder) {
-        val p = Navigator.progress
-        val step = p?.nextStep
+        val s = Navigator.state
+        val r = Navigator.route
+        // The banner's own wording for the coming turn ("Rue Principale"), else Valhalla's sentence for the next step.
+        val banner = if (r != null && s != null) com.rfsentinel.app.nav.Prompts.banner(r, s.stepIndex, s.toManeuverM) else null
+        val next = r?.steps?.getOrNull((s?.stepIndex ?: 0) + 1)
+        val turn = banner?.text?.takeIf { it.isNotBlank() } ?: next?.instruction?.removeSuffix(".")
         list.addItem(Row.Builder()
-            .setTitle(Navigator.status ?: step?.instruction ?: "Follow the route")
-            .addText(if (p != null) "in ${NearbyMapScreen.distanceText(p.toNextStepM)}" else "Waiting for GPS...")
+            .setTitle(Navigator.status ?: turn ?: "Follow the route")
+            .addText(if (s != null) "in ${NearbyMapScreen.distanceText(s.toManeuverM)}" else "Waiting for GPS...")
             .setImage(CarUi.icon(carContext, R.drawable.ic_car_navigate))
             .build())
-        val r = Navigator.route
-        if (p != null && r != null && r.distanceM > 0) {
-            // Time left scales with distance left (the route's own average speed).
-            val leftS = r.durationS * (p.remainingM / r.distanceM)
-            val eta = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(System.currentTimeMillis() + (leftS * 1000).toLong()))
+        if (s != null) {
+            val left = Navigator.remainingS ?: s.remainingS
+            val eta = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(System.currentTimeMillis() + (left * 1000).toLong()))
             list.addItem(Row.Builder()
                 .setTitle("Arrive $eta")
-                .addText("${NearbyMapScreen.distanceText(p.remainingM)} · ${(leftS / 60).toInt().coerceAtLeast(1)} min")
+                .addText("${NearbyMapScreen.distanceText(s.remainingM)} · ${com.rfsentinel.app.nav.NavFormat.duration(left)}")
                 .build())
         }
         list.addItem(Row.Builder()

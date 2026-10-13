@@ -12,7 +12,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.location.Location
-import android.location.LocationListener
+import androidx.core.location.LocationListenerCompat
 import android.location.LocationManager
 import android.os.Build
 import android.os.Handler
@@ -196,7 +196,7 @@ class ScanForegroundService : Service() {
     /** Radar-detector sound style: last good GPS fix, to say "GPS connected" when it locks or comes back. */
     private var lastGoodGpsAt = 0L
 
-    private val locationListener = LocationListener {
+    private val locationListener = LocationListenerCompat {
         if (it.provider == LocationManager.GPS_PROVIDER && it.hasAccuracy() && it.accuracy <= 50f) {
             val now = System.currentTimeMillis()
             if (now - lastGoodGpsAt > GPS_RECONNECT_MS) AlertPlayer.gpsConnected(this)

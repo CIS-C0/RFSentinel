@@ -5,7 +5,7 @@ import android.content.Context
 import android.location.GnssMeasurementsEvent
 import android.location.GnssStatus
 import android.location.Location
-import android.location.LocationListener
+import androidx.core.location.LocationListenerCompat
 import android.location.LocationManager
 import android.os.Build
 import android.os.Handler
@@ -67,7 +67,7 @@ object GnssWatch {
         }
     }
 
-    private val fixListener = LocationListener { loc: Location ->
+    private val fixListener = LocationListenerCompat { loc: Location ->
         if (loc.provider == LocationManager.GPS_PROVIDER)
             emit(analyzer.onFix(GnssAnalyzer.Fix(loc.time, System.currentTimeMillis(), loc.latitude, loc.longitude, loc.accuracy)))
     }

@@ -78,7 +78,8 @@ internal interface MapEngine {
     /** Animated; null keeps that part. [flat] also drops any padding. */
     fun easeTo(lat: Double? = null, lon: Double? = null, zoom: Double? = null, bearing: Double? = null,
                tilt: Double? = null, flat: Boolean = false, ms: Long = 600)
-    fun fit(points: List<Pair<Double, Double>>, paddingPx: Int)
+    /** Frames [points]; [bottomPx] leaves more room at the bottom (under a card), [paddingPx] the rest. */
+    fun fit(points: List<Pair<Double, Double>>, paddingPx: Int, bottomPx: Int = paddingPx)
     fun visibleBox(): Box?
     fun toLatLon(x: Float, y: Float): Pair<Double, Double>?
     fun setMinZoom(zoom: Double)
@@ -86,6 +87,8 @@ internal interface MapEngine {
     var onCameraMove: (() -> Unit)?
     var onIdle: (() -> Unit)?
     var onClick: ((x: Float, y: Float) -> Unit)?
+    /** A long press on the map, at this place (to drop a pin and ask for directions). */
+    var onLongClick: ((lat: Double, lon: Double) -> Unit)?
     /** A gesture (pinch...) moved the map while following. */
     var onUserGesture: (() -> Unit)?
 
@@ -102,7 +105,7 @@ internal interface MapEngine {
     /** You panned away: the map stopped following. */
     var onFollowDismissed: (() -> Unit)?
     /** Where the provider's logo and info button go (Mapbox: under the credit line). */
-    fun placeBranding(topPx: Int)
+    fun placeBranding(topPx: Int, atEnd: Boolean = false)
 
     companion object {
         val mapboxAvailable get() = BuildConfig.MAPBOX_TOKEN.isNotEmpty()

@@ -38,6 +38,9 @@ object Voice {
     private var focus: AudioFocusRequest? = null
     /** Attributes for queued items (the latest caller's: car or phone). */
     private var nextAttrs: AudioAttributes? = null
+    /** The latest settings an alert / a driving direction asked for: each is spoken with its own kind's, whoever called last. */
+    private var alertAttrs: AudioAttributes? = null
+    private var navAttrs: AudioAttributes? = null
 
     /** The audio session speech plays in, with a loudness boost on it ([Prefs.voiceBoostDb]). */
     private var sessionId = 0
@@ -50,12 +53,28 @@ object Voice {
     /** Queues [text] with a [VoiceQueue] priority; it's spoken as soon as nothing more urgent is. */
     fun say(context: Context, text: String, priority: Int, attrs: AudioAttributes) = main.post {
         app = context.applicationContext
-        nextAttrs = attrs
+        nextAttrs = attrs; alertAttrs = attrs
         val now = System.currentTimeMillis()
         if (!queue.add(text, priority, now)) return@post
         val current = speaking
         if (current != null && queue.preempts(priority, current.priority)) {
             tts?.stop() // onDone/onStop isn't guaranteed after stop(): move on ourselves
+            done()
+        }
+        pump()
+    }
+
+    /**
+     * Queues a driving direction. [urgent] ones (the last prompt before a turn) cut into an alert
+     * that is being read - except a "following you" alert, which a direction never interrupts.
+     */
+    fun sayNav(context: Context, text: String, urgent: Boolean, attrs: AudioAttributes) = main.post {
+        app = context.applicationContext
+        nextAttrs = attrs; navAttrs = attrs
+        if (!queue.addNav(text, System.currentTimeMillis())) return@post
+        val current = speaking
+        if (urgent && current != null && !current.nav && current.priority < VoiceQueue.FOLLOWING) {
+            tts?.stop()
             done()
         }
         pump()
@@ -67,7 +86,7 @@ object Voice {
         queue.clear()
         tts?.stop()
         done()
-        nextAttrs = attrs
+        nextAttrs = attrs; alertAttrs = attrs
         // Bypasses the repeat filter: the button can be pressed again and again.
         pending = VoiceQueue.Item(text, VoiceQueue.FOLLOWING + 1, System.currentTimeMillis())
         pendingTries = 0
@@ -105,7 +124,7 @@ object Voice {
         val retryTries = pendingTries
         pending = null
         val item = retry ?: queue.next(now) ?: run { releaseFocus(); return }
-        val attrs = nextAttrs ?: return
+        val attrs = pickAttrs(item.nav, alertAttrs, navAttrs, nextAttrs) ?: return
         tries = if (retry != null) retryTries else 0
         speaking = item
         speakingAttrs = attrs
@@ -303,3 +322,6 @@ object Voice {
         sessionId = 0
     }
 }
+
+/** The audio settings an item is spoken with: its own kind's ([nav] or an alert's), else the latest caller's. */
+internal fun <T> pickAttrs(nav: Boolean, alert: T?, navigation: T?, latest: T?): T? = (if (nav) navigation else alert) ?: latest

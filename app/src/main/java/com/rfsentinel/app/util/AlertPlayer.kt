@@ -197,6 +197,16 @@ object AlertPlayer {
     }
 
     /**
+     * A spoken driving direction. Not an alert: it follows the navigation voice setting, not the alert
+     * mute or snooze, and plays as navigation guidance (the car's speakers, music ducked, the
+     * navigation volume) on the phone too.
+     */
+    fun navigate(context: Context, text: String, urgent: Boolean) {
+        if (!Prefs.navVoice(context)) return
+        Voice.sayNav(context.applicationContext, text, urgent, carSpeechAttributes)
+    }
+
+    /**
      * A spoken call-out only, no beep or vibration (Waze reports getting closer). It follows the voice
      * settings: spoken when voice alerts are on or Android Auto is connected, and never when muted or snoozed.
      */

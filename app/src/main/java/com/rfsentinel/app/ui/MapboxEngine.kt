@@ -88,6 +88,7 @@ internal class MapboxEngine(private val context: Context) : MapEngine {
     override var onCameraMove: (() -> Unit)? = null
     override var onIdle: (() -> Unit)? = null
     override var onClick: ((Float, Float) -> Unit)? = null
+    override var onLongClick: ((Double, Double) -> Unit)? = null
     override var onUserGesture: (() -> Unit)? = null
     override var onFollowDismissed: (() -> Unit)? = null
 
@@ -116,6 +117,10 @@ internal class MapboxEngine(private val context: Context) : MapEngine {
             val p = map.pixelForCoordinate(point)
             onClick?.invoke(p.x.toFloat(), p.y.toFloat())
             false
+        }
+        view.gestures.addOnMapLongClickListener { point ->
+            onLongClick?.invoke(point.latitude(), point.longitude())
+            onLongClick != null
         }
         view.gestures.addOnMoveListener(object : OnMoveListener {
             override fun onMoveBegin(detector: MoveGestureDetector) {
@@ -205,12 +210,12 @@ internal class MapboxEngine(private val context: Context) : MapEngine {
         map.easeTo(b.build(), MapAnimationOptions.mapAnimationOptions { duration(ms) })
     }
 
-    override fun fit(points: List<Pair<Double, Double>>, paddingPx: Int) {
+    override fun fit(points: List<Pair<Double, Double>>, paddingPx: Int, bottomPx: Int) {
         if (points.isEmpty()) return
         if (points.size == 1) { jumpTo(points[0].first, points[0].second); return }
         val p = paddingPx.toDouble()
         val cam = map.cameraForCoordinates(points.map { Point.fromLngLat(it.second, it.first) },
-            CameraOptions.Builder().bearing(0.0).pitch(0.0).build(), EdgeInsets(p, p, p, p), null, null)
+            CameraOptions.Builder().bearing(0.0).pitch(0.0).build(), EdgeInsets(p, p, bottomPx.toDouble(), p), null, null)
         map.setCamera(cam)
     }
 
@@ -311,16 +316,21 @@ internal class MapboxEngine(private val context: Context) : MapEngine {
     }
 
     private var brandingTop = -1
+    private var brandingAtEnd = false
 
-    override fun placeBranding(topPx: Int) {
-        if (topPx == brandingTop) return // only when it moved: setting it again asks for another layout pass
+    override fun placeBranding(topPx: Int, atEnd: Boolean) {
+        if (topPx == brandingTop && atEnd == brandingAtEnd) return // only when it moved: setting it again asks for another layout pass
         brandingTop = topPx
+        brandingAtEnd = atEnd
         val d = context.resources.displayMetrics.density
-        view.logo.position = Gravity.TOP or Gravity.START
+        val side = if (atEnd) Gravity.END else Gravity.START
+        view.logo.position = Gravity.TOP or side
         view.logo.marginTop = topPx.toFloat()
-        view.logo.marginLeft = 8 * d
-        view.attribution.position = Gravity.TOP or Gravity.START
+        view.logo.marginLeft = if (atEnd) 0f else 8 * d
+        view.logo.marginRight = if (atEnd) 8 * d else 0f
+        view.attribution.position = Gravity.TOP or side
         view.attribution.marginTop = topPx.toFloat()
-        view.attribution.marginLeft = 96 * d
+        view.attribution.marginLeft = if (atEnd) 0f else 96 * d
+        view.attribution.marginRight = if (atEnd) 96 * d else 0f
     }
 }

@@ -42,6 +42,8 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         private const val DEVICES = "rf-devices"; private const val DOTS = "rf-device-dots"; private const val LABELS = "rf-device-labels"
         private const val WAZE = "rf-waze"; private const val DRONE_OPS = "rf-drone-ops"; private const val DRONES = "rf-drones"
         private const val AIRCRAFT = "rf-aircraft"
+        private const val NAV_ROUTES = "rf-nav-routes"; private const val NAV_PLACES = "rf-nav-places"
+        private const val NAV_ROUTE_COLOR = "#1A73E8"; private const val NAV_ALT_COLOR = "#7C8DA6"
 
         /**
          * North, east, south, west of a box grown by [fraction] on every side, clamped to valid
@@ -125,7 +127,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
 
     /** Every layer, as map style JSON (the same on both engines). */
     private fun addLayers(dark: Boolean) {
-        listOf(PRECISION, CONES, TRACE, DRONE_LINES, TOWERS, CCTV, CAMERAS, DEVICES, WAZE, DRONE_OPS, DRONES, AIRCRAFT)
+        listOf(NAV_ROUTES, NAV_PLACES, PRECISION, CONES, TRACE, DRONE_LINES, TOWERS, CCTV, CAMERAS, DEVICES, WAZE, DRONE_OPS, DRONES, AIRCRAFT)
             .forEach { map.addSource(it) }
         fun get(k: String) = a("get", k)
         val color = a("to-color", get("color"))
@@ -133,10 +135,32 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         val font = JSONArray(map.labelFont)
         val (ink, halo) = labelColors(dark)
         val overlap = arrayOf<Pair<String, Any?>>("icon-allow-overlap" to true, "icon-ignore-placement" to true)
+        // Mapbox's night look is lit like a real night: a layer that gives off no light of its own goes almost
+        // black on it (the route showed as dark navy, the Waze dots as black). Every overlay is given full
+        // brightness there, whatever kind of layer it is; only Mapbox knows these properties, so the other
+        // engine never sees them.
+        val lit = map.provider == MapEngine.Provider.MAPBOX
+        fun glow(type: String): List<String> = when (type) {
+            "line" -> listOf("line-emissive-strength")
+            "circle" -> listOf("circle-emissive-strength")
+            "fill" -> listOf("fill-emissive-strength")
+            "symbol" -> listOf("icon-emissive-strength", "text-emissive-strength")
+            else -> emptyList()
+        }
         fun layer(id: String, type: String, source: String = id, minzoom: Double? = null, filter: JSONArray? = null,
-                  layout: JSONObject? = null, paint: JSONObject? = null) =
-            o("id" to id, "type" to type, "source" to source, "minzoom" to minzoom, "filter" to filter, "layout" to layout, "paint" to paint)
+                  layout: JSONObject? = null, paint: JSONObject? = null): JSONObject {
+            val lightedPaint = if (lit && glow(type).isNotEmpty()) (paint ?: JSONObject()).also { p -> glow(type).forEach { p.put(it, 1.0) } } else paint
+            return o("id" to id, "type" to type, "source" to source, "minzoom" to minzoom, "filter" to filter, "layout" to layout, "paint" to lightedPaint)
+        }
+        val routeLine = o("line-cap" to "round", "line-join" to "round")
         listOf(
+            // A route to follow: the other routes offered under it, in grey, then the chosen one with a white edge.
+            layer("$NAV_ROUTES-alt", "line", NAV_ROUTES, filter = a("==", get("sel"), false), layout = routeLine,
+                paint = o("line-color" to NAV_ALT_COLOR, "line-width" to 6.0, "line-opacity" to 0.85)),
+            layer("$NAV_ROUTES-edge", "line", NAV_ROUTES, filter = a("==", get("sel"), true), layout = routeLine,
+                paint = o("line-color" to "#FFFFFF", "line-width" to 11.0)),
+            layer("$NAV_ROUTES-line", "line", NAV_ROUTES, filter = a("==", get("sel"), true), layout = routeLine,
+                paint = o("line-color" to NAV_ROUTE_COLOR, "line-width" to 7.0)),
             // Pinpointed devices: the circle each is very likely in, in its colour.
             layer("$PRECISION-fill", "fill", PRECISION, paint = o("fill-color" to color, "fill-opacity" to 0.18)),
             layer("$PRECISION-line", "line", PRECISION, paint = o("line-color" to color, "line-width" to 1.5, "line-opacity" to 0.7)),
@@ -167,6 +191,10 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
             layer(DRONES, "symbol", layout = o("icon-image" to "rf-drone", "icon-rotate" to get("dir"),
                 "icon-rotation-alignment" to "map", *overlap)),
             // Aircraft: police / government ones bold purple with their agency and altitude, others small and grey.
+            // Where the route ends (red) and the stops on the way (white with a blue edge), above everything else.
+            layer("$NAV_PLACES-pin", "circle", NAV_PLACES, paint = o(
+                "circle-color" to a("case", a("==", get("end"), true), "#D93025", "#FFFFFF"), "circle-radius" to 9.0,
+                "circle-stroke-color" to a("case", a("==", get("end"), true), "#FFFFFF", NAV_ROUTE_COLOR), "circle-stroke-width" to 3.0)),
             layer(AIRCRAFT, "symbol", layout = o("icon-image" to get("icon"), "icon-rotate" to get("track"),
                 "icon-rotation-alignment" to "map",
                 "icon-size" to a("interpolate", a("linear"), a("zoom"), 9, 0.5, 12, 1.0, 16, 2.0),
@@ -197,6 +225,24 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         set(PRECISION, shown.filter { it.radiusM != null }.map { p ->
             GeoJson.feature(GeoJson.polygon(MapGeo.circle(p.lat, p.lon, p.radiusM!!)), "color" to hex(p.color))
         })
+    }
+
+    /**
+     * Routes to follow: [lines] as (lat, lon) lists, the one at [selected] on top in blue and the
+     * others grey. Empty clears them.
+     */
+    fun drawRoutes(lines: List<List<Pair<Double, Double>>>, selected: Int) {
+        if (!ready()) return
+        set(NAV_ROUTES, lines.mapIndexedNotNull { i, pts ->
+            if (pts.size < 2) null else GeoJson.feature(GeoJson.line(pts), "sel" to (i == selected), "idx" to i)
+        })
+    }
+
+    /** The destination and the stops on the way ([stops] white, [end] red). Null clears them. */
+    fun drawNavPlaces(stops: List<Pair<Double, Double>>, end: Pair<Double, Double>?) {
+        if (!ready()) return
+        set(NAV_PLACES, stops.map { GeoJson.feature(GeoJson.point(it.first, it.second), "end" to false) } +
+            listOfNotNull(end?.let { GeoJson.feature(GeoJson.point(it.first, it.second), "end" to true) }))
     }
 
     /** A route: the trace being recorded (orange) or a saved one (blue). */

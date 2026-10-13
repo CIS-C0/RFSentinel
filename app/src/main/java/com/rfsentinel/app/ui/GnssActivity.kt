@@ -2,7 +2,7 @@ package com.rfsentinel.app.ui
 
 import android.annotation.SuppressLint
 import android.graphics.Typeface
-import android.location.LocationListener
+import androidx.core.location.LocationListenerCompat
 import android.location.LocationManager
 import android.os.Bundle
 import android.os.Looper
@@ -40,7 +40,7 @@ class GnssActivity : AppCompatActivity() {
     }
 
     private var rows: List<Row> = emptyList()
-    private val gpsOn = LocationListener { }
+    private val gpsOn = LocationListenerCompat { }
 
     private val adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
         override fun getItemCount() = rows.size

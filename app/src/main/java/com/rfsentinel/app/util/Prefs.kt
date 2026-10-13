@@ -119,6 +119,9 @@ object Prefs {
     /** Alert only for reports that are not behind you while you drive. Off by default. */
     fun wazeAheadOnly(context: Context): Boolean = bool(context, "waze_ahead_only", false)
     fun setWazeAheadOnly(context: Context, value: Boolean) = setBool(context, "waze_ahead_only", value)
+    /** With "only ahead" on, reports that are not on your way are left off the list (the map keeps them). On by default. */
+    fun wazeHideOffWay(context: Context): Boolean = bool(context, "waze_hide_off_way", true)
+    fun setWazeHideOffWay(context: Context, value: Boolean) = setBool(context, "waze_hide_off_way", value)
     /** Speak again as a report gets closer (1 km, 500 m, 200 m). On by default. */
     fun wazeApproach(context: Context): Boolean = bool(context, "waze_approach", true)
     fun setWazeApproach(context: Context, value: Boolean) = setBool(context, "waze_approach", value)
@@ -266,16 +269,86 @@ object Prefs {
 
     fun mapFilter(context: Context): String =
         sp(context).getString("map_filter", null) ?: if (bool(context, "map_show_all", true)) "ALL" else "FLAGGED"
-    fun setMapFilter(context: Context, name: String) = sp(context).edit { putString("map_filter", name) }    /** Last destinations picked in the car (newest first, kept on this phone only). */
-    fun recentDestinations(context: Context): List<com.rfsentinel.app.nav.OsmRouting.Destination> = runCatching {
-        val json = sp(context).getString("recent_destinations", null) ?: return emptyList()
-        com.google.gson.Gson().fromJson(json, Array<com.rfsentinel.app.nav.OsmRouting.Destination>::class.java).toList()
-    }.getOrDefault(emptyList())
-    fun addRecentDestination(context: Context, d: com.rfsentinel.app.nav.OsmRouting.Destination) {
-        val list = (listOf(d) + recentDestinations(context).filterNot { it.lat == d.lat && it.lon == d.lon }).take(5)
-        sp(context).edit { putString("recent_destinations", com.google.gson.Gson().toJson(list)) }
+    fun setMapFilter(context: Context, name: String) = sp(context).edit { putString("map_filter", name) }
+
+    /** Last destinations picked (newest first, kept on this phone only). */
+    fun recentDestinations(context: Context): List<com.rfsentinel.app.nav.Place> = places(context, "recent_destinations")
+    fun addRecentDestination(context: Context, d: com.rfsentinel.app.nav.Place) {
+        val list = (listOf(d) + recentDestinations(context).filterNot { sameSpot(it, d) }).take(8)
+        savePlaces(context, "recent_destinations", list)
     }
-    fun clearRecentDestinations(context: Context) = sp(context).edit { remove("recent_destinations") }
+    fun clearRecentDestinations(context: Context) = placesSp(context).edit { remove("recent_destinations") }
+
+    // ---- navigation ----
+
+    /**
+     * Home, Work, starred and recent places live in a file of their own, which the cloud backup rules leave out
+     * (an address is not something to upload to a Google account). Recents used to sit in the main file, which is
+     * backed up: they are moved over the first time this is opened.
+     */
+    private fun placesSp(c: Context): android.content.SharedPreferences {
+        val own = c.getSharedPreferences(PLACES_FILE, Context.MODE_PRIVATE)
+        val main = sp(c)
+        for (key in PLACE_KEYS) if (main.contains(key)) {
+            if (!own.contains(key)) main.getString(key, null)?.let { v -> own.edit { putString(key, v) } }
+            main.edit { remove(key) }
+        }
+        return own
+    }
+    private const val PLACES_FILE = "nav_places"
+    private val PLACE_KEYS = listOf("recent_destinations", "nav_home", "nav_work", "nav_favorites")
+
+    private fun places(c: Context, key: String): List<com.rfsentinel.app.nav.Place> = runCatching {
+        val json = placesSp(c).getString(key, null) ?: return emptyList()
+        com.google.gson.Gson().fromJson(json, Array<com.rfsentinel.app.nav.Place>::class.java).toList()
+    }.getOrDefault(emptyList())
+    private fun savePlaces(c: Context, key: String, list: List<com.rfsentinel.app.nav.Place>) =
+        placesSp(c).edit { putString(key, com.google.gson.Gson().toJson(list)) }
+    private fun sameSpot(a: com.rfsentinel.app.nav.Place, b: com.rfsentinel.app.nav.Place) =
+        kotlin.math.abs(a.lat - b.lat) < 0.0002 && kotlin.math.abs(a.lon - b.lon) < 0.0002
+
+    /** Home and Work, saved from the search screen (null = not set). Kept on this phone only. */
+    fun navHome(context: Context): com.rfsentinel.app.nav.Place? = places(context, "nav_home").firstOrNull()
+    fun setNavHome(context: Context, p: com.rfsentinel.app.nav.Place?) =
+        if (p == null) placesSp(context).edit { remove("nav_home") } else savePlaces(context, "nav_home", listOf(p))
+    fun navWork(context: Context): com.rfsentinel.app.nav.Place? = places(context, "nav_work").firstOrNull()
+    fun setNavWork(context: Context, p: com.rfsentinel.app.nav.Place?) =
+        if (p == null) placesSp(context).edit { remove("nav_work") } else savePlaces(context, "nav_work", listOf(p))
+
+    /** Starred places. */
+    fun navFavorites(context: Context): List<com.rfsentinel.app.nav.Place> = places(context, "nav_favorites")
+    fun isNavFavorite(context: Context, p: com.rfsentinel.app.nav.Place) = navFavorites(context).any { sameSpot(it, p) }
+    /** Stars [p], or un-stars it when it already is. Returns whether it is a favourite now. */
+    fun toggleNavFavorite(context: Context, p: com.rfsentinel.app.nav.Place): Boolean {
+        val list = navFavorites(context)
+        val now = list.none { sameSpot(it, p) }
+        savePlaces(context, "nav_favorites", if (now) (listOf(p) + list).take(40) else list.filterNot { sameSpot(it, p) })
+        return now
+    }
+    fun clearNavPlaces(context: Context) = placesSp(context).edit { remove("nav_home"); remove("nav_work"); remove("nav_favorites") }
+
+    /** Spoken driving directions (default on). Separate from the alert voice and its mute / snooze. */
+    fun navVoice(context: Context): Boolean = bool(context, "nav_voice", true)
+    fun setNavVoice(context: Context, v: Boolean) = setBool(context, "nav_voice", v)
+    /** While guiding, a map left on "automatic" turns to its night look after sunset (default on). */
+    fun navAutoNight(context: Context): Boolean = bool(context, "nav_auto_night", true)
+    fun setNavAutoNight(context: Context, v: Boolean) = setBool(context, "nav_auto_night", v)
+    /** Starting guidance to a destination starts the scan too (default on); a scan already running is left alone. */
+    fun navStartScan(context: Context): Boolean = bool(context, "nav_start_scan", true)
+    fun setNavStartScan(context: Context, v: Boolean) = setBool(context, "nav_start_scan", v)
+    /** Keep the screen on while guiding (default on, as navigation apps do). */
+    fun navKeepScreenOn(context: Context): Boolean = bool(context, "nav_keep_screen_on", true)
+    fun setNavKeepScreenOn(context: Context, v: Boolean) = setBool(context, "nav_keep_screen_on", v)
+    /** Routes avoid tolls / highways / ferries when these are on (defaults for every route; each can be changed per route). */
+    fun navAvoidTolls(context: Context): Boolean = bool(context, "nav_avoid_tolls", false)
+    fun setNavAvoidTolls(context: Context, v: Boolean) = setBool(context, "nav_avoid_tolls", v)
+    fun navAvoidHighways(context: Context): Boolean = bool(context, "nav_avoid_highways", false)
+    fun setNavAvoidHighways(context: Context, v: Boolean) = setBool(context, "nav_avoid_highways", v)
+    fun navAvoidFerries(context: Context): Boolean = bool(context, "nav_avoid_ferries", false)
+    fun setNavAvoidFerries(context: Context, v: Boolean) = setBool(context, "nav_avoid_ferries", v)
+    /** Distance units for guidance: "auto" (miles where the phone's region uses them), "km" or "mi". */
+    fun navUnits(context: Context): String = sp(context).getString("nav_units", "auto") ?: "auto"
+    fun setNavUnits(context: Context, v: String) = sp(context).edit { putString("nav_units", v) }
     /** Tracker "following you" warnings paused until this time (epoch ms). */
     fun trackerFollowPausedUntil(context: Context): Long = sp(context).getLong("tracker_follow_paused_until", 0L)
     fun setTrackerFollowPausedUntil(context: Context, value: Long) = sp(context).edit { putLong("tracker_follow_paused_until", value) }

@@ -29,7 +29,7 @@
 <li><b>Cameras:</b> tap one to see it alone on the map, navigate to it, or tap its row to turn its alerts off or back on (faded on the maps).</li>
 <li><b>More:</b> snooze alerts for 30 minutes, spoken alerts in the car, short spoken alerts, whether AirTags count as trackers, <b>cell towers</b> (fake-cell check status, serving cell and neighbours) and <b>hardware</b> status (phone radios and the scan watchdog, ESP32 / Marauder / Flipper on USB, OUI-SPY over Bluetooth, USB WiFi adapter).</li>
 <li><b>Live map:</b> RF Sentinel's own OpenStreetMap map on the car screen with devices in list / radar colours, plate-reader, speed and red-light cameras, and your position. Drag, pinch or <b>+ / −</b>; <b>◎</b> follows the car again. Needs car API level 7; older Android Auto gets car-drawn maps with device and camera lists.</li>
-<li><b>Navigation:</b> <i>Navigate to...</i> searches with Nominatim (on submit only, no search-as-you-type), keeps recent destinations on the phone, routes with OSRM, draws the route with next turn, ETA and distance, speaks turns and re-routes.</li>
+<li><b>Navigation:</b> <i>Navigate to...</i> starts from Home, Work, starred and recent places kept on the phone or a search with Photon and Nominatim (on submit only), routes with Valhalla, draws the route with next turn, ETA and distance, speaks turns and re-routes. The same navigation is on the phone.</li>
 <li><b>Alerts:</b> heads-up cards on the car screen with <b>Mute 30 min</b> and <b>Ignore</b> buttons, spoken through the car speakers as navigation guidance audio, briefly lowering music.</li>
 <li><b>Phone screen off:</b> Android limits Bluetooth scanning then. The car warns you when a scan starts that way and shows "Bluetooth limited" on its home screen; WiFi, cell checks and known cameras keep working.</li>
 </ul>
@@ -49,4 +49,4 @@
 <p>Settings → <b>Start scanning automatically in the car</b>: scanning starts when the phone connects to your car's Bluetooth or to Android Auto, and stops when you leave if the car started it.</p>
 
 <h2 id="privacy-nav">Navigation privacy</h2>
-<p>Nominatim and OSRM see the search, your position and destination, and your IP address, only when you search or start a route. They never see your scans.</p>
+<p>Photon, Nominatim and Valhalla see the search, your start and destination, and your IP address, only when you search or start a route. They never see your scans.</p>

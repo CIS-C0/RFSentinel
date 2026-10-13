@@ -3,7 +3,7 @@ package com.rfsentinel.app.ui
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.location.Location
-import android.location.LocationListener
+import androidx.core.location.LocationListenerCompat
 import android.location.LocationManager
 import android.os.Build
 import android.os.Bundle
@@ -20,6 +20,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.view.MenuProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.children
 import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
@@ -29,6 +30,10 @@ import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.TripDeviceEntity
 import com.rfsentinel.app.data.TripEntity
 import com.rfsentinel.app.databinding.ActivityMapBinding
+import com.rfsentinel.app.nav.NavCamera
+import com.rfsentinel.app.nav.NavSearchActivity
+import com.rfsentinel.app.nav.Navigator
+import com.rfsentinel.app.nav.Place
 import com.rfsentinel.app.detect.Category
 import com.rfsentinel.app.detect.Tier
 import com.rfsentinel.app.service.DeviceRegistry
@@ -77,6 +82,11 @@ class MapFragment : Fragment() {
         const val EXTRA_AIRCRAFT = "aircraft"
         /** A Waze report's id: the map opens on it ([EXTRA_CENTER_LAT] / [EXTRA_CENTER_LON]) with its details while it's current. */
         const val EXTRA_WAZE = "waze"
+        /** Open the map on a place to get directions to: plans the routes to it at once. */
+        const val EXTRA_NAV_NAME = "nav_name"
+        const val EXTRA_NAV_ADDRESS = "nav_address"
+        const val EXTRA_NAV_LAT = "nav_lat"
+        const val EXTRA_NAV_LON = "nav_lon"
         /** Inside the main screen (its chips drive the filter; the menu is a button on the map). */
         const val ARG_EMBEDDED = "embedded"
         /** A failed camera download stays in the status line this long (the retry runs after a minute). */
@@ -141,6 +151,10 @@ class MapFragment : Fragment() {
     private var userZoom = false
 
     private var engine: MapEngine? = null
+    private var nav: MapNav? = null
+    private var navArgsHandled = false
+    private var alertCards: AlertCardController? = null
+    private var stopAlertCards: (() -> Unit)? = null
     private var rf: RfMap? = null
     private val map: MapEngine? get() = rf?.map
     private var lastFix: Location? = null
@@ -148,6 +162,55 @@ class MapFragment : Fragment() {
     private var smoothKmh = -1f
     private var stopObservingBulk: (() -> Unit)? = null
     private val dateFmt = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+
+    /** Where to? The search screen's answer: a destination (plan the routes) or a stop on the way. */
+    private val searchLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { r ->
+        if (r.resultCode != android.app.Activity.RESULT_OK || !alive) return@registerForActivityResult
+        val place = NavSearchActivity.placeOf(r.data) ?: return@registerForActivityResult
+        when (r.data?.getStringExtra(NavSearchActivity.EXTRA_MODE)) {
+            NavSearchActivity.MODE_STOP -> Navigator.addStop(act, place)
+            // The pane on the main screen stays where it is: the card and routes open in it, and only a tap on
+            // the guidance banner or arrival time goes to the full screen map.
+            else -> nav?.showPlace(place, plan = true)
+        }
+    }
+
+    private val navHost = object : MapNav.Host {
+        override fun navLookAtRoute() {
+            if (following) { following = false; applyMode(animate = false); styleFollowButton() }
+        }
+
+        override fun navGuidingChanged(on: Boolean) {
+            if (!alive) return
+            binding.root.keepScreenOn = on && Prefs.navKeepScreenOn(act)
+            // The Record / Traces bar gives way to the arrival bar while you are being guided.
+            // In the small pane the round buttons stay while guiding: they sit just above the arrival bar.
+            if (!embedded) { binding.controls.visibility = if (on) View.GONE else View.VISIBLE; layoutBottomInset() }
+            if (on) { following = true; userZoom = false; applyMode(animate = true); styleFollowButton() }
+            else { lastZoomTarget = 0.0; applyMode(animate = true) } // the zoom for a turn goes with the guidance
+            renderLive()
+        }
+
+        override fun navCheckStyle() {
+            if (alive && rf != null && rf?.isDark != darkTiles()) loadStyle()
+        }
+
+        override fun navSearch(mode: String) = searchLauncher.launch(NavSearchActivity.intent(act, mode))
+
+        override fun navOpenFull(place: Place?) = openFullMap(place)
+
+        override fun navPanelsChanged() { if (alive) { renderLive(); fitSideButtonsSoon(); layoutBottomInset() } }
+    }
+
+    /** The map on its own screen, on [place] to plan a route to when given (else on the route being followed). */
+    private fun openFullMap(place: Place?) {
+        startActivity(Intent(act, MapActivity::class.java).apply {
+            if (place != null) {
+                putExtra(EXTRA_NAV_NAME, place.name); putExtra(EXTRA_NAV_ADDRESS, place.address)
+                putExtra(EXTRA_NAV_LAT, place.lat); putExtra(EXTRA_NAV_LON, place.lon)
+            }
+        })
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = ActivityMapBinding.inflate(inflater, container, false)
@@ -158,12 +221,16 @@ class MapFragment : Fragment() {
         tripId = args.getLong(EXTRA_TRIP_ID, -1).takeIf { it > 0 }
         if (!embedded) act.title = if (tripId == null) "Scan map" else "Recorded trace"
 
-        // Full screen, edge-to-edge: keep the controls above the navigation bar.
-        if (!embedded) ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            binding.controls.updatePadding(bottom = bars.bottom + (6 * resources.displayMetrics.density).toInt())
-            binding.statusBox.translationY = bars.top.toFloat()
-            insets
+        // Full screen, edge-to-edge: keep the bottom-most panel above the navigation bar.
+        if (!embedded) {
+            basePad = listOf(binding.navCard, binding.navBar, binding.mapFilterScroll, binding.controls).map { it.paddingBottom }
+            ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+                val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                bottomInset = bars.bottom
+                layoutBottomInset()
+                binding.statusBox.translationY = bars.top.toFloat()
+                insets
+            }
         }
 
         if (args.getBoolean(EXTRA_SHOW_TOWERS, false)) Prefs.setShowCellTowers(act, true)
@@ -182,8 +249,27 @@ class MapFragment : Fragment() {
         setupMenu()
         // The scale and the map credit sit just under the status banner, or at the very top when there is none.
         binding.statusBox.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> placeScaleBar() }
+        // Wider than tall: the round buttons become a row and the turn banner leaves them the right side.
+        if (!embedded) binding.root.addOnLayoutChangeListener { _, l, t, r, bt, ol, ot, or, ob -> if (r - l != or - ol || bt - t != ob - ot) fitSideButtonsSoon() }
 
         createEngine(savedInstanceState, null)
+        if (tripId == null) {
+            nav = MapNav(act, binding, viewLifecycleOwner.lifecycleScope, embedded, { alive }, { rf }, { lastFix ?: knownFix() }, navHost)
+                .also { it.setup() }
+            // Alerts pop up over the full screen map (the small pane on the main screen has the list under it).
+            if (!embedded) {
+                val cards = AlertCardController(act, binding, { lastFix ?: knownFix() }) { lat, lon ->
+                    navHost.navLookAtRoute()
+                    rf?.map?.easeTo(lat, lon, ms = 500)
+                }
+                alertCards = cards
+                stopAlertCards = AlertCards.addListener { cards.show(it) }
+                // One that came in just before this screen opened (tapping its notification, say) is still shown.
+                AlertCards.latest?.takeIf { System.currentTimeMillis() - it.atMs < 6_000L }?.let { cards.show(it) }
+            }
+        } else {
+            binding.searchButton.visibility = View.GONE
+        }
         binding.map.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
             if (bottom - top != oldBottom - oldTop) applyMode(animate = false)
         }
@@ -226,12 +312,36 @@ class MapFragment : Fragment() {
 
     /** The map engine chosen in Settings > Map; [restore] is where the one it replaces was looking. */
     private fun createEngine(state: Bundle?, restore: MapEngine.Camera?) {
-        val e = MapEngine.create(act)
-        engine = e
-        binding.map.addView(e.view, 0, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        binding.osmCredit.text = e.credit
-        e.onCreate(state)
-        e.whenReady { if (alive && engine === e) onMapReady(e, restore) }
+        // The map's start-up is marked on disk until it has drawn: if the app dies in it, the next launch leaves the map off.
+        safetyArmed = true
+        MapSafety.arm(act, MapEngine.chosen(act))
+        try {
+            val e = MapEngine.create(act)
+            engine = e
+            binding.map.addView(e.view, 0, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            binding.osmCredit.text = e.credit
+            e.onCreate(state)
+            e.whenReady { if (alive && engine === e) onMapReady(e, restore) }
+        } catch (t: Throwable) {
+            // A native library that will not load, a graphics context that cannot be made: an error that can be caught
+            // is told, not crashed on (and the saved view stops asking for the map).
+            android.util.Log.w("MapFragment", "the map could not start", t)
+            engine = null
+            safetyArmed = false
+            MapSafety.disarm(act)
+            if (embedded) Prefs.viewPanes(act).let { if ("map" in it) Prefs.setViewPanes(act, it - "map") }
+            binding.statusText.text = "The map can't start on this phone (${t.javaClass.simpleName}). Everything else works."
+            binding.statusText.visibility = View.VISIBLE
+        }
+    }
+
+    private var safetyArmed = false
+
+    /** The map has been up for a few seconds: its start-up did not take the app down. */
+    private fun mapWorked() {
+        if (!safetyArmed) return
+        safetyArmed = false
+        MapSafety.worked(act)
     }
 
     /** Back from Settings with the other map provider chosen: the map changes in place, looking at the same spot. */
@@ -247,6 +357,9 @@ class MapFragment : Fragment() {
     }
 
     private fun onMapReady(m: MapEngine, restore: MapEngine.Camera?) {
+        // The graphics crash comes the moment the map's surface is made, long before this: a few seconds on, the
+        // start-up is over. (Waiting for the camera to go idle is not enough: it never does while guiding.)
+        binding.root.postDelayed({ if (alive && engine === m) mapWorked() }, MapSafety.SETTLE_MS)
         val r = RfMap(act, m).also { rf = it }
         r.filter = filter
         r.tripMode = tripId != null
@@ -258,27 +371,41 @@ class MapFragment : Fragment() {
         m.onCameraMove = { updateScale() }
         m.onIdle = { r.safe("static") { r.maybeRedrawStatic(); updateScale() } }
         m.onClick = { x, y -> r.safe("tap") { r.onTap(x, y, myPosition()) } }
+        if (tripId == null) m.onLongClick = { lat, lon -> r.safe("long press") { nav?.onLongPress(lat, lon) } }
         if (restore != null) { m.jumpTo(restore.lat, restore.lon, restore.zoom); centeredOnce = true }
         else placeCameraAtStart(m)
         placeScaleBar()
         loadStyle()
     }
 
-    private fun darkTiles(): Boolean = Prefs.mapDark(act)
-        ?: ((resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
-            android.content.res.Configuration.UI_MODE_NIGHT_YES)
+    private fun systemDark() = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+        android.content.res.Configuration.UI_MODE_NIGHT_YES
+
+    /** The map's look: your choice (the sun / moon button), else - while guided - day or night where you are, else the phone's. */
+    private fun darkTiles(): Boolean = Prefs.mapDark(act) ?: run {
+        val here = if (Navigator.active && Prefs.navAutoNight(act)) lastFix ?: knownFix() else null
+        if (here != null) com.rfsentinel.app.nav.Sun.isNight(here.latitude, here.longitude, System.currentTimeMillis()) else systemDark()
+    }
 
     private fun loadStyle() {
         val r = rf ?: return
         val dark = darkTiles()
         styleThemeButton()
-        binding.osmCredit.setBackgroundColor(if (dark) 0x99000000.toInt() else 0x99FFFFFF.toInt())
+        binding.osmCredit.setBackgroundColor(if (dark) 0x40000000 else 0x99FFFFFF.toInt()) // the night one is barely there: the map shows through
         binding.osmCredit.setTextColor(if (dark) 0xFFDDDDDD.toInt() else 0xFF333333.toInt())
         r.loadStyle(dark) {
             if (!alive) return@loadStyle
             r.safe("location") { startLocation() }
             if (tripId != null) loadTrip() else renderLive()
             r.safe("static") { r.maybeRedrawStatic(force = true) }
+            r.safe("nav") { nav?.redraw() }
+            // Opened from a search on the main screen's map: the routes to that place.
+            // (Not again after a rotation once you are being guided: that would plan a second route over the first.)
+            if (!navArgsHandled && args.containsKey(EXTRA_NAV_LAT) && !Navigator.active) {
+                navArgsHandled = true
+                nav?.showPlace(Place(args.getString(EXTRA_NAV_NAME).orEmpty(), args.getString(EXTRA_NAV_ADDRESS).orEmpty(),
+                    args.getDouble(EXTRA_NAV_LAT), args.getDouble(EXTRA_NAV_LON)), plan = true)
+            }
         }
     }
 
@@ -366,19 +493,35 @@ class MapFragment : Fragment() {
         val b = _binding ?: return
         val gap = (8 * resources.displayMetrics.density).toInt()
         val box = b.statusBox
-        val y = (if (box.height > 0) box.bottom + box.translationY.toInt() + gap else box.top + box.translationY.toInt()).coerceAtLeast(gap)
+        // On its side while guiding the banner fills the left and the arrival bar sits right under it: the credit goes
+        // to the free top right corner instead of being hidden under the bar.
+        val atEnd = wideScreen() && Navigator.active
+        val y = (if (atEnd) box.translationY.toInt() + gap / 2 else if (box.height > 0) box.bottom + box.translationY.toInt() + gap else box.top + box.translationY.toInt()).coerceAtLeast(gap)
         b.scaleBar.translationY = y.toFloat()
-        b.osmCredit.translationY = (y + b.scaleBar.height).toFloat()
+        // The credit wraps to a second line rather than run under the compass and follow buttons at the right.
+        val d = resources.displayMetrics.density
+        if (b.root.width > 0) b.osmCredit.maxWidth = (b.root.width - 84 * d).toInt().coerceAtLeast((140 * d).toInt())
+        val scaleH = if (b.scaleBar.visibility == View.GONE) 0 else b.scaleBar.height
+        b.osmCredit.translationY = (y + scaleH).toFloat()
+        b.osmCredit.translationX = if (atEnd && b.osmCredit.width > 0) (b.root.width - b.osmCredit.width - b.osmCredit.left - gap).toFloat() else 0f
         // Mapbox's logo and info button just under the credit line.
-        engine?.placeBranding(y + b.scaleBar.height + b.osmCredit.height + gap / 2)
+        engine?.placeBranding(y + scaleH + b.osmCredit.height + gap / 2, atEnd)
     }
 
     private fun updateScale() {
         val m = map ?: return
         val b = _binding ?: return
+        // The small pane while guiding has no room for it between the turn banner and the buttons above the
+        // arrival bar: the credit moves up in its place.
+        if ((embedded || wideScreen()) && Navigator.active) {
+            if (b.scaleBar.visibility != View.GONE) { b.scaleBar.visibility = View.GONE; placeScaleBar() }
+            return
+        }
+        val wasGone = b.scaleBar.visibility == View.GONE
         // Tilted, the scale differs across the screen: no single scale to show.
-        if (m.camera.tilt > 5) { b.scaleBar.visibility = View.INVISIBLE; return }
+        if (m.camera.tilt > 5) { b.scaleBar.visibility = View.INVISIBLE; if (wasGone) placeScaleBar(); return }
         b.scaleBar.visibility = View.VISIBLE
+        if (wasGone) placeScaleBar()
         // Measured on the ground between two points 100 px apart across the middle of the map.
         val w = b.map.width; val h = b.map.height
         if (w < 200 || h == 0) return
@@ -409,7 +552,7 @@ class MapFragment : Fragment() {
         // A short pane has no room for five buttons stacked on the right: map settings, light / dark and
         // full screen join Record and Traces along the bottom; the compass and follow stay on the right.
         val gap = (8 * resources.displayMetrics.density).toInt()
-        for (v in listOf(binding.mapSettingsButton, binding.themeButton, binding.fullscreenButton)) {
+        for (v in listOf(binding.searchButton, binding.mapSettingsButton, binding.themeButton, binding.fullscreenButton)) {
             (v.parent as? ViewGroup)?.removeView(v)
             binding.compactControls.addView(v, android.widget.LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = gap })
@@ -417,6 +560,201 @@ class MapFragment : Fragment() {
         binding.recordFab.backgroundTintList = android.content.res.ColorStateList.valueOf(accent)
         binding.recordFab.imageTintList = android.content.res.ColorStateList.valueOf(onAccent)
         binding.statusText.textSize = 12f
+        // On a narrower screen the row of round buttons would run into the compass and follow buttons at the right.
+        val relayout = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> fitSideButtonsSoon() }
+        binding.root.addOnLayoutChangeListener(relayout)
+        binding.compactControls.addOnLayoutChangeListener(relayout)
+        binding.navCard.addOnLayoutChangeListener(relayout)
+        binding.navBar.addOnLayoutChangeListener(relayout)
+    }
+
+    /**
+     * Under the place card or the arrival bar, the compass and follow buttons stack in the same column and
+     * would squeeze the card's buttons off the bottom of a short pane. They give way, the compass first,
+     * when the card (at the height it needs) and they do not all fit; they come back when the card goes.
+     */
+    private fun fitSideButtons() {
+        val b = _binding ?: return
+        if (!embedded || b.root.height == 0) return
+        val d = resources.displayMetrics.density
+        val panel = listOf(b.navCard, b.navBar).firstOrNull { it.visibility == View.VISIBLE }
+        var hide = emptyList<View>()
+        if (panel != null) {
+            panel.measure(View.MeasureSpec.makeMeasureSpec(b.root.width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+            // The turn banner (and the credit under it) take the top of the pane while guiding.
+            val top = if (b.navBanner.visibility == View.VISIBLE) b.statusBox.bottom + b.statusBox.translationY + 8 * d else 0f
+            val room = b.root.height - 8 * d - top
+            val fab = 56 * d // a button and its margin
+            // The round buttons ride above the arrival bar (the card hides them) and, when they are too wide to sit
+            // beside the compass and follow buttons, those rise above them.
+            val rowLift = if (rowCrowdsSideButtons()) b.compactControls.height + 8 * d else 0f
+            val used = panel.measuredHeight + rowLift
+            hide = when {
+                used + 2 * fab <= room -> emptyList()
+                used + fab <= room -> listOf(b.orientationButton)
+                else -> listOf(b.orientationButton, b.centerButton)
+            }
+        }
+        for (v in listOf(b.orientationButton, b.centerButton)) {
+            val want = if (v in hide) View.GONE else View.VISIBLE
+            if (v.visibility != want) v.visibility = want
+        }
+    }
+
+    private var bottomInset = 0
+    private var basePad: List<Int> = emptyList()
+
+    /**
+     * The navigation bar's height is added under the panel that is really at the bottom (the Record / Traces
+     * bar, or the filter chips while guiding), not under every panel: the place card sits above the chips and
+     * the Record bar, and carrying the inset too left a big empty band between its buttons and the chips.
+     */
+    private fun layoutBottomInset() {
+        val b = _binding ?: return
+        if (embedded || basePad.isEmpty()) return
+        val panels = listOf(b.navCard, b.navBar, b.mapFilterScroll, b.controls)
+        val last = panels.lastOrNull { it.visibility == View.VISIBLE }
+        val six = (6 * resources.displayMetrics.density).toInt()
+        panels.forEachIndexed { i, p ->
+            val want = if (p === last) bottomInset + six else basePad[i]
+            if (p.paddingBottom != want) p.updatePadding(bottom = want)
+        }
+    }
+
+    private var sidePending = false
+
+    /** Changing visibility or padding inside a layout pass is not reliably laid out again: do it right after. */
+    private fun fitSideButtonsSoon() {
+        val b = _binding ?: return
+        if (sidePending) return
+        sidePending = true
+        b.root.post { sidePending = false; if (_binding != null) { arrangeForShape(); fitCompactRow(); liftSideButtons(); fitSideButtons(); refollowForPanels() } }
+    }
+
+    /**
+     * The small pane's row of round buttons (Record, History, Search, Settings, light / dark, full screen) must fit the
+     * pane's width whatever it is: the space between them shrinks first (down to none), then the buttons themselves
+     * (down to 32 dp), so the last one is never cut off at the edge.
+     */
+    private fun fitCompactRow() {
+        val b = _binding ?: return
+        val row = b.compactControls
+        if (!embedded || row.visibility != View.VISIBLE || row.width == 0 || b.root.width == 0) return
+        val d = resources.displayMetrics.density
+        val kids = row.children.filter { it.visibility != View.GONE }.toList()
+        if (kids.size < 2) return
+        // Worked out from what is on screen now: how much room is left (or missing) between the row's end and the pane's edge.
+        val diff = b.root.width - (8 * d).toInt() - row.left - row.width
+        if (kotlin.math.abs(diff) < 2) return
+        val fabs = kids.filterIsInstance<com.google.android.material.floatingactionbutton.FloatingActionButton>()
+        val natural = (40 * d).toInt()
+        val gapMax = (8 * d).toInt()
+        val curGap = (kids[1].layoutParams as? ViewGroup.MarginLayoutParams)?.marginStart ?: return
+        val gap = curGap + diff / (kids.size - 1)
+        fun setGap(g: Int) = kids.forEachIndexed { i, v ->
+            val lp = v.layoutParams as? ViewGroup.MarginLayoutParams ?: return@forEachIndexed
+            val want = if (i == 0) 0 else g
+            if (lp.marginStart != want) { lp.marginStart = want; v.layoutParams = lp }
+        }
+        fun resize(by: Int) {
+            for (f in fabs) {
+                val now = if (f.customSize > 0) f.customSize else f.width
+                val to = (now + by).coerceIn((32 * d).toInt(), natural)
+                if (to != f.customSize) f.customSize = to
+            }
+        }
+        when {
+            gap in 0..gapMax -> setGap(gap)
+            // More room than the spacing needs: the buttons grow back to their size.
+            gap > gapMax -> { setGap(gapMax); if (fabs.isNotEmpty()) resize((diff - (gapMax - curGap) * (kids.size - 1)) / fabs.size) }
+            // Not enough even without spacing: the buttons get smaller (not under 32 dp).
+            else -> { setGap(0); if (fabs.isNotEmpty()) resize((diff + curGap * (kids.size - 1)) / fabs.size) }
+        }
+    }
+
+    private var origBasePad: List<Int>? = null
+    private var compactLand = false
+    private var landPad = -1
+
+    /**
+     * On its side every row of the screen counts: less padding in the turn banner, the arrival bar, the chips and the
+     * Record bar. The padding is a share of the screen's height (between 4 and 12 dp), so a short phone gets less and a
+     * tall tablet keeps the usual.
+     */
+    private fun compactForLandscape(on: Boolean) {
+        val b = _binding ?: return
+        val d = resources.displayMetrics.density
+        for (c in b.mapFilterChips.children) (c as? com.google.android.material.chip.Chip)?.setEnsureMinTouchTargetSize(!on)
+        val pad = if (on) (b.root.height * 0.017f).toInt().coerceIn((4 * d).toInt(), (12 * d).toInt()) else (12 * d).toInt()
+        if (on == compactLand && pad == landPad) return
+        compactLand = on; landPad = pad
+        val small = pad / 3 // the bars' own top and bottom: a third of the banner's
+        b.navBanner.setPadding(pad, pad, pad, pad)
+        b.navDistance.textSize = if (on) 22f else 28f
+        (b.navLanes.layoutParams as? ViewGroup.MarginLayoutParams)?.topMargin = if (on) small else (8 * d).toInt()
+        (b.navThen.layoutParams as? ViewGroup.MarginLayoutParams)?.topMargin = if (on) 0 else (6 * d).toInt()
+        b.navEta.textSize = if (on) 17f else 20f
+        b.navBar.updatePadding(top = if (on) 0 else (6 * d).toInt())
+        b.controls.updatePadding(top = if (on) small else (6 * d).toInt())
+        val orig = origBasePad ?: basePad.also { origBasePad = it }
+        basePad = orig.mapIndexed { i, v -> if (on && (i == 1 || i == 3)) small else v } // the arrival bar and the Record bar
+        layoutBottomInset()
+        b.root.requestLayout()
+    }
+
+    /** The full screen map is wider than tall (a phone on its side). */
+    private fun wideScreen(): Boolean { val b = _binding ?: return false; return !embedded && b.root.width > b.root.height && b.root.height > 0 }
+
+    /**
+     * On its side the screen has no height for a column of five round buttons under the turn banner (they climbed
+     * under the toolbar and the banner's mute button): they become a row above the bottom panels, at the right, and
+     * the banner and the alert card stop at about half the width so the two never meet. Upright: the column as before.
+     */
+    private fun arrangeForShape() {
+        val b = _binding ?: return
+        if (embedded || b.root.width == 0) return
+        val wide = wideScreen()
+        val want = if (wide) android.widget.LinearLayout.HORIZONTAL else android.widget.LinearLayout.VERTICAL
+        if (b.sideButtons.orientation != want) b.sideButtons.orientation = want
+        val d = resources.displayMetrics.density
+        // The banner gets what the row of buttons leaves (each is about 62 dp with its margin), not less than 40% of the width.
+        val shown = b.sideButtons.children.count { it.visibility != View.GONE }
+        val rowW = (shown * 62 * d + 24 * d).toInt()
+        val width = if (wide) (b.root.width - rowW).coerceIn((b.root.width * 0.4f).toInt(), (520 * d).toInt().coerceAtLeast((b.root.width * 0.4f).toInt()))
+            else ViewGroup.LayoutParams.MATCH_PARENT
+        val lp = b.statusBox.layoutParams
+        if (lp.width != width) { lp.width = width; b.statusBox.layoutParams = lp }
+        compactForLandscape(wide)
+        updateScale() // while guiding on its side the scale gives its place to the credit, as in the small pane
+        placeScaleBar()
+    }
+
+    /**
+     * The compass and follow buttons sit at the right edge, the round buttons along the bottom-left. When the
+     * pane is too narrow for both side by side the compass and follow buttons move up above the row instead of
+     * lying under it. Worked out from sizes alone, so it settles in one pass.
+     */
+    private fun liftSideButtons() {
+        val b = _binding ?: return
+        val row = b.compactControls
+        val d = resources.displayMetrics.density
+        // While guiding, the row rides just above the arrival bar instead of under it.
+        row.translationY = if (row.visibility == View.VISIBLE && b.navBar.visibility == View.VISIBLE) -b.navBar.height.toFloat() else 0f
+        // Crowded: the compass and follow buttons rise by the row's height (their own bottom margin, so the panel's
+        // card or bar below them stays where it is).
+        val lift = if (rowCrowdsSideButtons()) (row.height + 8 * d).toInt() else 0
+        val lp = b.centerButton.layoutParams as? android.widget.LinearLayout.LayoutParams ?: return
+        val want = (8 * d).toInt() + lift
+        if (lp.bottomMargin != want) { lp.bottomMargin = want; b.centerButton.layoutParams = lp }
+    }
+
+    /** The row of round buttons is too long to sit beside the compass and follow buttons (worked out from sizes alone). */
+    private fun rowCrowdsSideButtons(): Boolean {
+        val b = _binding ?: return false
+        val row = b.compactControls
+        val d = resources.displayMetrics.density
+        val rightZone = (14 + 48 + 8) * d // the buttons' margin, their width and a gap
+        return row.visibility == View.VISIBLE && row.width > 0 && row.width + 10 * d + rightZone > b.root.width
     }
 
     // ---- Your position --------------------------------------------------------------------------------
@@ -438,7 +776,7 @@ class MapFragment : Fragment() {
         return Location(fix).apply { lastBearing?.let { bearing = it } }
     }
 
-    private val gpsListener = LocationListener { fix -> rf?.safe("fix") { onFix(fix) } ?: onFix(fix) }
+    private val gpsListener = LocationListenerCompat { fix -> rf?.safe("fix") { onFix(fix) } ?: onFix(fix) }
 
     private fun onFix(fix: Location) {
         if (!alive) return
@@ -457,8 +795,18 @@ class MapFragment : Fragment() {
         // 3D: re-aim only when the speed changed enough to matter (no constant zoom pumping).
         val base = Prefs.mapDefaultZoom(act)
         val drives = is3d() || (tripId == null && Prefs.mapHeadingUp(act))
-        if (drives && (before < 0f || kotlin.math.abs(zoomFor(smoothKmh, base) - zoomFor(before.coerceAtLeast(0f), base)) > 0.1)) applyMode(animate = true)
+        // Zoom in as a turn comes up while guided, out again after it (the speed's own zoom otherwise).
+        val target = (if (drives) zoomFor(smoothKmh, base) else base) + turnBoost()
+        val moved = kotlin.math.abs(target - lastZoomTarget) > 0.1
+        if ((drives && before < 0f) || (moved && (drives || Navigator.active))) { lastZoomTarget = target; applyMode(animate = true) }
     }
+
+    /** Zoom levels added for the turn coming up (only while guiding). */
+    private fun turnBoost(): Double {
+        val s = Navigator.state ?: return 0.0
+        return if (Navigator.active) NavCamera.turnBoost(s.toManeuverM, smoothKmh.coerceAtLeast(0f)) else 0.0
+    }
+    private var lastZoomTarget = 0.0
 
     // ---- Battery: the map's own GPS ---------------------------------------------------------------------
 
@@ -527,14 +875,50 @@ class MapFragment : Fragment() {
         val h = binding.map.height
         val base = Prefs.mapDefaultZoom(act)
         val kmh = smoothKmh.coerceAtLeast(0f)
+        val boost = turnBoost()
         if (is3d()) {
-            m.follow(MapEngine.Follow.HEADING, if (h > 0) topPaddingFor(h) else null, tiltFor(kmh, Prefs.map3dTilt(act)), if (userZoom) null else zoomFor(kmh, base), ms)
+            val pad = followPadding(h, ARROW_HEIGHT)
+            lastFollowPad = pad
+            m.follow(MapEngine.Follow.HEADING, pad, tiltFor(kmh, Prefs.map3dTilt(act)), if (userZoom) null else zoomFor(kmh, base) + boost, ms)
         } else if (Prefs.mapHeadingUp(act)) {
             // Turning with you: pulls back at speed like the 3D view; a pinch is yours until the follow button.
-            m.follow(MapEngine.Follow.HEADING, 0.0, 0.0, if (userZoom) null else zoomFor(kmh, base) - FLAT_ZOOM_OFFSET, ms)
+            lastFollowPad = followPadding(h, 0.5)
+            m.follow(MapEngine.Follow.HEADING, lastFollowPad ?: 0.0, 0.0, if (userZoom) null else zoomFor(kmh, base) - FLAT_ZOOM_OFFSET + boost, ms)
         } else {
-            m.follow(MapEngine.Follow.NORTH, 0.0, 0.0, if (userZoom) null else base - FLAT_ZOOM_OFFSET, ms)
+            lastFollowPad = followPadding(h, 0.5)
+            m.follow(MapEngine.Follow.NORTH, lastFollowPad ?: 0.0, 0.0, if (userZoom) null else base - FLAT_ZOOM_OFFSET + boost, ms)
         }
+    }
+
+    private var lastFollowPad: Double? = null
+
+    /**
+     * The camera's top padding that puts your arrow [fraction] of the way down the part of the map you can see.
+     * Full screen that is the whole map (as ever). In the small pane the turn banner covers the top and the
+     * round buttons and the arrival bar the bottom, so the arrow is placed in what is left between them -
+     * otherwise it sits behind the buttons.
+     */
+    private fun followPadding(h: Int, fraction: Double): Double? {
+        if (h <= 0) return null
+        if (!embedded) return if (fraction == ARROW_HEIGHT) topPaddingFor(h) else 0.0
+        val b = _binding ?: return if (fraction == ARROW_HEIGHT) topPaddingFor(h) else 0.0
+        val mapTop = IntArray(2).also { b.map.getLocationInWindow(it) }[1]
+        fun top(v: View) = IntArray(2).also { v.getLocationInWindow(it) }[1] - mapTop.toFloat()
+        val topLimit = if (b.navBanner.visibility == View.VISIBLE) top(b.statusBox) + b.statusBox.height else 0f
+        var bottomLimit = h.toFloat()
+        for (v in listOf(b.navBar, b.compactControls, b.navCard)) if (v.visibility == View.VISIBLE && v.height > 0) bottomLimit = minOf(bottomLimit, top(v))
+        if (bottomLimit <= topLimit + 40) return if (fraction == ARROW_HEIGHT) topPaddingFor(h) else 0.0 // no room to speak of
+        val y = topLimit + fraction * (bottomLimit - topLimit)
+        return (2 * y - h).coerceAtLeast(0.0)
+    }
+
+    /** After the pane's panels moved (the arrival bar and the buttons above it appeared), the arrow is placed again if it should move. */
+    private fun refollowForPanels() {
+        val b = _binding ?: return
+        if (!embedded || !following || tripId != null || b.map.height == 0) return
+        val want = followPadding(b.map.height, if (is3d()) ARROW_HEIGHT else 0.5)
+        val had = lastFollowPad
+        if (want != null && (had == null || kotlin.math.abs(want - had) > 8.0)) applyMode(animate = false)
     }
 
     /** The map button: north up -> heading up -> 3D driving view -> north up. */
@@ -653,9 +1037,11 @@ class MapFragment : Fragment() {
         if (rf != null && rf?.isDark != darkTiles()) loadStyle()
         styleOrientationButton()
         applyMode(animate = false)
+        nav?.refresh()
     }
 
     override fun onPause() {
+        if (safetyArmed) { safetyArmed = false; MapSafety.disarm(act) } // paused normally: not a crash
         saveView()
         stopGps()
         if (tripId == null) ScanForegroundService.mapHidden(act)
@@ -673,6 +1059,10 @@ class MapFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        if (safetyArmed) { safetyArmed = false; MapSafety.disarm(act) } // leaving normally is not a crash
+        stopAlertCards?.invoke(); stopAlertCards = null
+        alertCards?.hide(); alertCards = null
+        nav?.destroy(); nav = null
         stopObservingBulk?.invoke()
         com.rfsentinel.app.alpr.CctvStore.onChanged = null
         stopGps()
@@ -757,6 +1147,9 @@ class MapFragment : Fragment() {
             bulkStatus() != null -> bulkStatus() // a camera download's progress wins
             System.currentTimeMillis() - com.rfsentinel.app.alpr.AlprStore.lastAutoFailureAt < CAMERA_FAIL_SHOWN_MS ->
                 "Couldn't download the cameras for this area (map server busy or offline) - retrying"
+            Navigator.active && !recording -> null // the guidance banner is the status
+            // In the small pane the place card needs the room: the scan status is on the main screen above it anyway.
+            embedded && nav?.cardShown == true && !recording -> null
             !ScanForegroundService.isRunning -> "Not scanning - start scanning, then Record trace to save your route"
             recording -> {
                 val mins = (System.currentTimeMillis() - TripRecorder.startedAt) / 60000

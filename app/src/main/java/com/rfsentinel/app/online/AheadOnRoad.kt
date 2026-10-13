@@ -37,7 +37,7 @@ internal class AheadOnRoad {
             if (fresh != null) {
                 path = fresh
                 pathLat = me.latitude; pathLon = me.longitude; pathHeading = h; pathAt = now
-            } else if (moved > KEEP_PATH_M || now - pathAt > KEEP_PATH_MS) {
+            } else if (!keepOldPath(moved, now - pathAt, RoadMatch.angleDiff(h, pathHeading))) {
                 // A tile that hasn't arrived yet shouldn't throw away a good answer: the last path stands
                 // for a short stretch, so a momentary gap doesn't drop every report to the plain corridor test.
                 path = null
@@ -91,6 +91,13 @@ internal class AheadOnRoad {
         /** A path with no replacement yet stands for this long, and this far travelled, before it is dropped. */
         private const val KEEP_PATH_MS = 15_000L
         private const val KEEP_PATH_M = 100.0
+        /** ...and only while you still head the way it was worked out for: after a turn it describes a road you left. */
+        private const val KEEP_PATH_TURN_DEG = 35.0
+
+        /** Whether the path in hand may stand in for one that couldn't be worked out just now. */
+        internal fun keepOldPath(movedM: Double, ageMs: Long, headingDiffDeg: Double) =
+            movedM <= KEEP_PATH_M && ageMs <= KEEP_PATH_MS && headingDiffDeg <= KEEP_PATH_TURN_DEG
+
         /** The most a fix's own accuracy widens how far from a road you can be and still be on it. */
         private const val ACCURACY_ALLOWANCE_M = 30.0
         /** The map is never fetched further ahead than this. */

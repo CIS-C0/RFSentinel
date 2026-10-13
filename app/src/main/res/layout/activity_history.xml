@@ -88,11 +88,11 @@
             android:layout_gravity="bottom|start"
             android:layout_margin="4dp"
             android:background="#99FFFFFF"
-            android:paddingStart="4dp"
-            android:paddingEnd="4dp"
+            android:paddingStart="3dp"
+            android:paddingEnd="3dp"
             android:text="© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors"
             android:textColor="#333333"
-            android:textSize="9sp" />
+            android:textSize="7sp" />
     </FrameLayout>
 
     <LinearLayout

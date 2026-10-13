@@ -10,21 +10,20 @@ import androidx.car.app.model.Template
 import androidx.lifecycle.lifecycleScope
 import com.rfsentinel.app.BuildConfig
 import com.rfsentinel.app.nav.Navigator
-import com.rfsentinel.app.nav.OsmRouting
+import com.rfsentinel.app.nav.PlaceRank
+import com.rfsentinel.app.nav.Place
+import com.rfsentinel.app.nav.Places
 import com.rfsentinel.app.service.DeviceRegistry
 import com.rfsentinel.app.util.Prefs
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
- * Pick a destination: recent ones, or a search in OpenStreetMap (Nominatim),
- * sent only when you submit it - Nominatim's usage policy forbids
- * search-as-you-type, and it keeps requests to a minimum.
+ * Pick a destination: Home, Work, starred and recent ones, or a search in OpenStreetMap (Photon and
+ * Nominatim together), sent only when you submit it - a car keyboard is slow, and the screen redraws on every letter.
  */
 class DestinationScreen(carContext: CarContext, private val map: LiveMapScreen) : SafeScreen(carContext) {
 
-    private var results: List<OsmRouting.Destination>? = null
+    private var results: List<Place>? = null
     private var loading = false
     private var query = ""
     /** What's typed so far (searched only when submitted or tapped - no search-as-you-type). */
@@ -32,7 +31,7 @@ class DestinationScreen(carContext: CarContext, private val map: LiveMapScreen) 
 
     override fun buildTemplate(): Template {
         val list = ItemList.Builder()
-        val shown = results ?: Prefs.recentDestinations(carContext)
+        val shown = results ?: savedPlaces()
         val me = CarUi.currentLocation(carContext)
         // Some cars' keyboards don't send "submit": offer the search as a row too.
         if (typed.isNotBlank() && typed != query) {
@@ -42,7 +41,9 @@ class DestinationScreen(carContext: CarContext, private val map: LiveMapScreen) 
                 .setOnClickListener { search(typed) }
                 .build())
         }
-        shown.forEach { d ->
+        // The car shows a few rows at a time (and the "Search" row above takes one): the best matches come first.
+        val room = CarUi.listLimit(carContext) - if (typed.isNotBlank() && typed != query) 1 else 0
+        shown.take(room.coerceAtLeast(1)).forEach { d ->
             val row = Row.Builder().setTitle(d.name)
             // Short for a car screen (older saved entries may hold the full address).
             val where = d.address.split(", ").filter { it.isNotBlank() }.take(2).joinToString(", ").ifBlank { "OpenStreetMap" }
@@ -68,7 +69,7 @@ class DestinationScreen(carContext: CarContext, private val map: LiveMapScreen) 
             .setInitialSearchText(typed)
             .setHeaderAction(Action.BACK)
             .setSearchHint("Destination (searched in OpenStreetMap)")
-            .setShowKeyboardByDefault(results == null && Prefs.recentDestinations(carContext).isEmpty())
+            .setShowKeyboardByDefault(results == null && savedPlaces().isEmpty())
             .setLoading(loading)
             .apply { if (!loading) setItemList(list.build()) }
             .build()
@@ -78,28 +79,42 @@ class DestinationScreen(carContext: CarContext, private val map: LiveMapScreen) 
         val q = text.trim()
         if (q.isEmpty()) return
         query = q
+        // "48.137, 11.575" is a place already.
+        PlaceRank.coordinates(q)?.let { results = listOf(it); invalidate(); return }
         loading = true
         invalidate()
         val me = CarUi.currentLocation(carContext)
+        // Your own places that fit come first, then the answers: Photon and Nominatim are asked together
+        // (a submitted search, which is what Nominatim's rules allow) and the first to answer is on the
+        // screen at once.
+        val own = PlaceRank.mine(q, Prefs.navHome(carContext), Prefs.navWork(carContext), Prefs.navFavorites(carContext),
+            Prefs.recentDestinations(carContext), limit = 2)
         lifecycleScope.launch {
             val found = runCatching {
-                withContext(Dispatchers.IO) {
-                    OsmRouting.search(q, me?.latitude, me?.longitude, "${BuildConfig.APPLICATION_ID}/${BuildConfig.VERSION_NAME}")
+                Places.searchSubmitted(q, me?.latitude, me?.longitude, "${BuildConfig.APPLICATION_ID}/${BuildConfig.VERSION_NAME}",
+                    graceMs = 4_000L) { list ->
+                    results = own + list.filter { r -> own.none { it.lat == r.lat && it.lon == r.lon } }
+                    loading = false
+                    invalidate()
                 }
             }
             loading = false
-            found.onSuccess { list ->
-                // Closest first: in the car the nearby match is almost always the one meant.
-                results = if (me == null) list else list.sortedBy { DeviceRegistry.metersBetween(me.latitude, me.longitude, it.lat, it.lon) }
-            }.onFailure {
-                results = emptyList()
+            found.onFailure {
+                if (it is kotlinx.coroutines.CancellationException) throw it
+                results = own
                 CarToast.makeText(carContext, "Search failed - no connection?", CarToast.LENGTH_LONG).show()
             }
             invalidate()
         }
     }
 
-    private fun go(d: OsmRouting.Destination) {
+    /** Home and Work when set, then starred places, then recent ones (each place once). */
+    private fun savedPlaces(): List<Place> = (listOfNotNull(
+        Prefs.navHome(carContext)?.let { it.copy(name = "Home") }, Prefs.navWork(carContext)?.let { it.copy(name = "Work") }
+    ) + Prefs.navFavorites(carContext) + Prefs.recentDestinations(carContext))
+        .distinctBy { "%.4f,%.4f".format(java.util.Locale.US, it.lat, it.lon) }.take(10)
+
+    private fun go(d: Place) {
         val from = CarUi.currentLocation(carContext)
         if (from == null) {
             CarToast.makeText(carContext, "Waiting for your location...", CarToast.LENGTH_SHORT).show(); return
@@ -107,9 +122,8 @@ class DestinationScreen(carContext: CarContext, private val map: LiveMapScreen) 
         loading = true
         invalidate()
         lifecycleScope.launch {
-            runCatching { Navigator.start(carContext, d, from) }
+            com.rfsentinel.app.nav.attempt { Navigator.start(carContext, d, from) }
                 .onSuccess {
-                    Prefs.addRecentDestination(carContext, d)
                     screenManager.pop()
                     map.onNavigationStarted()
                 }

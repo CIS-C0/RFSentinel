@@ -2,6 +2,11 @@ package com.rfsentinel.app.online
 
 import android.app.Application
 import android.location.Location
+import com.rfsentinel.app.nav.Navigator
+import com.rfsentinel.app.nav.Place
+import com.rfsentinel.app.nav.Route
+import com.rfsentinel.app.nav.Step
+import com.rfsentinel.app.nav.Valhalla
 import com.rfsentinel.app.online.WazePolice.Level
 import com.rfsentinel.app.online.WazePolice.Type
 import com.rfsentinel.app.util.Prefs
@@ -12,6 +17,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -49,6 +55,13 @@ class WazeWatchTest {
         AmbientThreats.waze = null
         here = fix(10.0, 10.0)
         watch = WazeWatch(ctx, CoroutineScope(Job()), { here }, { alerts += it }, { calls += it })
+    }
+
+    @After
+    fun tearDown() {
+        Navigator.stop()
+        Navigator.speaker = null
+        Navigator.planner = null
     }
 
     @Test
@@ -244,5 +257,89 @@ class WazeWatchTest {
         val second = WazePolice.latest.single().distanceM
         assertTrue("$first -> $second", first - second in 290.0..310.0)
         assertEquals(WazePolice.Side.AHEAD, WazePolice.latest.single().where.side)
+    }
+
+    // ---- while guided, "ahead" is the route ----
+
+    /** Guidance along a road running 3 km due north from the origin, starting from [from]. */
+    private fun guidedNorth(from: Location) {
+        val ys = (0..30).map { it * 100.0 }
+        val lats = DoubleArray(ys.size) { 10.0 + ys[it] / 110_540.0 }
+        val lons = DoubleArray(ys.size) { 10.0 }
+        val along = DoubleArray(ys.size) { ys[it] }
+        val step = Step("depart", null, "", null, "", 0.0, 0.0, 3_000.0, 180.0, 0.0, 3_000.0, 0, emptyList(), emptyList())
+        val route = Route(lats, lons, along, 3_000.0, 180.0, listOf(step), "", lats.last() to 10.0)
+        Navigator.speaker = { _, _ -> }
+        Prefs.setNavStartScan(ctx, false)
+        Navigator.begin(ctx, Place("Destination", "", lats.last(), 10.0), route, Valhalla.Options(), emptyList(), from)
+    }
+
+    @Test
+    fun whileGuidedAReportOffTheRouteIsQuietEvenWhenTheGpsHasNoHeading() {
+        Prefs.setWazeAheadOnly(ctx, true)
+        here = fix(10.0, 10.0) // at a light, or crawling: no bearing and no speed
+        guidedNorth(here)
+        watch.ingest(listOf(report("onroute", 800.0), reportAt("beside", 300.0, -700.0)), WazePolice.VIA_DIRECT, 1_000L)
+        // The route needs no map data, so the one on it alerts at once; the one 700 m off to the side never does.
+        assertEquals(listOf("waze:onroute"), alerts.map { it.key })
+        assertEquals("both stay on the map", 2, WazePolice.latest.size)
+        assertEquals("the list keeps only what is on your way", listOf("onroute"),
+            WazePolice.latest.filter { it.onMyWay }.map { it.report.id })
+    }
+
+    @Test
+    fun whileGuidedAReportYouHavePassedIsQuiet() {
+        Prefs.setWazeAheadOnly(ctx, true)
+        here = fix(10.0 + 1_500.0 / 110_540.0, 10.0) // 1.5 km along the route
+        guidedNorth(here)
+        watch.ingest(listOf(report("passed", 1_100.0), report("coming", 2_000.0)), WazePolice.VIA_DIRECT, 1_000L)
+        assertEquals(listOf("waze:coming"), alerts.map { it.key })
+        assertEquals(listOf("coming"), WazePolice.latest.filter { it.onMyWay }.map { it.report.id })
+    }
+
+    @Test
+    fun withOnlyAheadOffGuidanceChangesNothing() {
+        Prefs.setWazeAheadOnly(ctx, false)
+        here = fix(10.0, 10.0)
+        guidedNorth(here)
+        watch.ingest(listOf(report("onroute", 800.0), reportAt("beside", 300.0, -700.0)), WazePolice.VIA_DIRECT, 1_000L)
+        assertEquals("everything in range, as chosen", 2, alerts.size)
+        assertTrue(WazePolice.latest.all { it.onMyWay })
+    }
+
+    @Test
+    fun leavingTheRouteHandsOverToTheRoadsAndTheHeadingAgain() {
+        Prefs.setWazeAheadOnly(ctx, true)
+        here = fix(10.0, 10.0)
+        guidedNorth(here)
+        // 400 m east of the route (off it, being re-planned): the route no longer decides.
+        Navigator.planner = { _, _, _, _, _ -> throw java.io.IOException("offline") }
+        here = fix(10.0, 10.0 + 400.0 / (111_320.0 * Math.cos(Math.toRadians(10.0))), bearing = 0f, speed = 12f)
+        val onLocation = Navigator::class.java.getDeclaredMethod("onLocation", Location::class.java)
+        onLocation.isAccessible = true
+        onLocation.invoke(Navigator, here)
+        assertTrue("the guidance knows it is off the route", Navigator.state!!.offM > Navigator.OFF_ROUTE_M)
+        // A report 700 m ahead on that road, beside where you now are.
+        watch.ingest(listOf(reportAt("beside", 300.0, 410.0)), WazePolice.VIA_DIRECT, 1_000L)
+        // No verdict from the route; the (empty here) map decides after its wait, as before guidance existed.
+        assertTrue(alerts.isEmpty())
+        watch.evaluate(1_000L + WazeWatch.ROAD_HOLD_MS, publish = false)
+        assertEquals(1, alerts.size)
+    }
+
+    @Test
+    fun theListLeavesOutWhatIsNotOnYourWayByDefaultAndTheSettingBringsItBack() {
+        assertTrue("hidden by default", Prefs.wazeHideOffWay(ctx))
+        Prefs.setWazeAheadOnly(ctx, true)
+        here = fix(10.0, 10.0)
+        guidedNorth(here)
+        watch.ingest(listOf(report("onroute", 800.0), reportAt("beside", 300.0, -700.0)), WazePolice.VIA_DIRECT, 1_000L)
+        val all = WazePolice.latest
+        assertEquals(listOf("onroute"), WazePolice.forList(all, 2_000.0, aheadOnly = true, hideOffWay = true).map { it.report.id })
+        assertEquals("the setting off: listed again (quiet, marked)", setOf("onroute", "beside"),
+            WazePolice.forList(all, 2_000.0, aheadOnly = true, hideOffWay = false).map { it.report.id }.toSet())
+        assertEquals("with only-ahead off nothing is hidden", 2,
+            WazePolice.forList(all, 2_000.0, aheadOnly = false, hideOffWay = true).size)
+        assertEquals("the alert range still applies", 0, WazePolice.forList(all, 100.0, aheadOnly = false, hideOffWay = true).size)
     }
 }

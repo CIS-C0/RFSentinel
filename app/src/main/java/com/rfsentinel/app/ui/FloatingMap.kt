@@ -25,7 +25,6 @@ import android.widget.Toast
 import androidx.core.content.edit
 import com.rfsentinel.app.service.ScanForegroundService
 import com.rfsentinel.app.util.Prefs
-import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
@@ -135,6 +134,7 @@ object FloatingMap {
         runCatching { (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).removeView(r) }
         view?.let { v -> runCatching { v.onPause(); v.onStop(); v.onDestroy() } }
         root = null; view = null; map = null; badge = null; waiting = null; border = null
+        MapSafety.disarm(context)
         ScanForegroundService.mapHidden(context)
     }
 
@@ -161,7 +161,10 @@ object FloatingMap {
             y = prefs.getInt("y", dp(context, 120f))
         }
 
-        MapLibre.getInstance(context)
+        // A start-up the app did not survive (a Vulkan phone that cannot run it): first OpenGL, then this stays off.
+        if (MapSafety.recover(context) == MapSafety.Recovery.MAP_OFF) { Prefs.setFloatingMap(context, false); return null }
+        MapSafety.arm(context, MapEngine.Provider.OPENFREEMAP)
+        MapLibreEngine.start(context)
         val radius = 18f * d
         val frame = FrameLayout(context).apply {
             background = GradientDrawable().apply { cornerRadius = radius; setColor(Color.BLACK) }.also { border = it }
@@ -180,6 +183,7 @@ object FloatingMap {
             .scrollGesturesEnabled(false).zoomGesturesEnabled(false).rotateGesturesEnabled(false).tiltGesturesEnabled(false))
         m.onCreate(null)
         m.getMapAsync { lm ->
+            main.postDelayed({ if (root != null) MapSafety.worked(context) }, MapSafety.SETTLE_MS) // its start-up is over
             map = lm
             val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
             lm.setStyle(Style.Builder().fromUri(if (night) MapLibreEngine.DARK_STYLE else MapLibreEngine.LIGHT_STYLE)) { style ->

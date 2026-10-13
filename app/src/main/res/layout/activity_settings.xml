@@ -443,6 +443,10 @@
                 android:text="Clear ignored trackers" />
         </LinearLayout>
 
+        <!-- ================= Navigation ================= -->
+        <TextView android:id="@+id/headerNav" style="@style/SettingsHeader" android:text="Navigation" />
+        <LinearLayout android:id="@+id/sectionNav" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+
         <!-- ================= Known cameras ================= -->
         <TextView android:id="@+id/headerMap" style="@style/SettingsHeader" android:text="Map" />
         <LinearLayout android:id="@+id/sectionMap" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">

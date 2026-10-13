@@ -20,8 +20,10 @@ object AboutDialog {
             on this phone. Internet is used only for map data: the map (OpenFreeMap, or Mapbox if
             you choose it in Settings), the road tiles of your area while the Waze "only ahead"
             option is on, and the list of known plate, speed and red-light cameras for the area you look at on
-            screen; in Android Auto, destination search (Nominatim) and routes (OSRM) when you
-            navigate. Those servers see your IP and that area or trip, never your scans or detections.
+            screen; and, when you search for a destination or start a route (on the phone or in Android
+            Auto), the place search (Photon, and Nominatim for a search you submit), places of one kind near you or ahead on your route (the same
+            OpenStreetMap servers as the cameras) and the route (Valhalla, on the OpenStreetMap Germany server).
+            Those servers see your IP and that area or trip, never your scans or detections.
             Map data &copy; OpenStreetMap contributors (ODbL), &copy; OpenMapTiles; map engine
             MapLibre Native (BSD-2-Clause), OpenFreeMap; Mapbox Maps SDK (Mapbox terms) when selected.<br/><br/>
 

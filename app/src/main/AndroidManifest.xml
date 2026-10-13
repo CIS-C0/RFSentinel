@@ -87,6 +87,10 @@
             android:exported="false"
             android:parentActivityName=".MainActivity" />
         <activity
+            android:name=".nav.NavSearchActivity"
+            android:exported="false"
+            android:windowSoftInputMode="stateVisible|adjustResize" />
+        <activity
             android:name=".ui.TripsActivity"
             android:exported="false"
             android:parentActivityName=".MainActivity" />
@@ -145,6 +149,12 @@
             android:name=".service.ScanForegroundService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice|location" />
+
+        <!-- Turn-by-turn guidance: keeps the GPS running with the screen off while a route is followed. -->
+        <service
+            android:name=".nav.NavigationService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
 
         <service
             android:name=".service.ScanTileService"

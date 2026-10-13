@@ -23,6 +23,11 @@ class MapActivity : AppCompatActivity() {
         const val EXTRA_AIRCRAFT = MapFragment.EXTRA_AIRCRAFT
         /** Open the map on a Waze report (its id), with its details while it's current. */
         const val EXTRA_WAZE = MapFragment.EXTRA_WAZE
+        /** Open the map on a place to plan a route to: name, address, latitude, longitude. */
+        const val EXTRA_NAV_NAME = MapFragment.EXTRA_NAV_NAME
+        const val EXTRA_NAV_ADDRESS = MapFragment.EXTRA_NAV_ADDRESS
+        const val EXTRA_NAV_LAT = MapFragment.EXTRA_NAV_LAT
+        const val EXTRA_NAV_LON = MapFragment.EXTRA_NAV_LON
 
         /**
          * The map on what an internet alert is about - [key] "air:<ICAO address>" or "waze:<report id>" -
@@ -50,10 +55,16 @@ class MapActivity : AppCompatActivity() {
         val host = androidx.fragment.app.FragmentContainerView(this).apply { id = com.rfsentinel.app.R.id.mapHost }
         setContentView(host)
         if (savedInstanceState == null) {
-            supportFragmentManager.beginTransaction()
-                .replace(com.rfsentinel.app.R.id.mapHost, MapFragment.create(intent.extras ?: Bundle()))
-                .commit()
+            // The app closed while the map was starting last time: say so (and try with OpenGL, or ask before trying again).
+            MapSafetyUi.tell(this, MapSafety.recover(this), onTryAgain = { addMap() }, onNotNow = { finish() })
         }
+    }
+
+    private fun addMap() {
+        if (isFinishing || isDestroyed) return
+        supportFragmentManager.beginTransaction()
+            .replace(com.rfsentinel.app.R.id.mapHost, MapFragment.create(intent.extras ?: Bundle()))
+            .commitAllowingStateLoss()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {

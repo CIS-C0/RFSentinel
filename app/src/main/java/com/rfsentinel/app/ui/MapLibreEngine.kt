@@ -11,6 +11,7 @@ import com.rfsentinel.app.util.Permissions
 import org.json.JSONArray
 import org.json.JSONObject
 import org.maplibre.android.MapLibre
+import org.maplibre.android.WellKnownTileServer
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
@@ -53,6 +54,11 @@ internal class MapLibreEngine(private val context: Context) : MapEngine {
         /** Style properties whose value is a plain array, not an expression. */
         private val ARRAY_PROPERTIES = setOf("text-font", "text-offset", "icon-offset", "line-dasharray", "text-variable-anchor", "text-translate", "icon-translate", "circle-translate", "fill-translate", "line-translate")
 
+        /** MapLibre's one-time set-up, with the renderer [MapSafety] allows: Vulkan where the phone has it, else OpenGL. */
+        internal fun start(context: Context) {
+            MapLibre.getInstance(context.applicationContext, null, WellKnownTileServer.MapLibre, MapSafety.renderer(context))
+        }
+
         /** A style JSON value as MapLibre wants it: expressions, float numbers, typed arrays. */
         internal fun value(name: String, v: Any?): Any? = when {
             v is JSONArray && name in ARRAY_PROPERTIES ->
@@ -68,7 +74,7 @@ internal class MapLibreEngine(private val context: Context) : MapEngine {
     override val credit = CREDIT
     override val labelFont = listOf("Noto Sans Regular")
 
-    init { MapLibre.getInstance(context.applicationContext) }
+    init { start(context) }
 
     override val view = MapView(context, MapLibreMapOptions.createFromAttributes(context))
     private var map: MapLibreMap? = null
@@ -76,6 +82,7 @@ internal class MapLibreEngine(private val context: Context) : MapEngine {
     override var onCameraMove: (() -> Unit)? = null
     override var onIdle: (() -> Unit)? = null
     override var onClick: ((Float, Float) -> Unit)? = null
+    override var onLongClick: ((Double, Double) -> Unit)? = null
     override var onUserGesture: (() -> Unit)? = null
     override var onFollowDismissed: (() -> Unit)? = null
 
@@ -104,6 +111,10 @@ internal class MapLibreEngine(private val context: Context) : MapEngine {
                 val p = m.projection.toScreenLocation(at)
                 onClick?.invoke(p.x, p.y)
                 false
+            }
+            m.addOnMapLongClickListener { at ->
+                onLongClick?.invoke(at.latitude, at.longitude)
+                onLongClick != null
             }
             ready()
         }
@@ -269,12 +280,12 @@ internal class MapLibreEngine(private val context: Context) : MapEngine {
         m.animateCamera(CameraUpdateFactory.newCameraPosition(b.build()), ms.toInt().coerceAtLeast(1))
     }
 
-    override fun fit(points: List<Pair<Double, Double>>, paddingPx: Int) {
+    override fun fit(points: List<Pair<Double, Double>>, paddingPx: Int, bottomPx: Int) {
         val m = map ?: return
         if (points.isEmpty()) return
         if (points.size == 1) { jumpTo(points[0].first, points[0].second); return }
         val b = LatLngBounds.Builder().apply { points.forEach { include(LatLng(it.first, it.second)) } }.build()
-        m.moveCamera(CameraUpdateFactory.newLatLngBounds(b, paddingPx))
+        m.moveCamera(CameraUpdateFactory.newLatLngBounds(b, paddingPx, paddingPx, paddingPx, bottomPx))
     }
 
     override fun visibleBox(): MapEngine.Box? {
@@ -353,5 +364,5 @@ internal class MapLibreEngine(private val context: Context) : MapEngine {
         if (mode == MapEngine.Follow.NORTH && m != null && m.cameraPosition.bearing != 0.0) m.animateCamera(CameraUpdateFactory.bearingTo(0.0), 600)
     }
 
-    override fun placeBranding(topPx: Int) {}
+    override fun placeBranding(topPx: Int, atEnd: Boolean) {}
 }

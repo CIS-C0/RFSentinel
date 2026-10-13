@@ -4,6 +4,7 @@ import android.content.Context
 import android.location.Location
 import android.os.SystemClock
 import com.rfsentinel.app.detect.Category
+import com.rfsentinel.app.nav.Navigator
 import com.rfsentinel.app.online.wazert.WazeRtFetcher
 import com.rfsentinel.app.util.Prefs
 import com.rfsentinel.app.util.SecureStore
@@ -246,14 +247,18 @@ class WazeWatch(
         }
         trend.keepOnly(known.keys)
 
-        // Only ahead: on the road you're on, ahead of you (the map's roads); where the map can't tell
+        // Only ahead: while you are guided, on the route in front of you (it knows the turns, and needs no GPS
+        // heading); otherwise on the road you're on, ahead of you (the map's roads); where the map can't tell
         // (no data yet, not driving), inside a corridor along your heading.
-        val verdicts = if (aheadOnly) road.verdicts(context, me, alertM, shown.map { it.report }) else emptyMap()
+        val onRoute = if (aheadOnly) routeVerdicts(shown, alertM) else emptyMap()
+        val verdicts = if (aheadOnly && onRoute.isEmpty()) road.verdicts(context, me, alertM, shown.map { it.report }) else onRoute
         fun quiet(s: WazePolice.Shown) = when (verdicts[s.report.id]) {
             RoadMatch.Verdict.ON_MY_ROAD -> false
             RoadMatch.Verdict.OTHER_ROAD, RoadMatch.Verdict.BEHIND -> true
             else -> !s.where.maybeOnMyWay()
         }
+        // The list shows what counts as on your way; the map keeps the wider picture.
+        for (i in shown.indices) shown[i] = shown[i].copy(onMyWay = !(aheadOnly && quiet(shown[i])))
         // In the alert range, and (if asked) ahead on your road.
         fun counts(s: WazePolice.Shown) = s.distanceM <= alertM && !(aheadOnly && quiet(s))
 
@@ -263,7 +268,7 @@ class WazeWatch(
          * is on the list and the map meanwhile, and after the wait the corridor test decides as before.
          */
         fun waitingForRoad(s: WazePolice.Shown): Boolean {
-            if (!aheadOnly || !road.waitingForRoads) return false
+            if (!aheadOnly || onRoute.isNotEmpty() || !road.waitingForRoads) return false // the route needs no map data
             val v = verdicts[s.report.id]
             if (v != null && v != RoadMatch.Verdict.UNKNOWN) return false
             return now - heldSince.getOrPut(s.report.id) { now } < ROAD_HOLD_MS
@@ -325,6 +330,17 @@ class WazeWatch(
         } else {
             WazePolice.updateQuiet(shown)
         }
+    }
+
+    /**
+     * Each report's place against the route you are following ([RouteAhead]); none when you are not being
+     * guided, have just left the route (it is being re-planned), or have arrived - the roads decide then.
+     */
+    private fun routeVerdicts(shown: List<WazePolice.Shown>, alertM: Double): Map<String, RoadMatch.Verdict> {
+        val route = Navigator.route ?: return emptyMap()
+        val st = Navigator.state ?: return emptyMap()
+        if (!Navigator.active || Navigator.arrived || st.offM > Navigator.OFF_ROUTE_M) return emptyMap()
+        return shown.associate { it.report.id to RouteAhead.verdict(route, st.alongM, it.report.lat, it.report.lon, alertM * 1.5) }
     }
 
     /** Reports are dropped when no check has answered for this long (a little over three intervals, never under 10 minutes). */

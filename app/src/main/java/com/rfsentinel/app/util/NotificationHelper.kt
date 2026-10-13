@@ -22,6 +22,7 @@ import com.rfsentinel.app.ui.DeviceDetailActivity
 object NotificationHelper {
     const val CHANNEL_SERVICE = "rf_sentinel_service"
     const val CHANNEL_ALERTS = "rf_sentinel_alerts"
+    const val CHANNEL_NAV = "rf_sentinel_navigation"
     private const val ALERT_NOTIFICATION_ID_BASE = 1000
     const val SERVICE_NOTIFICATION_ID = 1
 
@@ -45,8 +46,13 @@ object NotificationHelper {
             CHANNEL_DOWNLOADS, "Camera downloads", NotificationManager.IMPORTANCE_LOW
         ).apply { description = "Progress while known cameras are downloaded from OpenStreetMap" }
 
+        val navChannel = NotificationChannel(
+            CHANNEL_NAV, "Navigation", NotificationManager.IMPORTANCE_LOW
+        ).apply { description = "The next turn and your arrival time while you are being guided" }
+
         nm.createNotificationChannel(serviceChannel)
         nm.createNotificationChannel(alertChannel)
+        nm.createNotificationChannel(navChannel)
         nm.createNotificationChannel(downloadChannel)
     }
 
@@ -203,6 +209,11 @@ object NotificationHelper {
                 context, key, mac, hit, rssi, following,
                 if (tag) lat ?: here?.latitude else null, if (tag) lon ?: here?.longitude else null
             )
+        }
+        // The full screen map shows it as a card (nothing is stored there: it is gone when the card is).
+        runCatching {
+            com.rfsentinel.app.ui.AlertCards.publish(com.rfsentinel.app.ui.AlertCards.Card(
+                key, mac, hit.label, hit.evidence, hit.category, hit.confidence, following, rssi, lat, lon, System.currentTimeMillis()))
         }
     }
 

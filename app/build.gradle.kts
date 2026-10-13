@@ -7,8 +7,8 @@ plugins {
 }
 
 // Bump both for every release. versionName ends up in the APK file name.
-val appVersionCode = 43
-val appVersionName = "2.19.0"
+val appVersionCode = 44
+val appVersionName = "2.20.0"
 
 // Release signing credentials live in keystore.properties (git-ignored).
 // Without that file, release builds are produced unsigned.
@@ -119,8 +119,10 @@ dependencies {
 
     // OpenStreetMap map view (Apache-2.0, no API key). Tiles are the only network use.
     implementation("org.osmdroid:osmdroid-android:6.1.20")
-    // Preview of the new map engine (3D driving view): vector maps with a real 3D camera.
-    implementation("org.maplibre.gl:android-sdk:13.6.1")
+    // The map engine (3D driving view): vector maps with a real 3D camera. The Vulkan + OpenGL build picks Vulkan only
+    // where the phone has it and OpenGL ES everywhere else (the plain build is Vulkan-only and crashes the app on phones
+    // without Vulkan, e.g. Android 9 phones with a PowerVR GE8320).
+    implementation("org.maplibre.gl:android-sdk-vulkan-opengl:13.6.1")
     // Optional Mapbox map (Settings > Map > Map provider); needs MAPBOX_ACCESS_TOKEN in local.properties.
     implementation("com.mapbox.maps:android-ndk27:11.32.0")
 

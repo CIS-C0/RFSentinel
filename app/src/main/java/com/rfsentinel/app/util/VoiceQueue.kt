@@ -10,16 +10,21 @@ class VoiceQueue(
     private val maxAgeMs: Long = MAX_AGE_MS,
     private val repeatGapMs: Long = REPEAT_GAP_MS
 ) {
-    data class Item(val text: String, val priority: Int, val time: Long)
+    /** [nav]: a driving direction - never merged into "3 alerts", never dropped as a repeat. */
+    data class Item(val text: String, val priority: Int, val time: Long, val nav: Boolean = false)
 
     companion object {
         const val MAX_AGE_MS = 12_000L
+        /** A driving direction is useless once the turn is past: it waits less than an alert does. */
+        const val NAV_MAX_AGE_MS = 6_000L
         const val REPEAT_GAP_MS = 30_000L
         /** From this many waiting, they're merged into one announcement. */
         const val MERGE_FROM = 3
 
         // Priorities.
         const val FOLLOWING = 4
+        /** Driving directions: level with a strong alert (a following alert still goes first). */
+        const val NAV = 3
         const val STRONG = 3
         const val PROBABLE = 2
         const val WEAK = 1
@@ -39,6 +44,17 @@ class VoiceQueue(
         return true
     }
 
+    /**
+     * Queues a driving direction. Unlike an alert it is said again if it comes round again ("Turn
+     * left" twice in a minute are two turns); only the same words already waiting are dropped.
+     */
+    fun addNav(text: String, now: Long): Boolean {
+        val key = text.trim().lowercase()
+        if (waiting.any { it.nav && it.text.trim().lowercase() == key }) return false
+        waiting += Item(text, NAV, now, nav = true)
+        return true
+    }
+
     /** True when [priority] should interrupt something of [speaking] priority. */
     fun preempts(priority: Int, speaking: Int) = priority >= FOLLOWING && priority > speaking
 
@@ -47,23 +63,25 @@ class VoiceQueue(
      * (then oldest) goes first, and a pile-up becomes one sentence.
      */
     fun next(now: Long): Item? {
-        waiting.removeAll { now - it.time > maxAgeMs }
+        waiting.removeAll { now - it.time > if (it.nav) NAV_MAX_AGE_MS else maxAgeMs }
         if (waiting.isEmpty()) return null
         val ordered = waiting.sortedWith(compareByDescending<Item> { it.priority }.thenBy { it.time })
-        val item = if (ordered.size >= MERGE_FROM && ordered.first().priority < FOLLOWING) {
+        val alerts = ordered.filter { !it.nav }
+        val item = if (!ordered.first().nav && alerts.size >= MERGE_FROM && ordered.first().priority < FOLLOWING) {
             // "3 alerts: Axon body camera nearby, Flock camera nearby and Drone overhead"
-            val names = ordered.take(3).map { it.text.trim().trimEnd('.') }
-            val more = ordered.size - names.size
+            // (driving directions waiting stay as they are, said after it.)
+            val names = alerts.take(3).map { it.text.trim().trimEnd('.') }
+            val more = alerts.size - names.size
             val list = names.dropLast(1).joinToString(", ") + " and " + names.last() +
                 (if (more > 0) ", and $more more" else "")
-            waiting.clear()
-            Item("${ordered.size} alerts: $list.", ordered.first().priority, now)
-                .also { ordered.forEach { o -> lastSaid[o.text.trim().lowercase()] = now } }
+            waiting.removeAll(alerts.toSet())
+            Item("${alerts.size} alerts: $list.", alerts.first().priority, now)
+                .also { alerts.forEach { o -> lastSaid[o.text.trim().lowercase()] = now } }
         } else {
             waiting.remove(ordered.first())
             ordered.first()
         }
-        lastSaid[item.text.trim().lowercase()] = now
+        if (!item.nav) lastSaid[item.text.trim().lowercase()] = now
         // Keep the repeat memory small.
         if (lastSaid.size > 64) lastSaid.entries.removeAll { now - it.value > repeatGapMs }
         return item

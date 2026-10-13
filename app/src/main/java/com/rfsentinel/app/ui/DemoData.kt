@@ -28,6 +28,23 @@ object DemoData {
      */
     @Volatile var fakeLocation: android.location.Location? = null
 
+    private var sampleAlertNo = 0
+
+    /** DEBUG: one made-up alert for the full screen map's alert card, in turn: a device, a camera ahead, something following you. */
+    fun publishSampleAlert(anchor: Pair<Double, Double>?) {
+        val n = sampleAlertNo++ % 3
+        val card = when (n) {
+            0 -> com.rfsentinel.app.ui.AlertCards.Card("demo:0", "60:60:1F:00:00:01", "Axon body camera", "BWCDEVICE tag in advert payload",
+                com.rfsentinel.app.detect.Category.BODY_CAM, 92, false, -58, null, null, System.currentTimeMillis())
+            1 -> com.rfsentinel.app.ui.AlertCards.Card("demo:1", null, "Speed camera (50 km/h) ahead", "Mapped · OSM · limit 50 km/h",
+                com.rfsentinel.app.detect.Category.ALPR, 70, false, null,
+                anchor?.let { it.first + 0.0043 }, anchor?.second, System.currentTimeMillis())
+            else -> com.rfsentinel.app.ui.AlertCards.Card("demo:2", "60:60:1F:00:00:02", "Item tracker", "Seen with you for 9 minutes",
+                com.rfsentinel.app.detect.Category.TRACKER, 85, true, -70, null, null, System.currentTimeMillis())
+        }
+        com.rfsentinel.app.ui.AlertCards.publish(card)
+    }
+
     /** A drone circling ~120 m from [anchor], with its operator ~80 m the other way. */
     private fun demoRemoteId(anchor: Pair<Double, Double>, secondsAgo: Int): RemoteId.Info {
         val angle = Math.toRadians(135.0 + secondsAgo * 2.0)

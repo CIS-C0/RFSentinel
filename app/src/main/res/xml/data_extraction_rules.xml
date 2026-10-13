@@ -6,6 +6,8 @@
         <exclude domain="database" path="." />
         <!-- Encrypted with a Keystore key that never leaves this phone: useless elsewhere. -->
         <exclude domain="sharedpref" path="secure_store.xml" />
+        <!-- Home, Work, starred and recent destinations: addresses stay on this phone. -->
+        <exclude domain="sharedpref" path="nav_places.xml" />
     </cloud-backup>
     <device-transfer>
         <include domain="database" path="." />

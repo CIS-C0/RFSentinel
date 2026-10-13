@@ -28,6 +28,7 @@ class SettingsActivity : AppCompatActivity() {
         /** Opens Settings on one section (expanded and scrolled to): e.g. [SECTION_MAP] from the map. */
         const val EXTRA_SECTION = "open_section"
         const val SECTION_MAP = "map"
+        const val SECTION_NAV = "navigation"
         const val SECTION_DATA = "data"
         const val WAZE_WARNING_SHORT = "Use at your own risk. Reports come from third-party services RF Sentinel doesn't run or endorse " +
             "(OpenWeb Ninja with your own key, or Waze itself); your account, your responsibility."
@@ -453,6 +454,19 @@ class SettingsActivity : AppCompatActivity() {
         Section("follow", binding.headerFollow, binding.sectionFollow,
             "Warns when a tracker or flagged device keeps moving with you for at least the time and distance set here.\n\n" +
                 "Your own tag: long-press it in the list > Ignore this tracker."),
+        Section("navigation", binding.headerNav, binding.sectionNav,
+            "Turn-by-turn directions: the search button on the map finds a place (or long-press the map), shows up to three " +
+                "routes with the time each takes, and guides you with a banner, lane arrows and spoken directions.\n\n" +
+                "Spoken directions play through the navigation voice (music dips under them, as in Maps) and follow the voice " +
+                "speed and loudness chosen under Alerts. They are separate from the alert mute and snooze.\n\n" +
+                "Network use: routes come from Valhalla on the OpenStreetMap Germany server and places from Photon (komoot), and OpenStreetMap's Nominatim too for a search you submit. They " +
+                "see what you search for, where you start, stop and finish, and your IP address - never what you scan. Nothing is " +
+                "asked until you search, long-press the map or start a route; search sends your position rounded to about 1 km.\n\n" +
+                "Looking for petrol, charging, food and the like asks OpenStreetMap's Overpass servers (as the camera downloads do): " +
+                "your position rounded to about 1 km, or the road ahead as points rounded to about 200 m.\n\n" +
+                "Not included: live traffic (the arrival time starts from the route's usual driving time and then follows how you really " +
+                "drive), speed limits and offline routes.\n\n" +
+                "Home, Work, starred and recent places are kept on this phone only."),
         Section("map", binding.headerMap, binding.sectionMap,
             "What the map shows.\n\n" +
                 "Plate, speed and red-light cameras: from OpenStreetMap (Known cameras has the downloads, warnings and CCTV).\n\n" +
@@ -903,6 +917,68 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    /** Settings > Navigation: directions, route preferences, distance units and the places kept for it. */
+    private fun setupNavSection() {
+        val box = binding.sectionNav
+        val dp = resources.displayMetrics.density
+        fun label(t: String, small: Boolean = false) = android.widget.TextView(this).apply {
+            text = t; textSize = if (small) 12f else 14f
+            if (small) alpha = 0.75f
+            setPadding(0, (if (small) 0 else 10 * dp).toInt(), 0, (2 * dp).toInt())
+        }.also { box.addView(it) }
+        fun switch(t: String, on: Boolean, save: (Boolean) -> Unit) = SwitchMaterial(this).apply {
+            text = t; isChecked = on
+            setOnCheckedChangeListener { _, v -> save(v) }
+        }.also { box.addView(it) }
+
+        switch("Spoken directions", Prefs.navVoice(this)) { Prefs.setNavVoice(this, it) }
+        switch("Start scanning when a destination is started", Prefs.navStartScan(this)) { Prefs.setNavStartScan(this, it) }
+        label("A scan that is already running is left alone, and the scan keeps going after you arrive.", small = true)
+        switch("Keep the screen on while guiding", Prefs.navKeepScreenOn(this)) { Prefs.setNavKeepScreenOn(this, it) }
+        switch("Night map after sunset while guiding", Prefs.navAutoNight(this)) { Prefs.setNavAutoNight(this, it) }
+        label("Worked out on the phone from your position and the time. Pressing the sun / moon button on the map keeps " +
+            "the look you chose instead.", small = true)
+        label("Routes avoid (ticking one while you plan a route is remembered here for the next one)")
+        switch("Tolls", Prefs.navAvoidTolls(this)) { Prefs.setNavAvoidTolls(this, it) }
+        switch("Highways", Prefs.navAvoidHighways(this)) { Prefs.setNavAvoidHighways(this, it) }
+        switch("Ferries", Prefs.navAvoidFerries(this)) { Prefs.setNavAvoidFerries(this, it) }
+
+        label("Distances in")
+        val units = listOf("auto" to "Automatic (by the phone's region)", "km" to "Kilometres", "mi" to "Miles")
+        val group = android.widget.RadioGroup(this)
+        for ((key, text) in units) {
+            group.addView(android.widget.RadioButton(this).apply {
+                id = View.generateViewId(); this.text = text; tag = key
+                isChecked = Prefs.navUnits(this@SettingsActivity) == key
+            })
+        }
+        group.setOnCheckedChangeListener { g, id -> g.findViewById<View>(id)?.tag?.let { Prefs.setNavUnits(this, it as String) } }
+        box.addView(group)
+
+        label("Places")
+        val places = android.widget.TextView(this).apply { textSize = 13f; alpha = 0.8f }
+        fun showPlaces() {
+            places.text = "Home: ${Prefs.navHome(this@SettingsActivity)?.name ?: "not set"}\n" +
+                "Work: ${Prefs.navWork(this@SettingsActivity)?.name ?: "not set"}\n" +
+                "${Prefs.navFavorites(this@SettingsActivity).size} starred · ${Prefs.recentDestinations(this@SettingsActivity).size} recent"
+        }
+        showPlaces()
+        box.addView(places)
+        box.addView(com.google.android.material.button.MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            text = "Forget saved and recent places"
+            setOnClickListener {
+                AlertDialog.Builder(this@SettingsActivity)
+                    .setTitle("Forget your places?")
+                    .setMessage("Removes Home, Work, starred and recent destinations from this phone.")
+                    .setPositiveButton("Forget") { _, _ ->
+                        Prefs.clearNavPlaces(this@SettingsActivity); Prefs.clearRecentDestinations(this@SettingsActivity); showPlaces()
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+        })
+    }
+
     /** Settings > Map: what the map shows (moved here from the map's menu). Saved as you switch. */
     private fun setupMapSection() {
         setupMapProvider()
@@ -1243,9 +1319,15 @@ class SettingsActivity : AppCompatActivity() {
             Prefs.wazeAdaptive(this)) { Prefs.setWazeAdaptive(this, it) }
         switchRow("Only alert for reports ahead of me",
             "While you drive, only reports on the road you're on, ahead of you, alert, flash or speak - checked on the map's " +
-                "roads, so one on a parallel road, a cross street, an overpass or behind you stays quiet (it stays on the list). " +
-                "Where the map can't tell yet, reports behind you stay quiet.",
+                "roads, so one on a parallel road, a cross street, an overpass or behind you stays quiet (it stays on the list, " +
+                "marked \"not on your way\" unless you hide them below). While you are being guided to a destination the route " +
+                "decides: only reports on the part of it still ahead count, round corners too. Where the map can't tell yet, " +
+                "reports behind you stay quiet.",
             Prefs.wazeAheadOnly(this)) { Prefs.setWazeAheadOnly(this, it) }
+        switchRow("Hide reports that aren't on my way",
+            "With the switch above on, a report behind you, on another street or off your route is left off the list (the map " +
+                "still shows it). Off: it stays listed, quiet, marked \"not on your way\".",
+            Prefs.wazeHideOffWay(this)) { Prefs.setWazeHideOffWay(this, it) }
         switchRow("Call out again as I get closer",
             "Speaks at 1 km, 500 m and 200 m when voice alerts are on, or in the car.",
             Prefs.wazeApproach(this)) { Prefs.setWazeApproach(this, it) }
@@ -1628,6 +1710,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.speedCameraSwitch.isChecked = Prefs.speedCameraAlerts(this)
         binding.autoCamerasSwitch.isChecked = Prefs.autoCameras(this)
         setupMapSection()
+        setupNavSection()
         setupRadioSection()
         setupLiveExport()
         binding.hideTrustedSwitch.isChecked = Prefs.hideWhitelisted(this)

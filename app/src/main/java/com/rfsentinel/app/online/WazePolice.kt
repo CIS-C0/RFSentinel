@@ -164,10 +164,19 @@ object WazePolice {
         val hit: Hit,
         val where: Where,
         val trend: WazeTrend.Trend = WazeTrend.Trend.STEADY,
-        val level: Level = Level.LOUD
+        val level: Level = Level.LOUD,
+        /** On your way (ahead, on your road or your route) - only worked out, and only meaningful, when "only ahead" is on. */
+        val onMyWay: Boolean = true
     ) {
         val distanceM: Double get() = where.distanceM
     }
+
+    /**
+     * What the main list shows: the reports inside [alertM]; with [aheadOnly] on, the ones not on your way
+     * are left out when [hideOffWay] is set (else they are listed, quiet and marked).
+     */
+    fun forList(all: List<Shown>, alertM: Double, aheadOnly: Boolean, hideOffWay: Boolean): List<Shown> =
+        all.filter { it.distanceM <= alertM && !(aheadOnly && hideOffWay && !it.onMyWay) }
 
     /** The current reports (every enabled type, inside the view range). */
     @Volatile var latest: List<Shown> = emptyList()
