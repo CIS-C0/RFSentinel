@@ -269,13 +269,27 @@ internal class MapboxEngine(private val context: Context) : MapEngine {
     private var puck = false
     override val puckOn get() = puck && !destroyed
 
+    private var marker: Bitmap? = null
+
+    private fun puck(): com.mapbox.maps.plugin.LocationPuck = marker?.let { b ->
+        val image = com.mapbox.maps.ImageHolder.from(b)
+        // The picture is the bearing layer, which turns with your course; no fixed top picture (it would stay
+        // north up behind it), no shadow, no zoom scaling.
+        com.mapbox.maps.plugin.LocationPuck2D(topImage = null, bearingImage = image, shadowImage = null, scaleExpression = """["interpolate",["linear"],["zoom"],0,1.0,22,1.0]""")
+    } ?: createDefault2DPuck(withBearing = true)
+
+    override fun setMarker(bitmap: Bitmap?) {
+        marker = bitmap
+        if (puck && !destroyed) view.location.locationPuck = puck()
+    }
+
     override fun startPuck(): Boolean {
         if (destroyed) return false
         if (!Permissions.granted(context, android.Manifest.permission.ACCESS_FINE_LOCATION)) return false
         if (!puck) {
             view.location.apply {
                 setLocationProvider(fixes)
-                locationPuck = createDefault2DPuck(withBearing = true)
+                locationPuck = puck()
                 puckBearing = PuckBearing.COURSE
                 puckBearingEnabled = true
                 enabled = true

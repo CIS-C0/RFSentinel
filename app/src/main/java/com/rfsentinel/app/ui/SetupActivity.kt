@@ -47,6 +47,8 @@ class SetupActivity : AppCompatActivity() {
     private var startAfter = true
     private var prefetchOnFinish = true
     private var stopObservingPrefetch: (() -> Unit)? = null
+    /** Set when the theme maker was opened from here: the list shows a new theme when we come back. */
+    private var madeTheme = false
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -85,6 +87,11 @@ class SetupActivity : AppCompatActivity() {
             binding.pageScroll.scrollTo(0, y)
             resumeScroll = null
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (madeTheme) { madeTheme = false; render() }
     }
 
     override fun onDestroy() {
@@ -135,7 +142,8 @@ class SetupActivity : AppCompatActivity() {
         header("Pick a look", "Tap a theme to preview it right away. Pick one to continue.")
         val chosen = ThemeManager.isChosen(this)
         val current = ThemeManager.current(this)
-        ThemeManager.AppTheme.entries.forEach { t ->
+        val custom = ThemeManager.custom(this)
+        ThemeManager.builtIn.forEach { t ->
             val note = if (t == ThemeManager.AppTheme.MATERIAL_YOU && !ThemeManager.isDynamicColorAvailable)
                 " (this phone: standard Material 3 colours)" else ""
             card(t.title, t.description + note, selected = chosen && t == current) {
@@ -150,6 +158,28 @@ class SetupActivity : AppCompatActivity() {
                 }
             }
         }
+        CustomThemes.all(this).forEach { c ->
+            card(c.name, "Your own theme", selected = chosen && current == ThemeManager.AppTheme.CUSTOM && custom?.id == c.id) {
+                if (!(ThemeManager.current(this) == ThemeManager.AppTheme.CUSTOM && ThemeManager.custom(this)?.id == c.id) || !ThemeManager.isChosen(this)) {
+                    ThemeManager.setCustom(this, c.id)
+                    resumeStep = step
+                    resumeScroll = binding.pageScroll.scrollY
+                    recreate()
+                }
+            }
+        }
+        button("Make your own theme (colours, font, banner...)") {
+            resumeStep = step
+            resumeScroll = binding.pageScroll.scrollY
+            madeTheme = true
+            startActivity(android.content.Intent(this, ThemeMakerActivity::class.java))
+        }
+        button("Import a theme file...") { themeFilePicker.launch(arrayOf("application/json", "text/plain", "*/*")) }
+    }
+
+    private val themeFilePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        ThemeImport.open(this, uri) { resumeStep = step; resumeScroll = binding.pageScroll.scrollY; recreate() }
     }
 
     private fun region() {

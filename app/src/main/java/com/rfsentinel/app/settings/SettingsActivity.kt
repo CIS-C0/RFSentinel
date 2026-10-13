@@ -6,7 +6,9 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.View
 import android.widget.RadioButton
+import com.rfsentinel.app.ui.CustomThemes
 import com.rfsentinel.app.ui.ThemeManager
+import com.rfsentinel.app.ui.ThemeImport
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -30,6 +32,16 @@ class SettingsActivity : AppCompatActivity() {
         const val SECTION_MAP = "map"
         const val SECTION_NAV = "navigation"
         const val SECTION_DATA = "data"
+        private const val PRESETS_INFO = "Adds lists of equipment known to be used by police in that region. The built-in detection " +
+            "(body cams, Flock, drones, trackers, glasses) works everywhere.\n\n" +
+            "Global: body cams (Axon, Zepcam, WatchGuard...), Flock, ShotSpotter, traffic cameras, radios.\n" +
+            "Canada: adds Cyberkar in-car systems, Getac body cams, Genetec plate readers.\n" +
+            "France: Motorola VB400 body cams of the Police nationale and Gendarmerie, Zepcam, TETRAPOL radios.\n" +
+            "United Kingdom: Motorola and Axon body cams, Sepura / Motorola Airwave radios, Jenoptik ANPR cameras.\n" +
+            "Portugal: Motorola SIRESP radios of PSP, GNR and INEM.\n" +
+            "Germany: Motorola VB400 body cams, Motorola and Sepura BOS digital radios.\n" +
+            "Spain: Axon body cams of the Policia Nacional, Teltronic radios.\n" +
+            "Italy: Leonardo / Selex police radios, Selea and Elsag plate readers."
         const val WAZE_WARNING_SHORT = "Use at your own risk. Reports come from third-party services RF Sentinel doesn't run or endorse " +
             "(OpenWeb Ninja with your own key, or Waze itself); your account, your responsibility."
         const val WAZE_WARNING = "Waze police reports are read through OpenWeb Ninja's Waze API with your own API key.\n\n" +
@@ -151,7 +163,7 @@ class SettingsActivity : AppCompatActivity() {
     /** Known cameras silenced from the map (tap a camera > Ignore alerts). */
     private fun updateIgnoredCamerasText() {
         val n = com.rfsentinel.app.alpr.IgnoredCameras.count(this)
-        binding.ignoredCamerasText.text = "$n camera${if (n == 1) "" else "s"} with alerts turned off (faded on the map)"
+        binding.ignoredCamerasText.text = "$n camera${if (n == 1) "" else "s"} with alerts turned off · faded on the map"
         binding.ignoredCamerasText.visibility = if (n > 0) View.VISIBLE else View.GONE
         binding.ignoredCamerasButton.visibility = if (n > 0) android.view.View.VISIBLE else android.view.View.GONE
     }
@@ -289,10 +301,10 @@ class SettingsActivity : AppCompatActivity() {
         val mb = String.format(java.util.Locale.US, "%.1f MB", rec.bytes / 1_048_576.0)
         binding.pcapText.text = when {
             rec.active -> "● Recording · ${rec.frames} frames · $mb"
-            file != null -> "Last recording: ${rec.frames} frames · $mb" + (rec.stoppedBecause?.let { " (stopped: $it)" } ?: "")
+            file != null -> "Last recording: ${rec.frames} frames · $mb" + (rec.stoppedBecause?.let { " · stopped: $it" } ?: "")
             else -> "Record what the USB WiFi adapter or V2X board hears, for Wireshark"
         }
-        binding.pcapButton.text = if (rec.active) "Stop and share" else "Record frames (.pcap)"
+        binding.pcapButton.text = if (rec.active) "Stop and share" else "Record frames"
         binding.pcapShareButton.visibility = if (!rec.active && file != null) View.VISIBLE else View.GONE
         binding.pcapText.removeCallbacks(pcapTicker)
         if (rec.active) binding.pcapText.postDelayed(pcapTicker, 1_000)
@@ -307,7 +319,7 @@ class SettingsActivity : AppCompatActivity() {
         val board = Prefs.ouiSpyBoard(this)
         binding.ouiSpyText.text = if (board == null) "OUI-SPY over Bluetooth: not paired"
         else com.rfsentinel.app.esp.OuiSpyBle.status.ifBlank { "OUI-SPY $board: connects while scanning" }
-        binding.ouiSpyButton.text = if (board == null) "Pair OUI-SPY board (Bluetooth)" else "Change or forget OUI-SPY board"
+        binding.ouiSpyButton.text = if (board == null) "Pair OUI-SPY board" else "Change or forget OUI-SPY board"
     }
 
     private val ouiSpyConnectPermission = registerForActivityResult(
@@ -363,7 +375,7 @@ class SettingsActivity : AppCompatActivity() {
     /** A folded section on screen, for the search: its header row, divider, body and fold state. */
     private class SectionUi(
         val title: String, val info: String, val row: View, val divider: View?, val body: View,
-        val restore: () -> Unit, val expand: () -> Unit
+        val restore: () -> Unit, val expand: () -> Unit, val setOpen: (Boolean) -> Unit
     )
 
     private val sectionUi = mutableListOf<SectionUi>()
@@ -485,6 +497,11 @@ class SettingsActivity : AppCompatActivity() {
                 "is off until you turn it on. Limits are OpenStreetMap's: where none is mapped there is no sign.\n\n" +
                 "The full screen map has a button that hides the toolbar, the system bars and the bottom bar (the speedometer, " +
                 "alert cards and, while guiding, the turn banner stay).\n\n" +
+                "Position marker: your position on the map as an arrow or a car seen from above - sedan, hatchback, wagon, SUV, pickup, " +
+                "sports car, racer, convertible, mini, van, truck, taxi or motorcycle - in 16 colours, from small to very large. " +
+                "It turns with your direction of travel.\n\n" +
+                "Recenter: while you drive, the map goes back to following you ten seconds after you last touched it (like Google Maps); " +
+                "parked it stays where you put it. The speedometer's card turns red while you are over the posted limit.\n\n" +
                 "Default zoom: how close the map follows you. The 3D driving view pulls back from it as you speed up; the " +
                 "north-up and heading-up views sit half a level wider. 17 is close to Waze.\n\n" +
                 "Map provider: OpenFreeMap (OpenStreetMap data, free, no account) or Mapbox (Mapbox's own map: 3D buildings, " +
@@ -639,8 +656,144 @@ class SettingsActivity : AppCompatActivity() {
             sectionUi += SectionUi(title, s.info, row, dividerView, s.body, restore = { show() }, expand = {
                 s.body.visibility = View.VISIBLE
                 s.header.text = "▾  $title"
+            }, setOpen = { want ->
+                open = want
+                ui.edit().putBoolean(s.key, open).apply()
+                show()
             })
         }
+    }
+
+    // ---- ⓘ details beside a setting -----------------------------------------------------------
+
+    /** What an ⓘ says (its tag), so the search finds a setting by its details too. */
+    private class InfoText(val text: String)
+
+    /** The ⓘ: tapping it shows [text] under [title] (the setting's own label when not given). */
+    private fun infoIcon(text: String, title: () -> String): View {
+        val dp = resources.displayMetrics.density
+        val ripple = android.util.TypedValue().also { theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, it, true) }.resourceId
+        return android.widget.TextView(this).apply {
+            this.text = "ⓘ"
+            textSize = 18f
+            alpha = 0.7f
+            tag = InfoText(text)
+            setPadding((10 * dp).toInt(), (8 * dp).toInt(), (6 * dp).toInt(), (8 * dp).toInt())
+            setBackgroundResource(ripple)
+            contentDescription = "About ${title()}"
+            setOnClickListener { AlertDialog.Builder(this@SettingsActivity).setTitle(title()).setMessage(text).setPositiveButton("OK", null).show() }
+        }
+    }
+
+    private fun labelOf(view: View) = ((view as? android.widget.TextView)?.text ?: "").toString().removePrefix("▾  ").substringBefore(":").trim()
+
+    /** [view] with its ⓘ at the end of the row (for a view not yet added anywhere). */
+    private fun infoRow(view: View, text: String, title: String? = null): View {
+        val wrap = (view.layoutParams?.width ?: android.view.ViewGroup.LayoutParams.MATCH_PARENT) == android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+        return android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            addView(view, if (wrap) android.widget.LinearLayout.LayoutParams(-2, -2)
+                else android.widget.LinearLayout.LayoutParams(0, -2, 1f))
+            addView(infoIcon(text) { title ?: labelOf(view) })
+            // A hidden setting takes its ⓘ with it.
+            if (view.visibility == View.GONE) visibility = View.GONE
+        }
+    }
+
+    /** Puts an ⓘ at the end of [view]'s row, where it already sits. */
+    private fun info(view: View, text: String, title: String? = null) {
+        val parent = view.parent as? android.view.ViewGroup ?: return
+        val at = parent.indexOfChild(view)
+        val lp = view.layoutParams
+        parent.removeViewAt(at)
+        parent.addView(infoRow(view, text, title), at, android.widget.LinearLayout.LayoutParams(
+            android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            (lp as? android.view.ViewGroup.MarginLayoutParams)?.let { setMargins(it.leftMargin, it.topMargin, it.rightMargin, it.bottomMargin) }
+        })
+    }
+
+    /** The unit after a number field ("min", "s", "m", "days"), so the label doesn't have to say it. */
+    private fun withUnit(field: android.widget.EditText, unit: String) {
+        val parent = field.parent as? android.view.ViewGroup ?: return
+        val at = parent.indexOfChild(field)
+        val lp = field.layoutParams
+        parent.removeViewAt(at)
+        val row = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            addView(field, android.widget.LinearLayout.LayoutParams(0, -2, 1f))
+            addView(android.widget.TextView(this@SettingsActivity).apply {
+                text = unit; alpha = 0.75f
+                setPadding((8 * resources.displayMetrics.density).toInt(), 0, (8 * resources.displayMetrics.density).toInt(), 0)
+            })
+        }
+        parent.addView(row, at, lp)
+    }
+
+    /** "Probable" with a small "recommended" after it. */
+    private fun tagged(main: String, tag: String): CharSequence = android.text.SpannableStringBuilder(main).apply {
+        append("   ")
+        val start = length
+        append(tag)
+        setSpan(android.text.style.RelativeSizeSpan(0.8f), start, length, 0)
+        setSpan(android.text.style.StyleSpan(android.graphics.Typeface.ITALIC), start, length, 0)
+    }
+
+    /** A long title split in the label and its details: "Drone (Remote ID / drone maker)", "Hacking tools: Flipper...". */
+    private fun splitTitle(t: String): Pair<String, String?> {
+        val p = t.indexOf(" (")
+        if (p > 0 && t.endsWith(")")) return t.substring(0, p) to t.substring(p + 2, t.length - 1).replaceFirstChar { it.uppercase() }
+        val c = t.indexOf(": ")
+        if (c > 0) return t.substring(0, c) to t.substring(c + 2).replaceFirstChar { it.uppercase() }
+        return t to null
+    }
+
+    /** The ⓘ of the settings laid out in the layout file, and the units beside their number fields. */
+    private fun addDetails() {
+        info(binding.autoUpdateSwitch, "When RF Sentinel opens, it asks GitHub whether a newer release is out. Off: nothing is sent until you tap Check for updates.")
+        info(binding.discreetSwitch, "Hides what was detected on the lock screen and in notifications.")
+        info(binding.screenLabel, "Always on: the screen never turns off while RF Sentinel is open.\n\nOn while charging: stays on in the car or on a desk (recommended).\n\nNormal: turns off like any other app.")
+        info(binding.rotationLabel, "Normal follows the phone's auto-rotate.\n\nAuto-rotate, upside down too: also turns upside down, which phones like the Pixel never do on their own.\n\nAlways upside down: the USB-C port at the top, for an antenna or adapter plugged in.")
+        info(binding.bannerLabel, "A picture across the header of the styled themes (a logo or artwork you own). Your custom themes have their own banner, set in the theme maker.")
+        info(binding.hideTrustedSwitch, "Devices on your whitelist are left off the list and radar.")
+        info(binding.scanModeLabel, "Maximum finds devices fastest and uses the most battery. Battery saver notices them later.")
+        info(binding.intervalLabel, "How often WiFi is scanned. Android allows an app 4 scans in 2 minutes unless WiFi scan throttling is turned off in Developer options.")
+        withUnit(binding.intervalInput, "s")
+        info(binding.batteryButton, "Opens Android's battery settings: set RF Sentinel to Unrestricted so scanning keeps going with the screen off.")
+        info(binding.carAutoSwitch, "Starts scanning when the phone connects to your car's Bluetooth or Android Auto, and stops when you leave.")
+        info(binding.presetLabel, PRESETS_INFO)
+        info(binding.thresholdLabel, "Weak: every match, more false alarms.\n\nProbable: recommended.\n\nStrong only: the fewest alerts.")
+        binding.thresholdMedium.text = tagged("Probable", "recommended")
+        info(binding.radarBeepSwitch, "Beeps faster as a flagged device gets closer, like a radar detector.")
+        info(binding.detectorSoundSwitch, "Alerts use radar-detector tones (Ka, K and X) and say \"GPS connected\" when the first GPS fix comes in.")
+        info(binding.dedupeLabel, "The same device won't alert again until this many minutes have passed.")
+        withUnit(binding.dedupeInput, "min")
+        info(binding.shortVoiceSwitch, "\"Body cam\", \"Police car\", \"Speed camera, 50\" instead of whole sentences.")
+        info(binding.bubbleSwitch, "A small bubble over other apps (Waze, Google Maps...) showing the threat level. Needs \"Display over other apps\".")
+        info(binding.floatingMapSwitch, "A small map over other apps, centred on you, with the same device dots as RF Sentinel's map. It always uses OpenFreeMap: a window this small has no room for Mapbox's logo and info button.")
+        info(binding.followSwitch, "Warns when a tracker or flagged device keeps moving with you, for at least the time and distance below.")
+        withUnit(binding.followMinutesInput, "min")
+        withUnit(binding.followMetersInput, "m")
+        info(binding.mapProviderLabel, "OpenFreeMap: free and open, OpenStreetMap data.\n\nMapbox: Mapbox's Standard map with 3D buildings and day / night light.\n\nThe floating mini map and the Android Auto map always use OpenStreetMap maps.")
+        info(binding.mapAutoRecenterSwitch, "While you drive, the map goes back to your position a few seconds after you stop touching it.")
+        info(binding.mapSpeedometerSwitch, "Your speed and the posted limit in a corner of the map; your speed turns red over the limit.")
+        info(binding.mapSpeedLimitLiveSwitch, "Shows the posted limit with no destination too, by asking the route server (Valhalla, OpenStreetMap data) about the road you're on. Your position is sent to it.")
+        info(binding.autoCamerasSwitch, "Fetches the known cameras (OpenStreetMap) for the area the map shows, as you move it.")
+        info(binding.mapCctvSwitch, "Surveillance cameras mapped in OpenStreetMap.")
+        info(binding.deflockButton, "Every plate-reader camera in the US and Canada, from DeFlock's OpenStreetMap snapshot. Works offline and refreshes weekly on Wi-Fi.")
+        info(binding.disable2gLabel, "2G doesn't check that a tower is real. Turning it off is the best protection against fake cell towers (IMSI catchers).")
+        info(binding.cellSecurityLabel, "Android 15 and newer can warn you when a network asks for your phone's identity or turns encryption off.")
+        info(binding.ouiSpyRelaySwitch, "Every device the OUI-SPY board hears comes into the list, not just its own matches.")
+        info(binding.rtl5gSwitch, "For RTL8811AU / RTL8821AU adapters such as the ALFA AWUS036ACS. Experimental.")
+        info(binding.usbLightSwitch, "For RTL8811AU / RTL8821AU adapters such as the ALFA AWUS036ACS: the light blinks with received traffic.")
+        info(binding.pinpointSwitch, "Works out where a flagged device is from many readings as you move (GPS runs precise every second while one is in range).")
+        info(binding.liveExportSwitch, "Keeps a live copy of matches, devices and radio hits in a folder other apps can read.")
+        info(binding.retentionLabel, "How long device history is kept. 0 keeps it forever.")
+        withUnit(binding.retentionInput, "days")
+        info(binding.exportAllButton, "CSV, JSON, KML, GPX or GeoJSON.")
+        info(binding.forgetHistoryButton, "New / returning status, detect counts and the remembered cell towers start over. Favorites are kept.")
+        info(binding.openWhitelistButton, "Trusted devices: never flagged, and hidden from the list when you choose.")
     }
 
     // ---- Search ----------------------------------------------------------------------------
@@ -690,6 +843,36 @@ class SettingsActivity : AppCompatActivity() {
             setPadding((16 * dp).toInt(), (4 * dp).toInt(), (4 * dp).toInt(), 0)
             addView(searchInput, android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             addView(clear)
+            addView(foldAllButton())
+        }
+    }
+
+    /** Folds every section (or, when all are folded, unfolds them all) and goes back to the top. */
+    private fun foldAllButton(): View {
+        val dp = resources.displayMetrics.density
+        val ripple = android.util.TypedValue().also { theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, it, true) }.resourceId
+        return android.widget.TextView(this).apply {
+            text = "Collapse all"
+            textSize = 13f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setTextColor(com.google.android.material.color.MaterialColors.getColor(this, androidx.appcompat.R.attr.colorPrimary, currentTextColor))
+            setPadding((10 * dp).toInt(), (10 * dp).toInt(), (12 * dp).toInt(), (10 * dp).toInt())
+            setBackgroundResource(ripple)
+            fun label() {
+                val anyOpen = sectionUi.any { it.body.visibility == View.VISIBLE }
+                val want = if (anyOpen) "Collapse all" else "Expand all"
+                if (text.toString() != want) { text = want; contentDescription = want } // only on a change: setting text lays out again
+            }
+            setOnClickListener {
+                if (searchInput.text.isNotEmpty()) searchInput.setText("")
+                val anyOpen = sectionUi.any { it.body.visibility == View.VISIBLE }
+                sectionUi.forEach { it.setOpen(!anyOpen) }
+                binding.root.scrollTo(0, 0)
+                label()
+            }
+            // Section headers toggled by hand change what the button does.
+            post { label() }
+            binding.root.viewTreeObserver.addOnGlobalLayoutListener { label() }
         }
     }
 
@@ -741,6 +924,9 @@ class SettingsActivity : AppCompatActivity() {
                 val c = v.getChildAt(i)
                 if (c.visibility == View.VISIBLE) collectMatches(c, q, out)
             }
+        } else if (v.tag is InfoText) {
+            // An ⓘ that matches: the setting beside it lights up.
+            if ((v.tag as InfoText).text.lowercase().contains(q)) ((v.parent as? android.view.ViewGroup)?.getChildAt(0))?.let { if (it !in out) out += it }
         } else if (v is android.widget.TextView) {
             val text = v.text?.toString().orEmpty().lowercase()
             val hint = v.hint?.toString().orEmpty().lowercase()
@@ -749,6 +935,58 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     // ---- RTL-SDR radio -------------------------------------------------------------------
+
+    /** Settings > Data > Back up settings: writes the backup where you choose. */
+    private val backupPicker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri == null) return@registerForActivityResult
+        val ok = runCatching {
+            contentResolver.openOutputStream(uri, "wt")!!.use { it.write(com.rfsentinel.app.util.SettingsBackup.create(this).toByteArray(Charsets.UTF_8)) }
+        }.isSuccess
+        Toast.makeText(this, if (ok) "Settings backed up. API keys and risk acknowledgements are not in the file." else "Couldn't write the file", Toast.LENGTH_LONG).show()
+    }
+
+    /** Settings > Data > Restore settings: reads a backup, asks, applies it and restarts the app. */
+    private val restorePicker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        val backup = com.rfsentinel.app.util.SettingsBackup
+        val text = runCatching { contentResolver.openInputStream(uri)!!.use { backup.read(it) } }.getOrNull()
+        if (text == null) { Toast.makeText(this, "Couldn't read that file (or it is too big for a backup)", Toast.LENGTH_LONG).show(); return@registerForActivityResult }
+        val found = when (val i = backup.inspect(text)) {
+            is com.rfsentinel.app.util.SettingsBackup.Inspect.Bad -> {
+                androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Not restored").setMessage(i.why).setPositiveButton("OK", null).show()
+                return@registerForActivityResult
+            }
+            is com.rfsentinel.app.util.SettingsBackup.Inspect.Ok -> i
+        }
+        // A box per section: what is ticked is replaced by the file's, the rest is left as it is.
+        val chosen = found.sections.toMutableSet()
+        val labels = found.sections.map { s ->
+            if (s == com.rfsentinel.app.util.SettingsBackup.Section.THEMES) "${s.label}: ${found.themes}" else s.label
+        }.toTypedArray()
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Restore what? Ticked parts are replaced, then RF Sentinel restarts")
+            .setMultiChoiceItems(labels, BooleanArray(labels.size) { true }) { _, which, on ->
+                if (on) chosen += found.sections[which] else chosen -= found.sections[which]
+            }
+            .setPositiveButton("Restore") { _, _ ->
+                if (chosen.isEmpty()) { Toast.makeText(this, "Nothing ticked - nothing restored", Toast.LENGTH_SHORT).show(); return@setPositiveButton }
+                when (val r = backup.restore(this, text, chosen)) {
+                    is com.rfsentinel.app.util.SettingsBackup.Result.Refused -> androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("Not restored").setMessage(r.why).setPositiveButton("OK", null).show()
+                    is com.rfsentinel.app.util.SettingsBackup.Result.Restored -> {
+                        restored = true
+                        Toast.makeText(this, "Restored ${r.count} settings - restarting", Toast.LENGTH_LONG).show()
+                        // A fresh start picks everything up (themes, filters, services read their settings at start-up).
+                        packageManager.getLaunchIntentForPackage(packageName)?.let {
+                            startActivity(it.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK))
+                        }
+                        Runtime.getRuntime().exit(0)
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
 
     private val freqListPicker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@registerForActivityResult
@@ -791,8 +1029,8 @@ class SettingsActivity : AppCompatActivity() {
                 addOnChangeListener { _, v, fromUser -> if (fromUser) { save(v.toInt()); l.text = text(v.toInt()) } }
             })
         }
-        fun lines(title: String, hint: String, value: String, save: (String) -> Unit) {
-            label(title)
+        fun lines(title: String, hint: String, value: String, details: String? = null, save: (String) -> Unit) {
+            label(title).also { if (details != null) info(it, details) }
             box.addView(android.widget.EditText(this).apply {
                 setText(value); this.hint = hint
                 minLines = 2; maxLines = 8; gravity = android.view.Gravity.TOP
@@ -805,19 +1043,20 @@ class SettingsActivity : AppCompatActivity() {
                 })
             })
         }
-        fun switch(t: String, on: Boolean, save: (Boolean) -> Unit) = SwitchMaterial(this).apply {
+        fun switch(t: String, on: Boolean, info: String? = null, save: (Boolean) -> Unit) = SwitchMaterial(this).apply {
             text = t; isChecked = on
             setOnCheckedChangeListener { _, v -> save(v) }
-        }.also { box.addView(it) }
+        }.also { box.addView(if (info == null) it else infoRow(it, info)) }
 
-        slider(15, 50, Prefs.radioMinSnr(this), { "Sensitivity: report a radio from $it dB above the noise (lower = hears farther, more false alarms)" }) {
+        slider(15, 50, Prefs.radioMinSnr(this), { "Sensitivity: $it dB above the noise" }) {
             Prefs.setRadioMinSnr(this, it)
         }
+        info(box.getChildAt(box.childCount - 2), "A radio is reported once its signal is this far above the noise. Lower hears farther, with more false alarms.", "Sensitivity")
         label("Bands to sweep")
         val off = Prefs.radioBandsOff(this).toMutableSet()
         for ((key, band) in com.rfsentinel.app.sdr.RadioSettings.BUILT_IN) {
             box.addView(android.widget.CheckBox(this).apply {
-                text = "%s (%.1f-%.1f MHz)".format(java.util.Locale.US, band.label, band.startHz / 1e6, band.endHz / 1e6)
+                text = "%s · %.1f-%.1f MHz".format(java.util.Locale.US, band.label, band.startHz / 1e6, band.endHz / 1e6)
                 isChecked = key !in off
                 setOnCheckedChangeListener { _, on ->
                     if (on) off -= key else off += key
@@ -825,14 +1064,15 @@ class SettingsActivity : AppCompatActivity() {
                 }
             })
         }
-        lines("Your own bands (one per line, in MHz)", "380-400 TETRA\n220-222", Prefs.radioCustomBands(this)) { Prefs.setRadioCustomBands(this, it) }
-        lines("Never report these ranges", "462-469 business band\n151.8-152.0", Prefs.radioExcluded(this)) { Prefs.setRadioExcluded(this, it) }
-        lines("Watch these frequencies (always reported when active)", "154.4300 County fire dispatch\n460.125", Prefs.radioTargets(this)) { Prefs.setRadioTargets(this, it) }
-        switch("Say the frequency (and its name) instead of \"Radio transmitting nearby\"", Prefs.radioSpeakFreq(this)) { Prefs.setRadioSpeakFreq(this, it) }
-        switch("Also detect cellular transmitters (LTE uplink, experimental)", Prefs.radioCellOn(this)) { Prefs.setRadioCellOn(this, it) }
-        label("Watches the phone / modem side of the LTE bands for a transmitter travelling near you (a vehicle modem, a " +
-            "Cradlepoint-style router, a camera with a SIM). Energy only, nothing decoded. Adds time to each sweep; " +
-            "a phone counts too, so it is a weak sign on its own.", small = true)
+        lines("Your own bands", "380-400 TETRA\n220-222", Prefs.radioCustomBands(this), "One per line, in MHz, with an optional name.") { Prefs.setRadioCustomBands(this, it) }
+        lines("Never report these ranges", "462-469 business band\n151.8-152.0", Prefs.radioExcluded(this), "One per line, in MHz.") { Prefs.setRadioExcluded(this, it) }
+        lines("Watch these frequencies", "154.4300 County fire dispatch\n460.125", Prefs.radioTargets(this),
+            "Always reported when active, whatever the sensitivity. One per line, in MHz, with an optional name.") { Prefs.setRadioTargets(this, it) }
+        switch("Say the frequency", Prefs.radioSpeakFreq(this), "Says the frequency (and its name) instead of \"Radio transmitting nearby\".") { Prefs.setRadioSpeakFreq(this, it) }
+        switch("Detect cellular transmitters", Prefs.radioCellOn(this),
+            "Experimental. Watches the phone / modem side of the LTE bands (uplink) for a transmitter travelling near you: a vehicle modem, a " +
+            "Cradlepoint-style router, a camera with a SIM. Energy only, nothing decoded. Adds time to each sweep; " +
+            "a phone counts too, so it is a weak sign on its own.") { Prefs.setRadioCellOn(this, it) }
         slider(0, 20, Prefs.radioTrendDb(this), { if (it == 0) "Closer / moving away: off" else "Say \"getting closer\" / \"moving away\" when the signal changes by $it dB" }) {
             Prefs.setRadioTrendDb(this, it)
         }
@@ -856,7 +1096,8 @@ class SettingsActivity : AppCompatActivity() {
             })
         })
 
-        val rrSwitch = switch("Name hits from RadioReference (your own Premium login)", Prefs.radioReferenceOn(this)) {
+        val rrSwitch = switch("Name hits from RadioReference", Prefs.radioReferenceOn(this),
+            "Names a hit from RadioReference's database. Needs your own RadioReference Premium login and developer key, stored encrypted on this phone.") {
             Prefs.setRadioReferenceOn(this, it)
         }
         fun secret(title: String, key: String, password: Boolean) {
@@ -939,31 +1180,31 @@ class SettingsActivity : AppCompatActivity() {
             if (small) alpha = 0.75f
             setPadding(0, (if (small) 0 else 10 * dp).toInt(), 0, (2 * dp).toInt())
         }.also { box.addView(it) }
-        fun switch(t: String, on: Boolean, save: (Boolean) -> Unit) = SwitchMaterial(this).apply {
+        fun switch(t: String, on: Boolean, info: String? = null, save: (Boolean) -> Unit) = SwitchMaterial(this).apply {
             text = t; isChecked = on
             setOnCheckedChangeListener { _, v -> save(v) }
-        }.also { box.addView(it) }
+        }.also { box.addView(if (info == null) it else infoRow(it, info)) }
 
-        switch("Spoken directions", Prefs.navVoice(this)) { Prefs.setNavVoice(this, it) }
-        switch("Start scanning when a destination is started", Prefs.navStartScan(this)) { Prefs.setNavStartScan(this, it) }
-        label("A scan that is already running is left alone, and the scan keeps going after you arrive.", small = true)
+        switch("Spoken directions", Prefs.navVoice(this), "Turn-by-turn directions spoken aloud. Muting them never mutes the detection alerts.") { Prefs.setNavVoice(this, it) }
+        switch("Scan when a route starts", Prefs.navStartScan(this),
+            "Starts scanning when you start a destination. A scan already running is left alone, and the scan keeps going after you arrive.") { Prefs.setNavStartScan(this, it) }
         switch("Keep the screen on while guiding", Prefs.navKeepScreenOn(this)) { Prefs.setNavKeepScreenOn(this, it) }
-        switch("Night map after sunset while guiding", Prefs.navAutoNight(this)) { Prefs.setNavAutoNight(this, it) }
-        label("Worked out on the phone from your position and the time. Pressing the sun / moon button on the map keeps " +
-            "the look you chose instead.", small = true)
-        label("Routes avoid (ticking one while you plan a route is remembered here for the next one)")
+        switch("Night map after sunset", Prefs.navAutoNight(this),
+            "While guiding, the map turns dark after sunset, worked out on the phone from your position and the time. " +
+            "Pressing the sun / moon button on the map keeps the look you chose instead.") { Prefs.setNavAutoNight(this, it) }
+        box.addView(infoRow(label("Routes avoid").also { box.removeView(it) },
+            "Ticking one while you plan a route is remembered here for the next one.\n\n" +
+            "Speed cameras and plate readers: routes go round the cameras of the camera map (Known cameras) where there is a way round, " +
+            "and each route says what is left on it. The cameras along the route are fetched first if they are not on the phone. " +
+            "A camera right at the start or end, or on the only bridge, can't be avoided. A detour can be longer."))
         switch("Tolls", Prefs.navAvoidTolls(this)) { Prefs.setNavAvoidTolls(this, it) }
         switch("Highways", Prefs.navAvoidHighways(this)) { Prefs.setNavAvoidHighways(this, it) }
         switch("Ferries", Prefs.navAvoidFerries(this)) { Prefs.setNavAvoidFerries(this, it) }
         switch("Speed cameras", Prefs.navAvoidSpeedCameras(this)) { Prefs.setNavAvoidSpeedCameras(this, it) }
-        switch("Plate readers (ALPR)", Prefs.navAvoidPlateReaders(this)) { Prefs.setNavAvoidPlateReaders(this, it) }
-        label("Routes go round the cameras of the camera map (Known cameras) where there is a way round, and each route says " +
-            "what is left on it. The cameras along the route are fetched first if they are not on the phone (Known cameras > " +
-            "Download automatically). A camera right at the start or end, or on the only bridge, can't be avoided. A detour can be longer.",
-            small = true)
+        switch("Plate readers", Prefs.navAvoidPlateReaders(this)) { Prefs.setNavAvoidPlateReaders(this, it) }
 
-        label("Distances in")
-        val units = listOf("auto" to "Automatic (by the phone's region)", "km" to "Kilometres", "mi" to "Miles")
+        box.addView(infoRow(label("Distances in").also { box.removeView(it) }, "Automatic follows the phone's region."))
+        val units = listOf("auto" to "Automatic", "km" to "Kilometres", "mi" to "Miles")
         val group = android.widget.RadioGroup(this)
         for ((key, text) in units) {
             group.addView(android.widget.RadioButton(this).apply {
@@ -1003,8 +1244,14 @@ class SettingsActivity : AppCompatActivity() {
         setupMapProvider()
         setupMapZoom()
         setupMapTilt()
+        binding.mapMarkerButton.text = com.rfsentinel.app.ui.MarkerPicker.summary(this) + "  ▾"
+        binding.mapMarkerButton.setOnClickListener {
+            com.rfsentinel.app.ui.MarkerPicker.show(this) { binding.mapMarkerButton.text = com.rfsentinel.app.ui.MarkerPicker.summary(this) + "  ▾" }
+        }
         binding.mapKnownCamerasSwitch.isChecked = Prefs.showKnownAlpr(this)
         binding.mapKnownCamerasSwitch.setOnCheckedChangeListener { _, on -> Prefs.setShowKnownAlpr(this, on) }
+        binding.mapAutoRecenterSwitch.isChecked = Prefs.mapAutoRecenter(this)
+        binding.mapAutoRecenterSwitch.setOnCheckedChangeListener { _, on -> Prefs.setMapAutoRecenter(this, on) }
         binding.mapSpeedometerSwitch.isChecked = Prefs.mapSpeedometer(this)
         binding.mapSpeedLimitLiveSwitch.isChecked = Prefs.mapSpeedLimitLive(this)
         binding.mapSpeedLimitLiveSwitch.isEnabled = binding.mapSpeedometerSwitch.isChecked
@@ -1053,7 +1300,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupMapTilt() {
         fun show(t: Double) {
             val what = when { t <= 40 -> "flatter, more overhead"; t <= 55 -> "balanced, like Waze"; else -> "steep: far down the road" }
-            binding.map3dTiltText.text = "3D view angle: ${t.toInt()}° ($what)"
+            binding.map3dTiltText.text = "3D view angle: ${t.toInt()}° · $what"
         }
         val t = Prefs.map3dTilt(this)
         binding.map3dTiltSlider.value = t.toFloat(); show(t)
@@ -1073,7 +1320,7 @@ class SettingsActivity : AppCompatActivity() {
                 z <= 17.25 -> "street level, close to Waze"
                 else -> "very close: the next intersection"
             }
-            binding.mapZoomText.text = "Default zoom: ${"%.2f".format(java.util.Locale.US, z).trimEnd('0').trimEnd('.')} ($what)"
+            binding.mapZoomText.text = "Default zoom: ${"%.2f".format(java.util.Locale.US, z).trimEnd('0').trimEnd('.')} · $what"
         }
         val z = Prefs.mapDefaultZoom(this)
         // The slider counts quarter levels (58 = 14.5 ... 74 = 18.5): whole numbers, no rounding errors.
@@ -1164,13 +1411,16 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun addLiveWindowSliders() {
+        val texts = mutableListOf<android.widget.TextView>()
         fun slider(label: (Int) -> String, from: Int, to: Int, value: Int, save: (Int) -> Unit): com.google.android.material.slider.Slider {
             val text = android.widget.TextView(this).apply {
                 textSize = 13f
                 setPadding(0, (10 * resources.displayMetrics.density).toInt(), 0, 0)
                 this.text = label(value)
             }
-            binding.sectionScanning.addView(text)
+            texts += text
+            binding.sectionScanning.addView(infoRow(text, "How long a device stays in the list and radar after it was last heard. " +
+                "Flagged, favourite and following devices always stay 3 minutes.", "Out of range"))
             val s = com.google.android.material.slider.Slider(this).apply {
                 valueFrom = from.toFloat(); valueTo = to.toFloat(); stepSize = 5f
                 this.value = (value - value % 5).coerceIn(from, to).toFloat()
@@ -1184,11 +1434,11 @@ class SettingsActivity : AppCompatActivity() {
             binding.sectionScanning.addView(s)
             return s
         }
-        slider({ "Remove Bluetooth devices from the list after $it s out of range" }, 5, 180, Prefs.liveBleSec(this)) {
+        slider({ "Bluetooth: off the list after $it s" }, 5, 180, Prefs.liveBleSec(this)) {
             Prefs.setLiveBleSec(this, it)
         }
         // Below 30 s only with Developer options on and a WiFi scan interval under 30 s.
-        val wifiLabel = { s: Int -> "Remove WiFi devices from the list after $s s out of range" }
+        val wifiLabel = { s: Int -> "WiFi: off the list after $s s" }
         val wifiSlider = slider(wifiLabel, Prefs.minLiveWifiSec(this), 180, Prefs.liveWifiSec(this)) {
             Prefs.setLiveWifiSec(this, it)
         }
@@ -1203,8 +1453,7 @@ class SettingsActivity : AppCompatActivity() {
                 if (wifiSlider.value < min) {
                     wifiSlider.value = min.toFloat()
                     Prefs.setLiveWifiSec(this@SettingsActivity, min)
-                    (binding.sectionScanning.getChildAt(binding.sectionScanning.indexOfChild(wifiSlider) - 1)
-                        as? android.widget.TextView)?.text = wifiLabel(min)
+                    texts.last().text = wifiLabel(min)
                 }
                 wifiSlider.valueFrom = min.toFloat()
             }
@@ -1252,13 +1501,11 @@ class SettingsActivity : AppCompatActivity() {
             orientation = android.widget.LinearLayout.VERTICAL
             setPadding((24 * dp).toInt(), 0, 0, (8 * dp).toInt())
         }
-        box.addView(android.widget.TextView(this).apply {
-            text = WAZE_WARNING_SHORT
-            textSize = 12f
-            alpha = 0.75f
-        })
-        val ninjaBtn = android.widget.RadioButton(this).apply { id = View.generateViewId(); text = "OpenWeb Ninja (your own API key; Waze never sees you)" }
-        val directBtn = android.widget.RadioButton(this).apply { id = View.generateViewId(); text = "Waze direct (no key; sends a position rounded to 1 km to Waze)" }
+        box.addView(infoRow(android.widget.TextView(this).apply { text = "Source"; textSize = 12f; alpha = 0.75f },
+            "OpenWeb Ninja: your own API key; Waze never sees you. It doesn't offer traffic jams as alerts.\n\n" +
+            "Waze direct: free and live, no key. Uses an anonymous Waze account on this phone and sends a position rounded to 1 km to Waze."))
+        val ninjaBtn = android.widget.RadioButton(this).apply { id = View.generateViewId(); text = "OpenWeb Ninja" }
+        val directBtn = android.widget.RadioButton(this).apply { id = View.generateViewId(); text = "Waze direct" }
         val backendGroup = android.widget.RadioGroup(this).apply { addView(ninjaBtn); addView(directBtn) }
         box.addView(backendGroup)
         // Two independent ranges (both backends): how close a report must be to alert, and how far the map shows them.
@@ -1336,12 +1583,11 @@ class SettingsActivity : AppCompatActivity() {
         box.addView(ninjaInterval)
         // Behaviour switches: each has a line under it saying what it does.
         fun switchRow(label: String, hint: String, checked: Boolean, save: (Boolean) -> Unit) {
-            box.addView(SwitchMaterial(this).apply {
+            box.addView(infoRow(SwitchMaterial(this).apply {
                 text = label
                 isChecked = checked
                 setOnCheckedChangeListener { _, on -> save(on) }
-            })
-            box.addView(android.widget.TextView(this).apply { text = hint; textSize = 11f; alpha = 0.6f })
+            }, hint))
         }
         switchRow("Slower when parked, faster on fast roads",
             "Parked for 90 s: checks run 4 times less often. Over 80 km/h: twice as often (Waze direct only).",
@@ -1394,15 +1640,6 @@ class SettingsActivity : AppCompatActivity() {
             })
             box.addView(row)
         }
-        val jamNote = android.widget.TextView(this).apply {
-            text = "OpenWeb Ninja doesn't offer traffic jams as alerts; they only come through Waze direct."
-            textSize = 11f; alpha = 0.6f
-        }
-        box.addView(jamNote)
-        val directNote = android.widget.TextView(this).apply {
-            text = "Direct: free and live. Uses an anonymous Waze account on this phone."
-            textSize = 12f; alpha = 0.75f
-        }
         val forgetBtn = android.widget.Button(this).apply {
             text = "Forget Waze account"
             setOnClickListener {
@@ -1412,7 +1649,7 @@ class SettingsActivity : AppCompatActivity() {
         }
         val directBox = android.widget.LinearLayout(this).apply {
             orientation = android.widget.LinearLayout.VERTICAL
-            addView(directNote); addView(forgetBtn)
+            addView(forgetBtn)
         }
         box.addView(directBox)
         wazeKeyInput = android.widget.EditText(this).apply {
@@ -1426,7 +1663,6 @@ class SettingsActivity : AppCompatActivity() {
         fun showBackend(direct: Boolean) {
             wazeKeyInput?.visibility = if (direct) View.GONE else View.VISIBLE
             directInterval.visibility = if (direct) View.VISIBLE else View.GONE
-            jamNote.visibility = if (direct) View.GONE else View.VISIBLE
             ninjaInterval.visibility = if (direct) View.GONE else View.VISIBLE
             directBox.visibility = if (direct) View.VISIBLE else View.GONE
         }
@@ -1481,7 +1717,80 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun updateBannerButtons() {
-        binding.bannerClearButton.isEnabled = ThemeManager.hasBanner(this)
+        binding.bannerClearButton.isEnabled = ThemeManager.hasGlobalBanner(this)
+    }
+
+    /** The built-in themes, then your own (long-press one to edit it), then the buttons to make or import one. */
+    private fun buildThemeList() {
+        binding.themeGroup.removeAllViews()
+        val current = ThemeManager.current(this)
+        val custom = ThemeManager.custom(this)
+        ThemeManager.builtIn.forEach { t ->
+            val unavailable = t == ThemeManager.AppTheme.MATERIAL_YOU && !ThemeManager.isDynamicColorAvailable
+            binding.themeGroup.addView(RadioButton(this).apply {
+                id = View.generateViewId()
+                text = t.title
+                isChecked = t == current
+                setOnCheckedChangeListener { _, checked ->
+                    if (checked && t != ThemeManager.current(this@SettingsActivity)) {
+                        resumeScroll = binding.root.scrollY
+                        ThemeManager.set(this@SettingsActivity, t)
+                        recreate()
+                    }
+                }
+            })
+        }
+        CustomThemes.all(this).forEach { c ->
+            binding.themeGroup.addView(RadioButton(this).apply {
+                id = View.generateViewId()
+                text = c.name
+                isChecked = current == ThemeManager.AppTheme.CUSTOM && custom?.id == c.id
+                setOnCheckedChangeListener { _, checked ->
+                    if (checked && !(ThemeManager.current(this@SettingsActivity) == ThemeManager.AppTheme.CUSTOM && ThemeManager.custom(this@SettingsActivity)?.id == c.id)) {
+                        resumeScroll = binding.root.scrollY
+                        ThemeManager.setCustom(this@SettingsActivity, c.id)
+                        recreate()
+                    }
+                }
+                setOnLongClickListener { editTheme(c.id); true }
+            })
+        }
+    }
+
+    private fun editTheme(id: String?) {
+        startActivity(Intent(this, com.rfsentinel.app.ui.ThemeMakerActivity::class.java).apply { if (id != null) putExtra(com.rfsentinel.app.ui.ThemeMakerActivity.EXTRA_ID, id) })
+    }
+
+    private val themeFilePicker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        ThemeImport.open(this, uri) { resumeScroll = binding.root.scrollY; recreate() }
+    }
+
+    private fun setupThemeButtons() {
+        val box = binding.sectionAppearance
+        val at = box.indexOfChild(binding.themeGroup) + 1
+        val row = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.VERTICAL }
+        fun btn(text: String, onClick: () -> Unit) = com.google.android.material.button.MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            this.text = text; setOnClickListener { onClick() }
+        }.also { row.addView(it, android.widget.LinearLayout.LayoutParams(-1, -2)) }
+        // The themes' descriptions, in the ⓘ of a "Theme" label above the list.
+        val themesInfo = ThemeManager.builtIn.joinToString("\n\n") { t ->
+            t.title + ": " + t.description +
+                if (t == ThemeManager.AppTheme.MATERIAL_YOU && !ThemeManager.isDynamicColorAvailable) " (this phone: standard Material 3 colours)" else ""
+        } + "\n\nYour own themes are listed after these: long-press one to edit it."
+        box.addView(infoRow(android.widget.TextView(this).apply {
+            text = "Theme"; setPadding(0, (10 * resources.displayMetrics.density).toInt(), 0, 0); textSize = 13f
+        }, themesInfo), at - 1)
+        btn("Create a custom theme...") { editTheme(null) }
+        btn("Edit a theme...") {
+            val all = CustomThemes.all(this)
+            if (all.isEmpty()) Toast.makeText(this, "You have no custom themes yet", Toast.LENGTH_SHORT).show()
+            else AlertDialog.Builder(this).setTitle("Edit which theme?")
+                .setItems(all.map { it.name }.toTypedArray()) { _, i -> editTheme(all[i].id) }.show()
+        }
+        btn("Import a theme file...") { themeFilePicker.launch(arrayOf("application/json", "text/plain", "*/*")) }
+        info(row.getChildAt(0), "Make your own theme: colours, font, banner, header and map marker. Export it as a file to share it.")
+        box.addView(row, at + 1)
     }
 
     override fun onDestroy() {
@@ -1513,23 +1822,8 @@ class SettingsActivity : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         // Appearance: applied immediately (the screen restyles itself).
-        val current = ThemeManager.current(this)
-        ThemeManager.AppTheme.entries.forEach { t ->
-            val unavailable = t == ThemeManager.AppTheme.MATERIAL_YOU && !ThemeManager.isDynamicColorAvailable
-            binding.themeGroup.addView(RadioButton(this).apply {
-                id = View.generateViewId()
-                text = t.title + "  \u2014  " + t.description +
-                    if (unavailable) " (this phone: standard Material 3 colours)" else ""
-                isChecked = t == current
-                setOnCheckedChangeListener { _, checked ->
-                    if (checked && t != ThemeManager.current(this@SettingsActivity)) {
-                        resumeScroll = binding.root.scrollY
-                        ThemeManager.set(this@SettingsActivity, t)
-                        recreate()
-                    }
-                }
-            })
-        }
+        buildThemeList()
+        setupThemeButtons()
 
         resumeScroll?.let { y ->
             binding.root.post {
@@ -1601,11 +1895,13 @@ class SettingsActivity : AppCompatActivity() {
 
         // Categories
         for (c in Category.entries) {
+            val (short, more) = splitTitle(c.title)
             val sw = SwitchMaterial(this).apply {
-                text = c.title
+                text = short
                 isChecked = Prefs.categoryEnabled(this@SettingsActivity, c)
             }
-            binding.categoryContainer.addView(sw)
+            val details = listOfNotNull(more, if (c == Category.POLICE_REPORT) WAZE_WARNING_SHORT else null).joinToString("\n\n")
+            binding.categoryContainer.addView(if (details.isEmpty()) sw else infoRow(sw, details, short))
             categorySwitches[c] = sw
             if (c == Category.TRACKER) {
                 airTagSwitch = SwitchMaterial(this).apply {
@@ -1742,6 +2038,7 @@ class SettingsActivity : AppCompatActivity() {
         setupNavSection()
         setupRadioSection()
         setupLiveExport()
+        addDetails()
         binding.hideTrustedSwitch.isChecked = Prefs.hideWhitelisted(this)
         binding.hideTrustedSwitch.setOnCheckedChangeListener { _, on -> Prefs.setHideWhitelisted(this, on) }
         binding.usbLightSwitch.isChecked = Prefs.usbAdapterLight(this)
@@ -1797,6 +2094,12 @@ class SettingsActivity : AppCompatActivity() {
         // Data
         binding.retentionInput.setText(Prefs.retentionDays(this).toString())
         binding.exportAllButton.setOnClickListener { com.rfsentinel.app.util.Exporter.showExportMenu(this) }
+        binding.importHistoryButton.setOnClickListener {
+            startActivity(Intent(this, com.rfsentinel.app.ui.DeviceHistoryActivity::class.java)
+                .putExtra(com.rfsentinel.app.ui.DeviceHistoryActivity.EXTRA_IMPORT, true))
+        }
+        binding.backupSettingsButton.setOnClickListener { backupPicker.launch(com.rfsentinel.app.util.SettingsBackup.fileName()) }
+        binding.restoreSettingsButton.setOnClickListener { restorePicker.launch(arrayOf("application/json", "text/plain", "*/*")) }
         // Lists, tools & about (moved here from the main screen's menu).
         binding.openWatchlistButton.setOnClickListener { startActivity(Intent(this, com.rfsentinel.app.ouilist.OuiListActivity::class.java)) }
         binding.openWhitelistButton.setOnClickListener { startActivity(Intent(this, com.rfsentinel.app.whitelist.WhitelistActivity::class.java)) }
@@ -1832,6 +2135,8 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // Back from the theme maker: its themes may have changed.
+        if (loaded) buildThemeList()
         updatePcap()
         // The user may be coming back from Developer options.
         updateWifiThrottleHint()
@@ -1900,7 +2205,11 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     /** Settings save themselves: whenever this screen is left (back, home, another screen). */
+    /** A restored backup is in place: leaving Settings must not write the old on-screen values over it. */
+    private var restored = false
+
     override fun onPause() {
+        if (restored) { super.onPause(); return }
         saveSecrets()
         // Leaving Settings ends any sound preview (not an intro played by a starting scan).
         com.rfsentinel.app.util.AlertPlayer.stopPreview(stopIntro = introTesting)

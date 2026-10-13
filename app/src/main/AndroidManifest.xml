@@ -77,6 +77,8 @@
         <activity android:name=".probes.ProbeListActivity" android:exported="false" />
         <activity android:name=".ui.DetectionLogActivity" android:exported="false" />
         <activity android:name=".ui.DeviceHistoryActivity" android:exported="false" />
+        <activity android:name=".ui.ThemeMakerActivity" android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode" />
         <activity android:name=".ui.CellTowersActivity" android:exported="false" />
         <activity android:name=".ui.GnssActivity" android:exported="false" />
         <activity android:name=".ui.WazeStatusActivity" android:exported="false" />

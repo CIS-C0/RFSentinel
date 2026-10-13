@@ -110,6 +110,18 @@ class MapFragment : Fragment() {
             else -> base - (kmh - 30f) / 80f * 1.6
         }
 
+        /** After panning or zooming the map, it goes back to following you once this long has passed without a touch. */
+        const val RECENTER_AFTER_MS = 10_000L
+
+        /**
+         * Whether the live map should take you back to your position now: the setting is on, it is not following you, nobody is
+         * looking at a place's card, you are driving (guided, or moving at walking pace or faster) and the map has been left alone
+         * for [afterMs]. Parked and browsing, it stays where you put it.
+         */
+        internal fun shouldRecenter(enabled: Boolean, following: Boolean, live: Boolean, guiding: Boolean, speedMs: Float,
+                                    placeCardOpen: Boolean, idleMs: Long, afterMs: Long = RECENTER_AFTER_MS): Boolean =
+            enabled && live && !following && !placeCardOpen && idleMs >= afterMs && (guiding || speedMs >= HEADING_MIN_SPEED_MS)
+
         /** The flat views (north up / heading up) sit this much wider than the 3D view at the same default. */
         internal const val FLAT_ZOOM_OFFSET = 0.5
 
@@ -320,6 +332,7 @@ class MapFragment : Fragment() {
         try {
             val e = MapEngine.create(act)
             engine = e
+            markerKey = "" // the new engine has not been given the marker yet
             binding.map.addView(e.view, 0, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
             binding.osmCredit.text = e.credit
             e.onCreate(state)
@@ -368,8 +381,8 @@ class MapFragment : Fragment() {
         r.onStaticChanged = { if (alive) { renderLive(); refreshServiceLocation() } }
         m.setMinZoom(2.0)
         // Two fingers in 3D: a pinch is your zoom now (until the follow button).
-        m.onUserGesture = { if (following) userZoom = true }
-        m.onFollowDismissed = { if (alive && following) { following = false; styleFollowButton() } }
+        m.onUserGesture = { touchedAt = android.os.SystemClock.elapsedRealtime(); if (following) userZoom = true }
+        m.onFollowDismissed = { touchedAt = android.os.SystemClock.elapsedRealtime(); if (alive && following) { following = false; styleFollowButton() } }
         m.onCameraMove = { updateScale() }
         m.onIdle = { r.safe("static") { r.maybeRedrawStatic(); updateScale() } }
         m.onClick = { x, y -> r.safe("tap") { r.onTap(x, y, myPosition()) } }
@@ -849,8 +862,20 @@ class MapFragment : Fragment() {
 
     // ---- Your position --------------------------------------------------------------------------------
 
+    private var markerKey = ""
+
+    /** The marker chosen in Settings > Map: given to the map engine whenever the choice has changed. */
+    private fun applyMarker() {
+        val m = map ?: return
+        val key = MarkerPicker.effective(act).key
+        if (key == markerKey) return
+        markerKey = key
+        m.setMarker(MarkerPicker.current(act))
+    }
+
     private fun startLocation() {
         val m = map ?: return
+        applyMarker()
         if (!m.startPuck()) return
         (lastFix ?: knownFix())?.let { m.pushFix(steady(it)) }
         applyMode(animate = false)
@@ -868,10 +893,15 @@ class MapFragment : Fragment() {
 
     private val gpsListener = LocationListenerCompat { fix -> rf?.safe("fix") { onFix(fix) } ?: onFix(fix) }
 
+    /** When the map was last touched (panned, pinched...): the auto-recenter counts from it. */
+    private var touchedAt = 0L
+
     private fun onFix(fix: Location) {
         if (!alive) return
         lastFix = fix
         gpsFix = fix
+        if (shouldRecenter(Prefs.mapAutoRecenter(act), following, tripId == null, Navigator.active, if (fix.hasSpeed()) fix.speed else 0f,
+                nav?.cardShown == true, android.os.SystemClock.elapsedRealtime() - touchedAt)) setFollow(true, quiet = true)
         if (tripId == null && !Navigator.active && Prefs.mapSpeedometer(act) && Prefs.mapSpeedLimitLive(act) && fix.hasSpeed())
             com.rfsentinel.app.nav.SpeedLimits.Live.onFix(fix.latitude, fix.longitude, fix.speed)
         updateGauge()
@@ -1119,6 +1149,7 @@ class MapFragment : Fragment() {
         super.onResume()
         engine?.onResume()
         swapEngineIfChanged()
+        applyMarker() // back from Settings > Map: a new marker shows at once
         startGps()
         // Precise GPS while the map is on screen, so devices land where they were heard.
         if (tripId == null) ScanForegroundService.mapShown(act)

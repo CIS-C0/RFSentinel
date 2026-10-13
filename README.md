@@ -174,9 +174,13 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 - **Check for updates** (menu ⋮): compares with the latest GitHub release, only when you tap it
 - **Screen rotation** (Settings → General): normal, auto-rotate **including upside down**, or always upside down with the USB-C port at the top for an antenna or adapter - even on phones like the Pixel that never auto-rotate upside down
 - 13 themes, including the **DedSec** (Watch Dogs 2) and **fsociety** (Mr. Robot) fan themes
+- **Theme maker:** build your own theme - an accent colour the whole palette grows from (the way Material You does), light, dark or pure black, a font (or your own .ttf / .otf), a banner picture, the animated home-screen header with your title, and your own map marker. Export a theme as a file; importing one lets you tick which parts to take (colours, font, banner, header, marker), into a new theme or into one of yours
+- **Map marker:** an arrow, chevron or one of 13 cars and bikes in 16 colours and any size, in place of the plain dot
 
 **Data & privacy**
 - Everything stays on the phone; export as CSV, JSON, KML, GPX or GeoJSON
+- **Back up and restore settings** (Settings → Data): one file with your settings, watchlist rules, Home / Work / starred places, floating-window positions and custom themes; restore asks which of those to take. API keys and the "I accept the risk" choices are never in the file
+- **Device history export and import** (Device history menu, or Settings → Data): export every remembered device, import a file from another phone or an earlier export - devices already known are merged, not duplicated
 - **Report unknown device:** a privacy-safe signature (no full address, serials, location or times) to help add new equipment
 - No accounts, no cloud, no analytics
 
@@ -571,6 +575,8 @@ their default names.
 ## Themes
 
 Pick a theme in the setup wizard or under **Settings → Appearance**.
+
+Your own themes sit under the built-in ones: **Create a custom theme**, long-press one to edit it, or **Import a theme file**.
 
 | Theme | Look |
 |---|---|

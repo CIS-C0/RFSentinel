@@ -210,11 +210,14 @@ class MainActivity : AppCompatActivity() {
     /** Styled themes: their own title, animated wordmark and the user's banner image. */
     private fun applyThemeHeader() {
         val theme = com.rfsentinel.app.ui.ThemeManager.current(this)
-        theme.appTitle?.let { title = it }
-        val header = theme.header
-        binding.themedHeader.visibility = if (header != null) View.VISIBLE else View.GONE
-        if (header == null) return
-        binding.themeHeader.style = header
+        com.rfsentinel.app.ui.ThemeManager.appTitle(this)?.let { title = it }
+        val header = com.rfsentinel.app.ui.ThemeManager.headerStyle(this)
+        val ownBanner = theme == com.rfsentinel.app.ui.ThemeManager.AppTheme.CUSTOM && com.rfsentinel.app.ui.ThemeManager.hasBanner(this)
+        // A custom theme can have just a banner and no animated header.
+        binding.themedHeader.visibility = if (header != null || ownBanner) View.VISIBLE else View.GONE
+        binding.themeHeader.visibility = if (header != null) View.VISIBLE else View.GONE
+        if (header == null && !ownBanner) return
+        if (header != null) binding.themeHeader.style = header
         val file = com.rfsentinel.app.ui.ThemeManager.bannerFile(this)
         // Bundled poster art sits beside the animated header (a picked banner replaces it).
         val useArt = theme.headerImage != null && !com.rfsentinel.app.ui.ThemeManager.hasBanner(this)

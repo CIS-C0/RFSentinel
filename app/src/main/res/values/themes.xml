@@ -27,6 +27,16 @@
         <item name="actionBarTheme">@style/ThemeOverlay.Material3.ActionBar</item>
     </style>
 
+    <!-- A theme made in the theme maker: Material 3 components; ThemeManager recolours it from the maker's accent (Android 11+). -->
+    <style name="Theme.RFSentinel.Custom" parent="Theme.Material3.DayNight">
+        <item name="rfAccent">?attr/colorPrimary</item>
+        <item name="rfOnAccent">?attr/colorOnPrimary</item>
+        <item name="rfScopeColor">?attr/colorPrimary</item>
+        <item name="rfScopeTextColor">?attr/colorOnSurfaceVariant</item>
+        <item name="rfTraceColor">?attr/colorTertiary</item>
+        <item name="actionBarTheme">@style/ThemeOverlay.Material3.ActionBar</item>
+    </style>
+
     <!-- DedSec-inspired hacktivist poster: black and white with electric blue, monospace. -->
     <style name="Theme.RFSentinel.DedSec" parent="Theme.MaterialComponents">
         <!-- Selected chips / toggles use this theme's own primary colour. -->

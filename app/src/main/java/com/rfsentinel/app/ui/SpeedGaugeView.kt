@@ -57,21 +57,22 @@ class SpeedGaugeView @JvmOverloads constructor(context: Context, attrs: Attribut
     override fun onDraw(c: Canvas) {
         val s = speed ?: return
         val u = unit()
-        val ink = if (dark) 0xFFFFFFFF.toInt() else 0xFF1B1F27.toInt()
-        val bg = if (dark) 0xF0222A3A.toInt() else 0xF2FFFFFF.toInt()
         val red = 0xFFD32F2F.toInt()
+        // Over the limit the whole card turns red with white writing, as in Google Maps.
+        val ink = if (over || dark) 0xFFFFFFFF.toInt() else 0xFF1B1F27.toInt()
+        val bg = if (over) red else if (dark) 0xF0222A3A.toInt() else 0xF2FFFFFF.toInt()
 
         // The speed: a rounded card, the number big and the unit small under it.
         box.set(0f, 0f, u, u)
         paint.style = Paint.Style.FILL; paint.color = bg
         c.drawRoundRect(box, u * 0.22f, u * 0.22f, paint)
-        paint.style = Paint.Style.STROKE; paint.strokeWidth = (if (over) 3f else 1.5f) * d
-        paint.color = if (over) red else if (dark) 0x55FFFFFF else 0x33000000
+        paint.style = Paint.Style.STROKE; paint.strokeWidth = (if (over) 2.5f else 1.5f) * d
+        paint.color = if (over) 0xFFFFFFFF.toInt() else if (dark) 0x55FFFFFF else 0x33000000
         c.drawRoundRect(box, u * 0.22f, u * 0.22f, paint)
         paint.style = Paint.Style.FILL
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textAlign = Paint.Align.CENTER
-        paint.color = if (over) red else ink
+        paint.color = ink
         paint.textSize = u * (if (s >= 100) 0.40f else 0.48f)
         c.drawText(s.toString(), u / 2, u * 0.56f, paint)
         paint.typeface = Typeface.DEFAULT

@@ -50,6 +50,8 @@ internal class MapLibreEngine(private val context: Context) : MapEngine {
         const val DARK_STYLE = "https://tiles.openfreemap.org/styles/fiord"
         const val CREDIT = "© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors"
         private const val BUILDINGS = "rf-buildings-3d"
+        /** A clear picture, for the puck layers that must show nothing. */
+        private const val BLANK = "rf-puck-blank"
         private const val GRASS = "rf-night-grass"
         /** Style properties whose value is a plain array, not an expression. */
         private val ARRAY_PROPERTIES = setOf("text-font", "text-offset", "icon-offset", "line-dasharray", "text-variable-anchor", "text-translate", "icon-translate", "circle-translate", "fill-translate", "line-translate")
@@ -126,6 +128,7 @@ internal class MapLibreEngine(private val context: Context) : MapEngine {
         val m = map ?: return
         m.setStyle(Style.Builder().fromUri(if (dark) DARK_STYLE else LIGHT_STYLE)) { style ->
             if (dark) runCatching { nightTweaks(style) }
+            addMarkerImage(style)
             loaded(true)
         }
     }
@@ -313,6 +316,38 @@ internal class MapLibreEngine(private val context: Context) : MapEngine {
 
     override val puckOn get() = component() != null
 
+    private var marker: Bitmap? = null
+    private var markerName: String? = null
+    private var markerVersion = 0
+
+    private fun puckOptions(name: String?) = LocationComponentOptions.builder(context)
+        .pulseEnabled(false)
+        .accuracyAnimationEnabled(false)
+        .trackingGesturesManagement(true) // a one-finger pan stops following; a pinch keeps it
+        .apply {
+            if (name != null) {
+                // The marker keeps its size at every zoom (it is drawn at the size chosen in Settings).
+                gpsName(name).foregroundName(name).foregroundStaleName(name).bearingName(name)
+                    // The engine's own arrow, ring and shadow behind it are replaced by nothing.
+                    .backgroundName(BLANK).backgroundStaleName(BLANK).elevation(0f)
+                    .minZoomIconScale(1f).maxZoomIconScale(1f)
+            }
+        }.build()
+
+    /** The marker's picture in the current style (a style that loads later needs it again). */
+    private fun addMarkerImage(style: Style) {
+        marker?.let { b -> markerName?.let { style.addImage(it, b); style.addImage(BLANK, Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)) } }
+    }
+
+    override fun setMarker(bitmap: Bitmap?) {
+        marker = bitmap
+        markerName = bitmap?.let { "rf-puck-${++markerVersion}" }
+        val style = style()
+        if (style != null) addMarkerImage(style)
+        // A running puck changes picture at once (the name is new, so the old one is not reused).
+        component()?.applyStyle(puckOptions(markerName))
+    }
+
     @SuppressLint("MissingPermission") // checked first
     override fun startPuck(): Boolean {
         val m = map ?: return false
@@ -321,11 +356,8 @@ internal class MapLibreEngine(private val context: Context) : MapEngine {
         val lc = m.locationComponent
         // Light / dark switch: the component moves to the new style by itself.
         if (!lc.isLocationComponentActivated) {
-            val options = LocationComponentOptions.builder(context)
-                .pulseEnabled(false)
-                .accuracyAnimationEnabled(false)
-                .trackingGesturesManagement(true) // a one-finger pan stops following; a pinch keeps it
-                .build()
+            addMarkerImage(style)
+            val options = puckOptions(markerName)
             // Fixes come from the screen, so slow ones can keep the last real heading before the map sees them.
             lc.activateLocationComponent(LocationComponentActivationOptions.builder(context, style)
                 .useDefaultLocationEngine(false)

@@ -133,7 +133,7 @@ internal class MapNav(
         b.navEnd.setOnClickListener { Navigator.stop() }
         b.navMenu.setOnClickListener { menu(it) }
         b.navOverview.setOnClickListener { overview() }
-        b.navMute.setOnClickListener { Prefs.setNavVoice(act, !Prefs.navVoice(act)); styleMute() }
+        b.navMute.setOnClickListener { toggleDirections() }
         if (embedded) {
             b.navEtaBox.setOnClickListener { host.navOpenFull(null) }
             b.navBanner.setOnClickListener { host.navOpenFull(null) }
@@ -487,7 +487,7 @@ internal class MapNav(
             setOnMenuItemClickListener { item ->
                 val dest = Navigator.destination
                 when (item.itemId) {
-                    1 -> { Prefs.setNavVoice(act, !Prefs.navVoice(act)); styleMute() }
+                    1 -> toggleDirections()
                     2 -> host.navSearch(com.rfsentinel.app.nav.NavSearchActivity.MODE_STOP)
                     3 -> Navigator.changeOptions(act, Navigator.options.copy(avoidTolls = !Navigator.options.avoidTolls))
                     4 -> Navigator.changeOptions(act, Navigator.options.copy(avoidHighways = !Navigator.options.avoidHighways))
@@ -502,6 +502,14 @@ internal class MapNav(
             }
             show()
         }
+    }
+
+    /** Spoken directions on / off; the detection alerts have their own mute and keep sounding. */
+    private fun toggleDirections() {
+        val on = !Prefs.navVoice(act)
+        Prefs.setNavVoice(act, on)
+        styleMute()
+        android.widget.Toast.makeText(act, if (on) "Spoken directions on" else "Directions muted - detection alerts still sound", android.widget.Toast.LENGTH_SHORT).show()
     }
 
     private fun styleMute() {

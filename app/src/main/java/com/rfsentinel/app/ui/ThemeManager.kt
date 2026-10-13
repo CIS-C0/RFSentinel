@@ -55,18 +55,60 @@ object ThemeManager {
         BLUEPRINT("Blueprint", "White technical drawing on drafting blue, with dimension lines",
             R.style.Theme_RFSentinel_Blueprint, true, ThemeHeaderView.Style.BLUEPRINT, "RF SENTINEL // DWG-001"),
         PAPER("Paper", "Newspaper ink on newsprint - the most readable theme in bright sunlight",
-            R.style.Theme_RFSentinel_Paper, false, ThemeHeaderView.Style.MASTHEAD, "Front Page")
+            R.style.Theme_RFSentinel_Paper, false, ThemeHeaderView.Style.MASTHEAD, "Front Page"),
+        /** A theme made in the theme maker (which one: [custom]); not in the built-in lists. */
+        CUSTOM("Custom theme", "Made in the theme maker", R.style.Theme_RFSentinel_Custom)
     }
+
+    /** The built-in themes, for the pickers (the custom ones are listed from [CustomThemes]). */
+    val builtIn: List<AppTheme> get() = AppTheme.entries.filter { it != AppTheme.CUSTOM }
 
     private const val PREFS = "rf_sentinel_prefs"
     private const val KEY = "app_theme"
+    private const val CUSTOM_KEY = "custom_theme_id"
 
-    /** Theme each live activity was created with, to detect stale ones. */
-    private val applied = WeakHashMap<Activity, AppTheme>()
+    /** What each live activity was created with (the theme, and for a custom one its choices), to detect stale ones. */
+    private val applied = WeakHashMap<Activity, String>()
 
-    fun current(context: Context): AppTheme =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null)
+    fun current(context: Context): AppTheme {
+        val t = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null)
             ?.let { runCatching { AppTheme.valueOf(it) }.getOrNull() } ?: AppTheme.SYSTEM
+        // A custom theme that is gone (deleted, or a backup restored without it) is the default look again.
+        return if (t == AppTheme.CUSTOM && custom(context) == null) AppTheme.SYSTEM else t
+    }
+
+    /** The custom theme in use, null when a built-in one is. */
+    fun custom(context: Context): CustomTheme? {
+        val sp = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (sp.getString(KEY, null) != AppTheme.CUSTOM.name) return null
+        return CustomThemes.get(context, sp.getString(CUSTOM_KEY, null))
+    }
+
+    /** Uses the custom theme [id]. */
+    fun setCustom(context: Context, id: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit(commit = true) { putString(KEY, AppTheme.CUSTOM.name); putString(CUSTOM_KEY, id) }
+        refresh(context)
+    }
+
+    /** After a custom theme was changed: the night mode follows its mode (screens restyle themselves when next shown). */
+    fun refresh(context: Context) = applyNightMode(current(context), custom(context))
+
+    /** What an open screen compares to know whether it must restyle itself. */
+    private fun signature(context: Context): String {
+        val c = custom(context)
+        return current(context).name + (c?.let { ":" + it.id + ":" + CustomThemes.stamp(context, it) } ?: "")
+    }
+
+    // The animated header, title and banner: a custom theme chooses its own; built-in ones have theirs.
+    fun headerStyle(context: Context): ThemeHeaderView.Style? {
+        val c = custom(context)
+        return if (c != null) c.header?.let { h -> runCatching { ThemeHeaderView.Style.valueOf(h) }.getOrNull() } else current(context).header
+    }
+
+    fun appTitle(context: Context): String? {
+        val c = custom(context)
+        return if (c != null) c.title?.takeIf { it.isNotBlank() } else current(context).appTitle
+    }
 
     /** True once the user has picked a theme (the setup wizard requires one). */
     fun isChosen(context: Context): Boolean =
@@ -74,7 +116,7 @@ object ThemeManager {
 
     fun set(context: Context, theme: AppTheme) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString(KEY, theme.name) }
-        applyNightMode(theme)
+        applyNightMode(theme, custom(context))
     }
 
     /**
@@ -96,9 +138,16 @@ object ThemeManager {
      * Optional user-chosen banner image for the styled themes (e.g. a logo the user
      * owns). Copied into private app storage; never bundled or shared.
      */
-    fun bannerFile(context: Context) = java.io.File(context.filesDir, "theme_banner")
+    private fun globalBannerFile(context: Context) = java.io.File(context.filesDir, "theme_banner")
+
+    /** The banner in use: a custom theme's own, else the one picked in Settings. */
+    fun bannerFile(context: Context): java.io.File =
+        custom(context)?.let { CustomThemes.bannerFile(context, it) } ?: globalBannerFile(context)
 
     fun hasBanner(context: Context) = bannerFile(context).let { it.exists() && it.length() > 0 }
+
+    /** The banner picked in Settings (for the built-in styled themes). */
+    fun hasGlobalBanner(context: Context) = globalBannerFile(context).let { it.exists() && it.length() > 0 }
 
     /** Copies the picked image into app storage (max 8 MB). Returns false if unreadable. */
     fun setBanner(context: Context, uri: android.net.Uri): Boolean = runCatching {
@@ -109,17 +158,17 @@ object ThemeManager {
             val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
             android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
             require(opts.outWidth > 0 && opts.outHeight > 0)
-            bannerFile(context).writeBytes(bytes)
+            globalBannerFile(context).writeBytes(bytes)
         }
         true
     }.getOrDefault(false)
 
     fun clearBanner(context: Context) {
-        bannerFile(context).delete()
+        globalBannerFile(context).delete()
     }
 
     fun install(app: Application) {
-        applyNightMode(current(app))
+        applyNightMode(current(app), custom(app))
         app.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
             override fun onActivityPreCreated(activity: Activity, savedInstanceState: Bundle?) = style(activity)
             override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
@@ -128,13 +177,17 @@ object ThemeManager {
             }
             override fun onActivityResumed(activity: Activity) {
                 val was = applied[activity]
-                if (was != null && was != current(activity)) activity.recreate()
+                if (was != null && was != signature(activity)) activity.recreate()
             }
-            override fun onActivityStarted(activity: Activity) {}
+            // A custom theme's font, set on the screen's texts once it is up.
+            override fun onActivityStarted(activity: Activity) {
+                val c = custom(activity)
+                FontApplier.attach(activity, c?.let { FontApplier.typeface(activity, it) })
+            }
             override fun onActivityPaused(activity: Activity) {}
             override fun onActivityStopped(activity: Activity) {}
             override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
-            override fun onActivityDestroyed(activity: Activity) { applied.remove(activity) }
+            override fun onActivityDestroyed(activity: Activity) { applied.remove(activity); FontApplier.detach(activity) }
         })
     }
 
@@ -142,12 +195,18 @@ object ThemeManager {
         val theme = current(activity)
         activity.setTheme(theme.style)
         if (theme == AppTheme.MATERIAL_YOU) DynamicColors.applyToActivityIfAvailable(activity)
-        applied[activity] = theme
+        custom(activity)?.let { runCatching { CustomColors.apply(activity, it) } }
+        applied[activity] = signature(activity)
     }
 
-    private fun applyNightMode(theme: AppTheme) {
+    private fun applyNightMode(theme: AppTheme, custom: CustomTheme? = null) {
+        val night = if (theme == AppTheme.CUSTOM && custom != null) when (CustomColors.Mode.of(custom.mode)) {
+            CustomColors.Mode.LIGHT -> false
+            CustomColors.Mode.DARK, CustomColors.Mode.BLACK -> true
+            CustomColors.Mode.SYSTEM -> null
+        } else theme.night
         AppCompatDelegate.setDefaultNightMode(
-            when (theme.night) {
+            when (night) {
                 false -> AppCompatDelegate.MODE_NIGHT_NO
                 true -> AppCompatDelegate.MODE_NIGHT_YES
                 null -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM

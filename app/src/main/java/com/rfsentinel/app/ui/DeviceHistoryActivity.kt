@@ -60,6 +60,7 @@ class DeviceHistoryActivity : AppCompatActivity() {
             binding.filterChips.addView(chip)
         }
         binding.searchInput.doAfterTextChanged { search(now = false) }
+        if (intent.getBooleanExtra(EXTRA_IMPORT, false) && savedInstanceState == null) binding.root.post { pickFile() }
         binding.keptText.setOnClickListener {
             startActivity(Intent(this, com.rfsentinel.app.settings.SettingsActivity::class.java)
                 .putExtra(com.rfsentinel.app.settings.SettingsActivity.EXTRA_SECTION, com.rfsentinel.app.settings.SettingsActivity.SECTION_DATA))
@@ -106,7 +107,63 @@ class DeviceHistoryActivity : AppCompatActivity() {
 
     override fun onSupportNavigateUp(): Boolean { finish(); return true }
 
-    private companion object { const val LIMIT = 500 }
+    override fun onCreateOptionsMenu(menu: android.view.Menu): Boolean {
+        menu.add(0, 1, 0, "Export history...")
+        menu.add(0, 2, 1, "Import history from a file...")
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean = when (item.itemId) {
+        1 -> { com.rfsentinel.app.util.Exporter.showHistoryExport(this); true }
+        2 -> { pickFile(); true }
+        else -> super.onOptionsItemSelected(item)
+    }
+
+    /** A history file written by Export (JSON or CSV), or the "everything" export, to add to what the phone remembers. */
+    private val importPicker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) importFrom(uri)
+    }
+
+    private fun pickFile() = importPicker.launch(arrayOf("application/json", "text/csv", "text/comma-separated-values", "text/plain", "*/*"))
+
+    private fun importFrom(uri: android.net.Uri) {
+        val progress = android.widget.TextView(this).apply { text = "Reading the file..."; setPadding(64, 32, 64, 8) }
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Importing device history").setView(progress).setCancelable(false).show()
+        lifecycleScope.launch {
+            val result = runCatching {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    val dao = com.rfsentinel.app.data.AppDatabase.getInstance(this@DeviceHistoryActivity).knownDeviceDao()
+                    contentResolver.openInputStream(uri)!!.use { raw ->
+                        com.rfsentinel.app.util.DeviceHistoryImport.importInto(dao, com.rfsentinel.app.util.DeviceHistoryImport.Limited(raw)) { n ->
+                            runOnUiThread { if (!isDestroyed) progress.text = "$n devices read..." }
+                        }
+                    }
+                }
+            }
+            if (isFinishing || isDestroyed) return@launch
+            dialog.dismiss()
+            val r = result.getOrNull()
+            if (r == null) {
+                val why = (result.exceptionOrNull() as? com.rfsentinel.app.util.DeviceHistoryImport.NotHistory)?.message ?: "Couldn't read that file (${result.exceptionOrNull()?.message ?: "unknown error"})"
+                androidx.appcompat.app.AlertDialog.Builder(this@DeviceHistoryActivity).setTitle("Not imported").setMessage(why).setPositiveButton("OK", null).show()
+                return@launch
+            }
+            com.rfsentinel.app.data.Favorites.load(this@DeviceHistoryActivity)
+            search(now = true)
+            val keep = Prefs.retentionDays(this@DeviceHistoryActivity)
+            androidx.appcompat.app.AlertDialog.Builder(this@DeviceHistoryActivity).setTitle("History imported")
+                .setMessage("${r.added} new devices, ${r.updated} updated, ${r.unchanged} already there" +
+                    (if (r.skipped > 0) ", ${r.skipped} entries skipped (not a device)" else "") + "." +
+                    (if (keep > 0) "\n\nDevices not seen for more than $keep days are removed again at the next scan unless starred (Settings > Data > Keep history)." else ""))
+                .setPositiveButton("OK", null).show()
+        }
+    }
+
+    companion object {
+        private const val LIMIT = 500
+        /** Open straight on the file picker for an import (Settings > Data). */
+        const val EXTRA_IMPORT = "import"
+    }
 
     /** One device: name (or MAC) and type, then vendor and MAC, then when it was seen. */
     private class Rows(private val open: (KnownDeviceEntity) -> Unit) :

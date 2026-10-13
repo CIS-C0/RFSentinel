@@ -565,6 +565,17 @@ object Prefs {
         sp(context).getFloat("map_3d_tilt", MAP_TILT_DEFAULT.toFloat()).toDouble().coerceIn(30.0, 60.0)
     fun setMap3dTilt(context: Context, value: Double) = sp(context).edit().putFloat("map_3d_tilt", value.toFloat()).apply()
 
+    /** The marker for your position on the map ([com.rfsentinel.app.ui.MarkerArt]): its style, colour and size (1.0 = 56 dp tall). */
+    fun markerStyle(context: Context): String = sp(context).getString("map_marker_style", "arrow") ?: "arrow"
+    fun markerColor(context: Context): String = sp(context).getString("map_marker_color", "blue") ?: "blue"
+    fun markerSize(context: Context): Float = sp(context).getFloat("map_marker_size", 1.0f).coerceIn(0.6f, 2.0f)
+    fun setMarker(context: Context, style: String, color: String, size: Float) =
+        sp(context).edit().putString("map_marker_style", style).putString("map_marker_color", color).putFloat("map_marker_size", size).apply()
+
+    /** The live map goes back to following you a few seconds after you stop touching it while you drive (as Google Maps does). */
+    fun mapAutoRecenter(context: Context): Boolean = bool(context, "map_auto_recenter", true)
+    fun setMapAutoRecenter(context: Context, value: Boolean) = setBool(context, "map_auto_recenter", value)
+
     /** The speedometer in the corner of the live map: your speed, and the posted limit while it is known. */
     fun mapSpeedometer(context: Context): Boolean = bool(context, "map_speedometer", true)
     fun setMapSpeedometer(context: Context, value: Boolean) = setBool(context, "map_speedometer", value)

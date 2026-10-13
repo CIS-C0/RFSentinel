@@ -97,6 +97,8 @@ internal interface MapEngine {
 
     // ---- your position ----
     /** Shows your arrow (once the style is in); false without location permission. */
+    /** The picture of your position, turned with your heading (null: the engine's own arrow); applied now or when the puck starts. */
+    fun setMarker(bitmap: Bitmap?)
     fun startPuck(): Boolean
     val puckOn: Boolean
     fun pushFix(fix: Location)

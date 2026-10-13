@@ -183,8 +183,12 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
             playable(ACTION_SCAN, if (running) "Stop scanning" else "Start scanning",
                 if (running) "Scanning · ${devices.size} nearby · ${devices.count { com.rfsentinel.app.ui.LiveWindow.alerting(it) }} flagged" else "Not scanning",
                 dot(if (running) CarUi.CLEAR_COLOR else CarUi.WEAK_COLOR)),
-            playable(ACTION_MUTE, if (silenced.isEmpty()) "Mute alerts for 30 minutes" else "Turn alert sound back on",
-                silenced.ifEmpty { "Alert sound and voice are on" }, dot(if (silenced.isEmpty()) CarUi.CLEAR_COLOR else CarUi.WEAK_COLOR)),
+            playable(ACTION_MUTE, if (silenced.isEmpty()) "Mute detection alerts for 30 minutes" else "Turn detection alerts back on",
+                silenced.ifEmpty { "Detection alert sound and voice are on (directions are separate)" }, dot(if (silenced.isEmpty()) CarUi.CLEAR_COLOR else CarUi.WEAK_COLOR)),
+            // While guided: the directions have their own mute, so silencing them never silences the detection alerts.
+            if (com.rfsentinel.app.nav.Navigator.active) playable(ACTION_NAV_MUTE, if (Prefs.navVoice(this)) "Mute spoken directions" else "Turn spoken directions back on",
+                if (Prefs.navVoice(this)) "Detection alerts keep sounding" else "Directions are muted; detection alerts still sound",
+                dot(if (Prefs.navVoice(this)) CarUi.CLEAR_COLOR else CarUi.WEAK_COLOR)) else null,
             CellsScreen.summary()?.let { playable(INFO_CELLS, "Cell towers", it, dot(0xFF7B1FA2.toInt())) },
             playable(INFO_HARDWARE, "Hardware", hardwareSummary(), dot(0xFF0B5C63.toInt()))
         )
@@ -204,6 +208,7 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
             when (mediaId) {
                 ACTION_SCAN -> toggleScan()
                 ACTION_MUTE -> toggleMute()
+                ACTION_NAV_MUTE -> toggleDirections()
                 null -> Unit
                 else -> select(mediaId)
             }
@@ -214,6 +219,7 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
             when (action) {
                 ACTION_SCAN -> toggleScan()
                 ACTION_MUTE -> toggleMute()
+                ACTION_NAV_MUTE -> toggleDirections()
             }
             refresh()
         }
@@ -260,6 +266,13 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
         } catch (e: Exception) {
             message("Couldn't start scanning", "Open RF Sentinel on the phone")
         }
+    }
+
+    /** Spoken directions on / off (the same setting as the mute on the phone's navigation screen); detection alerts are not touched. */
+    private fun toggleDirections() {
+        val on = !Prefs.navVoice(this)
+        Prefs.setNavVoice(this, on)
+        message(if (on) "Spoken directions on" else "Spoken directions muted", "Detection alerts still sound")
     }
 
     private fun toggleMute() {
@@ -364,7 +377,9 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
 
         val running = ScanForegroundService.isRunning
         val muted = CarUi.silencedText(this).isNotEmpty()
-        val state = running to muted
+        val guided = com.rfsentinel.app.nav.Navigator.active
+        val directions = Prefs.navVoice(this)
+        val state = listOf(running, muted, guided, directions)
         if (state != stateKey) {
             stateKey = state
             session.setPlaybackState(
@@ -377,8 +392,13 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
                         ACTION_SCAN, if (running) "Stop scanning" else "Start scanning",
                         if (running) R.drawable.ic_car_stop else R.drawable.ic_car_play).build())
                     .addCustomAction(PlaybackStateCompat.CustomAction.Builder(
-                        ACTION_MUTE, if (muted) "Sound on" else "Mute 30 min",
+                        ACTION_MUTE, if (muted) "Alerts on" else "Mute alerts 30 min",
                         if (muted) R.drawable.ic_car_volume else R.drawable.ic_car_snooze).build())
+                    .apply {
+                        if (guided) addCustomAction(PlaybackStateCompat.CustomAction.Builder(
+                            ACTION_NAV_MUTE, if (directions) "Mute directions" else "Directions on",
+                            if (directions) R.drawable.ic_car_voice else R.drawable.ic_car_voice_off).build())
+                    }
                     .build()
             )
         }
@@ -445,6 +465,7 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
         private const val ALERT = "alert:"
         private const val ACTION_SCAN = "act:scan"
         private const val ACTION_MUTE = "act:mute"
+        private const val ACTION_NAV_MUTE = "act:navmute"
         private const val INFO_CLEAR = "info:clear"
         private const val INFO_NO_CAMERAS = "info:nocams"
         private const val INFO_NO_ALERTS = "info:noalerts"
