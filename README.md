@@ -8,6 +8,11 @@
 </p>
 
 <p align="center">
+  <b>RF Sentinel</b> (also written <b>RFSentinel</b>) is a free, open-source police detector app for Android.
+  <a href="https://cis-c0.github.io/RFSentinel/what-is-rf-sentinel.html">What is RF Sentinel?</a>
+</p>
+
+<p align="center">
   <a href="https://github.com/CIS-C0/RFSentinel/releases/latest"><img src="https://img.shields.io/github/v/release/CIS-C0/RFSentinel?label=release&color=00BFAE" alt="Latest release" /></a>
   <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white" alt="Android 8.0+" />
   <img src="https://img.shields.io/badge/Kotlin-100%25-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin" />
@@ -188,7 +193,7 @@ Requires **Android 8.0 or newer** on a 64-bit ARM phone (almost every phone sinc
 
 <p align="center"><img src="docs/screenshots/setup-theme.jpg" width="260" alt="Setup wizard: pick a theme" /></p>
 
-**Updating:** install the newer APK over the existing one. History and settings are kept.
+**Updating:** *Check for updates* has an **Install now** button: it downloads the new release inside the app (checked against the size and SHA-256 GitHub lists for it, and against the app's own signing key) and hands it to Android's installer. Android asks you once to allow RF Sentinel to install apps, then shows its Update card. You can also install the newer APK over the existing one yourself. History and settings are kept.
 Samsung, Xiaomi or OnePlus stopping the scan? Set RF Sentinel's battery usage to
 **Unrestricted** (Settings has a shortcut).
 
@@ -304,6 +309,14 @@ Turn-by-turn directions on the map, with your scanner running alongside.
 - **Routes:** up to three, each with its time and the main roads it takes, drawn on the map.
   *Avoid tolls / highways / ferries* ticked while you plan (or on the trip menu) is remembered for the next
   destination, and is the same setting as Settings → *Navigation*.
+- **Round cameras:** *Avoid speed cameras* and *Avoid plate readers* (the same chips, trip menu and Settings →
+  *Navigation* switches) plan the route around the known cameras of the camera map. The route is asked for, the
+  cameras on it are found, the road each one is on is left out and the route is asked for again (a few times)
+  until none is on it or there is no way round. Each route says what is left on it ("no plate readers", "2 speed
+  cameras") and the fastest way stays on offer to compare. A camera at the start or end, or on the only bridge,
+  can't be avoided and is counted. The cameras along the route are fetched first when they are not on the phone
+  yet (Settings → *Known cameras* → *Download automatically*, or download them there beforehand); it also works
+  when you are re-routed and in Android Auto. A detour can be longer.
   **Start** begins guidance - and the scan too, unless you turn that off (Settings → *Navigation*);
   a scan already running is left as it is, and it keeps going after you arrive.
 - **Guidance:** a banner with the next turn, its distance and street, the **lane arrows** where the map
@@ -328,7 +341,8 @@ Turn-by-turn directions on the map, with your scanner running alongside.
   [Nominatim](https://nominatim.org) as well when you submit a search (the keyboard's search key, or the
   *Search for* row) - whichever answers first is shown at once. They see what you search for, where you start,
   stop and finish, and your IP address - never what you scan - and only when you search, long-press the map
-  or start a route. Search sends your position rounded to about 1 km. Looking for petrol, food and the like asks OpenStreetMap's
+  or start a route. Search sends your position rounded to about 1 km. Avoiding cameras adds the places on your
+  route where known cameras are (the road of each, nothing else about them) to the route question. Looking for petrol, food and the like asks OpenStreetMap's
   Overpass servers (the same ones as the camera downloads) for that kind of place around you - your position
   rounded to about 1 km, or the road ahead as points rounded to about 200 m.
 

@@ -38,6 +38,8 @@
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Settings > About > Check for updates: downloads the new release and installs it over the app (Android asks once). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Optional floating threat bubble over other apps (the user grants it in Settings). -->
@@ -195,6 +197,8 @@
                 <action android:name="android.bluetooth.device.action.ACL_DISCONNECTED" />
             </intent-filter>
         </receiver>
+
+        <receiver android:name=".util.UpdateStatusReceiver" android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -185,7 +185,7 @@ class MapFragment : Fragment() {
             binding.root.keepScreenOn = on && Prefs.navKeepScreenOn(act)
             // The Record / Traces bar gives way to the arrival bar while you are being guided.
             // In the small pane the round buttons stay while guiding: they sit just above the arrival bar.
-            if (!embedded) { binding.controls.visibility = if (on) View.GONE else View.VISIBLE; layoutBottomInset() }
+            if (!embedded) { binding.controls.visibility = if (on || immersive) View.GONE else View.VISIBLE; layoutBottomInset() }
             if (on) { following = true; userZoom = false; applyMode(animate = true); styleFollowButton() }
             else { lastZoomTarget = 0.0; applyMode(animate = true) } // the zoom for a turn goes with the guidance
             renderLive()
@@ -247,6 +247,8 @@ class MapFragment : Fragment() {
         setupSettingsButton()
         setupOrientationButton()
         setupMenu()
+        if (!embedded) setupImmersiveButton()
+        binding.bottomPanel.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> fitSideButtonsSoon() }
         // The scale and the map credit sit just under the status banner, or at the very top when there is none.
         binding.statusBox.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> placeScaleBar() }
         // Wider than tall: the round buttons become a row and the turn banner leaves them the right side.
@@ -628,7 +630,7 @@ class MapFragment : Fragment() {
         val b = _binding ?: return
         if (sidePending) return
         sidePending = true
-        b.root.post { sidePending = false; if (_binding != null) { arrangeForShape(); fitCompactRow(); liftSideButtons(); fitSideButtons(); refollowForPanels() } }
+        b.root.post { sidePending = false; if (_binding != null) { arrangeForShape(); fitCompactRow(); liftSideButtons(); fitSideButtons(); placeGauge(); refollowForPanels() } }
     }
 
     /**
@@ -757,6 +759,94 @@ class MapFragment : Fragment() {
         return row.visibility == View.VISIBLE && row.width > 0 && row.width + 10 * d + rightZone > b.root.width
     }
 
+    // ---- Speedometer -----------------------------------------------------------------------------------
+
+    /** The newest fix from the screen's own GPS (not a position remembered from before). */
+    private var gpsFix: Location? = null
+
+    /**
+     * Your speed and the posted limit, in the corner. The speed is the GPS's own (hidden when there is no recent
+     * fix); the limit comes with the route while you are guided, else from the opt-in lookup of the road you are on.
+     */
+    private fun updateGauge() {
+        val b = _binding ?: return
+        val g = b.speedGauge
+        val fix = gpsFix
+        val fresh = fix != null && fix.hasSpeed() && System.currentTimeMillis() - fix.time < 6_000L
+        if (tripId != null || !Prefs.mapSpeedometer(act) || !fresh) {
+            if (g.visibility != View.GONE) { g.visibility = View.GONE; fitSideButtonsSoon() }
+            return
+        }
+        val limit = when {
+            Navigator.active -> Navigator.speedLimitKmh()
+            Prefs.mapSpeedLimitLive(act) -> com.rfsentinel.app.nav.SpeedLimits.Live.now(fix!!.latitude, fix.longitude)
+            else -> null
+        }
+        val wasShown = g.visibility == View.VISIBLE
+        g.set(fix!!.speed * 3.6f, limit, com.rfsentinel.app.nav.NavFormat.miles(act), rf?.isDark ?: darkTiles())
+        if (!wasShown) fitSideButtonsSoon()
+    }
+
+    /**
+     * The gauge sits bottom left, just above whatever is at the bottom of the screen on that side: the filter chips, the
+     * Record bar, the arrival bar or place card, or the small pane's row of round buttons (which may ride above the arrival
+     * bar). Only moved, never resized: no layout pass of its own.
+     */
+    private fun placeGauge() {
+        val b = _binding ?: return
+        val g = b.speedGauge
+        if (g.visibility != View.VISIBLE || b.root.height == 0) return
+        val d = resources.displayMetrics.density
+        var top = b.root.height.toFloat() - (if (embedded) 0 else bottomInset)
+        for (p in listOf(b.navCard, b.navBar, b.mapFilterScroll, b.controls)) {
+            if (p.visibility == View.VISIBLE && p.height > 0) top = minOf(top, (b.bottomPanel.top + p.top).toFloat())
+        }
+        val row = b.compactControls
+        if (row.visibility == View.VISIBLE && row.height > 0) top = minOf(top, row.top + row.translationY)
+        g.translationY = -(b.root.height - top + 8 * d)
+    }
+
+    // ---- Hiding the bars -------------------------------------------------------------------------------
+
+    private val immersive get() = !embedded && Prefs.mapImmersive(act)
+
+    /** The map's own button (full screen map only): hide the toolbar, the system bars and the bottom bar, or bring them back. */
+    private fun setupImmersiveButton() {
+        val btn = binding.fullscreenButton
+        btn.visibility = View.VISIBLE
+        btn.backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFFFFFFF.toInt())
+        btn.imageTintList = android.content.res.ColorStateList.valueOf(0xFF0B5C63.toInt())
+        btn.setOnClickListener {
+            val on = !Prefs.mapImmersive(act)
+            Prefs.setMapImmersive(act, on)
+            applyImmersive()
+            if (on) Toast.makeText(act, "Bars hidden - swipe from the screen's edge for the system bars, tap again to bring the rest back", Toast.LENGTH_LONG).show()
+        }
+        applyImmersive()
+    }
+
+    /**
+     * Full screen map hiding even more: the toolbar, the status and navigation bars, the filter chips, the Record bar and the
+     * status line go; the map, its round buttons, the speedometer, the alert cards and the turn banner and arrival bar while
+     * guiding stay (the credit line too - it is the map's licence).
+     */
+    private fun applyImmersive() {
+        val b = _binding ?: return
+        if (embedded) return
+        val on = Prefs.mapImmersive(act)
+        b.fullscreenButton.setImageResource(if (on) com.rfsentinel.app.R.drawable.ic_fullscreen_exit else com.rfsentinel.app.R.drawable.ic_fullscreen)
+        b.fullscreenButton.contentDescription = if (on) "Show the toolbars again" else "Hide the toolbars (full screen)"
+        act.supportActionBar?.let { if (on) it.hide() else it.show() }
+        val bars = androidx.core.view.WindowCompat.getInsetsController(act.window, b.root)
+        bars.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (on) bars.hide(WindowInsetsCompat.Type.systemBars()) else bars.show(WindowInsetsCompat.Type.systemBars())
+        b.mapFilterScroll.visibility = if (on) View.GONE else View.VISIBLE
+        b.controls.visibility = if (on || Navigator.active) View.GONE else View.VISIBLE
+        layoutBottomInset()
+        renderLive()
+        fitSideButtonsSoon()
+    }
+
     // ---- Your position --------------------------------------------------------------------------------
 
     private fun startLocation() {
@@ -781,6 +871,10 @@ class MapFragment : Fragment() {
     private fun onFix(fix: Location) {
         if (!alive) return
         lastFix = fix
+        gpsFix = fix
+        if (tripId == null && !Navigator.active && Prefs.mapSpeedometer(act) && Prefs.mapSpeedLimitLive(act) && fix.hasSpeed())
+            com.rfsentinel.app.nav.SpeedLimits.Live.onFix(fix.latitude, fix.longitude, fix.speed)
+        updateGauge()
         val m = map?.takeIf { it.puckOn } ?: return
         m.pushFix(steady(fix))
         adaptGpsRate(fix)
@@ -1165,7 +1259,8 @@ class MapFragment : Fragment() {
         }
         val text = listOfNotNull(status, rf?.cctvLine).joinToString("\n")
         binding.statusText.text = text
-        binding.statusText.visibility = if (text.isEmpty()) View.GONE else View.VISIBLE
+        binding.statusText.visibility = if (text.isEmpty() || (immersive && !Navigator.active)) View.GONE else View.VISIBLE
+        updateGauge()
         binding.statusText.background.mutate().setTint(if (recording) 0xFFB3261E.toInt() else 0xCC0B5C63.toInt())
     }
 

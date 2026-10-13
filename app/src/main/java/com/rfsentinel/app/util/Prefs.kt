@@ -346,6 +346,11 @@ object Prefs {
     fun setNavAvoidHighways(context: Context, v: Boolean) = setBool(context, "nav_avoid_highways", v)
     fun navAvoidFerries(context: Context): Boolean = bool(context, "nav_avoid_ferries", false)
     fun setNavAvoidFerries(context: Context, v: Boolean) = setBool(context, "nav_avoid_ferries", v)
+    /** Routes go round the known speed cameras / plate readers (the camera map's), where there is a way round. */
+    fun navAvoidSpeedCameras(context: Context): Boolean = bool(context, "nav_avoid_speed_cameras", false)
+    fun setNavAvoidSpeedCameras(context: Context, v: Boolean) = setBool(context, "nav_avoid_speed_cameras", v)
+    fun navAvoidPlateReaders(context: Context): Boolean = bool(context, "nav_avoid_plate_readers", false)
+    fun setNavAvoidPlateReaders(context: Context, v: Boolean) = setBool(context, "nav_avoid_plate_readers", v)
     /** Distance units for guidance: "auto" (miles where the phone's region uses them), "km" or "mi". */
     fun navUnits(context: Context): String = sp(context).getString("nav_units", "auto") ?: "auto"
     fun setNavUnits(context: Context, v: String) = sp(context).edit { putString("nav_units", v) }
@@ -559,6 +564,20 @@ object Prefs {
     fun map3dTilt(context: Context): Double =
         sp(context).getFloat("map_3d_tilt", MAP_TILT_DEFAULT.toFloat()).toDouble().coerceIn(30.0, 60.0)
     fun setMap3dTilt(context: Context, value: Double) = sp(context).edit().putFloat("map_3d_tilt", value.toFloat()).apply()
+
+    /** The speedometer in the corner of the live map: your speed, and the posted limit while it is known. */
+    fun mapSpeedometer(context: Context): Boolean = bool(context, "map_speedometer", true)
+    fun setMapSpeedometer(context: Context, value: Boolean) = setBool(context, "map_speedometer", value)
+    /**
+     * The posted limit when you are not navigating: asks the route server about the road you are on every ~12 s
+     * while you drive (so it learns where you drive, unlike every other map feature) - off until you turn it on.
+     * While guided the limits come with the route either way.
+     */
+    fun mapSpeedLimitLive(context: Context): Boolean = bool(context, "map_speed_limit_live", false)
+    fun setMapSpeedLimitLive(context: Context, value: Boolean) = setBool(context, "map_speed_limit_live", value)
+    /** The full screen map with the toolbar, the system bars and the bottom bar hidden (the button on the map). */
+    fun mapImmersive(context: Context): Boolean = bool(context, "map_immersive", false)
+    fun setMapImmersive(context: Context, value: Boolean) = setBool(context, "map_immersive", value)
 
     /** The map's provider ("openfreemap", the default, or "mapbox"), Settings > Map. */
     fun mapProvider(context: Context): String? = sp(context).getString("map_provider", null)

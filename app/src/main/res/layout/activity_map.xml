@@ -589,6 +589,15 @@
     </LinearLayout>
     </LinearLayout>
 
+    <!-- Your speed and the posted limit, bottom left just above the bottom panels (placed in code, placeGauge). -->
+    <com.rfsentinel.app.ui.SpeedGaugeView
+        android:id="@+id/speedGauge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_marginStart="10dp"
+        android:visibility="gone" />
+
     <!-- On the main screen: Record / Traces as round buttons on the map (the bar above is hidden). -->
     <LinearLayout
         android:id="@+id/compactControls"

@@ -498,6 +498,18 @@
                 android:text="Show plate, speed and red-light cameras" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/mapSpeedometerSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Speedometer on the map (your speed and the posted limit)" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/mapSpeedLimitLiveSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Posted limit when not navigating (asks the route server about your road)" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/mapTowersSwitch"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

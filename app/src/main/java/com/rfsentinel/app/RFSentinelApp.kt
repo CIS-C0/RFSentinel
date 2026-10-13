@@ -54,6 +54,8 @@ class RFSentinelApp : Application() {
             override fun onActivityDestroyed(a: android.app.Activity) {}
         })
         NotificationHelper.createChannels(this)
+        // A downloaded update is done with once the app starts again (installed, or given up on).
+        appScope.launch { com.rfsentinel.app.util.UpdateInstaller.cleanUp(this@RFSentinelApp) }
         // A fresh process means no camera download is running: drop any leftover progress.
         NotificationHelper.clearStaleCameraDownload(this)
         OuiWatchlist.load(this)

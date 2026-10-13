@@ -277,7 +277,8 @@ internal class MapNav(
             val chosen = i == selected
             b.navRoutes.addView(MaterialButton(act, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
                 text = NavFormat.duration(r.durationS) + "\n" + NavFormat.distance(r.distanceM, miles) +
-                    (if (r.summary.isNotBlank()) " · via " + r.summary.substringBefore(',') else "")
+                    (if (r.summary.isNotBlank()) " · via " + r.summary.substringBefore(',') else "") +
+                    (r.cameraLine?.let { "\n$it" } ?: "")
                 isAllCaps = false
                 setTextColor(if (chosen) onAccent else accent)
                 backgroundTintList = ColorStateList.valueOf(if (chosen) accent else 0x00000000)
@@ -310,6 +311,8 @@ internal class MapNav(
         b.navAvoid.addView(chip("Avoid tolls", options.avoidTolls) { o, v -> o.copy(avoidTolls = v) })
         b.navAvoid.addView(chip("Avoid highways", options.avoidHighways) { o, v -> o.copy(avoidHighways = v) })
         b.navAvoid.addView(chip("Avoid ferries", options.avoidFerries) { o, v -> o.copy(avoidFerries = v) })
+        b.navAvoid.addView(chip("Avoid speed cameras", options.avoidSpeedCameras) { o, v -> o.copy(avoidSpeedCameras = v) })
+        b.navAvoid.addView(chip("Avoid plate readers", options.avoidPlateReaders) { o, v -> o.copy(avoidPlateReaders = v) })
     }
 
     private fun fitRoute(r: Route) {
@@ -476,6 +479,8 @@ internal class MapNav(
             menu.add(0, 3, 2, "Avoid tolls").apply { isCheckable = true; isChecked = Navigator.options.avoidTolls }
             menu.add(0, 4, 3, "Avoid highways").apply { isCheckable = true; isChecked = Navigator.options.avoidHighways }
             menu.add(0, 5, 4, "Avoid ferries").apply { isCheckable = true; isChecked = Navigator.options.avoidFerries }
+            menu.add(0, 9, 4, "Avoid speed cameras").apply { isCheckable = true; isChecked = Navigator.options.avoidSpeedCameras }
+            menu.add(0, 10, 4, "Avoid plate readers").apply { isCheckable = true; isChecked = Navigator.options.avoidPlateReaders }
             menu.add(0, 6, 5, "Open in Google Maps")
             menu.add(0, 7, 6, "Open in Waze")
             menu.add(0, 8, 7, "End navigation")
@@ -487,6 +492,8 @@ internal class MapNav(
                     3 -> Navigator.changeOptions(act, Navigator.options.copy(avoidTolls = !Navigator.options.avoidTolls))
                     4 -> Navigator.changeOptions(act, Navigator.options.copy(avoidHighways = !Navigator.options.avoidHighways))
                     5 -> Navigator.changeOptions(act, Navigator.options.copy(avoidFerries = !Navigator.options.avoidFerries))
+                    9 -> Navigator.changeOptions(act, Navigator.options.copy(avoidSpeedCameras = !Navigator.options.avoidSpeedCameras))
+                    10 -> Navigator.changeOptions(act, Navigator.options.copy(avoidPlateReaders = !Navigator.options.avoidPlateReaders))
                     6 -> dest?.let { HandOff.open(act, it, "google") }
                     7 -> dest?.let { HandOff.open(act, it, "waze") }
                     8 -> Navigator.stop()

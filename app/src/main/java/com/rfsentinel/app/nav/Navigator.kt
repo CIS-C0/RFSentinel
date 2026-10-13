@@ -8,6 +8,7 @@ import android.location.LocationManager
 import android.os.Build
 import android.os.Looper
 import com.rfsentinel.app.BuildConfig
+import com.rfsentinel.app.alpr.AlprStore
 import com.rfsentinel.app.service.ScanForegroundService
 import com.rfsentinel.app.util.AlertPlayer
 import com.rfsentinel.app.util.Permissions
@@ -65,6 +66,19 @@ object Navigator {
         private set
 
     val active: Boolean get() = destination != null && route != null
+
+    private var limits: SpeedLimits.RouteLimits? = null
+
+    /**
+     * The posted limit (km/h) where you are on the route, from the limits asked for along it (a stretch at a time,
+     * ahead of you); null while it is unknown or not mapped. Asked for only when the screen wants it.
+     */
+    fun speedLimitKmh(): Int? {
+        val r = route ?: return null
+        val s = state ?: return null
+        val rl = limits?.takeIf { it.route === r } ?: SpeedLimits.RouteLimits(r).also { limits = it }
+        return rl.at(s.alongM)
+    }
 
     /**
      * How fast you are really going compared with the route's plan (1 = as planned, 1.2 = a fifth slower),
@@ -126,7 +140,8 @@ object Navigator {
     /** The route options chosen in Settings, for a route nobody has adjusted. */
     fun defaultOptions(context: Context) = Valhalla.Options(
         avoidTolls = Prefs.navAvoidTolls(context), avoidHighways = Prefs.navAvoidHighways(context),
-        avoidFerries = Prefs.navAvoidFerries(context))
+        avoidFerries = Prefs.navAvoidFerries(context),
+        avoidSpeedCameras = Prefs.navAvoidSpeedCameras(context), avoidPlateReaders = Prefs.navAvoidPlateReaders(context))
 
     /**
      * Keeps what was ticked (avoid tolls, highways, ferries) as the starting choice for the next
@@ -136,6 +151,8 @@ object Navigator {
         Prefs.setNavAvoidTolls(context, options.avoidTolls)
         Prefs.setNavAvoidHighways(context, options.avoidHighways)
         Prefs.setNavAvoidFerries(context, options.avoidFerries)
+        Prefs.setNavAvoidSpeedCameras(context, options.avoidSpeedCameras)
+        Prefs.setNavAvoidPlateReaders(context, options.avoidPlateReaders)
     }
 
     // ---- planning ---------------------------------------------------------------------------------
@@ -144,10 +161,20 @@ object Navigator {
     suspend fun plan(context: Context, dest: Place, from: Location, options: Valhalla.Options,
                      stops: List<Place> = emptyList()): List<Route> {
         planner?.let { return it(context, dest, from, options, stops) }
-        val miles = NavFormat.miles(context)
-        val body = Valhalla.request(from.latitude, from.longitude, headingOf(from), stops.map { it.lat to it.lon },
-            dest.lat to dest.lon, options, miles)
-        return withContext(Dispatchers.IO) { Valhalla.route(body, userAgent) }
+        val app = context.applicationContext
+        val miles = NavFormat.miles(app)
+        val heading = headingOf(from)
+        val via = stops.map { it.lat to it.lon }
+        suspend fun ask(exclude: List<Pair<Double, Double>>, alternatives: Int): List<Route> {
+            val body = Valhalla.request(from.latitude, from.longitude, heading, via, dest.lat to dest.lon,
+                options.copy(alternatives = alternatives), miles, exclude)
+            return withContext(Dispatchers.IO) { Valhalla.route(body, userAgent) }
+        }
+        val kinds = CameraAvoid.kinds(options)
+        if (kinds.isEmpty()) return ask(emptyList(), options.alternatives)
+        // Round the known cameras: the camera map along the route is fetched first when it isn't there yet.
+        return CameraAvoid.plan(kinds, { AlprStore.cameras }, listOf(from.latitude to from.longitude) + via + (dest.lat to dest.lon),
+            options.alternatives, covered = { CameraCoverage.ensure(app, it) }, ask = ::ask)
     }
 
     /** Plans with the Settings defaults and starts on the best route (the car screens' one-step start). */
@@ -202,7 +229,7 @@ object Navigator {
     fun stop() {
         appContext?.let { listen(it, false); NavigationService.stop(it) }
         generation++
-        destination = null; route = null; state = null; status = null; stops = emptyList(); rerouting = false
+        destination = null; route = null; state = null; status = null; stops = emptyList(); rerouting = false; limits = null
         lastFix = null // a fix kept after the trip would stand in for a newer position later (the car screens take the newest of two)
         changed()
     }

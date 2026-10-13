@@ -27,7 +27,10 @@ object Valhalla {
         val avoidHighways: Boolean = false,
         val avoidFerries: Boolean = false,
         /** How many other routes to offer besides the best (only with no stops on the way). */
-        val alternatives: Int = 2
+        val alternatives: Int = 2,
+        /** Go round the known speed cameras / plate readers of the camera map ([CameraAvoid]). */
+        val avoidSpeedCameras: Boolean = false,
+        val avoidPlateReaders: Boolean = false
     )
 
     class NoRouteException(message: String) : Exception(message)
@@ -39,7 +42,8 @@ object Valhalla {
      * begin with a U-turn - through [stops] to [to].
      */
     fun request(fromLat: Double, fromLon: Double, headingDeg: Double?, stops: List<Pair<Double, Double>>,
-                to: Pair<Double, Double>, options: Options, miles: Boolean = false): JSONObject {
+                to: Pair<Double, Double>, options: Options, miles: Boolean = false,
+                exclude: List<Pair<Double, Double>> = emptyList()): JSONObject {
         val locations = JSONArray()
         locations.put(JSONObject().put("lat", fromLat).put("lon", fromLon).apply {
             if (headingDeg != null) { put("heading", Math.round(headingDeg).toInt()); put("heading_tolerance", 45) }
@@ -61,6 +65,10 @@ object Valhalla {
             .put("voice_instructions", true)
             .put("turn_lanes", true)
             .apply {
+                // Places the route must not use (the road at each; the server takes up to 50).
+                if (exclude.isNotEmpty()) put("exclude_locations", JSONArray().also { a ->
+                    for ((la, lo) in exclude) a.put(JSONObject().put("lat", la).put("lon", lo))
+                })
                 // Alternatives aren't offered on routes with stops.
                 if (stops.isEmpty() && options.alternatives > 0) put("alternates", options.alternatives)
             }

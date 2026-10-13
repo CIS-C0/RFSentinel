@@ -42,6 +42,7 @@ NAV = [
 ]
 
 GUIDES = [
+    ("what-is-rf-sentinel.html", "What is RF Sentinel?"),
     ("police-detector.html", "Detect police with Android"),
     ("flock-camera-detector.html", "Flock & plate-reader cameras"),
     ("imsi-catcher-detector.html", "Stingray / IMSI catcher signs"),
@@ -225,7 +226,7 @@ def build():
             graph.append({
                 "@type": "SoftwareApplication",
                 "name": "RF Sentinel",
-                "alternateName": ["RFSentinel", "RF Sentinel police scanner"],
+                "alternateName": ["RFSentinel", "RF-Sentinel", "RF Sentinel app", "RF Sentinel Android", "RF Sentinel police scanner"],
                 "applicationCategory": "UtilitiesApplication",
                 "operatingSystem": "Android 8.0+",
                 "description": meta["description"],
@@ -245,7 +246,7 @@ def build():
                 "author": {"@type": "Organization", "name": "CIS-C0", "url": "https://github.com/CIS-C0"},
                 "sameAs": [REPO, DISCORD],
             })
-            graph.append({"@type": "WebSite", "name": "RF Sentinel", "url": BASE})
+            graph.append({"@type": "WebSite", "name": "RF Sentinel", "alternateName": ["RFSentinel", "RF-Sentinel"], "url": BASE})
         else:
             graph.append({
                 "@type": "BreadcrumbList",

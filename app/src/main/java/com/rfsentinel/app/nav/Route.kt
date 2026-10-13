@@ -17,7 +17,9 @@ data class Route(
     /** The main roads it takes ("Highway 40, Rue Principale"), to tell routes apart. */
     val summary: String,
     /** Where it ends (the last stop). */
-    val end: Pair<Double, Double>
+    val end: Pair<Double, Double>,
+    /** What is on it of the cameras being avoided ("no plate readers", "2 speed cameras"); null when none are. */
+    val cameraLine: String? = null
 ) {
     val size: Int get() = lats.size
     val lengthM: Double get() = along.lastOrNull() ?: 0.0

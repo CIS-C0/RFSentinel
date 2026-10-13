@@ -1,0 +1,55 @@
+<!--META {"title": "What is RF Sentinel? Free Police Detector App for Android (RFSentinel)", "description": "RF Sentinel (also written RFSentinel) is a free, open-source Android app that detects police body cams, plate-reader cameras, trackers and drones from Bluetooth and WiFi. No root, no account.", "nav": "guides", "crumb": "What is RF Sentinel"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / what-is-rf-sentinel</p>
+  <h1>What is RF Sentinel?</h1>
+  <p class="lead"><b>RF Sentinel</b> (written <b>RFSentinel</b> in its code and on GitHub, sometimes RF-Sentinel) is a free, open-source Android app that passively listens to the Bluetooth LE and WiFi signals around you and tells you when police or surveillance equipment is nearby. It needs no root, no account and sends none of your scans anywhere.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download RF Sentinel <span data-version></span></a>
+    <a class="btn" href="{{REPO}}" rel="noopener">{{GITHUB_SVG}}RFSentinel on GitHub</a>
+  </div>
+</div>
+
+<h2 id="what">What RF Sentinel does</h2>
+<p>Many devices announce themselves over the air all the time: body cameras, license-plate cameras, patrol-vehicle equipment, Bluetooth trackers, Remote ID drones and smart glasses. RF Sentinel recognises those signatures and shows them in a live list, a radar and a map, with the evidence for each, so you know what is around you and why it was flagged.</p>
+<ul>
+  <li><b>Police and surveillance gear:</b> body cams, Flock and other plate-reader cameras, patrol-vehicle equipment, trackers following you (<a href="tracker-detector.html">AirTag, SmartTag, Find Hub</a>), <a href="drone-detector.html">drones</a>, <a href="smart-glasses-detector.html">camera glasses</a>, and signs of <a href="imsi-catcher-detector.html">fake cell towers</a>.</li>
+  <li><b>Known cameras on the map:</b> speed, red-light and plate-reader cameras from OpenStreetMap, with warnings before you reach them, and routes that can go around them.</li>
+  <li><b>Navigation and the map:</b> turn-by-turn directions, a 3D driving view, a speedometer with the posted limit, and Waze police reports on your road.</li>
+  <li><b>In the car:</b> <a href="android-auto.html">Android Auto</a> support and optional <a href="esp32.html">ESP32 boards</a> and USB WiFi adapters for more range.</li>
+</ul>
+<p>It is receive-only: RF Sentinel never transmits to, connects to, jams or spoofs any device. See <a href="how-it-works.html">how it works</a> for the detection logic and <a href="police-detector.html">how to detect police with Android</a> for a practical guide.</p>
+
+<h2 id="get">Where to get it</h2>
+<p>RF Sentinel is downloaded as an APK from <a href="{{RELEASES}}" rel="noopener">GitHub Releases</a> (the RFSentinel repository), not from Google Play. The <a href="install.html">install guide</a> covers allowing the install, updating in the app and what to expect. Its source code is public under the GPL-3.0 licence.</p>
+
+<h2 id="faq">Questions people ask</h2>
+
+<details class="faq" id="rf-sentinel-vs-rfsentinel">
+<summary>Is "RF Sentinel" the same as "RFSentinel"?</summary>
+<div><p>Yes. The app is called RF Sentinel; "RFSentinel" is the same name written without a space, as used in the GitHub repository (CIS-C0/RFSentinel), the package name and the code. Searching for either finds the same project.</p></div>
+</details>
+
+<details class="faq" id="rf-sentinel-free">
+<summary>Is RF Sentinel free?</summary>
+<div><p>Yes. RF Sentinel is free and open source under the GPL-3.0 licence, with no accounts, no ads and no analytics.</p></div>
+</details>
+
+<details class="faq" id="rf-sentinel-play-store">
+<summary>Is RF Sentinel on Google Play?</summary>
+<div><p>No. It is distributed as a signed APK on GitHub Releases. The in-app "Check for updates" can download and install new versions for you once you have allowed it.</p></div>
+</details>
+
+<details class="faq" id="rf-sentinel-root">
+<summary>Does RF Sentinel need root or a special device?</summary>
+<div><p>No. It runs on an ordinary Android 8.0+ phone (64-bit ARM) using the phone's own Bluetooth and WiFi. External hardware such as ESP32 boards or USB WiFi adapters is optional and adds range.</p></div>
+</details>
+
+<details class="faq" id="rf-sentinel-safe-legal">
+<summary>Is RF Sentinel safe and legal to use?</summary>
+<div><p>It only listens to signals that devices broadcast openly and never transmits. The rules for scanning and for using any alerts differ between countries and states, so check your local laws; the <a href="qa.html">Q&amp;A page</a> has the details. This is not legal advice.</p></div>
+</details>
+
+<details class="faq" id="rf-sentinel-who">
+<summary>Who makes RF Sentinel?</summary>
+<div><p>RF Sentinel is an independent open-source project by CIS-C0 and contributors, developed in the open on <a href="{{REPO}}" rel="noopener">GitHub</a>. It is not affiliated with Flock Safety, Axon, Waze or any detection product it is compared with. Questions and bug reports are welcome in the repository's issues or on <a href="{{DISCORD}}" rel="noopener">Discord</a>.</p></div>
+</details>

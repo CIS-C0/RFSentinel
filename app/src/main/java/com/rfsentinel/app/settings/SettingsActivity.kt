@@ -464,6 +464,9 @@ class SettingsActivity : AppCompatActivity() {
                 "asked until you search, long-press the map or start a route; search sends your position rounded to about 1 km.\n\n" +
                 "Looking for petrol, charging, food and the like asks OpenStreetMap's Overpass servers (as the camera downloads do): " +
                 "your position rounded to about 1 km, or the road ahead as points rounded to about 200 m.\n\n" +
+                "Avoiding speed cameras and plate readers: the route server is asked for the route again with the road of each " +
+                "camera on it left out (a few times), so it also sees those places on your route - nothing else about the cameras " +
+                "or what you scan.\n\n" +
                 "Not included: live traffic (the arrival time starts from the route's usual driving time and then follows how you really " +
                 "drive), speed limits and offline routes.\n\n" +
                 "Home, Work, starred and recent places are kept on this phone only."),
@@ -474,6 +477,14 @@ class SettingsActivity : AppCompatActivity() {
                 "The map button turns the map: north up, then with your direction of travel, then the 3D driving view - like " +
                 "a car navigation app, your arrow low on the screen, closer in town and further ahead at speed.\n\n" +
                 "3D view angle: how far the driving view leans back; on fast roads it leans up to 10° further (60° at most).\n\n" +
+                "Speedometer: your speed (from the GPS) in the bottom left corner of the live map, and next to it the posted speed " +
+                "limit as a road sign: a red ring, or a \"SPEED LIMIT\" plate where distances are in miles. Your speed turns red " +
+                "above the limit. While you are guided the limits along the route come with it (one more question to the route server " +
+                "for the stretch ahead, nothing about where else you go). Not navigating, the limit needs the extra switch: it asks the route " +
+                "server which road you are on about every 12 seconds while you drive, so that server learns where you drive - it " +
+                "is off until you turn it on. Limits are OpenStreetMap's: where none is mapped there is no sign.\n\n" +
+                "The full screen map has a button that hides the toolbar, the system bars and the bottom bar (the speedometer, " +
+                "alert cards and, while guiding, the turn banner stay).\n\n" +
                 "Default zoom: how close the map follows you. The 3D driving view pulls back from it as you speed up; the " +
                 "north-up and heading-up views sit half a level wider. 17 is close to Waze.\n\n" +
                 "Map provider: OpenFreeMap (OpenStreetMap data, free, no account) or Mapbox (Mapbox's own map: 3D buildings, " +
@@ -561,7 +572,9 @@ class SettingsActivity : AppCompatActivity() {
         Section("more", binding.headerMore, binding.sectionMore,
             "Watchlist & rules: the vendor prefixes and rules that flag a device; add your own.\n\n" +
                 "Whitelist: devices you trust, never flagged.\n\n" +
-                "Check for updates: asks GitHub for a newer version now.\n\n" +
+                "Check for updates: asks GitHub for a newer version now. \"Install now\" downloads it and installs it over this " +
+                "one (Android asks you once to allow RF Sentinel to install apps, then shows its own Update card). History and " +
+                "settings are kept, and scanning stops while it installs.\n\n" +
                 "About & sources: version, licence, where the signatures come from, and the app's limits.\n\n" +
                 "Crash log: if RF Sentinel ever closes unexpectedly, what went wrong is saved on this phone (never sent " +
                 "automatically). Export it to send to the developer; the app also offers this the next time it opens.")
@@ -942,6 +955,12 @@ class SettingsActivity : AppCompatActivity() {
         switch("Tolls", Prefs.navAvoidTolls(this)) { Prefs.setNavAvoidTolls(this, it) }
         switch("Highways", Prefs.navAvoidHighways(this)) { Prefs.setNavAvoidHighways(this, it) }
         switch("Ferries", Prefs.navAvoidFerries(this)) { Prefs.setNavAvoidFerries(this, it) }
+        switch("Speed cameras", Prefs.navAvoidSpeedCameras(this)) { Prefs.setNavAvoidSpeedCameras(this, it) }
+        switch("Plate readers (ALPR)", Prefs.navAvoidPlateReaders(this)) { Prefs.setNavAvoidPlateReaders(this, it) }
+        label("Routes go round the cameras of the camera map (Known cameras) where there is a way round, and each route says " +
+            "what is left on it. The cameras along the route are fetched first if they are not on the phone (Known cameras > " +
+            "Download automatically). A camera right at the start or end, or on the only bridge, can't be avoided. A detour can be longer.",
+            small = true)
 
         label("Distances in")
         val units = listOf("auto" to "Automatic (by the phone's region)", "km" to "Kilometres", "mi" to "Miles")
@@ -986,6 +1005,16 @@ class SettingsActivity : AppCompatActivity() {
         setupMapTilt()
         binding.mapKnownCamerasSwitch.isChecked = Prefs.showKnownAlpr(this)
         binding.mapKnownCamerasSwitch.setOnCheckedChangeListener { _, on -> Prefs.setShowKnownAlpr(this, on) }
+        binding.mapSpeedometerSwitch.isChecked = Prefs.mapSpeedometer(this)
+        binding.mapSpeedLimitLiveSwitch.isChecked = Prefs.mapSpeedLimitLive(this)
+        binding.mapSpeedLimitLiveSwitch.isEnabled = binding.mapSpeedometerSwitch.isChecked
+        binding.mapSpeedometerSwitch.setOnCheckedChangeListener { _, on ->
+            Prefs.setMapSpeedometer(this, on); binding.mapSpeedLimitLiveSwitch.isEnabled = on
+        }
+        binding.mapSpeedLimitLiveSwitch.setOnCheckedChangeListener { _, on ->
+            Prefs.setMapSpeedLimitLive(this, on)
+            if (!on) com.rfsentinel.app.nav.SpeedLimits.Live.reset()
+        }
         binding.mapTowersSwitch.isChecked = Prefs.showCellTowers(this)
         binding.mapTowersSwitch.setOnCheckedChangeListener { _, on -> Prefs.setShowCellTowers(this, on) }
         binding.mapCctvSwitch.isChecked = Prefs.showCctv(this)
