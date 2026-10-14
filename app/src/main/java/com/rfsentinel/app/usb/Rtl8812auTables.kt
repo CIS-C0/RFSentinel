@@ -319,8 +319,11 @@ object Rtl8812auTables {
      */
     fun channelTune(ch: Int, rfe: Int, cut: Int): Array<IntArray> {
         val g5 = ch > 14
+        // Receive stops while the band changes (0x808 OFDM / CCK off) and comes back at the end: both in 2.4 GHz, OFDM only
+        // in 5 GHz, where there is no CCK and the CCK detector would only pick up false alarms.
+        val stopRx = intArrayOf(BB, 0x808, 0x30000000, 0x0)
         val band: Array<IntArray> = if (!g5) arrayOf(
-            intArrayOf(BB, 0x808, 0x30000000, 0x3),
+            stopRx,
             intArrayOf(BB, 0x834, 0x3, 0x1),
             intArrayOf(BB, 0x830, 0x3E000, 0x17),
             intArrayOf(BB, 0x830, 0xE, 0x4),
@@ -328,17 +331,19 @@ object Rtl8812auTables {
         ) + rfePins(rfe, false) + arrayOf(
             intArrayOf(BB, 0x80C, 0xF0, 0x1),
             intArrayOf(BB, 0xA04, 0x0F000000, 0x1),
-            intArrayOf(MAC8, 0x454, 0x80, 0x0)
+            intArrayOf(MAC8, 0x454, 0x80, 0x0),
+            intArrayOf(BB, 0x808, 0x30000000, 0x3)
         ) else arrayOf(
             intArrayOf(MAC8, 0x454, 0x80, 0x1),
-            intArrayOf(BB, 0x808, 0x30000000, 0x3),
+            stopRx,
             intArrayOf(BB, 0x834, 0x3, 0x2),
             intArrayOf(BB, 0x830, 0x3E000, 0x15),
             intArrayOf(BB, 0x830, 0xE, 0x4),
             intArrayOf(BB, 0x82C, 0x3, 0x1)
         ) + rfePins(rfe, true) + arrayOf(
             intArrayOf(BB, 0x80C, 0xF0, 0x0),
-            intArrayOf(BB, 0xA04, 0x0F000000, 0xF)
+            intArrayOf(BB, 0xA04, 0x0F000000, 0xF),
+            intArrayOf(BB, 0x808, 0x30000000, 0x2)
         )
         val fc = when { ch in 15..48 -> 0x494; ch in 50..80 -> 0x453; ch in 82..116 -> 0x452; ch >= 118 -> 0x412; else -> 0x96A }
         val mod = when { ch in 15..80 -> 0x101; ch in 82..140 -> 0x301; ch > 140 -> 0x501; else -> 0x0 }
@@ -363,6 +368,21 @@ object Rtl8812auTables {
             intArrayOf(BB, 0x8AC, 0x300, if (top) 0x3 else 0x2),
             intArrayOf(BB, 0x8C4, 0x40000000, if (top) 0x1 else 0x0)
         ) else if (ch <= 14) arrayOf(intArrayOf(BB, 0x8AC, 0x300, if (top) 0x3 else 0x2)) else emptyArray()
+    }
+
+    /**
+     * The received power of a CCK frame (1 - 11 Mbps, most 2.4 GHz beacons) from its LNA and VGA gain indexes, in dBm:
+     * the RTL8812A's own steps (phydm's cck_rssi for the 8812A), 6 dB below the RTL8821A's.
+     */
+    fun cckRssi(lna: Int, vga: Int): Int = when (lna) {
+        7 -> if (vga <= 27) -100 + 2 * (27 - vga) else -100
+        6 -> -48 + 2 * (2 - vga)
+        5 -> -42 + 2 * (7 - vga)
+        4 -> -36 + 2 * (7 - vga)
+        3 -> -24 + 2 * (7 - vga)
+        2 -> -6 + 2 * (5 - vga)
+        1 -> 8 - 2 * vga
+        else -> 14 - 2 * vga
     }
 
     const val REG_CR = 0x100

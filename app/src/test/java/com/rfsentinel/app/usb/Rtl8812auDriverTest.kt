@@ -77,6 +77,19 @@ class Rtl8812auDriverTest {
     }
 
     @Test
+    fun receiveStopsDuringTheBandSwitchAndComesBackWithoutCckIn5Ghz() {
+        fun rx(ops: Array<IntArray>) = ops.filter { it[0] == T.BB && it[1] == 0x808 && it[2] == 0x30000000 }.map { it[3] }
+        assertEquals("2.4 GHz: off, then OFDM and CCK", listOf(0, 3), rx(T.channelTune(6, 0, 2)))
+        assertEquals("5 GHz: off, then OFDM only", listOf(0, 2), rx(T.channelTune(44, 0, 2)))
+    }
+
+    @Test
+    fun cckSignalUsesThe8812aSteps() {
+        assertEquals(-100, T.cckRssi(7, 30)); assertEquals(-90, T.cckRssi(7, 22))
+        assertEquals(-48, T.cckRssi(6, 2)); assertEquals(-24, T.cckRssi(3, 7)); assertEquals(14, T.cckRssi(0, 0))
+    }
+
+    @Test
     fun theAntennaPinsFollowTheBoardType() {
         fun pinmux(rfe: Int, g5: Boolean) = T.rfePins(rfe, g5).first { it[1] == T.RFE_PINMUX_A }[3]
         assertEquals(0x77777777, pinmux(0, false)); assertEquals(0x77337717, pinmux(0, true))

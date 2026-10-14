@@ -368,17 +368,8 @@ object Rtl8812auMonitor {
     private fun rtlRssi(b: ByteArray, di: Int, rate: Int): Int {
         fun u8(i: Int) = b[i].toInt() and 0xff
         return if (rate <= 3) {
-            val agc = u8(di + 5); val lna = (agc and 0xE0) shr 5; val vga = agc and 0x1F
-            when (lna) {
-                7 -> if (vga <= 27) -94 + 2 * (27 - vga) else -94
-                6 -> -42 + 2 * (2 - vga)
-                5 -> -36 + 2 * (7 - vga)
-                4 -> -30 + 2 * (7 - vga)
-                3 -> -18 + 2 * (7 - vga)
-                2 -> 2 * (5 - vga)
-                1 -> 14 - 2 * vga
-                else -> 20 - 2 * vga
-            }
+            val agc = u8(di + 5)
+            Rtl8812auTables.cckRssi((agc and 0xE0) shr 5, agc and 0x1F)
         } else {
             ((u8(di + 4) shr 1) and 0x7f) - 110
         }
