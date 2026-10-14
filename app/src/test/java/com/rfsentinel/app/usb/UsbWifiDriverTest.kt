@@ -377,6 +377,6 @@ class UsbWifiDriverTest {
         assertEquals("RTL8812BU", UsbWifi.chipOf(0x0bda, 0xb812)?.name)
         assertEquals(UsbWifi.Driver.RTL88X2BU, UsbWifi.chipOf(0x2357, 0x012d)?.driver) // TP-Link Archer T3U
         assertEquals(UsbWifi.Driver.RTL88XXAU, UsbWifi.chipOf(0x0bda, 0x0811)?.driver) // ALFA AWUS036ACS
-        assertNull(UsbWifi.chipOf(0x0bda, 0x8812))
+        assertEquals("RTL8812AU", UsbWifi.chipOf(0x0bda, 0x8812)?.name) // has its own driver now
     }
 }

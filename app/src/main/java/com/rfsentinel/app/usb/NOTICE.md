@@ -3,6 +3,7 @@
 These drivers run USB WiFi adapters in receive-only monitor mode from userspace.
 
 - `Rtl8821auMonitor.kt` and `Rtl8821auTables.kt` drive Realtek RTL8811AU / RTL8821AU adapters (e.g. ALFA AWUS036ACS).
+- `Rtl8812auMonitor.kt` and `Rtl8812auTables.kt` drive Realtek RTL8812AU adapters (e.g. ALFA AWUS036ACH), 2.4 + 5 GHz, receive only - experimental. The tables are generated from the vendor driver (see below).
 - `Rtl8822buMonitor.kt` and `Rtl8822bTables.kt` drive Realtek RTL8812BU / RTL8822BU adapters, with the firmware and register tables in `assets/usbwifi/rtl8822b_*.bin`.
 - `Rtl8187Monitor.kt` drives Realtek RTL8187L / RTL8187B adapters (e.g. ALFA AWUS036H). They need no firmware.
 - `Rt3070Monitor.kt` drives Ralink RT3070 adapters (e.g. ALFA AWUS036NH / AWUS036NEH), with Ralink's firmware in `assets/usbwifi/rt2870.bin`.
@@ -18,6 +19,7 @@ These drivers run USB WiFi adapters in receive-only monitor mode from userspace.
 |---|---|---|
 | RTL8811AU / 8821AU register tables (power-on sequence, MAC / BB / AGC / RF tables, channel tuning) | Realtek 88xxau Linux driver, as maintained in [aircrack-ng/rtl8812au](https://github.com/aircrack-ng/rtl8812au) | GPL-2.0 |
 | RTL8811AU / 8821AU userspace USB driver and 802.11 frame parsing | [Wardrive Go](https://github.com/RocketGod-git/wardrive-go) by RocketGod | GPL-3.0 |
+| RTL8812AU power-on flow (Hal8812PwrSeq), MAC / baseband / AGC / radio A and B tables (halhwimg8812a_*), board-type (RFE) pin set-up and efuse reading, band / channel / 20 MHz bandwidth switching | Realtek rtl8812au Linux driver, as maintained in [aircrack-ng/rtl8812au](https://github.com/aircrack-ng/rtl8812au) (the vendor's condition blocks resolved for a USB board without external PA / LNA; transmit, power and firmware parts left out) | GPL-2.0 |
 | RTL8812BU / 8822BU bring-up (power sequence, HalMAC firmware download, MAC init, channel tuning, gain control, RX descriptor parsing) | [devourer](https://github.com/OpenIPC/devourer) by OpenIPC, `src/jaguar2/` | GPL-2.0 |
 | RTL8822B firmware image and phydm BB / AGC / RF tables | Realtek rtl88x2bu Linux driver, as extracted by devourer | Realtek firmware / GPL-2.0 |
 | RTL8187L / 8187B bring-up, RTL8225 / RTL8225Z2 radio tuning and RX descriptor handling | Linux kernel `rtl8187` driver (Michael Wu, Andrea Merello, Herton Ronaldo Krzesinski, Hin-Tak Leung, Larry Finger; register values from Realtek's r8187 driver), with Kismet's [Android PCAP Capture](https://www.kismetwireless.net/android-pcap/) (Mike Kershaw / Dragorn; signal-strength work by Jinghao Shi, via Gabriel Nyman's AndroidPCAP fork) as the USB reference | GPL-2.0 |

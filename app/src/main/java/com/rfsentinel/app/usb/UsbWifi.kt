@@ -43,12 +43,13 @@ object UsbWifi {
     private const val ACTION_PERMISSION = "com.rfsentinel.app.USB_WIFI_PERMISSION"
 
     /** Driver families. */
-    enum class Driver { RTL88XXAU, RTL88X2BU, RTL8187, RT3070, RTL8814AU, MT7612U, MT7921U, AR9271 }
+    enum class Driver { RTL88XXAU, RTL8812AU, RTL88X2BU, RTL8187, RT3070, RTL8814AU, MT7612U, MT7921U, AR9271 }
 
     /** A supported adapter: the chip name shown to the user and the driver that runs it. */
     data class Chip(val name: String, val driver: Driver)
 
     private val AU = Chip("RTL8811AU / 8821AU", Driver.RTL88XXAU)
+    private val AU12 = Chip("RTL8812AU", Driver.RTL8812AU)
     private val BU = Chip("RTL8812BU / 8822BU", Driver.RTL88X2BU)
     private val L8187 = Chip("RTL8187L", Driver.RTL8187)
     private val B8187 = Chip("RTL8187B", Driver.RTL8187)
@@ -67,6 +68,17 @@ object UsbWifi {
      */
     private val SUPPORTED: Map<Pair<Int, Int>, Chip> = mapOf(
         (0x0bda to 0x0811) to AU, // ALFA AWUS036ACS and other 88xxau dongles
+        (0x0bda to 0x8812) to AU12, // ALFA AWUS036ACH and other RTL8812AU dongles (IDs from the rtl8812au driver)
+        (0x0bda to 0x881a) to AU12, (0x0bda to 0x881b) to AU12, (0x0bda to 0x881c) to AU12,
+        (0x0409 to 0x0408) to AU12, (0x0411 to 0x025d) to AU12, (0x04bb to 0x0952) to AU12, // NEC, Buffalo WI-U3-866D, I-O DATA
+        (0x050d to 0x1106) to AU12, (0x050d to 0x1109) to AU12, (0x0586 to 0x3426) to AU12, (0x0789 to 0x016e) to AU12, // Belkin, ZyXEL, Logitec
+        (0x07b8 to 0x8812) to AU12, (0x0846 to 0x9051) to AU12, (0x0b05 to 0x17d2) to AU12, (0x0df6 to 0x0074) to AU12, // Abocom, Netgear A6200v2, ASUS
+        (0x0e66 to 0x0022) to AU12, (0x1058 to 0x0632) to AU12, (0x13b1 to 0x003f) to AU12, (0x148f to 0x9097) to AU12, // Hawking, WD, Linksys WUSB6300
+        (0x1740 to 0x0100) to AU12, (0x2001 to 0x330e) to AU12, (0x2001 to 0x3313) to AU12, (0x2001 to 0x3315) to AU12, // EnGenius, D-Link
+        (0x2001 to 0x3316) to AU12, (0x2019 to 0xab30) to AU12, (0x20f4 to 0x805b) to AU12, // Planex, TRENDnet
+        (0x2357 to 0x0101) to AU12, (0x2357 to 0x0103) to AU12, (0x2357 to 0x010d) to AU12, // TP-Link Archer T4U / T4UH
+        (0x2357 to 0x010e) to AU12, (0x2357 to 0x010f) to AU12, (0x2357 to 0x0122) to AU12,
+        (0x2604 to 0x0012) to AU12, (0x7392 to 0xa822) to AU12, // Tenda U12, Edimax
         (0x0bda to 0xb812) to Chip("RTL8812BU", Driver.RTL88X2BU), // generic AC1200 dongles (e.g. Wise Tiger)
         (0x0bda to 0xb82c) to Chip("RTL8822BU", Driver.RTL88X2BU),
         (0x0bda to 0x2102) to BU, (0x0bda to 0xb81a) to BU,
@@ -116,7 +128,6 @@ object UsbWifi {
     )
     /** Known monitor-mode chips without a driver here yet (named in the status so users know why). */
     private val KNOWN = mapOf(
-        (0x0bda to 0x8812) to "RTL8812AU", (0x0bda to 0x881a) to "RTL8812AU",
         (0x0bda to 0xc811) to "RTL8811CU / 8821CU", (0x0bda to 0xc820) to "RTL8821CU", (0x0bda to 0xc812) to "RTL8812CU",
         (0x0cf3 to 0x7010) to "AR7010", (0x0cf3 to 0x7015) to "AR7010", (0x0e8d to 0x7610) to "MT7610U",
         (0x148f to 0x3071) to "RT3071", (0x148f to 0x3072) to "RT3072", (0x148f to 0x5370) to "RT5370",
@@ -312,6 +323,7 @@ object UsbWifi {
                         Rtl8821auMonitor.lightEnabled = com.rfsentinel.app.util.Prefs.usbAdapterLight(context)
                         Rtl8821auMonitor.run(context, d, onStatus, onFrames)
                     }
+                    Driver.RTL8812AU -> Rtl8812auMonitor.run(context, d, onStatus, onFrames)
                     Driver.RTL88X2BU -> Rtl8822buMonitor.run(context, d, chip.name, onStatus, onFrames)
                     Driver.RTL8187 -> Rtl8187Monitor.run(context, d, chip.name, onStatus, onFrames)
                     Driver.RT3070 -> Rt3070Monitor.run(context, d, chip.name, onStatus, onFrames)
@@ -328,6 +340,7 @@ object UsbWifi {
     @Synchronized
     private fun stopAdapter(newStatus: String) {
         Rtl8821auMonitor.abort()
+        Rtl8812auMonitor.abort()
         Rtl8822buMonitor.abort()
         Rtl8187Monitor.abort()
         Rt3070Monitor.abort()
