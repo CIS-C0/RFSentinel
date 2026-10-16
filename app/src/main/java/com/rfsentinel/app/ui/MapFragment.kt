@@ -864,10 +864,16 @@ class MapFragment : Fragment() {
     /** The marker chosen in Settings > Map: given to the map engine whenever the choice has changed. */
     private fun applyMarker() {
         val m = map ?: return
-        val key = MarkerPicker.effective(act).key
+        val choice = MarkerPicker.effective(act)
+        val key = choice.key
         if (key == markerKey) return
         markerKey = key
+        val style = MarkerArt.Style.of(choice.style)
+        // A car on a map that draws 3D models (Mapbox) is a 3D model; everything else the flat picture.
+        val model = if (m.draws3dMarker && Car3d.supports(style))
+            runCatching { Car3d.modelFile(act, style, MarkerArt.colorOf(choice.color).argb) }.getOrNull() else null
         m.setMarker(MarkerPicker.current(act))
+        m.setMarker3d(model, choice.size)
     }
 
     private fun startLocation() {

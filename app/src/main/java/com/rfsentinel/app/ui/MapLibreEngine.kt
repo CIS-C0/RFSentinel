@@ -339,6 +339,10 @@ internal class MapLibreEngine(private val context: Context) : MapEngine {
         marker?.let { b -> markerName?.let { style.addImage(it, b); style.addImage(BLANK, Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)) } }
     }
 
+    // No 3D models on MapLibre: the flat picture.
+    override val draws3dMarker = false
+    override fun setMarker3d(model: java.io.File?, size: Float) {}
+
     override fun setMarker(bitmap: Bitmap?) {
         marker = bitmap
         markerName = bitmap?.let { "rf-puck-${++markerVersion}" }
@@ -389,7 +393,9 @@ internal class MapLibreEngine(private val context: Context) : MapEngine {
             zoom?.let { lc.zoomWhileTracking(it, duration) }
         }
         look(ms)
-        lc.setCameraMode(if (mode == MapEngine.Follow.HEADING) CameraMode.TRACKING_GPS else CameraMode.TRACKING, ms, null, null, null, null)
+        // Never 0 ms: the component only stops "transitioning" when an animated move ends, and a 0 ms move
+        // is not one, so it would never follow again (not even after the follow button: same mode, ignored).
+        lc.setCameraMode(if (mode == MapEngine.Follow.HEADING) CameraMode.TRACKING_GPS else CameraMode.TRACKING, ms.coerceAtLeast(1), null, null, null, null)
         // Also after an instant switch (the map opening already in 3D): the angle set above was dropped.
         Runnable { if (component() != null) look(if (ms > 0) 400 else 0) }.also { reapply = it; view.postDelayed(it, ms + 250) }
         val m = map

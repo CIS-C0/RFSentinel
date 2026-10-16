@@ -99,6 +99,10 @@ internal interface MapEngine {
     /** Shows your arrow (once the style is in); false without location permission. */
     /** The picture of your position, turned with your heading (null: the engine's own arrow); applied now or when the puck starts. */
     fun setMarker(bitmap: Bitmap?)
+    /** True when the map can show your position as a 3D model ([setMarker3d]): Mapbox. */
+    val draws3dMarker: Boolean
+    /** Your position as this 3D model (a .glb file), [size] times the standard size; null: the picture of [setMarker]. */
+    fun setMarker3d(model: java.io.File?, size: Float)
     fun startPuck(): Boolean
     val puckOn: Boolean
     fun pushFix(fix: Location)

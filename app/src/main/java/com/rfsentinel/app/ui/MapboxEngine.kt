@@ -62,6 +62,13 @@ import java.util.concurrent.CopyOnWriteArraySet
  */
 internal class MapboxEngine(private val context: Context) : MapEngine {
 
+    private companion object {
+        /** The car models' size on the map at the standard marker size (they keep it at every zoom). */
+        const val MODEL_SCALE = 10f
+        /** The models' front (glTF's +z) turned to the puck's forward. */
+        val MODEL_ROTATION = listOf(0f, 0f, 180f)
+    }
+
     override val provider = MapEngine.Provider.MAPBOX
     override val credit = "© Mapbox © OpenStreetMap contributors"
     override val labelFont = listOf("Open Sans Regular", "Arial Unicode MS Regular")
@@ -271,7 +278,27 @@ internal class MapboxEngine(private val context: Context) : MapEngine {
 
     private var marker: Bitmap? = null
 
-    private fun puck(): com.mapbox.maps.plugin.LocationPuck = marker?.let { b ->
+    private var model: java.io.File? = null
+    private var modelSize = 1f
+
+    override val draws3dMarker = true
+
+    override fun setMarker3d(model: java.io.File?, size: Float) {
+        this.model = model; modelSize = size
+        if (puck && !destroyed) view.location.locationPuck = puck()
+    }
+
+    private fun puck(): com.mapbox.maps.plugin.LocationPuck = model?.let { f ->
+        // Mapbox draws the model itself, lit by the map's light, turned with your course and seen from the map's angle.
+        val s = MODEL_SCALE * modelSize
+        com.mapbox.maps.plugin.LocationPuck3D(
+            modelUri = "file://" + f.absolutePath,
+            modelScale = listOf(s, s, s),
+            modelRotation = MODEL_ROTATION,
+            modelCastShadows = true,
+            modelReceiveShadows = false,
+            modelEmissiveStrength = 0.3f)
+    } ?: marker?.let { b ->
         val image = com.mapbox.maps.ImageHolder.from(b)
         // The picture is the bearing layer, which turns with your course; no fixed top picture (it would stay
         // north up behind it), no shadow, no zoom scaling.

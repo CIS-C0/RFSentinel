@@ -87,17 +87,17 @@ object MarkerArt {
 
     // ---- colours ---------------------------------------------------------------------------------------
 
-    private fun shade(c: Int, f: Float) = Color.argb(Color.alpha(c),
+    internal fun shade(c: Int, f: Float) = Color.argb(Color.alpha(c),
         (Color.red(c) * f).toInt().coerceIn(0, 255), (Color.green(c) * f).toInt().coerceIn(0, 255), (Color.blue(c) * f).toInt().coerceIn(0, 255))
 
-    private fun lighten(c: Int, t: Float) = Color.argb(Color.alpha(c),
+    internal fun lighten(c: Int, t: Float) = Color.argb(Color.alpha(c),
         (Color.red(c) + (255 - Color.red(c)) * t).toInt(), (Color.green(c) + (255 - Color.green(c)) * t).toInt(), (Color.blue(c) + (255 - Color.blue(c)) * t).toInt())
 
-    private const val GLASS = 0xFF1E2B38.toInt()
+    internal const val GLASS = 0xFF1E2B38.toInt()
     private const val GLASS_HI = 0xFF3E5C78.toInt()
-    private const val DARK = 0xFF14171B.toInt()
-    private const val HEADLIGHT = 0xFFFFF3B0.toInt()
-    private const val TAILLIGHT = 0xFFD32F2F.toInt()
+    internal const val DARK = 0xFF14171B.toInt()
+    internal const val HEADLIGHT = 0xFFFFF3B0.toInt()
+    internal const val TAILLIGHT = 0xFFD32F2F.toInt()
     private const val CX = 50f
 
     private fun fill(color: Int) = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; this.color = color }
@@ -187,27 +187,35 @@ object MarkerArt {
 
     // ---- cars --------------------------------------------------------------------------------------------
 
-    private enum class Extra { RAILS, BED, SPOILER, STRIPES, ROOF_SIGN, OPEN_TOP, RIBS, LONG_ROOF }
+    internal enum class Extra { RAILS, BED, SPOILER, STRIPES, ROOF_SIGN, OPEN_TOP, RIBS, LONG_ROOF }
 
     /** A car from above, in 100 x 200 units: its width, front and rear, how round those are, and where the glass runs. */
-    private class Car(
+    internal class Car(
         val w: Float, val top: Float, val bottom: Float, val rf: Float, val rr: Float,
         /** Where the windshield starts, ends (the roof starts), the roof ends (the rear window starts) and the rear window ends. */
         val hoodEnd: Float, val wsEnd: Float, val roofEnd: Float, val rearEnd: Float,
         val wheelsY: List<Float>, val extras: Set<Extra> = emptySet()
     )
 
-    private val SEDAN = Car(64f, 14f, 186f, 20f, 14f, 62f, 86f, 112f, 134f, listOf(42f, 152f))
-    private val HATCHBACK = Car(62f, 20f, 180f, 20f, 12f, 62f, 86f, 126f, 144f, listOf(44f, 148f))
-    private val WAGON = Car(62f, 12f, 188f, 18f, 8f, 58f, 82f, 146f, 162f, listOf(40f, 158f))
-    private val SUV = Car(72f, 14f, 186f, 14f, 10f, 58f, 84f, 146f, 160f, listOf(40f, 158f), setOf(Extra.RAILS))
-    private val PICKUP = Car(70f, 10f, 190f, 14f, 6f, 56f, 78f, 100f, 110f, listOf(38f, 156f), setOf(Extra.BED))
-    private val SPORTS = Car(70f, 8f, 184f, 26f, 16f, 78f, 98f, 118f, 134f, listOf(34f, 150f), setOf(Extra.SPOILER))
-    private val RACER = Car(70f, 8f, 184f, 26f, 16f, 78f, 98f, 118f, 134f, listOf(34f, 150f), setOf(Extra.SPOILER, Extra.STRIPES))
-    private val CONVERTIBLE = Car(66f, 14f, 184f, 22f, 14f, 70f, 84f, 128f, 128f, listOf(40f, 152f), setOf(Extra.OPEN_TOP))
-    private val MINI = Car(60f, 40f, 168f, 22f, 16f, 72f, 90f, 118f, 134f, listOf(62f, 146f))
-    private val VAN = Car(66f, 16f, 188f, 12f, 8f, 44f, 70f, 176f, 186f, listOf(38f, 162f), setOf(Extra.RIBS, Extra.LONG_ROOF))
-    private val TAXI = Car(64f, 14f, 186f, 20f, 14f, 62f, 86f, 112f, 134f, listOf(42f, 152f), setOf(Extra.ROOF_SIGN))
+    /** The measurements of a car style (null: not a car, or the truck / motorcycle, drawn their own way). */
+    internal fun specOf(style: Style): Car? = when (style) {
+        Style.SEDAN -> SEDAN; Style.HATCHBACK -> HATCHBACK; Style.WAGON -> WAGON; Style.SUV -> SUV; Style.PICKUP -> PICKUP
+        Style.SPORTS -> SPORTS; Style.RACER -> RACER; Style.CONVERTIBLE -> CONVERTIBLE; Style.MINI -> MINI; Style.VAN -> VAN
+        Style.TAXI -> TAXI
+        else -> null
+    }
+
+    internal val SEDAN = Car(64f, 14f, 186f, 20f, 14f, 62f, 86f, 112f, 134f, listOf(42f, 152f))
+    internal val HATCHBACK = Car(62f, 20f, 180f, 20f, 12f, 62f, 86f, 126f, 144f, listOf(44f, 148f))
+    internal val WAGON = Car(62f, 12f, 188f, 18f, 8f, 58f, 82f, 146f, 162f, listOf(40f, 158f))
+    internal val SUV = Car(72f, 14f, 186f, 14f, 10f, 58f, 84f, 146f, 160f, listOf(40f, 158f), setOf(Extra.RAILS))
+    internal val PICKUP = Car(70f, 10f, 190f, 14f, 6f, 56f, 78f, 100f, 110f, listOf(38f, 156f), setOf(Extra.BED))
+    internal val SPORTS = Car(70f, 8f, 184f, 26f, 16f, 78f, 98f, 118f, 134f, listOf(34f, 150f), setOf(Extra.SPOILER))
+    internal val RACER = Car(70f, 8f, 184f, 26f, 16f, 78f, 98f, 118f, 134f, listOf(34f, 150f), setOf(Extra.SPOILER, Extra.STRIPES))
+    internal val CONVERTIBLE = Car(66f, 14f, 184f, 22f, 14f, 70f, 84f, 128f, 128f, listOf(40f, 152f), setOf(Extra.OPEN_TOP))
+    internal val MINI = Car(60f, 40f, 168f, 22f, 16f, 72f, 90f, 118f, 134f, listOf(62f, 146f))
+    internal val VAN = Car(66f, 16f, 188f, 12f, 8f, 44f, 70f, 176f, 186f, listOf(38f, 162f), setOf(Extra.RIBS, Extra.LONG_ROOF))
+    internal val TAXI = Car(64f, 14f, 186f, 20f, 14f, 62f, 86f, 112f, 134f, listOf(42f, 152f), setOf(Extra.ROOF_SIGN))
 
     private fun car(c: Canvas, color: Int, k: Car) {
         val l = CX - k.w / 2; val r = CX + k.w / 2
