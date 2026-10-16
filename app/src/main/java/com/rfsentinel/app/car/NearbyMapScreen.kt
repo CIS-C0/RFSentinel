@@ -63,7 +63,7 @@ class NearbyMapScreen(
         } else if (items.isEmpty()) {
             list.setNoItemsMessage(
                 if (AlprStore.cameras.isEmpty()) "No known cameras downloaded - on your phone: Map > menu > Download nearby cameras"
-                else "No known cameras or drones within ${(SEARCH_RADIUS_M / 1000).toInt()} km"
+                else "No known cameras or drones within ${com.rfsentinel.app.util.Units.km((SEARCH_RADIUS_M / 1000).toInt())}"
             )
         }
         items.forEach { it -> list.addItem(row(it)) }
@@ -143,7 +143,7 @@ class NearbyMapScreen(
                 val dLon = r.longitude ?: return@mapNotNull null
                 val d = DeviceRegistry.metersBetween(lat, lon, dLat, dLon)
                 Item("Drone" + (r.uasId?.let { " $it" } ?: ""),
-                    listOfNotNull(r.heightM?.let { "${it.roundToInt()} m up" }, r.speedMs?.let { "${(it * 3.6).roundToInt()} km/h" })
+                    listOfNotNull(r.heightM?.let { com.rfsentinel.app.util.Units.length(it) + " up" }, r.speedMs?.let { com.rfsentinel.app.util.Units.speed(it) })
                         .joinToString(" · ").ifEmpty { "Remote ID" },
                     dLat, dLon, d, drone = true, mac = s.mac)
             }
@@ -173,9 +173,16 @@ class NearbyMapScreen(
 
         /** Metres below 1 km (rounded to 10 m), else kilometres with one decimal. */
         fun distanceOf(m: Double): androidx.car.app.model.Distance =
-            if (m < 1000) androidx.car.app.model.Distance.create(((m / 10).roundToInt() * 10).toDouble(), androidx.car.app.model.Distance.UNIT_METERS)
+            if (com.rfsentinel.app.util.Units.imperial) {
+                val ft = m * 3.28084
+                if (ft < 1000) androidx.car.app.model.Distance.create(((ft / 10).roundToInt() * 10).toDouble(), androidx.car.app.model.Distance.UNIT_FEET)
+                else androidx.car.app.model.Distance.create(m / 1609.344, androidx.car.app.model.Distance.UNIT_MILES_P1)
+            }
+            else if (m < 1000) androidx.car.app.model.Distance.create(((m / 10).roundToInt() * 10).toDouble(), androidx.car.app.model.Distance.UNIT_METERS)
             else androidx.car.app.model.Distance.create(m / 1000, androidx.car.app.model.Distance.UNIT_KILOMETERS_P1)
 
-        fun distanceText(m: Double) = if (m < 1000) "${(m / 10).roundToInt() * 10} m" else String.format(java.util.Locale.US, "%.1f km", m / 1000)
+        /** To 10 m (a car list is read at a glance and redrawn as you move), or feet / miles in imperial. */
+        fun distanceText(m: Double) = if (com.rfsentinel.app.util.Units.imperial) com.rfsentinel.app.util.Units.distance(m)
+            else if (m < 1000) "${(m / 10).roundToInt() * 10} m" else String.format(java.util.Locale.US, "%.1f km", m / 1000)
     }
 }

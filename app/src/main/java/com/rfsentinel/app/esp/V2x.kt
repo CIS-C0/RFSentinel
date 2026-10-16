@@ -303,7 +303,7 @@ object V2x {
             append(" · station: ${typeName(m.stationType)}")
             m.lightBar?.let { append(" · light bar ${if (it) "on" else "off"}") }
             m.siren?.let { append(" · siren ${if (it) "on" else "off"}") }
-            m.speedMps?.let { append(" · %.0f km/h".format(java.util.Locale.US, it * 3.6)) }
+            m.speedMps?.let { append(" · " + com.rfsentinel.app.util.Units.speed(it)) }
             m.headingDeg?.let { append(" · heading %.0f°".format(java.util.Locale.US, it)) }
             if (m.secured) append(" · signed message")
             append(". Position is the vehicle's own GPS.")

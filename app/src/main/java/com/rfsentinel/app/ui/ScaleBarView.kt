@@ -20,6 +20,20 @@ class ScaleBarView @JvmOverloads constructor(context: Context, attrs: AttributeS
         internal fun label(meters: Double): String =
             if (meters >= 1000) "${(meters / 1000).let { if (it % 1.0 == 0.0) it.toInt().toString() else "%.1f".format(it) }} km"
             else "${meters.toInt()} m"
+
+        private const val FT = 0.3048
+        private const val MI = 1609.344
+
+        /** The roundest imperial length (1, 2 or 5 x 10^n feet, or miles from a mile) that fits in [maxMeters]: metres and its label. */
+        internal fun niceImperial(maxMeters: Double): Pair<Double, String> {
+            if (maxMeters <= 0.0) return 0.0 to ""
+            if (maxMeters >= MI) {
+                val mi = niceMeters(maxMeters / MI)
+                return mi * MI to "${if (mi % 1.0 == 0.0) mi.toInt().toString() else "%.1f".format(mi)} mi"
+            }
+            val ft = niceMeters(maxMeters / FT).coerceAtMost(2000.0)
+            return ft * FT to "${ft.toInt()} ft"
+        }
     }
 
     private val dp = resources.displayMetrics.density
@@ -33,9 +47,9 @@ class ScaleBarView @JvmOverloads constructor(context: Context, attrs: AttributeS
 
     /** Metres per screen pixel at the map's centre. */
     fun setMetersPerPixel(mpp: Double) {
-        val meters = niceMeters(mpp * maxWidthDp * dp)
+        val max = mpp * maxWidthDp * dp
+        val (meters, cap) = if (com.rfsentinel.app.util.Units.imperial) niceImperial(max) else niceMeters(max).let { it to label(it) }
         val px = if (mpp > 0) (meters / mpp).toFloat() else 0f
-        val cap = label(meters)
         if (px == barPx && cap == caption) return
         barPx = px; caption = cap
         invalidate()

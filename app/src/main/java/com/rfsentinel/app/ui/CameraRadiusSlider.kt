@@ -12,7 +12,7 @@ import com.rfsentinel.app.util.Prefs
  */
 object CameraRadiusSlider {
 
-    fun text(km: Int) = "Download radius: $km km" +
+    fun text(km: Int) = "Download radius: ${com.rfsentinel.app.util.Units.km(km)}" +
         if (km > 100) " (larger areas take longer and use more data)" else ""
 
     /** A label + slider block; [onChange] runs after each change (already saved). */
@@ -22,7 +22,7 @@ object CameraRadiusSlider {
             valueFrom = 10f; valueTo = 200f; stepSize = 10f
             value = Prefs.cameraRadiusKm(context).toFloat()
             contentDescription = "Camera download radius in kilometres"
-            setLabelFormatter { "${it.toInt()} km" }
+            setLabelFormatter { com.rfsentinel.app.util.Units.km(it.toInt()) }
             addOnChangeListener { _, v, fromUser ->
                 if (!fromUser) return@addOnChangeListener
                 Prefs.setCameraRadiusKm(context, v.toInt())

@@ -132,9 +132,8 @@ object WazePolice {
     fun where(me: android.location.Location, lat: Double, lon: Double): Where =
         where(me.latitude, me.longitude, if (me.hasBearing() && me.hasSpeed() && me.speed > 1.5f) me.bearing.toDouble() else null, lat, lon)
 
-    /** Exact distance: whole metres under 1 km, then km to 10 m. */
-    fun preciseDistance(m: Double): String =
-        if (m < 1000) "${m.toInt()} m" else String.format(java.util.Locale.US, "%.2f km", m / 1000)
+    /** Exact distance in the app's units: whole metres under 1 km, then km to 10 m (feet, then miles, in imperial). */
+    fun preciseDistance(m: Double): String = com.rfsentinel.app.util.Units.precise(m)
 
     /** "412 m NE · ahead · closing in": distance, compass point, side while driving, and whether it is getting closer. */
     fun relativeText(w: Where, trend: WazeTrend.Trend = WazeTrend.Trend.STEADY): String {
@@ -370,7 +369,7 @@ object WazePolice {
         if (age > MAX_AGE_MS) return null
         val where = listOfNotNull(r.street, r.city).joinToString(", ").ifEmpty { "nearby" }
         val ago = r.publishedMs?.let { " ${(age / 60_000).coerceAtLeast(0)} min ago" } ?: ""
-        val dist = if (d < 1000) "${(d / 10).toInt() * 10} m" else String.format(java.util.Locale.US, "%.1f km", d / 1000)
+        val dist = com.rfsentinel.app.util.Units.distance(d)
         val sub = subtypeLabel(r.subtype)?.let { " ($it)" } ?: ""
         return Hit(Category.POLICE_REPORT, "${r.type.singular} reported on Waze$sub", score(d, age, r.thumbsUp, radiusM, r.type.baseScore),
             "Reported$ago on $where, about $dist away" +

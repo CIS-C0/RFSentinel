@@ -68,8 +68,8 @@ class DeviceDetailScreen(carContext: CarContext, private val mac: String) : Live
                 .setTitle("Drone " + (r.uasId ?: ""))
                 .addText(
                     listOfNotNull(
-                        r.heightM?.let { String.format(Locale.US, "%.0f m high", it) },
-                        r.speedMs?.let { String.format(Locale.US, "%.0f km/h", it * 3.6) },
+                        r.heightM?.let { com.rfsentinel.app.util.Units.length(it) + " high" },
+                        r.speedMs?.let { com.rfsentinel.app.util.Units.speed(it) },
                         r.status
                     ).joinToString(" · ").ifEmpty { "Position known" }
                 )

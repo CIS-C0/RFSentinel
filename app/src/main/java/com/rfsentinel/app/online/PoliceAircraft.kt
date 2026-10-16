@@ -124,8 +124,7 @@ object PoliceAircraft {
 
     private fun describe(p: Plane, distanceM: Double): String =
         listOfNotNull(
-            if (distanceM < 1000) "About ${(distanceM / 100).toInt() * 100} m from you"
-            else String.format(java.util.Locale.US, "%.1f km from you", distanceM / 1000),
+            "About ${com.rfsentinel.app.util.Units.distance(distanceM)} from you",
             p.altitudeFt?.let { if (it <= 0) "on the ground" else "at ${it} ft" },
             p.speedKt?.let { "${it.toInt()} kt" }
         ).joinToString(", ") + "."

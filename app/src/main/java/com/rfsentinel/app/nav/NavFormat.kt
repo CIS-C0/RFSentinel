@@ -10,15 +10,8 @@ object NavFormat {
     private const val M_PER_MILE = 1609.344
     private const val FT_PER_M = 3.28084
 
-    /** Regions that drive by miles. */
-    private val MILE_REGIONS = setOf("US", "GB", "LR", "MM")
-
-    /** Whether guidance counts in miles: the Settings choice, or by the phone's region. */
-    fun miles(context: Context, locale: Locale = Locale.getDefault()): Boolean = when (Prefs.navUnits(context)) {
-        "mi" -> true
-        "km" -> false
-        else -> locale.country.uppercase(Locale.ROOT) in MILE_REGIONS
-    }
+    /** Whether guidance counts in miles: the app's units (Settings > General > Units). */
+    fun miles(context: Context, locale: Locale = Locale.getDefault()): Boolean = com.rfsentinel.app.util.Units.imperial(context, locale)
 
     /** "300 m", "1.2 km"; "400 ft", "0.3 mi". Rounded the way a driver reads it. */
     fun distance(meters: Double, miles: Boolean): String {

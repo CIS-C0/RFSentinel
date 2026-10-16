@@ -727,7 +727,7 @@ class ScanForegroundService : Service() {
             val alpr = cam.type == com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR
             val hit = Hit(
                 Category.ALPR, if (alpr) "Known plate camera ahead" else "${cam.label} ahead", 80,
-                "${cam.label}, ~${d.toInt()} m away" + (cam.operator?.let { ", operated by $it" } ?: "") +
+                "${cam.label}, ~${com.rfsentinel.app.util.Units.distance(d)} away" + (cam.operator?.let { ", operated by $it" } ?: "") +
                     ". Mapped in OpenStreetMap" + (if (alpr) " - it may not broadcast any signal." else "."),
                 "OpenStreetMap (" + (if (alpr) "surveillance:type=ALPR" else "highway=speed_camera / enforcement") + "), ODbL"
             )

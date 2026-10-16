@@ -1203,18 +1203,6 @@ class SettingsActivity : AppCompatActivity() {
         switch("Speed cameras", Prefs.navAvoidSpeedCameras(this)) { Prefs.setNavAvoidSpeedCameras(this, it) }
         switch("Plate readers", Prefs.navAvoidPlateReaders(this)) { Prefs.setNavAvoidPlateReaders(this, it) }
 
-        box.addView(infoRow(label("Distances in").also { box.removeView(it) }, "Automatic follows the phone's region."))
-        val units = listOf("auto" to "Automatic", "km" to "Kilometres", "mi" to "Miles")
-        val group = android.widget.RadioGroup(this)
-        for ((key, text) in units) {
-            group.addView(android.widget.RadioButton(this).apply {
-                id = View.generateViewId(); this.text = text; tag = key
-                isChecked = Prefs.navUnits(this@SettingsActivity) == key
-            })
-        }
-        group.setOnCheckedChangeListener { g, id -> g.findViewById<View>(id)?.tag?.let { Prefs.setNavUnits(this, it as String) } }
-        box.addView(group)
-
         label("Places")
         val places = android.widget.TextView(this).apply { textSize = 13f; alpha = 0.8f }
         fun showPlaces() {
@@ -1239,26 +1227,27 @@ class SettingsActivity : AppCompatActivity() {
         })
     }
 
-    /** Settings > General > Device distances: how far a device is guessed to be, in metres or feet. */
+    /** Settings > General > Units: metric or imperial for the whole app ([com.rfsentinel.app.util.Units]). */
     private fun setupDeviceUnits() {
         val box = binding.sectionGeneral
         val title = android.widget.TextView(this).apply {
-            text = "Device distances"; textSize = 14f
+            text = "Units"; textSize = 14f
             setPadding(0, (10 * resources.displayMetrics.density).toInt(), 0, (2 * resources.displayMetrics.density).toInt())
         }
-        box.addView(infoRow(title, "How far away a device is guessed to be, from its signal strength, on the list, the " +
-            "device details, the alerts and the car screen. Automatic shows feet where the phone's region uses miles " +
-            "(US, UK...) and metres elsewhere; feet turn into miles past 1000 ft. Only a rough guess either way: walls and " +
-            "bodies weaken a signal."))
+        box.addView(infoRow(title, "Metric or imperial everywhere in the app: how far a device is guessed to be, navigation " +
+            "distances and the speedometer, the map's scale, cameras, Waze reports, aircraft and drones, and the car screens. " +
+            "Automatic uses imperial where the phone's region drives in miles (US, UK...) and metric elsewhere. Imperial shows " +
+            "feet, then miles past 1000 ft. Posted speed limits are shown as signed."))
         val group = android.widget.RadioGroup(this)
-        for ((key, text) in listOf("auto" to "Automatic", "m" to "Metric · m", "ft" to "Imperial · ft / mi")) {
+        for ((key, text) in listOf("auto" to "Automatic", "m" to "Metric · m, km", "ft" to "Imperial · ft, mi")) {
             group.addView(android.widget.RadioButton(this).apply {
                 id = View.generateViewId(); this.text = text; tag = key
-                isChecked = Prefs.deviceUnits(this@SettingsActivity) == key
+                isChecked = Prefs.units(this@SettingsActivity) == key
+                minHeight = (48 * resources.displayMetrics.density).toInt() // the same row height as the other choices
             })
         }
         group.setOnCheckedChangeListener { g, id ->
-            g.findViewById<View>(id)?.tag?.let { Prefs.setDeviceUnits(this, it as String); com.rfsentinel.app.detect.DeviceIntel.applyUnits(this) }
+            g.findViewById<View>(id)?.tag?.let { Prefs.setUnits(this, it as String); com.rfsentinel.app.util.Units.apply(this) }
         }
         box.addView(group)
     }
@@ -1492,7 +1481,7 @@ class SettingsActivity : AppCompatActivity() {
             setPadding((24 * dp).toInt(), 0, 0, (6 * dp).toInt())
         }
         val radiusText = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
-        fun showRadius(km: Int) { radiusText.text = "Look for aircraft within $km km" }
+        fun showRadius(km: Int) { radiusText.text = "Look for aircraft within ${com.rfsentinel.app.util.Units.km(km)}" }
         val km = Prefs.aircraftRadiusKm(this)
         showRadius(km)
         box.addView(radiusText)
@@ -1500,7 +1489,7 @@ class SettingsActivity : AppCompatActivity() {
             valueFrom = 10f; valueTo = 50f; stepSize = 5f
             value = (km - km % 5).coerceIn(10, 50).toFloat()
             contentDescription = "Aircraft search radius in kilometres"
-            setLabelFormatter { "${it.toInt()} km" }
+            setLabelFormatter { com.rfsentinel.app.util.Units.km(it.toInt()) }
             addOnChangeListener { _, v, fromUser ->
                 if (!fromUser) return@addOnChangeListener
                 Prefs.setAircraftRadiusKm(this@SettingsActivity, v.toInt())
@@ -1535,14 +1524,14 @@ class SettingsActivity : AppCompatActivity() {
         // Two independent ranges (both backends): how close a report must be to alert, and how far the map shows them.
         fun rangeSlider(label: String, from: Float, to: Float, km: Int, desc: String, save: (Int) -> Unit) {
             val text = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
-            fun show(v: Int) { text.text = "$label $v km" }
+            fun show(v: Int) { text.text = "$label ${com.rfsentinel.app.util.Units.km(v)}" }
             show(km)
             box.addView(text)
             box.addView(com.google.android.material.slider.Slider(this).apply {
                 valueFrom = from; valueTo = to; stepSize = 1f
                 value = km.toFloat().coerceIn(from, to)
                 contentDescription = desc
-                setLabelFormatter { "${it.toInt()} km" }
+                setLabelFormatter { com.rfsentinel.app.util.Units.km(it.toInt()) }
                 addOnChangeListener { _, v, fromUser ->
                     if (!fromUser) return@addOnChangeListener
                     save(v.toInt()); show(v.toInt())
@@ -2075,11 +2064,11 @@ class SettingsActivity : AppCompatActivity() {
         binding.rtl5gSwitch.setOnCheckedChangeListener { _, on -> Prefs.setRtl8821au5g(this, on) }
         binding.autoUpdateSwitch.isChecked = Prefs.autoUpdateCheck(this)
         fun showRadius(km: Int) {
-            binding.cameraRadiusText.text = "Download radius: $km km"
+            binding.cameraRadiusText.text = "Download radius: ${com.rfsentinel.app.util.Units.km(km)}"
             binding.prefetchCamerasButton.text = "Download cameras around me"
         }
         Prefs.cameraRadiusKm(this).let { km -> binding.cameraRadiusSlider.value = km.toFloat(); showRadius(km) }
-        binding.cameraRadiusSlider.setLabelFormatter { "${it.toInt()} km" }
+        binding.cameraRadiusSlider.setLabelFormatter { com.rfsentinel.app.util.Units.km(it.toInt()) }
         binding.cameraRadiusSlider.addOnChangeListener { _, value, fromUser ->
             if (!fromUser) return@addOnChangeListener
             Prefs.setCameraRadiusKm(this, value.toInt())

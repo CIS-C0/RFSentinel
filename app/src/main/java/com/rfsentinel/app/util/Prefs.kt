@@ -98,7 +98,8 @@ object Prefs {
     }
     fun setWazeAlertM(context: Context, m: Int) = setInt(context, "waze_alert_m", m)
     /** "100 m", "750 m", "1.5 km", "10 km". */
-    fun formatRange(m: Int): String = if (m < 1000) "$m m" else if (m % 1000 == 0) "${m / 1000} km" else "${m / 1000.0} km"
+    fun formatRange(m: Int): String = if (Units.imperial) Units.length(m.toDouble())
+        else if (m < 1000) "$m m" else if (m % 1000 == 0) "${m / 1000} km" else "${m / 1000.0} km"
     /** How often Waze is asked for reports, in seconds: each backend has its own steps and default. */
     val WAZE_DIRECT_INTERVALS_S get() = com.rfsentinel.app.online.WazeTiming.DIRECT_STEPS_S
     val WAZE_NINJA_INTERVALS_S get() = com.rfsentinel.app.online.WazeTiming.NINJA_STEPS_S
@@ -351,12 +352,13 @@ object Prefs {
     fun setNavAvoidSpeedCameras(context: Context, v: Boolean) = setBool(context, "nav_avoid_speed_cameras", v)
     fun navAvoidPlateReaders(context: Context): Boolean = bool(context, "nav_avoid_plate_readers", false)
     fun setNavAvoidPlateReaders(context: Context, v: Boolean) = setBool(context, "nav_avoid_plate_readers", v)
-    /** Units for device distance estimates: "auto" (feet where the phone's region uses miles), "m" or "ft". */
-    fun deviceUnits(context: Context): String = sp(context).getString("device_units", "auto") ?: "auto"
-    fun setDeviceUnits(context: Context, v: String) = sp(context).edit { putString("device_units", v) }
-    /** Distance units for guidance: "auto" (miles where the phone's region uses them), "km" or "mi". */
-    fun navUnits(context: Context): String = sp(context).getString("nav_units", "auto") ?: "auto"
-    fun setNavUnits(context: Context, v: String) = sp(context).edit { putString("nav_units", v) }
+    /**
+     * The app's units ([Units]): "auto" (imperial where the phone's region uses miles), "m" or "ft". Before there was one
+     * setting for the whole app, navigation had its own ("km" / "mi"): a choice made there carries over.
+     */
+    fun units(context: Context): String = sp(context).getString("device_units", null)
+        ?: when (sp(context).getString("nav_units", null)) { "km" -> "m"; "mi" -> "ft"; else -> "auto" }
+    fun setUnits(context: Context, v: String) = sp(context).edit { putString("device_units", v) }
     /** Tracker "following you" warnings paused until this time (epoch ms). */
     fun trackerFollowPausedUntil(context: Context): Long = sp(context).getLong("tracker_follow_paused_until", 0L)
     fun setTrackerFollowPausedUntil(context: Context, value: Long) = sp(context).edit { putLong("tracker_follow_paused_until", value) }

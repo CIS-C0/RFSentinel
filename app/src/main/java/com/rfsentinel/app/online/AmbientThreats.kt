@@ -47,6 +47,6 @@ object AmbientThreats {
             wanted && !IgnoredCameras.contains(context, c.osmId)
         } ?: return null
         val score = KnownCameras.proximityScore(d)
-        return Threat(score, "${cam.label} ${(d / 10).toInt() * 10} m away", Category.ALPR)
+        return Threat(score, "${cam.label} ${com.rfsentinel.app.util.Units.distance(d)} away", Category.ALPR)
     }
 }

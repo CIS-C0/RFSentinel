@@ -316,28 +316,18 @@ object DeviceIntel {
         return 10.0.pow((measuredAt1m - rssi) / 25.0).coerceIn(0.1, 300.0)
     }
 
-    /** Device distances in feet (and miles past 1000 ft) instead of metres: Settings > General > Device distances ([applyUnits]). */
-    @Volatile var imperial = false
+    /** Device distances in feet (and miles past 1000 ft): the app's units ([com.rfsentinel.app.util.Units]). */
+    var imperial: Boolean
+        get() = com.rfsentinel.app.util.Units.imperial
+        set(v) { com.rfsentinel.app.util.Units.imperial = v }
 
-    /** Reads the Device distances setting: metres, feet, or the phone's region (feet where miles are used). */
-    fun applyUnits(context: android.content.Context, locale: java.util.Locale = java.util.Locale.getDefault()) {
-        imperial = when (com.rfsentinel.app.util.Prefs.deviceUnits(context)) {
-            "ft" -> true
-            "m" -> false
-            else -> locale.country.uppercase(java.util.Locale.ROOT) in setOf("US", "GB", "LR", "MM")
-        }
-    }
+    fun applyUnits(context: android.content.Context, locale: java.util.Locale = java.util.Locale.getDefault()) =
+        com.rfsentinel.app.util.Units.apply(context, locale)
 
     fun formatDistance(m: Double): String = formatDistance(m, imperial)
 
-    /** A plain length in the Device distances unit: "40 m", or "130 ft" / "0.4 mi" (no "~": for figures that are not a guess from signal strength). */
-    fun length(m: Double, feet: Boolean = imperial): String = if (!feet) "${m.roundToInt()} m" else {
-        val ft = m * 3.28084
-        if (ft < 1000) "${ft.roundToInt()} ft" else String.format(java.util.Locale.US, "%.1f mi", m / 1609.344)
-    }
-
-    /** A speed to go with [length]: km/h, or mph with feet. */
-    fun speed(ms: Double, feet: Boolean = imperial): String = if (feet) "${(ms * 2.236936).roundToInt()} mph" else "${(ms * 3.6).roundToInt()} km/h"
+    fun length(m: Double, feet: Boolean = imperial): String = com.rfsentinel.app.util.Units.length(m, feet)
+    fun speed(ms: Double, feet: Boolean = imperial): String = com.rfsentinel.app.util.Units.speed(ms, feet)
 
     fun formatDistance(m: Double, feet: Boolean): String = if (!feet) when {
         m < 1 -> "< 1 m"
