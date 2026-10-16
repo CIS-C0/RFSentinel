@@ -330,6 +330,15 @@ object DeviceIntel {
 
     fun formatDistance(m: Double): String = formatDistance(m, imperial)
 
+    /** A plain length in the Device distances unit: "40 m", or "130 ft" / "0.4 mi" (no "~": for figures that are not a guess from signal strength). */
+    fun length(m: Double, feet: Boolean = imperial): String = if (!feet) "${m.roundToInt()} m" else {
+        val ft = m * 3.28084
+        if (ft < 1000) "${ft.roundToInt()} ft" else String.format(java.util.Locale.US, "%.1f mi", m / 1609.344)
+    }
+
+    /** A speed to go with [length]: km/h, or mph with feet. */
+    fun speed(ms: Double, feet: Boolean = imperial): String = if (feet) "${(ms * 2.236936).roundToInt()} mph" else "${(ms * 3.6).roundToInt()} km/h"
+
     fun formatDistance(m: Double, feet: Boolean): String = if (!feet) when {
         m < 1 -> "< 1 m"
         m < 10 -> "~${m.roundToInt()} m"

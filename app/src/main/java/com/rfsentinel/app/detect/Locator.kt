@@ -187,5 +187,5 @@ object Locator {
     }
 
     /** "±12 m from 18 spots" */
-    fun describe(e: Estimate): String = "±${e.radiusM.roundToInt()} m from ${e.spots} spots you passed"
+    fun describe(e: Estimate): String = "±${DeviceIntel.length(e.radiusM)} from ${e.spots} spots you passed"
 }

@@ -1251,7 +1251,7 @@ class SettingsActivity : AppCompatActivity() {
             "(US, UK...) and metres elsewhere; feet turn into miles past 1000 ft. Only a rough guess either way: walls and " +
             "bodies weaken a signal."))
         val group = android.widget.RadioGroup(this)
-        for ((key, text) in listOf("auto" to "Automatic", "m" to "Metres", "ft" to "Feet and miles")) {
+        for ((key, text) in listOf("auto" to "Automatic", "m" to "Metric · m", "ft" to "Imperial · ft / mi")) {
             group.addView(android.widget.RadioButton(this).apply {
                 id = View.generateViewId(); this.text = text; tag = key
                 isChecked = Prefs.deviceUnits(this@SettingsActivity) == key

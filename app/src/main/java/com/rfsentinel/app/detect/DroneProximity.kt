@@ -20,9 +20,9 @@ object DroneProximity {
         if (d > RADIUS_M) return null
         val height = info.heightM ?: info.altitudeGeoM
         val detail = buildString {
-            append("Remote ID position ~${d.roundToInt()} m from you")
-            height?.let { append(", ${it.roundToInt()} m up") }
-            info.speedMs?.let { append(", ${(it * 3.6).roundToInt()} km/h") }
+            append("Remote ID position ~${DeviceIntel.length(d)} from you")
+            height?.let { append(", ${DeviceIntel.length(it)} up") }
+            info.speedMs?.let { append(", ${DeviceIntel.speed(it)}") }
             info.uasId?.let { append(" (ID $it)") }
         }
         return Hit(Category.DRONE, "Drone overhead", 95, detail, "ASTM F3411 Remote ID (the drone's own GPS position)")

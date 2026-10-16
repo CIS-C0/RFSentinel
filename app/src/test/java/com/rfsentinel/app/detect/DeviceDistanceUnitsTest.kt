@@ -40,4 +40,13 @@ class DeviceDistanceUnitsTest {
         DeviceIntel.applyUnits(ctx, Locale.US); assertTrue(DeviceIntel.imperial)
         DeviceIntel.applyUnits(ctx, Locale.GERMANY); assertFalse(DeviceIntel.imperial)
     }
+
+    @Test
+    fun pinpointAndDroneFiguresFollowTheSettingToo() {
+        assertEquals("40 m", DeviceIntel.length(40.0, false)); assertEquals("131 ft", DeviceIntel.length(40.0, true))
+        assertEquals("0.6 mi", DeviceIntel.length(1000.0, true))
+        assertEquals("36 km/h", DeviceIntel.speed(10.0, false)); assertEquals("22 mph", DeviceIntel.speed(10.0, true))
+        DeviceIntel.imperial = true
+        assertEquals("±39 ft from 18 spots you passed", Locator.describe(Locator.Estimate(0.0, 0.0, 12.0, 18, 40, 100.0, 0L)))
+    }
 }
