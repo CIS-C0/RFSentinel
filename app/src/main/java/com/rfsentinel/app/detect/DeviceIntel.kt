@@ -316,9 +316,31 @@ object DeviceIntel {
         return 10.0.pow((measuredAt1m - rssi) / 25.0).coerceIn(0.1, 300.0)
     }
 
-    fun formatDistance(m: Double): String = when {
+    /** Device distances in feet (and miles past 1000 ft) instead of metres: Settings > General > Device distances ([applyUnits]). */
+    @Volatile var imperial = false
+
+    /** Reads the Device distances setting: metres, feet, or the phone's region (feet where miles are used). */
+    fun applyUnits(context: android.content.Context, locale: java.util.Locale = java.util.Locale.getDefault()) {
+        imperial = when (com.rfsentinel.app.util.Prefs.deviceUnits(context)) {
+            "ft" -> true
+            "m" -> false
+            else -> locale.country.uppercase(java.util.Locale.ROOT) in setOf("US", "GB", "LR", "MM")
+        }
+    }
+
+    fun formatDistance(m: Double): String = formatDistance(m, imperial)
+
+    fun formatDistance(m: Double, feet: Boolean): String = if (!feet) when {
         m < 1 -> "< 1 m"
         m < 10 -> "~${m.roundToInt()} m"
         else -> "~${(m / 5).roundToInt() * 5} m"
+    } else {
+        val ft = m * 3.28084
+        when {
+            ft < 3 -> "< 3 ft"
+            ft < 30 -> "~${ft.roundToInt()} ft"
+            ft < 1000 -> "~${(ft / 10).roundToInt() * 10} ft"
+            else -> "~" + String.format(java.util.Locale.US, "%.1f mi", m / 1609.344)
+        }
     }
 }

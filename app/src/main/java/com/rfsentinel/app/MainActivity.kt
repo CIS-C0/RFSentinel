@@ -337,6 +337,7 @@ class MainActivity : AppCompatActivity() {
     private var startPadStart = 0
     private var startPadEnd = 0
     private var startMinWidth = 0
+    private var startIconGravity = com.google.android.material.button.MaterialButton.ICON_GRAVITY_START
 
     private fun fitStartButton() {
         val b = binding.startStopButton
@@ -346,21 +347,27 @@ class MainActivity : AppCompatActivity() {
         val icon = if (running) R.drawable.ic_car_stop else R.drawable.ic_car_play
         if (startIconPadding < 0) { // the button as the layout made it
             startIconPadding = b.iconPadding; startPadStart = b.paddingStart; startPadEnd = b.paddingEnd; startMinWidth = b.minWidth
+            startIconGravity = b.iconGravity
         }
         fun withWord() {
-            b.text = label; b.setIconResource(icon); b.iconPadding = startIconPadding
+            b.text = label; b.setIconResource(icon); b.iconPadding = startIconPadding; b.iconGravity = startIconGravity
             b.setPaddingRelative(startPadStart, b.paddingTop, startPadEnd, b.paddingBottom); b.minWidth = startMinWidth
         }
         if (b.width == 0) { withWord(); return }
         val room = b.width - startPadStart - startPadEnd
         val drawn = b.transformationMethod?.getTransformation(label, b)?.toString() ?: label
-        val textW = b.paint.measureText(drawn) + 2 * d
+        // The measured width runs a little short of what the button really needs (letter spacing, its own insets): a
+        // word that only just fits by the measure showed cut off ("ST"), so it must fit with some room to spare.
+        val textW = b.paint.measureText(drawn) * 1.1f + 6 * d
         val iconW = (b.iconSize.takeIf { it > 0 } ?: (24 * d).toInt()) + startIconPadding
         if (textW + iconW <= room) withWord()
         else if (textW <= room) { withWord(); b.icon = null }
         else {
-            b.text = ""; b.setIconResource(icon); b.iconPadding = 0
-            b.setPaddingRelative(0, b.paddingTop, 0, b.paddingBottom); b.minWidth = (48 * d).toInt()
+            // The icon alone, in the middle of the button: "text start" gravity centres the icon with its text, here an
+            // invisible zero-width one (with no text at all the button keeps the icon at its start).
+            b.text = "​"; b.setIconResource(icon); b.iconPadding = 0
+            b.iconGravity = com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_START
+            b.setPaddingRelative(startPadStart, b.paddingTop, startPadEnd, b.paddingBottom); b.minWidth = (48 * d).toInt()
         }
     }
 

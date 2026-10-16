@@ -204,6 +204,7 @@ class ScanForegroundService : Service() {
         }
         lastLocation = it
         lastFix = it
+        com.rfsentinel.app.ui.MapGps.offer(it)
         TripRecorder.onLocation(it)
         checkKnownAlpr(it)
         cellMonitor?.onLocation(it)

@@ -1239,6 +1239,30 @@ class SettingsActivity : AppCompatActivity() {
         })
     }
 
+    /** Settings > General > Device distances: how far a device is guessed to be, in metres or feet. */
+    private fun setupDeviceUnits() {
+        val box = binding.sectionGeneral
+        val title = android.widget.TextView(this).apply {
+            text = "Device distances"; textSize = 14f
+            setPadding(0, (10 * resources.displayMetrics.density).toInt(), 0, (2 * resources.displayMetrics.density).toInt())
+        }
+        box.addView(infoRow(title, "How far away a device is guessed to be, from its signal strength, on the list, the " +
+            "device details, the alerts and the car screen. Automatic shows feet where the phone's region uses miles " +
+            "(US, UK...) and metres elsewhere; feet turn into miles past 1000 ft. Only a rough guess either way: walls and " +
+            "bodies weaken a signal."))
+        val group = android.widget.RadioGroup(this)
+        for ((key, text) in listOf("auto" to "Automatic", "m" to "Metres", "ft" to "Feet and miles")) {
+            group.addView(android.widget.RadioButton(this).apply {
+                id = View.generateViewId(); this.text = text; tag = key
+                isChecked = Prefs.deviceUnits(this@SettingsActivity) == key
+            })
+        }
+        group.setOnCheckedChangeListener { g, id ->
+            g.findViewById<View>(id)?.tag?.let { Prefs.setDeviceUnits(this, it as String); com.rfsentinel.app.detect.DeviceIntel.applyUnits(this) }
+        }
+        box.addView(group)
+    }
+
     /** Settings > Map: what the map shows (moved here from the map's menu). Saved as you switch. */
     private fun setupMapSection() {
         setupMapProvider()
@@ -2036,6 +2060,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.autoCamerasSwitch.isChecked = Prefs.autoCameras(this)
         setupMapSection()
         setupNavSection()
+        setupDeviceUnits()
         setupRadioSection()
         setupLiveExport()
         addDetails()

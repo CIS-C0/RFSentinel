@@ -134,7 +134,7 @@ object Navigator {
     private var paceFromAlong: Double? = null
     private var paceFromAt = 0L
 
-    private val listener = LocationListenerCompat { onLocation(it) }
+    private val listener = LocationListenerCompat { com.rfsentinel.app.ui.MapGps.offer(it); onLocation(it) }
     private val userAgent get() = "${BuildConfig.APPLICATION_ID}/${BuildConfig.VERSION_NAME}"
 
     /** The route options chosen in Settings, for a route nobody has adjusted. */

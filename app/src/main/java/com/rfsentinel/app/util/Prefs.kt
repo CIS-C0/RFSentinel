@@ -351,6 +351,9 @@ object Prefs {
     fun setNavAvoidSpeedCameras(context: Context, v: Boolean) = setBool(context, "nav_avoid_speed_cameras", v)
     fun navAvoidPlateReaders(context: Context): Boolean = bool(context, "nav_avoid_plate_readers", false)
     fun setNavAvoidPlateReaders(context: Context, v: Boolean) = setBool(context, "nav_avoid_plate_readers", v)
+    /** Units for device distance estimates: "auto" (feet where the phone's region uses miles), "m" or "ft". */
+    fun deviceUnits(context: Context): String = sp(context).getString("device_units", "auto") ?: "auto"
+    fun setDeviceUnits(context: Context, v: String) = sp(context).edit { putString("device_units", v) }
     /** Distance units for guidance: "auto" (miles where the phone's region uses them), "km" or "mi". */
     fun navUnits(context: Context): String = sp(context).getString("nav_units", "auto") ?: "auto"
     fun setNavUnits(context: Context, v: String) = sp(context).edit { putString("nav_units", v) }

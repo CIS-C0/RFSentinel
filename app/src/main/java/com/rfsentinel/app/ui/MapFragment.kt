@@ -3,7 +3,6 @@ package com.rfsentinel.app.ui
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.location.Location
-import androidx.core.location.LocationListenerCompat
 import android.location.LocationManager
 import android.os.Build
 import android.os.Bundle
@@ -91,8 +90,6 @@ class MapFragment : Fragment() {
         const val ARG_EMBEDDED = "embedded"
         /** A failed camera download stays in the status line this long (the retry runs after a minute). */
         private const val CAMERA_FAIL_SHOWN_MS = 90_000L
-        private const val GPS_MOVING_MS = 1_000L
-        private const val GPS_PARKED_MS = 5_000L
         /** [MapStart]'s levels are the classic raster map's: the vector map's are this much lower. */
         private const val ZOOM_SHIFT = MapStart.VECTOR_SHIFT
         /** 3D: your arrow this far down the map (navigation apps: about 70 %), so you see more road ahead. */
@@ -877,7 +874,7 @@ class MapFragment : Fragment() {
         val m = map ?: return
         applyMarker()
         if (!m.startPuck()) return
-        (lastFix ?: knownFix())?.let { m.pushFix(steady(it)) }
+        (lastFix ?: knownFix())?.let { m.pushFix(steady(onRoute(it))) }
         applyMode(animate = false)
     }
 
@@ -890,8 +887,6 @@ class MapFragment : Fragment() {
         if (moving) { lastBearing = fix.bearing; return fix }
         return Location(fix).apply { lastBearing?.let { bearing = it } }
     }
-
-    private val gpsListener = LocationListenerCompat { fix -> rf?.safe("fix") { onFix(fix) } ?: onFix(fix) }
 
     /** When the map was last touched (panned, pinched...): the auto-recenter counts from it. */
     private var touchedAt = 0L
@@ -906,8 +901,7 @@ class MapFragment : Fragment() {
             com.rfsentinel.app.nav.SpeedLimits.Live.onFix(fix.latitude, fix.longitude, fix.speed)
         updateGauge()
         val m = map?.takeIf { it.puckOn } ?: return
-        m.pushFix(steady(fix))
-        adaptGpsRate(fix)
+        m.pushFix(steady(onRoute(fix)))
         val kmh = if (fix.hasSpeed()) fix.speed * 3.6f else 0f
         val before = smoothKmh
         smoothKmh = if (smoothKmh < 0f) kmh else smoothKmh * 0.7f + kmh * 0.3f
@@ -925,6 +919,25 @@ class MapFragment : Fragment() {
         if ((drives && before < 0f) || (moved && (drives || Navigator.active))) { lastZoomTarget = target; applyMode(animate = true) }
     }
 
+    private var snapState: com.rfsentinel.app.nav.RouteProgress.State? = null
+
+    /** While guided and close to the route: the fix drawn on it, turned along it ([com.rfsentinel.app.nav.RouteSnap]); else as it is. */
+    private fun onRoute(fix: Location): Location {
+        val route = com.rfsentinel.app.nav.Navigator.route
+        if (!Navigator.active || route == null) { snapState = null; return fix }
+        val moving = fix.hasSpeed() && fix.speed >= HEADING_MIN_SPEED_MS && fix.hasBearing()
+        val s = com.rfsentinel.app.nav.RouteSnap.snap(route, fix.latitude, fix.longitude, if (moving) fix.bearing.toDouble() else null,
+            if (fix.hasAccuracy()) fix.accuracy.toDouble() else null, snapState?.takeIf { route === snappedRoute })
+        snappedRoute = route
+        if (s == null) { snapState = null; return fix }
+        snapState = s.state
+        return Location(fix).apply {
+            latitude = s.lat; longitude = s.lon
+            if (moving) bearing = s.bearingDeg.toFloat()
+        }
+    }
+    private var snappedRoute: com.rfsentinel.app.nav.Route? = null
+
     /** Zoom levels added for the turn coming up (only while guiding). */
     private fun turnBoost(): Double {
         val s = Navigator.state ?: return 0.0
@@ -935,49 +948,23 @@ class MapFragment : Fragment() {
     // ---- Battery: the map's own GPS ---------------------------------------------------------------------
 
     /**
-     * The position arrow's GPS: a fix a second (2 m) while moving - smooth enough for driving -
-     * and every 5 s (10 m) after a minute parked. Runs only while the map is on screen (off with
-     * the screen, the app in the background, or the main screen's Map view turned off).
+     * The position arrow's GPS is [MapGps], shared by every map: the small map on the main screen and the full screen
+     * map use the same one, so switching between them doesn't restart it. It runs while a map is on screen and stops a
+     * little after the last one goes.
      */
     private var listening = false
-    private var gpsParked = false
-    private var stillSince = 0L
+    private val mapGpsListener: (Location) -> Unit = { fix -> rf?.safe("fix") { onFix(fix) } ?: onFix(fix) }
 
-    @SuppressLint("MissingPermission")
     private fun startGps() {
         if (listening || !Permissions.granted(act, android.Manifest.permission.ACCESS_FINE_LOCATION)) return
-        val lm = act.getSystemService(android.content.Context.LOCATION_SERVICE) as LocationManager
-        val provider = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && lm.hasProvider(LocationManager.FUSED_PROVIDER))
-            LocationManager.FUSED_PROVIDER else LocationManager.GPS_PROVIDER
-        val ms = if (gpsParked) GPS_PARKED_MS else GPS_MOVING_MS
-        val meters = if (gpsParked) 10f else 2f
-        runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val req = android.location.LocationRequest.Builder(ms)
-                    .setQuality(android.location.LocationRequest.QUALITY_HIGH_ACCURACY)
-                    .setMinUpdateDistanceMeters(meters)
-                    .build()
-                lm.requestLocationUpdates(provider, req, act.mainExecutor, gpsListener)
-            } else lm.requestLocationUpdates(provider, ms, meters, gpsListener, Looper.getMainLooper())
-            listening = true
-        }
+        listening = true
+        MapGps.subscribe(act, mapGpsListener)
     }
 
     private fun stopGps() {
         if (!listening) return
-        runCatching { (act.getSystemService(android.content.Context.LOCATION_SERVICE) as LocationManager).removeUpdates(gpsListener) }
+        MapGps.unsubscribe(mapGpsListener)
         listening = false
-    }
-
-    private fun adaptGpsRate(fix: Location) {
-        val now = android.os.SystemClock.elapsedRealtime()
-        val moving = fix.hasSpeed() && fix.speed >= 1.0f
-        if (moving) stillSince = 0L else if (stillSince == 0L) stillSince = now
-        val parked = !moving && stillSince != 0L && now - stillSince > 60_000L
-        if (parked == gpsParked) return
-        gpsParked = parked
-        // Re-register with the new rate; the arrow stays where it is meanwhile.
-        if (listening) { stopGps(); startGps() }
     }
 
     // ---- North up / heading up / 3D --------------------------------------------------------------------
@@ -1119,8 +1106,8 @@ class MapFragment : Fragment() {
         else Toast.makeText(act, "Waiting for a GPS fix...", Toast.LENGTH_SHORT).show()
     }
 
-    /** The best position known before this screen's own GPS answers: the running scan's fix, else the system's last known. */
-    private fun knownFix(): Location? = listOfNotNull(ScanForegroundService.lastFix, systemLastKnown()).maxByOrNull { it.time }
+    /** The best position known before this screen's own GPS answers: the freshest precise fix from any source (see [MapGps.best]). */
+    private fun knownFix(): Location? = MapGps.best(listOf(ScanForegroundService.lastFix, com.rfsentinel.app.nav.Navigator.lastFix, systemLastKnown()))
 
     @SuppressLint("MissingPermission")
     private fun systemLastKnown(): Location? {
