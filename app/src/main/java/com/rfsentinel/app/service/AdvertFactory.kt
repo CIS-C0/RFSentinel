@@ -6,11 +6,15 @@ import android.bluetooth.le.ScanResult
 import android.os.Build
 import com.rfsentinel.app.detect.AddressType
 import com.rfsentinel.app.detect.Advert
+import com.rfsentinel.app.detect.VendorDb
 import com.rfsentinel.app.util.MacUtil
 import android.net.wifi.ScanResult as WifiScanResult
 
 /** Converts Android scan results into the platform-neutral [Advert]. */
 object AdvertFactory {
+
+    /** Apple's Bluetooth company ID: iPhones, AirPods, AirTags and Find My items always advertise from random addresses. */
+    private const val APPLE = 0x004C
 
     @SuppressLint("MissingPermission") // scan results are only delivered with the scan permission
     fun fromBle(r: ScanResult): Advert? {
@@ -20,7 +24,7 @@ object AdvertFactory {
         rec?.manufacturerSpecificData?.let { arr ->
             for (i in 0 until arr.size()) arr.valueAt(i)?.let { mfg[arr.keyAt(i)] = it }
         }
-        val addressType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+        val reported = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
             when (r.device.addressType) {
                 BluetoothDevice.ADDRESS_TYPE_PUBLIC -> AddressType.PUBLIC
                 BluetoothDevice.ADDRESS_TYPE_RANDOM -> AddressType.ofRandom(mac)
@@ -29,6 +33,9 @@ object AdvertFactory {
         } else {
             AddressType.UNKNOWN
         }
+        // Not reported (older Android, or the Bluetooth chip didn't say): worked out from the address.
+        val addressType = if (reported != AddressType.UNKNOWN) reported
+            else AddressType.guess(mac, registered = VendorDb.macVendor(mac) != null, alwaysRandom = APPLE in mfg)
         val tx = rec?.txPowerLevel?.takeIf { it != Int.MIN_VALUE }
         val phy = when (r.primaryPhy) {
             1 -> if (r.secondaryPhy == 2) "LE 1M / 2M (extended)" else if (r.isLegacy) "LE 1M (legacy)" else "LE 1M (extended)"

@@ -6,12 +6,14 @@ import android.graphics.Canvas
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Color
 
 /**
- * The position marker on the map (your arrow): an arrow, or a car seen from above, in a colour of your choice.
+ * The position marker on the map (your arrow): a dot with a heading beam, an arrow (flat or 3D), or a car seen
+ * from above, in a colour of your choice.
  * Everything is drawn here in code on a 100 x 200 unit sheet with the front at the top, so any size is sharp and
  * any colour works; the map turns it with your direction of travel. Pure drawing: the same function makes the
  * map's marker and the pictures in Settings.
@@ -19,7 +21,7 @@ import android.graphics.Color
 object MarkerArt {
 
     enum class Style(val key: String, val label: String) {
-        ARROW("arrow", "Arrow"), CHEVRON("chevron", "Chevron"),
+        DOT("dot", "Classic dot"), ARROW("arrow", "Arrow"), ARROW_3D("arrow3d", "3D arrow"), CHEVRON("chevron", "Chevron"),
         SEDAN("sedan", "Sedan"), HATCHBACK("hatchback", "Hatchback"), WAGON("wagon", "Wagon"), SUV("suv", "SUV"),
         PICKUP("pickup", "Pickup"), SPORTS("sports", "Sports car"), RACER("racer", "Racer"), CONVERTIBLE("convertible", "Convertible"),
         MINI("mini", "Mini"), VAN("van", "Van"), TRUCK("truck", "Truck"), TAXI("taxi", "Taxi"), MOTORCYCLE("motorcycle", "Motorcycle");
@@ -61,7 +63,9 @@ object MarkerArt {
         val c = Canvas(bmp)
         c.scale(h / 200f, h / 200f)
         when (style) {
+            Style.DOT -> dot(c, color)
             Style.ARROW -> arrow(c, color, ARROW)
+            Style.ARROW_3D -> arrow3d(c, color)
             Style.CHEVRON -> arrow(c, color, CHEVRON)
             Style.SEDAN -> car(c, color, SEDAN)
             Style.HATCHBACK -> car(c, color, HATCHBACK)
@@ -132,6 +136,71 @@ object MarkerArt {
         val half = Path().apply { moveTo(50f, pts[1]); lineTo(50f, if (pts.size == 8) 150f else 92f); lineTo(pts[pts.size - 2], pts[pts.size - 1]); close() }
         c.drawPath(half, fill(0x2EFFFFFF))
         c.drawPath(path, line(shade(color, 0.6f), 1.5f))
+    }
+
+    /**
+     * The classic map dot: a dot in a white ring on its shadow, with a soft beam towards where you're heading. Its
+     * middle is the middle of the sheet (the point the map puts on your position and turns around).
+     */
+    private fun dot(c: Canvas, color: Int) {
+        val cy = 100f
+        val beamR = 90f
+        val beam = Path().apply {
+            moveTo(CX, cy); arcTo(RectF(CX - beamR, cy - beamR, CX + beamR, cy + beamR), -90f - 34f, 68f); close()
+        }
+        c.drawPath(beam, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = RadialGradient(CX, cy, beamR,
+                intArrayOf(Color.argb(170, Color.red(color), Color.green(color), Color.blue(color)),
+                    Color.argb(80, Color.red(color), Color.green(color), Color.blue(color)), Color.argb(0, Color.red(color), Color.green(color), Color.blue(color))),
+                floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP)
+        })
+        c.drawCircle(CX + 1f, cy + 3f, 31f, fill(0x55000000).apply { maskFilter = BlurMaskFilter(5f, BlurMaskFilter.Blur.NORMAL) })
+        c.drawCircle(CX, cy, 31f, fill(0xFFFFFFFF.toInt()))
+        c.drawCircle(CX, cy, 31f, line(0x26000000, 1.2f))
+        c.drawCircle(CX, cy, 22f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = RadialGradient(CX - 7f, cy - 7f, 30f, lighten(color, 0.22f), shade(color, 0.86f), Shader.TileMode.CLAMP)
+        })
+    }
+
+    /**
+     * A navigation arrow with depth: a broad arrowhead lit from the left (two facets), standing on its own
+     * thickness, so it reads as a solid piece lying on the road, also when the map is tilted.
+     */
+    private fun arrow3d(c: Canvas, color: Int) {
+        val top = floatArrayOf(50f, 18f, 90f, 168f, 50f, 138f, 10f, 168f)
+        val depth = 14f
+        val face = poly(top)
+        // The ground shadow, below the solid.
+        c.save(); c.translate(3f, depth + 6f)
+        c.drawPath(face, fill(0x5C000000).apply { maskFilter = BlurMaskFilter(7f, BlurMaskFilter.Blur.NORMAL) })
+        c.restore()
+        // The solid: every edge swept down by the thickness, with the white rim around all of it.
+        val solid = Path().apply {
+            addPath(face); addPath(face, 0f, depth)
+            var i = 0
+            while (i < top.size) {
+                val x1 = top[i]; val y1 = top[i + 1]; val x2 = top[(i + 2) % top.size]; val y2 = top[(i + 3) % top.size]
+                addPath(Path().apply { moveTo(x1, y1); lineTo(x2, y2); lineTo(x2, y2 + depth); lineTo(x1, y1 + depth); close() })
+                i += 2
+            }
+        }
+        c.drawPath(solid, line(0xFFFFFFFF.toInt(), 8f))
+        c.drawPath(solid, fill(0xFFFFFFFF.toInt()))
+        c.drawPath(solid, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(0f, 18f, 0f, 168f + depth, shade(color, 0.5f), shade(color, 0.34f), Shader.TileMode.CLAMP)
+        })
+        // The top: the left facet in the light, the right one in shade, a ridge down the middle.
+        val left = Path().apply { moveTo(50f, 18f); lineTo(50f, 138f); lineTo(10f, 168f); close() }
+        val right = Path().apply { moveTo(50f, 18f); lineTo(90f, 168f); lineTo(50f, 138f); close() }
+        c.drawPath(left, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(10f, 168f, 50f, 18f, lighten(color, 0.08f), lighten(color, 0.34f), Shader.TileMode.CLAMP)
+        })
+        c.drawPath(right, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(90f, 168f, 50f, 18f, shade(color, 0.7f), shade(color, 0.9f), Shader.TileMode.CLAMP)
+        })
+        c.drawLine(50f, 20f, 50f, 136f, line(lighten(color, 0.5f), 1.6f))
+        // The rim between the top and the sides.
+        c.drawPath(face, line(lighten(color, 0.6f), 1.4f))
     }
 
     // ---- cars --------------------------------------------------------------------------------------------

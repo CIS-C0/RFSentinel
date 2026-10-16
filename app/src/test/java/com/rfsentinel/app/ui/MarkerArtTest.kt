@@ -44,7 +44,7 @@ class MarkerArtTest {
     fun theFrontIsAtTheTopOfEveryCarAndTheBackAtTheBottom() {
         fun headlight(p: Int) = Color.red(p) > 235 && Color.green(p) > 225 && Color.blue(p) in 150..215 && Color.alpha(p) > 200
         fun tail(p: Int) = Color.red(p) in 180..230 && Color.green(p) < 80 && Color.blue(p) < 80 && Color.alpha(p) > 200
-        for (s in MarkerArt.Style.entries.filter { it != MarkerArt.Style.ARROW && it != MarkerArt.Style.CHEVRON }) {
+        for (s in MarkerArt.Style.entries.filter { it !in listOf(MarkerArt.Style.DOT, MarkerArt.Style.ARROW, MarkerArt.Style.ARROW_3D, MarkerArt.Style.CHEVRON) }) {
             val b = MarkerArt.render(s, blue, 300)
             val top = 0 until b.height / 4; val bottom = b.height * 3 / 4 until b.height
             assertTrue("${s.key}: headlights at the front", count(b, top, ::headlight) > 20)
@@ -56,13 +56,24 @@ class MarkerArtTest {
 
     @Test
     fun anArrowPointsUp() {
-        for (s in listOf(MarkerArt.Style.ARROW, MarkerArt.Style.CHEVRON)) {
+        for (s in listOf(MarkerArt.Style.ARROW, MarkerArt.Style.ARROW_3D, MarkerArt.Style.CHEVRON)) {
             val b = MarkerArt.render(s, blue, 200)
             // The tip is at the top, in the middle; the top corners are empty and the base is wide.
             assertTrue(Color.alpha(b.getPixel(b.width / 2, 40)) > 200)
             assertEquals(0, Color.alpha(b.getPixel(4, 40)))
             assertTrue("wider at the back than at the tip", count(b, 150..150) { Color.alpha(it) > 200 } > count(b, 40..40) { Color.alpha(it) > 200 })
         }
+    }
+
+    @Test
+    fun theClassicDotSitsOnYourPositionAndItsBeamPointsAhead() {
+        val b = MarkerArt.render(MarkerArt.Style.DOT, blue, 200)
+        val mid = b.getPixel(b.width / 2, b.height / 2)
+        assertTrue("a solid blue dot in the middle", Color.alpha(mid) > 240 && Color.blue(mid) > Color.red(mid) + 80)
+        assertTrue("a white ring around it", Color.red(b.getPixel(b.width / 2, b.height / 2 - 27)) > 240)
+        val ahead = Color.alpha(b.getPixel(b.width / 2, 55))
+        assertTrue("a see-through beam ahead", ahead in 10..200)
+        assertEquals("nothing behind", 0, Color.alpha(b.getPixel(b.width / 2, 170)))
     }
 
     @Test
@@ -83,7 +94,7 @@ class MarkerArtTest {
             val px = IntArray(b.width * b.height); b.getPixels(px, 0, b.width, 0, 0, b.width, b.height)
             assertTrue("${s.key} differs from the others", seen.add(px.contentHashCode()))
         }
-        assertEquals(15, MarkerArt.Style.entries.size)
+        assertEquals(17, MarkerArt.Style.entries.size)
         assertEquals(16, MarkerArt.colors.size)
     }
 

@@ -65,7 +65,7 @@ class Advert(
 
 /**
  * How trackable a device's address is. For BLE the controller reports public vs
- * random (API 35+); the random sub-type comes from the top two bits of the
+ * random (API 35+; before that it is guessed, see [guess]); the random sub-type comes from the top two bits of the
  * most significant byte (Bluetooth Core Spec Vol 6, Part B, 1.3).
  */
 enum class AddressType(val label: String, val trackable: String) {
@@ -75,7 +75,12 @@ enum class AddressType(val label: String, val trackable: String) {
     NON_RESOLVABLE("Non-resolvable private", "Rotates - not trackable"),
     WIFI_GLOBAL("WiFi, globally unique", "Fixed hardware address - trackable"),
     WIFI_LOCAL("WiFi, locally administered", "Randomized / private address"),
-    UNKNOWN("Unknown", "Android didn't report the address type (needs Android 15+)");
+    // This phone's Bluetooth didn't say (it does from Android 15 on): worked out from the address itself.
+    LIKELY_PUBLIC("Probably public (IEEE-assigned)", "Probably trackable - the address belongs to a registered maker"),
+    LIKELY_STATIC("Probably random static", "Probably stable until reboot or reset - partly trackable"),
+    LIKELY_RPA("Probably resolvable private (RPA)", "Probably rotates every few minutes - hard to track"),
+    LIKELY_NON_RESOLVABLE("Probably non-resolvable private", "Probably rotates - not trackable"),
+    UNKNOWN("Unknown", "This phone's Bluetooth didn't report the address type");
 
     companion object {
         /** Sub-type of a BLE random address from its most significant byte. */
@@ -86,6 +91,21 @@ enum class AddressType(val label: String, val trackable: String) {
                 0b01 -> RESOLVABLE_PRIVATE
                 0b00 -> NON_RESOLVABLE
                 else -> UNKNOWN // 0b10 is reserved
+            }
+        }
+
+        /**
+         * The type of a BLE address the phone didn't report (before Android 15 it never does): public when the
+         * address belongs to a maker in the IEEE register ([registered]), unless the advert shows a device that
+         * always uses random addresses ([alwaysRandom]: Apple, Find My); otherwise the random sub-type.
+         */
+        fun guess(mac: String, registered: Boolean, alwaysRandom: Boolean): AddressType {
+            if (registered && !alwaysRandom) return LIKELY_PUBLIC
+            return when (ofRandom(mac)) {
+                RANDOM_STATIC -> LIKELY_STATIC
+                RESOLVABLE_PRIVATE -> LIKELY_RPA
+                NON_RESOLVABLE -> LIKELY_NON_RESOLVABLE
+                else -> UNKNOWN
             }
         }
 
