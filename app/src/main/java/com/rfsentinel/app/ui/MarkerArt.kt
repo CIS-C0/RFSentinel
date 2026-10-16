@@ -12,7 +12,7 @@ import android.graphics.Shader
 import android.graphics.Color
 
 /**
- * The position marker on the map (your arrow): a dot with a heading beam, an arrow (flat or 3D), or a car seen
+ * The position marker on the map (your arrow): the navigation arrow on a disc, a dot with a heading beam, an arrow, or a car seen
  * from above, in a colour of your choice.
  * Everything is drawn here in code on a 100 x 200 unit sheet with the front at the top, so any size is sharp and
  * any colour works; the map turns it with your direction of travel. Pure drawing: the same function makes the
@@ -20,8 +20,9 @@ import android.graphics.Color
  */
 object MarkerArt {
 
-    enum class Style(val key: String, val label: String) {
-        DOT("dot", "Classic dot"), ARROW("arrow", "Arrow"), ARROW_3D("arrow3d", "3D arrow"), CHEVRON("chevron", "Chevron"),
+    /** [scale]: how much bigger than the others it is drawn at the same size setting (the round ones fill only the sheet's width). */
+    enum class Style(val key: String, val label: String, val scale: Float = 1f) {
+        NAVIGATION("navigation", "Navigation", 1.7f), DOT("dot", "Classic dot", 1.4f), ARROW("arrow", "Arrow"), CHEVRON("chevron", "Chevron"),
         SEDAN("sedan", "Sedan"), HATCHBACK("hatchback", "Hatchback"), WAGON("wagon", "Wagon"), SUV("suv", "SUV"),
         PICKUP("pickup", "Pickup"), SPORTS("sports", "Sports car"), RACER("racer", "Racer"), CONVERTIBLE("convertible", "Convertible"),
         MINI("mini", "Mini"), VAN("van", "Van"), TRUCK("truck", "Truck"), TAXI("taxi", "Taxi"), MOTORCYCLE("motorcycle", "Motorcycle");
@@ -63,9 +64,9 @@ object MarkerArt {
         val c = Canvas(bmp)
         c.scale(h / 200f, h / 200f)
         when (style) {
+            Style.NAVIGATION -> navigation(c, color)
             Style.DOT -> dot(c, color)
             Style.ARROW -> arrow(c, color, ARROW)
-            Style.ARROW_3D -> arrow3d(c, color)
             Style.CHEVRON -> arrow(c, color, CHEVRON)
             Style.SEDAN -> car(c, color, SEDAN)
             Style.HATCHBACK -> car(c, color, HATCHBACK)
@@ -163,44 +164,25 @@ object MarkerArt {
     }
 
     /**
-     * A navigation arrow with depth: a broad arrowhead lit from the left (two facets), standing on its own
-     * thickness, so it reads as a solid piece lying on the road, also when the map is tilted.
+     * The map's classic navigation marker (as the map drew it before markers could be chosen): an arrow on a white
+     * disc in a faint halo, the arrow in your colour.
      */
-    private fun arrow3d(c: Canvas, color: Int) {
-        val top = floatArrayOf(50f, 18f, 90f, 168f, 50f, 138f, 10f, 168f)
-        val depth = 14f
-        val face = poly(top)
-        // The ground shadow, below the solid.
-        c.save(); c.translate(3f, depth + 6f)
-        c.drawPath(face, fill(0x5C000000).apply { maskFilter = BlurMaskFilter(7f, BlurMaskFilter.Blur.NORMAL) })
+    private fun navigation(c: Canvas, color: Int) {
+        c.save()
+        // Drawn on a 75-unit square, centred on the sheet.
+        c.translate(0f, 50f); c.scale(100f / 75f, 100f / 75f)
+        c.drawCircle(37.5f, 37.5f, 37.5f, fill(0x29263D57))
+        c.drawCircle(37.5f, 38.5f, 28.5f, fill(0x40000000).apply { maskFilter = BlurMaskFilter(2.5f, BlurMaskFilter.Blur.NORMAL) })
+        c.drawCircle(37.5f, 37.5f, 28.5f, fill(0xFFFFFFFF.toInt()))
+        c.drawPath(NAV_ARROW, fill(color))
         c.restore()
-        // The solid: every edge swept down by the thickness, with the white rim around all of it.
-        val solid = Path().apply {
-            addPath(face); addPath(face, 0f, depth)
-            var i = 0
-            while (i < top.size) {
-                val x1 = top[i]; val y1 = top[i + 1]; val x2 = top[(i + 2) % top.size]; val y2 = top[(i + 3) % top.size]
-                addPath(Path().apply { moveTo(x1, y1); lineTo(x2, y2); lineTo(x2, y2 + depth); lineTo(x1, y1 + depth); close() })
-                i += 2
-            }
-        }
-        c.drawPath(solid, line(0xFFFFFFFF.toInt(), 8f))
-        c.drawPath(solid, fill(0xFFFFFFFF.toInt()))
-        c.drawPath(solid, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(0f, 18f, 0f, 168f + depth, shade(color, 0.5f), shade(color, 0.34f), Shader.TileMode.CLAMP)
-        })
-        // The top: the left facet in the light, the right one in shade, a ridge down the middle.
-        val left = Path().apply { moveTo(50f, 18f); lineTo(50f, 138f); lineTo(10f, 168f); close() }
-        val right = Path().apply { moveTo(50f, 18f); lineTo(90f, 168f); lineTo(50f, 138f); close() }
-        c.drawPath(left, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(10f, 168f, 50f, 18f, lighten(color, 0.08f), lighten(color, 0.34f), Shader.TileMode.CLAMP)
-        })
-        c.drawPath(right, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(90f, 168f, 50f, 18f, shade(color, 0.7f), shade(color, 0.9f), Shader.TileMode.CLAMP)
-        })
-        c.drawLine(50f, 20f, 50f, 136f, line(lighten(color, 0.5f), 1.6f))
-        // The rim between the top and the sides.
-        c.drawPath(face, line(lighten(color, 0.6f), 1.4f))
+    }
+
+    private val NAV_ARROW: Path by lazy {
+        androidx.core.graphics.PathParser.createPathFromPathData(
+            "M39.2,28.46C39.01,27.99 38.54,27.68 38.02,27.69C37.5,27.7 37.02,28.01 36.81,28.49L27.05,45.83C26.83,46.32 26.92,46.89 27.28,47.26" +
+            "C27.65,47.64 28.21,47.75 28.71,47.54L37.07,44.03C37.39,43.89 37.75,43.89 38.06,44.02L46.27,47.34C46.75,47.54 47.33,47.42 47.71,47.03" +
+            "C48.09,46.64 48.21,46.07 48,45.59L39.2,28.46Z")
     }
 
     // ---- cars --------------------------------------------------------------------------------------------

@@ -41,7 +41,8 @@ object MarkerPicker {
     /** The marker the map draws now. */
     fun current(context: android.content.Context): android.graphics.Bitmap {
         val c = effective(context)
-        return MarkerArt.render(MarkerArt.Style.of(c.style), MarkerArt.colorOf(c.color).argb, heightPx(context, c.size))
+        val style = MarkerArt.Style.of(c.style)
+        return MarkerArt.render(style, MarkerArt.colorOf(c.color).argb, heightPx(context, c.size * style.scale))
     }
 
     /** "Sedan · Blue", for the Settings button. */
@@ -105,7 +106,7 @@ object MarkerPicker {
 
         fun refresh() {
             onChanged(Choice(style.key, color.key, size))
-            val real = MarkerArt.render(style, color.argb, heightPx(activity, size))
+            val real = MarkerArt.render(style, color.argb, heightPx(activity, size * style.scale))
             val show = if (real.height > px(BASE_DP * 2f)) MarkerArt.render(style, color.argb, px(BASE_DP * 2f)) else real
             light.setImageDrawable(BitmapDrawable(activity.resources, show)); dark.setImageDrawable(BitmapDrawable(activity.resources, show))
             val accent = ChipStyle.accent(activity).first

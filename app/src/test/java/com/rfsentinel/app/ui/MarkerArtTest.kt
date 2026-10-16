@@ -44,7 +44,7 @@ class MarkerArtTest {
     fun theFrontIsAtTheTopOfEveryCarAndTheBackAtTheBottom() {
         fun headlight(p: Int) = Color.red(p) > 235 && Color.green(p) > 225 && Color.blue(p) in 150..215 && Color.alpha(p) > 200
         fun tail(p: Int) = Color.red(p) in 180..230 && Color.green(p) < 80 && Color.blue(p) < 80 && Color.alpha(p) > 200
-        for (s in MarkerArt.Style.entries.filter { it !in listOf(MarkerArt.Style.DOT, MarkerArt.Style.ARROW, MarkerArt.Style.ARROW_3D, MarkerArt.Style.CHEVRON) }) {
+        for (s in MarkerArt.Style.entries.filter { it !in listOf(MarkerArt.Style.NAVIGATION, MarkerArt.Style.DOT, MarkerArt.Style.ARROW, MarkerArt.Style.CHEVRON) }) {
             val b = MarkerArt.render(s, blue, 300)
             val top = 0 until b.height / 4; val bottom = b.height * 3 / 4 until b.height
             assertTrue("${s.key}: headlights at the front", count(b, top, ::headlight) > 20)
@@ -56,7 +56,7 @@ class MarkerArtTest {
 
     @Test
     fun anArrowPointsUp() {
-        for (s in listOf(MarkerArt.Style.ARROW, MarkerArt.Style.ARROW_3D, MarkerArt.Style.CHEVRON)) {
+        for (s in listOf(MarkerArt.Style.ARROW, MarkerArt.Style.CHEVRON)) {
             val b = MarkerArt.render(s, blue, 200)
             // The tip is at the top, in the middle; the top corners are empty and the base is wide.
             assertTrue(Color.alpha(b.getPixel(b.width / 2, 40)) > 200)
@@ -74,6 +74,18 @@ class MarkerArtTest {
         val ahead = Color.alpha(b.getPixel(b.width / 2, 55))
         assertTrue("a see-through beam ahead", ahead in 10..200)
         assertEquals("nothing behind", 0, Color.alpha(b.getPixel(b.width / 2, 170)))
+    }
+
+    @Test
+    fun theNavigationMarkerIsAnArrowOnAWhiteDisc() {
+        val b = MarkerArt.render(MarkerArt.Style.NAVIGATION, blue, 300)
+        val cx = b.width / 2; val cy = b.height / 2
+        fun isBlue(p: Int) = Color.alpha(p) > 240 && Color.blue(p) > Color.red(p) + 80
+        fun isWhite(p: Int) = Color.alpha(p) > 240 && Color.red(p) > 240 && Color.blue(p) > 240
+        assertTrue("the arrow's tip is above the middle", isBlue(b.getPixel(cx, cy - 10)))
+        assertTrue("white disc beside the arrow", isWhite(b.getPixel(cx - 40, cy)))
+        assertTrue("white disc behind the arrow's notch", isWhite(b.getPixel(cx, cy + 30)))
+        assertTrue("a faint halo outside the disc", Color.alpha(b.getPixel(cx, cy + 70)) in 20..120)
     }
 
     @Test
