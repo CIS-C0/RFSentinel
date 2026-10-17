@@ -136,4 +136,41 @@ class CellAnalyzerTest {
         val a = an.analyze(listOf(modern(area = 300, id = 42)), ctx(30_000, stationary = true))
         assertEquals(65, a.of("combined").single().confidence)
     }
+
+    @Test
+    fun aNeverSeenCellFarStrongerWhileStillIsASign() {
+        val an = CellAnalyzer()
+        an.analyze(listOf(modern(id = 1, dbm = -95)), ctx(0, stationary = true))
+        an.analyze(listOf(modern(id = 1, dbm = -95)), ctx(15_000, stationary = true))
+        assertTrue(an.analyze(listOf(modern(id = 7, dbm = -60)), ctx(30_000, stationary = true)).isEmpty())
+        val a = an.analyze(listOf(modern(id = 7, dbm = -60)), ctx(45_000, stationary = true))
+        assertEquals(40, a.of("strong-new").single().confidence)
+    }
+
+    @Test
+    fun aStrongCellAlreadyKnownOrWhileMovingIsNot() {
+        val known = CellAnalyzer()
+        known.analyze(listOf(modern(id = 1, dbm = -95), cell(Rat.LTE, false, id = 7, dbm = -70)), ctx(0, stationary = true))
+        known.analyze(listOf(modern(id = 1, dbm = -95)), ctx(60_000, stationary = true))
+        known.analyze(listOf(modern(id = 7, dbm = -60)), ctx(75_000, stationary = true))
+        assertTrue(known.analyze(listOf(modern(id = 7, dbm = -60)), ctx(90_000, stationary = true)).of("strong-new").isEmpty())
+        val moving = CellAnalyzer()
+        moving.analyze(listOf(modern(id = 1, dbm = -95)), ctx(0, stationary = false))
+        moving.analyze(listOf(modern(id = 7, dbm = -60)), ctx(15_000, stationary = false))
+        assertTrue(moving.analyze(listOf(modern(id = 7, dbm = -60)), ctx(30_000, stationary = false)).of("strong-new").isEmpty())
+    }
+
+    @Test
+    fun anAreaNoNeighbourSharesIsASign() {
+        val cells = listOf(cell(Rat.GSM, true, area = 555, id = 9)) +
+            (2L..4L).map { cell(Rat.GSM, false, area = 100, id = it) }
+        val an = CellAnalyzer()
+        an.analyze(cells, ctx(0))
+        assertEquals(35, an.analyze(cells, ctx(15_000)).of("odd-area").single().confidence)
+        // One neighbour in the same area, or neighbours split between areas: a border, not a sign.
+        val border = CellAnalyzer()
+        val mixed = cells + cell(Rat.GSM, false, area = 555, id = 5)
+        border.analyze(mixed, ctx(0))
+        assertTrue(border.analyze(mixed, ctx(15_000)).of("odd-area").isEmpty())
+    }
 }

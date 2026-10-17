@@ -7,6 +7,9 @@ package com.rfsentinel.app.detect
  * ciphering or signalling messages, so none of this is proof - each sign has
  * innocent explanations, which is why most are weak on their own.
  *
+ * Two more follow AIMSICD's and SnoopSnitch's non-root checks: a never-seen cell that takes over
+ * far stronger than the last while you stand still, and an area code none of the neighbours share.
+ *
  * Several checks follow EFF Rayhunter's analyzers as far as Android lets an
  * app see them: Rayhunter reads the modem's signalling (a "release with
  * redirect to 2G", incomplete system information); here only their visible
@@ -74,6 +77,8 @@ class CellAnalyzer(private val knownAreas: MutableMap<String, Int> = LinkedHashM
     private var lastRaw: Set<String> = emptySet()
     /** Consecutive snapshots in which a known cell showed up with another area. */
     private val areaMismatch = HashMap<String, Int>()
+    /** When each cell identity was first seen this session (cells known from before aren't in it). */
+    private val firstSeen = HashMap<String, Long>()
 
     /** Analyses one snapshot of visible cells; returns the warning signs found in it. */
     fun analyze(cells: List<Cell>, ctx: Context): List<Anomaly> {
@@ -92,8 +97,10 @@ class CellAnalyzer(private val knownAreas: MutableMap<String, Int> = LinkedHashM
             isolated(serving, window)?.let { raw += it to false }
             reservedIdentity(serving)?.let { raw += it to false }
             clonedIdentity(serving)?.let { raw += it to false }
+            strongNewCell(serving, window)?.let { raw += it to false }
+            oddAreaAmongNeighbours(serving, cells)?.let { raw += it to false }
         }
-        learnAreas(cells)
+        learnAreas(cells, ctx.time)
 
         val out = raw.filter { (a, immediate) -> immediate || a.key in lastRaw }.map { it.first }.toMutableList()
         // Two or more signs on the same cell at once weigh more than either alone.
@@ -238,15 +245,57 @@ class CellAnalyzer(private val knownAreas: MutableMap<String, Int> = LinkedHashM
         )
     }
 
+    /**
+     * A cell never seen before took over just now, far stronger than the cell before it, while you
+     * stood still (AIMSICD's signal-strength and SnoopSnitch's new-cell checks): standing still the
+     * cells around you don't change, and a fake station close by outshines the real ones.
+     */
+    private fun strongNewCell(serving: Cell, window: List<Seen>): Anomaly? {
+        val id = serving.idKey ?: return null
+        val dbm = serving.dbm ?: return null
+        val start = runStart(window) { it.registered?.idKey == id }
+        val run = window.subList(start, window.size)
+        val prev = window.getOrNull(start - 1) ?: return null
+        val prevDbm = prev.registered?.dbm ?: return null
+        // First seen this session, or right now; a cell known from an earlier session isn't new.
+        val first = firstSeen[id] ?: if (id !in knownAreas) window.last().time else return null
+        if (first < run.first().time - SUDDEN_MS || window.last().time - run.first().time > RECENT_MS) return null
+        if (run.any { it.stationary != true } || prev.stationary != true) return null
+        if (dbm < STRONG_SERVING_DBM || dbm - prevDbm < JUMP_DB) return null
+        return Anomaly(
+            "strong-new:${serving.key}", "New, unusually strong cell while you weren't moving",
+            "Your phone moved to a cell it had never seen, at $dbm dBm, ${dbm - prevDbm} dB stronger than the one " +
+                "before, while GPS shows you standing still. A fake station nearby is often the strongest cell around. " +
+                "A newly switched-on or repaired real cell looks the same.", 40
+        )
+    }
+
+    /**
+     * The serving cell's area code is shared by none of its neighbours, which all agree on another
+     * one (AIMSICD's area consistency check): fake cells pick a new area to make phones register.
+     */
+    private fun oddAreaAmongNeighbours(serving: Cell, cells: List<Cell>): Anomaly? {
+        val area = serving.area?.takeIf { it !in RESERVED_AREA } ?: return null
+        val areas = cells.filter { !it.registered && it.rat == serving.rat && it.mcc == serving.mcc && it.mnc == serving.mnc }
+            .mapNotNull { it.area?.takeIf { a -> a !in RESERVED_AREA } }
+        if (areas.size < MIN_NEIGHBOUR_AREAS || areas.distinct().size != 1 || areas[0] == area) return null
+        return Anomaly(
+            "odd-area:${serving.key}", "Area code none of the neighbours share",
+            "Your cell announces area $area while all ${areas.size} neighbouring cells of the same network are in " +
+                "area ${areas[0]}. Fake cells use their own area to make phones re-register. At an area border " +
+                "this can be normal.", 35
+        )
+    }
+
     /** Remembers each cell's area; a changed area is adopted once it has persisted (a re-planned network). */
-    private fun learnAreas(cells: List<Cell>) {
+    private fun learnAreas(cells: List<Cell>, now: Long) {
         for (c in cells) {
             val id = c.idKey ?: continue
             val area = c.area?.takeIf { it !in RESERVED_AREA } ?: continue
             val known = knownAreas[id]
             if (known == null || known == area) {
                 areaMismatch.remove(id)
-                if (known == null) knownAreas[id] = area
+                if (known == null) { knownAreas[id] = area; firstSeen[id] = now }
             } else {
                 val n = (areaMismatch[id] ?: 0) + 1
                 areaMismatch[id] = n
@@ -254,6 +303,7 @@ class CellAnalyzer(private val knownAreas: MutableMap<String, Int> = LinkedHashM
             }
         }
         while (knownAreas.size > MAX_KNOWN) knownAreas.remove(knownAreas.keys.first())
+        if (firstSeen.size > MAX_KNOWN) firstSeen.entries.removeIf { now - it.value > WINDOW_MS }
     }
 
     /** Index in [window] where the trailing run of snapshots matching [f] starts ([window].size if none). */
@@ -274,6 +324,11 @@ class CellAnalyzer(private val knownAreas: MutableMap<String, Int> = LinkedHashM
         const val STRONG_DBM = -105
         /** Snapshots in a row after which a cell's new area is taken as real. */
         const val ADOPT_AFTER = 8
+        /** A new serving cell this strong, and [JUMP_DB] above the last, stands out. */
+        const val STRONG_SERVING_DBM = -65
+        const val JUMP_DB = 20
+        /** Neighbours with a known area needed before the serving cell's area can be the odd one out. */
+        const val MIN_NEIGHBOUR_AREAS = 3
         const val MAX_KNOWN = 5000
         /** ITU test / reserved codes. */
         val TEST_MCC = setOf("001", "002", "999")

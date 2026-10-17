@@ -127,6 +127,9 @@ class CellMonitor(private val context: Context) {
         }
     }.getOrNull()
 
+    /** Signal in dBm, or null when the modem didn't report one (UNAVAILABLE / out of range). */
+    private fun dbm(v: Int) = v.takeIf { it in -150..-20 }
+
     private fun Int.orNull() = takeIf { it != CellInfo.UNAVAILABLE && it != Int.MAX_VALUE && it >= 0 }
 
     private fun toCell(info: CellInfo): CellAnalyzer.Cell? {
@@ -134,18 +137,18 @@ class CellMonitor(private val context: Context) {
         return when (info) {
             is CellInfoLte -> info.cellIdentity.let {
                 CellAnalyzer.Cell(CellAnalyzer.Rat.LTE, reg, mcc(it.mccCompat()), mnc(it.mncCompat()), it.tac.orNull(), it.ci.orNull()?.toLong(),
-                    info.cellSignalStrength.dbm, it.earfcn.orNull(), it.pci.orNull(), opName(it))
+                    dbm(info.cellSignalStrength.dbm), it.earfcn.orNull(), it.pci.orNull(), opName(it))
             }
             is CellInfoGsm -> info.cellIdentity.let {
                 CellAnalyzer.Cell(CellAnalyzer.Rat.GSM, reg, mcc(it.mccCompat()), mnc(it.mncCompat()), it.lac.orNull(), it.cid.orNull()?.toLong(),
-                    info.cellSignalStrength.dbm, it.arfcn.orNull(), it.bsic.orNull(), opName(it))
+                    dbm(info.cellSignalStrength.dbm), it.arfcn.orNull(), it.bsic.orNull(), opName(it))
             }
             is CellInfoWcdma -> info.cellIdentity.let {
                 CellAnalyzer.Cell(CellAnalyzer.Rat.WCDMA, reg, mcc(it.mccCompat()), mnc(it.mncCompat()), it.lac.orNull(), it.cid.orNull()?.toLong(),
-                    info.cellSignalStrength.dbm, it.uarfcn.orNull(), it.psc.orNull(), opName(it))
+                    dbm(info.cellSignalStrength.dbm), it.uarfcn.orNull(), it.psc.orNull(), opName(it))
             }
             is CellInfoCdma -> CellAnalyzer.Cell(CellAnalyzer.Rat.CDMA, reg, null, null,
-                info.cellIdentity.networkId.orNull(), info.cellIdentity.basestationId.orNull()?.toLong(), info.cellSignalStrength.dbm)
+                info.cellIdentity.networkId.orNull(), info.cellIdentity.basestationId.orNull()?.toLong(), dbm(info.cellSignalStrength.dbm))
             else -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) newer(info, reg) else null
         }
     }
@@ -154,12 +157,12 @@ class CellMonitor(private val context: Context) {
     private fun newer(info: CellInfo, reg: Boolean): CellAnalyzer.Cell? = when (info) {
         is CellInfoNr -> (info.cellIdentity as CellIdentityNr).let {
             CellAnalyzer.Cell(CellAnalyzer.Rat.NR, reg, it.mccString, it.mncString, it.tac.orNull(),
-                it.nci.takeIf { n -> n != CellInfo.UNAVAILABLE_LONG && n >= 0 }, info.cellSignalStrength.dbm,
+                it.nci.takeIf { n -> n != CellInfo.UNAVAILABLE_LONG && n >= 0 }, dbm(info.cellSignalStrength.dbm),
                 it.nrarfcn.orNull(), it.pci.orNull(), opName(it))
         }
         is CellInfoTdscdma -> info.cellIdentity.let {
             CellAnalyzer.Cell(CellAnalyzer.Rat.TDSCDMA, reg, it.mccString, it.mncString, it.lac.orNull(), it.cid.orNull()?.toLong(),
-                info.cellSignalStrength.dbm, it.uarfcn.orNull(), it.cpid.orNull(), opName(it))
+                dbm(info.cellSignalStrength.dbm), it.uarfcn.orNull(), it.cpid.orNull(), opName(it))
         }
         else -> null
     }

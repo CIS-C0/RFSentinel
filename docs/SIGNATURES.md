@@ -184,6 +184,10 @@ Read every 15 s from the cells Android reports (no root, location permission onl
 | Serving cell's MCC differs from the SIM's while not roaming (US 310-316 and India 404/405 are treated as one country) | 55 |
 | Location / tracking area changed while GPS shows you standing still for 2+ minutes | 40 |
 | Switched to a cell with no neighbours where several were visible moments ago | 35 |
+| Serving cell announces a reserved area (0, 0xFFFE, 0xFFFF) or cell number 0 | 45 |
+| A cell number seen before in another area (cloned identity) | 50 |
+| A never-seen cell took over at -65 dBm or stronger, 20+ dB above the cell before it, while you stood still (after AIMSICD / SnoopSnitch) | 40 |
+| Serving cell's area is shared by none of 3+ neighbours of the same network, which all agree on another (after AIMSICD) | 35 |
 
 Signs at or above the alert threshold alert; the rest go to the match history.
 
