@@ -25,7 +25,7 @@ class UpdateInstallerTest {
 
     @Test
     fun theReleaseGivesTheApkItsSizeAndChecksum() {
-        val l = UpdateChecker.parseLatest(release)
+        val l = UpdateChecker.parseLatest(release, foss = false)
         assertEquals("2.21.0", l.version)
         assertTrue(l.apkUrl!!.endsWith("-release.apk"))
         assertEquals(33755804L, l.apkSize)
@@ -34,8 +34,19 @@ class UpdateInstallerTest {
     }
 
     @Test
+    fun eachBuildTakesItsOwnApk() {
+        val both = """{"tag_name":"v2.24.0","assets":[
+            {"name":"RFSentinel-v2.24.0-foss.apk","browser_download_url":"f","size":2},
+            {"name":"RFSentinel-v2.24.0-release.apk","browser_download_url":"r","size":3}]}"""
+        assertEquals("r", UpdateChecker.parseLatest(both, foss = false).apkUrl)
+        assertEquals("f", UpdateChecker.parseLatest(both, foss = true).apkUrl)
+        // A release without a FOSS APK offers the FOSS build nothing to install.
+        assertNull(UpdateChecker.parseLatest(release, foss = true).apkUrl)
+    }
+
+    @Test
     fun aReleaseWithoutAChecksumOrApkStillReads() {
-        val l = UpdateChecker.parseLatest("""{"tag_name":"v2.21.0","assets":[{"name":"RFSentinel-v2.21.0-release.apk","browser_download_url":"u","size":5}]}""")
+        val l = UpdateChecker.parseLatest("""{"tag_name":"v2.21.0","assets":[{"name":"RFSentinel-v2.21.0-release.apk","browser_download_url":"u","size":5}]}""", foss = false)
         assertNull(l.apkSha256)
         assertEquals(5L, l.apkSize)
         assertNull(UpdateChecker.parseLatest("""{"tag_name":"v2.21.0"}""").apkUrl)

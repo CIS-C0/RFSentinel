@@ -131,7 +131,7 @@ object Ar9271Monitor {
     // ---- firmware / HTC ----
 
     private fun uploadFirmware(ctx: Context): Boolean {
-        val fw = ctx.assets.open("usbwifi/htc_9271-1.4.0.fw").use { it.readBytes() }
+        val fw = Firmware.read(ctx, "htc_9271-1.4.0.fw")
         UsbWifi.log("AR9271: uploading firmware (${fw.size} B)")
         var addr = FW_ADDR; var off = 0
         while (off < fw.size) {

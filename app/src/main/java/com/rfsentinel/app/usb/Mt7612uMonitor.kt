@@ -164,8 +164,8 @@ object Mt7612uMonitor {
             powerOn()
             if (!poll(1000, 5) { regRd(MAC_CSR0).let { it != 0 && it != -1 } }) UsbWifi.log("MT7612U: MAC not ready before the firmware (continuing)")
             onStatus("$chipName · loading firmware…")
-            val patch = ctx.assets.open("usbwifi/mt7662_rom_patch.bin").use { it.readBytes() }
-            val fw = ctx.assets.open("usbwifi/mt7662.bin").use { it.readBytes() }
+            val patch = Firmware.read(ctx, "mt7662_rom_patch.bin")
+            val fw = Firmware.read(ctx, "mt7662.bin")
             // A first upload sometimes stalls right after plug-in; the second try (after a firmware reset) goes through.
             var loaded = false
             for (attempt in 1..FW_ATTEMPTS) {

@@ -907,7 +907,11 @@ There are two flavors. **foss** contains only free software: no Mapbox SDK, the 
 always OpenFreeMap. **full** adds the optional Mapbox map (`./gradlew assembleFullDebug`).
 Both have the same app ID, so either one replaces the other.
 A build of only foss tasks (or `-Prfs.foss=true`) leaves the full flavor out and never
-declares or contacts Mapbox's Maven server.
+declares or contacts Mapbox's Maven server. The foss flavor also leaves out the non-free
+firmware of the RT3070, MT7612U, MT7921AU and RTL8812BU / 8822BU adapters: when one is
+plugged in, the app asks before downloading those exact files once from
+[linux-firmware](https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git)
+(pinned commit, checked against their SHA-256; see `usb/Firmware.kt`).
 
 In the full flavor, Mapbox is optional: with `MAPBOX_ACCESS_TOKEN=pk...` (your own public token) in
 `local.properties` (git-ignored) the build offers the Mapbox map; without it the app

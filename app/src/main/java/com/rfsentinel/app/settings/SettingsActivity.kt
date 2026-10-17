@@ -2032,6 +2032,12 @@ class SettingsActivity : AppCompatActivity() {
         com.rfsentinel.app.esp.OuiSpyBle.onStatusChanged = { runOnUiThread { updateEspStatus() } }
         binding.ouiSpyButton.setOnClickListener { pairOuiSpy() }
         binding.usbWifiLogButton.setOnClickListener { exportUsbWifiLog() }
+        // FOSS build: an adapter waiting for its chip firmware asks to download it.
+        binding.usbWifiText.setOnClickListener { com.rfsentinel.app.usb.FirmwarePrompt.show(this) { updateEspStatus() } }
+        if (intent.getBooleanExtra(com.rfsentinel.app.usb.FirmwarePrompt.EXTRA, false)) {
+            intent.removeExtra(com.rfsentinel.app.usb.FirmwarePrompt.EXTRA)
+            com.rfsentinel.app.usb.FirmwarePrompt.show(this) { updateEspStatus() }
+        }
         binding.pcapButton.setOnClickListener { togglePcap() }
         binding.pcapShareButton.setOnClickListener { sharePcap() }
         updatePcap()
@@ -2154,6 +2160,12 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         loaded = true
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.getBooleanExtra(com.rfsentinel.app.usb.FirmwarePrompt.EXTRA, false))
+            com.rfsentinel.app.usb.FirmwarePrompt.show(this) { updateEspStatus() }
     }
 
     override fun onResume() {

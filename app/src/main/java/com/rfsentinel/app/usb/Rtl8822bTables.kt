@@ -21,7 +21,7 @@ object Rtl8822bTables {
     class Data(val firmware: ByteArray, val phyReg: IntArray, val agcTab: IntArray, val radioA: IntArray, val radioB: IntArray)
 
     fun load(ctx: Context): Data {
-        fun bytes(name: String) = ctx.assets.open("usbwifi/rtl8822b_$name.bin").use { it.readBytes() }
+        fun bytes(name: String) = Firmware.read(ctx, "rtl8822b_$name.bin")
         fun words(name: String): IntArray {
             val b = bytes(name)
             if (b.size % 8 != 0) throw IOException("rtl8822b_$name.bin is damaged")

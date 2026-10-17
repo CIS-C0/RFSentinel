@@ -335,7 +335,7 @@ class UsbWifiDriverTest {
         assertEquals(listOf(0x111, 0x222, 0x555, 0x666), run(cut = 10, rfe = 0))
     }
 
-    private fun asset(name: String) = File("src/main/assets/usbwifi/rtl8822b_$name.bin").readBytes()
+    private fun asset(name: String) = File("src/${if (name == "fw") "full" else "main"}/assets/usbwifi/rtl8822b_$name.bin").readBytes()
     private fun words(name: String) = asset(name).let { b -> IntArray(b.size / 4).also { ByteBuffer.wrap(b).order(ByteOrder.LITTLE_ENDIAN).asIntBuffer().get(it) } }
 
     @Test

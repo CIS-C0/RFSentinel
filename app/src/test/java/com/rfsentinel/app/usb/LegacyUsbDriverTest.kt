@@ -145,7 +145,7 @@ class LegacyUsbDriverTest {
 
     @Test
     fun ralinkFirmwareIsTheLinuxFirmwareImage() {
-        val fw = File("src/main/assets/usbwifi/rt2870.bin").readBytes()
+        val fw = File("src/full/assets/usbwifi/rt2870.bin").readBytes()
         assertEquals(8192, fw.size)
         val sha1 = MessageDigest.getInstance("SHA-1").digest(fw).joinToString("") { "%02x".format(it) }
         assertEquals("83f6e2ce95b10df1cf3e06928761fa57133ef164", sha1)

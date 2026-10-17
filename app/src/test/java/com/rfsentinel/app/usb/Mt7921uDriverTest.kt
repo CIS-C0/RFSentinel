@@ -180,24 +180,26 @@ class Mt7921uDriverTest {
     // --- firmware: the official linux-firmware images, unmodified ---
 
     private val dir = "src/main/assets/usbwifi"
+    /** The non-free firmware ships in the full build only. */
+    private val fwDir = "src/full/assets/usbwifi"
     private fun sha256(path: String) = MessageDigest.getInstance("SHA-256").digest(File(path).readBytes()).joinToString("") { "%02x".format(it) }
 
     @Test
     fun firmwareImagesAreTheLinuxFirmwareOnes() {
         // linux-firmware e981caea6ed33c48d25b7dbf473327dbd01df163, the hashes mt76-usb-macos pins.
-        assertEquals("a276c06c2b772adb50b86639d33c82824ff4c21d617feb78caea74c040b873f6", sha256("$dir/WIFI_MT7961_patch_mcu_1_2_hdr.bin"))
-        assertEquals("b94217a951518a9c14095765f367bc5dd7698f2dc033941d6f18fc2ebd6a2ab9", sha256("$dir/WIFI_RAM_CODE_MT7961_1.bin"))
+        assertEquals("a276c06c2b772adb50b86639d33c82824ff4c21d617feb78caea74c040b873f6", sha256("$fwDir/WIFI_MT7961_patch_mcu_1_2_hdr.bin"))
+        assertEquals("b94217a951518a9c14095765f367bc5dd7698f2dc033941d6f18fc2ebd6a2ab9", sha256("$fwDir/WIFI_RAM_CODE_MT7961_1.bin"))
         assertTrue(File("$dir/LICENCE.mediatek").readText().contains("MediaTek Inc. grants permission"))
         assertTrue("the driver's licence ships in the app", File("$dir/LICENCE.mt76-usb-macos").readText().contains("The Clear BSD License"))
     }
 
     @Test
     fun firmwareFilesParse() {
-        val patch = File("$dir/WIFI_MT7961_patch_mcu_1_2_hdr.bin").readBytes()
+        val patch = File("$fwDir/WIFI_MT7961_patch_mcu_1_2_hdr.bin").readBytes()
         val secs = m.parsePatch(patch)!!
         assertTrue(secs.isNotEmpty())
         assertTrue("every section is a patch info section", secs.all { it.type and 0xffff == 2 })
-        val ram = File("$dir/WIFI_RAM_CODE_MT7961_1.bin").readBytes()
+        val ram = File("$fwDir/WIFI_RAM_CODE_MT7961_1.bin").readBytes()
         val regions = m.parseRam(ram)!!
         assertTrue(regions.isNotEmpty())
         assertTrue(regions.sumOf { it.len.toLong() } <= ram.size)

@@ -37,14 +37,18 @@ object UpdateChecker {
         return false
     }
 
-    /** The newest release from GitHub's answer: version, the "-release.apk" asset with its size and SHA-256, the notes page. */
-    internal fun parseLatest(text: String): Latest {
+    /**
+     * The newest release from GitHub's answer: version, this build's APK asset with its size and SHA-256, the notes
+     * page. The full build takes the "-release.apk" asset, the FOSS build the "-foss.apk" one.
+     */
+    internal fun parseLatest(text: String, foss: Boolean = BuildConfig.FLAVOR == "foss"): Latest {
+        val suffix = if (foss) "-foss.apk" else "-release.apk"
         val json = JSONObject(text)
         val assets = json.optJSONArray("assets")
         var apk: String? = null; var size = 0L; var sha: String? = null
         if (assets != null) for (i in 0 until assets.length()) {
             val a = assets.getJSONObject(i)
-            if (a.optString("name").endsWith("-release.apk")) {
+            if (a.optString("name").endsWith(suffix)) {
                 apk = a.optString("browser_download_url"); size = a.optLong("size", 0L)
                 sha = a.optString("digest").takeIf { it.startsWith("sha256:") }?.removePrefix("sha256:")
             }
@@ -86,6 +90,21 @@ object UpdateChecker {
     /** Whether the automatic check is due: [last] is when the last one ended (0 = never). */
     internal fun due(last: Long, now: Long) = now - last >= AUTO_INTERVAL_MS || now < last
 
+    /** SHA-256 of the certificate RF Sentinel's GitHub releases are signed with (public: any release APK shows it). */
+    private const val RELEASE_CERT_SHA256 = "1775783cf3cef638332796435f2125ecbbccd5b0021a336218eeb218904da8ab"
+
+    /** Whether this copy is signed with the GitHub releases' key (not F-Droid's), so a GitHub APK can update it. */
+    @Suppress("DEPRECATION")
+    private fun signedByUs(context: android.content.Context): Boolean = runCatching {
+        val pm = context.packageManager
+        val certs = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P)
+            pm.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES).signingInfo?.apkContentsSigners
+        else pm.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_SIGNATURES).signatures
+        certs.orEmpty().any { c ->
+            java.security.MessageDigest.getInstance("SHA-256").digest(c.toByteArray()).joinToString("") { "%02x".format(it) } == RELEASE_CERT_SHA256
+        }
+    }.getOrDefault(true)
+
     fun check(activity: AppCompatActivity, silent: Boolean = false) {
         if (!silent) Toast.makeText(activity, "Checking for updates…", Toast.LENGTH_SHORT).show()
         if (checking) return
@@ -107,7 +126,16 @@ object UpdateChecker {
                 return@launch
             }
             val current = BuildConfig.VERSION_NAME.substringBefore('-')
-            if (isNewer(latest.version, current)) {
+            if (isNewer(latest.version, current) && BuildConfig.FLAVOR == "foss" && !signedByUs(activity)) {
+                // Built and signed by F-Droid: Android would refuse our APK over it, so F-Droid updates it.
+                AlertDialog.Builder(activity)
+                    .setTitle("RF Sentinel ${latest.version} is available")
+                    .setMessage("You have $current. This copy was built and signed by F-Droid, so it updates through F-Droid " +
+                        "once F-Droid has built the new version.")
+                    .setPositiveButton("OK", null)
+                    .setNeutralButton("What's new") { _, _ -> open(activity, latest.notesUrl) }
+                    .show()
+            } else if (isNewer(latest.version, current)) {
                 AlertDialog.Builder(activity)
                     .setTitle("RF Sentinel ${latest.version} is available")
                     .setMessage("You have $current. It downloads here and installs over this one - your history and settings are kept. " +

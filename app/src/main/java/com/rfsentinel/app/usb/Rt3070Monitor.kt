@@ -195,7 +195,7 @@ object Rt3070Monitor {
         }
         if (autorun) UsbWifi.log("RT3070: firmware already running (autorun)")
         else {
-            val fw = ctx.assets.open("usbwifi/rt2870.bin").use { it.readBytes() }
+            val fw = Firmware.read(ctx, "rt2870.bin")
             if (fw.size < FW_LEN) { UsbWifi.log("RT3070: rt2870.bin too short (${fw.size} B)"); return false }
             var off = 0 // the RT3070 runs the first 4 KB image
             while (off < FW_LEN) {

@@ -153,6 +153,10 @@ object UsbWifi {
     @Volatile var status: String = ""
         private set
 
+    /** The adapter waiting for its chip firmware (FOSS build, not downloaded yet), for [FirmwarePrompt]; null when none. */
+    @Volatile var firmwareNeeded: Chip? = null
+        private set
+
     /** Recent driver log lines (bring-up, RX stats, errors), for troubleshooting from Settings. */
     private val logLines = ArrayDeque<String>()
 
@@ -253,6 +257,9 @@ object UsbWifi {
                         UsbManager.ACTION_USB_DEVICE_DETACHED -> {
                             val d = deviceOf(intent)
                             if (d != null && d.deviceName == runningDevice) stopAdapter("USB WiFi adapter unplugged")
+                            else if (firmwareNeeded != null && d != null && chipOf(d) == firmwareNeeded) {
+                                firmwareNeeded = null; status = ""; FirmwarePrompt.cancel(app)
+                            }
                         }
                     }
                 }
@@ -278,6 +285,9 @@ object UsbWifi {
         }
         connect(app)
     }
+
+    /** Tries the plugged-in adapter again (its firmware was just downloaded). */
+    fun retry(context: Context) = connect(context.applicationContext)
 
     @Synchronized
     fun stop(context: Context) {
@@ -315,6 +325,17 @@ object UsbWifi {
             return
         }
         val chip = chipOf(d)!!
+        val missing = Firmware.missing(context, chip.driver)
+        if (missing.isNotEmpty()) {
+            if (firmwareNeeded != chip) {
+                log("${chip.name} needs firmware that isn't downloaded yet: ${missing.joinToString { it.name }}")
+                FirmwarePrompt.notify(context, chip)
+            }
+            firmwareNeeded = chip
+            status = "USB WiFi (${chip.name}) needs its chip firmware: tap the notification, or this line in Settings, to download it"
+            return
+        }
+        firmwareNeeded = null
         runningDevice = d.deviceName
         status = "USB WiFi (${chip.name}) · starting…"
         log("Starting ${chip.name} (${"%04x:%04x".format(d.vendorId, d.productId)}) - RF Sentinel ${com.rfsentinel.app.BuildConfig.VERSION_NAME}, " +

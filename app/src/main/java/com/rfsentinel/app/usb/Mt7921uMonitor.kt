@@ -167,8 +167,8 @@ object Mt7921uMonitor {
             if (chip != CHIP_ID_7961) { onStatus("$chipName: not an MT7921 (chip %04x)".format(chip)); return }
 
             onStatus("$chipName · loading firmware…")
-            val patch = ctx.assets.open("usbwifi/WIFI_MT7961_patch_mcu_1_2_hdr.bin").use { it.readBytes() }
-            val ram = ctx.assets.open("usbwifi/WIFI_RAM_CODE_MT7961_1.bin").use { it.readBytes() }
+            val patch = Firmware.read(ctx, "WIFI_MT7961_patch_mcu_1_2_hdr.bin")
+            val ram = Firmware.read(ctx, "WIFI_RAM_CODE_MT7961_1.bin")
             val err = bringUp(patch, ram)
             if (err != null) { onStatus("$chipName: $err - unplug the adapter and plug it back in"); return }
 

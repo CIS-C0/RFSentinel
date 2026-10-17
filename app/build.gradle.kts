@@ -7,8 +7,8 @@ plugins {
 }
 
 // Bump both for every release. versionName ends up in the APK file name.
-val appVersionCode = 51
-val appVersionName = "2.23.0"
+val appVersionCode = 52
+val appVersionName = "2.24.0"
 
 // Release signing credentials live in keystore.properties (git-ignored).
 // Without that file, release builds are produced unsigned.
@@ -103,7 +103,11 @@ android {
 
 // Generates WazeProto (the Waze direct backend's wire format) from src/main/proto/waze.proto.
 protobuf {
-    protoc { artifact = "com.google.protobuf:protoc:4.35.0" }
+    // -Prfs.protoc=/path/to/protoc uses a local protoc (e.g. a distribution's) instead of the one from Maven Central.
+    protoc {
+        val local = providers.gradleProperty("rfs.protoc").orNull
+        if (local != null) path = local else artifact = "com.google.protobuf:protoc:4.35.0"
+    }
     generateProtoTasks {
         all().forEach { task -> task.builtins { maybeCreate("java").option("lite") } }
     }

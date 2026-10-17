@@ -1,0 +1,28 @@
+<p><b>Beta.</b> RF Sentinel is under active development: expect rough edges, and please report problems on GitHub.</p>
+
+<p>RF Sentinel passively detects body cameras, license-plate (ALPR) cameras, patrol-vehicle equipment, drones, Bluetooth trackers following you, camera glasses and signs of fake cell towers, from the Bluetooth LE, WiFi and cellular signals they already broadcast. No root, no account, no tracking. It only listens: it never transmits to, connects to, jams or spoofs any device.</p>
+
+<p><b>What it does</b></p>
+<ul>
+<li>Live list, radar and map of nearby devices, with a confidence score and the evidence behind every match</li>
+<li>Alerts by sound, vibration pattern and spoken announcement, a floating threat bubble over other apps, and Android Auto support</li>
+<li>Follower detection: a device that stays with you, or keeps turning up where you go</li>
+<li>Drone Remote ID (Bluetooth and Wi-Fi), AirTag and other tracker detection</li>
+<li>Fake cell tower signs (sudden strong new cell, odd area codes, downgrades)</li>
+<li>Map of known plate, speed and red-light cameras from OpenStreetMap, with the direction they face</li>
+<li>Optional hardware over USB OTG: USB WiFi adapters in monitor mode (no root), RTL-SDR radio (radio activity and an ADS-B aircraft receiver), ESP32 boards</li>
+<li>History, heatmaps, traces and a searchable device history, all kept on the phone</li>
+</ul>
+
+<p>A match means a device with that vendor or payload signature is broadcasting nearby. It is not proof of who is there.</p>
+
+<p><b>This build</b></p>
+<p>This is the FOSS build: it contains only free software. The map is always OpenFreeMap (MapLibre); the optional Mapbox map is in the GitHub "full" build only.</p>
+
+<p><b>Anti-features</b></p>
+<ul>
+<li><b>Non-free network services</b>: the optional Waze police reports come from Waze's own servers or the OpenWeb Ninja API (your own key), and the optional RadioReference lookup uses RadioReference's API (your own account). They are off unless you turn them on.</li>
+<li><b>Non-free add-ons</b>: some USB WiFi adapters (RT3070, MT7612U, MT7921AU, RTL8812BU / 8822BU) need their maker's firmware, which is not free software. When you plug one in, the app asks before downloading that exact file once from the Linux firmware repository on kernel.org, checked against a fixed SHA-256. Adapters that need no firmware, or free firmware, work without it.</li>
+</ul>
+
+<p>Internet is used only for map data, the known-camera list, routing and search, the community aircraft feeds (adsb.fi, adsb.lol; can be turned off) and the online features you turn on. Source code and documentation: https://github.com/CIS-C0/RFSentinel</p>

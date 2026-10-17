@@ -36,6 +36,12 @@ These drivers run USB WiFi adapters in receive-only monitor mode from userspace.
 | RTL-SDR driver (`sdr/RtlSdr.kt`: RTL2832U baseband, R820T / R828D tuner, RTL-SDR Blog V4 band switching) | [librtlsdr](https://github.com/osmocom/rtl-sdr) (osmocom: Steve Markgraf, Dimitri Stolnikov and others; R82xx code by Mauro Carvalho Chehab and Steve Markgraf; Blog V4 support by RTL-SDR Blog) | GPL-2.0-or-later |
 | Integration into RF Sentinel; removal of handshake / PMKID capture (8821AU, RT3070) and of every transmit, beamforming and calibration-for-TX path (8822BU, RTL8187); RT3070 fixes checked against the kernel (eFuse addressing, EEPROM reads, DMA / frame-length setup, receive gain, external LNA, EEPROM BBP overrides); MT7612U: bad-checksum frames dropped, auto-responder off, kernel ROM-patch rule; AR9271: signal relative to the noise floor, FCS removed, packets spanning transfers reassembled, WMI answers matched, running firmware reused; MT7921AU: Android USB host API instead of IOKit, no port reset, commands while receiving answered on the shared endpoint without blocking, bad-checksum frames dropped, failed register reads never written back, every transmit path (injection, TX descriptors) left out | RF Sentinel (CIS-C0) | GPL-3.0 |
 
+The non-free firmware files (Ralink, MediaTek, Realtek) ship in the full build only
+(`app/src/full/assets/usbwifi`). The FOSS build asks before downloading those same
+files from linux-firmware on kernel.org, pinned to commit e981caea6ed3 and checked
+against their SHA-256 (`Firmware.kt`); the ath9k_htc firmware and the RTL8822B register
+tables ship in both builds.
+
 RF Sentinel is distributed under the GNU GPL v3.0 (see `LICENSE`). The register
 values and firmware are hardware configuration data from Realtek's driver; credit
 and thanks to Realtek, the aircrack-ng rtl8812au maintainers, RocketGod for

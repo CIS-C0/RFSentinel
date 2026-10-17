@@ -1,0 +1,4 @@
+First F-Droid build (beta).
+- FOSS build: only free software; the map is OpenFreeMap.
+- USB WiFi adapters that need non-free firmware ask before downloading it once from kernel.org, checked against a fixed fingerprint.
+- The in-app updater picks the right APK for each build, and leaves F-Droid copies to F-Droid.

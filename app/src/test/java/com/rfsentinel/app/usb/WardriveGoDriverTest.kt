@@ -190,8 +190,8 @@ class WardriveGoDriverTest {
     @Test
     fun firmwareImagesAreTheLinuxFirmwareOnes() {
         val dir = "src/main/assets/usbwifi"
-        assertEquals("a28c063e6e488444d67607254f65b3ac4ab14717", sha1("$dir/mt7662.bin"))
-        assertEquals("71b764a6911af6e092bcd2c98e663888fd5d71ea", sha1("$dir/mt7662_rom_patch.bin"))
+        assertEquals("a28c063e6e488444d67607254f65b3ac4ab14717", sha1("src/full/assets/usbwifi/mt7662.bin"))
+        assertEquals("71b764a6911af6e092bcd2c98e663888fd5d71ea", sha1("src/full/assets/usbwifi/mt7662_rom_patch.bin"))
         assertEquals("62686323432b63ec8091234f9b1b9ee6d746eec4", sha1("$dir/htc_9271-1.4.0.fw"))
         assertTrue(File("$dir/LICENCE.ralink_a_mediatek_company_firmware").readText().contains("MediaTek"))
         assertTrue(File("$dir/LICENCE.open-ath9k-htc-firmware").readText().contains("Qualcomm Atheros"))
