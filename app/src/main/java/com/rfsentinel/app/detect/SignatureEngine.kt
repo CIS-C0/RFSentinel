@@ -44,6 +44,7 @@ object SignatureEngine {
     private const val CID_ZEBRA = 0x01F1           // Zebra Technologies Corporation
     private const val CID_BROTHER = 0x0755         // Brother Industries, Ltd
     private const val CID_DRAEGER = 0x04BC         // Draegerwerk AG & Co. KGaA
+    private const val CID_STRYKER = 0x0A5F         // Stryker (LIFEPAK maker since buying Physio-Control)
 
     // --- 16-bit service UUIDs ------------------------------------------------
     private val AXON_UUIDS = mapOf(0xFC81 to "Axon Enterprise", 0xFE6B to "TASER International", 0xFE6C to "TASER International")
@@ -90,6 +91,11 @@ object SignatureEngine {
     private val ZEBRA_UUIDS = setOf(0xFE79, 0xFD66) // Zebra Technologies (FE79 = Link-OS printer BLE service)
     private val FORTIN_UUIDS = setOf(0xFDE1, 0xFDCA) // Fortin Electronic Systems (vehicle interface modules)
     private const val UUID_DRAEGER = 0xFCDA        // Draeger
+    private const val UUID_STRYKER = 0xFC6E        // Stryker
+    private val ZOLL_UUIDS = setOf(0xFE22, 0xFE23) // Zoll Medical Corporation
+
+    /** Ambulance defibrillator / monitor makers by IEEE registration (Wardrive Go's EMS list, registrants checked). */
+    private val EMS_PREFIXES = PrefixTable(mapOf("40BD9E" to "Physio-Control (LIFEPAK)", "000DD1" to "Stryker"))
 
     /** HeyCyan smart-glasses SDK service; must match all 16 bytes (Apple ANCS differs by 2 bytes). */
     private val HEYCYAN = UUID.fromString("7905fff0-b5ce-4e99-a40f-4b1e122d00d0")
@@ -228,6 +234,18 @@ object SignatureEngine {
             hits += Hit(Category.PUBLIC_SAFETY, "Dräger device (breath / drug screening or medical)", 35,
                 "Draegerwerk company ID 0x04BC or service UUID 0xFCDA - Dräger makes the roadside breath " +
                     "(Alcotest) and drug (DrugTest) screening devices police use, and hospital and gas-detection gear", SIG)
+        }
+
+        // ---- Ambulance (EMS) medical gear: often at the same scenes as police ----
+        if (ZOLL_UUIDS.any { it in allShorts }) {
+            hits += Hit(Category.PUBLIC_SAFETY, "ZOLL medical device (ambulance defibrillator / monitor)", 40,
+                "Zoll Medical service UUID 0xFE22/0xFE23 - ZOLL X Series and AED monitors in ambulances, but also " +
+                    "hospital gear and the LifeVest a heart patient can wear", "$SIG; Wardrive Go's EMS list (facts only)")
+        }
+        if (CID_STRYKER in a.manufacturerData || UUID_STRYKER in allShorts) {
+            hits += Hit(Category.PUBLIC_SAFETY, "Stryker medical device (LIFEPAK defibrillator, ambulance stretcher)", 35,
+                "Stryker company ID 0x0A5F or service UUID 0xFC6E - LIFEPAK monitors and powered stretchers in ambulances, " +
+                    "and plenty of hospital equipment", "$SIG; Wardrive Go's EMS list (facts only)")
         }
 
         // ---- Flock Safety ALPR + Raven --------------------------------------
@@ -505,6 +523,11 @@ object SignatureEngine {
                 hits += Hit(Category.ALPR, "$maker traffic / plate-camera hardware", 60,
                     "WiFi address in $maker's registered block ${fmtPrefix(prefix)} - enforcement-camera maker, verify",
                     "$IEEE; $ACAB (alpr_candidates)")
+            }
+            EMS_PREFIXES.match(a.mac)?.let { (prefix, maker) ->
+                hits += Hit(Category.PUBLIC_SAFETY, "$maker medical device (ambulance defibrillator / monitor)", 45,
+                    "WiFi address in $maker's registered block ${fmtPrefix(prefix)} - LIFEPAK monitors send their data " +
+                        "over WiFi from ambulances; hospitals use them too", "$IEEE; Wardrive Go's EMS list (facts only)")
             }
         }
         droneByPrefix(a)?.let { hits += it }

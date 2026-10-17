@@ -124,6 +124,8 @@ CODE_PREFIXES = {
     '0015FF': 'Inseego', '18EE86': 'Inseego', '780C71': 'Inseego', 'E08614': 'Inseego',
     '4C364E': 'Panasonic', 'B8208E': 'Panasonic', 'BC3E0B': 'Panasonic',
     '00A0D5': 'Sierra', '28A331': 'Sierra', '50139D': 'Sierra', '64CE6E': 'Sierra', '84DB2F': 'Sierra', 'CC934A': 'Sierra',
+    # Ambulance (EMS) medical gear (after Wardrive Go's EMS list)
+    '40BD9E': 'Physio-Control', '000DD1': 'Stryker',
 }
 bad = 0
 for p, expect in CODE_PREFIXES.items():

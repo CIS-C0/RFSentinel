@@ -707,7 +707,8 @@ class ScanForegroundService : Service() {
             probeHits[a.mac]?.takeIf { now - it.first < ESP_HIT_TTL_MS }?.second.orEmpty() +
             extra
         val noAirTags = Prefs.excludeAirTags(this)
-        val hits = EvidenceFusion.fuse(com.rfsentinel.app.detect.FlockNoise.filter(raw, a.name, OuiWatchlist.flockRegion).filter {
+        val sifted = DeviceIntel.dropTrainRouter(com.rfsentinel.app.detect.FlockNoise.filter(raw, a.name, OuiWatchlist.flockRegion), a)
+        val hits = EvidenceFusion.fuse(sifted.filter {
             Prefs.categoryEnabled(this, it.category) && !(noAirTags && SignatureEngine.isAppleFindMy(it))
         })
         return Classified(now, hits, identity, vendor)

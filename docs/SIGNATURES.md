@@ -39,6 +39,9 @@ Before shipping, the identifiers were checked against these registries:
 | Public safety | Company ID `0x0755` (Brother Industries) | 20 | SIG; RuggedJet / PocketJet in-car printers, mostly home and office printers |
 | Public safety | UUID `0xFDE1` / `0xFDCA` (Fortin Electronic Systems) | 20 | SIG; vehicle interface modules used in police upfits, also civilian remote starters |
 | Public safety | Company ID `0x04BC` or UUID `0xFCDA` (Dräger) | 35 | SIG; roadside breath / drug screening devices, also hospital and gas-detection gear |
+| Public safety | UUID `0xFE22` / `0xFE23` (Zoll Medical) | 40 | SIG, after Wardrive Go's EMS list; ambulance defibrillators and monitors, also hospital gear and the LifeVest a patient can wear |
+| Public safety | Company ID `0x0A5F` or UUID `0xFC6E` (Stryker) | 35 | SIG, after Wardrive Go's EMS list; LIFEPAK monitors and ambulance stretchers, plenty of hospital equipment |
+| Public safety | WiFi address in Physio-Control's `40:BD:9E` or Stryker's `00:0D:D1` block | 45 | IEEE, after Wardrive Go's EMS list; LIFEPAK monitors send their data over WiFi from ambulances |
 | ALPR | WiFi SSID starting with `Flock-` | 88 | ACAB (ryanohoro, GainSec) |
 | ALPR | BLE name `FS Ext Battery` | 80 | ACAB |
 | ALPR | BLE name `Penguin-<digits>` or `FS-<hex>` | 70, or 80 with company ID `0x09C8` | ACAB |
@@ -61,6 +64,13 @@ Before shipping, the identifiers were checked against these registries:
 | Glasses | HeyCyan SDK UUID `7905FFF0-B5CE-4E99-A40F-4B1E122D00D0`, full 16-byte match only | 68 | ACAB |
 | Network camera (off by default) | SSID starting with `ARLO_VMB_` or `NTGR_VMB_` | 88 | ACAB |
 | Network camera (off by default) | Arlo, Blink, Ezviz, Uniview, Amcrest, Wyze, Swann, Night Owl, SkyBell or WUUK blocks (WiFi only) | 65 | IEEE / ACAB |
+
+A WiFi network named after a passenger rail operator (Amtrak, Brightline, Eurostar, SNCF `_WIFI_INOUI`,
+VIA Rail, Deutsche Bahn `WIFIonICE`; Wardrive Go's rail list) is shown as **Train WiFi** and its
+public-safety matches are dropped: its router often comes from the vehicle-router makers police
+cars use, and it rides along with you. BLE nodes named `Meshtastic_…` / `MeshCore-…` or advertising
+Meshtastic's service are shown as **Mesh radio node**, without an alert. Hidden-camera setup networks
+(`detect/HackerWatch.kt`) also cover generic IP cameras' `IPC-` / `IPC_` + ID networks (50, Wardrive Go).
 
 Deliberately **not** matched, following ACAB:
 
@@ -320,7 +330,7 @@ candidate's IEEE registrant was checked against the maker the project names.
 |---|---|
 | [Flock You](https://github.com/colonelpanichacks/flock-you) (list by @NitekryDPaul, [nite-oui-collection](https://github.com/nitekry/nite-oui-collection); 82:6B:F2 by DeflockJoplin) | 31 radio-module prefixes seen on Flock cameras, as **weak** ALPR entries (score 35) |
 | [OUI-Spy](https://github.com/colonelpanichacks/oui-spy-unified-blue) | 11 Ring (Amazon) blocks, as home cameras (off by default) |
-| [Wardrive Go](https://github.com/RocketGod-git/wardrive-go) | Same Flock list; its traffic-camera and drone blocks were already here |
+| [Wardrive Go](https://github.com/RocketGod-git/wardrive-go) | Same Flock list; its traffic-camera and drone blocks were already here. Later (3.1.165): EMS gear, IP-camera setup networks, train WiFi and mesh radio nodes, above |
 | [Flock-You-Android](https://github.com/MaxwellDPS/Flock-You-Android) | Hikvision, Dahua, Axis, Vivotek, Amcrest, Reolink, Wyze, TVT, Reecam camera blocks; Sierra Wireless and Digi fleet gateways |
 | [Fieldwatch](https://github.com/OffGridPete/Fieldwatch) | BlueTOAD (Iteris) and BlipTrack roadside travel-time sensors; Flock-pole battery radios (weak); Hanwha, Uniview, Rhombus cameras; Sierra AirLink, Compex and Inseego (Novatel) vehicle radios |
 

@@ -41,7 +41,25 @@ object DeviceIntel {
         0x0B to "Just used", 0x0D to "Driving", 0x0E to "On a call"
     )
 
+    /** Meshtastic's BLE service (Meshtastic firmware / app protocol docs). */
+    private val MESHTASTIC_SERVICE = java.util.UUID.fromString("6ba1b218-15a8-461f-9fa8-5dcae273eafd")
+    private const val MESH_NODE = "Mesh radio node (Meshtastic / MeshCore LoRa)"
+
+    /** Passenger trains' onboard WiFi (Wardrive Go's rail list, plus Deutsche Bahn's ICE network). */
+    internal val TRAIN_SSID = Regex("amtrak|brightline|eurostar|sncf|wifi_inoui|wifionice|via ?rail|^via[-_ ]?wi-?fi\$", RegexOption.IGNORE_CASE)
+
+    /**
+     * A train's WiFi rides along with you, and its router often comes from the same vehicle-router
+     * makers police cars use (Cradlepoint, Sierra Wireless): those matches are dropped for it.
+     */
+    fun dropTrainRouter(hits: List<Hit>, a: Advert): List<Hit> {
+        val ssid = a.name ?: return hits
+        if (a.isBle || a.wifi?.client == true || !TRAIN_SSID.containsMatchIn(ssid)) return hits
+        return hits.filterNot { it.category == Category.PUBLIC_SAFETY }
+    }
+
     private val NAME_TYPES = listOf(
+        Regex("meshtastic|^meshcore", RegexOption.IGNORE_CASE) to MESH_NODE,
         Regex("airpods|beats|buds|earbud|headphone|headset|jbl|bose|sony w[hf]-|soundcore|jabra|sennheiser|skullcandy", RegexOption.IGNORE_CASE) to "Headphones / earbuds",
         Regex("watch|fitbit|garmin|amazfit|mi band|galaxy fit|whoop|polar|suunto|oura", RegexOption.IGNORE_CASE) to "Wearable",
         Regex("\\b(tv|bravia|roku|chromecast|fire ?tv|shield)\\b|\\[tv\\]", RegexOption.IGNORE_CASE) to "TV / streaming device",
@@ -200,6 +218,9 @@ object DeviceIntel {
             if (desc != null && value ushr 6 != 0) decide(desc, "advertised appearance")
         }
 
+        // LoRa mesh radios (after Wardrive Go): Meshtastic's own service, else the node's default name.
+        if (MESHTASTIC_SERVICE in a.serviceUuids) decide(MESH_NODE, "Meshtastic service UUID")
+
         // Standard services say what the device does (heart rate, HID, LE Audio...).
         shorts.firstNotNullOfOrNull { SERVICE_CLASSES[it] }?.let { decide(it, "advertised service") }
 
@@ -252,6 +273,7 @@ object DeviceIntel {
         val type = when {
             w?.client == true -> "WiFi device (laptop, phone or camera on a network)"
             ssid.isNullOrEmpty() -> "Hidden WiFi network"
+            TRAIN_SSID.containsMatchIn(ssid) -> "Train WiFi (passenger rail)"
             Regex("iphone|androidap|galaxy|pixel|hotspot|'s phone", RegexOption.IGNORE_CASE).containsMatchIn(ssid) -> "Phone hotspot"
             Regex("direct-|printer|hp-print|epson|canon", RegexOption.IGNORE_CASE).containsMatchIn(ssid) -> "WiFi Direct / printer"
             Regex("tesla|carplay|android auto|\\bcar\\b|bmw|mercedes|audi|toyota", RegexOption.IGNORE_CASE).containsMatchIn(ssid) -> "Vehicle WiFi"

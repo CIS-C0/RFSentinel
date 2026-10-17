@@ -40,13 +40,18 @@ object HackerWatch {
      * They broadcast these while unconfigured or in hotspot mode; once joined to a home
      * network they look like any other device. V380: "MV" + 8 digits; LookCam Pro:
      * DGK-XXXXXX-XXXXX; TinyCam Pro: AI_XXXXXXX; HDSmartIPC: AI + 12 characters
-     * (V380 setup guide; SpyGearGadgets setup notes).
+     * (V380 setup guide; SpyGearGadgets setup notes); generic IP cameras: "IPC-" / "IPC_" + an ID
+     * (Wardrive Go's hidden-camera list).
      */
+    private class SetupSsid(val ssid: Regex, val app: String, val confidence: Int, val source: String)
+    private const val SPY_SETUP = "V380 setup guide; SpyGearGadgets setup notes"
     private val HIDDEN_CAMERA_SSIDS = listOf(
-        Regex("^MV\\d{8}$") to Pair("V380", 75),
-        Regex("^DGK-[A-Z0-9]{6}-[A-Z0-9]{5}$", RegexOption.IGNORE_CASE) to Pair("LookCam Pro", 80),
-        Regex("^AI_[A-Z0-9]{6,12}$", RegexOption.IGNORE_CASE) to Pair("TinyCam Pro", 60),
-        Regex("^AI[A-Z0-9]{12}$") to Pair("HDSmartIPC", 55)
+        SetupSsid(Regex("^MV\\d{8}$"), "V380", 75, SPY_SETUP),
+        SetupSsid(Regex("^DGK-[A-Z0-9]{6}-[A-Z0-9]{5}$", RegexOption.IGNORE_CASE), "LookCam Pro", 80, SPY_SETUP),
+        SetupSsid(Regex("^AI_[A-Z0-9]{6,12}$", RegexOption.IGNORE_CASE), "TinyCam Pro", 60, SPY_SETUP),
+        SetupSsid(Regex("^AI[A-Z0-9]{12}$"), "HDSmartIPC", 55, SPY_SETUP),
+        SetupSsid(Regex("^IPC[-_][A-Z0-9]{4,12}$", RegexOption.IGNORE_CASE), "generic IP camera", 50,
+            "Wardrive Go hidden-camera list (facts only)")
     )
 
     /** Default WiFi / Bluetooth names of action cameras whose makers use generic chips. */
@@ -80,11 +85,10 @@ object HackerWatch {
             if (name.startsWith("GoPro", ignoreCase = true)) return Hit(Category.OTHER_CAMERA, "GoPro camera", 70,
                 "Advertised name \"$name\"", reg)
         }
-        if (a.source == Advert.Source.WIFI) HIDDEN_CAMERA_SSIDS.firstOrNull { it.first.matches(name) }?.let { (_, app) ->
-            return Hit(Category.OTHER_CAMERA, "Hidden / spy camera (${app.first} type)", app.second,
-                "WiFi network \"$name\": the setup hotspot of cheap ${app.first} WiFi cameras, often sold hidden in clocks, " +
-                    "chargers and smoke detectors. Some are ordinary indoor cameras - check the room.",
-                "V380 setup guide; SpyGearGadgets setup notes")
+        if (a.source == Advert.Source.WIFI) HIDDEN_CAMERA_SSIDS.firstOrNull { it.ssid.matches(name) }?.let { c ->
+            return Hit(Category.OTHER_CAMERA, "Hidden / spy camera (${c.app} type)", c.confidence,
+                "WiFi network \"$name\": the setup hotspot of cheap ${c.app} WiFi cameras, often sold hidden in clocks, " +
+                    "chargers and smoke detectors. Some are ordinary indoor cameras - check the room.", c.source)
         }
         if (name.isNotEmpty()) ACTION_CAMERA_NAMES.firstOrNull { it.first.containsMatchIn(name) }?.let { (_, label) ->
             return Hit(Category.OTHER_CAMERA, label, 65, "${if (a.source == Advert.Source.WIFI) "WiFi network" else "Advertised name"} " +
