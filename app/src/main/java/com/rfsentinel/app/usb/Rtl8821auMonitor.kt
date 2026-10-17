@@ -199,8 +199,10 @@ object Rtl8821auMonitor {
             if (want != st.ledOn && runCatching { led(conn, want) }.isSuccess) st.ledOn = want
             st.ledFrames = st.frames; st.ledAt = now
         }
-        if (now - st.hopAt > DWELL_MS) {
-            val ni = (st.hopIdx + 1) % HOP.size
+        val lock = AntennaCheck.lockIndex(HOP) // antenna check: hold the reference's channel
+        if (lock >= 0 && lock == st.hopIdx) AntennaCheck.holding = HOP[lock]
+        if (if (lock >= 0) lock != st.hopIdx else now - st.hopAt > DWELL_MS) {
+            val ni = if (lock >= 0) lock else (st.hopIdx + 1) % HOP.size
             if (ni != st.hopIdx) { st.hopIdx = ni; runCatching { channelTune(conn, HOP[st.hopIdx]) } }
             val (aps, clients) = frames.live(now, REPORT_MS)
             onStatus("RTL8811AU / 8821AU · live · $aps access points · $clients devices · ch ${HOP[st.hopIdx]}")

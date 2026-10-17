@@ -144,8 +144,11 @@ class MainActivity : AppCompatActivity() {
                 menu.add(0, 2, 1, "WiFi channels")
                 menu.add(0, 3, 2, "WiFi spectrum")
                 menu.add(0, 4, 3, "Satellites")
+                menu.add(0, 5, 4, "Antenna check")
                 setOnMenuItemClickListener { item ->
                     when (item.itemId) {
+                        5 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.AntennaCheckActivity::class.java)
+                            .putExtra("demo", demoMode).putExtra("single", intent.getBooleanExtra("single", false)))
                         1 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.CellTowersActivity::class.java))
                         2 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.WifiAnalyzerActivity::class.java))
                         4 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.GnssActivity::class.java))

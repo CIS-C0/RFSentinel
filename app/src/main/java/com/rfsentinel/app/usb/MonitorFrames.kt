@@ -52,6 +52,8 @@ class MonitorFrames {
         val fc = u8(d); val ftype = (fc shr 2) and 3; val sub = (fc shr 4) and 0xf
         val fc1 = u8(d + 1); val toDs = fc1 and 0x01; val fromDs = (fc1 shr 1) and 0x01
         val a1 = d + 4; val a2 = d + 10; val a3 = d + 16
+        val check = AntennaCheck.listening
+        if (check) AntennaCheck.frame(b, a2, rssi, pathA, pathB, now)
         fun touch(at: Int, ap: Boolean, ch: Int = channel): Sighting? {
             if (!isReal(b, at)) return null
             val m = mac(b, at)
@@ -87,6 +89,7 @@ class MonitorFrames {
                         else if (it.ssid == null) it.ssid = name
                         if (it.ssid == null) pendingNames.remove(it.mac)?.let { n -> it.ssid = n }
                         ies.wps?.let { w -> it.wps = w }
+                        if (check) AntennaCheck.heardAp(it.mac, it.ssid, it.channel, rssi, now)
                     }
                     // One transmitter answering under many network names: a Karma / PineAP fake access point.
                     if (isReal(b, a2)) ies.ssid?.takeIf { validSsid(it) }?.let { KarmaWatch.frame(mac(b, a2), it, channel, now) }

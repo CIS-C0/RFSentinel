@@ -510,8 +510,10 @@ object Rtl8187Monitor {
                 "ch ${HOP[st.hopIdx]}, $aps access points, $clients devices, USB errors $ctlErrors"
             }
             if (now - st.lastEmit > 2000) { emit(onFrame); st.lastEmit = now }
-            if (now - st.hopAt > DWELL_MS) {
-                st.hopIdx = (st.hopIdx + 1) % HOP.size
+            val lock = AntennaCheck.lockIndex(HOP) // antenna check: hold the reference's channel
+            if (lock >= 0 && lock == st.hopIdx) AntennaCheck.holding = HOP[lock]
+            if (if (lock >= 0) lock != st.hopIdx else now - st.hopAt > DWELL_MS) {
+                st.hopIdx = if (lock >= 0) lock else (st.hopIdx + 1) % HOP.size
                 runCatching { tune(HOP[st.hopIdx]) }
                 val (aps, clients) = frames.live(now, REPORT_MS)
                 onStatus("$chipName · live · $aps access points · $clients devices · ch ${HOP[st.hopIdx]}")

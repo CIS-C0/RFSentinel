@@ -262,8 +262,10 @@ object Rtl8812auMonitor {
             st.lastLog = now
         }
         if (now - st.lastEmit > 2000) { emitSightings(onFrame); st.lastEmit = now }
-        if (now - st.hopAt > DWELL_MS) {
-            val ni = (st.hopIdx + 1) % HOP.size
+        val lock = AntennaCheck.lockIndex(HOP) // antenna check: hold the reference's channel
+        if (lock >= 0 && lock == st.hopIdx) AntennaCheck.holding = HOP[lock]
+        if (if (lock >= 0) lock != st.hopIdx else now - st.hopAt > DWELL_MS) {
+            val ni = if (lock >= 0) lock else (st.hopIdx + 1) % HOP.size
             if (ni != st.hopIdx) { st.hopIdx = ni; runCatching { channelTune(conn, HOP[st.hopIdx]) } }
             val (aps, clients) = frames.live(now, REPORT_MS)
             onStatus("RTL8812AU · live · $aps access points · $clients devices · ch ${HOP[st.hopIdx]}")
@@ -361,14 +363,21 @@ object Rtl8812auMonitor {
             val fe = fs + pkt
             if (crc == 0 && fe - fs >= 24) {
                 val rate = b[off + 12].toInt() and 0x7f
-                val rssi = if (drv >= 8 && off + size + drv <= n) rtlRssi(b, off + size, rate) else NOMINAL_RSSI
-                frames.frame(b, fs, fe, ch, rssi)
+                val phy = drv >= 8 && off + size + drv <= n
+                val rssi = if (phy) rtlRssi(b, off + size, rate) else NOMINAL_RSSI
+                // OFDM reports also carry each path's power (antenna check); CCK only one value.
+                val ofdm = phy && rate > 3
+                frames.frame(b, fs, fe, ch, rssi, pathA = if (ofdm) pathPower(b, off + size) else null,
+                    pathB = if (ofdm) pathPower(b, off + size + 1) else null)
                 good++
             }
             off += (size + drv + shift + pkt + 7) and 7.inv()
         }
         return good
     }
+
+    /** One RF path's receive power from a jaguar PHY status (gain_trsw[i], as phydm reads it), null when empty. */
+    internal fun pathPower(b: ByteArray, at: Int): Int? = ((b[at].toInt() and 0x7f) - 110).takeIf { it in -109..-1 }
 
     private fun rtlRssi(b: ByteArray, di: Int, rate: Int): Int {
         fun u8(i: Int) = b[i].toInt() and 0xff

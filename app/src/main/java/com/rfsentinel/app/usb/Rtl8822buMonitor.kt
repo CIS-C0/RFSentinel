@@ -148,6 +148,8 @@ object Rtl8822buMonitor {
         var ioFailures = 0
         /** A channel held by a debug command instead of hopping (0 = hopping). */
         var parked = 0
+        /** [parked] was set by the antenna check (released when the check ends). */
+        var checkParked = false
         var dig = true
         val channel get() = if (parked > 0) parked else plan[hopIdx]
         fun start() { val t = System.currentTimeMillis(); lastLog = t; hopAt = t; lastEmit = t; digAt = t }
@@ -178,6 +180,17 @@ object Rtl8822buMonitor {
             chipIo(st) { chip.digStep() }
             st.digAt = now
         }
+        // Antenna check: hold the reference's channel, then go back to hopping.
+        val lock = AntennaCheck.lockChannel.takeIf { it in HOP_24 || it in HOP_5 || it in HOP_DFS }
+        if (lock != null && lock != st.parked) {
+            st.parked = lock; st.checkParked = true
+            chipIo(st) { chip.tune(lock) }
+            val (aps, clients) = frames.live(now, REPORT_MS)
+            onStatus("${st.label} · live · $aps access points · $clients devices · ch $lock (${if (lock > 14) "5 GHz" else "2.4 GHz"})")
+        } else if (lock == null && st.checkParked) {
+            st.parked = 0; st.checkParked = false; st.hopAt = 0L
+        }
+        if (lock != null && st.parked == lock) AntennaCheck.holding = lock
         if (st.parked == 0 && now - st.hopAt > DWELL_MS) {
             st.hopIdx++
             if (st.hopIdx >= st.plan.size) { st.cycle++; st.plan = hopCycle(st.cycle); st.hopIdx = 0 }
@@ -194,7 +207,7 @@ object Rtl8822buMonitor {
         fun h(i: Int) = java.lang.Long.decode(if (a[i].startsWith("0x")) a[i] else "0x" + a[i]).toInt()
         val l = st.label
         when (a[0]) {
-            "park" -> { st.parked = a[1].toInt(); chip.tune(st.parked); frames.window(); UsbWifi.log("$l: parked on ch ${st.parked}") }
+            "park" -> { st.parked = a[1].toInt(); st.checkParked = false; chip.tune(st.parked); frames.window(); UsbWifi.log("$l: parked on ch ${st.parked}") }
             "hop" -> { st.parked = 0; UsbWifi.log("$l: hopping") }
             "igi" -> { st.dig = false; chip.setIgi(h(1)); UsbWifi.log("$l: IGI fixed 0x%02x".format(h(1))) }
             "dig" -> { st.dig = true; UsbWifi.log("$l: DIG on") }

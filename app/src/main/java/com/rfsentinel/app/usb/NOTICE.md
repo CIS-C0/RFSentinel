@@ -14,6 +14,7 @@ These drivers run USB WiFi adapters in receive-only monitor mode from userspace.
 - `BulkRx.kt` is the USB receive loop of the RTL8187, RT3070, RTL8814AU, MT7612U and AR9271 drivers.
 - The FREE-WiLi 2 (an ESP32-C5 WiFi board with a USB console) is read by `esp/EspReader.kt` / `esp/EspReports.kt` (FreeWiliReports), ported from Wardrive Go.
 - `MonitorFrames.kt` turns the received 802.11 frames into access points and client devices for all of them.
+- `AntennaCheck.kt` (and the Antenna check screen) compares the adapter's antennas on a reference access point: per-chain signal with Zero and Identify, and an A / B swap test, after the antenna check in Wardrive Go (written anew here, no code copied).
 
 | Part | Origin | License |
 |---|---|---|

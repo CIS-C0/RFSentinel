@@ -108,6 +108,8 @@ object Mt7612uMonitor {
     private var mcuLogged = 0
     private var mcuGain = 0
     private var rssiOff2g = 0; private var rssiOff5g = 0; private var lna2g = 0; private var lna5g = 0
+    /** Chain 1's RSSI offsets (the EEPROM words' high bytes, as mt76x2_read_rx_gain reads them). */
+    private var rssiOff2g1 = 0; private var rssiOff5g1 = 0
     private val lastCalMs = HashMap<Int, Long>()
     @Volatile private var ctlErrors = 0
 
@@ -480,8 +482,9 @@ object Mt7612uMonitor {
             val f = parseRx(b, n, onBad = { crc -> if (crc) stats.badChecksum++ else stats.malformed++ },
                 why = { if (st.badLogged < MAX_BAD_LOGS) { st.badLogged++; UsbWifi.log("MT7612U: transfer dropped - $it") } }) ?: return@onData
             val rssi = f.rawRssi?.let { if (ch <= 14) it + rssiOff2g - lna2g else it + rssiOff5g - lna5g }
+            val rssi1 = f.rawRssi1?.let { if (ch <= 14) it + rssiOff2g1 - lna2g else it + rssiOff5g1 - lna5g }
             stats.frame(rssi)
-            frames.frame(b, f.start, f.end, ch, rssi)
+            frames.frame(b, f.start, f.end, ch, rssi, pathA = rssi, pathB = rssi1)
         }) { now ->
             stats.maybeLog(now) {
                 val (aps, clients) = frames.live(now, REPORT_MS)
@@ -512,8 +515,10 @@ object Mt7612uMonitor {
                 }
             }
             if (now - st.lastEmit > 2000) { emit(onFrame); st.lastEmit = now }
-            if (now - st.hopAt > DWELL_MS) {
-                st.hopIdx = (st.hopIdx + 1) % HOP.size
+            val lock = AntennaCheck.lockIndex(HOP) // antenna check: hold the reference's channel
+            if (lock >= 0 && lock == st.hopIdx) AntennaCheck.holding = HOP[lock]
+            if (if (lock >= 0) lock != st.hopIdx else now - st.hopAt > DWELL_MS) {
+                st.hopIdx = if (lock >= 0) lock else (st.hopIdx + 1) % HOP.size
                 runCatching { tune(epCmd, HOP[st.hopIdx], scan = true) }
                 drainCmdResp()
                 val (aps, clients) = frames.live(now, REPORT_MS)
@@ -530,8 +535,8 @@ object Mt7612uMonitor {
         if (batch.isNotEmpty()) onFrame(batch)
     }
 
-    /** Where the 802.11 frame sits in a transfer and the radio's raw RSSI (chain 0, before calibration; null when absent). */
-    internal data class Rx(val start: Int, val end: Int, val rawRssi: Int?)
+    /** Where the 802.11 frame sits in a transfer and the radio's raw RSSI per chain (0 and 1, before calibration; null when absent). */
+    internal data class Rx(val start: Int, val end: Int, val rawRssi: Int?, val rawRssi1: Int? = null)
 
     /**
      * One transfer: | DMA header (4: length) | RXWI (32) | 802.11 header | L2 pad (2, when flagged) | body | FCE info |.
@@ -565,7 +570,8 @@ object Mt7612uMonitor {
             d += pad
         }
         val raw = b[rxwi + 12].toInt() // RSSI chain 0, signed dBm-ish
-        return Rx(d, d + mpdu, if (raw != 0) raw else null)
+        val raw1 = b[rxwi + 13].toInt() // chain 1
+        return Rx(d, d + mpdu, if (raw != 0) raw else null, if (raw1 != 0) raw1 else null)
     }
 
     /** 802.11 header length from its frame control (address 4, QoS, HT control). */
@@ -586,6 +592,8 @@ object Mt7612uMonitor {
         fun lnaOf(v: Int): Int { val b0 = v and 0xff; return if (b0 == 0xff) 0 else signExt(b0, 8) }
         rssiOff2g = rssiOff(le16(ee, EE_RSSI_OFFSET_2G_0))
         rssiOff5g = rssiOff(le16(ee, EE_RSSI_OFFSET_5G_0))
+        rssiOff2g1 = rssiOff(le16(ee, EE_RSSI_OFFSET_2G_0) ushr 8)
+        rssiOff5g1 = rssiOff(le16(ee, EE_RSSI_OFFSET_5G_0) ushr 8)
         lna2g = lnaOf(le16(ee, EE_LNA_GAIN))
         lna5g = lnaOf(le16(ee, EE_LNA_GAIN) ushr 8)
     }

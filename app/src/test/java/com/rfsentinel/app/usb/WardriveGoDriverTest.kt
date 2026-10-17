@@ -61,7 +61,7 @@ class WardriveGoDriverTest {
         val b = beacon("00:c0:ca:00:00:02", "Unit-2", 149)
         val t = rtlTransfer(a, power = 100) + rtlTransfer(b, crc = true)
         val got = mutableListOf<Triple<Int, Int, Int?>>(); var bad = 0
-        Rtl8814auMonitor.forEachFrame(t, t.size, onBad = { if (it) bad++ }) { s, e, r -> got += Triple(s, e, r) }
+        Rtl8814auMonitor.forEachFrame(t, t.size, onBad = { if (it) bad++ }) { s, e, r, _, _ -> got += Triple(s, e, r) }
         assertEquals(1, got.size); assertEquals(1, bad)
         assertEquals(32, got[0].first)
         assertEquals(32 + a.size, got[0].second)
@@ -89,6 +89,9 @@ class WardriveGoDriverTest {
         val p = Mt7612uMonitor.parseRx(plain, plain.size)!!
         assertEquals(36, p.start); assertEquals(36 + f.size, p.end); assertEquals(-55, p.rawRssi)
         assertEquals("Patrol", ssidOf(plain, p.start, p.end, 6))
+        assertNull("chain 1 empty", p.rawRssi1)
+        val both = mtTransfer(f).also { it[4 + 13] = (-61).toByte() } // RXWI rssi[1]
+        assertEquals(-61, Mt7612uMonitor.parseRx(both, both.size)!!.rawRssi1)
 
         val padded = mtTransfer(f, l2pad = true)
         val q = Mt7612uMonitor.parseRx(padded, padded.size)!!

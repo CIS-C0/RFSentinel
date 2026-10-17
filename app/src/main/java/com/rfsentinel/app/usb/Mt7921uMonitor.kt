@@ -516,7 +516,8 @@ object Mt7921uMonitor {
      * Where the 802.11 frame sits in a transfer, its signal in dBm (strongest antenna; null when the
      * descriptor has none) and the band (0 / 1 / 2) and channel it was received on.
      */
-    internal data class Rx(val start: Int, val end: Int, val rssi: Int?, val band: Int, val channel: Int)
+    internal data class Rx(val start: Int, val end: Int, val rssi: Int?, val band: Int, val channel: Int,
+                           val chain0: Int? = null, val chain1: Int? = null)
 
     /** The sequence number of a firmware answer (event) in this transfer, or null for anything else. */
     internal fun eventSeq(b: ByteArray, n: Int): Int? {
@@ -558,10 +559,8 @@ object Mt7921uMonitor {
         // Signal: RCPI per antenna (group 5 word 6, else group 3 word 1), to dBm as mt76's to_rssi;
         // an antenna that heard nothing reports 0 (or 255) and is left out.
         val rcpiWord = when { g5 >= 0 -> le32(b, g5 + 24); g3 >= 0 -> le32(b, g3 + 4); else -> null }
-        val rssi = rcpiWord?.let { w ->
-            (0 until 4).map { c -> (w ushr (8 * c)) and 0xff }.filter { it in 1..254 }
-                .map { it / 2 - 110 }.filter { it < 0 }.maxOrNull()
-        }
+        fun chain(w: Int, c: Int): Int? = ((w ushr (8 * c)) and 0xff).takeIf { it in 1..254 }?.let { it / 2 - 110 }?.takeIf { it < 0 }
+        val rssi = rcpiWord?.let { w -> (0 until 4).mapNotNull { chain(w, it) }.maxOrNull() }
         val start = off + 2 * ((rxd2 ushr 14) and 0x3)
         if (end - start < 10) { onBad(false); return null }
         val chfreq = (rxd3 ushr 8) and 0xff
@@ -570,7 +569,7 @@ object Mt7921uMonitor {
             chfreq > 14 -> 1 to chfreq
             else -> 0 to chfreq
         }
-        return Rx(start, end, rssi, band, ch)
+        return Rx(start, end, rssi, band, ch, rcpiWord?.let { chain(it, 0) }, rcpiWord?.let { chain(it, 1) })
     }
 
     /** Optional RXD groups: bit in the group mask and size, in reading order (4, 1, 2, 3, 5). */
@@ -584,7 +583,9 @@ object Mt7921uMonitor {
         var round = 0; var plan: List<Pair<Int, Int>> = HOP
         /** 6 GHz channel number -> when a frame was last heard on it. */
         val heard6 = HashMap<Int, Long>()
-        val current get() = plan[hopIdx]
+        /** The channel held for the antenna check instead of hopping. */
+        var locked: Pair<Int, Int>? = null
+        val current get() = locked ?: plan[hopIdx]
         /** Sequence number of the hop's last command until the firmware confirms it (-1: confirmed). */
         var pendingSeq = -1; var sentAt = 0L
         var switches = 0; var switchMsTotal = 0L; var switchMsMax = 0L; var unconfirmed = 0
@@ -620,7 +621,7 @@ object Mt7921uMonitor {
             // The descriptor's channel, else the one tuned to.
             val ch = if (f.channel > 0) monitorChannel(f.band, f.channel) else monitorChannel(hopBand, hopCh)
             stats.frame(f.rssi)
-            frames.frame(b, f.start, f.end, ch, f.rssi)
+            frames.frame(b, f.start, f.end, ch, f.rssi, pathA = f.chain0, pathB = f.chain1)
         }) { now ->
             stats.maybeLog(now) {
                 val (aps, clients) = frames.live(now, REPORT_MS)
@@ -641,12 +642,18 @@ object Mt7921uMonitor {
             // As the kernel does, a channel switch is only done once the firmware confirms it: the
             // dwell is counted from that answer, so slow switches don't eat the listening time.
             if (st.pendingSeq >= 0 && now - st.sentAt > SWITCH_TIMEOUT_MS) { st.unconfirmed++; st.pendingSeq = -1; st.hopAt = now }
-            if (st.pendingSeq < 0 && now - st.hopAt > DWELL_MS) {
-                st.hopIdx++
-                if (st.hopIdx >= st.plan.size) {
-                    st.round++
-                    st.plan = roundPlan(st.round, st.heard6.filterValues { now - it < SIX_GHZ_ACTIVE_MS }.keys)
-                    st.hopIdx = 0
+            // Antenna check: hold the reference's channel (once the firmware confirms the switch).
+            val lock = AntennaCheck.lockChannel.let { l -> if (l == 0) null else HOP.firstOrNull { monitorChannel(it.first, it.second) == l } }
+            if (lock != null && lock == st.locked && st.pendingSeq < 0) AntennaCheck.holding = AntennaCheck.lockChannel
+            if (lock != st.locked || (lock == null && st.pendingSeq < 0 && now - st.hopAt > DWELL_MS)) {
+                if (lock != null || st.locked != null) st.locked = lock
+                else {
+                    st.hopIdx++
+                    if (st.hopIdx >= st.plan.size) {
+                        st.round++
+                        st.plan = roundPlan(st.round, st.heard6.filterValues { now - it < SIX_GHZ_ACTIVE_MS }.keys)
+                        st.hopIdx = 0
+                    }
                 }
                 val (band, ch) = st.current
                 runCatching { tune(band, ch, wait = false) }

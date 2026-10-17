@@ -196,9 +196,9 @@ object Rtl8814auMonitor {
         val total = BulkRx.run("RTL8814AU", conn, ep, 24, 16384, { stop }, { b, n ->
             stats.transfer(n)
             stats.sample("$n bytes, first RX descriptor", b, 0, RXDESC_SIZE)
-            forEachFrame(b, n, onBad = { crc -> if (crc) stats.badChecksum++ else stats.malformed++ }) { s, e, rssi ->
+            forEachFrame(b, n, onBad = { crc -> if (crc) stats.badChecksum++ else stats.malformed++ }) { s, e, rssi, pa, pb ->
                 stats.frame(rssi)
-                frames.frame(b, s, e, HOP[st.hopIdx], rssi)
+                frames.frame(b, s, e, HOP[st.hopIdx], rssi, pathA = pa, pathB = pb)
             }
         }) { now ->
             stats.maybeLog(now) {
@@ -206,8 +206,10 @@ object Rtl8814auMonitor {
                 "ch ${HOP[st.hopIdx]}, $aps access points, $clients devices, USB errors $ctlErrors"
             }
             if (now - st.lastEmit > 2000) { emit(onFrame); st.lastEmit = now }
-            if (now - st.hopAt > DWELL_MS) {
-                st.hopIdx = (st.hopIdx + 1) % HOP.size
+            val lock = AntennaCheck.lockIndex(HOP) // antenna check: hold the reference's channel
+            if (lock >= 0 && lock == st.hopIdx) AntennaCheck.holding = HOP[lock]
+            if (if (lock >= 0) lock != st.hopIdx else now - st.hopAt > DWELL_MS) {
+                st.hopIdx = if (lock >= 0) lock else (st.hopIdx + 1) % HOP.size
                 runCatching { tune(HOP[st.hopIdx]) }
                 val (aps, clients) = frames.live(now, REPORT_MS)
                 onStatus("$chipName · live · $aps access points · $clients devices · ch ${HOP[st.hopIdx]}")
@@ -225,10 +227,12 @@ object Rtl8814auMonitor {
 
     /**
      * Frames in one bulk transfer, each | RX descriptor (24) | PHY status | shift | frame + FCS |,
-     * padded to 8 bytes. [onFrame] gets the 802.11 frame's [start, end) without the FCS and its
-     * signal (null without a PHY status); [onBad] hears about skipped ones (true: bad checksum).
+     * padded to 8 bytes. [onFrame] gets the 802.11 frame's [start, end) without the FCS, its
+     * signal (null without a PHY status) and, for OFDM, paths A and B's power; [onBad] hears
+     * about skipped ones (true: bad checksum).
      */
-    internal fun forEachFrame(b: ByteArray, n: Int, onBad: (Boolean) -> Unit = {}, onFrame: (Int, Int, Int?) -> Unit) {
+    internal fun forEachFrame(b: ByteArray, n: Int, onBad: (Boolean) -> Unit = {},
+                              onFrame: (Int, Int, Int?, Int?, Int?) -> Unit) {
         var off = 0
         while (off + RXDESC_SIZE <= n) {
             val d0 = le32(b, off)
@@ -245,7 +249,9 @@ object Rtl8814auMonitor {
                 else -> {
                     val rate = b[off + 12].toInt() and 0x7f
                     val rssi = if (drv >= 8) rtlRssi(b, off + RXDESC_SIZE, rate) else null
-                    onFrame(fs, fe, rssi)
+                    val ofdm = drv >= 8 && rate > 3
+                    onFrame(fs, fe, rssi, if (ofdm) Rtl8812auMonitor.pathPower(b, off + RXDESC_SIZE) else null,
+                        if (ofdm) Rtl8812auMonitor.pathPower(b, off + RXDESC_SIZE + 1) else null)
                 }
             }
             off += (RXDESC_SIZE + drv + shift + pkt + 7) and 7.inv()

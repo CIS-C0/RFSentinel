@@ -118,6 +118,11 @@ class Mt7921uDriverTest {
         assertEquals("ends at the descriptor's length, not the transfer's", 32 + f.size, rx.end)
         assertEquals("strongest antenna (RCPI / 2 - 110), silent ones left out", -50, rx.rssi)
         assertEquals(0, rx.band); assertEquals(6, rx.channel)
+        assertEquals("antenna check: chain 0 on its own", -50, rx.chain0)
+        assertNull("chain 1 heard nothing", rx.chain1)
+        val two = rxTransfer(f, chfreq = 6, rcpi = intArrayOf(120, 110, 0, 0))
+        val r2 = m.parseRx(two, two.size)!!
+        assertEquals(-50, r2.chain0); assertEquals(-55, r2.chain1); assertEquals(-50, r2.rssi)
 
         val five = m.parseRx(rxTransfer(f, chfreq = 149).let { it }, rxTransfer(f, chfreq = 149).size)!!
         assertEquals(1, five.band); assertEquals(149, five.channel)
