@@ -25,6 +25,9 @@ val mapboxToken: String = Properties().run {
     getProperty("MAPBOX_ACCESS_TOKEN", "").trim()
 }
 
+// True for a FOSS-only build (see settings.gradle.kts): no full flavor, no Mapbox SDK, no Mapbox server.
+val fossOnly = (gradle as ExtensionAware).extra["fossOnly"] as Boolean
+
 // APKs come out as RFSentinel-v<versionName>-<buildType>.apk
 base.archivesName.set("RFSentinel-v$appVersionName")
 
@@ -58,7 +61,7 @@ android {
     // anyone who wants it; the map is OpenFreeMap. Same app ID, so either one replaces the other.
     flavorDimensions += "maps"
     productFlavors {
-        create("full") { dimension = "maps" }
+        if (!fossOnly) create("full") { dimension = "maps" }
         create("foss") { dimension = "maps" }
     }
 
@@ -132,7 +135,7 @@ dependencies {
     // without Vulkan, e.g. Android 9 phones with a PowerVR GE8320).
     implementation("org.maplibre.gl:android-sdk-vulkan-opengl:13.6.1")
     // Optional Mapbox map (Settings > Map > Map provider), full build only; needs MAPBOX_ACCESS_TOKEN in local.properties.
-    "fullImplementation"("com.mapbox.maps:android-ndk27:11.32.0")
+    if (!fossOnly) "fullImplementation"("com.mapbox.maps:android-ndk27:11.32.0")
 
     // Android Auto (Car App Library, template-based UI; "projected" = phone-driven Android Auto)
     implementation("androidx.car.app:app:1.7.0")

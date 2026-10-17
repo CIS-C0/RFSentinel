@@ -906,6 +906,8 @@ Requirements: Android Studio, or JDK 17+ with the Android SDK (platform 37).
 There are two flavors. **foss** contains only free software: no Mapbox SDK, the map is
 always OpenFreeMap. **full** adds the optional Mapbox map (`./gradlew assembleFullDebug`).
 Both have the same app ID, so either one replaces the other.
+A build of only foss tasks (or `-Prfs.foss=true`) leaves the full flavor out and never
+declares or contacts Mapbox's Maven server.
 
 In the full flavor, Mapbox is optional: with `MAPBOX_ACCESS_TOKEN=pk...` (your own public token) in
 `local.properties` (git-ignored) the build offers the Mapbox map; without it the app
