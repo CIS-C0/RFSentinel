@@ -34,6 +34,7 @@ internal object BulkRx {
         }
         UsbWifi.log("$tag: async RX live - $count buffers in flight")
         val scratch = ByteArray(size)
+        val guard = EmptyGuard(tag)
         var total = 0L
         try {
             while (!stopped()) {
@@ -53,7 +54,7 @@ internal object BulkRx {
                                 if (runCatching { nr.queue(b) }.getOrDefault(false)) reqs[idx] = nr
                             }
                         }
-                        if (n in 1..size) { total += n; runCatching { onData(scratch, n) } }
+                        if (n in 1..size) { total += n; guard.data(); runCatching { onData(scratch, n) } } else guard.empty()
                     }
                 }
                 onTick(System.currentTimeMillis())
@@ -74,6 +75,35 @@ internal object BulkRx {
             onTick(System.currentTimeMillis())
         }
         return total
+    }
+
+    /**
+     * Guards an async receive loop against a burst of empty completions (after Wardrive Go): with
+     * a loose connector or a stalled endpoint every queued transfer can come straight back empty,
+     * and the loop then spins flat out. After [BURST] in a row it logs once and pauses briefly
+     * before each next one until data flows again; the drivers' own watchdogs restart the radio.
+     * Used from the RX thread only.
+     */
+    class EmptyGuard(private val tag: String) {
+        private var run = 0
+        private var logged = 0
+
+        fun data() {
+            if (run >= BURST && logged <= MAX_LOGS) UsbWifi.log("$tag: data flowing again after $run empty USB transfers")
+            run = 0
+        }
+
+        fun empty() {
+            if (++run == BURST && ++logged <= MAX_LOGS)
+                UsbWifi.log("$tag: $BURST empty USB transfers in a row (loose connection or stalled endpoint?) - backing off")
+            if (run >= BURST) try { Thread.sleep(PAUSE_MS) } catch (_: InterruptedException) {}
+        }
+
+        companion object {
+            const val BURST = 500
+            private const val PAUSE_MS = 20L
+            private const val MAX_LOGS = 5
+        }
     }
 
     /**

@@ -84,6 +84,7 @@ object Mt7612uMonitor {
     private const val AUTO_RSP_NO_RESPONDER = 0x12
 
     private const val MIN_FRAME = 10; private const val MAX_BAD_LOGS = 12; private const val DEAF_MS = 15_000L
+    private const val UNCALIBRATED = " · not calibrated: unplug the adapter and plug it back in"
     private const val FW_ATTEMPTS = 3; private const val CLAIM_WAITS = 10
     private const val DMA_HDR = 4; private const val RXWI_LEN = 32; private const val FCE_INFO = 4
     /** Room for the largest 802.11ac MPDU (11454 B) plus descriptors: a smaller buffer splits big frames over two transfers. */
@@ -106,6 +107,14 @@ object Mt7612uMonitor {
     private var epResp: UsbEndpoint? = null
     private var seq = 0
     private var mcuLogged = 0
+    /**
+     * MCU commands that wait for an answer, and how many got one. None answered at bring-up: the
+     * adapter kept power through a USB self-reset and its firmware lost track of the endpoints, so
+     * calibration never applied. Frames may still arrive, but only a replug fully resets it.
+     */
+    private var mcuAsked = 0
+    private var mcuAnswered = 0
+    @Volatile private var uncalibrated = false
     private var mcuGain = 0
     private var rssiOff2g = 0; private var rssiOff5g = 0; private var lna2g = 0; private var lna5g = 0
     /** Chain 1's RSSI offsets (the EEPROM words' high bytes, as mt76x2_read_rx_gain reads them). */
@@ -118,7 +127,7 @@ object Mt7612uMonitor {
     fun run(ctx: Context, device: UsbDevice, chipName: String, onStatus: (String) -> Unit,
             onFrame: (List<MonitorSighting>) -> Unit) {
         if (running) return
-        running = true; stop = false; frames.clear(); lastCalMs.clear(); mcuLogged = 0; ctlErrors = 0
+        running = true; stop = false; frames.clear(); lastCalMs.clear(); mcuLogged = 0; ctlErrors = 0; mcuAsked = 0; mcuAnswered = 0; uncalibrated = false
         val mgr = ctx.getSystemService(Context.USB_SERVICE) as UsbManager
         val c = mgr.openDevice(device) ?: run { onStatus("$chipName: couldn't reopen adapter"); running = false; return }
         conn = c
@@ -202,7 +211,10 @@ object Mt7612uMonitor {
             UsbWifi.log("MT7612U: started in %d ms - SYS_CTRL 0x%08x STATUS 0x%08x U3DMA 0x%08x RX_FILTR 0x%08x AUTO_RSP 0x%08x AGC0 0x%08x, USB errors %d - monitor live ch %d".format(
                 System.currentTimeMillis() - t0, regRd(MAC_SYS_CTRL), regRd(MAC_STATUS), cfgRd(USB_U3DMA_CFG), regRd(RX_FILTR_CFG),
                 regRd(AUTO_RSP_CFG), regRd(BBP_AGC0), ctlErrors, HOP[0]))
-            onStatus("$chipName · live · 2.4 + 5 GHz monitor")
+            uncalibrated = mcuAsked >= 3 && mcuAnswered == 0
+            if (uncalibrated) UsbWifi.log("MT7612U: none of $mcuAsked MCU commands answered - the adapter kept power through a USB reset, " +
+                "so calibration didn't apply. Unplug the adapter and plug it back in.")
+            onStatus("$chipName · live · 2.4 + 5 GHz monitor" + UNCALIBRATED.takeIf { uncalibrated }.orEmpty())
             rxLoop(chipName, cmdOut, rx, onFrame, onStatus)
         } catch (e: Exception) {
             UsbWifi.log("MT7612U: bring-up error - ${UsbWifi.describe(e)}")
@@ -442,6 +454,7 @@ object Mt7612uMonitor {
         val rep = epResp ?: run { sleep(10); return }
         val rb = ByteArray(512)
         val n = conn.bulkTransfer(rep, rb, rb.size, 300)
+        mcuAsked++; if (n > 0) mcuAnswered++
         if (mcuLogged < 6) {
             mcuLogged++
             UsbWifi.log(if (n > 0) "MT7612U: MCU cmd $cmd answered ($n B, 0x%08x)".format(if (n >= 4) le32(rb, 0) else 0)
@@ -522,7 +535,8 @@ object Mt7612uMonitor {
                 runCatching { tune(epCmd, HOP[st.hopIdx], scan = true) }
                 drainCmdResp()
                 val (aps, clients) = frames.live(now, REPORT_MS)
-                onStatus("$chipName · live · $aps access points · $clients devices · ch ${HOP[st.hopIdx]}")
+                onStatus("$chipName · live · $aps access points · $clients devices · ch ${HOP[st.hopIdx]}" +
+                    UNCALIBRATED.takeIf { uncalibrated }.orEmpty())
                 st.hopAt = System.currentTimeMillis() // the dwell starts once the retune is done
             }
         }

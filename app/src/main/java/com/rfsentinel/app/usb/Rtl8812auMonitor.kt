@@ -294,6 +294,7 @@ object Rtl8812auMonitor {
         UsbWifi.log("RTL8812AU: async RX live — $nbuf buffers in flight")
         val scratch = ByteArray(bufSz)
         val st = RxState().apply { start() }
+        val guard = BulkRx.EmptyGuard("RTL8812AU")
         try {
             while (!stop) {
                 val req = try { conn.requestWait(100L) } catch (e: TimeoutException) { null }
@@ -304,9 +305,9 @@ object Rtl8812auMonitor {
                         val b = buffers[idx]
                         val n = b.position()
                         val parseLen = if (n in 1..bufSz) {
-                            st.total += n; st.bufs++
+                            st.total += n; st.bufs++; guard.data()
                             b.rewind(); b.get(scratch, 0, n); n
-                        } else 0
+                        } else { guard.empty(); 0 }
 
                         b.clear()
                         if (!runCatching { req.queue(b) }.getOrDefault(false)) {
