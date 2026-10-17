@@ -21,6 +21,8 @@ object KarmaWatch {
     /** One alert per transmitter this often while it goes on. */
     const val REPEAT_MS = 5 * 60_000L
     private const val MAX_TRANSMITTERS = 2_000
+    /** Names kept per transmitter (a beacon flood cycles through thousands); also caps the alert's list. */
+    private const val MAX_NAMES = 32
 
     /** Set by the scanning service; called (on the RX thread) when a fake access point is found. */
     @Volatile var onAttack: ((Attack) -> Unit)? = null
@@ -37,11 +39,17 @@ object KarmaWatch {
     /** A beacon or probe response from [transmitter] under network name [ssid]. */
     fun frame(transmitter: String, ssid: String, channel: Int, now: Long = System.currentTimeMillis()): Attack? {
         val attack = synchronized(this) {
-            if (txs.size > MAX_TRANSMITTERS) txs.entries.removeAll { now - it.value.lastSeen > WINDOW_MS }
+            if (txs.size > MAX_TRANSMITTERS) {
+                txs.entries.removeAll { now - it.value.lastSeen > WINDOW_MS }
+                // A flood from random addresses: everything is recent, so the least recently heard go.
+                if (txs.size > MAX_TRANSMITTERS) txs.entries.sortedBy { it.value.lastSeen }
+                    .take(txs.size - MAX_TRANSMITTERS / 2).map { it.key }.forEach { txs.remove(it) }
+            }
             val t = txs.getOrPut(transmitter) { Tx() }
             t.lastSeen = now
             t.names.remove(ssid); t.names[ssid] = now
             t.names.entries.removeAll { now - it.value > WINDOW_MS }
+            while (t.names.size > MAX_NAMES) t.names.remove(t.names.keys.first())
             if (t.names.size < MIN_NAMES || now - t.lastReport < REPEAT_MS) return@synchronized null
             t.lastReport = now
             Attack(transmitter, t.names.keys.reversed(), channel, (WINDOW_MS / 1000).toInt())

@@ -283,6 +283,20 @@ class SignalSweepIdeasTest {
         assertNull(KarmaWatch.frame("00:30:44:00:00:01", "HomeNet4", 6, t + KarmaWatch.WINDOW_MS + 1))
     }
 
+    @Test
+    fun aBeaconFloodStaysBounded() {
+        val heard = ArrayList<KarmaWatch.Attack>()
+        KarmaWatch.onAttack = { heard += it }
+        // One transmitter cycling through thousands of names: the alert lists a bounded few.
+        repeat(5_000) { KarmaWatch.frame("00:13:37:00:00:01", "Free WiFi $it", 6, it.toLong()) }
+        assertEquals(1, heard.size)
+        assertTrue(heard[0].names.size <= 32)
+        // Random addresses, one name each, all within the window: never an alert, and it keeps working.
+        repeat(20_000) { KarmaWatch.frame("02:00:%02x:%02x:00:01".format(it / 256 % 256, it % 256), "x", 6, 10_000L + it) }
+        assertEquals(1, heard.size)
+        assertNull(KarmaWatch.frame("00:30:44:00:00:09", "HomeNet", 6, 40_000L))
+    }
+
     // ---- Deauth
 
     @Test
