@@ -41,6 +41,22 @@ object Mt7921uMonitor {
             149, 153, 157, 161, 165).map { 1 to it } +
         listOf(5, 21, 37, 53, 69, 85, 101, 117, 133, 149, 165, 181, 197, 213, 229).map { 2 to it }
     private const val DWELL_MS = 150L
+    /** Each 6 GHz channel is visited every this many rounds, unless something was heard on it lately. */
+    private const val SIX_GHZ_EVERY = 3
+    /** A 6 GHz channel that carried a frame this recently is visited every round. */
+    private const val SIX_GHZ_ACTIVE_MS = 90_000L
+
+    /**
+     * The channels of hop round [round]: all of 2.4 and 5 GHz, and a rotating third of the 6 GHz
+     * channels plus any 6 GHz channel in [active6]. 6 GHz switches are the slowest (often the full
+     * timeout) and most places have little there yet, so a full 6 GHz pass every round would
+     * stretch the loop by about half for nothing; every channel is still visited every 3 rounds.
+     */
+    internal fun roundPlan(round: Int, active6: Set<Int>): List<Pair<Int, Int>> {
+        val six = HOP.filter { it.first == 2 }
+        return HOP.filter { it.first != 2 } +
+            six.filterIndexed { i, (_, ch) -> i % SIX_GHZ_EVERY == round % SIX_GHZ_EVERY || ch in active6 }
+    }
     private const val RX_ANTENNAS = 0x3
     private const val SWITCH_TIMEOUT_MS = 500L
     /** A full round, allowing ~150 ms per channel switch on top of the dwell. */
@@ -565,6 +581,10 @@ object Mt7921uMonitor {
 
     private class RxState {
         var hopAt = 0L; var lastEmit = 0L; var lastRxAt = 0L; var lastCheck = 0L; var hopIdx = 0
+        var round = 0; var plan: List<Pair<Int, Int>> = HOP
+        /** 6 GHz channel number -> when a frame was last heard on it. */
+        val heard6 = HashMap<Int, Long>()
+        val current get() = plan[hopIdx]
         /** Sequence number of the hop's last command until the firmware confirms it (-1: confirmed). */
         var pendingSeq = -1; var sentAt = 0L
         var switches = 0; var switchMsTotal = 0L; var switchMsMax = 0L; var unconfirmed = 0
@@ -595,7 +615,8 @@ object Mt7921uMonitor {
                 return@onData
             }
             val f = parseRx(b, n, onBad = { crc -> if (crc) stats.badChecksum++ else stats.malformed++ }) ?: return@onData
-            val (hopBand, hopCh) = HOP[st.hopIdx]
+            val (hopBand, hopCh) = st.current
+            if (f.band == 2 && f.channel > 0) st.heard6[f.channel] = System.currentTimeMillis()
             // The descriptor's channel, else the one tuned to.
             val ch = if (f.channel > 0) monitorChannel(f.band, f.channel) else monitorChannel(hopBand, hopCh)
             stats.frame(f.rssi)
@@ -603,7 +624,7 @@ object Mt7921uMonitor {
         }) { now ->
             stats.maybeLog(now) {
                 val (aps, clients) = frames.live(now, REPORT_MS)
-                val (band, ch) = HOP[st.hopIdx]
+                val (band, ch) = st.current
                 "${listOf("2.4", "5", "6")[band]} GHz ch $ch, $aps access points, $clients devices, " +
                     "firmware answered $cmdsAnswered of $cmdsSent commands, ${st.switchSummary()}, USB errors $ctlErrors"
             }
@@ -621,8 +642,13 @@ object Mt7921uMonitor {
             // dwell is counted from that answer, so slow switches don't eat the listening time.
             if (st.pendingSeq >= 0 && now - st.sentAt > SWITCH_TIMEOUT_MS) { st.unconfirmed++; st.pendingSeq = -1; st.hopAt = now }
             if (st.pendingSeq < 0 && now - st.hopAt > DWELL_MS) {
-                st.hopIdx = (st.hopIdx + 1) % HOP.size
-                val (band, ch) = HOP[st.hopIdx]
+                st.hopIdx++
+                if (st.hopIdx >= st.plan.size) {
+                    st.round++
+                    st.plan = roundPlan(st.round, st.heard6.filterValues { now - it < SIX_GHZ_ACTIVE_MS }.keys)
+                    st.hopIdx = 0
+                }
+                val (band, ch) = st.current
                 runCatching { tune(band, ch, wait = false) }
                 st.pendingSeq = seq; st.sentAt = now
                 val (aps, clients) = frames.live(now, REPORT_MS)

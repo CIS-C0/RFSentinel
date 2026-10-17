@@ -159,6 +159,19 @@ class Mt7921uDriverTest {
         assertEquals("6 GHz: the preferred scanning channels", (0 until 15).map { 5 + 16 * it }, m.HOP.filter { it.first == 2 }.map { it.second })
     }
 
+    @Test
+    fun sixGhzRotatesUnlessSomethingWasHeardThere() {
+        val rounds = (0 until 3).map { r -> m.roundPlan(r, emptySet()) }
+        for (plan in rounds) {
+            assertEquals("all of 2.4 and 5 GHz every round", 13 + 25, plan.count { it.first != 2 })
+            assertEquals("a third of 6 GHz per round", 5, plan.count { it.first == 2 })
+        }
+        assertEquals("every 6 GHz channel within 3 rounds", m.HOP.filter { it.first == 2 }.toSet(),
+            rounds.flatten().filter { it.first == 2 }.toSet())
+        // ch 37 had traffic: it's in every round
+        for (r in 0 until 3) assertTrue(2 to 37 in m.roundPlan(r, setOf(37)))
+    }
+
     // --- firmware: the official linux-firmware images, unmodified ---
 
     private val dir = "src/main/assets/usbwifi"
