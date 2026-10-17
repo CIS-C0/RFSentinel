@@ -25,6 +25,11 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
     var blogV4 = false; private set
     var sampleRate = 0; private set
     var ctlErrors = 0; private set
+    /** True once the dongle stops answering altogether (unplugged, or its USB link died). */
+    @Volatile var lost = false; private set
+    /** Tuner register writes that still failed after retrying. */
+    var tunerWriteFails = 0; private set
+    private var ctlFailRun = 0
     private var centerHz = 0L
     private lateinit var rx: UsbEndpoint
 
@@ -32,6 +37,8 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
     private var i2cAddr = R820T_I2C_ADDR
     private var tunerXtal = RTL_XTAL
     private val regs = IntArray(NUM_REGS)
+    /** Registers whose last write failed: their shadow value isn't what the tuner holds, so they are always rewritten. */
+    private val stale = BooleanArray(NUM_REGS)
     private var intFreq = 3_570_000
     private var hasLock = false
     private var input = -1
@@ -48,10 +55,15 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
         val maker = runCatching { device.manufacturerName }.getOrNull().orEmpty()
         val product = runCatching { device.productName }.getOrNull().orEmpty()
         setI2cRepeater(true)
-        tuner = when {
-            i2cReadReg(R820T_I2C_ADDR, 0x00) == R82XX_CHECK_VAL -> Tuner.R820T
-            i2cReadReg(R828D_I2C_ADDR, 0x00) == R82XX_CHECK_VAL -> Tuner.R828D
-            else -> null
+        // a second look when nothing answers: right after plug-in one I2C read can go unanswered
+        for (attempt in 0 until 2) {
+            tuner = when {
+                i2cReadReg(R820T_I2C_ADDR, 0x00) == R82XX_CHECK_VAL -> Tuner.R820T
+                i2cReadReg(R828D_I2C_ADDR, 0x00) == R82XX_CHECK_VAL -> Tuner.R828D
+                else -> null
+            }
+            if (tuner != null) break
+            try { Thread.sleep(50) } catch (_: InterruptedException) {}
         }
         blogV4 = tuner == Tuner.R828D && maker == "RTLSDRBlog" && product == "Blog V4"
         log("RTL-SDR: \"$maker $product\", tuner ${tuner ?: "not supported (E4000 / FC001x / FC2580?)"}${if (blogV4) " (RTL-SDR Blog V4)" else ""}")
@@ -69,6 +81,7 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
     }
 
     fun close() {
+        if (lost) return
         runCatching {
             setI2cRepeater(true); r82xxStandby(); setI2cRepeater(false)
             writeReg(SYSB, DEMOD_CTL, 0x20, 1) // power off the demodulator and ADCs
@@ -158,10 +171,15 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
 
     // ---- register access ----
 
+    /** Counts failed control transfers; a long unbroken run of them means the dongle is gone. */
+    private fun ctl(result: Int): Int {
+        if (result < 0) { ctlErrors++; if (++ctlFailRun >= LOST_AFTER_FAILS) lost = true } else ctlFailRun = 0
+        return result
+    }
     private fun writeArray(block: Int, addr: Int, data: ByteArray, len: Int = data.size): Int =
-        conn.controlTransfer(0x40, 0, addr, (block shl 8) or 0x10, data, len, 300).also { if (it < 0) ctlErrors++ }
+        ctl(conn.controlTransfer(0x40, 0, addr, (block shl 8) or 0x10, data, len, 300))
     private fun readArray(block: Int, addr: Int, data: ByteArray, len: Int = data.size): Int =
-        conn.controlTransfer(0xC0, 0, addr, block shl 8, data, len, 300).also { if (it < 0) ctlErrors++ }
+        ctl(conn.controlTransfer(0xC0, 0, addr, block shl 8, data, len, 300))
 
     private fun writeReg(block: Int, addr: Int, v: Int, len: Int) {
         val d = if (len == 1) byteArrayOf(v.toByte(), v.toByte()) else byteArrayOf((v shr 8).toByte(), v.toByte())
@@ -174,12 +192,12 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
 
     private fun demodWrite(page: Int, addr: Int, v: Int, len: Int) {
         val d = if (len == 1) byteArrayOf(v.toByte(), v.toByte()) else byteArrayOf((v shr 8).toByte(), v.toByte())
-        if (conn.controlTransfer(0x40, 0, (addr shl 8) or 0x20, 0x10 or page, d, len, 300) < 0) ctlErrors++
+        ctl(conn.controlTransfer(0x40, 0, (addr shl 8) or 0x20, 0x10 or page, d, len, 300))
         demodRead(0x0a, 0x01, 1)
     }
     private fun demodRead(page: Int, addr: Int, len: Int): Int {
         val d = ByteArray(2)
-        if (conn.controlTransfer(0xC0, 0, (addr shl 8) or 0x20, page, d, len, 300) < 0) ctlErrors++
+        ctl(conn.controlTransfer(0xC0, 0, (addr shl 8) or 0x20, page, d, len, 300))
         return ((d[1].toInt() and 0xff) shl 8) or (d[0].toInt() and 0xff)
     }
 
@@ -204,9 +222,9 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
     // ---- R82xx (tuner_r82xx.c) ----
 
     private fun r82xxWrite(reg: Int, vals: IntArray) {
-        // skip writes the shadow registers already hold (I2C is slow)
+        // skip writes the shadow registers already hold (I2C is slow), unless an earlier write to them failed
         val r0 = reg - REG_SHADOW_START
-        if (r0 >= 0 && r0 + vals.size <= NUM_REGS && (vals.indices).all { regs[r0 + it] == vals[it] }) return
+        if (r0 >= 0 && r0 + vals.size <= NUM_REGS && (vals.indices).all { regs[r0 + it] == vals[it] && !stale[r0 + it] }) return
         for (i in vals.indices) { val r = r0 + i; if (r in 0 until NUM_REGS) regs[r] = vals[i] }
         var pos = 0; var addr = reg
         while (pos < vals.size) {
@@ -214,7 +232,18 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
             val buf = ByteArray(size + 1)
             buf[0] = addr.toByte()
             for (k in 0 until size) buf[1 + k] = vals[pos + k].toByte()
-            if (writeArray(IICB, i2cAddr, buf) != size + 1) log("RTL-SDR: tuner write failed at reg 0x%02x".format(addr))
+            // An I2C write through the RTL2832U now and then isn't acknowledged: try again before giving up.
+            var ok = false
+            for (attempt in 0 until I2C_TRIES) {
+                if (lost) break
+                if (writeArray(IICB, i2cAddr, buf) == size + 1) { ok = true; break }
+            }
+            for (k in 0 until size) { val r = addr - REG_SHADOW_START + k; if (r in 0 until NUM_REGS) stale[r] = !ok }
+            if (!ok && !lost) {
+                tunerWriteFails++
+                if (tunerWriteFails <= MAX_FAIL_LOGS) log("RTL-SDR: tuner write failed at reg 0x%02x after $I2C_TRIES tries".format(addr) +
+                    if (tunerWriteFails == MAX_FAIL_LOGS) " (further failures only counted)" else "")
+            }
             addr += size; pos += size
         }
     }
@@ -234,7 +263,7 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
     }
 
     private fun r82xxInit(): Boolean {
-        regs.fill(0)
+        regs.fill(0); stale.fill(false)
         r82xxWrite(0x05, INIT_ARRAY)
         if (!setTvStandard()) return false
         sysfreqSel()
@@ -440,6 +469,10 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
         private const val NUM_REGS = 30
         private const val VER_NUM = 49
         private const val MAX_I2C_MSG = 8
+        private const val I2C_TRIES = 3
+        private const val MAX_FAIL_LOGS = 20
+        /** Unbroken control-transfer failures before the dongle counts as gone (a working one fails a few at most). */
+        private const val LOST_AFTER_FAILS = 25
         private const val VHF = 2; private const val UHF = 3
         private const val HP_BW1 = 350_000; private const val HP_BW2 = 380_000
 

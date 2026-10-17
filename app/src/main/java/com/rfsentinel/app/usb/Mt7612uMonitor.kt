@@ -83,7 +83,10 @@ object Mt7612uMonitor {
     /** AUTO_RSP_CFG without the auto-responder (bit 0): the adapter never answers with an ACK or CTS. */
     private const val AUTO_RSP_NO_RESPONDER = 0x12
 
-    private const val DMA_HDR = 4; private const val RXWI_LEN = 32
+    private const val FW_ATTEMPTS = 3; private const val CLAIM_WAITS = 10
+    private const val DMA_HDR = 4; private const val RXWI_LEN = 32; private const val FCE_INFO = 4
+    /** Room for the largest 802.11ac MPDU (11454 B) plus descriptors: a smaller buffer splits big frames over two transfers. */
+    private const val RX_BUF = 16384
     private const val RXINFO_L2PAD = 1 shl 14; private const val RXINFO_CRCERR = 1 shl 8
 
     private const val EE_SIZE = 512; private const val EE_MAC_ADDR = 0x004; private const val EE_NIC_CONF_0 = 0x034
@@ -118,7 +121,13 @@ object Mt7612uMonitor {
         conn = c
         try {
             val intf = device.getInterface(0)
-            if (!c.claimInterface(intf, true)) UsbWifi.log("MT7612U: couldn't claim the USB interface (continuing)")
+            // Right after plug-in the system can still hold the adapter for a moment: without the
+            // interface every firmware transfer fails, so keep asking for a few seconds.
+            var claimed = c.claimInterface(intf, true)
+            var waits = 0
+            while (!claimed && waits < CLAIM_WAITS && !stop) { sleep(300); waits++; claimed = c.claimInterface(intf, true) }
+            if (!claimed) UsbWifi.log("MT7612U: couldn't claim the USB interface after ${waits * 300} ms (continuing)")
+            else if (waits > 0) UsbWifi.log("MT7612U: USB interface claimed after ${waits * 300} ms")
             val bulkIn = ArrayList<UsbEndpoint>(); val bulkOut = ArrayList<UsbEndpoint>()
             for (i in 0 until intf.endpointCount) {
                 val ep = intf.getEndpoint(i)
@@ -138,8 +147,21 @@ object Mt7612uMonitor {
             onStatus("$chipName · loading firmware…")
             val patch = ctx.assets.open("usbwifi/mt7662_rom_patch.bin").use { it.readBytes() }
             val fw = ctx.assets.open("usbwifi/mt7662.bin").use { it.readBytes() }
-            if (!loadRomPatch(cmdOut, patch, e3, romProtect = chip != 0x7612)) { onStatus("$chipName: ROM patch failed (replug)"); return }
-            if (!loadFirmware(cmdOut, fw, e3)) { onStatus("$chipName: firmware didn't start (replug)"); return }
+            // A first upload sometimes stalls right after plug-in; the second try (after a firmware reset) goes through.
+            var loaded = false
+            for (attempt in 1..FW_ATTEMPTS) {
+                if (attempt > 1) {
+                    UsbWifi.log("MT7612U: retrying the firmware load (attempt $attempt of $FW_ATTEMPTS)")
+                    if (!claimed) claimed = c.claimInterface(intf, true)
+                    sleep(300)
+                }
+                // A bulk endpoint left stalled (an earlier session, a half-finished upload) refuses every
+                // transfer until it is cleared; the kernel resets the whole device, which apps can't.
+                for (ep in bulkOut + bulkIn) clearHalt(ep)
+                if (!loadRomPatch(cmdOut, patch, e3, romProtect = chip != 0x7612)) continue
+                if (loadFirmware(cmdOut, fw, e3)) { loaded = true; break }
+            }
+            if (!loaded) { onStatus("$chipName: firmware didn't load (replug)"); return }
 
             // ---- radio ----
             onStatus("$chipName · powering on radio…")
@@ -236,9 +258,15 @@ object Mt7612uMonitor {
             val buf = ByteArray(4 + rounded + 4)
             putLe32(buf, 0, DMA_INFO_BASE or (len and 0xffff))
             System.arraycopy(src, srcOff + pos, buf, 4, len)
-            singleWr(WRITE_FCE, FCE_DMA_ADDR, dstAddr + pos)
-            singleWr(WRITE_FCE, FCE_DMA_LEN, rounded shl 16)
-            if (conn.bulkTransfer(out, buf, buf.size, 1000) < 0) { UsbWifi.log("MT7612U: firmware upload failed at $pos of $dataLen B"); return false }
+            var tries = 0
+            while (true) {
+                singleWr(WRITE_FCE, FCE_DMA_ADDR, dstAddr + pos)
+                singleWr(WRITE_FCE, FCE_DMA_LEN, rounded shl 16)
+                if (conn.bulkTransfer(out, buf, buf.size, 1000) >= 0) break
+                if (++tries >= 3) { UsbWifi.log("MT7612U: firmware upload failed at $pos of $dataLen B"); return false }
+                UsbWifi.log("MT7612U: firmware chunk at $pos of $dataLen B not taken - resending")
+                sleep(20)
+            }
             regWr(TX_CPU_FROM_FCE_CPU_DESC_IDX, regRd(TX_CPU_FROM_FCE_CPU_DESC_IDX) + 1)
             pos += len
             sleep(5)
@@ -432,7 +460,7 @@ object Mt7612uMonitor {
         val st = RxState()
         val t0 = System.currentTimeMillis(); st.hopAt = t0; st.lastEmit = t0; st.lastRxAt = t0; st.lastCheck = t0
         val stats = BulkRx.Stats("MT7612U")
-        val total = BulkRx.run("MT7612U", conn, ep, 24, 4096, { stop }, onData@{ b, n ->
+        val total = BulkRx.run("MT7612U", conn, ep, 24, RX_BUF, { stop }, onData@{ b, n ->
             stats.transfer(n)
             st.lastRxAt = System.currentTimeMillis()
             stats.sample("$n bytes, DMA header + RXWI", b, 0, DMA_HDR + 16)
@@ -483,18 +511,21 @@ object Mt7612uMonitor {
      * One transfer: | DMA header (4: length) | RXWI (32) | 802.11 header | L2 pad (2, when flagged) | body | FCE info |.
      * The L2 pad is removed in place (the header moves up 2 bytes), as mt76 does, so the frame
      * is contiguous. Null for a bad checksum or a malformed transfer ([onBad] says which).
+     * With RX aggregation off a transfer holds exactly one frame, so its length must match the
+     * DMA header: anything else is a piece of a split transfer, whose "descriptor" is frame
+     * payload (random lengths and signal values, phantom addresses) and is dropped.
      */
     internal fun parseRx(b: ByteArray, n: Int, onBad: (Boolean) -> Unit = {}): Rx? {
         if (n < DMA_HDR + RXWI_LEN + 24 || n > b.size) { onBad(false); return null }
         val dmaLen = (b[0].toInt() and 0xff) or ((b[1].toInt() and 0xff) shl 8)
-        if (dmaLen < RXWI_LEN + 24 || DMA_HDR + dmaLen > n) { onBad(false); return null }
+        if (dmaLen < RXWI_LEN + 24 || dmaLen and 3 != 0 || DMA_HDR + dmaLen > n || n > DMA_HDR + dmaLen + FCE_INFO) { onBad(false); return null }
         val rxwi = DMA_HDR
         val rxinfo = le32(b, rxwi)
         if (rxinfo and RXINFO_CRCERR != 0) { onBad(true); return null }
         val mpdu = (le32(b, rxwi + 4) ushr 16) and 0x3fff
         var d = rxwi + RXWI_LEN
         val pad = if (rxinfo and RXINFO_L2PAD != 0) 2 else 0
-        if (mpdu < 24 || d + mpdu + pad > DMA_HDR + dmaLen) { onBad(false); return null }
+        if (mpdu < 24 || d + mpdu + pad > DMA_HDR + dmaLen || DMA_HDR + dmaLen - (d + mpdu + pad) >= 4) { onBad(false); return null }
         if (pad != 0) {
             val hdr = headerLength(b, d).coerceAtMost(mpdu)
             System.arraycopy(b, d, b, d + pad, hdr)
@@ -550,6 +581,10 @@ object Mt7612uMonitor {
 
     // ---- register access ----
 
+    /** Standard CLEAR_FEATURE(ENDPOINT_HALT) on [ep]. */
+    private fun clearHalt(ep: UsbEndpoint) {
+        conn.controlTransfer(0x02, 0x01, 0, ep.address, null, 0, 1000)
+    }
     private fun vendor(req: Int, reqType: Int, value: Int, data: ByteArray?) {
         if (conn.controlTransfer(reqType, req, value, 0, data, data?.size ?: 0, 1000) < 0) ctlErrors++
     }

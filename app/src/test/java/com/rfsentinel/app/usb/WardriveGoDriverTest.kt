@@ -104,6 +104,17 @@ class WardriveGoDriverTest {
         assertTrue(crc)
     }
 
+    @Test
+    fun mt7612uDropsPiecesOfSplitTransfers() {
+        val t = mtTransfer(beacon("00:c0:ca:00:00:03", "Patrol", 6))
+        var malformed = 0
+        // the first part of a frame cut short, and a tail whose "descriptor" is frame payload
+        assertNull(Mt7612uMonitor.parseRx(t, t.size - 8, onBad = { if (!it) malformed++ }))
+        val tail = le16(0x40) + byteArrayOf(0, 0) + ByteArray(0x40) { 0x11 } + ByteArray(40)
+        assertNull(Mt7612uMonitor.parseRx(tail, tail.size, onBad = { if (!it) malformed++ }))
+        assertEquals(2, malformed)
+    }
+
     // --- AR9271: stream of | len | 0x4e00 | HTC header (8) | RX status (40) | frame + FCS |, padded to 4 ---
 
     private fun athPacket(frame: ByteArray, status: Int = 0, rssi: Int = 30): ByteArray {

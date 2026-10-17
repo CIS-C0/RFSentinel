@@ -24,6 +24,7 @@ object SdrRadio {
     private const val XFER = 16_384           // bytes per USB read (8192 samples)
     private const val READS_PER_CHUNK = 8     // ~32 ms of samples per tuned chunk
     private const val SETTLE_READS = 2        // samples after a retune are discarded
+    private const val STALL_CHUNKS = 8        // chunks in a row without samples before the stream is restarted
 
     @Volatile var status: String = ""; private set
     /** What to watch (Settings > RTL-SDR radio); picked up at the next sweep. */
@@ -122,12 +123,12 @@ object SdrRadio {
         val buf = ByteArray(XFER)
         val iq = ByteArray(XFER * READS_PER_CHUNK)
         var lastLog = 0L; var sweepStart = System.currentTimeMillis(); var sweepMs = 0L
-        var events = 0; var unlocked = 0; var readErrors = 0
-        while (!stop) {
+        var events = 0; var unlocked = 0; var readErrors = 0; var failedChunks = 0
+        while (!stop && !sdr.lost) {
             // Settings changed: the new bands / targets / sensitivity from this sweep on.
             if (config != cfg) { cfg = config; plan = RadioWatch.plan(cfg); watch.config = cfg; logPlan() }
             for (center in plan) {
-                if (stop) break
+                if (stop || sdr.lost) break
                 if (!sdr.tune(center)) { unlocked++; continue }
                 repeat(SETTLE_READS) { sdr.read(buf) }
                 var got = 0
@@ -136,7 +137,15 @@ object SdrRadio {
                     if (n <= 0) { readErrors++; break }
                     System.arraycopy(buf, 0, iq, got, n); got += n
                 }
-                if (got < 2 * 1024) continue
+                if (got < 2 * 1024) {
+                    // The sample stream stalled: restart it (as librtlsdr's reset_buffer) instead of sweeping on with nothing.
+                    if (++failedChunks % STALL_CHUNKS == 0) {
+                        if (failedChunks <= STALL_CHUNKS * 3) UsbWifi.log("RTL-SDR: no samples for $failedChunks chunks in a row - restarting the stream")
+                        sdr.resetBuffer()
+                    }
+                    continue
+                }
+                failedChunks = 0
                 val psd = RadioWatch.powerSpectrum(iq, got / 2)
                 for (e in watch.analyze(center, psd, sdr.sampleRate, System.currentTimeMillis())) {
                     if (!e.repeat) {
@@ -154,9 +163,10 @@ object SdrRadio {
             if (now - lastLog > (if (watch.sweeps < 20) 10_000 else 60_000)) {
                 lastLog = now
                 UsbWifi.log("RTL-SDR: sweep ${watch.sweeps} in $sweepMs ms, ${watch.learnedChannels} channels, ${watch.busyChannels} always busy, " +
-                    "$events reported, PLL unlocked $unlocked, read errors $readErrors, USB errors ${sdr.ctlErrors}")
+                    "$events reported, PLL unlocked $unlocked, read errors $readErrors, tuner write failures ${sdr.tunerWriteFails}, USB errors ${sdr.ctlErrors}")
             }
         }
+        if (sdr.lost) UsbWifi.log("RTL-SDR: the dongle stopped answering (unplugged?)")
         sdr.close()
         UsbWifi.log("RTL-SDR: stopped after ${watch.sweeps} sweeps")
     }
