@@ -154,7 +154,9 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 
 ## Features
 
-<details open>
+Everything the app does, grouped by area.
+
+<details>
 <summary><b>Detection</b></summary>
 
 - Payload, name, UUID and company-ID signatures plus IEEE vendor prefixes (MA-L / MA-M / MA-S), each with a cited source and a confidence
@@ -298,6 +300,11 @@ Details: [How it works](https://cis-c0.github.io/RFSentinel/how-it-works.html) a
 
 ### Main screen
 
+A threat banner, the live list of everything in range, and the radar and map views.
+
+<details>
+<summary><b>Banner, list, views, filters and floating windows</b></summary>
+
 - **Threat banner:** all clear, weak, probable or strong, or *may be following you*.
 - **Live list:** every device in range (each leaves 30 s after it was last heard on Bluetooth, 60 s on WiFi, adjustable), with vendor, type,
   radio, signal, rough distance, and NEW / ★ / FOLLOWING badges. A green
@@ -327,6 +334,8 @@ Details: [How it works](https://cis-c0.github.io/RFSentinel/how-it-works.html) a
   your car's Bluetooth; scanning starts when the phone connects to it or to
   Android Auto, and stops when you leave if the car started it.
 
+</details>
+
 ### Device details
 
 The app never connects to a device. The details screen shows why it's flagged
@@ -337,6 +346,11 @@ signal graph with **Locate** mode (beeps faster as you get closer), history, and
 the raw advertisement.
 
 ### Map and traces
+
+Your position, recorded traces, the devices heard around you and the known cameras.
+
+<details>
+<summary><b>Map views, cell towers, cameras, traces and crash log</b></summary>
 
 - The **map** shows your position, the trace being recorded, and every device
   heard around you, placed where your phone was when its signal was strongest.
@@ -374,12 +388,14 @@ the raw advertisement.
   phone (never sent automatically); it offers to send it next time, or Settings →
   *Lists, tools & about* → *Export crash log*.
 
+</details>
+
 ### Navigation
 
-<details>
-<summary>Search, routes round cameras, guidance, spoken directions, and which servers see what</summary>
-
 Turn-by-turn directions on the map, with your scanner running alongside.
+
+<details>
+<summary><b>Search, routes round cameras, guidance and which servers see what</b></summary>
 
 - **Where to?** The magnifier button on the map searches places and addresses as you type: your own
   places that fit show first, results say what kind of place they are ("Park · Munich"), the best name match
@@ -461,6 +477,9 @@ A driver-safe, template-based Android Auto app:
 </p>
 <p align="center"><sub>Home, recent alerts, flagged devices, More, live map and known cameras (demo data).</sub></p>
 
+<details>
+<summary><b>Car screens, alerts and navigation</b></summary>
+
 - **Home**, most important first (a car shows about six rows while driving):
   the threat headline (tap for the flagged devices), the **next known camera on
   your way** with its distance, **recent alerts**, the map, nearby devices and
@@ -495,11 +514,13 @@ A driver-safe, template-based Android Auto app:
 - Screens only redraw when what they show has changed, and a screen that fails
   to build shows a short message instead of closing the app.
 
+</details>
+
 **In a real car, Android Auto only shows apps like this one when they come
 from a trusted store.**
 
 <details>
-<summary>Why the GitHub APK's car screens need the Desktop Head Unit, and how to use it in a real car anyway</summary>
+<summary><b>Using the GitHub APK in a real car</b></summary>
 
 Google lets apps built with its Car App Library (as
 RF Sentinel is) run in a real car only when they're installed from Google Play
@@ -546,6 +567,9 @@ merges into the list with a blue **ESP32** badge.
 | [FREE-WiLi 2](https://freewili.com) | USB | The WiFi networks its ESP32-C5 scans from its console's WiFi menu (2.4 + 5 GHz) |
 | [ESP32 Marauder](https://github.com/justcallmekoko/ESP32Marauder) | USB, or through a Flipper Zero | WiFi networks and client devices from its passive beacon and probe sniffers, batched every 2 s; on ESP32-C5 boards (Marauder v8, BFFB v2, LilyGo T-Dongle C5, C5 DevKit) both 2.4 and 5 GHz |
 
+<details>
+<summary><b>Supported boards, Marauder, Flipper Zero and OUI-SPY setup</b></summary>
+
 Native-USB boards (ESP32-S2/S3/C3/C5/C6) and boards with a CP210x or CH340 bridge
 work. RF Sentinel only asks OUI-Spy for its version and live table, only asks
 GhostESP to scan and list networks, and only runs Marauder's passive
@@ -572,10 +596,9 @@ In that mode the board sends standard WiFi probe requests; turn **Settings →
 OUI-SPY: relay every network and Bluetooth device** off to keep it listening
 only. The board's UniPwn, PCAP and Foxhunter engines are never used.
 
-### USB WiFi adapter (monitor mode)
+</details>
 
-<details>
-<summary>Supported chips, what the adapter hears, and the log</summary>
+### USB WiFi adapter (monitor mode)
 
 Plug a supported USB WiFi adapter into the phone with an OTG cable while
 scanning and allow USB access on the prompt. RF Sentinel drives it directly
@@ -600,9 +623,12 @@ go through RF Sentinel's own rules like everything else, with a purple
 | Atheros AR9271 (`0cf3:9271` and 17 other IDs) | ALFA AWUS036NHA, TP-Link TL-WN722N v1 | Experimental (2.4 GHz) |
 | RTL8811CU / 8821CU, RT5370, MT7610U, AR7010 | | Detected and named, not supported yet |
 
+<details>
+<summary><b>Receive-only, the adapter log and single-antenna dongles</b></summary>
+
 The adapter never transmits (on the MT7612U and RT3070 even the automatic ACK
 replies are switched off).
-Settings shows its status, and **Export USB WiFi adapter log** saves a text
+Settings → External hardware shows its status, and **Export USB adapter log** saves a text
 file (app and phone version, the USB devices plugged in, the driver log) to
 send to the developer - no nearby devices' addresses or network names are in it.
 
@@ -616,9 +642,6 @@ than Realtek's own Windows driver gets from it).
 
 ### RTL-SDR: two-way radio transmitting nearby
 
-<details>
-<summary>Bands, how a nearby transmitter is told apart, settings and requested networks</summary>
-
 Plug an RTL-SDR dongle (R820T / R820T2 / R860 tuner, e.g. RTL-SDR Blog V3, or the
 RTL-SDR Blog V4) into the phone with an OTG cable while scanning. RF Sentinel
 sweeps the North American public-safety radio bands - the 700 and 800 MHz bands
@@ -626,6 +649,9 @@ where police, fire and EMS radios (not towers) transmit, and the shared VHF / UH
 land-mobile bands - and measures only **how much energy each 12.5 kHz channel
 carries**. Nothing is demodulated, decoded, recorded or decrypted: it can't know
 what was said or who said it.
+
+<details>
+<summary><b>How a nearby transmitter is told apart, settings and requested networks</b></summary>
 
 It first learns which channels are busy all the time where you are (towers,
 repeaters, trunking control channels, pagers) and ignores them; a strong burst on
@@ -719,6 +745,14 @@ Your own themes sit under the built-in ones: **Create a custom theme**, long-pre
 - **Receive-only.** Nothing is transmitted, jammed, spoofed or connected to.
 - **No accounts, no cloud, no analytics.** Detections live in a local database
   excluded from cloud backup.
+- **Data leaves the phone only when you export or share it.**
+- **Optional permissions:** *Nearby devices → connect* only to list your paired
+  Bluetooth devices when you pick your car; *Display over other apps* only for
+  the floating bubble. No contacts, storage, camera or microphone access.
+
+<details>
+<summary><b>Network use: which servers see what</b></summary>
+
 - **Network use is limited to map data:** the map (vector tiles, styles and fonts from
   OpenFreeMap, OpenStreetMap data; or from Mapbox if you choose it in Settings → Map,
   with Mapbox's own usage statistics switched off) while the map is open, the road tiles
@@ -747,10 +781,8 @@ Your own themes sit under the built-in ones: **Create a custom theme**, long-pre
   `app/src/main/java/com/rfsentinel/app/online/wazert/LICENSE`. OpenWeb Ninja and
   Waze are third-party services RF Sentinel isn't affiliated with and doesn't
   endorse; using them is at your own risk and under their terms.
-- **Data leaves the phone only when you export or share it.**
-- **Optional permissions:** *Nearby devices → connect* only to list your paired
-  Bluetooth devices when you pick your car; *Display over other apps* only for
-  the floating bubble. No contacts, storage, camera or microphone access.
+
+</details>
 
 ## Limitations
 
@@ -787,6 +819,8 @@ Your own themes sit under the built-in ones: **Create a custom theme**, long-pre
 
 ## Q&A
 
+The most common questions. More are linked below.
+
 <details>
 <summary><b>How do I detect police with my Android phone?</b></summary>
 
@@ -794,6 +828,7 @@ Install RF Sentinel, tap **Start scanning**, and grant location and *Nearby
 devices*. It matches the Bluetooth LE and WiFi signals of body cameras, radios,
 in-car routers, printers and plate readers, and groups gear that moves together
 into a possible police vehicle. [More](https://cis-c0.github.io/RFSentinel/police-detector.html)
+
 </details>
 
 <details>
@@ -803,6 +838,7 @@ A separated AirTag broadcasts Apple company ID `0x004C`, type `0x12`. RF Sentine
 flags it, follows it through address changes, and warns once it has been with you
 for 10 minutes over 800 m (adjustable). **Locate** mode helps find it.
 [More](https://cis-c0.github.io/RFSentinel/tracker-detector.html)
+
 </details>
 
 <details>
@@ -811,6 +847,7 @@ for 10 minutes over 800 m (adjustable). **Locate** mode helps find it.
 Yes: `Flock-` WiFi networks, Flock BLE names and company ID `0x09C8`, plus every
 Flock camera mapped in OpenStreetMap / DeFlock, offline.
 [More](https://cis-c0.github.io/RFSentinel/flock-camera-detector.html)
+
 </details>
 
 <details>
@@ -820,6 +857,7 @@ It checks the signs Android exposes: test network codes, sudden 4G→2G switches
 with strong LTE still visible, cloned or reserved cell identities. It's
 heuristic; disabling 2G is the real protection.
 [More](https://cis-c0.github.io/RFSentinel/imsi-catcher-detector.html)
+
 </details>
 
 <details>
@@ -827,6 +865,7 @@ heuristic; disabling 2G is the real protection.
 
 RF Sentinel: free and open source, with police, ALPR, tracker, drone and fake-cell detection on top of passive BLE and WiFi recon.
 [Comparison](https://cis-c0.github.io/RFSentinel/sophia-alternative.html)
+
 </details>
 
 <details>
@@ -834,6 +873,7 @@ RF Sentinel: free and open source, with police, ALPR, tracker, drone and fake-ce
 
 No root. Not on Google Play: the signed APK is on
 [GitHub Releases](https://github.com/CIS-C0/RFSentinel/releases/latest).
+
 </details>
 
 **70+ more answers on the [Q&A page](https://cis-c0.github.io/RFSentinel/qa.html)**, and how RF Sentinel compares with Flock You, OUI-Spy, Wardrive Go, Fieldwatch and others: [comparison](https://cis-c0.github.io/RFSentinel/alternatives.html).
@@ -927,6 +967,11 @@ detection and WiFi identification, is in [docs/SIGNATURES.md](docs/SIGNATURES.md
 
 Inspired by the nyanBOX hardware device and the RF Party app, which was based
 on Alan Meekins' DEF CON 31 talk *"Snoop Unto Them As They Snoop Unto Us"*.
+Thank you to every project credited below.
+
+<details>
+<summary><b>Ported code, data sources, fonts and trademarks</b></summary>
+
 Some feature ideas come from SØPHIA, BLE Radar (MetaRadar) and ESPsoup. No code from
 those projects is included. European V2X (ITS-G5) frames are read the way
 [V2X2MAP](https://github.com/pit711/V2X2MAP) by Peter Holzhauser does (MIT; see
@@ -974,6 +1019,8 @@ are trademarks of Ubisoft. The fsociety theme is an unofficial fan homage to Mr.
 and quotes short lines from the show; Mr. Robot is a trademark of Universal Content
 Productions. RF Sentinel is not affiliated with or endorsed by Ubisoft, USA Network
 or NBCUniversal.
+
+</details>
 
 ## License
 
