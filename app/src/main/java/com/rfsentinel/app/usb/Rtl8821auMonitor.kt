@@ -35,6 +35,7 @@ object Rtl8821auMonitor {
     /** The adapter's light blinks with traffic (Settings > External hardware); off = it stays dark. Changes apply live. */
     @Volatile var lightEnabled = true
     private var HOP = HOP_24
+    private const val MAX_PKT = 12000
     private const val DWELL_MS = 350L
 
     private val FRESH_MS get() = (HOP.size * DWELL_MS * 9 / 5).coerceAtLeast(3000L)
@@ -68,7 +69,7 @@ object Rtl8821auMonitor {
         var epRx: UsbEndpoint? = null
         try {
             val intf = device.getInterface(0)
-            conn.claimInterface(intf, true)
+            BulkRx.claim("RTL8821AU", conn, intf) { stop }
             for (i in 0 until intf.endpointCount) {
                 val ep = intf.getEndpoint(i)
                 if (ep.type == UsbConstants.USB_ENDPOINT_XFER_BULK && ep.direction == UsbConstants.USB_DIR_IN) { epRx = ep; break }
@@ -86,7 +87,7 @@ object Rtl8821auMonitor {
             w16(conn, Rtl8821auTables.REG_CR, r16(conn, Rtl8821auTables.REG_CR) or Rtl8821auTables.CR_MACEN8)
             val cr = r16(conn, Rtl8821auTables.REG_CR)
             UsbWifi.log("RTL8821AU: MAC on, REG_CR=0x%04x".format(cr))
-            if (cr == 0xEAEA) { onStatus("RTL8821AU: MAC didn't power on (replug)"); return }
+            if (cr == 0xEAEA) { onStatus("RTL8821AU: MAC didn't power on - unplug the adapter and plug it back in"); return }
 
             onStatus("RTL8821AU · loading MAC/BB/RF…")
             applyRegTable(conn, Rtl8821auTables.MAC_REG, rf = false)
@@ -203,7 +204,7 @@ object Rtl8821auMonitor {
             if (ni != st.hopIdx) { st.hopIdx = ni; runCatching { channelTune(conn, HOP[st.hopIdx]) } }
             val (aps, clients) = frames.live(now, REPORT_MS)
             onStatus("RTL8811AU / 8821AU · live · $aps access points · $clients devices · ch ${HOP[st.hopIdx]}")
-            st.hopAt = now
+            st.hopAt = System.currentTimeMillis() // the dwell starts once the retune is done
         }
     }
 
@@ -285,12 +286,16 @@ object Rtl8821auMonitor {
         while (off + size <= n) {
             val d0 = le32(b, off)
             val pkt = d0 and 0x3fff
-            if (pkt == 0 || pkt > 4096) break
+            // up to the largest 802.11ac MPDU (11454 B), as the 8814AU parser allows
+            if (pkt == 0 || pkt > MAX_PKT) break
             val crc = (d0 ushr 14) and 1
             val drv = ((d0 ushr 16) and 0xf) * 8
             val shift = (d0 ushr 24) and 3
             val fs = off + size + drv + shift
-            val fe = minOf(n, fs + pkt)
+            // A frame cut off at the end of the transfer isn't reported: its tail (and so a
+            // complete header / IEs) is missing, and what follows in the next transfer isn't a descriptor.
+            if (fs + pkt > n) break
+            val fe = fs + pkt
             if (crc == 0 && fe - fs >= 24) {
                 val rate = b[off + 12].toInt() and 0x7f
                 val rssi = if (drv >= 8 && off + size + drv <= n) rtlRssi(b, off + size, rate) else NOMINAL_RSSI

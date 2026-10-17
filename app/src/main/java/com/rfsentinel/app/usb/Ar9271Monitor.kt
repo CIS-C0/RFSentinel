@@ -72,7 +72,7 @@ object Ar9271Monitor {
         conn = c
         try {
             val intf = device.getInterface(0)
-            if (!c.claimInterface(intf, true)) UsbWifi.log("AR9271: couldn't claim the USB interface (continuing)")
+            BulkRx.claim("AR9271", c, intf) { stop }
             val eps = (0 until intf.endpointCount).map { intf.getEndpoint(it) }
             val rx = eps.firstOrNull { it.address == 0x82 }
             val inEp = eps.firstOrNull { it.address == 0x83 }; val outEp = eps.firstOrNull { it.address == 0x04 }
@@ -91,11 +91,11 @@ object Ar9271Monitor {
                 controlEp = connectService(0x0100, 3, 4)
                 if (controlEp != null) UsbWifi.log("AR9271: firmware already running (from an earlier scan) - reusing it")
                 else {
-                    if (!uploadFirmware(ctx)) { onStatus("$chipName: firmware upload failed (replug)"); return }
+                    if (!uploadFirmware(ctx)) { onStatus("$chipName: firmware upload failed - unplug the adapter and plug it back in"); return }
                     ready = awaitReady(5000)
                     if (ready == null) {
                         UsbWifi.log("AR9271: no HTC READY after the firmware upload")
-                        onStatus("$chipName: firmware didn't start (replug)"); return
+                        onStatus("$chipName: firmware didn't start - unplug the adapter and plug it back in"); return
                     }
                 }
             }
@@ -115,7 +115,7 @@ object Ar9271Monitor {
             }
 
             onStatus("$chipName · starting radio…")
-            if (!initRadio()) { onStatus("$chipName: radio didn't start (replug)"); return }
+            if (!initRadio()) { onStatus("$chipName: radio didn't start - unplug the adapter and plug it back in"); return }
             UsbWifi.log("AR9271: started in ${System.currentTimeMillis() - t0} ms, noise floor $noiseFloor dBm, USB errors $ctlErrors - monitor live ch $curChannel")
             onStatus("$chipName · live · 2.4 GHz monitor")
             rxLoop(chipName, rx, onFrame, onStatus)
@@ -136,7 +136,9 @@ object Ar9271Monitor {
         var addr = FW_ADDR; var off = 0
         while (off < fw.size) {
             val len = minOf(FW_BLOCK, fw.size - off)
-            if (conn.controlTransfer(0x40, FW_DOWNLOAD, addr ushr 8, 0, fw.copyOfRange(off, off + len), len, 2000) < 0) {
+            val chunk = fw.copyOfRange(off, off + len)
+            // a block now and then isn't taken right after plug-in: try it again before giving up
+            if ((0 until 3).none { conn.controlTransfer(0x40, FW_DOWNLOAD, addr ushr 8, 0, chunk, len, 2000) >= 0 }) {
                 UsbWifi.log("AR9271: firmware upload failed at $off B"); return false
             }
             off += len; addr += len
@@ -460,7 +462,7 @@ object Ar9271Monitor {
                 runCatching { hop(HOP[st.hopIdx]) }
                 val (aps, clients) = frames.live(now, REPORT_MS)
                 onStatus("$chipName · live · $aps access points · $clients devices · ch $curChannel")
-                st.hopAt = now
+                st.hopAt = System.currentTimeMillis() // the dwell starts once the retune is done
             }
         }
         emit(onFrame)

@@ -170,13 +170,13 @@ object Mt7612uMonitor {
                 if (!loadRomPatch(cmdOut, patch, e3, romProtect = chip != 0x7612)) continue
                 if (loadFirmware(cmdOut, fw, e3)) { loaded = true; break }
             }
-            if (!loaded) { onStatus("$chipName: firmware didn't load (replug)"); return }
+            if (!loaded) { onStatus("$chipName: firmware didn't load - unplug the adapter and plug it back in"); return }
 
             // ---- radio ----
             onStatus("$chipName · starting the radio…")
             // after the firmware: DMA idle, then the MAC ready again (as the kernel waits)
             if (!poll(100, 5) { regRd(WPDMA_GLO_CFG) and (WPDMA_TX_DMA_BUSY or WPDMA_RX_DMA_BUSY) == 0 }) UsbWifi.log("MT7612U: DMA still busy after the firmware (continuing)")
-            if (!poll(1000, 5) { regRd(MAC_CSR0).let { it != 0 && it != -1 } }) { onStatus("$chipName: MAC not ready (replug)"); return }
+            if (!poll(1000, 5) { regRd(MAC_CSR0).let { it != 0 && it != -1 } }) { onStatus("$chipName: MAC not ready - unplug the adapter and plug it back in"); return }
             initDma()
             mcuCmd(cmdOut, CMD_FUN_SET_OP, leWords(Q_SELECT, 1), false)
             mcuCmd(cmdOut, CMD_POWER_SAVING_OP, leWords(RADIO_ON, 0), false)
@@ -518,7 +518,7 @@ object Mt7612uMonitor {
                 drainCmdResp()
                 val (aps, clients) = frames.live(now, REPORT_MS)
                 onStatus("$chipName · live · $aps access points · $clients devices · ch ${HOP[st.hopIdx]}")
-                st.hopAt = now
+                st.hopAt = System.currentTimeMillis() // the dwell starts once the retune is done
             }
         }
         emit(onFrame)

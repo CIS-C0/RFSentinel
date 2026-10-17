@@ -112,7 +112,7 @@ object Rtl8822buMonitor {
             // The WiFi function is the vendor-specific interface (combo chips add Bluetooth ones).
             val intf = (0 until device.interfaceCount).map { device.getInterface(it) }
                 .firstOrNull { it.interfaceClass == UsbConstants.USB_CLASS_VENDOR_SPEC } ?: device.getInterface(0)
-            if (!conn.claimInterface(intf, true)) throw IOException("couldn't claim the USB interface")
+            if (!BulkRx.claim(label, conn, intf) { stop }) throw IOException("couldn't claim the USB interface")
             var epIn: UsbEndpoint? = null; var epOut: UsbEndpoint? = null
             for (i in 0 until intf.endpointCount) {
                 val ep = intf.getEndpoint(i)
@@ -185,7 +185,7 @@ object Rtl8822buMonitor {
             val (aps, clients) = frames.live(now, REPORT_MS)
             val band = if (st.channel > 14) "5 GHz" else "2.4 GHz"
             onStatus("${st.label} · live · $aps access points · $clients devices · ch ${st.channel} ($band)")
-            st.hopAt = now
+            st.hopAt = System.currentTimeMillis() // the dwell starts once the retune is done
         }
     }
 

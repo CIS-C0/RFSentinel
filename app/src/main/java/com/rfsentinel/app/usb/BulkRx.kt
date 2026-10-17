@@ -122,6 +122,28 @@ internal object BulkRx {
         }
     }
 
+    /**
+     * Claims [intf], asking again for ~3 s (right after plug-in the system can still hold the
+     * adapter, and without the interface every transfer fails), then clears any stall left on its
+     * bulk endpoints by an earlier session. Linux resets the whole device instead, which apps can't.
+     */
+    fun claim(tag: String, conn: UsbDeviceConnection, intf: android.hardware.usb.UsbInterface, stopped: () -> Boolean = { false }): Boolean {
+        var ok = conn.claimInterface(intf, true)
+        var waits = 0
+        while (!ok && waits < 10 && !stopped()) {
+            try { Thread.sleep(300) } catch (_: InterruptedException) {}
+            waits++; ok = conn.claimInterface(intf, true)
+        }
+        if (!ok) UsbWifi.log("$tag: couldn't claim the USB interface after ${waits * 300} ms (continuing)")
+        else if (waits > 0) UsbWifi.log("$tag: USB interface claimed after ${waits * 300} ms")
+        for (i in 0 until intf.endpointCount) {
+            val ep = intf.getEndpoint(i)
+            if (ep.type == android.hardware.usb.UsbConstants.USB_ENDPOINT_XFER_BULK)
+                conn.controlTransfer(0x02, 0x01, 0, ep.address, null, 0, 1000) // CLEAR_FEATURE(ENDPOINT_HALT)
+        }
+        return ok
+    }
+
     /** The bulk-IN endpoint at [address], else the interface's first bulk-IN endpoint. */
     fun inEndpoint(intf: android.hardware.usb.UsbInterface, address: Int): UsbEndpoint? {
         var first: UsbEndpoint? = null

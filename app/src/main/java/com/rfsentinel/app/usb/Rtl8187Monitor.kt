@@ -89,9 +89,8 @@ object Rtl8187Monitor {
         conn = c; ctlErrors = 0
         try {
             val intf = device.getInterface(0)
-            val claimed = c.claimInterface(intf, true)
+            BulkRx.claim("RTL8187", c, intf) { stop }
             UsbWifi.log("=== RTL8187 bring-up (rtl8187) ===")
-            if (!claimed) UsbWifi.log("RTL8187: couldn't claim the USB interface (continuing)")
             is8187b = (device.vendorId to device.productId) in B_IDS
             val t0 = System.currentTimeMillis()
 
@@ -126,7 +125,7 @@ object Rtl8187Monitor {
                 "TX_CONF 0x%08x, RX EP 0x%02x".format(r32(TX_CONF), rx.address))
 
             onStatus("$chipName · starting radio…")
-            if (!(if (is8187b) initHwB() else initHwL())) { onStatus("$chipName: reset timed out (replug)"); return }
+            if (!(if (is8187b) initHwB() else initHwL())) { onStatus("$chipName: reset timed out - unplug the adapter and plug it back in"); return }
             start()
             tune(HOP[0], txPower = true)
             UsbWifi.log("RTL8187: started in ${System.currentTimeMillis() - t0} ms - RX_CONF 0x%08x TX_CONF 0x%08x CMD 0x%02x CONFIG3 0x%02x ANAPARAM 0x%08x ANAPARAM2 0x%08x, USB errors %d - monitor live ch %d".format(
@@ -516,7 +515,7 @@ object Rtl8187Monitor {
                 runCatching { tune(HOP[st.hopIdx]) }
                 val (aps, clients) = frames.live(now, REPORT_MS)
                 onStatus("$chipName · live · $aps access points · $clients devices · ch ${HOP[st.hopIdx]}")
-                st.hopAt = now
+                st.hopAt = System.currentTimeMillis() // the dwell starts once the retune is done
             }
         }
         emit(onFrame)

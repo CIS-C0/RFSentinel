@@ -95,13 +95,12 @@ object Rt3070Monitor {
         conn = c; ctlErrors = 0
         try {
             val intf = device.getInterface(0)
-            val claimed = c.claimInterface(intf, true)
+            BulkRx.claim("RT3070", c, intf) { stop }
             val rx = BulkRx.inEndpoint(intf, 0x81)
                 ?: run { UsbWifi.log("RT3070: no bulk-IN endpoint"); onStatus("$chipName: no RX endpoint"); return }
             UsbWifi.log("=== RT3070 bring-up (rt2800usb) ===")
-            if (!claimed) UsbWifi.log("RT3070: couldn't claim the USB interface (continuing)")
             val t0 = System.currentTimeMillis()
-            if (!waitCsrReady()) { UsbWifi.log("RT3070: MAC_CSR0 never ready"); onStatus("$chipName: not responding (replug)"); return }
+            if (!waitCsrReady()) { UsbWifi.log("RT3070: MAC_CSR0 never ready"); onStatus("$chipName: not responding - unplug the adapter and plug it back in"); return }
             val csr0 = regRd(MAC_CSR0)
             val rt = csr0 ushr 16; val rev = csr0 and 0xffff
             UsbWifi.log("RT3070: chip RT%04x rev 0x%04x, RX EP=0x%02x".format(rt, rev, rx.address))
@@ -112,10 +111,10 @@ object Rt3070Monitor {
             readEeprom()
 
             onStatus("$chipName · loading firmware…")
-            if (!loadFirmware(ctx)) { onStatus("$chipName: firmware didn't start (replug)"); return }
+            if (!loadFirmware(ctx)) { onStatus("$chipName: firmware didn't start - unplug the adapter and plug it back in"); return }
 
             onStatus("$chipName · starting radio…")
-            if (!enableRadio()) { onStatus("$chipName: radio didn't start (replug)"); return }
+            if (!enableRadio()) { onStatus("$chipName: radio didn't start - unplug the adapter and plug it back in"); return }
             regWr(RX_FILTR_CFG, RX_FILTER_MONITOR)
             tune(HOP[0])
             UsbWifi.log(("RT3070: started in %d ms - SYS_CTRL 0x%08x WPDMA 0x%08x USB_DMA 0x%08x RX_FILTR 0x%08x MAC_STATUS 0x%08x PBF 0x%08x, " +
@@ -201,7 +200,9 @@ object Rt3070Monitor {
             var off = 0 // the RT3070 runs the first 4 KB image
             while (off < FW_LEN) {
                 val len = minOf(CSR_CACHE, FW_LEN - off)
-                if (conn.controlTransfer(OUT_VENDOR, MULTI_WRITE, 0, FIRMWARE_BASE + off, fw.copyOfRange(off, off + len), len, 1000) < 0) {
+                val chunk = fw.copyOfRange(off, off + len)
+                // a write now and then isn't taken right after plug-in: try it again before giving up
+                if ((0 until 3).none { conn.controlTransfer(OUT_VENDOR, MULTI_WRITE, 0, FIRMWARE_BASE + off, chunk, len, 1000) >= 0 }) {
                     UsbWifi.log("RT3070: firmware write failed at $off"); return false
                 }
                 off += len
@@ -439,7 +440,7 @@ object Rt3070Monitor {
                 runCatching { tune(HOP[st.hopIdx]) }
                 val (aps, clients) = frames.live(now, REPORT_MS)
                 onStatus("$chipName · live · $aps access points · $clients devices · ch ${HOP[st.hopIdx]}")
-                st.hopAt = now
+                st.hopAt = System.currentTimeMillis() // the dwell starts once the retune is done
             }
         }
         emit(onFrame)

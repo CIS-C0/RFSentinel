@@ -49,7 +49,7 @@ object Rtl8814auMonitor {
         conn = c
         try {
             val intf = device.getInterface(0)
-            if (!c.claimInterface(intf, true)) UsbWifi.log("RTL8814AU: couldn't claim the USB interface (continuing)")
+            BulkRx.claim("RTL8814AU", c, intf) { stop }
             val rx = BulkRx.inEndpoint(intf, 0x81)
                 ?: run { UsbWifi.log("RTL8814AU: no bulk-IN endpoint"); onStatus("$chipName: no RX endpoint"); return }
             UsbWifi.log("=== RTL8814AU bring-up (8814au) ===")
@@ -62,7 +62,7 @@ object Rtl8814auMonitor {
             w16(Rtl8814auTables.REG_CR, Rtl8814auTables.CR_INIT16)
             val cr = r16(Rtl8814auTables.REG_CR)
             UsbWifi.log("RTL8814AU: power-on %s, REG_CR 0x%04x, RX EP 0x%02x".format(if (powered) "ok" else "poll timed out", cr, rx.address))
-            if (cr == 0xEAEA) { onStatus("$chipName: MAC didn't power on (replug)"); return }
+            if (cr == 0xEAEA) { onStatus("$chipName: MAC didn't power on - unplug the adapter and plug it back in"); return }
             initLlt(); initRqpn()
 
             onStatus("$chipName · loading MAC / BB / RF…")
@@ -211,7 +211,7 @@ object Rtl8814auMonitor {
                 runCatching { tune(HOP[st.hopIdx]) }
                 val (aps, clients) = frames.live(now, REPORT_MS)
                 onStatus("$chipName · live · $aps access points · $clients devices · ch ${HOP[st.hopIdx]}")
-                st.hopAt = now
+                st.hopAt = System.currentTimeMillis() // the dwell starts once the retune is done
             }
         }
         emit(onFrame)

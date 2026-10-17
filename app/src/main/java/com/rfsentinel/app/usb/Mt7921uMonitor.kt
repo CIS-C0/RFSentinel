@@ -139,7 +139,7 @@ object Mt7921uMonitor {
                 UsbWifi.log("MT7921AU: no interface with class ff/ff/ff and 2 bulk IN + 6 bulk OUT endpoints")
                 onStatus("$chipName: WiFi interface not found"); return
             }
-            if (!c.claimInterface(intf, true)) UsbWifi.log("MT7921AU: couldn't claim the USB interface (continuing)")
+            BulkRx.claim("MT7921AU", c, intf) { stop }
             val (ins, outs) = bulkEndpoints(intf)
             epRx = ins[0]; epCmd = outs[0]; epData = outs[1]
             UsbWifi.log("MT7921AU: interface ${intf.id}, bulk IN [${ins.joinToString { "0x%02x".format(it.address) }}] " +
@@ -154,7 +154,7 @@ object Mt7921uMonitor {
             val patch = ctx.assets.open("usbwifi/WIFI_MT7961_patch_mcu_1_2_hdr.bin").use { it.readBytes() }
             val ram = ctx.assets.open("usbwifi/WIFI_RAM_CODE_MT7961_1.bin").use { it.readBytes() }
             val err = bringUp(patch, ram)
-            if (err != null) { onStatus("$chipName: $err (replug)"); return }
+            if (err != null) { onStatus("$chipName: $err - unplug the adapter and plug it back in"); return }
 
             onStatus("$chipName · starting monitor mode…")
             // Monitor: receive everything (other networks, control frames), sniffer on.
