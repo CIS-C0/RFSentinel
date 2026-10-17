@@ -69,6 +69,9 @@ class ScanForegroundService : Service() {
         private const val RADAR_HOLD_MS = 120_000L
         /** "GPS connected" again only after the fix was lost this long. */
         private const val GPS_RECONNECT_MS = 120_000L
+        /** No fused fix this long after asking (precise / balanced): raw GPS and network fill in. */
+        private const val FUSED_SILENT_FAST_MS = 15_000L
+        private const val FUSED_SILENT_MS = 30_000L
 
         private const val TAG = "ScanForegroundService"
         const val ACTION_STOP = "com.rfsentinel.app.action.STOP"
@@ -196,7 +199,29 @@ class ScanForegroundService : Service() {
     /** Radar-detector sound style: last good GPS fix, to say "GPS connected" when it locks or comes back. */
     private var lastGoodGpsAt = 0L
 
+    /**
+     * Fused location can stay silent on a phone without Google's location services: if it hasn't
+     * given a single fix by [backstopCheck], raw GPS / network fill in until it does.
+     */
+    private var fusedEverFixed = false
+    private var backstopOn = false
+    private val backstopListener = LocationListenerCompat { onFix(it) }
+    private val backstopCheck = Runnable { engageBackstop() }
+
     private val locationListener = LocationListenerCompat {
+        if (it.provider == LocationManager.FUSED_PROVIDER && !fusedEverFixed) {
+            fusedEverFixed = true
+            locatingHandler.removeCallbacks(backstopCheck)
+            if (backstopOn) {
+                Log.i(TAG, "Fused location is giving fixes: raw GPS backstop off")
+                runCatching { (getSystemService(LOCATION_SERVICE) as LocationManager).removeUpdates(backstopListener) }
+                backstopOn = false
+            }
+        }
+        onFix(it)
+    }
+
+    private fun onFix(it: Location) {
         if (it.provider == LocationManager.GPS_PROVIDER && it.hasAccuracy() && it.accuracy <= 50f) {
             val now = System.currentTimeMillis()
             if (now - lastGoodGpsAt > GPS_RECONNECT_MS) AlertPlayer.gpsConnected(this)
@@ -234,6 +259,7 @@ class ScanForegroundService : Service() {
         bleEngine = BleScanEngine(this) { r ->
             val t = System.currentTimeMillis()
             lastBleResultAt = t
+            bleResults.incrementAndGet()
             bleWatchdogRestartAt?.let { onRecovered("Bluetooth", it, t); bleWatchdogRestartAt = null; bleSilenceMs = BLE_SILENCE_MS }
             pipeline.post { AdvertFactory.fromBle(r)?.let(::processPhone) }
         }
@@ -443,44 +469,72 @@ class ScanForegroundService : Service() {
         // (at highway speed a 20 s interval could skip right past one).
         val fast = TripRecorder.isRecording || knownAlprActive() || mapVisible || locating
         val mode = when { locating -> 2; fast -> 1; else -> 0 }
-        val intervalMs = if (locating) 1_000L else 3_000L
         val lm = getSystemService(LOCATION_SERVICE) as LocationManager
         if (locationListening && (!wanted || mode != locationMode)) {
-            lm.removeUpdates(locationListener)
-            locationListening = false
+            stopLocationUpdates(lm)
         }
         if (wanted && !locationListening) {
             locationMode = mode
-            val providers = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                lm.hasProvider(LocationManager.FUSED_PROVIDER)
-            ) {
-                listOf(LocationManager.FUSED_PROVIDER)
-            } else {
-                listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).filter { lm.isProviderEnabled(it) }
-            }
-            providers.forEach { p ->
-                try {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        // Fused location defaults to "balanced" (often WiFi/cell, ~100 m, and
-                        // paused while it thinks you're stationary): too coarse to warn about a
-                        // camera a few hundred metres ahead. Fast mode asks for real GPS.
-                        val request = android.location.LocationRequest.Builder(if (fast) intervalMs else 20_000L)
-                            .setQuality(
-                                if (fast) android.location.LocationRequest.QUALITY_HIGH_ACCURACY
-                                else android.location.LocationRequest.QUALITY_BALANCED_POWER_ACCURACY
-                            )
-                            .setMinUpdateDistanceMeters(if (locating) 0f else if (fast) 5f else 25f)
-                            .build()
-                        lm.requestLocationUpdates(p, request, mainExecutor, locationListener)
-                    } else if (fast) lm.requestLocationUpdates(p, intervalMs, if (locating) 0f else 5f, locationListener, Looper.getMainLooper())
-                    else lm.requestLocationUpdates(p, 20_000L, 25f, locationListener, Looper.getMainLooper())
-                    lm.getLastKnownLocation(p)?.let { if (lastLocation == null) lastLocation = it }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Location provider $p unavailable", e)
+            val fused = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && lm.hasProvider(LocationManager.FUSED_PROVIDER)
+            if (fused) {
+                requestFixes(lm, listOf(LocationManager.FUSED_PROVIDER), locationListener)
+                when {
+                    backstopOn -> requestFixes(lm, rawProviders(lm), backstopListener)
+                    // The first fused fix can take a while on a balanced, 20 s request.
+                    !fusedEverFixed -> locatingHandler.postDelayed(backstopCheck, if (fast) FUSED_SILENT_FAST_MS else FUSED_SILENT_MS)
                 }
-            }
+            } else requestFixes(lm, rawProviders(lm), locationListener)
             locationListening = true
         }
+    }
+
+    private fun rawProviders(lm: LocationManager) =
+        listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).filter { lm.isProviderEnabled(it) }
+
+    @SuppressLint("MissingPermission") // only called from updateLocationUpdates(), which checks it
+    private fun requestFixes(lm: LocationManager, providers: List<String>, listener: LocationListenerCompat) {
+        val locating = locationMode == 2
+        val fast = locationMode >= 1
+        val intervalMs = if (locating) 1_000L else 3_000L
+        providers.forEach { p ->
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    // Fused location defaults to "balanced" (often WiFi/cell, ~100 m, and
+                    // paused while it thinks you're stationary): too coarse to warn about a
+                    // camera a few hundred metres ahead. Fast mode asks for real GPS.
+                    val request = android.location.LocationRequest.Builder(if (fast) intervalMs else 20_000L)
+                        .setQuality(
+                            if (fast) android.location.LocationRequest.QUALITY_HIGH_ACCURACY
+                            else android.location.LocationRequest.QUALITY_BALANCED_POWER_ACCURACY
+                        )
+                        .setMinUpdateDistanceMeters(if (locating) 0f else if (fast) 5f else 25f)
+                        .build()
+                    lm.requestLocationUpdates(p, request, mainExecutor, listener)
+                } else if (fast) lm.requestLocationUpdates(p, intervalMs, if (locating) 0f else 5f, listener, Looper.getMainLooper())
+                else lm.requestLocationUpdates(p, 20_000L, 25f, listener, Looper.getMainLooper())
+                lm.getLastKnownLocation(p)?.let { if (lastLocation == null) lastLocation = it }
+            } catch (e: Exception) {
+                Log.w(TAG, "Location provider $p unavailable", e)
+            }
+        }
+    }
+
+    /** No fused fix yet: GPS and network join in (fused stays on, and takes over at its first fix). */
+    private fun engageBackstop() {
+        if (!locationListening || fusedEverFixed || backstopOn || !hasFineLocation()) return
+        val lm = getSystemService(LOCATION_SERVICE) as LocationManager
+        val raw = rawProviders(lm)
+        if (raw.isEmpty()) { Log.w(TAG, "No fused fix yet, and GPS and network location are both off: nothing to fall back on"); return }
+        Log.i(TAG, "No fused fix yet: raw ${raw.joinToString("+")} location on as a backstop")
+        backstopOn = true
+        requestFixes(lm, raw, backstopListener)
+    }
+
+    private fun stopLocationUpdates(lm: LocationManager) {
+        locatingHandler.removeCallbacks(backstopCheck)
+        runCatching { lm.removeUpdates(locationListener) }
+        runCatching { lm.removeUpdates(backstopListener) } // backstopOn stays: re-requested with the next mode
+        locationListening = false
     }
 
     // ---- Pipeline -------------------------------------------------------------
@@ -858,6 +912,11 @@ class ScanForegroundService : Service() {
     /** Silence allowed before a restart; doubles after each restart that brought nothing back. */
     @Volatile private var bleSilenceMs = BLE_SILENCE_MS
     @Volatile private var wifiSilenceMs = WIFI_SILENCE_MS
+    /** Bluetooth results since the last watchdog tick, for [bleRate]. */
+    private val bleResults = java.util.concurrent.atomic.AtomicInteger()
+    private val bleRate = BleRateWatch()
+    private var rateTickAt = 0L
+    private var wasInteractive = false
 
     /** Results came back after a restart: the scanner really was stuck, so say so. */
     private fun onRecovered(which: String, restartAt: Long, now: Long) {
@@ -889,6 +948,19 @@ class ScanForegroundService : Service() {
             bleWatchdogRestartAt = now
             android.os.Handler(Looper.getMainLooper()).post { bleEngine.stop(); startBle() }
         }
+        // Throttled rather than silent: results still trickle in, at a tenth of the usual rate.
+        val count = bleResults.getAndSet(0)
+        val span = now - rateTickAt
+        rateTickAt = now
+        if (interactive && wasInteractive && adapterOn && Prefs.bleEnabled(this) && bleEngine.isScanning() &&
+            bleWatchdogRestartAt != now // already restarted for silence
+        ) {
+            if (bleRate.tick(count, span, now)) {
+                Log.w(TAG, "Watchdog: Bluetooth results down to %.1f/s - restarting the scan".format(count * 1000.0 / span))
+                android.os.Handler(Looper.getMainLooper()).post { bleEngine.stop(); startBle() }
+            }
+        } else bleRate.reset()
+        wasInteractive = interactive
         val wifiOn = runCatching { (applicationContext.getSystemService(WIFI_SERVICE) as android.net.wifi.WifiManager).isScanAlwaysAvailable ||
             (applicationContext.getSystemService(WIFI_SERVICE) as android.net.wifi.WifiManager).isWifiEnabled }.getOrDefault(false)
         if (wifiOn && Prefs.wifiEnabled(this) &&
@@ -1298,10 +1370,7 @@ class ScanForegroundService : Service() {
             try { unregisterReceiver(btStateReceiver) } catch (_: Exception) {}
             btStateReceiverRegistered = false
         }
-        if (locationListening) {
-            runCatching { (getSystemService(LOCATION_SERVICE) as LocationManager).removeUpdates(locationListener) }
-            locationListening = false
-        }
+        if (locationListening) stopLocationUpdates(getSystemService(LOCATION_SERVICE) as LocationManager)
         AlertPlayer.stopIntro()
         serviceScope.cancel()
         pipelineThread.quitSafely()
