@@ -40,7 +40,7 @@
 <td align="center" width="50%"><img src="docs/screenshots/mapbox-3d.gif" width="300" alt="Mapbox 3D map: list and map side by side while driving, then the full-screen 3D view with buildings and a 3D car turning with the road (Dark theme, demo data)" /></td>
 </tr>
 <tr>
-<td align="center"><sub><b>The whole app in 40 seconds</b><br/>live list · why it's flagged · radar · 3D driving map</sub></td>
+<td align="center"><sub><b>Main features in 40 seconds</b><br/>live list · why it's flagged · radar · 3D driving map</sub></td>
 <td align="center"><sub><b>3D driving view</b><br/>list + map split, then full screen (Mapbox map: Settings → Map → Map provider)</sub></td>
 </tr>
 </table>
