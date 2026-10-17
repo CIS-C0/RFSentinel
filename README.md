@@ -41,7 +41,7 @@
 </tr>
 <tr>
 <td align="center"><sub><b>The whole app in 40 seconds</b><br/>live list · why it's flagged · radar · 3D driving map</sub></td>
-<td align="center"><sub><b>3D driving view</b><br/>list + map split, then full screen (Mapbox map, needs a Mapbox token)</sub></td>
+<td align="center"><sub><b>3D driving view</b><br/>list + map split, then full screen (Mapbox map: Settings → Map → Map provider)</sub></td>
 </tr>
 </table>
 
