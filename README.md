@@ -34,17 +34,30 @@
   <a href="https://discord.gg/NDTjn8HMGq">Discord</a></b>
 </p>
 
+<table align="center">
+<tr>
+<td align="center" width="50%"><img src="docs/screenshots/demo-walkthrough.gif" width="300" alt="RF Sentinel walkthrough: live list of flagged devices, why an Axon body camera is flagged, the radar, the map pane and the full-screen 3D driving map (DedSec theme, demo data)" /></td>
+<td align="center" width="50%"><img src="docs/screenshots/mapbox-3d.gif" width="300" alt="Mapbox 3D map: list and map side by side while driving, then the full-screen 3D view with buildings and a 3D car turning with the road (Dark theme, demo data)" /></td>
+</tr>
+<tr>
+<td align="center"><sub><b>The whole app in 40 seconds</b><br/>live list · why it's flagged · radar · 3D driving map</sub></td>
+<td align="center"><sub><b>3D driving view</b><br/>list + map split, then full screen (Mapbox map, needs a Mapbox token)</sub></td>
+</tr>
+</table>
+
 <p align="center">
-  <img src="docs/screenshots/list-dedsec.jpg" width="260" alt="Live list with flagged body camera, Flock camera and patrol-vehicle gear (DedSec theme, demo data)" />
+  <img src="docs/screenshots/main-fsociety.jpg" width="200" alt="Main screen with the live list and the map together (fsociety theme, demo data)" />
   &nbsp;
-  <img src="docs/screenshots/detail-axon.jpg" width="260" alt="Device details: why an Axon body camera is flagged, with evidence and sources (demo data)" />
+  <img src="docs/screenshots/details-night-drive.jpg" width="200" alt="Device details: why an Axon body camera is flagged, with evidence and sources (Night Drive theme, demo data)" />
   &nbsp;
-  <img src="docs/screenshots/list-fsociety.jpg" width="260" alt="Live list in the fsociety theme (demo data)" />
+  <img src="docs/screenshots/map-3d-synthwave.jpg" width="200" alt="Full-screen 3D map with the car, flagged devices and known cameras (Synthwave theme, demo data)" />
 </p>
 <p align="center">
-  <img src="docs/screenshots/android-auto/home.jpg" width="560" alt="Android Auto home: threat headline, recent alerts and the live map" />
+  <img src="docs/screenshots/split-map-dark.jpg" width="200" alt="Split view: map above the live list (Dark theme, demo data)" />
+  &nbsp;
+  <img src="docs/screenshots/split-radar-dark.jpg" width="200" alt="Split view: radar above the live list (Dark theme, demo data)" />
 </p>
-<p align="center"><sub>Live list (DedSec theme), why a device is flagged, the fsociety theme, and the Android Auto home screen. Demo data. <a href="#themes">All 13 themes</a> · <a href="#android-auto">Android Auto</a></sub></p>
+<p align="center"><sub>List + map (fsociety) · why a device is flagged (Night Drive) · 3D map (Synthwave) · map and radar split views (Dark). Demo data only.<br/><a href="#themes">All 13 themes</a> · <a href="#android-auto">Android Auto</a></sub></p>
 
 <p align="center">
   <a href="https://github.com/CIS-C0/RFSentinel/stargazers"><img src="docs/star-banner.svg" width="560" alt="Like RF Sentinel? Give it a star on GitHub - it's free, takes one click and helps others find it" /></a>
@@ -85,6 +98,30 @@
 
 ## What it detects
 
+<table>
+<tr>
+<td align="center" width="25%"><b>Body cameras</b><br/><sub>Axon, Motorola, Digital Ally...</sub></td>
+<td align="center" width="25%"><b>Plate readers</b><br/><sub>Flock Safety, Genetec, Raven audio</sub></td>
+<td align="center" width="25%"><b>Patrol vehicles</b><br/><sub>police gear travelling together</sub></td>
+<td align="center" width="25%"><b>Speed &amp; red-light cameras</b><br/><sub>warned ~30 s ahead</sub></td>
+</tr>
+<tr>
+<td align="center"><b>Trackers following you</b><br/><sub>AirTag, Find Hub, SmartTag, Tile</sub></td>
+<td align="center"><b>Drones</b><br/><sub>Remote ID with operator position</sub></td>
+<td align="center"><b>Camera glasses</b><br/><sub>Ray-Ban Meta, Spectacles...</sub></td>
+<td align="center"><b>Fake cell towers</b><br/><sub>IMSI-catcher signs</sub></td>
+</tr>
+<tr>
+<td align="center"><b>Police aircraft</b><br/><sub>ADS-B, opt-in</sub></td>
+<td align="center"><b>Waze reports</b><br/><sub>opt-in</sub></td>
+<td align="center"><b>Card skimmers</b><br/><sub>gas pumps, ATMs</sub></td>
+<td align="center"><b>Hacking tools &amp; deauth attacks</b><br/><sub>Flipper, Pineapple, evil twins</sub></td>
+</tr>
+</table>
+
+<details>
+<summary><b>Every category, with examples and how each one is identified</b></summary>
+
 | Category | Examples | Identified by |
 |---|---|---|
 | **Body cameras** | Axon, Motorola / WatchGuard, Digital Ally, Zepcam, Vievu, Utility, Getac, in-car video | `BWCDEVICE` payload tag, TASER company ID `0x034D`, Axon UUIDs `0xFC81` / `0xFE6B` / `0xFE6C`, IEEE prefixes such as `00:25:DF` |
@@ -105,13 +142,17 @@
 | **Action & hidden cameras** *(off by default)* | GoPro, Insta360, DJI Osmo, YI, SJCAM, AKASO, Garmin VIRB, Ricoh THETA, Kodak PIXPRO, Sony action cams, Apeman, Campark...; WiFi spy cameras in setup mode (V380, LookCam Pro, TinyCam Pro, HDSmartIPC) | GoPro company ID `0x02F2` / UUIDs `0xFEA5` `0xFEA6`, Insta360 (Arashi Vision) `0x10D7` / `0xFC30`, IEEE blocks, names |
 | **Network cameras** *(off by default)* | Arlo, Blink, Ezviz, Wyze, Ring, Verkada, Avigilon Alta, Axis, Hanwha, Bosch, FLIR, March Networks, GeoVision, Mobotix, Sunell, IDIS... | SSIDs and IEEE blocks |
 
+</details>
+
 Every match shows its evidence, its source and a confidence tier: **weak** (< 50),
 **probable** (50-79) or **strong** (80+). Known cameras also raise the threat
 headline as you get closer (strong within 50 m, fading out by 500 m). Full reference: [docs/SIGNATURES.md](docs/SIGNATURES.md).
 
 ## Features
 
-**Detection**
+<details open>
+<summary><b>Detection</b></summary>
+
 - Payload, name, UUID and company-ID signatures plus IEEE vendor prefixes (MA-L / MA-M / MA-S), each with a cited source and a confidence
 - **Evidence fusion:** independent matches on one device strengthen each other (noisy-OR, capped at 90)
 - **Patrol-vehicle detection:** police-type gear whose signals rise and fall together is grouped as a possible police vehicle
@@ -126,13 +167,21 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 - Editable **watchlist** (exact addresses, prefixes, name / vendor rules) with Global, Canada, US, France, UK, Portugal, Germany, Spain and Italy presets; per-category on/off switches
 - Bluetooth 5 extended advertising and LE Coded (long range) where the phone supports it
 
-**Known cameras**
+</details>
+
+<details>
+<summary><b>Known cameras</b></summary>
+
 - Plate-reader, speed and red-light cameras from OpenStreetMap appear on the map by themselves and are kept offline, refreshed weekly
 - Warned as you approach one, even cellular-only cameras no radio can detect
 - Pre-download everything within a radius you set (10-200 km), or every mapped Flock camera in the US and Canada (~143,000)
 - Tap a camera to silence its alerts for good
 
-**Alerts**
+</details>
+
+<details>
+<summary><b>Alerts</b></summary>
+
 - Sound, vibration pattern per tier (1 / 2 / 3 pulses) and spoken announcements through the phone's own speech engine (prioritised, voice and speed pickers)
 - **Radar-detector beeps** option: after an alert, beeps speed up as the flagged device gets closer
 - **Short spoken alerts** option ("Body cam", "Police car", "Speed camera, 50")
@@ -144,19 +193,31 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 - Android Auto alert cards say what it is, how sure, about how far and how many more are flagged ("BODY CAM · strong · ~40 m · near (-58 dBm) · +2 more flagged")
 - Notification, Quick Settings tile and home-screen widget
 
-**Map & history**
+</details>
+
+<details>
+<summary><b>Map &amp; history</b></summary>
+
 - Vector map ([MapLibre](https://maplibre.org) with [OpenFreeMap](https://openfreemap.org), OpenStreetMap data; light and a readable night map with shops, landmarks, one-way arrows and highway shields; optional [Mapbox](https://www.mapbox.com) map) with your GPS trace and every device pinned where its signal peaked, flagged devices at their pinpointed spot with its circle (tap a spot to list everything heard there), the same filter chips as the list (including Waze, which draws reports as coloured dots by type), self-centering
 - Optional **cell tower layer** (or the map's **Cells** chip): every tower seen while scanning, at the spot where its signal was strongest
 - **Record traces** of your route and the devices along it, with the screen off (with the network names each device asked for, when a USB adapter or Marauder board is plugged in)
 - **History map & timeline:** heatmap of where flagged equipment showed up, and when (hour of day, day of week)
 - **Device history (search):** every device the app remembers, in range or not, searchable by address (with or without colons), name, vendor, type or your note, filtered to favorites, flagged before or seen today; tap one for its details page. History is kept as long as you set in Settings → Data
 
-**Driving**
+</details>
+
+<details>
+<summary><b>Driving</b></summary>
+
 - **Android Auto** app: threat headline, next camera ahead, recent alerts, filtered device lists, cell towers, hardware status, live map with cameras and drones, OpenStreetMap turn-by-turn navigation, alerts through the car speakers with Mute 30 min / Ignore buttons
 - **Starts by itself in the car** (your car's Bluetooth or Android Auto) and stops when you leave
 - Night Drive red-only theme; screen stays on while charging
 
-**Hardware**
+</details>
+
+<details>
+<summary><b>Hardware</b></summary>
+
 - ESP32 boards over USB OTG (OUI-Spy, GhostESP, Marauder incl. dual-band ESP32-C5 boards, or through a Flipper Zero) or Bluetooth (OUI-SPY App-Controlled) add their detections and extend range
 - **USB WiFi adapters in monitor mode** over OTG, no root: RTL8811AU / RTL8821AU (e.g. ALFA AWUS036ACS, 2.4 GHz; 5 GHz experimental, Settings → External hardware), **RTL8812AU** (e.g. ALFA AWUS036ACH, 2.4 + 5 GHz, experimental), **RTL8812BU / RTL8822BU** (2.4 + 5 GHz, e.g. TP-Link Archer T3U, Wise Tiger AC1200), **RTL8814AU** (ALFA AWUS1900, 2.4 + 5 GHz), **MT7612U** (ALFA AWUS036ACM, 2.4 + 5 GHz), **MT7921AU** (ALFA AWUS036AXML, WiFi 6E: 2.4 + 5 + **6 GHz**, experimental), **RTL8187** (ALFA AWUS036H), **RT3070** (ALFA AWUS036NH / NEH) and, experimental, **AR9271** (ALFA AWUS036NHA). No Android scan limit, longer range, and **client devices** (laptops, phones, cameras connected to a network) the phone's WiFi scan can't see. Single-antenna dongles are detected and handled automatically
 - **Requested networks:** the WiFi names nearby devices ask for (probe requests), from a USB adapter or a Marauder board, in an optional list; **watch** a name to get an alert whenever any device asks for it
@@ -164,7 +225,11 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 - The ALFA AWUS036ACS's light blinks with received traffic (Settings → External hardware switches it off, for the adapters whose light the app can control)
 - **More from every frame:** WPS maker / model / device name, a **probe fingerprint** that survives MAC randomization (watchable: "every device of this type"), and the real name of **hidden networks** when a device joins them
 
-**Interface**
+</details>
+
+<details>
+<summary><b>Interface</b></summary>
+
 - Live list and radar view, filter chips with live counts (flagged, trackers, drones, favorites, new, Bluetooth, WiFi, cells, Waze, external hardware), search; Waze reports in range show nearest first with their exact distance and direction from you (ahead / behind / left / right while driving), and flash at the top once they reach your alert threshold; pull the list down (or use the menu) to check Waze right now, and the Waze status screen shows what is sent and when
 - **Tools** (wrench button next to the List / Radar / Map toggle): **Cell towers** (serving and neighbour cells with network, IDs, channel and signal, plus every tower seen while scanning), **WiFi channels** and **WiFi spectrum** analyzers for 2.4 / 5 / 6 GHz
 - **Cell towers in the live list:** the serving cell and its neighbours appear under *All*, after the devices
@@ -177,12 +242,18 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 - **Theme maker:** build your own theme - an accent colour the whole palette grows from (the way Material You does), light, dark or pure black, a font (or your own .ttf / .otf), a banner picture, the animated home-screen header with your title, and your own map marker. Export a theme as a file; importing one lets you tick which parts to take (colours, font, banner, header, marker), into a new theme or into one of yours
 - **Map marker:** an arrow, chevron or one of 13 cars and bikes in 16 colours and any size, in place of the plain dot
 
-**Data & privacy**
+</details>
+
+<details>
+<summary><b>Data &amp; privacy</b></summary>
+
 - Everything stays on the phone; export as CSV, JSON, KML, GPX or GeoJSON
 - **Back up and restore settings** (Settings → Data): one file with your settings, watchlist rules, Home / Work / starred places, floating-window positions and custom themes; restore asks which of those to take. API keys and the "I accept the risk" choices are never in the file
 - **Device history export and import** (Device history menu, or Settings → Data): export every remembered device, import a file from another phone or an earlier export - devices already known are merged, not duplicated
 - **Report unknown device:** a privacy-safe signature (no full address, serials, location or times) to help add new equipment
 - No accounts, no cloud, no analytics
+
+</details>
 
 ## Quick start
 
@@ -301,6 +372,9 @@ the raw advertisement.
 
 ### Navigation
 
+<details>
+<summary>Search, routes round cameras, guidance, spoken directions, and which servers see what</summary>
+
 Turn-by-turn directions on the map, with your scanner running alongside.
 
 - **Where to?** The magnifier button on the map searches places and addresses as you type: your own
@@ -349,6 +423,8 @@ Turn-by-turn directions on the map, with your scanner running alongside.
   route where known cameras are (the road of each, nothing else about them) to the route question. Looking for petrol, food and the like asks OpenStreetMap's
   Overpass servers (the same ones as the camera downloads) for that kind of place around you - your position
   rounded to about 1 km, or the road ahead as points rounded to about 200 m.
+
+</details>
 
 ### Export
 
@@ -416,7 +492,12 @@ A driver-safe, template-based Android Auto app:
   to build shows a short message instead of closing the app.
 
 **In a real car, Android Auto only shows apps like this one when they come
-from a trusted store.** Google lets apps built with its Car App Library (as
+from a trusted store.**
+
+<details>
+<summary>Why the GitHub APK's car screens need the Desktop Head Unit, and how to use it in a real car anyway</summary>
+
+Google lets apps built with its Car App Library (as
 RF Sentinel is) run in a real car only when they're installed from Google Play
 or ONE store, and Android Auto's **Unknown sources** developer setting doesn't
 cover them ([Google's testing guide](https://developer.android.com/training/cars/testing#real-vehicles)).
@@ -440,6 +521,8 @@ setting does cover. Android Auto settings → tap **Version** ten times →
 If RF Sentinel is missing from the car's launcher, tick it under
 **Customize launcher**. The live map needs the full car app, so it stays on
 the Desktop Head Unit.
+
+</details>
 
 ## ESP32 boards (optional)
 
@@ -483,6 +566,9 @@ only. The board's UniPwn, PCAP and Foxhunter engines are never used.
 
 ### USB WiFi adapter (monitor mode)
 
+<details>
+<summary>Supported chips, what the adapter hears, and the log</summary>
+
 Plug a supported USB WiFi adapter into the phone with an OTG cable while
 scanning and allow USB access on the prompt. RF Sentinel drives it directly
 over Android's USB host API (no root, no kernel driver), puts it in
@@ -518,7 +604,12 @@ compares both paths on the first seconds of traffic and moves 2.4 GHz reception
 to the one with the antenna (about 30 dB better on the dongle we tested - more
 than Realtek's own Windows driver gets from it).
 
+</details>
+
 ### RTL-SDR: two-way radio transmitting nearby
+
+<details>
+<summary>Bands, how a nearby transmitter is told apart, settings and requested networks</summary>
 
 Plug an RTL-SDR dongle (R820T / R820T2 / R860 tuner, e.g. RTL-SDR Blog V3, or the
 RTL-SDR Blog V4) into the phone with an OTG cable while scanning. RF Sentinel
@@ -572,6 +663,8 @@ device of this type", even with random addresses), and hidden networks show
 their real name once a device joins them. Built in: Axon Fleet in-car network
 names ("Axon12-5g", vehicle number + "-5g") and Cradlepoint vehicle routers on
 their default names.
+
+</details>
 
 ## Themes
 
