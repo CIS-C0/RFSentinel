@@ -1,6 +1,7 @@
 package com.rfsentinel.app.ui
 
 import android.content.Context
+import android.content.pm.PackageManager
 import com.rfsentinel.app.util.Prefs
 import org.maplibre.android.RenderingEngine
 
@@ -53,8 +54,15 @@ internal object MapSafety {
     /** The OpenFreeMap map has been told to use OpenGL, not Vulkan. */
     fun openGl(context: Context): Boolean = sp(context).getBoolean(OPENGL, false)
 
-    /** The renderer MapLibre must use, or null to let it choose (Vulkan where the phone has it, else OpenGL). */
-    fun renderer(context: Context): RenderingEngine.Type? = if (openGl(context)) RenderingEngine.Type.OPENGL else null
+    /**
+     * The renderer MapLibre must use, or null to let it choose (Vulkan). A phone without Vulkan gets OpenGL from the
+     * start: MapLibre does not fall back by itself, it throws "No Vulkan compatible GPU found" and the app closes once.
+     */
+    fun renderer(context: Context): RenderingEngine.Type? =
+        if (openGl(context) || !hasVulkan(context)) RenderingEngine.Type.OPENGL else null
+
+    private fun hasVulkan(context: Context): Boolean =
+        context.packageManager.hasSystemFeature(PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL)
 
     /**
      * If the last start-up never finished: forgets the mark and counts it. The first time for the OpenFreeMap map

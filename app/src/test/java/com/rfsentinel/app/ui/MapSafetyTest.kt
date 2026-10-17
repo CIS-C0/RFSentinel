@@ -2,6 +2,7 @@ package com.rfsentinel.app.ui
 
 import android.app.Application
 import android.content.Context
+import android.content.pm.PackageManager
 import androidx.test.core.app.ApplicationProvider
 import com.rfsentinel.app.util.Prefs
 import org.junit.Assert.assertEquals
@@ -13,6 +14,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.maplibre.android.RenderingEngine
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /**
@@ -30,6 +32,16 @@ class MapSafetyTest {
         ctx.getSharedPreferences("map_safety", Context.MODE_PRIVATE).edit().clear().commit()
         MapSafety.live = false
         Prefs.setViewPanes(ctx, setOf("map", "list"))
+        vulkan(true)
+    }
+
+    private fun vulkan(has: Boolean) = shadowOf(ctx.packageManager).setSystemFeature(PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL, has)
+
+    @Test
+    fun aPhoneWithoutVulkanStartsOnOpenGl() {
+        vulkan(false)
+        assertEquals("no crash first: MapLibre would not fall back by itself", RenderingEngine.Type.OPENGL, MapSafety.renderer(ctx))
+        assertEquals(MapSafety.Recovery.NONE, MapSafety.recover(ctx))
     }
 
     /** The app starts again after dying: nothing is live in the new process. */
