@@ -339,7 +339,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
                 "opacity" to if (com.rfsentinel.app.alpr.IgnoredCameras.contains(activity, c.osmId)) 0.35 else 1.0)
         })
         set(CAM_CONES, cams.mapNotNull { c ->
-            val dir = c.direction ?: return@mapNotNull null
+            val dir = com.rfsentinel.app.alpr.CameraDirections.of(activity, c) ?: return@mapNotNull null
             val faded = com.rfsentinel.app.alpr.IgnoredCameras.contains(activity, c.osmId)
             GeoJson.feature(GeoJson.polygon(MapGeo.wedge(c.lat, c.lon, dir.toDouble(), CAMERA_CONE_DEG, CAMERA_CONE_M)),
                 "color" to hex(MapIcons.cameraColor(c.type)), "opacity" to if (faded) 0.08 else 0.25)

@@ -126,4 +126,11 @@ class KnownCamerasTest {
         assertTrue(KnownCameras.watchesYourWay(cam(null), 0.0))
         assertTrue(KnownCameras.watchesYourWay(cam(90), null))
     }
+
+    @Test
+    fun aDirectionYouSetCountsLikeAMappedOne() {
+        val cam = KnownCamera("n2", 10.5, -20.5, null, null, null)
+        assertFalse(KnownCameras.watchesYourWay(cam, 0.0, direction = 90))
+        assertEquals(mapOf("node/1" to 90, "way/2" to 315), CameraDirections.parse(setOf("node/1=90", "way/2=315", "bad", "node/3=400")))
+    }
 }

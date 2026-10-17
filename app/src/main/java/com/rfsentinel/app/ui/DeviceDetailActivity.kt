@@ -256,7 +256,8 @@ class DeviceDetailActivity : AppCompatActivity() {
                     " (same for every device of this model / OS - Watchlist can watch it)"
             }
             r.skeleton?.let { sk ->
-                id += "Probe shape" to "%08x".format(sk) + (com.rfsentinel.app.detect.SignatureEngine.probeShapeNote(sk)?.let { " · $it" } ?: "")
+                id += "Probe shape" to "%08x".format(sk) + (com.rfsentinel.app.detect.SignatureEngine.probeShapeNote(sk)?.let { " · $it" } ?: "") +
+                    if (OuiWatchlist.isFingerprintWatched(com.rfsentinel.app.usb.ProbeIntel.shapeKey(sk))) " · on your watchlist" else ""
             }
             if (r.probed.isNotEmpty()) id += "Networks it asked for" to r.probed.reversed().joinToString(", ")
         }

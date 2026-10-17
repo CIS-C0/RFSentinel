@@ -118,6 +118,13 @@ object DeviceActions {
         }
         // A probe fingerprint (USB adapter) marks the device model / OS, even across random addresses.
         val fp = com.rfsentinel.app.usb.ProbeIntel.of(mac)?.fingerprint
+        // FlipDeFlock's coarser probe shape: also survives random addresses, but many phones share one.
+        val shape = com.rfsentinel.app.usb.ProbeIntel.of(mac)?.skeleton?.let { com.rfsentinel.app.usb.ProbeIntel.shapeKey(it) }
+        if (shape != null) {
+            b.scopeShape.visibility = View.VISIBLE
+            b.scopeShape.text = "Every device whose probe requests are built the same way (${shape.removePrefix("shape-")}; " +
+                "coarse: many phones share a shape)"
+        }
         if (fp != null) {
             b.scopeFingerprint.visibility = View.VISIBLE
             b.scopeFingerprint.text = "Every device of this type (probe fingerprint $fp)"
@@ -131,9 +138,16 @@ object DeviceActions {
             .setPositiveButton("Add") { _, _ ->
                 val wholePrefix = b.scopePrefix.isChecked
                 val byFingerprint = fp != null && b.scopeFingerprint.isChecked
-                val key = when { byFingerprint -> OuiEntry.FINGERPRINT + fp; wholePrefix -> oui; else -> mac }
+                val byShape = shape != null && b.scopeShape.isChecked
+                val key = when {
+                    byShape -> OuiEntry.FINGERPRINT + shape; byFingerprint -> OuiEntry.FINGERPRINT + fp
+                    wholePrefix -> oui; else -> mac
+                }
                 val label = b.labelInput.text.toString().trim().ifEmpty {
-                    when { byFingerprint -> "Device type $fp"; wholePrefix -> "Custom prefix $oui"; else -> "Custom device $mac" }
+                    when {
+                        byShape -> "Probe shape ${shape!!.removePrefix("shape-")}"; byFingerprint -> "Device type $fp"
+                        wholePrefix -> "Custom prefix $oui"; else -> "Custom device $mac"
+                    }
                 }
                 OuiWatchlist.addCustomEntry(activity, OuiEntry(key, label, "user-added from live list", "custom"))
                 toast(activity, "Added $key to the watchlist")

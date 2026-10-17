@@ -128,7 +128,8 @@ object CarUi {
         val me = currentLocation(context) ?: return null
         val moving = me.hasBearing() && me.hasSpeed() && me.speed > 2f
         return com.rfsentinel.app.alpr.KnownCameras.ahead(
-            cams, me.latitude, me.longitude, if (moving) me.bearing else null
+            cams, me.latitude, me.longitude, if (moving) me.bearing else null,
+            directionOf = { com.rfsentinel.app.alpr.CameraDirections.of(context, it) }
         ) { com.rfsentinel.app.alpr.IgnoredCameras.contains(context, it.osmId) }
     }
 

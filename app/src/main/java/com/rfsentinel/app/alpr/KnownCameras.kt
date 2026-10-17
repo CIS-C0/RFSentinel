@@ -208,11 +208,12 @@ object KnownCameras {
      */
     fun ahead(
         cameras: List<KnownCamera>, lat: Double, lon: Double, bearingDeg: Float?,
-        maxM: Double = 3_000.0, coneDeg: Double = 45.0, skip: (KnownCamera) -> Boolean = { false }
+        maxM: Double = 3_000.0, coneDeg: Double = 45.0, directionOf: (KnownCamera) -> Int? = { it.direction },
+        skip: (KnownCamera) -> Boolean = { false }
     ): Pair<KnownCamera, Double>? {
         if (bearingDeg == null) return near(cameras, lat, lon, maxM / 3).firstOrNull { !skip(it.first) }
         return near(cameras, lat, lon, maxM).firstOrNull { (c, d) ->
-            if (skip(c) || !watchesYourWay(c, bearingDeg.toDouble())) return@firstOrNull false
+            if (skip(c) || !watchesYourWay(c, bearingDeg.toDouble(), directionOf(c))) return@firstOrNull false
             if (d < 30.0) return@firstOrNull true // right here
             val diff = kotlin.math.abs(((bearingTo(lat, lon, c.lat, c.lon) - bearingDeg) % 360 + 540) % 360 - 180)
             diff <= coneDeg
@@ -224,8 +225,8 @@ object KnownCameras {
      * you (front plates) or away (rear plates, read once you've passed). One facing across your
      * way - [SIDEWAYS_DEG] or more off - watches a cross street. True when either isn't known.
      */
-    fun watchesYourWay(c: KnownCamera, bearingDeg: Double?): Boolean {
-        val dir = c.direction ?: return true
+    fun watchesYourWay(c: KnownCamera, bearingDeg: Double?, direction: Int? = c.direction): Boolean {
+        val dir = direction ?: return true
         if (bearingDeg == null) return true
         val off = kotlin.math.abs(((dir - bearingDeg) % 180 + 270) % 180 - 90) // 0 = along your way, 90 = across
         return off < SIDEWAYS_DEG

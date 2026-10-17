@@ -165,6 +165,7 @@ internal object MapDialogs {
     /** [onChanged] after its alerts were turned off or on again (redraw it faded / normal). */
     fun showKnownCamera(a: AppCompatActivity, cam: com.rfsentinel.app.alpr.KnownCamera, onChanged: () -> Unit) {
         val ignored = com.rfsentinel.app.alpr.IgnoredCameras.contains(a, cam.osmId)
+        val userDir = if (cam.direction == null) com.rfsentinel.app.alpr.CameraDirections.userSet(a, cam.osmId) else null
         val text = buildString {
             if (ignored) append("Alerts for this camera are off.\n\n")
             append(when (cam.type) {
@@ -175,6 +176,7 @@ internal object MapDialogs {
             cam.brand?.let { append("Maker: $it\n") }
             cam.operator?.let { append("Operator: $it\n") }
             cam.direction?.let { append("Faces: $it°\n") }
+            userDir?.let { append("Faces: ${compass(it).lowercase()} (set by you)\n") }
             append("OSM: ${cam.osmId}\n\n")
             append("These cameras send their data over cellular or wire and have no Bluetooth/WiFi signature, so they can't be detected by radio - this map is the only warning. Mobile speed cameras move and are rarely mapped.\n\nMap data © OpenStreetMap contributors (ODbL).")
         }
@@ -188,10 +190,33 @@ internal object MapDialogs {
                     else "No more alerts for this camera (tap it again to undo)", Toast.LENGTH_SHORT).show()
                 onChanged()
             }
-            .setNegativeButton("Close", null)
+            .apply {
+                // No direction in OpenStreetMap: let the user say which way it faces (this phone only).
+                if (cam.direction == null) setNegativeButton("Set direction") { _, _ -> pickDirection(a, cam, userDir, onChanged) }
+                else setNegativeButton("Close", null)
+            }
             .setNeutralButton("Open in OpenStreetMap") { _, _ ->
                 runCatching { a.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://www.openstreetmap.org/${cam.osmId}"))) }
             }
+            .show()
+    }
+
+    private val COMPASS = listOf("North", "North-east", "East", "South-east", "South", "South-west", "West", "North-west")
+
+    private fun compass(deg: Int) = COMPASS[((deg + 22) % 360) / 45]
+
+    /** Which way the camera faces, from 8 compass points; saved on this phone, drawn as its cone. */
+    private fun pickDirection(a: AppCompatActivity, cam: com.rfsentinel.app.alpr.KnownCamera, current: Int?, onChanged: () -> Unit) {
+        val items = COMPASS.map { "Faces ${it.lowercase()}" } + "Not set"
+        val checked = current?.let { ((it + 22) % 360) / 45 } ?: COMPASS.size
+        AlertDialog.Builder(a)
+            .setTitle("Which way does it face?")
+            .setSingleChoiceItems(items.toTypedArray(), checked) { d, i ->
+                com.rfsentinel.app.alpr.CameraDirections.set(a, cam.osmId, if (i < COMPASS.size) i * 45 else null)
+                d.dismiss()
+                onChanged()
+            }
+            .setNegativeButton("Cancel", null)
             .show()
     }
 

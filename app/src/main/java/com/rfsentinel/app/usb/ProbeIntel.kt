@@ -102,6 +102,9 @@ object ProbeIntel {
         return if (any) h else null
     }
 
+    /** How a watched probe shape is written in the watchlist (after "fp:"), next to 8-digit fingerprints. */
+    fun shapeKey(shape: Long) = "shape-%08x".format(shape)
+
     /** [end] without the 4-byte checksum some drivers keep on a frame starting at [d]. */
     fun withoutFcs(b: ByteArray, d: Int, end: Int): Int {
         if (end - d < 28) return end

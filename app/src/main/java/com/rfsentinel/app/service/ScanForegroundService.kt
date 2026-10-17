@@ -649,7 +649,8 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.usb.ProbeIntel.note(mac, wps, fingerprint, ssids, hidden, skeleton)
         // Kept in the requested-networks list when that's on, and always while a trace records.
         if (ssids.isNotEmpty()) com.rfsentinel.app.data.ProbeLog.record(this, mac, ssids, rssi, now, force = TripRecorder.isRecording)
-        val hits = OuiWatchlist.probeHits(ssids) + OuiWatchlist.fingerprintHits(fingerprint) + OuiWatchlist.wpsHits(wps)
+        val hits = OuiWatchlist.probeHits(ssids) + OuiWatchlist.fingerprintHits(fingerprint) + OuiWatchlist.wpsHits(wps) +
+            OuiWatchlist.fingerprintHits(skeleton?.let { com.rfsentinel.app.usb.ProbeIntel.shapeKey(it) })
         if (hits.isEmpty()) return
         val before = probeHits[mac]
         probeHits[mac] = now to hits
@@ -792,7 +793,7 @@ class ScanForegroundService : Service() {
         val heading = if (loc.hasBearing() && (speed ?: 0f) >= 2f) loc.bearing.toDouble() else null
         val near = KnownCameras.near(AlprStore.cameras, loc.latitude, loc.longitude, radius)
             .filter { (cam, d) ->
-                wantsAlert(cam.type) && d <= KnownCameras.warnRadius(speed, cam.type) && KnownCameras.watchesYourWay(cam, heading) &&
+                wantsAlert(cam.type) && d <= KnownCameras.warnRadius(speed, cam.type) && KnownCameras.watchesYourWay(cam, heading, com.rfsentinel.app.alpr.CameraDirections.of(this, cam)) &&
                     !com.rfsentinel.app.alpr.IgnoredCameras.contains(this, cam.osmId) // silenced from the map
             }
         val nearIds = near.map { it.first.osmId }.toSet()
