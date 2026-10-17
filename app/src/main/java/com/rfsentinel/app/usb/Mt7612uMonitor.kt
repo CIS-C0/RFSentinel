@@ -145,6 +145,13 @@ object Mt7612uMonitor {
             val ver = regRd(ASIC_VERSION)
             val chip = ver ushr 16; val e3 = (ver and 0xffff) >= REV_E3
             UsbWifi.log("MT7612U: ASIC_VERSION 0x%08x (chip %04x, %s)".format(ver, chip, if (e3) "E3+" else "pre-E3"))
+            // Power the chip up before the upload, in mt76x2u_init_hardware's order (reset WLAN,
+            // power on, wait for the MAC, then firmware). Uploading to a cold chip first failed on
+            // the first plug-in and only worked on a quick replug.
+            onStatus("$chipName · powering on…")
+            resetWlan()
+            powerOn()
+            if (!poll(1000, 5) { regRd(MAC_CSR0).let { it != 0 && it != -1 } }) UsbWifi.log("MT7612U: MAC not ready before the firmware (continuing)")
             onStatus("$chipName · loading firmware…")
             val patch = ctx.assets.open("usbwifi/mt7662_rom_patch.bin").use { it.readBytes() }
             val fw = ctx.assets.open("usbwifi/mt7662.bin").use { it.readBytes() }
@@ -154,7 +161,8 @@ object Mt7612uMonitor {
                 if (attempt > 1) {
                     UsbWifi.log("MT7612U: retrying the firmware load (attempt $attempt of $FW_ATTEMPTS)")
                     if (!claimed) claimed = c.claimInterface(intf, true)
-                    sleep(300)
+                    sleep(1000)
+                    resetWlan(); powerOn()
                 }
                 // A bulk endpoint left stalled (an earlier session, a half-finished upload) refuses every
                 // transfer until it is cleared; the kernel resets the whole device, which apps can't.
@@ -165,9 +173,9 @@ object Mt7612uMonitor {
             if (!loaded) { onStatus("$chipName: firmware didn't load (replug)"); return }
 
             // ---- radio ----
-            onStatus("$chipName · powering on radio…")
-            resetWlan()
-            powerOn()
+            onStatus("$chipName · starting the radio…")
+            // after the firmware: DMA idle, then the MAC ready again (as the kernel waits)
+            if (!poll(100, 5) { regRd(WPDMA_GLO_CFG) and (WPDMA_TX_DMA_BUSY or WPDMA_RX_DMA_BUSY) == 0 }) UsbWifi.log("MT7612U: DMA still busy after the firmware (continuing)")
             if (!poll(1000, 5) { regRd(MAC_CSR0).let { it != 0 && it != -1 } }) { onStatus("$chipName: MAC not ready (replug)"); return }
             initDma()
             mcuCmd(cmdOut, CMD_FUN_SET_OP, leWords(Q_SELECT, 1), false)

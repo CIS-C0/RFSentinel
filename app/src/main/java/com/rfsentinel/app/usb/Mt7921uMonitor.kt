@@ -42,7 +42,9 @@ object Mt7921uMonitor {
         listOf(5, 21, 37, 53, 69, 85, 101, 117, 133, 149, 165, 181, 197, 213, 229).map { 2 to it }
     private const val DWELL_MS = 150L
     private const val RX_ANTENNAS = 0x3
-    private val FRESH_MS get() = (HOP.size * DWELL_MS * 9 / 5).coerceAtLeast(3000L)
+    private const val SWITCH_TIMEOUT_MS = 500L
+    /** A full round, allowing ~150 ms per channel switch on top of the dwell. */
+    private val FRESH_MS get() = (HOP.size * (DWELL_MS + 150) * 9 / 5).coerceAtLeast(3000L)
     private const val REPORT_MS = 10_000L
 
     // ---- USB vendor requests (mt76 usb.c) ----
@@ -561,7 +563,17 @@ object Mt7921uMonitor {
     /** The channel as [MonitorFrames] takes it: the number on 2.4 / 5 GHz, MHz on 6 GHz (its numbers overlap theirs). */
     internal fun monitorChannel(band: Int, ch: Int) = if (band == 2) 5950 + 5 * ch else ch
 
-    private class RxState { var hopAt = 0L; var lastEmit = 0L; var lastRxAt = 0L; var lastCheck = 0L; var hopIdx = 0 }
+    private class RxState {
+        var hopAt = 0L; var lastEmit = 0L; var lastRxAt = 0L; var lastCheck = 0L; var hopIdx = 0
+        /** Sequence number of the hop's last command until the firmware confirms it (-1: confirmed). */
+        var pendingSeq = -1; var sentAt = 0L
+        var switches = 0; var switchMsTotal = 0L; var switchMsMax = 0L; var unconfirmed = 0
+        fun switchSummary(): String {
+            val s = if (switches == 0) "channel switch: none confirmed" else
+                "channel switch ${switchMsTotal / switches} ms avg, $switchMsMax ms max"
+            return "$s, $unconfirmed unconfirmed".also { switches = 0; switchMsTotal = 0; switchMsMax = 0; unconfirmed = 0 }
+        }
+    }
 
     private fun rxLoop(chipName: String, onFrame: (List<MonitorSighting>) -> Unit, onStatus: (String) -> Unit) {
         val st = RxState()
@@ -571,7 +583,17 @@ object Mt7921uMonitor {
             stats.transfer(n)
             st.lastRxAt = System.currentTimeMillis()
             stats.sample("$n bytes, RXD", b, 0, 24)
-            if (eventSeq(b, n) != null) { cmdsAnswered++; return@onData }
+            val ev = eventSeq(b, n)
+            if (ev != null) {
+                cmdsAnswered++
+                if (ev == st.pendingSeq) {
+                    // the switch is done: the dwell on this channel starts now
+                    val now = System.currentTimeMillis(); val ms = now - st.sentAt
+                    st.switches++; st.switchMsTotal += ms; if (ms > st.switchMsMax) st.switchMsMax = ms
+                    st.pendingSeq = -1; st.hopAt = now
+                }
+                return@onData
+            }
             val f = parseRx(b, n, onBad = { crc -> if (crc) stats.badChecksum++ else stats.malformed++ }) ?: return@onData
             val (hopBand, hopCh) = HOP[st.hopIdx]
             // The descriptor's channel, else the one tuned to.
@@ -583,7 +605,7 @@ object Mt7921uMonitor {
                 val (aps, clients) = frames.live(now, REPORT_MS)
                 val (band, ch) = HOP[st.hopIdx]
                 "${listOf("2.4", "5", "6")[band]} GHz ch $ch, $aps access points, $clients devices, " +
-                    "firmware answered $cmdsAnswered of $cmdsSent commands, USB errors $ctlErrors"
+                    "firmware answered $cmdsAnswered of $cmdsSent commands, ${st.switchSummary()}, USB errors $ctlErrors"
             }
             if (now - st.lastCheck > 3000) {
                 st.lastCheck = now
@@ -595,10 +617,14 @@ object Mt7921uMonitor {
                 }
             }
             if (now - st.lastEmit > 2000) { emit(onFrame); st.lastEmit = now }
-            if (now - st.hopAt > DWELL_MS) {
+            // As the kernel does, a channel switch is only done once the firmware confirms it: the
+            // dwell is counted from that answer, so slow switches don't eat the listening time.
+            if (st.pendingSeq >= 0 && now - st.sentAt > SWITCH_TIMEOUT_MS) { st.unconfirmed++; st.pendingSeq = -1; st.hopAt = now }
+            if (st.pendingSeq < 0 && now - st.hopAt > DWELL_MS) {
                 st.hopIdx = (st.hopIdx + 1) % HOP.size
                 val (band, ch) = HOP[st.hopIdx]
                 runCatching { tune(band, ch, wait = false) }
+                st.pendingSeq = seq; st.sentAt = now
                 val (aps, clients) = frames.live(now, REPORT_MS)
                 onStatus("$chipName · live · $aps access points · $clients devices · ${listOf("2.4", "5", "6")[band]} GHz ch $ch")
                 st.hopAt = now
