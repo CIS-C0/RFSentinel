@@ -505,6 +505,8 @@ object SignatureEngine {
                 Hit(Category.DRONE, "Drone broadcasting its French electronic ID (WiFi)", 95,
                     "French \"signalement électronique\" vendor information element (OUI 6A:5C:35) in the WiFi beacon",
                     "Arrêté of 27 December 2019 (France); github.com/khancyr/droneID_FR")
+            else if (a.wifi?.standard == DeviceIntel.WIFI_AWARE) Hit(Category.DRONE, "Drone broadcasting Remote ID (Wi-Fi Aware)", 95,
+                "ASTM F3411 Remote ID message pack in a Wi-Fi Aware (NAN) service discovery", ASTM)
             else Hit(Category.DRONE, "Drone broadcasting Remote ID (WiFi)", 95,
                 "ASTM F3411 vendor information element (OUI FA:0B:BC) in the WiFi beacon", ASTM)
         }

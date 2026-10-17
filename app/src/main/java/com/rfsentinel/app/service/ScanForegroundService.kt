@@ -167,6 +167,8 @@ class ScanForegroundService : Service() {
 
     private lateinit var bleEngine: BleScanEngine
     private lateinit var wifiEngine: WifiScanEngine
+    /** Drone Remote ID over Wi-Fi Aware, on phones that have it. */
+    private var nanRemoteId: NanRemoteId? = null
 
     private val classified = ConcurrentHashMap<String, Classified>()
     private val lastAlerted = ConcurrentHashMap<String, Long>()
@@ -314,6 +316,9 @@ class ScanForegroundService : Service() {
         // Re-evaluated on every start command, so Settings changes apply live.
         if (Prefs.bleEnabled(this)) { bleEngine.stop(); startBle() } else stopBle()
         if (Prefs.wifiEnabled(this)) startWifiPolling() else stopWifiPolling()
+        if (Prefs.categoryEnabled(this, Category.DRONE) && NanRemoteId.supported(this) && nearbyWifiAllowed()) {
+            if (nanRemoteId == null) nanRemoteId = NanRemoteId(this) { a -> pipeline.post { processPhone(a) } }.also { it.start() }
+        } else { nanRemoteId?.stop(); nanRemoteId = null }
         // ESP32 boards on USB (OUI-Spy / GhostESP / Marauder): their reports join the same pipeline.
         com.rfsentinel.app.esp.EspBoards.start(this) { list -> pipeline.post { list.forEach(::processEsp) } }
         // A USB WiFi adapter in monitor mode (e.g. AWUS036ACS): access points and client devices.
@@ -447,6 +452,10 @@ class ScanForegroundService : Service() {
             }
         }
     }
+
+    /** Wi-Fi Aware needs location, and the nearby-WiFi permission from Android 13. */
+    private fun nearbyWifiAllowed() = hasFineLocation() && (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        ContextCompat.checkSelfPermission(this, android.Manifest.permission.NEARBY_WIFI_DEVICES) == PackageManager.PERMISSION_GRANTED)
 
     private fun stopWifiPolling() {
         wifiPollJob?.cancel()
@@ -1365,6 +1374,7 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.esp.HeardBy.usb.clear()
         com.rfsentinel.app.usb.ProbeIntel.clear()
         com.rfsentinel.app.data.ProbeLog.flush(this)
+        nanRemoteId?.stop()
         bleEngine.stop()
         wifiEngine.stop()
         if (btStateReceiverRegistered) {

@@ -20,9 +20,15 @@ object Permissions {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) add(Manifest.permission.BLUETOOTH_SCAN)
     }
 
-    /** Nice to have: without it scanning still works, alerts just aren't shown. */
+    /**
+     * Nice to have: without notifications scanning still works, alerts just aren't shown;
+     * without nearby WiFi devices (Android 13+) drones' Remote ID over Wi-Fi Aware isn't heard.
+     */
     fun optional(): List<String> = buildList {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            add(Manifest.permission.POST_NOTIFICATIONS)
+            add(Manifest.permission.NEARBY_WIFI_DEVICES)
+        }
     }
 
     fun missingRequired(context: Context): List<String> = required().filterNot { granted(context, it) }

@@ -312,8 +312,11 @@ class SetupActivity : AppCompatActivity() {
             }
         }
         if (missing.isEmpty() && optionalMissing.isNotEmpty()) {
-            para("Notifications are off - alerts will still sound, but won't appear in the notification shade.", small = true)
-            button("Allow notifications") { permissionLauncher.launch(optionalMissing.toTypedArray()) }
+            val noAlerts = android.Manifest.permission.POST_NOTIFICATIONS in optionalMissing
+            if (noAlerts) para("Notifications are off - alerts will still sound, but won't appear in the notification shade.", small = true)
+            if (android.Manifest.permission.NEARBY_WIFI_DEVICES in optionalMissing)
+                para("Nearby WiFi devices is off - drones sending their Remote ID over Wi-Fi Aware won't be heard.", small = true)
+            button(if (noAlerts && optionalMissing.size == 1) "Allow notifications" else "Allow") { permissionLauncher.launch(optionalMissing.toTypedArray()) }
         }
         para("Tip: in Android's battery settings, set RF Sentinel to \"Unrestricted\" so scanning keeps running in your pocket.", small = true)
         knownCamerasNearMe()

@@ -41,6 +41,9 @@ object DeviceIntel {
         0x0B to "Just used", 0x0D to "Driving", 0x0E to "On a call"
     )
 
+    /** The standard of a drone's Remote ID heard over Wi-Fi Aware (NAN) rather than in a beacon. */
+    const val WIFI_AWARE = "Wi-Fi Aware (NAN)"
+
     /** Meshtastic's BLE service (Meshtastic firmware / app protocol docs). */
     private val MESHTASTIC_SERVICE = java.util.UUID.fromString("6ba1b218-15a8-461f-9fa8-5dcae273eafd")
     private const val MESH_NODE = "Mesh radio node (Meshtastic / MeshCore LoRa)"
@@ -272,6 +275,7 @@ object DeviceIntel {
         val ssid = a.name
         val type = when {
             w?.client == true -> "WiFi device (laptop, phone or camera on a network)"
+            w?.standard == WIFI_AWARE -> "Drone Remote ID over Wi-Fi Aware"
             ssid.isNullOrEmpty() -> "Hidden WiFi network"
             TRAIN_SSID.containsMatchIn(ssid) -> "Train WiFi (passenger rail)"
             Regex("iphone|androidap|galaxy|pixel|hotspot|'s phone", RegexOption.IGNORE_CASE).containsMatchIn(ssid) -> "Phone hotspot"
