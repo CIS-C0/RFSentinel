@@ -21,6 +21,8 @@ class MonitorFrames {
         var fingerprint: String? = null
         /** An access point that hides its name (blank name in its beacons). */
         var hidden = false
+        /** A client that sent wildcard probe requests; with the Flock-camera Wi-Fi Alliance element. */
+        var wildcard = false; var flockIe = false
         // Per-window counters for driver diagnostics (debug builds).
         var winHits = 0; var winMeasured = 0; var winMax = -128; var winSum = 0L
         var winOfdm = 0; var winA = -128; var winB = -128
@@ -86,6 +88,8 @@ class MonitorFrames {
                         if (it.ssid == null) pendingNames.remove(it.mac)?.let { n -> it.ssid = n }
                         ies.wps?.let { w -> it.wps = w }
                     }
+                    // One transmitter answering under many network names: a Karma / PineAP fake access point.
+                    if (isReal(b, a2)) ies.ssid?.takeIf { validSsid(it) }?.let { KarmaWatch.frame(mac(b, a2), it, channel, now) }
                 }
                 // Probe request: a device looking for networks (e.g. a laptop or a Flock camera),
                 // often by name - the networks it has joined before.
@@ -93,6 +97,8 @@ class MonitorFrames {
                 4 -> if (captureClients && !isScannerProbe(b, d, end)) touch(a2, ap = false)?.let { s ->
                     val ies = Ies.read(b, d + 24, end)
                     ies.wps?.let { s.wps = it }
+                    if (ies.wildcard) s.wildcard = true
+                    if (ies.flockIe) s.flockIe = true
                     ProbeIntel.fingerprint(b, d + 24, end)?.let { s.fingerprint = it }
                     ies.ssid?.takeIf { validSsid(it) }?.let { name ->
                         s.probed.remove(name); s.probed.add(name)
@@ -161,7 +167,9 @@ class MonitorFrames {
                 probedSsids = s.probed.toList(),
                 wps = s.wps,
                 fingerprint = s.fingerprint,
-                hiddenNetwork = s.hidden
+                hiddenNetwork = s.hidden,
+                wildcardProbe = s.wildcard,
+                flockProbeIe = s.flockIe
             )
         }
         sightings.entries.removeAll { now - it.value.lastSeen > pruneMs }
@@ -183,27 +191,39 @@ class MonitorFrames {
         return out
     }
 
-    /** Network name and channel from a management frame's information elements. */
-    data class Ies(val ssid: String?, val channel: Int, val wps: ProbeIntel.Wps? = null) {
+    /**
+     * Network name and channel from a management frame's information elements. [wildcard]: an empty
+     * name element (a probe request asking every network to answer). [flockIe]: the Wi-Fi Alliance
+     * element 50:6F:9A type 0x16 with 03 01 03, which Flock cameras put in their probe requests
+     * (also some ordinary clients: it only ever tightens a Flock-module match).
+     */
+    data class Ies(val ssid: String?, val channel: Int, val wps: ProbeIntel.Wps? = null,
+                   val wildcard: Boolean = false, val flockIe: Boolean = false) {
         companion object {
+            private val FLOCK_IE = byteArrayOf(0x50, 0x6F, 0x9A.toByte(), 0x16, 0x03, 0x01, 0x03)
+
             fun read(b: ByteArray, from: Int, end: Int): Ies {
                 var ssid: String? = null; var ds = 0; var ht = 0; var wps: ProbeIntel.Wps? = null
+                var wildcard = false; var flockIe = false
                 var i = from
                 while (i + 2 <= end) {
                     val tag = b[i].toInt() and 0xff; val tl = b[i + 1].toInt() and 0xff
                     if (i + 2 + tl > end) break
                     when (tag) {
-                        0 -> if (ssid == null) ssid = String(b, i + 2, tl, Charsets.UTF_8).trim { it <= ' ' }
+                        0 -> {
+                            if (tl == 0) wildcard = true
+                            if (ssid == null) ssid = String(b, i + 2, tl, Charsets.UTF_8).trim { it <= ' ' }
+                        }
                         3 -> if (tl >= 1) ds = b[i + 2].toInt() and 0xff // DS parameter set (2.4 GHz)
                         61 -> if (tl >= 1) ht = b[i + 2].toInt() and 0xff // HT operation: primary channel
                         221 -> if (tl >= 4 && b[i + 2].toInt() == 0x00 && b[i + 3].toInt() == 0x50 &&
                             (b[i + 4].toInt() and 0xff) == 0xF2 && b[i + 5].toInt() == 0x04) {
                             ProbeIntel.parseWps(b, i + 6, i + 2 + tl)?.let { wps = it } // WPS
-                        }
+                        } else if (tl == FLOCK_IE.size && (0 until tl).all { k -> b[i + 2 + k] == FLOCK_IE[k] }) flockIe = true
                     }
                     i += 2 + tl
                 }
-                return Ies(ssid, if (ds != 0) ds else ht, wps)
+                return Ies(ssid, if (ds != 0) ds else ht, wps, wildcard, flockIe)
             }
         }
     }

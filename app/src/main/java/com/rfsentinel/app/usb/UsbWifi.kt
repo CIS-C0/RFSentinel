@@ -28,7 +28,11 @@ data class MonitorSighting(
     /** How it builds its probe requests: marks a device model / OS ([ProbeIntel.fingerprint]). */
     val fingerprint: String? = null,
     /** An access point hiding its name; [ssid] is then the name revealed by a device joining or asking for it. */
-    val hiddenNetwork: Boolean = false
+    val hiddenNetwork: Boolean = false,
+    /** A client that sent wildcard probe requests (no network name). */
+    val wildcardProbe: Boolean = false,
+    /** Its probe requests carried the Wi-Fi Alliance element Flock cameras send ([MonitorFrames.Ies.flockIe]). */
+    val flockProbeIe: Boolean = false
 )
 
 /**

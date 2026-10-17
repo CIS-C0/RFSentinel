@@ -31,6 +31,16 @@ object DeviceIntel {
         0x0F to "Nearby Action", 0x10 to "Nearby Info", 0x12 to "Find My", 0x16 to "Nearby Action (setup)"
     )
 
+    /**
+     * What an iPhone, iPad, Mac or Watch is doing, from the low 4 bits of its Nearby Info status byte
+     * (furiousMAC Continuity research, as checked against 2026 captures by SignalSweep; facts only).
+     */
+    private val APPLE_ACTIVITY = mapOf(
+        0x01 to "Activity reporting off", 0x03 to "Idle", 0x05 to "Playing audio, screen locked",
+        0x07 to "In use, screen on", 0x09 to "Playing video", 0x0A to "Watch on wrist, unlocked",
+        0x0B to "Just used", 0x0D to "Driving", 0x0E to "On a call"
+    )
+
     private val NAME_TYPES = listOf(
         Regex("airpods|beats|buds|earbud|headphone|headset|jbl|bose|sony w[hf]-|soundcore|jabra|sennheiser|skullcandy", RegexOption.IGNORE_CASE) to "Headphones / earbuds",
         Regex("watch|fitbit|garmin|amazfit|mi band|galaxy fit|whoop|polar|suunto|oura", RegexOption.IGNORE_CASE) to "Wearable",
@@ -141,6 +151,9 @@ object DeviceIntel {
                 }
                 if (t == 0x12) {
                     facts += "Find My state" to if (len == 0x19) "Separated from owner" else "Near its owner"
+                }
+                if (t == 0x10 && len >= 1 && i + 2 < d.size) {
+                    APPLE_ACTIVITY[Bytes.u8(d, i + 2) and 0x0F]?.let { facts += "Apple activity" to it }
                 }
                 if (len == 0) break
                 i += 2 + len

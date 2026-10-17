@@ -41,7 +41,11 @@ class Advert(
         /** Beacon information elements (id, payload), API 30+ only. */
         val infoElements: List<Pair<Int, ByteArray>>,
         /** A client device (laptop, phone, camera) heard by a monitor-mode adapter, not an access point. */
-        val client: Boolean = false
+        val client: Boolean = false,
+        /** The client sent a wildcard probe request (asks every network to answer, names none). */
+        val wildcardProbe: Boolean = false,
+        /** Its probe request carried the Wi-Fi Alliance element 50:6F:9A:16 03 01 03 Flock cameras send. */
+        val flockProbeIe: Boolean = false
     )
 
     val isBle get() = source == Source.BLE

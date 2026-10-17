@@ -2,8 +2,8 @@ package com.rfsentinel.app.detect
 
 /**
  * Card skimmers and attack tools: exact signatures (Flipper Zero, Pwnagotchi, WiFi Pineapple,
- * ESP deauthers, Bluetooth card-skimmer modules) plus two behaviours that need memory across
- * adverts: an evil-twin access point and a Bluetooth pairing-pop-up spam flood.
+ * ESP deauthers, Bluetooth card-skimmer modules) plus behaviours that need memory across
+ * adverts: an evil-twin access point, a Bluetooth pairing-pop-up spam flood and a fake-tracker flood.
  * Signatures and their grading follow SquachWatch's DETECTIONS.md (GPL-3.0), re-checked
  * against the IEEE and Bluetooth SIG registries. Receive-only, like the rest of the app.
  */
@@ -17,6 +17,11 @@ object HackerWatch {
     private const val CID_FLIPPER = 0x0E29                     // Flipper Devices Inc. (not 0x0FBA: that's Cosonic)
     private const val OUI_FLIPPER = "0CFA22"
     private val HAK5_LA = setOf("02C0CA", "021337")
+    /**
+     * STMicroelectronics' STM32WB Bluetooth chips build their address from these prefixes (not in the
+     * IEEE register). A Flipper Zero is one, but so are other STM32WB gadgets: a hint only.
+     */
+    private val STM32WB = setOf("80E126", "80E127")
 
     // ---- Action cameras (Category.OTHER_CAMERA) ------------------------------------------------
     private const val CID_ARASHI = 0x10D7   // Arashi Vision Inc. (Insta360)
@@ -117,6 +122,9 @@ object HackerWatch {
                     "Address in Flipper Devices' registered block 0C:FA:22", SRC)
                 name.startsWith("Flipper ") -> hits += Hit(Category.HACKER, "Flipper Zero", 60,
                     "Advertised name \"$name\" (owners can rename it - verify)", SRC)
+                prefix in STM32WB -> hits += Hit(Category.HACKER, "Possible Flipper Zero (STM32WB chip)", 30,
+                    "Address ${prefix.chunked(2).joinToString(":")}: an STMicroelectronics STM32WB Bluetooth chip, which a " +
+                        "Flipper Zero uses - so do other gadgets, weak", "SignalSweep research (GPL-3.0; facts only)")
             }
         } else if (a.source == Advert.Source.WIFI) {
             pwnagotchiName(a)?.let { n ->
@@ -213,8 +221,80 @@ object HackerWatch {
         return a.serviceData.keys.any { Advert.shortOf(it) == 0xFE2C } // Google Fast Pair
     }
 
+    // ---- Fake-tracker flood ---------------------------------------------------------------
+
+    /** A flood of fake [network] trackers: [addresses] throwaway addresses in the last [windowS] s, [sample] one of them. */
+    data class TagFlood(val network: String, val addresses: Int, val sample: String, val windowS: Int)
+
+    /** A real tag keeps its address for a long time; a fake one is heard a couple of times, briefly. */
+    const val FLOOD_MAX_HITS = 3
+    const val FLOOD_MAX_SPAN_MS = 10_000L
+    /** Quiet this long and an address counts as gone. */
+    const val FLOOD_QUIET_MS = 30_000L
+    /** This many gone short-lived addresses of one network within [FLOOD_WINDOW_MS] is a flood. */
+    const val FLOOD_EVIDENCE = 6
+    const val FLOOD_WINDOW_MS = 5 * 60_000L
+    /** Weaker than this doesn't count: real tags in passing cars are short-lived too, but far. */
+    const val FLOOD_MIN_RSSI = -80
+    private const val FLOOD_MAX_ADDRESSES = 64
+
+    private class TagAddr(val first: Long, var last: Long, var hits: Int, var best: Int)
+    private class Network {
+        val addrs = LinkedHashMap<String, TagAddr>()
+        /** When each short-lived address went quiet, by address. */
+        val evidence = LinkedHashMap<String, Long>()
+        var lastReport = Long.MIN_VALUE / 2
+    }
+    private val networks = HashMap<String, Network>()
+
+    /**
+     * Which finding network a tracker advert belongs to, or null. Only adverts no phone sends:
+     * Apple's separated Find My frame, Google Find Hub frames, Samsung SmartTag and Tile services.
+     */
+    internal fun trackerNetwork(a: Advert): String? {
+        if (a.source != Advert.Source.BLE) return null
+        a.manufacturerData[0x004C]?.let { d -> if (d.size >= 2 && Bytes.u8(d, 0) == 0x12 && Bytes.u8(d, 1) == 0x19) return "Apple Find My" }
+        a.serviceData[Advert.uuid16(0xFEAA)]?.let { d -> if (d.isNotEmpty() && Bytes.u8(d, 0) in 0x40..0x41) return "Google Find Hub" }
+        val shorts = a.serviceData.keys.mapNotNull { Advert.shortOf(it) }
+        if (shorts.any { it == 0xFD5A || it == 0xFD59 }) return "Samsung SmartTag"
+        if (shorts.any { it == 0xFEED || it == 0xFEEC }) return "Tile"
+        return null
+    }
+
+    /**
+     * Every tracker advert. Tools like a Flipper Zero flood an area with fake trackers, each on a
+     * throwaway address: heard once or twice, then never again. Real tags keep theirs. One alarm says
+     * what's going on (and again every few minutes while it lasts); real trackers are still reported
+     * as ever. The approach and thresholds follow SignalSweep's field-tuned detector (GPL-3.0; the idea,
+     * not code).
+     */
+    @Synchronized
+    fun tagFlood(a: Advert, now: Long): TagFlood? {
+        val kind = trackerNetwork(a) ?: return null
+        val n = networks.getOrPut(kind) { Network() }
+        fun gone(mac: String, t: TagAddr, at: Long) {
+            val fake = t.hits <= FLOOD_MAX_HITS && t.last - t.first <= FLOOD_MAX_SPAN_MS && t.best >= FLOOD_MIN_RSSI
+            if (fake && mac !in n.evidence) n.evidence[mac] = at
+        }
+        val iter = n.addrs.entries.iterator()
+        while (iter.hasNext()) {
+            val (mac, t) = iter.next()
+            if (mac != a.mac && now - t.last >= FLOOD_QUIET_MS) { gone(mac, t, t.last + FLOOD_QUIET_MS); iter.remove() }
+        }
+        val t = n.addrs[a.mac]
+        if (t != null) { t.last = now; t.hits++; if (a.rssi > t.best) t.best = a.rssi }
+        else {
+            if (n.addrs.size >= FLOOD_MAX_ADDRESSES) n.addrs.entries.first().let { (mac, old) -> gone(mac, old, now); n.addrs.remove(mac) }
+            n.addrs[a.mac] = TagAddr(now, now, 1, a.rssi)
+        }
+        n.evidence.entries.removeAll { now - it.value > FLOOD_WINDOW_MS }
+        if (n.evidence.size < FLOOD_EVIDENCE || now - n.lastReport < FLOOD_WINDOW_MS) return null
+        n.lastReport = now
+        return TagFlood(kind, n.evidence.size, n.evidence.keys.last(), (FLOOD_WINDOW_MS / 1000).toInt())
+    }
+
     @Synchronized
     fun reset() {
-        bySsid.clear(); twinsFlagged.clear(); spamTimes.clear(); lastFlood = Long.MIN_VALUE / 2
+        bySsid.clear(); twinsFlagged.clear(); spamTimes.clear(); lastFlood = Long.MIN_VALUE / 2; networks.clear()
     }
 }

@@ -29,6 +29,7 @@ object SignatureEngine {
     private const val SIG = "Bluetooth SIG assigned numbers"
     private const val IEEE = "IEEE registry"
     private const val ASTM = "ASTM F3411 Remote ID (opendroneid-core-c, Apache-2.0)"
+    private const val SIGNALSWEEP = "SignalSweep research (GPL-3.0; facts only, no code)"
 
     // --- Bluetooth SIG company IDs (manufacturer data, AD 0xFF) ---------------
     private const val CID_APPLE = 0x004C
@@ -51,6 +52,8 @@ object SignatureEngine {
         0x3400 to "upload", 0x3500 to "error")
     /** Flock's accessory GATT service, from a Flock camera's firmware (Flock-You issue #15, SquachWatch). */
     private val FLOCK_GATT = UUID.fromString("e8ccbb38-9532-46a8-9fe5-1814df172e6f")
+    /** The same battery's second Flock service (the "safety" one), same source. */
+    private val FLOCK_GATT_2 = UUID.fromString("20c944c1-add2-42d7-a638-967ee9a26ff6")
     private const val UUID_TILE_2 = 0xFEEC         // Tile, Inc. (second SIG-assigned UUID)
 
     /**
@@ -78,6 +81,7 @@ object SignatureEngine {
     )
     private const val UUID_REMOTE_ID = 0xFFFA      // ASTM Remote ID (SIG SDO UUID)
     private const val UUID_SMARTTAG = 0xFD5A       // Samsung Electronics
+    private const val UUID_SMARTTAG_SETUP = 0xFD59 // Samsung Electronics (a SmartTag not yet registered)
     private const val UUID_TILE = 0xFEED           // Tile, Inc.
     private const val UUID_CHIPOLO = 0xFE33        // CHIPOLO d.o.o. (as AirGuard, SEEMOO / TU Darmstadt, Apache-2.0)
     private const val UUID_GOOGLE_FMDN = 0xFEAA    // Google LLC (Eddystone / Find Hub)
@@ -245,6 +249,11 @@ object SignatureEngine {
                 hits += Hit(Category.ALPR, "Flock Safety device", 80,
                     "Numeric name \"$name\" plus XUNTONG module ID 0x09C8 (newer Penguin firmware)",
                     "$ACAB (flock-detection research)")
+            // Newer Penguin batteries also carry their serial ("TN" + digits) in the module's data, name or not.
+            xuntong && hasTnSerial(a.manufacturerData[CID_XUNTONG]) ->
+                hits += Hit(Category.ALPR, "Flock Safety device", 80,
+                    "XUNTONG module ID 0x09C8 with a \"TN<digits>\" serial in its data (Flock Penguin battery)",
+                    "$SIGNALSWEEP; oui-spy notes")
             name.startsWith("Flock", ignoreCase = true) ->
                 hits += Hit(Category.ALPR, "Possible Flock Safety device", 55,
                     "Advertised name starts with \"Flock\" (brand string - verify)", ACAB)
@@ -258,6 +267,9 @@ object SignatureEngine {
         if (a.serviceUuids.contains(FLOCK_GATT) || a.serviceData.keys.contains(FLOCK_GATT)) {
             hits += Hit(Category.ALPR, "Flock Safety device", 80,
                 "Flock accessory service UUID e8ccbb38-... (from Flock camera firmware)", "Flock-You research; SquachWatch")
+        } else if (a.serviceUuids.contains(FLOCK_GATT_2) || a.serviceData.keys.contains(FLOCK_GATT_2)) {
+            hits += Hit(Category.ALPR, "Flock Safety device", 80,
+                "Flock accessory service UUID 20c944c1-... (from Flock camera firmware)", "Flock-You research; $SIGNALSWEEP")
         }
         RAVEN_SHORTS.keys.filter { it in shorts }.takeIf { it.isNotEmpty() }?.let { found ->
             hits += Hit(Category.AUDIO_SENSOR, "Flock Raven audio / gunshot sensor", 80,
@@ -289,9 +301,14 @@ object SignatureEngine {
                     "Google Find Hub Network Accessory Spec; $ACAB")
             }
         }
-        a.serviceData[Advert.uuid16(UUID_SMARTTAG)]?.takeIf { it.isNotEmpty() }?.let {
+        val smartTag = a.serviceData[Advert.uuid16(UUID_SMARTTAG)]?.takeIf { it.isNotEmpty() }
+        if (smartTag != null) {
             hits += Hit(Category.TRACKER, "Samsung SmartTag", 55,
                 "Service data on UUID 0xFD5A (Samsung)", "$SIG; arXiv 2501.17452")
+        } else if (a.serviceData[Advert.uuid16(UUID_SMARTTAG_SETUP)]?.isNotEmpty() == true) {
+            hits += Hit(Category.TRACKER, "Samsung SmartTag (not set up yet)", 40,
+                "Service data on UUID 0xFD59 (Samsung): a tag still being set up, usually next to its owner",
+                "$SIG; arXiv 2210.14702; $SIGNALSWEEP")
         }
         (a.serviceData[Advert.uuid16(UUID_TILE)] ?: a.serviceData[Advert.uuid16(UUID_TILE_2)])?.takeIf { it.isNotEmpty() }?.let {
             hits += Hit(Category.TRACKER, "Tile tracker", 55, "Service data on UUID 0xFEED / 0xFEEC (Tile, Inc.)", SIG)
@@ -357,6 +374,23 @@ object SignatureEngine {
         else -> null
     }
 
+    /** The network an Axon body camera or device opens while pairing ("AB3-...", "AXON-..."). */
+    internal fun axonPairingSsid(ssid: String): Hit? {
+        if (AXON_FLEET_SSID.matches(ssid)) return null // an in-car network: policeVehicleSsid
+        AXON_BODY_SSID.find(ssid)?.let { m ->
+            val gen = m.groupValues[1]
+            return Hit(Category.BODY_CAM, "Axon Body $gen camera (pairing network)", 80,
+                "WiFi network \"$ssid\": Axon Body $gen cameras open an \"AB$gen-\" network while pairing",
+                "Axon admin documentation; $SIGNALSWEEP")
+        }
+        if (ssid.startsWith("AXON-", ignoreCase = true)) {
+            return Hit(Category.BODY_CAM, "Axon device hotspot (body camera or in-car)", 75,
+                "WiFi network \"$ssid\": the \"AXON-\" hotspot Axon devices open", "Axon admin documentation; $SIGNALSWEEP")
+        }
+        return null
+    }
+
+    private val AXON_BODY_SSID = Regex("^AB([234])-", RegexOption.IGNORE_CASE)
     private val AXON_FLEET_SSID = Regex("^axon[-_ ]?\\d{1,6}[-_ ]?5g$", RegexOption.IGNORE_CASE)
     private val VEHICLE_NUMBER_5G_SSID = Regex("^\\d{2,6}[-_ ]5g$", RegexOption.IGNORE_CASE)
     private val CRADLEPOINT_VEHICLE_SSID = Regex("^(ibr\\d{3,4}[a-z]{0,4}|r1900|r2100)-[0-9a-f]{3}(-5g)?$", RegexOption.IGNORE_CASE)
@@ -370,8 +404,18 @@ object SignatureEngine {
     private val FLOCK_MODULE_PREFIXES = setOf(
         "70C94E", "3C9180", "D8F3BC", "803049", "B83532", "145AFC", "744CA1", "083A88", "9C2F9D", "C03532",
         "940853", "E4AAEA", "F46ADD", "F8A2D6", "24B2B9", "00F48D", "D03957", "E8D0FC", "E04F43", "B81EA4",
-        "700894", "588E81", "EC1BBD", "3C71BF", "5800E3", "9035EA", "5C93A2", "646E69", "4827EA", "A4CF12", "826BF2"
+        "700894", "588E81", "EC1BBD", "3C71BF", "5800E3", "9035EA", "5C93A2", "646E69", "4827EA", "A4CF12", "826BF2",
+        // Added from flock-you's 2026 list via SignalSweep (Liteon and Silicon Labs blocks).
+        "14B5CD", "040D84", "1C34F1", "385B44", "943469", "B4E3F9", "F082C0", "E00AF6"
     )
+
+    /**
+     * The module prefixes trusted for the wildcard-probe signature: the list above without the ones
+     * that also turn up in plenty of ordinary devices (two Espressif blocks, one seen on a Sony media
+     * player, and a randomized-address prefix). A bare wildcard probe from any other device means
+     * nothing; from these it's the only thing a current Flock camera still sends (SignalSweep, DeFlock).
+     */
+    private val FLOCK_PROBE_PREFIXES = FLOCK_MODULE_PREFIXES - setOf("F8A2D6", "A4CF12", "3C71BF", "826BF2")
     private val FLOCK_PRODUCT_SSID = Regex("^(flock|falcon|sparrow|raven|penguin)[_-]", RegexOption.IGNORE_CASE)
 
     private fun classifyWifi(a: Advert): List<Hit> {
@@ -399,6 +443,23 @@ object SignatureEngine {
                         "the same chips are in many ordinary devices - verify", "$ACAB (flock-you / MILLIE research)")
             }
         }
+        // A Flock camera with its management network off (since late 2025) still looks for networks:
+        // wildcard probe requests from a Flock radio module, heard by a USB WiFi adapter.
+        val w = a.wifi
+        if (w != null && w.client && w.wildcardProbe && !isLocallyAdministered(a.mac) &&
+            a.mac.replace(":", "").uppercase().take(6) in FLOCK_PROBE_PREFIXES) {
+            val prefix = fmtPrefix(a.mac.replace(":", "").uppercase().take(6))
+            hits += if (w.flockProbeIe) Hit(Category.ALPR, "Flock Safety camera (probe request)", 75,
+                "Wildcard probe requests from a WiFi module Flock cameras use ($prefix), carrying the Wi-Fi Alliance " +
+                    "element 50:6F:9A:16 03 01 03 Flock cameras send. Ordinary devices with the same chip can match - verify",
+                "$SIGNALSWEEP; DeFlock / flock-you research")
+            else Hit(Category.ALPR, "Possible Flock camera (probe request)", 60,
+                "Wildcard probe requests from a WiFi module Flock cameras use ($prefix). In field tests this caught " +
+                    "11 of 12 cameras with 2 false alarms; ordinary devices with the same chip can match - verify",
+                "$SIGNALSWEEP; DeFlock / flock-you research")
+        }
+        // Axon body cameras open their own network while pairing (Axon's admin documentation).
+        if (a.wifi?.client != true) axonPairingSsid(ssid)?.let { hits += it }
         if (ssid.startsWith("ARLO_VMB_") || ssid.startsWith("NTGR_VMB_")) {
             hits += Hit(Category.NETWORK_CAMERA, "Arlo camera base station", 88,
                 "WiFi network \"$ssid\" (Arlo base-station SSID)", "$ACAB (field capture)")
@@ -459,6 +520,15 @@ object SignatureEngine {
             "hanwha" to "Hanwha Vision", "samsung techwin" to "Hanwha Vision", "axis" to "Axis", "blink" to "Blink (Amazon)",
             "fantasia trading" to "Eufy (Anker)", "phaten" to "Phaten (camera OEM)", "tapo" to "TP-Link Tapo"
         ).firstOrNull { it.first in o }?.second ?: owner
+    }
+
+    /** "TN" followed by a digit somewhere in a Flock Penguin battery's XUNTONG data: its serial. */
+    private fun hasTnSerial(d: ByteArray?): Boolean {
+        if (d == null) return false
+        for (i in 0 until d.size - 2) {
+            if (d[i] == 'T'.code.toByte() && d[i + 1] == 'N'.code.toByte() && d[i + 2] in '0'.code.toByte()..'9'.code.toByte()) return true
+        }
+        return false
     }
 
     private fun isLocallyAdministered(mac: String): Boolean =

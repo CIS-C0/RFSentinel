@@ -293,6 +293,7 @@ class ScanForegroundService : Service() {
         // A USB WiFi adapter in monitor mode (e.g. AWUS036ACS): access points and client devices.
         com.rfsentinel.app.usb.UsbWifi.start(this) { list -> pipeline.post { list.forEach(::processUsbWifi) } }
         com.rfsentinel.app.usb.DeauthWatch.onAttack = { a -> pipeline.post { onDeauth(a) } }
+        com.rfsentinel.app.usb.KarmaWatch.onAttack = { a -> pipeline.post { onKarma(a) } }
         // An RTL-SDR dongle: strong two-way radio transmissions nearby (signal strength only).
         if (Prefs.categoryEnabled(this, Category.RADIO)) {
             // Settings > RTL-SDR radio: bands, excluded ranges, watched frequencies, sensitivity (re-read on every refresh).
@@ -504,6 +505,9 @@ class ScanForegroundService : Service() {
                 ?.let { remoteId = RemoteId.decodeWifiIe(it.second, DeviceRegistry.remoteIdOf(mac)) }
         }
 
+        // Every tracker advert counts toward a fake-tracker flood (HackerWatch).
+        if (a.isBle) com.rfsentinel.app.detect.HackerWatch.tagFlood(a, now)?.let { onTagFlood(it) }
+
         val prev = classified[mac]
         // A newly heard address counts toward a Bluetooth spam flood (HackerWatch).
         val spam = if (prev == null) com.rfsentinel.app.detect.HackerWatch.bleSpam(a, now) else null
@@ -590,7 +594,8 @@ class ScanForegroundService : Service() {
             // A client has no network name; its WPS device name or model says what it is.
             mac = mac, source = Advert.Source.WIFI, rssi = m.rssi, name = m.ssid ?: m.wps?.label,
             addressType = com.rfsentinel.app.detect.AddressType.ofWifi(mac),
-            wifi = Advert.WifiInfo(m.frequencyMhz, "", null, emptyList(), client = !m.isAccessPoint),
+            wifi = Advert.WifiInfo(m.frequencyMhz, "", null, emptyList(), client = !m.isAccessPoint,
+                wildcardProbe = m.wildcardProbe, flockProbeIe = m.flockProbeIe),
             timestamp = now
         ), null)
     }
@@ -1107,20 +1112,52 @@ class ScanForegroundService : Service() {
             "handful, never a stream. Heard by the USB WiFi adapter; nothing is sent."
         val hit = Hit(Category.HACKER, "WiFi deauth attack on $net", if (a.broadcast) 80 else 70, detail,
             "802.11 management frames (USB WiFi adapter, receive-only)")
+        reportAttack(a.bssid, "WIFI", hit, ssid, "deauth:" + a.bssid, "WiFi attack nearby", now)
+    }
+
+    /** One transmitter answering under many network names (USB WiFi adapter): a Karma / PineAP fake access point. */
+    private fun onKarma(a: com.rfsentinel.app.usb.KarmaWatch.Attack) {
+        if (!Prefs.categoryEnabled(this, Category.HACKER)) return
+        val now = System.currentTimeMillis()
+        val shown = a.names.take(6).joinToString { "\"$it\"" } + if (a.names.size > 6) "..." else ""
+        val channel = if (a.channel >= 5955) "6 GHz channel ${(a.channel - 5950) / 5}" else "channel ${a.channel}"
+        val detail = "One access point (${a.transmitter}, $channel) answered under ${a.names.size} different network names " +
+            "in ${a.windowS} s: $shown. A real access point answers under its own name only. This is how a WiFi Pineapple " +
+            "or ESP32 Karma attack makes phones join it, posing as networks they know - don't join open networks here. " +
+            "Heard by the USB WiFi adapter; nothing is sent."
+        val hit = Hit(Category.HACKER, "Fake WiFi access point (Karma / PineAP)", 80, detail,
+            "802.11 beacons and probe responses (USB WiFi adapter, receive-only); SignalSweep research (GPL-3.0; facts only)")
+        reportAttack(a.transmitter, "WIFI", hit, a.names.firstOrNull(), "karma:" + a.transmitter, "WiFi attack nearby", now)
+    }
+
+    /** A flood of fake trackers on throwaway addresses (HackerWatch.tagFlood). */
+    private fun onTagFlood(f: com.rfsentinel.app.detect.HackerWatch.TagFlood) {
+        if (!Prefs.categoryEnabled(this, Category.HACKER)) return
+        val now = System.currentTimeMillis()
+        val detail = "${f.addresses} fake ${f.network} trackers in ${f.windowS / 60} min, each heard once or twice on an address " +
+            "it never used again - real tags keep theirs. A Flipper Zero or ESP32 tracker-spam attack makes phones show " +
+            "\"tracker found\" warnings that aren't real. Real trackers are still reported as usual."
+        val hit = Hit(Category.HACKER, "Fake tracker flood (${f.network})", 65, detail,
+            "Bluetooth adverts, receive-only; SignalSweep research (GPL-3.0; facts only)")
+        reportAttack(f.sample, "BLE", hit, null, "tagflood:" + f.network, "Fake trackers nearby", now)
+    }
+
+    /** An attack heard over time rather than one device: logged, and alerted like a detection. */
+    private fun reportAttack(mac: String, source: String, hit: Hit, name: String?, key: String, spoken: String, now: Long) {
         val loc = lastLocation
         val tag = Prefs.gpsTaggingEnabled(this)
         serviceScope.launch {
             AppDatabase.getInstance(this@ScanForegroundService).detectionDao().insert(
                 DetectionEntity(
-                    mac = a.bssid, label = hit.label, source = "WIFI", rssi = 0, timestamp = now,
+                    mac = mac, label = hit.label, source = source, rssi = 0, timestamp = now,
                     latitude = if (tag) loc?.latitude else null, longitude = if (tag) loc?.longitude else null,
-                    category = Category.HACKER.name, confidence = hit.confidence, evidence = detail, deviceName = ssid
+                    category = Category.HACKER.name, confidence = hit.confidence, evidence = hit.evidence, deviceName = name
                 )
             )
         }
         if (hit.confidence >= Prefs.alertThreshold(this) && now >= Prefs.alertsSnoozedUntil(this)) {
-            NotificationHelper.sendMapAlert(this, "deauth:" + a.bssid, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java)
-            AlertPlayer.play(this, hit.tier, "WiFi attack nearby")
+            NotificationHelper.sendMapAlert(this, key, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java)
+            AlertPlayer.play(this, hit.tier, spoken)
         }
     }
 
@@ -1240,6 +1277,8 @@ class ScanForegroundService : Service() {
     override fun onDestroy() {
         com.rfsentinel.app.usb.DeauthWatch.onAttack = null
         com.rfsentinel.app.usb.DeauthWatch.clear()
+        com.rfsentinel.app.usb.KarmaWatch.onAttack = null
+        com.rfsentinel.app.usb.KarmaWatch.clear()
         com.rfsentinel.app.usb.PcapRecorder.stop()
         locatingHandler.removeCallbacks(locatingCheck)
         com.rfsentinel.app.esp.EspBoards.stop(this)

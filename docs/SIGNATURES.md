@@ -30,6 +30,8 @@ Before shipping, the identifiers were checked against these registries:
 | Body cam | Company ID `0x034D` (TASER International) | 60 | SIG |
 | Body cam | Service UUID `0xFC81` (Axon), `0xFE6B` or `0xFE6C` (TASER) | 60 | SIG |
 | Body cam | Name contains `BodyWorn Remote` (Utility Inc.) | 80 | ACAB / nite-oui-collection |
+| Body cam | WiFi network starting with `AB2-`, `AB3-` or `AB4-` (an Axon Body camera pairing) | 80 | Axon admin docs, via SignalSweep |
+| Body cam | WiFi network starting with `AXON-` (an Axon device's hotspot; not the `Axon12-5g` Fleet names) | 75 | Axon admin docs, via SignalSweep |
 | Public safety | Company ID `0x04EC`, or UUID `0xFD8E` / `0xFE04` (Motorola Solutions) | 45 | SIG; mostly two-way radios |
 | Public safety | UUID `0xFE79` / `0xFD66` (Zebra) with a factory-serial name (`^[A-Z0-9]{2}[A-Z]{3}\d{9}$`): unrenamed fleet mobile printer, e.g. e-ticket printers | 50 | SIG; Zebra Link-OS BLE app note; field capture |
 | Public safety | UUID `0xFE79` / `0xFD66` (Zebra) with any other name | 30 | SIG; mostly warehouse/retail printers |
@@ -40,6 +42,9 @@ Before shipping, the identifiers were checked against these registries:
 | ALPR | WiFi SSID starting with `Flock-` | 88 | ACAB (ryanohoro, GainSec) |
 | ALPR | BLE name `FS Ext Battery` | 80 | ACAB |
 | ALPR | BLE name `Penguin-<digits>` or `FS-<hex>` | 70, or 80 with company ID `0x09C8` | ACAB |
+| ALPR | Company ID `0x09C8` with `TN` + digits (the battery's serial) in its data | 80 | SignalSweep / oui-spy notes |
+| ALPR | Service UUID `e8ccbb38-9532-46a8-9fe5-1814df172e6f` or `20c944c1-add2-42d7-a638-967ee9a26ff6` (Flock battery) | 80 | Flock-You, SquachWatch, SignalSweep |
+| ALPR | Wildcard probe requests from a Flock radio-module block (USB WiFi adapter) | 60, or 75 with the Wi-Fi Alliance element `50:6F:9A:16 03 01 03` | SignalSweep / DeFlock field tests (11 of 12 cameras, 2 false alarms) |
 | ALPR | BLE name starting with `Flock` | 55 | ACAB (loose brand string) |
 | ALPR | Company ID `0x09C8` alone (XUNTONG, shared silicon) | 45 | SIG / ACAB |
 | Audio sensor | 128-bit service UUIDs with short IDs `0x3100` to `0x3500` (Flock Raven) | 80 | ACAB field capture |
@@ -48,7 +53,8 @@ Before shipping, the identifiers were checked against these registries:
 | Drone | Drone makers' own IEEE blocks (DJI, Parrot, Skydio, Autel /28, Yuneec /28, and others) | 60 | IEEE / ACAB |
 | Tracker | Apple company ID `0x004C`, type `0x12`, length `0x19` (separated from owner only) | 70 | ACAB; arXiv 2501.17452 |
 | Tracker | Google `0xFEAA` service data, frame `0x41` (separated; frame `0x40` = near owner, ignored) | 70 | Find Hub Network spec |
-| Tracker | Samsung `0xFD5A` / Tile `0xFEED` service data | 55 | SIG |
+| Tracker | Samsung `0xFD5A` / Tile `0xFEED` or `0xFEEC` service data | 55 | SIG |
+| Tracker | Samsung `0xFD59` service data (a SmartTag not set up yet) | 40 | SIG; arXiv 2210.14702 |
 | Glasses | Company ID `0x0D53` (Luxottica), `0x03C2` (Snapchat), `0x060C` (Vuzix); UUID `0xFE45` | 70 | SIG |
 | Glasses | `0x058E` only together with the `META_RB_GLASS` token | 72 | ACAB |
 | Glasses | Company ID `0x01AB` or UUID `0xFEB7` / `0xFEB8` (Meta corporate; also Quest headsets) | 45 | SIG / ACAB |
@@ -266,6 +272,40 @@ label names.
 
 The Motorola entries are weak on purpose. In ACAB's field capture, all 27 of 27
 hits on Motorola WiFi prefixes turned out *not* to be body cams.
+
+### SignalSweep compared (2026-10)
+
+[SignalSweep](https://github.com/B0z0dcl0wn/SignalSweep) (GPL-3.0) is an ESP32
+counter-surveillance scanner. Its signatures and field notes were compared with ours;
+what was new was re-implemented from the facts (prefixes, UUIDs, frame layouts and
+thresholds), no code was taken.
+
+- Flock cameras turned their management network off around December 2025. Since then the
+  one thing they still send is a wildcard probe request from their radio module, sometimes
+  with the Wi-Fi Alliance element `50:6F:9A:16 03 01 03`. A USB WiFi adapter now flags it
+  for the module blocks below, minus four that are common in ordinary devices
+  (`F8:A2:D6`, `A4:CF:12`, `3C:71:BF`, `82:6B:F2`).
+- Eight newer Flock radio-module blocks (Liteon and Silicon Labs): `14:B5:CD`, `04:0D:84`,
+  `1C:34:F1`, `38:5B:44`, `94:34:69`, `B4:E3:F9`, `F0:82:C0`, `E0:0A:F6`.
+- Axon's pairing networks, the second Flock battery service, the battery serial, a SmartTag
+  in setup (table above).
+- Hacking tools (`detect/HackerWatch.kt`, `usb/KarmaWatch.kt`):
+  - **Karma / PineAP:** one transmitter answering under 4 or more network names within a
+    minute (USB WiFi adapter). A real access point uses its own address for each network.
+  - **Fake-tracker flood:** 6 or more Find My, Find Hub, SmartTag or Tile addresses in 5
+    minutes, each heard 3 times or fewer within 10 s at -80 dBm or stronger and then never
+    again. Real tags keep their address. One alarm per 5 minutes; real trackers are still
+    reported.
+  - `80:E1:26` / `80:E1:27` (STM32WB chips, as in a Flipper Zero): a weak hint (30).
+- **Deauth alarm:** normal networks send bursts of 11 to 24 frames in 5 s (SignalSweep's field
+  measurements). The alarm now needs 30 in 5 s (a frame to every device counts twice), or 25
+  in 30 s heard in at least three 5 s slices with 4 or more each. An access point restarting
+  drops all its devices at once, then stops; an attack keeps going.
+- **Apple activity:** a device's detail screen shows what an iPhone, Mac or Watch is doing,
+  from its Nearby Info status (idle, screen on, driving, on a call...).
+
+Not taken: ringing a tracker (that sends), and the Remote ID OUI `90:3A:E6`, which is Parrot's
+own block rather than an ASTM identifier.
 
 ### Community lists compared (2026-10)
 

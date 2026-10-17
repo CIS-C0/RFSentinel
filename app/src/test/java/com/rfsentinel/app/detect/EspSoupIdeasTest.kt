@@ -40,11 +40,12 @@ class EspSoupIdeasTest {
         val heard = ArrayList<DeauthWatch.Attack>()
         DeauthWatch.onAttack = { heard += it }
         var t = 1_000_000L
-        repeat(DeauthWatch.MIN_FRAMES - 1) { assertNull(DeauthWatch.frame(ap, broadcast = true, channel = 6, now = t)); t += 100 }
+        // Frames to every device count twice.
+        repeat(DeauthWatch.BURST_WEIGHT / 2 - 1) { assertNull(DeauthWatch.frame(ap, broadcast = true, channel = 6, now = t)); t += 100 }
         val a = DeauthWatch.frame(ap, broadcast = true, channel = 6, now = t)
         assertNotNull(a)
         assertEquals(ap, a!!.bssid); assertTrue(a.broadcast); assertEquals(6, a.channel)
-        assertEquals(DeauthWatch.MIN_FRAMES, a.frames)
+        assertEquals(DeauthWatch.BURST_WEIGHT / 2, a.frames)
         // Still flooding: no new alarm for a while.
         repeat(100) { t += 100; assertNull(DeauthWatch.frame(ap, true, 6, t)) }
         assertEquals(1, heard.size)
