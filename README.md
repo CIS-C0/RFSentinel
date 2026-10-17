@@ -135,10 +135,10 @@
 | **Patrol vehicles** | Two or more kinds of police-type gear travelling together | Signal correlation between body cams, radios, in-car routers, printers, rugged laptops |
 | **Public-safety gear** | P25 / TETRA radios, in-car cellular routers (Sierra Wireless, Cradlepoint, Peplink, Inseego), in-car printers (Zebra, Brother), police radar makers, vehicle upfit, breath / drug screening devices, cell-site simulator and forensic makers | Company IDs, UUIDs, IEEE prefixes, Zebra factory-serial names |
 | **Trackers** | AirTag & Find My, Google Find Hub, Samsung SmartTag, Tile, Chipolo | Separated-from-owner frames and tracker service IDs, then follow detection |
-| **Drones** | Any ASTM F3411 / FAA / EU Remote ID broadcaster, and the French *signalement électronique* | Decoded Remote ID over BLE and WiFi: serial, position, altitude, speed, operator / take-off location |
+| **Drones** | Any ASTM F3411 / FAA / EU Remote ID broadcaster, and the French *signalement électronique* | Decoded Remote ID over BLE, WiFi and Wi-Fi Aware (NAN, on phones that have it): serial, position, altitude, speed, operator / take-off location |
 | **Camera glasses** | Ray-Ban / Oakley Meta, Snap Spectacles, Vuzix, HeyCyan-based glasses such as Nilox Smart AI Glasses | Company IDs `0x0D53`, `0x03C2`, `0x060C`, Meta UUIDs, the HeyCyan SDK UUID, name tokens |
-| **Fake cell towers** | IMSI catchers / cell-site simulators | Test network codes, sudden 4G→2G, cloned or reserved cell identities, unexpected networks |
-| **Police aircraft** *(online, off by default)* | Police, sheriff, state patrol, federal and RCMP / provincial police aircraft, and unlisted aircraft circling low overhead | Community ADS-B feeds (adsb.fi / adsb.lol) matched against ~1,400 law-enforcement airframes from the FAA and Transport Canada registries |
+| **Fake cell towers** | IMSI catchers / cell-site simulators | Test network codes, sudden 4G→2G, cloned or reserved cell identities, unexpected networks, a never-seen cell far stronger than the last while you stand still, an area code none of the neighbours share |
+| **Police aircraft** *(off by default)* | Police, sheriff, state patrol, federal and RCMP / provincial police aircraft, and unlisted aircraft circling low overhead | Community ADS-B feeds (adsb.fi / adsb.lol), and / or ADS-B heard directly by an RTL-SDR (no internet), matched against ~1,400 law-enforcement airframes from the FAA and Transport Canada registries |
 | **Waze reports** *(online, off by default)* | Police reported by Waze users, and any other kind you tick (accidents, hazards, road closures, traffic jams), each with its own level: sound and voice, notification only, or silent. Shows what Waze says it is (hiding, mobile speed camera...) | Two sources: your own OpenWeb Ninja API key, or *Waze direct* (opt-in: no key, free, sends Waze your IP address and a position rounded to a 1 km grid). You set the alert range (100 m to 10 km), the map range, and how often Waze is asked (15 s to 5 min direct, 2 to 10 min OpenWeb Ninja), slower when parked and faster on fast roads. Scored by distance, age and driver confirmations and re-scored every second as you move, so an alert fires the moment a report comes into range, not at the next check. Optional: only alert for reports on the road you're on, ahead of you (checked against the map's roads: a parallel road, a cross street, an overpass or a report behind you stays quiet; while you are guided to a destination the route decides: only reports on the part still ahead of you count, corners included; the ones that aren't on your way are left off the list unless you turn that off, and stay on the map), and spoken call-outs at 1 km, 500 m and 200 m. Third-party service, at your own risk |
 | **Card skimmers** | Bluetooth modules inside gas-pump and ATM skimmers | HC-05 / HC-06 / HC-03 / RN42 / BT04-A names, serial-port service |
 | **Hacking tools** *(off by default)* | Flipper Zero, Pwnagotchi, WiFi Pineapple, ESP deauthers, evil twin WiFi networks, Bluetooth spam floods, **WiFi deauth attacks** | Flipper UUIDs / company ID `0x0E29` / IEEE block, Pwnagotchi beacon JSON, default SSIDs, same network name from two makers with mismatched security, bursts of new pairing pop-ups; with a USB WiFi adapter, floods of unprotected deauthentication frames knocking devices off a network |
@@ -164,7 +164,7 @@ Everything the app does, grouped by area.
 - **Patrol-vehicle detection:** police-type gear whose signals rise and fall together is grouped as a possible police vehicle
 - **Address-rotation linking:** keeps following a device when its Bluetooth address changes, including in Locate
 - **Pinpointing:** a flagged device you pass from more than one side is placed where it most likely is, from its signal at every spot you passed (multilateration), with a circle it's very likely in; a straight road that can't tell the side gets a circle covering both. GPS runs precise every second while a flagged device is in range (Settings → Location, on by default)
-- **Follower alerts:** a tracker or flagged device that stays with you (default 10 min and 800 m, adjustable) raises *may be following you*
+- **Follower alerts:** a tracker or flagged device that stays with you (default 10 min and 800 m, adjustable) raises *may be following you*, and so does one that keeps turning up - heard at 3 or more places along your way within 2 hours, even with gaps between
 - **Remote ID drones** decoded live, with a *drone overhead* alert within 200 m
 - Optional **cell tower change alert**: says so each time the phone moves to another serving tower (Settings; a change while parked is a classic fake-tower sign)
 - **Fake cell tower signs** checked every 15 s, with persistence, call and border suppression (modelled on [EFF's Rayhunter](https://github.com/EFForg/rayhunter) as far as Android allows without root)
@@ -374,7 +374,8 @@ Your position, recorded traces, the devices heard around you and the known camer
   plus cameras it leaves out, straight from OpenStreetMap. Where the direction is mapped,
   a cone in the camera's colour shows which way it faces when you zoom in, and a camera
   facing across your way (watching a cross street) doesn't warn. Tap a camera →
-  *Ignore alerts* to never be warned about it again.
+  *Ignore alerts* to never be warned about it again, or *Set direction* when its
+  direction isn't mapped (kept on your phone only).
 - **CCTV cameras** (Settings → *Known cameras* → *Show CCTV cameras*, off by default):
   ordinary surveillance cameras mapped in OpenStreetMap - city street cameras,
   shop and building cameras. Everything within your camera download radius is
@@ -536,7 +537,8 @@ emulator.
 setting does cover. Android Auto settings → tap **Version** ten times →
 **⋮ → Developer settings** → enable **Unknown sources**, then reconnect:
 
-- **RF Sentinel screen (media-style):** tabs for **Threats**, **Cameras**
+- **RF Sentinel screen (media-style):** tabs for **Threats** (police aircraft overhead, from the
+  online feeds or your RTL-SDR, then flagged devices), **Cameras**
   (nearest known cameras, the one ahead first), **Alerts** and **Status**
   (start / stop scanning, mute, cell towers, hardware), plus a card with the
   current threat and **Scan** / **Mute** buttons. It never plays anything, so
@@ -644,6 +646,14 @@ than Realtek's own Windows driver gets from it).
 
 ### RTL-SDR: two-way radio transmitting nearby
 
+**ADS-B aircraft receiver** (Settings → *RTL-SDR radio*, off by default): the dongle
+listens on 1090 MHz instead of sweeping the radio bands and decodes the aircraft
+around you itself - position, altitude, speed, call sign - with no internet. They go
+through the same police-aircraft checks as the online feeds and show on the map and
+in Android Auto; a registered police aircraft heard without a position is reported as
+in radio range. Needs *Police aircraft* on; its *Online aircraft feeds* switch can then
+be turned off so nothing leaves the phone. A 1090 MHz antenna helps.
+
 Plug an RTL-SDR dongle (R820T / R820T2 / R860 tuner, e.g. RTL-SDR Blog V3, or the
 RTL-SDR Blog V4) into the phone with an OTG cable while scanning. RF Sentinel
 sweeps the North American public-safety radio bands - the 700 and 800 MHz bands
@@ -695,7 +705,8 @@ plugged in, RF Sentinel can keep these names (off by default: they're other
 people's network names; always kept while a map trace records). Tap **Watch** on
 one to get an alert whenever any device asks for it. Devices also show their
 **WPS** maker / model / name, a **probe fingerprint** you can watch ("every
-device of this type", even with random addresses), and hidden networks show
+device of this type", even with random addresses) and its coarser **probe shape**
+(FlipDeFlock's hash, which can be watched too), and hidden networks show
 their real name once a device joins them. Built in: Axon Fleet in-car network
 names ("Axon12-5g", vehicle number + "-5g") and Cradlepoint vehicle routers on
 their default names.
@@ -974,8 +985,22 @@ Thank you to every project credited below.
 <details>
 <summary><b>Ported code, data sources, fonts and trademarks</b></summary>
 
-Some feature ideas come from SØPHIA, BLE Radar (MetaRadar) and ESPsoup. No code from
-those projects is included. European V2X (ITS-G5) frames are read the way
+Some feature ideas come from SØPHIA, [BLE Radar (MetaRadar)](https://github.com/BLE-Research-Group/MetaRadar)
+(trackability from what was seen) and ESPsoup. No code from those projects is included.
+[Wardrive Go](https://github.com/RocketGod-git/wardrive-go) by RocketGod inspired the antenna
+check, the raw-GPS backstop and Bluetooth-scan restart, the USB adapters' empty-transfer
+back-off and "not calibrated" warning, and the ambulance-gear, IP-camera setup, train WiFi
+and mesh-radio detections - written anew, thank you. Drone Remote ID over Wi-Fi Aware follows
+[OpenDroneID's receiver-android](https://github.com/opendroneid/receiver-android) (Apache-2.0).
+The keeps-turning-up follower check follows
+[Chasing Your Tail](https://github.com/ArgeliusLabs/Chasing-Your-Tail-NG) (MIT). The probe
+shape is [FlipDeFlock](https://github.com/ReconGrunt/FlipDeFlock)'s IE skeleton hash, ported
+so its values match, with its candidate and generic shape lists (GPL-3.0). The ADS-B decoder
+is written from the published format and Junzi Sun's *The 1090 MHz Riddle*, with
+[SkyPulse](https://github.com/MrJohn6774/SkyPulse) (GPL-3.0) and
+[dump1090](https://github.com/antirez/dump1090) (BSD-3-Clause) as references. Two fake-cell
+checks follow [AIMSICD](https://github.com/CellularPrivacy/Android-IMSI-Catcher-Detector) and
+[SnoopSnitch](https://github.com/srlabs/snoopsnitch) (GPL-3.0; ideas only). European V2X (ITS-G5) frames are read the way
 [V2X2MAP](https://github.com/pit711/V2X2MAP) by Peter Holzhauser does (MIT; see
 `esp/V2X2MAP-LICENSE`), with the CAM / DENM messages decoded from ETSI's own ASN.1.
 Tracker service IDs follow [AirGuard](https://github.com/seemoo-lab/AirGuard) by
