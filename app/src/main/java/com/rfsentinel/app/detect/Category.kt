@@ -48,6 +48,9 @@ enum class Tier(val label: String, val min: Int) {
     STRONG("strong", 80);
 
     companion object {
+        /** At or below this a match is "very weak": shown in the list, never an alert, sound or banner. */
+        const val VERY_WEAK_MAX = 10
+
         fun of(confidence: Int): Tier = when {
             confidence >= STRONG.min -> STRONG
             confidence >= MEDIUM.min -> MEDIUM
@@ -69,4 +72,6 @@ data class Hit(
     val source: String
 ) {
     val tier: Tier get() = Tier.of(confidence)
+    /** A very weak match ([Tier.VERY_WEAK_MAX]): listed, never alerted. */
+    val listOnly: Boolean get() = confidence <= Tier.VERY_WEAK_MAX
 }

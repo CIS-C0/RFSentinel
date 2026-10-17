@@ -105,6 +105,28 @@ class SignalSweepIdeasTest {
         }
     }
 
+    @Test
+    fun theDoubtfulFlockPrefixesAreVeryWeakAndNeverAlert() {
+        for (p in listOf("A4:CF:12", "F8:A2:D6", "82:6B:F2")) {
+            for (ssid in listOf("", "Falcon_12")) {
+                val h = alpr(ap("$p:00:00:01", ssid))
+                assertEquals("$p '$ssid'", "Very weak Flock signature", h?.label)
+                assertEquals(Tier.VERY_WEAK_MAX, h?.confidence)
+                assertTrue(h!!.listOnly)
+            }
+            assertNull(alpr(ap("$p:00:00:01", "HomeNet")))
+        }
+        // The other module prefixes keep their scores.
+        assertEquals(35, alpr(ap("70:C9:4E:00:00:01", ""))?.confidence)
+        assertFalse(alpr(ap("70:C9:4E:00:00:01", ""))!!.listOnly)
+        // Their watchlist entries are very weak too.
+        val preset = com.google.gson.Gson().fromJson(File("src/main/assets/oui_presets/global.json").readText(),
+            Array<com.rfsentinel.app.oui.OuiEntry>::class.java)
+        val scores = preset.associate { it.prefix to it.effectiveScore }
+        assertEquals(Tier.VERY_WEAK_MAX, scores["A4:CF:12"])
+        assertEquals(Tier.VERY_WEAK_MAX, scores["F8:A2:D6"])
+    }
+
     // ---- Axon pairing networks
 
     @Test

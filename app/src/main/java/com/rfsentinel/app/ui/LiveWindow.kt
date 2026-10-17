@@ -23,12 +23,12 @@ object LiveWindow {
     }
 
     /**
-     * Flagged AND in range: what drives the live alerts (bubble, banner, radar blips, car
+     * Flagged (more than a very weak match) AND in range: what drives the live alerts (bubble, banner, radar blips, car
      * headline, proximity beeps). A flagged device that's gone stops alerting right away but
      * stays in the list and history.
      */
     fun alerting(s: DeviceRegistry.Snapshot, now: Long = System.currentTimeMillis()): Boolean =
-        s.best != null && !com.rfsentinel.app.data.WhitelistCache.contains(s.mac) && inRange(s, now)
+        s.best?.listOnly == false && !com.rfsentinel.app.data.WhitelistCache.contains(s.mac) && inRange(s, now)
 
     fun keep(s: DeviceRegistry.Snapshot, now: Long, bleMs: Long, wifiMs: Long): Boolean {
         if (s.following || s.known?.favorite == true) return true

@@ -1513,10 +1513,10 @@
   },
   {
     "prefix": "A4:CF:12",
-    "label": "Espressif module seen on Flock cameras (community list)",
+    "label": "Espressif module seen on Flock cameras (community list, very weak)",
     "source": "IEEE MA-L (Espressif Inc.); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
-    "confidence": "candidate",
-    "score": 35,
+    "confidence": "very weak",
+    "score": 10,
     "category": "ALPR"
   },
   {
@@ -1529,10 +1529,10 @@
   },
   {
     "prefix": "F8:A2:D6",
-    "label": "Liteon module seen on Flock cameras (community list)",
+    "label": "Liteon module seen on Flock cameras (community list, very weak)",
     "source": "IEEE MA-L (Liteon Technology Corporation); listed by colonelpanichacks/flock-you (list by @NitekryDPaul, DeFlockJoplin); colonelpanichacks/oui-spy; RocketGod-git/wardrive-go; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
-    "confidence": "candidate",
-    "score": 35,
+    "confidence": "very weak",
+    "score": 10,
     "category": "ALPR"
   },
   {

@@ -285,6 +285,10 @@ thresholds), no code was taken.
   with the Wi-Fi Alliance element `50:6F:9A:16 03 01 03`. A USB WiFi adapter now flags it
   for the module blocks below, minus four that are common in ordinary devices
   (`F8:A2:D6`, `A4:CF:12`, `3C:71:BF`, `82:6B:F2`).
+- Three community-listed Flock module prefixes are doubtful: `A4:CF:12` (generic Espressif),
+  `F8:A2:D6` (seen on a Sony media player) and `82:6B:F2` (a randomized-address prefix). They are
+  now **very weak** (score 10): listed, but never an alert, sound, banner or radar blip. Any match
+  at 10 or below works this way.
 - Eight newer Flock radio-module blocks (Liteon and Silicon Labs): `14:B5:CD`, `04:0D:84`,
   `1C:34:F1`, `38:5B:44`, `94:34:69`, `B4:E3:F9`, `F0:82:C0`, `E0:0A:F6`.
 - Axon's pairing networks, the second Flock battery service, the battery serial, a SmartTag

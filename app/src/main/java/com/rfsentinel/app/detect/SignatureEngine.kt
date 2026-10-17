@@ -416,6 +416,13 @@ object SignatureEngine {
      * nothing; from these it's the only thing a current Flock camera still sends (SignalSweep, DeFlock).
      */
     private val FLOCK_PROBE_PREFIXES = FLOCK_MODULE_PREFIXES - setOf("F8A2D6", "A4CF12", "3C71BF", "826BF2")
+
+    /**
+     * Community-listed Flock module prefixes that are doubtful (SignalSweep): A4:CF:12 is a generic
+     * Espressif block, F8:A2:D6 was seen on a Sony media player, 82:6B:F2 is a randomized-address
+     * prefix any phone can land on. Very weak: listed, never alerted.
+     */
+    private val FLOCK_DOUBTFUL_PREFIXES = setOf("A4CF12", "F8A2D6", "826BF2")
     private val FLOCK_PRODUCT_SSID = Regex("^(flock|falcon|sparrow|raven|penguin)[_-]", RegexOption.IGNORE_CASE)
 
     private fun classifyWifi(a: Advert): List<Hit> {
@@ -432,7 +439,15 @@ object SignatureEngine {
                 "WiFi network \"$ssid\" (Flock product name - verify)", "$ACAB (flock-detection / flock-you research)")
         }
         // A Flock-used WiFi module: strong with a Flock product name, weak on a hidden network.
-        if (a.wifi?.client != true && a.mac.replace(":", "").uppercase().take(6) in FLOCK_MODULE_PREFIXES) {
+        val module = a.mac.replace(":", "").uppercase().take(6)
+        if (a.wifi?.client != true && module in FLOCK_DOUBTFUL_PREFIXES) {
+            if (ssid.isEmpty() || (FLOCK_PRODUCT_SSID.containsMatchIn(ssid) && !ssid.startsWith("Flock-", ignoreCase = true))) {
+                hits += Hit(Category.ALPR, "Very weak Flock signature", Tier.VERY_WEAK_MAX,
+                    (if (ssid.isEmpty()) "Hidden WiFi network" else "WiFi network \"$ssid\"") + " on ${fmtPrefix(module)}, a doubtful " +
+                        "community-listed Flock module prefix also found in ordinary devices. Listed only, never alerted",
+                    "$ACAB (flock-you list); $SIGNALSWEEP")
+            }
+        } else if (a.wifi?.client != true && module in FLOCK_MODULE_PREFIXES) {
             if (FLOCK_PRODUCT_SSID.containsMatchIn(ssid) && !ssid.startsWith("Flock-", ignoreCase = true)) {
                 hits += Hit(Category.ALPR, "Flock Safety camera", 85,
                     "WiFi network \"$ssid\" (Flock product name) on a WiFi module Flock cameras use (${fmtPrefix(a.mac.replace(":", "").uppercase().take(6))})",

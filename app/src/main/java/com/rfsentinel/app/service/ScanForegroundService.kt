@@ -549,7 +549,7 @@ class ScanForegroundService : Service() {
         maybeAlert(a, best, now)
 
         val trackerPaused = best.category == Category.TRACKER && now < Prefs.trackerFollowPausedUntil(this)
-        if (loc != null && Prefs.followerAlerts(this) && !trackerPaused &&
+        if (loc != null && Prefs.followerAlerts(this) && !trackerPaused && !best.listOnly &&
             DeviceRegistry.checkFollowing(
                 mac,
                 Prefs.followMinMinutes(this) * 60_000L,
@@ -687,7 +687,7 @@ class ScanForegroundService : Service() {
     private fun maybeAlert(a: Advert, best: Hit, now: Long) {
         // Someone else's tracker nearby is normal; trackers only alert when they follow you.
         if (best.category == Category.TRACKER) return
-        if (best.confidence < Prefs.alertThreshold(this)) return
+        if (best.listOnly || best.confidence < Prefs.alertThreshold(this)) return
         val window = Prefs.dedupeWindowMs(this)
         val last = lastAlerted[a.mac] ?: 0L
         if (now - last <= window) return
