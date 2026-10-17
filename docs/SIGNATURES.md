@@ -49,6 +49,7 @@ Before shipping, the identifiers were checked against these registries:
 | ALPR | Service UUID `e8ccbb38-9532-46a8-9fe5-1814df172e6f` or `20c944c1-add2-42d7-a638-967ee9a26ff6` (Flock battery) | 80 | Flock-You, SquachWatch, SignalSweep |
 | ALPR | Wildcard probe requests from a Flock radio-module block (USB WiFi adapter) | 60, or 75 with the Wi-Fi Alliance element `50:6F:9A:16 03 01 03` | SignalSweep / DeFlock field tests (11 of 12 cameras, 2 false alarms) |
 | ALPR | BLE name starting with `Flock` | 55 | ACAB (loose brand string) |
+| ALPR | Probe-request shape `42d75cd1` or `d0bbec4c` (FlipDeFlock candidates, USB WiFi adapter) | 35, or 50 on a Flock module block | FlipDeFlock (single report each) |
 | ALPR | Company ID `0x09C8` alone (XUNTONG, shared silicon) | 45 | SIG / ACAB |
 | Audio sensor | 128-bit service UUIDs with short IDs `0x3100` to `0x3500` (Flock Raven) | 80 | ACAB field capture |
 | Drone | Service data `0xFFFA` with ASTM F3411 app code `0x0D`; decoded | 95 | ASTM F3411 / opendroneid |
@@ -332,6 +333,7 @@ candidate's IEEE registrant was checked against the maker the project names.
 | [OUI-Spy](https://github.com/colonelpanichacks/oui-spy-unified-blue) | 11 Ring (Amazon) blocks, as home cameras (off by default) |
 | [Wardrive Go](https://github.com/RocketGod-git/wardrive-go) | Same Flock list; its traffic-camera and drone blocks were already here. Later (3.1.165): EMS gear, IP-camera setup networks, train WiFi and mesh radio nodes, above |
 | [Flock-You-Android](https://github.com/MaxwellDPS/Flock-You-Android) | Hikvision, Dahua, Axis, Vivotek, Amcrest, Reolink, Wyze, TVT, Reecam camera blocks; Sierra Wireless and Digi fleet gateways |
+| [FlipDeFlock](https://github.com/ReconGrunt/FlipDeFlock) | Its probe-request "skeleton" hash (element ids and lengths, vendor OUI + type), ported so its published values match: 2 candidate Flock shapes as **weak** hits, 6 shapes it found on phones and ESP32 boards marked as common. Shown as "Probe shape" in device details |
 | [Fieldwatch](https://github.com/OffGridPete/Fieldwatch) | BlueTOAD (Iteris) and BlipTrack roadside travel-time sensors; Flock-pole battery radios (weak); Hanwha, Uniview, Rhombus cameras; Sierra AirLink, Compex and Inseego (Novatel) vehicle radios |
 
 The Flock radio list is mostly Liteon, Silicon Labs, Espressif and USI module

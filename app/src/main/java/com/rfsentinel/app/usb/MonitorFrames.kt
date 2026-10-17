@@ -19,6 +19,8 @@ class MonitorFrames {
         var wps: ProbeIntel.Wps? = null
         /** How it builds its probe requests ([ProbeIntel.fingerprint]). */
         var fingerprint: String? = null
+        /** FlipDeFlock's probe skeleton hash ([ProbeIntel.skeletonHash]). */
+        var skeleton: Long? = null
         /** An access point that hides its name (blank name in its beacons). */
         var hidden = false
         /** A client that sent wildcard probe requests; with the Flock-camera Wi-Fi Alliance element. */
@@ -103,6 +105,7 @@ class MonitorFrames {
                     if (ies.wildcard) s.wildcard = true
                     if (ies.flockIe) s.flockIe = true
                     ProbeIntel.fingerprint(b, d + 24, end)?.let { s.fingerprint = it }
+                    ProbeIntel.skeletonHash(b, d + 24, ProbeIntel.withoutFcs(b, d, end))?.let { s.skeleton = it }
                     ies.ssid?.takeIf { validSsid(it) }?.let { name ->
                         s.probed.remove(name); s.probed.add(name)
                         if (s.probed.size > MAX_PROBED) s.probed.remove(s.probed.first())
@@ -170,6 +173,7 @@ class MonitorFrames {
                 probedSsids = s.probed.toList(),
                 wps = s.wps,
                 fingerprint = s.fingerprint,
+                probeSkeleton = s.skeleton,
                 hiddenNetwork = s.hidden,
                 wildcardProbe = s.wildcard,
                 flockProbeIe = s.flockIe

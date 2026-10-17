@@ -45,7 +45,9 @@ class Advert(
         /** The client sent a wildcard probe request (asks every network to answer, names none). */
         val wildcardProbe: Boolean = false,
         /** Its probe request carried the Wi-Fi Alliance element 50:6F:9A:16 03 01 03 Flock cameras send. */
-        val flockProbeIe: Boolean = false
+        val flockProbeIe: Boolean = false,
+        /** FlipDeFlock's probe skeleton hash of a client's probe requests (USB adapter). */
+        val probeSkeleton: Long? = null
     )
 
     val isBle get() = source == Source.BLE

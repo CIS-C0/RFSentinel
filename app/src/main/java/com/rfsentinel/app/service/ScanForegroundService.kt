@@ -639,8 +639,9 @@ class ScanForegroundService : Service() {
      * its WPS maker / model / name and its probe fingerprint. All checked against the watchlist.
      */
     private fun noteProbes(mac: String, ssids: List<String>, rssi: Int, now: Long,
-                           wps: com.rfsentinel.app.usb.ProbeIntel.Wps? = null, fingerprint: String? = null, hidden: Boolean = false) {
-        com.rfsentinel.app.usb.ProbeIntel.note(mac, wps, fingerprint, ssids, hidden)
+                           wps: com.rfsentinel.app.usb.ProbeIntel.Wps? = null, fingerprint: String? = null, hidden: Boolean = false,
+                           skeleton: Long? = null) {
+        com.rfsentinel.app.usb.ProbeIntel.note(mac, wps, fingerprint, ssids, hidden, skeleton)
         // Kept in the requested-networks list when that's on, and always while a trace records.
         if (ssids.isNotEmpty()) com.rfsentinel.app.data.ProbeLog.record(this, mac, ssids, rssi, now, force = TripRecorder.isRecording)
         val hits = OuiWatchlist.probeHits(ssids) + OuiWatchlist.fingerprintHits(fingerprint) + OuiWatchlist.wpsHits(wps)
@@ -655,13 +656,13 @@ class ScanForegroundService : Service() {
         val now = System.currentTimeMillis()
         val mac = com.rfsentinel.app.util.MacUtil.normalize(m.mac)
         com.rfsentinel.app.esp.HeardBy.usb.mark(mac, now)
-        noteProbes(mac, m.probedSsids, m.rssi, now, m.wps, m.fingerprint, m.hiddenNetwork)
+        noteProbes(mac, m.probedSsids, m.rssi, now, m.wps, m.fingerprint, m.hiddenNetwork, m.probeSkeleton)
         process(Advert(
             // A client has no network name; its WPS device name or model says what it is.
             mac = mac, source = Advert.Source.WIFI, rssi = m.rssi, name = m.ssid ?: m.wps?.label,
             addressType = com.rfsentinel.app.detect.AddressType.ofWifi(mac),
             wifi = Advert.WifiInfo(m.frequencyMhz, "", null, emptyList(), client = !m.isAccessPoint,
-                wildcardProbe = m.wildcardProbe, flockProbeIe = m.flockProbeIe),
+                wildcardProbe = m.wildcardProbe, flockProbeIe = m.flockProbeIe, probeSkeleton = m.probeSkeleton),
             timestamp = now
         ), null)
     }

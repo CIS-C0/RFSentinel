@@ -30,6 +30,20 @@ object SignatureEngine {
     private const val IEEE = "IEEE registry"
     private const val ASTM = "ASTM F3411 Remote ID (opendroneid-core-c, Apache-2.0)"
     private const val SIGNALSWEEP = "SignalSweep research (GPL-3.0; facts only, no code)"
+    private const val FLIPDEFLOCK = "FlipDeFlock (GPL-3.0) probe IE fingerprints"
+
+    /** FlipDeFlock's candidate Flock probe shapes ([com.rfsentinel.app.usb.ProbeIntel.skeletonHash]), single-report. */
+    private val FLOCK_PROBE_SHAPES = mapOf(
+        0x42D75CD1L to "seen on a Flock camera's 70:C9:4E module",
+        0xD0BBEC4CL to "seen on Flock 24:B2:B9 and 70:08:94 modules"
+    )
+
+    /** Probe shapes FlipDeFlock found on ordinary phones and ESP32 boards: never a camera sign. */
+    private val COMMON_PROBE_SHAPES = setOf(0x96FCD1B2L, 0x173D7A70L, 0x7C923B53L, 0x89C3DEBFL, 0xC59C341FL, 0xBA9FAFA0L)
+
+    /** What a probe shape is known as, for the detail screen. */
+    fun probeShapeNote(shape: Long): String? = FLOCK_PROBE_SHAPES[shape]?.let { "same as a Flock camera's ($it), unconfirmed" }
+        ?: if (shape in COMMON_PROBE_SHAPES) "common to phones and ESP32 boards" else null
 
     // --- Bluetooth SIG company IDs (manufacturer data, AD 0xFF) ---------------
     private const val CID_APPLE = 0x004C
@@ -490,6 +504,17 @@ object SignatureEngine {
                 "Wildcard probe requests from a WiFi module Flock cameras use ($prefix). In field tests this caught " +
                     "11 of 12 cameras with 2 false alarms; ordinary devices with the same chip can match - verify",
                 "$SIGNALSWEEP; DeFlock / flock-you research")
+        }
+        // FlipDeFlock's candidate probe shapes: how a Flock camera lays out its probe requests,
+        // which stays the same when it randomizes its address. Single-report, so weak.
+        val shape = w?.probeSkeleton
+        if (w != null && w.client && shape != null && shape in FLOCK_PROBE_SHAPES) {
+            val prefix = a.mac.replace(":", "").uppercase().take(6)
+            val onFlockModule = !isLocallyAdministered(a.mac) && prefix in FLOCK_PROBE_PREFIXES
+            hits += Hit(Category.ALPR, "Possible Flock camera (probe shape)", if (onFlockModule) 50 else 35,
+                "Its probe requests are built exactly like a Flock camera's (shape ${"%08x".format(shape)}, " +
+                    "${FLOCK_PROBE_SHAPES[shape]})" + (if (onFlockModule) " on a module Flock cameras use (${fmtPrefix(prefix)})" else "") +
+                    ". One report so far, and other devices can share a shape - verify", FLIPDEFLOCK)
         }
         // Axon body cameras open their own network while pairing (Axon's admin documentation).
         if (a.wifi?.client != true) axonPairingSsid(ssid)?.let { hits += it }

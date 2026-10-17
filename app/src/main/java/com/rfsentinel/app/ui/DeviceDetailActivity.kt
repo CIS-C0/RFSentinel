@@ -254,6 +254,9 @@ class DeviceDetailActivity : AppCompatActivity() {
                 id += "Probe fingerprint" to fp + if (OuiWatchlist.isFingerprintWatched(fp)) " · on your watchlist" else
                     " (same for every device of this model / OS - Watchlist can watch it)"
             }
+            r.skeleton?.let { sk ->
+                id += "Probe shape" to "%08x".format(sk) + (com.rfsentinel.app.detect.SignatureEngine.probeShapeNote(sk)?.let { " · $it" } ?: "")
+            }
             if (r.probed.isNotEmpty()) id += "Networks it asked for" to r.probed.reversed().joinToString(", ")
         }
         if (id.isNotEmpty()) out += "Identity" to id

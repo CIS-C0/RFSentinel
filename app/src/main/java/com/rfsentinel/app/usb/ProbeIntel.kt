@@ -81,19 +81,49 @@ object ProbeIntel {
         return "%08x".format(crc.value)
     }
 
+    /**
+     * FlipDeFlock's probe "skeleton" (its ie_skeleton_hash, ported as is so its published values
+     * match): FNV-1a over each element's id and length, plus the first 5 bytes (OUI + type) of
+     * vendor elements, from [from] to [end] (no checksum). Unsigned 32-bit; null with no elements.
+     * Coarse: many phones share one, so it marks a candidate, never a device.
+     */
+    fun skeletonHash(b: ByteArray, from: Int, end: Int): Long? {
+        var h = 0x811c9dc5L
+        fun fold(v: Int) { h = ((h xor (v.toLong() and 0xff)) * 0x01000193L) and 0xffffffffL }
+        var i = from; var any = false
+        while (i + 2 <= end) {
+            val tag = b[i].toInt() and 0xff; val len = b[i + 1].toInt() and 0xff
+            if (i + 2 + len > end) break
+            fold(tag); fold(len)
+            if (tag == 0xDD) for (k in 0 until minOf(len, 5)) fold(b[i + 2 + k].toInt())
+            any = true
+            i += 2 + len
+        }
+        return if (any) h else null
+    }
+
+    /** [end] without the 4-byte checksum some drivers keep on a frame starting at [d]. */
+    fun withoutFcs(b: ByteArray, d: Int, end: Int): Int {
+        if (end - d < 28) return end
+        val crc = CRC32().apply { update(b, d, end - d - 4) }.value
+        for (k in 0 until 4) if ((b[end - 4 + k].toLong() and 0xff) != ((crc shr (8 * k)) and 0xff)) return end
+        return end - 4
+    }
+
     private fun hex(b: ByteArray, at: Int, len: Int) = (at until at + len).joinToString("") { "%02x".format(b[it].toInt() and 0xff) }
 
     /** What external hardware learned about a device this scan, for its detail screen. */
-    data class Record(val wps: Wps?, val fingerprint: String?, val probed: List<String>, val hidden: Boolean = false)
+    data class Record(val wps: Wps?, val fingerprint: String?, val probed: List<String>, val hidden: Boolean = false,
+                      val skeleton: Long? = null)
 
     private val byMac = ConcurrentHashMap<String, Record>()
 
-    fun note(mac: String, wps: Wps?, fingerprint: String?, probed: List<String>, hidden: Boolean = false) {
-        if (wps == null && fingerprint == null && probed.isEmpty() && !hidden) return
+    fun note(mac: String, wps: Wps?, fingerprint: String?, probed: List<String>, hidden: Boolean = false, skeleton: Long? = null) {
+        if (wps == null && fingerprint == null && probed.isEmpty() && !hidden && skeleton == null) return
         val key = mac.uppercase()
         val old = byMac[key]
         byMac[key] = Record(wps ?: old?.wps, fingerprint ?: old?.fingerprint, probed.ifEmpty { old?.probed.orEmpty() },
-            hidden || old?.hidden == true)
+            hidden || old?.hidden == true, skeleton ?: old?.skeleton)
         if (byMac.size > 5000) byMac.keys.take(500).forEach { byMac.remove(it) }
     }
 
