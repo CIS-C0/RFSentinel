@@ -93,7 +93,7 @@
 |---|---|
 | **What** | A non-rooted Android app that lists every Bluetooth LE and WiFi device around you with its vendor, type and signal, and flags law-enforcement and surveillance equipment |
 | **How** | Receive-only: reads advertisements, beacons and cell info that devices broadcast publicly. Never transmits to, connects to or jams anything |
-| **Runs on** | Android 8.0+ phones (64-bit ARM), Android Auto, plus optional ESP32 boards (OUI-Spy, GhostESP, Marauder, Flipper Zero + BFFB, FREE-WiLi 2) and USB WiFi adapters |
+| **Runs on** | Android 8.0+ phones (64-bit and 32-bit ARM), Android Auto, plus optional ESP32 boards (OUI-Spy, GhostESP, Marauder, Flipper Zero + BFFB, FREE-WiLi 2) and USB WiFi adapters |
 | **Costs** | Nothing. GPL-3.0, no ads, no account, no subscription, no analytics |
 
 ## What it detects
@@ -257,7 +257,7 @@ headline as you get closer (strong within 50 m, fading out by 500 m). Full refer
 
 ## Quick start
 
-Requires **Android 8.0 or newer** on a 64-bit ARM phone (almost every phone since 2017; the release APK is about 30 MB).
+Requires **Android 8.0 or newer** on an ARM phone, 64-bit or 32-bit (practically every Android phone; the release APK is about 50 MB).
 
 1. On your phone, tap **Download the app** above, or open the [latest release](https://github.com/CIS-C0/RFSentinel/releases/latest).
 2. Under **Assets**, tap the file ending in **`-release.apk`** (not the "Source code" archives).

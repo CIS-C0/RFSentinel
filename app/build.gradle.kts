@@ -61,9 +61,9 @@ android {
         }
         release {
             signingConfig = signingConfigs.findByName("release")
-            // The map engines' native libraries are ~15 MB per CPU type: 64-bit ARM phones only (every
-            // phone of the last several years), not 32-bit ARM or the x86 emulator builds, which debug builds keep.
-            ndk { abiFilters += listOf("arm64-v8a") }
+            // The map engines' native libraries are ~15 MB per CPU type: ARM phones only, 64-bit and 32-bit
+            // (older or low-end phones), not the x86 emulator builds, which debug builds keep.
+            ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
