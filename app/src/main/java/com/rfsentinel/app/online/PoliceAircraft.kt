@@ -93,13 +93,13 @@ object PoliceAircraft {
      * What an aircraft is, or null when it's ordinary traffic. [circling] comes from
      * [LoiterTracker]; [distanceM] is the ground distance from you.
      */
-    fun classify(p: Plane, registry: Map<String, Entry>, circling: Boolean, distanceM: Double): Hit? {
+    fun classify(p: Plane, registry: Map<String, Entry>, circling: Boolean, distanceM: Double?, via: String = VIA_ONLINE): Hit? {
         val where = describe(p, distanceM)
         registry[p.hex]?.let { e ->
             return Hit(Category.AIRCRAFT, "Police aircraft overhead: ${titleCase(e.owner)}", if (circling) 90 else 85,
                 "${e.registration} (${e.model.ifBlank { p.type ?: "aircraft" }}), registered to ${titleCase(e.owner)}. $where" +
                     if (circling) " It is circling." else "",
-                "FAA / Transport Canada aircraft registry; ADS-B (adsb.fi / adsb.lol)")
+                "FAA / Transport Canada aircraft registry; $via")
         }
         p.owner?.takeIf { LE_OWNER.containsMatchIn(it) }?.let { owner ->
             return Hit(Category.AIRCRAFT, "Police aircraft overhead: ${titleCase(owner)}", if (circling) 85 else 80,
@@ -112,7 +112,7 @@ object PoliceAircraft {
             return Hit(Category.AIRCRAFT, "Aircraft circling overhead", if (low) 55 else 45,
                 "${p.registration ?: p.callsign ?: p.hex.uppercase()} (${p.type ?: "aircraft"}) keeps circling over the same area. $where " +
                     "Police and surveillance flights orbit like this, but so do news, training and survey flights - verify.",
-                "ADS-B track (loiter detection)")
+                "$via track (loiter detection)")
         }
         if (p.military) {
             return Hit(Category.AIRCRAFT, "Military / government aircraft nearby", 40,
@@ -122,9 +122,23 @@ object PoliceAircraft {
         return null
     }
 
-    private fun describe(p: Plane, distanceM: Double): String =
+    /**
+     * A law-enforcement aircraft the RTL-SDR heard (its transponder answering radar, or ADS-B
+     * without a position): in radio range - tens of km - but where exactly isn't known.
+     */
+    fun heardNearby(hex: String, registry: Map<String, Entry>): Hit? = registry[hex]?.let { e ->
+        Hit(Category.AIRCRAFT, "Police aircraft in radio range: ${titleCase(e.owner)}", 60,
+            "${e.registration} (${e.model.ifBlank { "aircraft" }}), registered to ${titleCase(e.owner)}. Its transponder was " +
+                "heard by your RTL-SDR, so it is within radio range (usually under 100 km), but it sent no position.",
+            "FAA / Transport Canada aircraft registry; $VIA_LOCAL")
+    }
+
+    const val VIA_ONLINE = "ADS-B (adsb.fi / adsb.lol)"
+    const val VIA_LOCAL = "ADS-B heard by your RTL-SDR"
+
+    private fun describe(p: Plane, distanceM: Double?): String =
         listOfNotNull(
-            "About ${com.rfsentinel.app.util.Units.distance(distanceM)} from you",
+            distanceM?.let { "About ${com.rfsentinel.app.util.Units.distance(it)} from you" },
             p.altitudeFt?.let { if (it <= 0) "on the ground" else "at ${it} ft" },
             p.speedKt?.let { "${it.toInt()} kt" }
         ).joinToString(", ") + "."
@@ -179,10 +193,22 @@ object PoliceAircraft {
     /** Every aircraft from the latest poll, for the map; empty when the source is off. */
     @Volatile var latest: List<Seen> = emptyList()
     @Volatile var latestAt = 0L
+    /** Every aircraft the RTL-SDR's ADS-B receiver has a position for. */
+    @Volatile var local: List<Seen> = emptyList()
+    @Volatile var localAt = 0L
 
-    /** Aircraft [hex] (ICAO address) in the latest poll while it's fresh (as the map draws it), or null. */
+    /** The aircraft to draw: heard by the RTL-SDR and from the online feeds, while fresh; the RTL-SDR's are newer. */
+    fun all(now: Long = System.currentTimeMillis()): List<Seen> {
+        val mine = if (now - localAt <= 30_000L) local else emptyList()
+        val online = if (now - latestAt <= 3 * 60_000L) latest else emptyList()
+        if (mine.isEmpty()) return online
+        val heard = mine.mapTo(HashSet()) { it.plane.hex }
+        return mine + online.filter { it.plane.hex !in heard }
+    }
+
+    /** Aircraft [hex] (ICAO address) as the map draws it, or null. */
     fun current(hex: String, now: Long = System.currentTimeMillis()): Seen? =
-        if (now - latestAt > 3 * 60_000L) null else latest.firstOrNull { it.plane.hex.equals(hex, ignoreCase = true) }
+        all(now).firstOrNull { it.plane.hex.equals(hex, ignoreCase = true) }
 
     fun feedUrls(lat: Double, lon: Double, radiusKm: Int): List<String> {
         val nm = Math.round(radiusKm / 1.852).toInt().coerceIn(1, 250)

@@ -15,6 +15,9 @@ import com.rfsentinel.app.usb.UsbWifi
  * detector ([RadioWatch]): it sweeps the public-safety bands and reports strong
  * transmissions nearby. Only signal strength per channel is measured. Its log goes into
  * the USB adapter log (Settings → Export USB WiFi adapter log).
+ *
+ * Or, with [adsb] on, it stays on 1090 MHz as an ADS-B receiver ([ModeS], [AdsbTracker]):
+ * aircraft heard directly, no internet needed, handed to [onAircraft] every few seconds.
  */
 object SdrRadio {
 
@@ -25,6 +28,8 @@ object SdrRadio {
     private const val READS_PER_CHUNK = 8     // ~32 ms of samples per tuned chunk
     private const val SETTLE_READS = 2        // samples after a retune are discarded
     private const val STALL_CHUNKS = 8        // chunks in a row without samples before the stream is restarted
+    private const val ADSB_GAIN_TENTHS_DB = 496 // the tuner's most: aircraft are far and faint
+    private const val ADSB_PUSH_MS = 2_000L
 
     @Volatile var status: String = ""; private set
     /** What to watch (Settings > RTL-SDR radio); picked up at the next sweep. */
@@ -33,6 +38,12 @@ object SdrRadio {
     private var onEvent: ((RadioWatch.Event) -> Unit)? = null
     @Volatile private var runningDevice: String? = null
     @Volatile private var stop = false
+    /** Receive ADS-B on 1090 MHz instead of sweeping the radio bands; switches at the next sweep. */
+    @Volatile var adsb = false
+    /** Where you are (latitude, longitude), to drop impossible aircraft positions. */
+    @Volatile var location: (() -> Pair<Double, Double>?)? = null
+    /** Aircraft with a position, and addresses heard without one, every couple of seconds in ADS-B mode. */
+    @Volatile var onAircraft: ((List<com.rfsentinel.app.online.PoliceAircraft.Plane>, List<String>) -> Unit)? = null
 
     fun isSdr(d: UsbDevice) = RtlSdr.isRtlSdr(d.vendorId, d.productId)
 
@@ -108,6 +119,73 @@ object SdrRadio {
     private fun run(sdr: RtlSdr, d: UsbDevice) {
         UsbWifi.log("=== RTL-SDR radio activity watch (%04x:%04x) ===".format(d.vendorId, d.productId))
         if (!sdr.open()) { status = "RTL-SDR: this tuner isn't supported yet (R820T / R820T2 / R860 / R828D only)"; return }
+        while (!stop && !sdr.lost) if (adsb) runAdsb(sdr) else runSweep(sdr)
+        if (sdr.lost) UsbWifi.log("RTL-SDR: the dongle stopped answering (unplugged?)")
+        sdr.close()
+    }
+
+    private fun runAdsb(sdr: RtlSdr) {
+        sdr.setSampleRate(ModeS.SAMPLE_RATE)
+        sdr.setGain(ADSB_GAIN_TENTHS_DB)
+        if (!sdr.tune(ModeS.FREQ_HZ)) {
+            UsbWifi.log("RTL-SDR: the tuner didn't lock on 1090 MHz")
+            status = "RTL-SDR · ADS-B: the tuner didn't lock on 1090 MHz"
+            var waited = 0
+            while (!stop && adsb && waited < 50) { Thread.sleep(100); waited++ }
+            return
+        }
+        sdr.resetBuffer()
+        UsbWifi.log("RTL-SDR: ADS-B receiver on 1090 MHz, ${sdr.sampleRate} S/s, gain ${ADSB_GAIN_TENTHS_DB / 10.0} dB")
+        status = "RTL-SDR · ADS-B · listening on 1090 MHz…"
+        // One read is ~33 ms of samples; Android before 9 caps a transfer at 16 KB.
+        val xfer = if (android.os.Build.VERSION.SDK_INT >= 28) 131_072 else XFER
+        val buf = ByteArray(xfer)
+        val mag = IntArray(xfer / 2 + 2 * ModeS.OVERLAP)
+        var have = 0
+        val demod = ModeS.Demod()
+        val tracker = AdsbTracker()
+        val frames = ArrayList<ModeS.Frame>()
+        var lastPush = 0L; var lastLog = System.currentTimeMillis(); var fails = 0; var messages = 0L; var logged = 0L
+        while (!stop && !sdr.lost && adsb) {
+            val n = sdr.read(buf)
+            if (n <= 0) {
+                if (++fails % STALL_CHUNKS == 0) {
+                    if (fails <= STALL_CHUNKS * 3) UsbWifi.log("RTL-SDR: no samples for $fails reads in a row - restarting the stream")
+                    sdr.resetBuffer()
+                }
+                continue
+            }
+            fails = 0
+            ModeS.magnitudes(buf, n / 2, mag, have)
+            val total = have + n / 2
+            if (total < 2 * ModeS.OVERLAP) { have = total; continue }
+            frames.clear()
+            demod.scan(mag, total, frames)
+            val now = System.currentTimeMillis()
+            val me = location?.invoke()
+            for (f in frames) tracker.add(f, now, me?.first, me?.second)
+            messages += frames.size
+            System.arraycopy(mag, total - ModeS.OVERLAP, mag, 0, ModeS.OVERLAP)
+            have = ModeS.OVERLAP
+            if (now - lastPush >= ADSB_PUSH_MS) {
+                lastPush = now
+                tracker.prune(now)
+                val located = tracker.located(now)
+                val unlocated = tracker.unlocated(now)
+                onAircraft?.invoke(located, unlocated)
+                status = "RTL-SDR · ADS-B · ${located.size + unlocated.size} aircraft heard, ${located.size} with a position"
+            }
+            if (now - lastLog >= 60_000) {
+                UsbWifi.log("RTL-SDR: ADS-B ${messages - logged} messages in ${(now - lastLog) / 1000} s, " +
+                    "${demod.preambles} preambles, ${demod.fixed} fixed, ${tracker.count} aircraft, USB errors ${sdr.ctlErrors}")
+                lastLog = now; logged = messages
+            }
+        }
+        onAircraft?.invoke(emptyList(), emptyList())
+        UsbWifi.log("RTL-SDR: ADS-B receiver stopped after $messages messages")
+    }
+
+    private fun runSweep(sdr: RtlSdr) {
         sdr.setSampleRate(SAMPLE_RATE)
         sdr.setGain(GAIN_TENTHS_DB)
         sdr.resetBuffer()
@@ -124,11 +202,11 @@ object SdrRadio {
         val iq = ByteArray(XFER * READS_PER_CHUNK)
         var lastLog = 0L; var sweepStart = System.currentTimeMillis(); var sweepMs = 0L
         var events = 0; var unlocked = 0; var readErrors = 0; var failedChunks = 0
-        while (!stop && !sdr.lost) {
+        while (!stop && !sdr.lost && !adsb) {
             // Settings changed: the new bands / targets / sensitivity from this sweep on.
             if (config != cfg) { cfg = config; plan = RadioWatch.plan(cfg); watch.config = cfg; logPlan() }
             for (center in plan) {
-                if (stop || sdr.lost) break
+                if (stop || sdr.lost || adsb) break
                 if (!sdr.tune(center)) { unlocked++; continue }
                 repeat(SETTLE_READS) { sdr.read(buf) }
                 var got = 0
@@ -166,8 +244,6 @@ object SdrRadio {
                     "$events reported, PLL unlocked $unlocked, read errors $readErrors, tuner write failures ${sdr.tunerWriteFails}, USB errors ${sdr.ctlErrors}")
             }
         }
-        if (sdr.lost) UsbWifi.log("RTL-SDR: the dongle stopped answering (unplugged?)")
-        sdr.close()
-        UsbWifi.log("RTL-SDR: stopped after ${watch.sweeps} sweeps")
+        UsbWifi.log("RTL-SDR: radio sweep stopped after ${watch.sweeps} sweeps")
     }
 }

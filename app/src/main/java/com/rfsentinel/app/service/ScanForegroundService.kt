@@ -327,8 +327,13 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.usb.UsbWifi.start(this) { list -> pipeline.post { list.forEach(::processUsbWifi) } }
         com.rfsentinel.app.usb.DeauthWatch.onAttack = { a -> pipeline.post { onDeauth(a) } }
         com.rfsentinel.app.usb.KarmaWatch.onAttack = { a -> pipeline.post { onKarma(a) } }
-        // An RTL-SDR dongle: strong two-way radio transmissions nearby (signal strength only).
-        if (Prefs.categoryEnabled(this, Category.RADIO)) {
+        // An RTL-SDR dongle: strong two-way radio transmissions nearby (signal strength only),
+        // or aircraft on 1090 MHz when it's set up as an ADS-B receiver.
+        val sdrAdsb = Prefs.sdrAdsb(this) && Prefs.categoryEnabled(this, Category.AIRCRAFT)
+        com.rfsentinel.app.sdr.SdrRadio.adsb = sdrAdsb
+        com.rfsentinel.app.sdr.SdrRadio.location = { (lastLocation ?: lastFix)?.let { it.latitude to it.longitude } }
+        com.rfsentinel.app.sdr.SdrRadio.onAircraft = { planes, unlocated -> onlineWatch.localAircraft(planes, unlocated) }
+        if (sdrAdsb || Prefs.categoryEnabled(this, Category.RADIO)) {
             // Settings > RTL-SDR radio: bands, excluded ranges, watched frequencies, sensitivity (re-read on every refresh).
             com.rfsentinel.app.sdr.SdrRadio.config = com.rfsentinel.app.sdr.RadioSettings.config(this)
             com.rfsentinel.app.sdr.FreqNames.load(this)

@@ -109,6 +109,44 @@ class OnlineWatch(
             (best?.let { " · ${it.label}" } ?: ", none police")
     }
 
+    /**
+     * Aircraft heard by the RTL-SDR's own ADS-B receiver (no internet): checked like the feed's,
+     * every couple of seconds. [unlocated]: addresses heard without a position, flagged only
+     * when they are in the law-enforcement registry.
+     */
+    fun localAircraft(planes: List<PoliceAircraft.Plane>, unlocated: List<String>) {
+        val now = System.currentTimeMillis()
+        if (!Prefs.categoryEnabled(context, Category.AIRCRAFT)) { PoliceAircraft.local = emptyList(); return }
+        val registry = PoliceAircraft.load(context)
+        val me = location()
+        val seen = ArrayList<PoliceAircraft.Seen>(planes.size)
+        synchronized(loiter) {
+            fun report(hit: Hit, key: String, lat: Double, lon: Double) {
+                val last = lastAircraftHit[key] ?: 0L
+                if (now - last < AIRCRAFT_REPEAT_MS) return
+                lastAircraftHit[key] = now
+                onAlert(Alert(hit, lat, lon, "air:$key"))
+            }
+            for (p in planes) {
+                val circling = loiter.update(p, now)
+                val hit = PoliceAircraft.classify(p, registry, circling,
+                    me?.let { PoliceAircraft.distance(p, it.latitude, it.longitude) }, PoliceAircraft.VIA_LOCAL)
+                seen += PoliceAircraft.Seen(p, hit)
+                hit?.let { report(it, p.hex, p.lat, p.lon) }
+            }
+            // No position: logged where you are, which is where it was heard.
+            if (me != null) for (hex in unlocated) PoliceAircraft.heardNearby(hex, registry)?.let { report(it, hex, me.latitude, me.longitude) }
+            loiter.prune(now)
+        }
+        PoliceAircraft.local = seen
+        PoliceAircraft.localAt = now
+        seen.mapNotNull { it.hit }.maxByOrNull { it.confidence }?.let { best ->
+            val cur = AmbientThreats.aircraft
+            if (cur == null || now - cur.first > AIRCRAFT_MS || best.confidence >= cur.second.score)
+                AmbientThreats.aircraft = now to AmbientThreats.Threat(best.confidence, best.label, Category.AIRCRAFT)
+        }
+    }
+
     private fun clock(t: Long) = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(t))
 
     companion object {

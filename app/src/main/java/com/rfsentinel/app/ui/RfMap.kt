@@ -282,8 +282,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
             GeoJson.feature(GeoJson.line(listOf(r.operatorLatitude!! to r.operatorLongitude!!, r.latitude!! to r.longitude!!)))
         })
 
-        val fresh = System.currentTimeMillis() - PoliceAircraft.latestAt <= 3 * 60_000L
-        val air = if (fresh) PoliceAircraft.latest else emptyList()
+        val air = PoliceAircraft.all()
         planes = air.associateBy { it.plane.hex }
         set(AIRCRAFT, air.map { (p, hit) ->
             GeoJson.feature(GeoJson.point(p.lat, p.lon),
