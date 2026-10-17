@@ -127,14 +127,33 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
             return listOf(playable(ACTION_SCAN, "Not scanning", "Tap to start scanning", dot(CarUi.WEAK_COLOR)))
         }
         val flagged = CarUi.sorted(DeviceRegistry.snapshot()).filter { CarUi.isFlagged(it) }.take(MAX_ITEMS)
-        if (flagged.isEmpty()) {
+        val planes = policeAircraft()
+        if (flagged.isEmpty() && planes.isEmpty()) {
             return listOf(playable(INFO_CLEAR, "All clear", "No flagged equipment nearby", dot(CarUi.CLEAR_COLOR)))
         }
-        return flagged.map { s ->
+        // Police aircraft first (heard by the RTL-SDR or from the online feeds), then flagged devices.
+        return planes.map { (seen, line) ->
+            playable(AIRCRAFT + seen.plane.hex, seen.hit!!.label, line, dot(AIRCRAFT_COLOR))
+        } + flagged.take(MAX_ITEMS - planes.size).map { s ->
             playable(DEVICE + s.mac, CarUi.title(s),
                 CarUi.tagLine(s) + " · " + com.rfsentinel.app.detect.DeviceIntel.formatDistance(s.distanceM),
                 dot(CarUi.colorFor(s)))
         }
+    }
+
+    /** Flagged aircraft now on the map, nearest first, with a "distance · altitude · source" line. */
+    private fun policeAircraft(): List<Pair<com.rfsentinel.app.online.PoliceAircraft.Seen, String>> {
+        val me = CarUi.currentLocation(this)
+        val heard = com.rfsentinel.app.online.PoliceAircraft.local.mapTo(HashSet()) { it.plane.hex }
+        return com.rfsentinel.app.online.PoliceAircraft.all().filter { it.hit != null }
+            .map { it to me?.let { m -> com.rfsentinel.app.online.PoliceAircraft.distance(it.plane, m.latitude, m.longitude) } }
+            .sortedBy { it.second ?: Double.MAX_VALUE }
+            .take(3)
+            .map { (seen, d) ->
+                seen to listOfNotNull(d?.let { NearbyMapScreen.distanceText(it) },
+                    seen.plane.altitudeFt?.takeIf { it > 0 }?.let { "$it ft" },
+                    if (seen.plane.hex in heard) "heard by your RTL-SDR" else "online feed").joinToString(" · ")
+            }
     }
 
     private fun cameras(): List<MediaItem> {
@@ -336,6 +355,9 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
                 "${e.categoryEnum?.shortTag ?: "Alert"} · ${CarUi.ageText(now - e.time)}", e.evidence.take(160),
                 alertColor(e), e.categoryEnum?.shortTag ?: "ALERT", e.tierEnum?.label?.substringBefore(" -"))
         }
+        id.startsWith(AIRCRAFT) -> policeAircraft().firstOrNull { it.first.plane.hex == id.removePrefix(AIRCRAFT) }?.let { (seen, line) ->
+            Card(id, seen.hit!!.label, line, seen.hit.evidence.take(160), AIRCRAFT_COLOR, "AIRCRAFT", "${seen.hit.confidence}%")
+        }
         id == INFO_CELLS -> Card(id, "Cell towers", CellsScreen.summary() ?: "No cell information", null,
             0xFF7B1FA2.toInt(), "CELL", null)
         id == INFO_HARDWARE -> Card(id, "Hardware", hardwareSummary(), null, 0xFF0B5C63.toInt(), "HARDWARE", null)
@@ -462,6 +484,8 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
 
         private const val DEVICE = "dev:"
         private const val CAMERA = "cam:"
+        private const val AIRCRAFT = "air:"
+        private val AIRCRAFT_COLOR = com.rfsentinel.app.ui.MapIcons.POLICE_AIRCRAFT_COLOR
         private const val ALERT = "alert:"
         private const val ACTION_SCAN = "act:scan"
         private const val ACTION_MUTE = "act:mute"
