@@ -88,7 +88,25 @@ enum class AddressType(val label: String, val trackable: String) {
     LIKELY_NON_RESOLVABLE("Probably non-resolvable private", "Probably rotates - not trackable"),
     UNKNOWN("Unknown", "This phone's Bluetooth didn't report the address type");
 
+    /**
+     * How trackable the device is in practice (after MetaRadar): what its address type says,
+     * corrected by what this app saw - the same address on several days, or its new random
+     * address linked to the old one by its advert fingerprint.
+     */
+    fun trackability(firstSeen: Long?, lastSeen: Long?, sessions: Int, rotationLinked: Boolean): String {
+        val days = if (firstSeen != null && lastSeen != null) ((lastSeen - firstSeen) / DAY_MS).toInt() else 0
+        return when {
+            sessions >= 2 && days >= 1 ->
+                "Trackable: the same address was heard over ${days + 1} days, in $sessions scans"
+            rotationLinked -> "$trackable, but its new address was linked to the old one by its advert, so it can still be followed"
+            sessions >= 2 -> "$trackable · same address in $sessions scans within a day"
+            else -> trackable
+        }
+    }
+
     companion object {
+        private const val DAY_MS = 24 * 60 * 60_000L
+
         /** Sub-type of a BLE random address from its most significant byte. */
         fun ofRandom(mac: String): AddressType {
             val msb = mac.take(2).toIntOrNull(16) ?: return UNKNOWN

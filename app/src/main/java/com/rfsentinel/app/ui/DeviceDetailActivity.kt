@@ -237,7 +237,8 @@ class DeviceDetailActivity : AppCompatActivity() {
         }
         if (s != null) {
             id += "Address type" to s.addressType.label
-            id += "Trackability" to s.addressType.trackable
+            id += "Trackability" to s.addressType.trackability(known?.firstSeen, known?.lastSeen, known?.sessions ?: 0,
+                com.rfsentinel.app.service.DeviceRegistry.linkedFrom(mac) != null)
             id += "Radio" to s.sources.joinToString(" + ") { if (it == Advert.Source.BLE) "Bluetooth LE" else "WiFi" }
         }
         a?.connectable?.let { id += "Connectable" to if (it) "Yes (accepts connections)" else "No (broadcast only)" }
