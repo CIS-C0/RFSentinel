@@ -772,7 +772,7 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.shortVoiceSwitch, "\"Body cam\", \"Police car\", \"Speed camera, 50\" instead of whole sentences.")
         info(binding.bubbleSwitch, "A small bubble over other apps (Waze, Google Maps...) showing the threat level. Needs \"Display over other apps\".")
         info(binding.floatingMapSwitch, "A small map over other apps, centred on you, with the same device dots as RF Sentinel's map. It always uses OpenFreeMap: a window this small has no room for Mapbox's logo and info button.")
-        info(binding.followSwitch, "Warns when a tracker or flagged device keeps moving with you, for at least the time and distance below.")
+        info(binding.followSwitch, "Warns when a tracker or flagged device keeps moving with you, for at least the time and distance below - whether it stays in range or keeps turning up again: heard at 3 or more places along your way within 2 hours.")
         withUnit(binding.followMinutesInput, "min")
         withUnit(binding.followMetersInput, "m")
         info(binding.mapProviderLabel, "OpenFreeMap: free and open, OpenStreetMap data.\n\nMapbox: Mapbox's Standard map with 3D buildings and day / night light.\n\nThe floating mini map and the Android Auto map always use OpenStreetMap maps.")

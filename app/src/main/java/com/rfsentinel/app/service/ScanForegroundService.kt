@@ -167,6 +167,8 @@ class ScanForegroundService : Service() {
 
     private lateinit var bleEngine: BleScanEngine
     private lateinit var wifiEngine: WifiScanEngine
+    /** Flagged devices that keep turning up at places along your way (pipeline thread only). */
+    private val placeFollow = PlaceFollow()
     /** Drone Remote ID over Wi-Fi Aware, on phones that have it. */
     private var nanRemoteId: NanRemoteId? = null
 
@@ -612,12 +614,13 @@ class ScanForegroundService : Service() {
         maybeAlert(a, best, now)
 
         val trackerPaused = best.category == Category.TRACKER && now < Prefs.trackerFollowPausedUntil(this)
+        val followMs = Prefs.followMinMinutes(this) * 60_000L
+        val followM = Prefs.followMinMeters(this).toDouble()
+        // Followers that stay in range, and ones that keep turning up at places along your way.
+        if (loc != null && !best.listOnly) placeFollow.heard(mac, DeviceRegistry.linkedFrom(mac), now, loc.latitude, loc.longitude)
         if (loc != null && Prefs.followerAlerts(this) && !trackerPaused && !best.listOnly &&
-            DeviceRegistry.checkFollowing(
-                mac,
-                Prefs.followMinMinutes(this) * 60_000L,
-                Prefs.followMinMeters(this).toDouble()
-            )
+            (DeviceRegistry.checkFollowing(mac, followMs, followM).also { if (it) placeFollow.alertedNow(mac, now) } ||
+                placeFollow.follower(mac, now, followMs, followM).also { if (it) DeviceRegistry.markFollowing(mac) })
         ) {
             NotificationHelper.sendAlert(this, mac, best, a.rssi, following = true)
             AlertPlayer.play(this, best.tier, com.rfsentinel.app.util.Spoken.device(this, best, following = true), following = true)

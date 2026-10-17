@@ -342,6 +342,16 @@ object DeviceRegistry {
         }
     }
 
+    /** Marks [mac] as following you ([PlaceFollow] found it at several places). True the first time only. */
+    fun markFollowing(mac: String): Boolean {
+        val t = tracks[mac] ?: return false
+        synchronized(t) {
+            if (t.following) return false
+            t.following = true
+            return true
+        }
+    }
+
     /** Light snapshots for the live list; pruned first. */
     fun snapshot(now: Long = System.currentTimeMillis()): List<Snapshot> {
         tracks.values.removeIf { now - it.lastSeen > PRUNE_AFTER_MS }
