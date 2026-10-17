@@ -59,6 +59,8 @@
 <tr><td>BLE name</td><td>starts with <code>Flock</code> (loose)</td><td>55</td></tr>
 <tr><td>BLE company ID</td><td><code>0x09C8</code> XUNTONG, alone (shared silicon)</td><td>45</td></tr>
 <tr><td>BLE 128-bit UUIDs</td><td>short IDs <code>0x3100</code>-<code>0x3500</code>: Flock Raven audio sensor</td><td>80</td></tr>
+<tr><td>WiFi probe requests (USB adapter)</td><td>wildcard probes from a Flock radio-module block; with the Wi-Fi Alliance element <code>50:6F:9A:16 03 01 03</code></td><td>60, 75</td></tr>
+<tr><td>WiFi probe shape (USB adapter)</td><td><a href="https://github.com/ReconGrunt/FlipDeFlock" rel="noopener">FlipDeFlock</a>'s candidate Flock shapes <code>42d75cd1</code>, <code>d0bbec4c</code>; shapes common to phones never count</td><td>35, 50 on a Flock module</td></tr>
 </tbody></table></div>
 <p>Sources: all-cameras-are-beacons field captures (ryanohoro, GainSec) and Bluetooth SIG assigned numbers. The SSID <code>-FALCON</code> suffix is deliberately <b>not</b> matched: the evidence behind it turned out to be circular.</p>
 
@@ -68,7 +70,7 @@
 <li><b>Download nearby cameras:</b> every plate reader within the radius set in Settings or the setup wizard (10-200 km, 100 by default).</li>
 <li><b>Download Flock:</b> every plate reader mapped in the US and Canada, ~18 MB, about 143,000 cameras, refreshed weekly on WiFi. Uses <a href="https://deflock.org" rel="noopener">DeFlock</a>'s hourly snapshot, then adds cameras it leaves out (other tagging, Flock cameras mapped as ordinary cameras) straight from OpenStreetMap.</li>
 </ul>
-<p>While scanning, you're warned once per camera per 30 minutes when one is within about 20 s of travel (150 m minimum, 600 m maximum) and two GPS fixes show you getting closer. Speed cameras warn about 30 s ahead with the mapped limit. Tap a camera → <b>Ignore alerts</b> to silence it for good.</p>
+<p>While scanning, you're warned once per camera per 30 minutes when one is within about 20 s of travel (150 m minimum, 600 m maximum) and two GPS fixes show you getting closer. Speed cameras warn about 30 s ahead with the mapped limit. Where OpenStreetMap has the camera's direction, a cone in its colour shows which way it faces when you zoom in; while you're moving, a camera facing across your road (watching a cross street) doesn't warn, while one facing you or away (front or rear plates) does. Tap a camera → <b>Ignore alerts</b> to silence it for good, or <b>Set direction</b> when its direction isn't mapped (kept on your phone only).</p>
 
 <h2 id="why-map">Why the map matters</h2>
 <p>Most plate readers that aren't Flock (Genetec AutoVu, Motorola Vigilant, Perceptics, Quercus, Tattile) send their data over cellular modems or wired links and broadcast nothing a phone can match. The map layer is the only way a phone can warn about those. If a camera near you is missing, add it to OpenStreetMap, for example through DeFlock.</p>
