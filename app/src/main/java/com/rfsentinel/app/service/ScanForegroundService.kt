@@ -788,9 +788,11 @@ class ScanForegroundService : Service() {
         val speed = if (loc.hasSpeed()) loc.speed else null
         // Search out to the larger (speed camera) radius, then apply each kind's own.
         val radius = KnownCameras.warnRadius(speed, com.rfsentinel.app.alpr.KnownCamera.Kind.SPEED)
+        // Moving (~7 km/h or more): a camera facing across your way watches a cross street, not you.
+        val heading = if (loc.hasBearing() && (speed ?: 0f) >= 2f) loc.bearing.toDouble() else null
         val near = KnownCameras.near(AlprStore.cameras, loc.latitude, loc.longitude, radius)
             .filter { (cam, d) ->
-                wantsAlert(cam.type) && d <= KnownCameras.warnRadius(speed, cam.type) &&
+                wantsAlert(cam.type) && d <= KnownCameras.warnRadius(speed, cam.type) && KnownCameras.watchesYourWay(cam, heading) &&
                     !com.rfsentinel.app.alpr.IgnoredCameras.contains(this, cam.osmId) // silenced from the map
             }
         val nearIds = near.map { it.first.osmId }.toSet()

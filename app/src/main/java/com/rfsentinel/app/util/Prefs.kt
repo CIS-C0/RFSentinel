@@ -484,6 +484,7 @@ object Prefs {
     fun setRadioMatchKhz(context: Context, v: Int) = setInt(context, "radio_match_khz", v.coerceIn(1, 50))
     /** The RTL-SDR as an ADS-B aircraft receiver on 1090 MHz instead of the radio sweep (off by default). */
     fun sdrAdsb(context: Context): Boolean = bool(context, "sdr_adsb", false)
+    fun setSdrAdsb(context: Context, v: Boolean) = setBool(context, "sdr_adsb", v)
 
     /** Name hits from RadioReference (needs the user's own Premium login and developer key; off by default). */
     fun radioReferenceOn(context: Context): Boolean = bool(context, "radio_reference_on", false)

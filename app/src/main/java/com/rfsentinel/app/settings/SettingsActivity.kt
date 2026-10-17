@@ -1048,6 +1048,9 @@ class SettingsActivity : AppCompatActivity() {
             setOnCheckedChangeListener { _, v -> save(v) }
         }.also { box.addView(if (info == null) it else infoRow(it, info)) }
 
+        switch("ADS-B aircraft receiver", Prefs.sdrAdsb(this),
+            "Listens on 1090 MHz for aircraft instead of sweeping the radio bands. Police aircraft are found without internet. " +
+            "Needs Police aircraft turned on. A 1090 MHz antenna helps; the stock one hears out to about 50 km.") { Prefs.setSdrAdsb(this, it) }
         slider(15, 50, Prefs.radioMinSnr(this), { "Sensitivity: $it dB above the noise" }) {
             Prefs.setRadioMinSnr(this, it)
         }

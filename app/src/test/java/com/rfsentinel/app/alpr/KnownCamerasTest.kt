@@ -1,6 +1,7 @@
 package com.rfsentinel.app.alpr
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -113,5 +114,16 @@ class KnownCamerasTest {
         assertEquals(2, found.size)
         assertTrue(found[0].second <= found[1].second)
         assertTrue(KnownCameras.near(cams, 10.6, -20.5, 150.0).isEmpty())
+    }
+
+    @Test
+    fun aCameraFacingAcrossYourWayWatchesAnotherRoad() {
+        fun cam(dir: Int?) = KnownCamera("n1", 10.5, -20.5, null, null, dir)
+        // Driving north (0°): facing you (180°), away (0° / 350°) or slightly off all watch your road.
+        for (d in listOf(180, 0, 350, 30, 200)) assertTrue("$d", KnownCameras.watchesYourWay(cam(d), 0.0))
+        // Facing east or west: a cross street.
+        for (d in listOf(90, 270, 110, 245)) assertFalse("$d", KnownCameras.watchesYourWay(cam(d), 0.0))
+        assertTrue(KnownCameras.watchesYourWay(cam(null), 0.0))
+        assertTrue(KnownCameras.watchesYourWay(cam(90), null))
     }
 }

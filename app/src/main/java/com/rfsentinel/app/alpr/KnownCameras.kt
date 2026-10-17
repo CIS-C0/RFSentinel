@@ -212,12 +212,27 @@ object KnownCameras {
     ): Pair<KnownCamera, Double>? {
         if (bearingDeg == null) return near(cameras, lat, lon, maxM / 3).firstOrNull { !skip(it.first) }
         return near(cameras, lat, lon, maxM).firstOrNull { (c, d) ->
-            if (skip(c)) return@firstOrNull false
+            if (skip(c) || !watchesYourWay(c, bearingDeg.toDouble())) return@firstOrNull false
             if (d < 30.0) return@firstOrNull true // right here
             val diff = kotlin.math.abs(((bearingTo(lat, lon, c.lat, c.lon) - bearingDeg) % 360 + 540) % 360 - 180)
             diff <= coneDeg
         }
     }
+
+    /**
+     * Whether [c] watches the road you're on, going [bearingDeg]: it faces along your way, towards
+     * you (front plates) or away (rear plates, read once you've passed). One facing across your
+     * way - [SIDEWAYS_DEG] or more off - watches a cross street. True when either isn't known.
+     */
+    fun watchesYourWay(c: KnownCamera, bearingDeg: Double?): Boolean {
+        val dir = c.direction ?: return true
+        if (bearingDeg == null) return true
+        val off = kotlin.math.abs(((dir - bearingDeg) % 180 + 270) % 180 - 90) // 0 = along your way, 90 = across
+        return off < SIDEWAYS_DEG
+    }
+
+    /** A camera facing this far or more off your way watches another road. */
+    const val SIDEWAYS_DEG = 55.0
 
     /** Initial great-circle bearing from one point to another, degrees from north (0-360). */
     fun bearingTo(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {

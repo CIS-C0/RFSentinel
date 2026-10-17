@@ -35,8 +35,14 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         const val CAMERAS_MIN_ZOOM = 8.0
         private const val CCTV_MIN_ZOOM = 11.0
         private const val CCTV_CONE_ZOOM = 14.0
+        /** Plate, speed and red-light cameras' facing cones show from here (a street's scale). */
+        private const val CAMERA_CONE_ZOOM = 13.0
+        /** Drawn view of a road camera: about how far a plate reader reads, and its usual width. */
+        private const val CAMERA_CONE_M = 60.0
+        private const val CAMERA_CONE_DEG = 40.0
 
         private const val PRECISION = "rf-precision"; private const val CONES = "rf-cctv-cones"
+        private const val CAM_CONES = "rf-camera-cones"
         private const val TRACE = "rf-trace"; private const val DRONE_LINES = "rf-drone-lines"
         private const val TOWERS = "rf-towers"; private const val CCTV = "rf-cctv"; private const val CAMERAS = "rf-cameras"
         private const val DEVICES = "rf-devices"; private const val DOTS = "rf-device-dots"; private const val LABELS = "rf-device-labels"
@@ -127,7 +133,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
 
     /** Every layer, as map style JSON (the same on both engines). */
     private fun addLayers(dark: Boolean) {
-        listOf(NAV_ROUTES, NAV_PLACES, PRECISION, CONES, TRACE, DRONE_LINES, TOWERS, CCTV, CAMERAS, DEVICES, WAZE, DRONE_OPS, DRONES, AIRCRAFT)
+        listOf(NAV_ROUTES, NAV_PLACES, PRECISION, CONES, CAM_CONES, TRACE, DRONE_LINES, TOWERS, CCTV, CAMERAS, DEVICES, WAZE, DRONE_OPS, DRONES, AIRCRAFT)
             .forEach { map.addSource(it) }
         fun get(k: String) = a("get", k)
         val color = a("to-color", get("color"))
@@ -166,6 +172,10 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
             layer("$PRECISION-line", "line", PRECISION, paint = o("line-color" to color, "line-width" to 1.5, "line-opacity" to 0.7)),
             // What each CCTV camera watches (zoomed in).
             layer("$CONES-fill", "fill", CONES, minzoom = CCTV_CONE_ZOOM, paint = o("fill-color" to color, "fill-opacity" to get("opacity"))),
+            // Which way each plate, speed and red-light camera faces (when mapped), in its icon's colour.
+            layer("$CAM_CONES-fill", "fill", CAM_CONES, minzoom = CAMERA_CONE_ZOOM, paint = o("fill-color" to color, "fill-opacity" to get("opacity"))),
+            layer("$CAM_CONES-line", "line", CAM_CONES, minzoom = CAMERA_CONE_ZOOM,
+                paint = o("line-color" to color, "line-width" to 1.2, "line-opacity" to a("*", get("opacity"), 2.5))),
             layer(TRACE, "line", layout = o("line-cap" to "round", "line-join" to "round"),
                 paint = o("line-color" to color, "line-width" to 5.0)),
             layer(DRONE_LINES, "line", paint = o("line-color" to DRONE_COLOR, "line-width" to 2.5, "line-dasharray" to a(4.0, 2.5))),
@@ -328,6 +338,12 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
             GeoJson.feature(GeoJson.point(c.lat, c.lon), "id" to c.osmId, "icon" to "rf-cam-${c.type.name}",
                 "opacity" to if (com.rfsentinel.app.alpr.IgnoredCameras.contains(activity, c.osmId)) 0.35 else 1.0)
         })
+        set(CAM_CONES, cams.mapNotNull { c ->
+            val dir = c.direction ?: return@mapNotNull null
+            val faded = com.rfsentinel.app.alpr.IgnoredCameras.contains(activity, c.osmId)
+            GeoJson.feature(GeoJson.polygon(MapGeo.wedge(c.lat, c.lon, dir.toDouble(), CAMERA_CONE_DEG, CAMERA_CONE_M)),
+                "color" to hex(MapIcons.cameraColor(c.type)), "opacity" to if (faded) 0.08 else 0.25)
+        })
 
         val showCctv = Prefs.showCctv(activity)
         val private = Prefs.cctvPrivate(activity)
@@ -362,7 +378,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
     }
 
     private fun clearStatic() {
-        listOf(CAMERAS, CCTV, CONES, TOWERS).forEach { set(it, emptyList()) }
+        listOf(CAMERAS, CAM_CONES, CCTV, CONES, TOWERS).forEach { set(it, emptyList()) }
         cameras = emptyMap(); cctvs = emptyMap(); towers = emptyMap(); staticBox = null
     }
 

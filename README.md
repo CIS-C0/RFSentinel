@@ -371,7 +371,9 @@ Your position, recorded traces, the devices heard around you and the known camer
   within your radius (10-200 km, 100 by default); *US & Canada plate cameras* fetches every
   plate reader mapped in the US and Canada (~18 MB, refreshed weekly on WiFi).
   Both use [DeFlock](https://deflock.org)'s hourly snapshot of OpenStreetMap,
-  plus cameras it leaves out, straight from OpenStreetMap. Tap a camera →
+  plus cameras it leaves out, straight from OpenStreetMap. Where the direction is mapped,
+  a cone in the camera's colour shows which way it faces when you zoom in, and a camera
+  facing across your way (watching a cross street) doesn't warn. Tap a camera →
   *Ignore alerts* to never be warned about it again.
 - **CCTV cameras** (Settings → *Known cameras* → *Show CCTV cameras*, off by default):
   ordinary surveillance cameras mapped in OpenStreetMap - city street cameras,
