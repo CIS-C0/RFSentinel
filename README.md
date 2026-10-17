@@ -75,8 +75,12 @@
 - [Quick start](#quick-start)
 - [How it works](#how-it-works)
 - [Using the app](#using-the-app)
+  - [Main screen](#main-screen) · [Device details](#device-details) · [Map and traces](#map-and-traces) · [Navigation](#navigation) · [Export](#export)
 - [Android Auto](#android-auto)
-- [ESP32 boards](#esp32-boards-optional)
+- [External hardware](#external-hardware-optional)
+  - [ESP32 boards](#esp32-boards)
+  - [Supported USB WiFi adapters](#usb-wifi-adapter-monitor-mode)
+  - [RTL-SDR: two-way radio detection](#rtl-sdr-two-way-radio-transmitting-nearby)
 - [Themes](#themes)
 - [Privacy](#privacy)
 - [Limitations](#limitations)
@@ -524,7 +528,11 @@ the Desktop Head Unit.
 
 </details>
 
-## ESP32 boards (optional)
+## External hardware (optional)
+
+RF Sentinel works with the phone alone. These add-ons extend what it can hear.
+
+### ESP32 boards
 
 Plug an ESP32 board into the phone with a USB OTG cable while scanning (allow
 USB access the first time), or pair one over Bluetooth. What the board reports
