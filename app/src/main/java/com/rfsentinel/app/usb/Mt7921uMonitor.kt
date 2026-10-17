@@ -41,6 +41,7 @@ object Mt7921uMonitor {
             149, 153, 157, 161, 165).map { 1 to it } +
         listOf(5, 21, 37, 53, 69, 85, 101, 117, 133, 149, 165, 181, 197, 213, 229).map { 2 to it }
     private const val DWELL_MS = 150L
+    private const val RX_ANTENNAS = 0x3
     private val FRESH_MS get() = (HOP.size * DWELL_MS * 9 / 5).coerceAtLeast(3000L)
     private const val REPORT_MS = 10_000L
 
@@ -466,10 +467,14 @@ object Mt7921uMonitor {
         return p
     }
 
-    /** CHANNEL_SWITCH: 20 MHz on [ch] in [band] (0 = 2.4, 1 = 5, 2 = 6 GHz), two streams. */
+    /**
+     * CHANNEL_SWITCH: 20 MHz on [ch] in [band] (0 = 2.4, 1 = 5, 2 = 6 GHz), two streams. The RX path
+     * is an antenna mask, as mt7921_mcu_set_chan_info sends it (antenna_mask): 0x3 listens on both
+     * antennas; the 2 in mt76-usb-macos's frames is antenna 2 alone.
+     */
     internal fun chanInfoPayload(band: Int, ch: Int): ByteArray {
         val p = ByteArray(76)
-        p[0] = ch.toByte(); p[1] = ch.toByte(); p[2] = 0; p[3] = 2; p[4] = 2; p[10] = band.toByte()
+        p[0] = ch.toByte(); p[1] = ch.toByte(); p[2] = 0; p[3] = 2; p[4] = RX_ANTENNAS.toByte(); p[10] = band.toByte()
         return p
     }
 

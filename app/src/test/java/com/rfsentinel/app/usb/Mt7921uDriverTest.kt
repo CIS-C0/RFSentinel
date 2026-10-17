@@ -82,7 +82,8 @@ class Mt7921uDriverTest {
 
     @Test
     fun tuningCommandsMatchTheGoldenFrames() {
-        assertEquals(golden["set_chan_info_6g_53_20"], hex(m.cmdFrame(m.extCmd(m.EXT_CHANNEL_SWITCH), m.chanInfoPayload(2, 53), 1)))
+        // the golden frame with the RX antenna mask set to both antennas (0x3), as Linux sends it
+        assertEquals(golden["set_chan_info_6g_53_20"]!!.replace("353500020200", "353500020300"), hex(m.cmdFrame(m.extCmd(m.EXT_CHANNEL_SWITCH), m.chanInfoPayload(2, 53), 1)))
         assertEquals(golden["config_sniffer_6g_53_20"], hex(m.uniFrame(m.UNI_SNIFFER, m.snifferConfigPayload(2, 53), 1)))
     }
 

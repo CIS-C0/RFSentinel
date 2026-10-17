@@ -83,6 +83,7 @@ object Mt7612uMonitor {
     /** AUTO_RSP_CFG without the auto-responder (bit 0): the adapter never answers with an ACK or CTS. */
     private const val AUTO_RSP_NO_RESPONDER = 0x12
 
+    private const val MIN_FRAME = 10; private const val MAX_BAD_LOGS = 12; private const val DEAF_MS = 15_000L
     private const val FW_ATTEMPTS = 3; private const val CLAIM_WAITS = 10
     private const val DMA_HDR = 4; private const val RXWI_LEN = 32; private const val FCE_INFO = 4
     /** Room for the largest 802.11ac MPDU (11454 B) plus descriptors: a smaller buffer splits big frames over two transfers. */
@@ -453,7 +454,10 @@ object Mt7612uMonitor {
 
     // ---- receive ----
 
-    private class RxState { var hopAt = 0L; var lastEmit = 0L; var lastRxAt = 0L; var lastCheck = 0L; var hopIdx = 0 }
+    private class RxState {
+        var hopAt = 0L; var lastEmit = 0L; var lastRxAt = 0L; var lastCheck = 0L; var hopIdx = 0
+        var badLogged = 0; var revivals = 0
+    }
 
     private fun rxLoop(chipName: String, epCmd: UsbEndpoint, ep: UsbEndpoint,
                        onFrame: (List<MonitorSighting>) -> Unit, onStatus: (String) -> Unit) {
@@ -465,7 +469,8 @@ object Mt7612uMonitor {
             st.lastRxAt = System.currentTimeMillis()
             stats.sample("$n bytes, DMA header + RXWI", b, 0, DMA_HDR + 16)
             val ch = HOP[st.hopIdx]
-            val f = parseRx(b, n, onBad = { crc -> if (crc) stats.badChecksum++ else stats.malformed++ }) ?: return@onData
+            val f = parseRx(b, n, onBad = { crc -> if (crc) stats.badChecksum++ else stats.malformed++ },
+                why = { if (st.badLogged < MAX_BAD_LOGS) { st.badLogged++; UsbWifi.log("MT7612U: transfer dropped - $it") } }) ?: return@onData
             val rssi = f.rawRssi?.let { if (ch <= 14) it + rssiOff2g - lna2g else it + rssiOff5g - lna5g }
             stats.frame(rssi)
             frames.frame(b, f.start, f.end, ch, rssi)
@@ -482,6 +487,19 @@ object Mt7612uMonitor {
                 if (now - st.lastRxAt > 6000 && regRd(CH_BUSY) > 50000) {
                     UsbWifi.log("MT7612U: receive stalled (${(now - st.lastRxAt) / 1000} s) - restarting it")
                     runCatching { reKickRx() }
+                    st.lastRxAt = now
+                } else if (now - st.lastRxAt > DEAF_MS) {
+                    // Nothing at all, not even energy on the channel: the receiver itself is off or
+                    // lost its calibration (seen after a quick restart without a replug). Switch it
+                    // back on and fully retune.
+                    val sys = regRd(MAC_SYS_CTRL)
+                    if (st.revivals < 5) UsbWifi.log("MT7612U: nothing received for ${(now - st.lastRxAt) / 1000} s (SYS_CTRL 0x%08x) - re-enabling the receiver".format(sys))
+                    st.revivals++
+                    runCatching {
+                        if (sys and SYS_CTRL_ENABLE_RX == 0) macStart() else reKickRx()
+                        tune(epCmd, HOP[st.hopIdx], scan = false)
+                    }
+                    drainCmdResp()
                     st.lastRxAt = now
                 }
             }
@@ -515,17 +533,24 @@ object Mt7612uMonitor {
      * DMA header: anything else is a piece of a split transfer, whose "descriptor" is frame
      * payload (random lengths and signal values, phantom addresses) and is dropped.
      */
-    internal fun parseRx(b: ByteArray, n: Int, onBad: (Boolean) -> Unit = {}): Rx? {
-        if (n < DMA_HDR + RXWI_LEN + 24 || n > b.size) { onBad(false); return null }
+    internal fun parseRx(b: ByteArray, n: Int, onBad: (Boolean) -> Unit = {}, why: (String) -> Unit = {}): Rx? {
+        // Only lengths and flags go into [why], never frame bytes (addresses, network names).
+        if (n < DMA_HDR + RXWI_LEN + MIN_FRAME || n > b.size) { onBad(false); why("$n B transfer, too short"); return null }
         val dmaLen = (b[0].toInt() and 0xff) or ((b[1].toInt() and 0xff) shl 8)
-        if (dmaLen < RXWI_LEN + 24 || dmaLen and 3 != 0 || DMA_HDR + dmaLen > n || n > DMA_HDR + dmaLen + FCE_INFO) { onBad(false); return null }
+        if (dmaLen < RXWI_LEN + MIN_FRAME || dmaLen and 3 != 0 || DMA_HDR + dmaLen > n || n > DMA_HDR + dmaLen + FCE_INFO) {
+            onBad(false); why("$n B transfer, DMA length $dmaLen"); return null
+        }
         val rxwi = DMA_HDR
         val rxinfo = le32(b, rxwi)
         if (rxinfo and RXINFO_CRCERR != 0) { onBad(true); return null }
         val mpdu = (le32(b, rxwi + 4) ushr 16) and 0x3fff
         var d = rxwi + RXWI_LEN
         val pad = if (rxinfo and RXINFO_L2PAD != 0) 2 else 0
-        if (mpdu < 24 || d + mpdu + pad > DMA_HDR + dmaLen || DMA_HDR + dmaLen - (d + mpdu + pad) >= 4) { onBad(false); return null }
+        if (mpdu < MIN_FRAME || d + mpdu + pad > DMA_HDR + dmaLen || DMA_HDR + dmaLen - (d + mpdu + pad) >= 4) {
+            onBad(false); why("$n B transfer, DMA length $dmaLen, frame $mpdu B, pad $pad, RX info 0x%08x".format(rxinfo)); return null
+        }
+        // ACK / CTS / RTS / PS-Poll: shorter than a full header and carry no sender worth showing.
+        if (mpdu < 24) { if ((b[d].toInt() shr 2) and 3 != 1) { onBad(false); why("$mpdu B frame that isn't a control frame") }; return null }
         if (pad != 0) {
             val hdr = headerLength(b, d).coerceAtMost(mpdu)
             System.arraycopy(b, d, b, d + pad, hdr)

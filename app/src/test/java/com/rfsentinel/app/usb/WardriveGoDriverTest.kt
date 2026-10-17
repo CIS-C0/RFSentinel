@@ -115,6 +115,15 @@ class WardriveGoDriverTest {
         assertEquals(2, malformed)
     }
 
+    @Test
+    fun mt7612uIgnoresShortControlFramesWithoutCountingThem() {
+        val ack = byteArrayOf(0xd4.toByte(), 0) + ByteArray(8) // ACK: frame control, duration, receiver
+        val t = mtTransfer(ack)
+        var bad = 0; var reason: String? = null
+        assertNull(Mt7612uMonitor.parseRx(t, t.size, onBad = { bad++ }, why = { reason = it }))
+        assertEquals(0, bad); assertNull(reason)
+    }
+
     // --- AR9271: stream of | len | 0x4e00 | HTC header (8) | RX status (40) | frame + FCS |, padded to 4 ---
 
     private fun athPacket(frame: ByteArray, status: Int = 0, rssi: Int = 30): ByteArray {
