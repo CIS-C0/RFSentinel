@@ -54,6 +54,14 @@ android {
         }
     }
 
+    // full: everything, with the optional Mapbox map. foss: only free software (no Mapbox SDK), for F-Droid and
+    // anyone who wants it; the map is OpenFreeMap. Same app ID, so either one replaces the other.
+    flavorDimensions += "maps"
+    productFlavors {
+        create("full") { dimension = "maps" }
+        create("foss") { dimension = "maps" }
+    }
+
     buildTypes {
         debug {
             // Installs next to the release app (demo data, screenshots) without touching it.
@@ -123,8 +131,8 @@ dependencies {
     // where the phone has it and OpenGL ES everywhere else (the plain build is Vulkan-only and crashes the app on phones
     // without Vulkan, e.g. Android 9 phones with a PowerVR GE8320).
     implementation("org.maplibre.gl:android-sdk-vulkan-opengl:13.6.1")
-    // Optional Mapbox map (Settings > Map > Map provider); needs MAPBOX_ACCESS_TOKEN in local.properties.
-    implementation("com.mapbox.maps:android-ndk27:11.32.0")
+    // Optional Mapbox map (Settings > Map > Map provider), full build only; needs MAPBOX_ACCESS_TOKEN in local.properties.
+    "fullImplementation"("com.mapbox.maps:android-ndk27:11.32.0")
 
     // Android Auto (Car App Library, template-based UI; "projected" = phone-driven Android Auto)
     implementation("androidx.car.app:app:1.7.0")

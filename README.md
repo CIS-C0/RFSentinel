@@ -896,19 +896,23 @@ No root. Not on Google Play: the signed APK is on
 Requirements: Android Studio, or JDK 17+ with the Android SDK (platform 37).
 
 ```bash
-./gradlew assembleDebug
+./gradlew assembleFossDebug
 ```
 
 ```bash
 ./gradlew testDebugUnitTest lintDebug
 ```
 
-Mapbox is optional: with `MAPBOX_ACCESS_TOKEN=pk...` (your own public token) in
+There are two flavors. **foss** contains only free software: no Mapbox SDK, the map is
+always OpenFreeMap. **full** adds the optional Mapbox map (`./gradlew assembleFullDebug`).
+Both have the same app ID, so either one replaces the other.
+
+In the full flavor, Mapbox is optional: with `MAPBOX_ACCESS_TOKEN=pk...` (your own public token) in
 `local.properties` (git-ignored) the build offers the Mapbox map; without it the app
 builds and runs on OpenFreeMap only. The Mapbox SDK downloads from Mapbox's public
 Maven repository without an account.
 
-The debug APK is written to `app/build/outputs/apk/debug/`. `tools/gen_assets.py`
+The debug APKs are written to `app/build/outputs/apk/<flavor>/debug/`. `tools/gen_assets.py`
 regenerates the offline IEEE and Bluetooth SIG databases. The website is built
 from `site/` with `python tools/build_site.py` (see [site/README.md](site/README.md)).
 
@@ -922,7 +926,7 @@ from `site/` with `python tools/build_site.py` (see [site/README.md](site/README
 <details>
 <summary><b>Signed release builds</b></summary>
 
-`./gradlew assembleRelease` signs the APK using `keystore.properties` in the
+`./gradlew assembleRelease` builds both flavors and signs the APKs using `keystore.properties` in the
 project root (git-ignored):
 
 ```properties

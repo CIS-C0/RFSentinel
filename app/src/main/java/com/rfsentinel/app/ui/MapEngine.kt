@@ -114,13 +114,14 @@ internal interface MapEngine {
     fun placeBranding(topPx: Int, atEnd: Boolean = false)
 
     companion object {
-        val mapboxAvailable get() = BuildConfig.MAPBOX_TOKEN.isNotEmpty()
+        /** Mapbox needs the full build (the FOSS build leaves its SDK out) and a token in local.properties. */
+        val mapboxAvailable get() = MapboxSupport.INCLUDED && BuildConfig.MAPBOX_TOKEN.isNotEmpty()
 
         fun chosen(context: Context): Provider =
             Provider.parse(Prefs.mapProvider(context)).takeIf { it != Provider.MAPBOX || mapboxAvailable } ?: Provider.OPENFREEMAP
 
         fun create(context: Context, provider: Provider = chosen(context)): MapEngine = when (provider) {
-            Provider.MAPBOX -> MapboxEngine(context)
+            Provider.MAPBOX -> MapboxSupport.engine(context)
             Provider.OPENFREEMAP -> MapLibreEngine(context)
         }
     }
