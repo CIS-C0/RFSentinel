@@ -53,13 +53,14 @@ class OnlineWatch(
 
     /** Starts or stops each source to match Settings (call on every scan (re)start and when Settings closes). */
     fun sync() {
-        val wantAir = Prefs.categoryEnabled(context, Category.AIRCRAFT)
+        val wantAir = Prefs.categoryEnabled(context, Category.AIRCRAFT) && Prefs.aircraftOnline(context)
         if (wantAir && aircraftJob?.isActive != true) {
             aircraftJob = scope.launch(Dispatchers.IO) {
                 while (isActive) { runCatching { pollAircraft() }.onFailure { aircraftStatus = "Error: ${it.message}" }; delay(AIRCRAFT_MS) }
             }
         } else if (!wantAir) {
-            aircraftJob?.cancel(); aircraftJob = null; AmbientThreats.aircraft = null; aircraftStatus = ""
+            aircraftJob?.cancel(); aircraftJob = null; AmbientThreats.aircraft = null
+            aircraftStatus = if (Prefs.categoryEnabled(context, Category.AIRCRAFT)) "Online feeds off: only aircraft your RTL-SDR hears" else ""
             PoliceAircraft.latest = emptyList()
         }
         waze.sync()

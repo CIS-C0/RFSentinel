@@ -233,6 +233,10 @@ object Prefs {
     // Stored as chosen (down to 5 s); [liveWifiSec] raises it to 30 s whenever fast WiFi scans are off.
     fun setLiveWifiSec(context: Context, sec: Int) = setInt(context, "live_wifi_sec", sec.coerceIn(5, 180))
 
+    /** Police aircraft from the online ADS-B feeds; off leaves only the RTL-SDR's own receiver (on by default). */
+    fun aircraftOnline(context: Context): Boolean = bool(context, "aircraft_online", true)
+    fun setAircraftOnline(context: Context, v: Boolean) = setBool(context, "aircraft_online", v)
+
     fun aircraftRadiusKm(context: Context): Int = int(context, "aircraft_radius_km", 30).coerceIn(10, 50)
     fun setAircraftRadiusKm(context: Context, km: Int) = setInt(context, "aircraft_radius_km", km.coerceIn(10, 50))
 

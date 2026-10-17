@@ -412,7 +412,8 @@ class SettingsActivity : AppCompatActivity() {
                 "Two-way radio needs an RTL-SDR dongle on USB.\n\n" +
                 "Police aircraft and Waze reports are online sources, off by default. Aircraft: every minute, a position " +
                 "rounded to about 1 km goes to the community ADS-B feeds adsb.fi / adsb.lol; matched against a list of " +
-                "about 1,400 US and Canadian law-enforcement aircraft, plus unlisted aircraft circling low overhead. " +
+                "about 1,400 US and Canadian law-enforcement aircraft, plus unlisted aircraft circling low overhead. With an RTL-SDR " +
+                "set up as an ADS-B receiver, aircraft are also heard directly, and the online feeds can be turned off. " +
                 "Waze: crowd reports (police, and any other kind you tick), at your own risk. Either through your own OpenWeb Ninja key " +
                 "(Waze never sees you), or Waze direct: no key, free, but an anonymous Waze account on this phone sends Waze (Google) your " +
                 "IP address and a position rounded to a 1 km grid.\n" +
@@ -1483,6 +1484,11 @@ class SettingsActivity : AppCompatActivity() {
             orientation = android.widget.LinearLayout.VERTICAL
             setPadding((24 * dp).toInt(), 0, 0, (6 * dp).toInt())
         }
+        box.addView(infoRow(SwitchMaterial(this).apply {
+            text = "Online aircraft feeds"; isChecked = Prefs.aircraftOnline(this@SettingsActivity)
+            setOnCheckedChangeListener { _, v -> Prefs.setAircraftOnline(this@SettingsActivity, v) }
+        }, "Asks adsb.fi / adsb.lol every minute for aircraft near a position rounded to about 1 km. Turn off to use only " +
+            "the aircraft your RTL-SDR hears itself (Settings › RTL-SDR radio › ADS-B aircraft receiver): nothing leaves the phone."))
         val radiusText = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
         fun showRadius(km: Int) { radiusText.text = "Look for aircraft within ${com.rfsentinel.app.util.Units.km(km)}" }
         val km = Prefs.aircraftRadiusKm(this)
