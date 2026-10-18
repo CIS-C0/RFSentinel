@@ -327,25 +327,48 @@ class SettingsActivity : AppCompatActivity() {
     ) { granted -> if (granted) pairOuiSpy() }
 
     /**
-     * Picks the OUI-SPY board among nearby devices RF Sentinel hears (they
-     * advertise as "OUI-SPY-xxxx"); scanning must be running to see it.
+     * Picks the OUI-SPY board among the boards nearby: a few seconds' search for the OUI-SPY service (scanning
+     * needn't be running), plus any board the scan already heard by name ("OUI-SPY-xxxx").
      */
     private fun pairOuiSpy() {
         if (!com.rfsentinel.app.esp.OuiSpyBle.canConnect(this)) {
             ouiSpyConnectPermission.launch(android.Manifest.permission.BLUETOOTH_CONNECT); return
         }
-        val boards = com.rfsentinel.app.service.DeviceRegistry.snapshot()
+        val looking = AlertDialog.Builder(this)
+            .setTitle("Looking for OUI-SPY boards…")
+            .setMessage("Keep the board powered and close by.")
+            .setNegativeButton("Cancel", null)
+            .show()
+        com.rfsentinel.app.esp.OuiSpyBle.find(this) { found ->
+            if (!looking.isShowing || isFinishing || isDestroyed) return@find
+            looking.dismiss()
+            showOuiSpyBoards(found)
+        }
+    }
+
+    private class Board(val mac: String, val name: String, val rssi: Int)
+
+    private fun showOuiSpyBoards(found: List<com.rfsentinel.app.esp.OuiSpyBle.Found>) {
+        val heard = com.rfsentinel.app.service.DeviceRegistry.snapshot()
             .filter { it.name?.startsWith(com.rfsentinel.app.esp.OuiSpyBleProtocol.NAME_PREFIX) == true }
+            .map { Board(it.mac.uppercase(), it.name!!, it.rssi) }
+        val boards = (found.map { Board(it.address.uppercase(), it.name ?: "OUI-SPY board", it.rssi) } + heard)
+            .distinctBy { it.mac }
             .sortedByDescending { it.rssi }
         val current = Prefs.ouiSpyBoard(this)
         val labels = boards.map { "${it.name}  (${it.mac}, ${it.rssi} dBm)" }.toMutableList()
         if (current != null) labels += "Forget the paired board"
         if (labels.isEmpty()) {
             AlertDialog.Builder(this)
-                .setTitle("No OUI-SPY board heard")
-                .setMessage("Power the board (Bluetooth / App-Controlled firmware) and start scanning, " +
-                    "then come back here: it shows up as \"OUI-SPY-xxxx\".")
-                .setPositiveButton("OK", null)
+                .setTitle("No OUI-SPY board found")
+                .setMessage("Check that:\n\n" +
+                    "• the board runs the Bluetooth \"App-Controlled\" firmware and has power\n" +
+                    "• the OUI-SPY app isn't connected to it: a board connected to a phone stops advertising. " +
+                    "Force stop that app in Android's app settings, then unplug the board for a few seconds\n" +
+                    "• it isn't paired in Android's Bluetooth settings: RF Sentinel connects to it directly\n" +
+                    "• Bluetooth is on and RF Sentinel may use Nearby devices")
+                .setPositiveButton("Try again") { _, _ -> pairOuiSpy() }
+                .setNegativeButton("OK", null)
                 .show()
             return
         }

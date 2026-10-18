@@ -8,7 +8,12 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
+import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
 import android.content.Context
+import android.os.ParcelUuid
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -60,6 +65,40 @@ object OuiSpyBle {
 
     fun canConnect(context: Context) = Build.VERSION.SDK_INT < 31 ||
         Permissions.granted(context, android.Manifest.permission.BLUETOOTH_CONNECT)
+
+    /** A board heard by [find]. */
+    class Found(val address: String, val name: String?, val rssi: Int)
+
+    private val finder = Handler(Looper.getMainLooper())
+
+    /**
+     * Looks for OUI-SPY boards nearby for [ms], whether or not RF Sentinel is scanning. Boards advertise the
+     * OUI-SPY service; their "OUI-SPY-xxxx" name is only in the scan response, which a busy scan can miss.
+     * A board connected to another phone app doesn't advertise and isn't found.
+     */
+    @SuppressLint("MissingPermission")
+    fun find(context: Context, ms: Long = 6_000L, done: (List<Found>) -> Unit) {
+        val scanner = runCatching {
+            context.getSystemService(BluetoothManager::class.java)?.adapter?.takeIf { it.isEnabled }?.bluetoothLeScanner
+        }.getOrNull()
+        if (scanner == null) { done(emptyList()); return }
+        val seen = LinkedHashMap<String, Found>()
+        val cb = object : ScanCallback() {
+            override fun onScanResult(callbackType: Int, r: ScanResult) {
+                val name = r.scanRecord?.deviceName ?: runCatching { r.device.name }.getOrNull()
+                val addr = r.device.address
+                finder.post { seen[addr] = Found(addr, name ?: seen[addr]?.name, r.rssi) }
+            }
+        }
+        val filters = listOf(ScanFilter.Builder().setServiceUuid(ParcelUuid(OuiSpyBleProtocol.SERVICE)).build())
+        // Legacy, active, fastest: the scan response with the name comes along.
+        val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).setReportDelay(0).build()
+        try { scanner.startScan(filters, settings, cb) } catch (e: Exception) { Log.w(TAG, "OUI-SPY search failed", e); done(emptyList()); return }
+        finder.postDelayed({
+            runCatching { scanner.stopScan(cb) }
+            done(seen.values.sortedByDescending { it.rssi })
+        }, ms)
+    }
 
     /** Starts (or keeps) the link to the board at [boardAddress] while scanning. */
     fun start(context: Context, boardAddress: String, relayEverything: Boolean, sightings: (List<EspSighting>) -> Unit) = main.post {
