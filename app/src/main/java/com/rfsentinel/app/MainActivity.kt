@@ -61,9 +61,7 @@ class MainActivity : AppCompatActivity() {
     private var query = ""
     private var deviceCount = 0
     private var flaggedCount = 0
-    private var bleCount = 0
-    private var wifiCount = 0
-    /** The visual style's status: counters and hardware cards (Settings > Appearance). */
+    /** The visual style's status: warning chip and hardware strip (Settings > Appearance). */
     private val statusPanel by lazy { com.rfsentinel.app.ui.StatusPanel(this) }
     private var demoMode = false
 
@@ -288,6 +286,36 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Visual style: the filter chips are tinted pills, shorter than the stock ones, [color] when set (the
+     * flagged count in red). The list style keeps the outlined chips.
+     */
+    private fun styleFilterChip(chip: com.google.android.material.chip.Chip, visual: Boolean, color: Int?) {
+        val key = if (visual) "v${color ?: 0}" else "list"
+        if (chip.getTag(R.id.visual_chip_color) == key) return
+        chip.setTag(R.id.visual_chip_color, key)
+        val dp = resources.displayMetrics.density
+        com.rfsentinel.app.ui.ChipStyle.apply(chip)
+        if (!visual) {
+            chip.chipMinHeight = 32 * dp
+            chip.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14f)
+            return
+        }
+        // No invisible 48 dp touch frame in the visual style: the row is 16 dp shorter.
+        chip.setEnsureMinTouchTargetSize(false)
+        val (accent, onAccent) = com.rfsentinel.app.ui.ChipStyle.accent(this)
+        val c = color ?: accent
+        val checked = intArrayOf(android.R.attr.state_checked)
+        val none = intArrayOf()
+        chip.chipBackgroundColor = android.content.res.ColorStateList(arrayOf(checked, none),
+            intArrayOf(c, com.rfsentinel.app.ui.VisualMode.tint(c, 0x26)))
+        chip.chipStrokeColor = android.content.res.ColorStateList(arrayOf(checked, none), intArrayOf(c, com.rfsentinel.app.ui.VisualMode.tint(c, 0x99)))
+        chip.chipStrokeWidth = 1.2f * dp
+        chip.setTextColor(android.content.res.ColorStateList(arrayOf(checked, none), intArrayOf(onAccent, c)))
+        chip.chipMinHeight = 28 * dp
+        chip.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13f)
+    }
+
     /** List / radar toggle: the selected half filled with the theme highlight. */
     private fun styleViewToggle() {
         val (accent, onAccent) = com.rfsentinel.app.ui.ChipStyle.accent(this)
@@ -346,7 +374,7 @@ class MainActivity : AppCompatActivity() {
                 com.rfsentinel.app.sdr.RadioReference.status.takeIf { it.isNotBlank() && com.rfsentinel.app.util.Prefs.radioReferenceOn(this) }
                     ?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) }
             )
-            statusPanel.update(running, bleCount, wifiCount, liveCellCount(now), flaggedCount, warning, hardware)
+            statusPanel.update(running, warning, hardware)
             return
         }
         binding.statusText.text = when {
@@ -498,8 +526,6 @@ class MainActivity : AppCompatActivity() {
         val threshold = Prefs.alertThreshold(this)
         binding.wazeSwipe.isEnabled = com.rfsentinel.app.ui.WazeUi.on(this) && panes.listShown
         deviceCount = all.size
-        bleCount = all.count { Advert.Source.BLE in it.sources }
-        wifiCount = all.count { Advert.Source.WIFI in it.sources }
         adapter.visual = com.rfsentinel.app.ui.VisualMode.on(this, com.rfsentinel.app.ui.VisualMode.Screen.DEVICE_LIST)
         // The banner and radar alert only for flagged devices still in range.
         val flagged = all.filter { com.rfsentinel.app.ui.LiveWindow.alerting(it, now) }
@@ -508,6 +534,7 @@ class MainActivity : AppCompatActivity() {
         updateStatus()
 
         // Live counts on the chips ("Trackers 2"); empty filters stay unlabelled.
+        val visualChips = com.rfsentinel.app.ui.VisualMode.on(this, com.rfsentinel.app.ui.VisualMode.Screen.STATUS)
         for ((f, chip) in filterChips) {
             val n = when (f) {
                 com.rfsentinel.app.ui.DeviceFilter.CELLS -> liveCellCount(now)
@@ -517,6 +544,7 @@ class MainActivity : AppCompatActivity() {
             }
             val label = if (f == com.rfsentinel.app.ui.DeviceFilter.ALL || n > 0) "${f.label} $n" else f.label
             if (chip.text != label) chip.text = label
+            styleFilterChip(chip, visualChips, if (f == com.rfsentinel.app.ui.DeviceFilter.FLAGGED && n > 0) 0xFFD0503C.toInt() else null)
         }
         val visible = all.filter { filter.matches(it) && matchesQuery(it) }
             .sortedWith(
@@ -776,6 +804,7 @@ class MainActivity : AppCompatActivity() {
                 ambient.score >= threshold -> 0xFFC8431A.toInt()
                 else -> WEAK_COLOR
             })
+            slimBanner(false)
             return
         }
         val (color, text) = when {
@@ -787,6 +816,19 @@ class MainActivity : AppCompatActivity() {
         }
         banner.text = if (flagged.size > 1 && following == null) "$text  (+${flagged.size - 1} more)" else text
         banner.background.mutate().setTint(color)
+        slimBanner(top == null && following == null)
+    }
+
+    /** Visual style: "All clear" is a slim bar, so the map and list get the room; an alert gets the full size. */
+    private fun slimBanner(allClear: Boolean) {
+        val slim = allClear && com.rfsentinel.app.ui.VisualMode.on(this, com.rfsentinel.app.ui.VisualMode.Screen.STATUS)
+        val banner = binding.threatBanner
+        if (banner.getTag(R.id.visual_chip_color) == slim) return
+        banner.setTag(R.id.visual_chip_color, slim)
+        val dp = resources.displayMetrics.density
+        val v = ((if (slim) 2 else 6) * dp).toInt()
+        banner.setPadding((12 * dp).toInt(), v, (12 * dp).toInt(), v)
+        banner.textSize = if (slim) 12f else 14f
     }
 
     private fun bandOrder(band: String) = when (band) {
