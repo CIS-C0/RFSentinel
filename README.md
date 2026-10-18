@@ -302,7 +302,7 @@ ESP32 boards ─┘     tags, IEEE prefixes)       cap 90)           r ≥ 0.6, 
 
 - **Confidence tiers:** weak < 50 (amber, silent by default), probable 50-79 (alerts at the default threshold), strong 80+.
 - **Fusion:** `1 - (1 - top) × Π(1 - 0.5 × support)`; e.g. watchlisted address 70 + Zebra serial name 50 → 78.
-- **Patrol vehicle:** at least two different roles whose RSSI correlates (Pearson r ≥ 0.6 over ≥ 8 s), or both parked and seen within 30 s; scored 24 + 12 × roles, +10 if moving together, cap 88.
+- **Patrol vehicle:** at least two different roles whose RSSI correlates (Pearson r ≥ 0.6 over ≥ 8 s), or both parked and seen within 30 s, including a police-specific role or both a radio and a vehicle router (printers, breath screening and interface modules only add to a group); scored 24 + 12 × roles, +10 if moving together, cap 88.
 - **Rotation linking:** same advert fingerprint (names, UUIDs, payload sizes, TX power, connectable) as exactly one device that went silent 1.5-30 s earlier.
 
 Details: [How it works](https://cis-c0.github.io/RFSentinel/how-it-works.html) and [docs/SIGNATURES.md](docs/SIGNATURES.md).

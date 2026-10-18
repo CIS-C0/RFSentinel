@@ -40,18 +40,26 @@ object PatrolCluster {
 
     private const val ROLE_SCREENING = "impairment-screening device"
     private const val ROLE_INTERFACE = "vehicle interface module"
+    private const val ROLE_PRINTER = "mobile printer"
+    private const val ROLE_RADIO = "two-way radio"
+    private const val ROLE_ROUTER = "vehicle cellular router"
     /**
      * Roles from makers whose products are mostly civilian (remote starters, medical and
-     * gas-detection gear): they add to a group but can't make one on their own, so an office or a
-     * driveway full of them never reads as a police vehicle.
+     * gas-detection gear, label printers): they add to a group but can't make one on their own, so an
+     * office, a stockroom or a driveway full of them never reads as a police vehicle.
      */
-    private val SUPPORT_ROLES = setOf(ROLE_SCREENING, ROLE_INTERFACE)
+    private val SUPPORT_ROLES = setOf(ROLE_SCREENING, ROLE_INTERFACE, ROLE_PRINTER)
+    /**
+     * Gear that police cars carry but so do guards, utility trucks and shops: one of these needs a
+     * second, different one (a radio and a router) or a police-specific role to make a group.
+     */
+    private val DUAL_USE_ROLES = setOf(ROLE_RADIO, ROLE_ROUTER)
 
     private val ROLE_BY_VENDOR = listOf(
         Regex("axon|taser", RegexOption.IGNORE_CASE) to "Axon / TASER gear",
-        Regex("motorola solutions|harris corp|l3harris", RegexOption.IGNORE_CASE) to "two-way radio",
-        Regex("cradlepoint|sierra wireless|peplink|inseego", RegexOption.IGNORE_CASE) to "vehicle cellular router",
-        Regex("zebra|ruggedjet|pocketjet", RegexOption.IGNORE_CASE) to "mobile printer",
+        Regex("motorola solutions|harris corp|l3harris", RegexOption.IGNORE_CASE) to ROLE_RADIO,
+        Regex("cradlepoint|sierra wireless|peplink|inseego", RegexOption.IGNORE_CASE) to ROLE_ROUTER,
+        Regex("zebra|ruggedjet|pocketjet", RegexOption.IGNORE_CASE) to ROLE_PRINTER,
         Regex("dräger|draeger", RegexOption.IGNORE_CASE) to ROLE_SCREENING,
         Regex("fortin vehicle|fortin electronic", RegexOption.IGNORE_CASE) to ROLE_INTERFACE,
         Regex("cyberkar", RegexOption.IGNORE_CASE) to "in-car computer / console",
@@ -63,7 +71,7 @@ object PatrolCluster {
     )
 
     private val ROLE_BY_NAME = listOf(
-        Regex("^(RJ-4|PJ-[78])", RegexOption.IGNORE_CASE) to "mobile printer",
+        Regex("^(RJ-4|PJ-[78])", RegexOption.IGNORE_CASE) to ROLE_PRINTER,
         Regex("^(BC-0\\d|HS-01)", RegexOption.IGNORE_CASE) to "rugged laptop / body cam"
     )
 
@@ -76,6 +84,16 @@ object PatrolCluster {
         text.forEach { t -> ROLE_BY_VENDOR.firstOrNull { it.first.containsMatchIn(t) }?.let { return it.second } }
         if (name != null) ROLE_BY_NAME.firstOrNull { it.first.containsMatchIn(name) }?.let { return it.second }
         return null
+    }
+
+    /**
+     * Whether these roles together are worth calling a vehicle: a police-specific role, or two different
+     * dual-use ones (a radio and a router). Support roles only add to the score.
+     */
+    fun isVehicle(roles: Set<String>): Boolean {
+        if (roles.size < 2) return false
+        val core = roles - SUPPORT_ROLES
+        return (core - DUAL_USE_ROLES).isNotEmpty() || core.size >= 2
     }
 
     /** Groups of at least two different roles that are travelling / parked together. */
@@ -104,7 +122,7 @@ object PatrolCluster {
         }
         return live.indices.groupBy { find(it) }.values
             .map { idx -> Group(idx.map { live[it] }, idx.map { live[it].role }.toSet(), idx.any { it in correlatedPairs }) }
-            .filter { it.roles.size >= 2 && (it.roles - SUPPORT_ROLES).isNotEmpty() }
+            .filter { isVehicle(it.roles) }
     }
 
     /** The cluster hit for [mac], if it belongs to a group. */

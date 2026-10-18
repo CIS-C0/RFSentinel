@@ -2,6 +2,7 @@ package com.rfsentinel.app.detect
 
 import com.rfsentinel.app.service.DeviceRegistry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -79,13 +80,13 @@ class IdentificationTest {
     fun devicesMovingTogetherFormAVehicle() {
         val now = 60_000L
         val members = listOf(
-            PatrolCluster.Member("AA:00:00:00:00:01", "mobile printer", 0, now, wave(0)),
+            PatrolCluster.Member("AA:00:00:00:00:01", "police camera", 0, now, wave(0)),
             PatrolCluster.Member("AA:00:00:00:00:02", "two-way radio", 0, now, wave(0, offset = -80)),
             PatrolCluster.Member("AA:00:00:00:00:03", "vehicle cellular router", 0, now, wave(0, phase = 3.1)) // opposite motion
         )
         val groups = PatrolCluster.groups(members, now)
         assertEquals(1, groups.size)
-        assertEquals(setOf("mobile printer", "two-way radio"), groups[0].roles)
+        assertEquals(setOf("police camera", "two-way radio"), groups[0].roles)
         assertTrue(groups[0].correlated)
         val h = PatrolCluster.hitFor("AA:00:00:00:00:01", groups)!!
         assertEquals(58, h.confidence) // 24 + 12*2 + 10
@@ -136,9 +137,31 @@ class IdentificationTest {
             PatrolCluster.Member("AA:00:00:00:00:02", "impairment-screening device", 0, now, wave(0, offset = -80))
         )
         assertTrue(PatrolCluster.groups(supportOnly, now).isEmpty())
-        // ...but they add to a group with a core role.
+        // A radio alone is dual-use: support gear doesn't make it a vehicle...
         val withRadio = supportOnly + PatrolCluster.Member("AA:00:00:00:00:03", "two-way radio", 0, now, wave(0, offset = -75))
-        assertEquals(3, PatrolCluster.groups(withRadio, now).single().roles.size)
+        assertTrue(PatrolCluster.groups(withRadio, now).isEmpty())
+        // ...but it adds to a group with a police-specific role.
+        val withCamera = withRadio + PatrolCluster.Member("AA:00:00:00:00:04", "police camera", 0, now, wave(0, offset = -85))
+        assertEquals(4, PatrolCluster.groups(withCamera, now).single().roles.size)
+    }
+
+    @Test
+    fun civilianKitsAreNotAVehicle() {
+        val now = 60_000L
+        fun kit(vararg roles: String) = roles.mapIndexed { i, r ->
+            PatrolCluster.Member("AA:00:00:00:00:0$i", r, 0, now, wave(0, offset = -70 - 5 * i))
+        }
+        fun vehicle(vararg roles: String) = PatrolCluster.groups(kit(*roles), now).isNotEmpty()
+        // A stockroom: label printer and cellular router moving together (GitHub issue #3), or a printer and a radio.
+        assertFalse(vehicle("mobile printer", "vehicle cellular router"))
+        assertFalse(vehicle("mobile printer", "two-way radio"))
+        assertFalse(vehicle("impairment-screening device", "vehicle cellular router"))
+        // Two different dual-use roles, or one police-specific role, still make one; the printer adds to it.
+        assertTrue(vehicle("two-way radio", "vehicle cellular router"))
+        assertEquals(3, PatrolCluster.groups(kit("two-way radio", "vehicle cellular router", "mobile printer"), now).single().roles.size)
+        assertTrue(vehicle("body camera", "mobile printer"))
+        assertTrue(vehicle("plate reader", "vehicle cellular router"))
+        assertFalse(PatrolCluster.isVehicle(setOf("body camera")))
     }
 
     @Test
@@ -183,7 +206,7 @@ class IdentificationTest {
         val now = 30_000L
         val together = listOf(
             PatrolCluster.Member("AA:00:00:00:00:01", "two-way radio", 0, now, flat),
-            PatrolCluster.Member("AA:00:00:00:00:02", "mobile printer", 10_000, now, flat)
+            PatrolCluster.Member("AA:00:00:00:00:02", "vehicle cellular router", 10_000, now, flat)
         )
         val g = PatrolCluster.groups(together, now)
         assertEquals(1, g.size)
