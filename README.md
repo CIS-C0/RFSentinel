@@ -267,6 +267,8 @@ Requires **Android 8.0 or newer** on an ARM phone, 64-bit or 32-bit (practically
 
 1. On your phone, tap **Download the app** above, or open the [latest release](https://github.com/CIS-C0/RFSentinel/releases/latest).
 2. Under **Assets**, tap the file ending in **`-release.apk`** (not the "Source code" archives).
+   For a build with only free software (no Mapbox map; non-free USB WiFi firmware downloaded
+   only if you agree), take the one ending in **`-foss.apk`** instead.
 3. Open the downloaded file from the notification, or from **Files → Downloads**.
 4. If Android blocks it, tap **Settings**, enable **Allow from this source**, go back and tap **Install**.
 5. Open **RF Sentinel**. The setup wizard walks you through theme, region, alerts, camera radius and permissions.
