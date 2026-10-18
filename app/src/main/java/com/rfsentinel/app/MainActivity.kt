@@ -79,9 +79,26 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Styled themes with a banner: the title bar sits over the banner's top, so the banner takes less room.
+        val tucked = hasThemeHeader()
+        if (tucked) supportRequestWindowFeature(androidx.appcompat.app.AppCompatDelegate.FEATURE_SUPPORT_ACTION_BAR_OVERLAY)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         binding.root.applySystemBarInsets()
+        if (tucked) supportActionBar?.apply {
+            // A soft dark fade keeps the title and icons readable over the art.
+            setBackgroundDrawable(android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(0xD9000000.toInt(), 0x80000000.toInt(), 0x00000000)))
+            elevation = 0f
+        }
+        if (tucked) {
+            // The content is still laid out below the title bar: pull the banner up under it.
+            val tv = android.util.TypedValue()
+            val bar = if (theme.resolveAttribute(androidx.appcompat.R.attr.actionBarSize, tv, true))
+                android.util.TypedValue.complexToDimensionPixelSize(tv.data, resources.displayMetrics) else 0
+            binding.root.clipToPadding = false
+            (binding.themedHeader.layoutParams as android.view.ViewGroup.MarginLayoutParams).topMargin = -bar
+        }
         applyThemeHeader()
 
         adapter = DeviceAdapter(
@@ -217,6 +234,13 @@ class MainActivity : AppCompatActivity() {
         if (Prefs.onboardingDone(this)) com.rfsentinel.app.util.UpdateChecker.checkOnStartup(this)
     }
 
+
+    /** True when [applyThemeHeader] shows a header: a styled theme's wordmark or a custom theme's banner. */
+    private fun hasThemeHeader(): Boolean {
+        val theme = com.rfsentinel.app.ui.ThemeManager.current(this)
+        return com.rfsentinel.app.ui.ThemeManager.headerStyle(this) != null ||
+            (theme == com.rfsentinel.app.ui.ThemeManager.AppTheme.CUSTOM && com.rfsentinel.app.ui.ThemeManager.hasBanner(this))
+    }
 
     /** Styled themes: their own title, animated wordmark and the user's banner image. */
     private fun applyThemeHeader() {

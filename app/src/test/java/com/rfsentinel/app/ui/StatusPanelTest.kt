@@ -63,10 +63,10 @@ class StatusPanelTest {
     }
 
     @Test
-    fun warningAndIdleNote() {
+    fun warningOnlyWhileScanning() {
         val p = StatusPanel(ctx).also { it.root.visibility = View.VISIBLE }
         p.update(running = false, warning = null, hardware = emptyList())
-        assertEquals(listOf("Idle - tap Start to listen for nearby devices"), shownTexts(p.root))
+        assertEquals(emptyList<String>(), shownTexts(p.root))
         p.update(running = true, warning = "Bluetooth scan restarted", hardware = emptyList())
         assertEquals(listOf("⚠ Bluetooth scan restarted"), shownTexts(p.root))
     }

@@ -10,7 +10,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
- * The main screen's status in the visual style: a warning chip when there is one, and the USB / ESP32
+ * The main screen's status in the visual style: a warning chip while scanning when there is one, and the USB / ESP32
  * hardware. The hardware starts folded into one thin strip of chips (a coloured dot for its state and,
  * for the WiFi adapter and the RTL-SDR, its packets per second); tap the strip to unfold a card per
  * device with a line of its rate. ✕ hides the hardware until one of them changes state.
@@ -84,7 +84,8 @@ class StatusPanel(private val context: Context) {
     /** [running]: scanning; [warning]: a fake-cell or restarted-scan note; [hardware]: the non-blank hardware status lines. */
     fun update(running: Boolean, warning: String?, hardware: List<Hardware>) {
         val grey = (ChipStyle.onSurface(context) and 0x00FFFFFF) or 0x99000000.toInt()
-        val shown = if (!running) "Idle - tap Start to listen for nearby devices" else warning?.let { "⚠ $it" }
+        // Idle needs no note here: the Start button says it.
+        val shown = if (!running) null else warning?.let { "⚠ $it" }
         note.visibility = if (shown != null) View.VISIBLE else View.GONE
         if (shown != null) {
             VisualMode.text(note, shown)
