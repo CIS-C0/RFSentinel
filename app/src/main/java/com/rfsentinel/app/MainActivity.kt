@@ -266,7 +266,7 @@ class MainActivity : AppCompatActivity() {
 
     /** Filter chips from [com.rfsentinel.app.ui.DeviceFilter] (same rules as the map), counts filled in by render(). */
     private fun setupFilterChips() {
-        for (f in com.rfsentinel.app.ui.DeviceFilter.entries) {
+        for (f in com.rfsentinel.app.ui.DeviceFilter.MAIN_ORDER) {
             val chip = com.google.android.material.chip.Chip(this, null, com.google.android.material.R.attr.chipStyle).apply {
                 id = View.generateViewId()
                 text = f.label
@@ -286,6 +286,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** The stock chip's side paddings, to put back in the list style. */
+    private var chipPadding: FloatArray? = null
+
     /**
      * Visual style: the filter chips are tinted pills, shorter than the stock ones, [color] when set (the
      * flagged count in red). The list style keeps the outlined chips.
@@ -296,11 +299,16 @@ class MainActivity : AppCompatActivity() {
         chip.setTag(R.id.visual_chip_color, key)
         val dp = resources.displayMetrics.density
         com.rfsentinel.app.ui.ChipStyle.apply(chip)
+        val stock = chipPadding ?: floatArrayOf(chip.chipStartPadding, chip.textStartPadding, chip.textEndPadding, chip.chipEndPadding)
+            .also { chipPadding = it }
         if (!visual) {
             chip.chipMinHeight = 32 * dp
             chip.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14f)
+            chip.chipStartPadding = stock[0]; chip.textStartPadding = stock[1]; chip.textEndPadding = stock[2]; chip.chipEndPadding = stock[3]
             return
         }
+        // Tighter sides, so All, Flagged, Bluetooth, WiFi and Cells with their counts fit a phone's width.
+        chip.chipStartPadding = 2 * dp; chip.textStartPadding = 6 * dp; chip.textEndPadding = 6 * dp; chip.chipEndPadding = 2 * dp
         // No invisible 48 dp touch frame in the visual style: the row is 16 dp shorter.
         chip.setEnsureMinTouchTargetSize(false)
         val (accent, onAccent) = com.rfsentinel.app.ui.ChipStyle.accent(this)

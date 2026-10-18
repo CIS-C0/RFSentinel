@@ -49,5 +49,11 @@ enum class DeviceFilter(val label: String) {
                 s.hits.any { com.rfsentinel.app.detect.SignatureEngine.isAppleFindMy(it) }
 
         fun parse(name: String?) = entries.firstOrNull { it.name == name } ?: ALL
+
+        /**
+         * The main screen's chip order: the counts worth a glance first (flagged, then what's heard on each
+         * radio), so they fit without scrolling; the narrower filters after them.
+         */
+        val MAIN_ORDER = listOf(ALL, FLAGGED, BLE, WIFI, CELLS, TRACKERS, DRONES, RADIO, WAZE, EXTERNAL, FAVORITES, NEW)
     }
 }
