@@ -1,6 +1,8 @@
 package com.rfsentinel.app.ui
 
 import android.annotation.SuppressLint
+import android.content.res.ColorStateList
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -16,6 +18,7 @@ import com.rfsentinel.app.databinding.ItemDetectionBinding
 import com.rfsentinel.app.service.ScanForegroundService
 import com.rfsentinel.app.usb.AntennaCheck
 import com.rfsentinel.app.usb.UsbWifi
+import com.rfsentinel.app.R
 import com.rfsentinel.app.util.applySystemBarInsets
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -41,6 +44,10 @@ class AntennaCheckActivity : AppCompatActivity() {
     private var capB: AntennaCheck.Stats? = null
     /** Debug builds, `--ez demo true` (`--ez single true`: one signal per frame): made-up access points and frames. */
     private var demo = false
+    /** Auto: the strongest access point becomes the reference once the adapter has visited every channel. */
+    private var auto = true
+    /** When Auto started listening (the screen opened, or the reference was dropped). */
+    private var autoSince = 0L
 
     private val adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
         init { setHasStableIds(true) } // rows stay put across refreshes, so a tap isn't lost to a rebind
@@ -73,6 +80,14 @@ class AntennaCheckActivity : AppCompatActivity() {
         binding.identifyButton.setOnClickListener { identifyNow() }
         binding.captureA.setOnClickListener { capture(a = true) }
         binding.captureB.setOnClickListener { capture(a = false) }
+        binding.modeGroup.check(R.id.modeAuto)
+        binding.modeGroup.addOnButtonCheckedListener { _, id, checked ->
+            if (!checked) return@addOnButtonCheckedListener
+            auto = id == R.id.modeAuto
+            autoSince = System.currentTimeMillis()
+            refresh()
+        }
+        styleCards()
         demo = com.rfsentinel.app.BuildConfig.DEBUG && intent.getBooleanExtra("demo", false)
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -84,6 +99,7 @@ class AntennaCheckActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         AntennaCheck.open()
+        if (ref == null) autoSince = System.currentTimeMillis()
         ref?.let { AntennaCheck.lock(it.bssid, it.channel); lockedAt = System.currentTimeMillis() }
     }
 
@@ -98,7 +114,7 @@ class AntennaCheckActivity : AppCompatActivity() {
         ref = ap
         zero = null; identifyAt = 0L; identifyBefore = null; capA = null; capB = null
         binding.identifyText.text = ""; binding.abText.text = ""
-        if (ap == null) AntennaCheck.unlock()
+        if (ap == null) { AntennaCheck.unlock(); autoSince = System.currentTimeMillis() }
         else { AntennaCheck.lock(ap.bssid, ap.channel); lockedAt = System.currentTimeMillis() }
         refresh()
     }
@@ -148,6 +164,26 @@ class AntennaCheckActivity : AppCompatActivity() {
         binding.abText.text = out.joinToString("\n")
     }
 
+    /** Rounded cards and chips in the theme's highlight colour. */
+    private fun styleCards() {
+        val (accent, _) = ChipStyle.accent(this)
+        val dp = resources.displayMetrics.density
+        fun tint(alpha: Int) = (accent and 0x00FFFFFF) or (alpha shl 24)
+        fun card(fillAlpha: Int, strokeAlpha: Int, radius: Float) = GradientDrawable().apply {
+            cornerRadius = radius * dp
+            setColor(tint(fillAlpha))
+            if (strokeAlpha > 0) setStroke((1.2f * dp).toInt().coerceAtLeast(1), tint(strokeAlpha))
+        }
+        binding.headerCard.background = card(0x14, 0x66, 16f)
+        binding.meterCard.background = card(0x14, 0x66, 16f)
+        binding.chainVerdict.background = card(0x2E, 0, 12f)
+        binding.channelChip.background = card(0x26, 0x99, 12f)
+        binding.channelChip.setTextColor(accent)
+        binding.meterTitle.setTextColor(accent)
+        binding.adapterName.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_car_usb, 0, 0, 0)
+        binding.adapterName.compoundDrawableTintList = ColorStateList.valueOf(accent)
+    }
+
     private fun feedDemo() {
         val now = System.currentTimeMillis()
         val single = intent.getBooleanExtra("single", false)
@@ -184,6 +220,15 @@ class AntennaCheckActivity : AppCompatActivity() {
                 aps = fresh
                 adapter.notifyDataSetChanged()
             }
+            if (auto) {
+                binding.apList.visibility = View.GONE
+                AntennaCheck.strongest(fresh, now, autoSince)?.let { pick(it); return }
+                val left = ((autoSince + 12_000 - now) / 1000).coerceAtLeast(0)
+                binding.pickHint.text = if (left > 0) "Finding the strongest access point… $left s\nThe adapter visits every channel first."
+                    else "No access point heard yet: keep the adapter near a WiFi network."
+                return
+            }
+            binding.apList.visibility = View.VISIBLE
             binding.pickHint.text = if (aps.isEmpty()) "Listening for access points… the adapter visits every channel, which can take 15 s."
                 else "Tap a strong access point that stays put to use as the reference:"
             return
@@ -192,7 +237,9 @@ class AntennaCheckActivity : AppCompatActivity() {
         binding.checkPanel.visibility = View.VISIBLE
         val s = AntennaCheck.stats(now - 5_000, now)
         val holding = AntennaCheck.holding == r.channel
-        binding.refTitle.text = "Reference: ${r.ssid ?: "Hidden network"}"
+        binding.adapterName.text = if (demo) "Demo adapter" else UsbWifi.runningChip ?: "USB WiFi adapter"
+        binding.channelChip.text = AntennaCheck.channelName(r.channel)
+        binding.refTitle.text = (if (auto) "Auto · " else "") + "Reference: ${r.ssid ?: "Hidden network"}"
         val stuck = !holding && now - lockedAt > 8_000
         val hold = when {
             holding -> "channel held"
@@ -206,17 +253,18 @@ class AntennaCheckActivity : AppCompatActivity() {
         val dual = recent.both >= AntennaCheck.MIN_BOTH
         binding.zeroButton.isEnabled = dual
         binding.identifyButton.isEnabled = dual && identifyAt == 0L
+        val history = AntennaCheck.history(now)
+        binding.meterTitle.text = if (dual) "DUAL ANTENNA · SAME FRAME" else "SIGNAL · ONE READING PER FRAME"
         if (dual && s.a != null && s.b != null) {
             val d = s.delta?.minus(zero ?: 0.0)
-            binding.chainsText.text = "Chain 0  %6.1f dBm\nChain 1  %6.1f dBm\n".format(s.a, s.b) +
-                (d?.let { "Difference  %+.1f dB".format(it) + if (zero != null) " · zeroed" else "" } ?: "")
+            binding.meter.setDual(s.a, s.b, d, zero != null, history)
             binding.chainVerdict.text = if (d != null && s.both >= AntennaCheck.MIN_BOTH) AntennaCheck.chainVerdict(d)
                 else "Waiting for more frames with both antennas…"
         } else if (dual) {
-            binding.chainsText.text = "No frames from the reference in the last 5 s"
-            binding.chainVerdict.text = ""
+            binding.meter.setDual(null, null, null, zero != null, history)
+            binding.chainVerdict.text = "No frames from the reference in the last 5 s."
         } else {
-            binding.chainsText.text = s.rssi?.let { "Signal  %6.1f dBm".format(it) } ?: "No frames from the reference yet"
+            binding.meter.setSingle(s.rssi, history)
             binding.chainVerdict.text = if (s.frames >= 5) "This adapter reports one signal for these frames, not one per antenna: use the swap test below."
                 else "Waiting for frames from the reference…"
         }

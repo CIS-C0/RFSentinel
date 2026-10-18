@@ -115,6 +115,38 @@ object AntennaCheck {
 
     private fun List<Int>.avgOrNull(): Double? = if (isEmpty()) null else average()
 
+    /** Per-bucket averages for the screen's history lines: chain 0, chain 1 and the frame signal (NaN where none). */
+    class History(val a: FloatArray, val b: FloatArray, val rssi: FloatArray)
+
+    /** The reference's last [windowMs] in [buckets] equal slices, oldest first. */
+    fun history(now: Long, windowMs: Long = KEEP_MS, buckets: Int = 60): History =
+        synchronized(this) { history(samples.toList(), now, windowMs, buckets) }
+
+    internal fun history(list: List<Sample>, now: Long, windowMs: Long, buckets: Int): History {
+        val sa = DoubleArray(buckets); val na = IntArray(buckets)
+        val sb = DoubleArray(buckets); val nb = IntArray(buckets)
+        val sr = DoubleArray(buckets); val nr = IntArray(buckets)
+        for (s in list) {
+            val age = now - s.at
+            if (age < 0 || age >= windowMs) continue
+            val i = buckets - 1 - (age * buckets / windowMs).toInt()
+            s.a?.let { sa[i] += it; na[i]++ }
+            s.b?.let { sb[i] += it; nb[i]++ }
+            s.rssi?.let { sr[i] += it; nr[i]++ }
+        }
+        fun avg(s: DoubleArray, n: IntArray) = FloatArray(buckets) { if (n[it] == 0) Float.NaN else (s[it] / n[it]).toFloat() }
+        return History(avg(sa, na), avg(sb, nb), avg(sr, nr))
+    }
+
+    /**
+     * Auto reference: the strongest access point heard in the last [freshMs], once the adapter
+     * has had [settleMs] since the screen opened to visit every channel. Null while it's still listening.
+     */
+    fun strongest(aps: List<Ap>, now: Long, since: Long, settleMs: Long = 12_000, freshMs: Long = 8_000): Ap? {
+        if (now - since < settleMs) return null
+        return aps.filter { now - it.lastSeen < freshMs }.maxByOrNull { it.rssi }
+    }
+
     // ---- verdicts (shared with the tests) ----
 
     /** At least this many frames with both antennas before saying anything about them. */

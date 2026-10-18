@@ -149,6 +149,10 @@ object UsbWifi {
     private var thread: Thread? = null
     @Volatile private var runningDevice: String? = null
 
+    /** The running adapter's chip name ("MT7612U"), for the antenna check; null when none is running. */
+    @Volatile var runningChip: String? = null
+        private set
+
     /** Latest adapter status for the main screen and Settings ("" when none is plugged in). */
     @Volatile var status: String = ""
         private set
@@ -337,6 +341,7 @@ object UsbWifi {
         }
         firmwareNeeded = null
         runningDevice = d.deviceName
+        runningChip = chip.name
         status = "USB WiFi (${chip.name}) · starting…"
         log("Starting ${chip.name} (${"%04x:%04x".format(d.vendorId, d.productId)}) - RF Sentinel ${com.rfsentinel.app.BuildConfig.VERSION_NAME}, " +
             "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}, Android ${android.os.Build.VERSION.RELEASE}")
@@ -360,7 +365,7 @@ object UsbWifi {
                     Driver.AR9271 -> Ar9271Monitor.run(context, d, "${chip.name} (experimental)", onStatus, onFrames)
                 }
             }.onFailure { log("Driver stopped: ${describe(it)}"); status = "USB WiFi adapter error: ${it.message}" }
-            synchronized(this) { if (runningDevice == d.deviceName) runningDevice = null }
+            synchronized(this) { if (runningDevice == d.deviceName) { runningDevice = null; runningChip = null } }
         }, "usb-wifi").also { it.start() }
     }
 
@@ -376,6 +381,7 @@ object UsbWifi {
         Mt7921uMonitor.abort()
         Ar9271Monitor.abort()
         runningDevice = null
+        runningChip = null
         thread = null
         status = newStatus
         com.rfsentinel.app.esp.HeardBy.usb.clear() // unplugged or stopped: nothing is "heard by USB" any more

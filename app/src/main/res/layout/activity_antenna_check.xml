@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="16dp">
@@ -9,6 +10,31 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
+
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/modeGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            app:singleSelection="true"
+            app:selectionRequired="true">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/modeAuto"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Auto · strongest" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/modePick"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Pick AP" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
 
         <TextView
             android:id="@+id/pickHint"
@@ -35,6 +61,43 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <LinearLayout
+                android:id="@+id/headerCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="14dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/adapterName"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:drawablePadding="6dp"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/channelChip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:paddingStart="10dp"
+                    android:paddingTop="3dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="3dp"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
             <TextView
                 android:id="@+id/refTitle"
                 android:layout_width="match_parent"
@@ -57,23 +120,38 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="Change reference" />
+            </LinearLayout>
 
-            <TextView
+            <LinearLayout
+                android:id="@+id/meterCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="Per antenna"
-                android:textSize="15sp"
+                android:layout_marginTop="12dp"
+                android:orientation="vertical"
+                android:padding="14dp">
+
+            <TextView
+                android:id="@+id/meterTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:letterSpacing="0.08"
+                android:textSize="13sp"
                 android:textStyle="bold" />
 
-            <TextView
-                android:id="@+id/chainsText"
+            <com.rfsentinel.app.ui.AntennaMeterView
+                android:id="@+id/meter"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:textSize="15sp"
-                android:fontFamily="monospace"
-                android:minLines="3" />
+                android:layout_marginTop="8dp" />
+
+            <TextView
+                android:id="@+id/chainVerdict"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:minLines="2"
+                android:padding="12dp"
+                android:textSize="15sp" />
 
             <LinearLayout
                 android:id="@+id/chainButtons"
@@ -99,6 +177,15 @@
                     android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:text="Identify" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/identifyText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textSize="14sp"
+                android:textStyle="bold" />
             </LinearLayout>
 
             <TextView
@@ -133,21 +220,6 @@
                     android:layout_weight="1"
                     android:text="Capture B" />
             </LinearLayout>
-
-            <TextView
-                android:id="@+id/chainVerdict"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:textSize="14sp" />
-
-            <TextView
-                android:id="@+id/identifyText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:textSize="14sp"
-                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/abText"
