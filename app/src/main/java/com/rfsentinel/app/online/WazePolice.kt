@@ -96,6 +96,17 @@ object WazePolice {
         }
     }
 
+    /**
+     * "Only ahead" where neither the route nor the map's roads decide: the corridor test along your heading,
+     * or along [lastHeading] (kept a while when you stop) when the fix has none. With no heading at all
+     * there is no "ahead", so the report stays quiet.
+     */
+    fun quietWhenUnsure(w: Where, lastHeading: Double?, meLat: Double, meLon: Double, lat: Double, lon: Double): Boolean {
+        if (w.relDeg != null) return !w.maybeOnMyWay()
+        val h = lastHeading ?: return true
+        return !where(meLat, meLon, h, lat, lon).maybeOnMyWay()
+    }
+
     /** Half-width of the "could be my road" corridor at [distanceM]: a road's width plus room for bends. */
     fun corridorM(distanceM: Double): Double = (CORRIDOR_BASE_M + CORRIDOR_SPREAD * distanceM).coerceAtMost(CORRIDOR_MAX_M)
 

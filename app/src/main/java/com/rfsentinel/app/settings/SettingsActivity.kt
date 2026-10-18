@@ -1619,7 +1619,8 @@ class SettingsActivity : AppCompatActivity() {
                 "roads, so one on a parallel road, a cross street, an overpass or behind you stays quiet (it stays on the list, " +
                 "marked \"not on your way\" unless you hide them below). While you are being guided to a destination the route " +
                 "decides: only reports on the part of it still ahead count, round corners too. Where the map can't tell yet, " +
-                "reports behind you stay quiet.",
+                "reports behind you stay quiet. Parked, or before you've driven off, there is no \"ahead\" yet, so reports " +
+                "stay quiet until you move.",
             Prefs.wazeAheadOnly(this)) { Prefs.setWazeAheadOnly(this, it) }
         switchRow("Hide reports that aren't on my way",
             "With the switch above on, a report behind you, on another street or off your route is left off the list (the map " +

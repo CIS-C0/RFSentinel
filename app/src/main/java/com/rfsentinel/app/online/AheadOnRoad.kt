@@ -50,7 +50,7 @@ internal class AheadOnRoad {
     }
 
     /** Your heading while driving; stopped, the last one for 2 minutes (as long as you haven't moved off). */
-    private fun headingOf(me: Location): Double? {
+    fun headingOf(me: Location): Double? {
         val now = System.currentTimeMillis()
         if (me.hasBearing() && me.hasSpeed() && me.speed > 1.5f) {
             heading = me.bearing.toDouble(); headingAt = now; headingLat = me.latitude; headingLon = me.longitude

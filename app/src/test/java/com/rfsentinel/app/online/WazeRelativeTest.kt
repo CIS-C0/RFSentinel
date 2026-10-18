@@ -70,4 +70,19 @@ class WazeRelativeTest {
         assertTrue(where(150.0, null).maybeOnMyWay())
         assertEquals(null, where(150.0, null).lateralM)
     }
+
+    @Test
+    fun onlyAheadStaysQuietWithNoHeadingAtAll() {
+        // A report 270 m due south (synthetic coordinates), the phone parked: no heading now, none remembered.
+        val lat = 10.0 - 270.0 / 111_320.0
+        val parked = WazePolice.where(10.0, 10.0, null, lat, 10.0)
+        assertTrue(WazePolice.quietWhenUnsure(parked, null, 10.0, 10.0, lat, 10.0))
+        // Stopped at a light, last heading south: it's ahead on your line, so it counts.
+        assertTrue(!WazePolice.quietWhenUnsure(parked, 180.0, 10.0, 10.0, lat, 10.0))
+        // Last heading north: it's behind you.
+        assertTrue(WazePolice.quietWhenUnsure(parked, 0.0, 10.0, 10.0, lat, 10.0))
+        // Driving south right now: the fix's own heading decides.
+        val driving = WazePolice.where(10.0, 10.0, 180.0, lat, 10.0)
+        assertTrue(!WazePolice.quietWhenUnsure(driving, null, 10.0, 10.0, lat, 10.0))
+    }
 }

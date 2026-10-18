@@ -252,10 +252,13 @@ class WazeWatch(
         // (no data yet, not driving), inside a corridor along your heading.
         val onRoute = if (aheadOnly) routeVerdicts(shown, alertM) else emptyMap()
         val verdicts = if (aheadOnly && onRoute.isEmpty()) road.verdicts(context, me, alertM, shown.map { it.report }) else onRoute
+        // Stopped (a light, a jam), the last heading still says which way is ahead; with none at all
+        // (parked, or not driven yet) nothing is ahead of you, so nothing counts until you drive.
+        val lastHeading = if (aheadOnly && onRoute.isEmpty()) road.headingOf(me) else null
         fun quiet(s: WazePolice.Shown) = when (verdicts[s.report.id]) {
             RoadMatch.Verdict.ON_MY_ROAD -> false
             RoadMatch.Verdict.OTHER_ROAD, RoadMatch.Verdict.BEHIND -> true
-            else -> !s.where.maybeOnMyWay()
+            else -> WazePolice.quietWhenUnsure(s.where, lastHeading, me.latitude, me.longitude, s.report.lat, s.report.lon)
         }
         // The list shows what counts as on your way; the map keeps the wider picture.
         for (i in shown.indices) shown[i] = shown[i].copy(onMyWay = !(aheadOnly && quiet(shown[i])))
