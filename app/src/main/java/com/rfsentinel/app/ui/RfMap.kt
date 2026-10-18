@@ -127,6 +127,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         map.addImage("rf-cctv-private", MapIcons.cctvIcon(dp, true))
         map.addImage("rf-plane-police", MapIcons.planeIcon(dp, true))
         map.addImage("rf-plane", MapIcons.planeIcon(dp, false))
+        map.addImage("rf-plane-clear", MapIcons.planeIcon(dp, false, clear = true))
         map.addImage("rf-tower", MapIcons.towerIcon(dp))
         map.addImage("rf-drone", droneArrow(dp))
     }
@@ -200,18 +201,20 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
                 "circle-stroke-color" to DRONE_COLOR, "circle-stroke-width" to 2.0)),
             layer(DRONES, "symbol", layout = o("icon-image" to "rf-drone", "icon-rotate" to get("dir"),
                 "icon-rotation-alignment" to "map", *overlap)),
-            // Aircraft: police / government ones bold purple with their agency and altitude, others small and grey.
+            // Aircraft: police / government ones bold purple with their agency and altitude, others small and grey
+            // (under the Aircraft filter: every one large and labelled).
             // Where the route ends (red) and the stops on the way (white with a blue edge), above everything else.
             layer("$NAV_PLACES-pin", "circle", NAV_PLACES, paint = o(
                 "circle-color" to a("case", a("==", get("end"), true), "#D93025", "#FFFFFF"), "circle-radius" to 9.0,
                 "circle-stroke-color" to a("case", a("==", get("end"), true), "#FFFFFF", NAV_ROUTE_COLOR), "circle-stroke-width" to 3.0)),
             layer(AIRCRAFT, "symbol", layout = o("icon-image" to get("icon"), "icon-rotate" to get("track"),
                 "icon-rotation-alignment" to "map",
-                "icon-size" to a("interpolate", a("linear"), a("zoom"), 9, 0.5, 12, 1.0, 16, 2.0),
+                "icon-size" to a("interpolate", a("linear"), a("zoom"), 9, a("case", a("==", get("clear"), true), 1.0, 0.5), 12, 1.0, 16, 2.0),
                 *overlap, "symbol-sort-key" to a("case", flagged, 1.0, 0.0),
                 "text-field" to get("label"), "text-font" to font, "text-size" to 12.0, "text-anchor" to "top",
                 "text-offset" to a(0.0, 1.6), "text-optional" to true),
-                paint = o("text-color" to "#FFFFFF", "text-halo-color" to hex(MapIcons.POLICE_AIRCRAFT_COLOR), "text-halo-width" to 3.0))
+                paint = o("text-color" to "#FFFFFF", "text-halo-color" to a("case", flagged, hex(MapIcons.POLICE_AIRCRAFT_COLOR),
+                    hex(MapIcons.CLEAR_AIRCRAFT_COLOR)), "text-halo-width" to 3.0))
         ).forEach { map.addLayer(it) }
     }
 
@@ -294,13 +297,17 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
 
         val air = PoliceAircraft.all()
         planes = air.associateBy { it.plane.hex }
+        val clear = filter == DeviceFilter.AIRCRAFT
         set(AIRCRAFT, air.map { (p, hit) ->
             GeoJson.feature(GeoJson.point(p.lat, p.lon),
                 "hex" to p.hex,
-                "icon" to if (hit != null) "rf-plane-police" else "rf-plane",
+                "icon" to if (hit != null) "rf-plane-police" else if (clear) "rf-plane-clear" else "rf-plane",
                 "track" to (p.trackDeg ?: 0.0),
                 "flagged" to (hit != null),
-                "label" to if (hit == null) "" else listOfNotNull(
+                "clear" to clear,
+                "label" to if (hit == null) {
+                    if (clear) listOfNotNull(AircraftActivity.name(p), AircraftActivity.altitude(p)).joinToString(" · ") else ""
+                } else listOfNotNull(
                     hit.label.substringAfter(": ", hit.label).take(28), p.altitudeFt?.takeIf { it > 0 }?.let { "$it ft" }
                 ).joinToString(" · "))
         })

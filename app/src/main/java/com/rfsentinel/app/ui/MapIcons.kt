@@ -68,13 +68,16 @@ object MapIcons {
     }
 
     const val POLICE_AIRCRAFT_COLOR = 0xFF5E35B1.toInt()
+    /** Other aircraft under the map's Aircraft filter. */
+    const val CLEAR_AIRCRAFT_COLOR = 0xFF1E88E5.toInt()
 
     /**
      * An aircraft seen from above, nose up (the marker rotates it to its track). Police /
-     * government aircraft: bold purple with a white outline; other traffic: small and grey.
+     * government aircraft: bold purple with a white outline; other traffic: small and grey, or
+     * [clear] (the map's Aircraft filter): larger, solid blue with a white outline.
      */
-    fun planeIcon(dp: Float, police: Boolean, scale: Float = 1f): Bitmap {
-        val s = ((if (police) 30 else 18) * dp * scale).toInt().coerceAtLeast(8)
+    fun planeIcon(dp: Float, police: Boolean, scale: Float = 1f, clear: Boolean = false): Bitmap {
+        val s = ((if (police) 30 else if (clear) 26 else 18) * dp * scale).toInt().coerceAtLeast(8)
         val bmp = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         val w = s.toFloat()
@@ -98,12 +101,12 @@ object MapIcons {
             close()
         }
         val p = Paint(Paint.ANTI_ALIAS_FLAG)
-        p.color = if (police) POLICE_AIRCRAFT_COLOR else 0xB3707C80.toInt()
+        p.color = if (police) POLICE_AIRCRAFT_COLOR else if (clear) CLEAR_AIRCRAFT_COLOR else 0xB3707C80.toInt()
         c.drawPath(path, p)
         p.style = Paint.Style.STROKE
         p.strokeJoin = Paint.Join.ROUND
-        p.strokeWidth = (if (police) 1.8f else 1f) * dp * scale.coerceIn(0.7f, 1.5f)
-        p.color = if (police) Color.WHITE else 0xCCFFFFFF.toInt()
+        p.strokeWidth = (if (police || clear) 1.8f else 1f) * dp * scale.coerceIn(0.7f, 1.5f)
+        p.color = if (police || clear) Color.WHITE else 0xCCFFFFFF.toInt()
         c.drawPath(path, p)
         return bmp
     }

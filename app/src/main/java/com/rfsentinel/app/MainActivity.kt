@@ -191,6 +191,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }.show()
         }
+        // One filter for this screen and the full screen map: the last one picked on either.
+        filter = com.rfsentinel.app.ui.DeviceFilter.parse(Prefs.mapFilter(this))
         setupFilterChips()
         panes.setFilter(filter)
 
@@ -219,6 +221,14 @@ class MainActivity : AppCompatActivity() {
                 com.rfsentinel.app.ui.DemoData.seedAlerts(this@MainActivity, anchor)
                 anchor?.let { com.rfsentinel.app.ui.DemoData.seedHistory(this@MainActivity, it) }
             }
+            // Made-up aircraft drifting around, for the list, the map and its Aircraft filter.
+            lifecycleScope.launch {
+                while (true) {
+                    com.rfsentinel.app.online.PoliceAircraft.latest = com.rfsentinel.app.ui.DemoData.aircraft(anchor ?: (0.0 to 0.0))
+                    com.rfsentinel.app.online.PoliceAircraft.latestAt = System.currentTimeMillis()
+                    kotlinx.coroutines.delay(2_000L)
+                }
+            }
             // --ez demo_alert true: a made-up alert every 12 s, for the alert card on the full screen map.
             if (intent.getBooleanExtra("demo_alert", false)) lifecycleScope.launch {
                 while (true) { kotlinx.coroutines.delay(12_000L); com.rfsentinel.app.ui.DemoData.publishSampleAlert(com.rfsentinel.app.ui.DemoData.fakeLocation?.let { it.latitude to it.longitude }) }
@@ -236,6 +246,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // Back from the full screen map: show the filter picked there.
+        com.rfsentinel.app.ui.DeviceFilter.parse(Prefs.mapFilter(this)).let { f ->
+            if (f != filter) filterChips[f]?.let { it.isChecked = true; scrollToChip(it) }
+        }
         updateStatus()
         // Every time the app comes to the front (this screen can stay alive for days): Settings > Check for updates on app open.
         if (Prefs.onboardingDone(this)) com.rfsentinel.app.util.UpdateChecker.checkOnStartup(this)
@@ -258,6 +272,8 @@ class MainActivity : AppCompatActivity() {
         // A custom theme can have just a banner and no animated header.
         binding.themedHeader.visibility = if (header != null || ownBanner) View.VISIBLE else View.GONE
         binding.themeHeader.visibility = if (header != null) View.VISIBLE else View.GONE
+        // The styled headers draw the app's name themselves: no second title over it in the title bar.
+        supportActionBar?.setDisplayShowTitleEnabled(header == null)
         if (header == null && !ownBanner) return
         if (header != null) binding.themeHeader.style = header
         val file = com.rfsentinel.app.ui.ThemeManager.bannerFile(this)
@@ -308,13 +324,20 @@ class MainActivity : AppCompatActivity() {
             }
             filterChips[f] = chip
             binding.filterChips.addView(chip)
-            if (f == filter) chip.isChecked = true
+            if (f == filter) { chip.isChecked = true; scrollToChip(chip) }
         }
         binding.filterChips.setOnCheckedStateChangeListener { _, ids ->
             filter = filterChips.entries.firstOrNull { it.value.id == ids.firstOrNull() }?.key ?: return@setOnCheckedStateChangeListener
+            Prefs.setMapFilter(this, filter.name)
             panes.setFilter(filter)
             render()
         }
+    }
+
+    /** Brings [chip] into view in the sideways-scrolling row (a filter picked on the map may be past the edge). */
+    private fun scrollToChip(chip: com.google.android.material.chip.Chip) {
+        val row = binding.filterChips.parent as? android.widget.HorizontalScrollView ?: return
+        row.post { if (chip.right > row.scrollX + row.width || chip.left < row.scrollX) row.smoothScrollTo((chip.left - row.width / 4).coerceAtLeast(0), 0) }
     }
 
     /** The stock chip's side paddings, to put back in the list style. */
@@ -739,9 +762,8 @@ class MainActivity : AppCompatActivity() {
             }
     }
 
-    /** The aircraft heard right now (RTL-SDR ADS-B and the online feeds); made-up ones in the demo. */
+    /** The aircraft heard right now (RTL-SDR ADS-B and the online feeds). */
     private fun currentAircraft(now: Long): List<com.rfsentinel.app.online.PoliceAircraft.Seen> = when {
-        demoMode -> com.rfsentinel.app.ui.DemoData.aircraft(com.rfsentinel.app.ui.DemoData.fakeLocation?.let { it.latitude to it.longitude } ?: (0.0 to 0.0))
         !ScanForegroundService.isRunning -> emptyList()
         else -> com.rfsentinel.app.online.PoliceAircraft.all(now)
     }

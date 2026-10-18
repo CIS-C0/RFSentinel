@@ -1210,7 +1210,8 @@ class MapFragment : Fragment() {
             filter = DeviceFilter.ALL
             return
         }
-        val options = if (tripId == null) DeviceFilter.entries.filter { it != DeviceFilter.RADIO } else listOf(DeviceFilter.ALL, DeviceFilter.FLAGGED)
+        // The main screen's order; the choice is shared with it (a trace's own map keeps its own).
+        val options = if (tripId == null) DeviceFilter.MAIN_ORDER.filter { it != DeviceFilter.RADIO } else listOf(DeviceFilter.ALL, DeviceFilter.FLAGGED)
         filter = DeviceFilter.parse(Prefs.mapFilter(act)).takeIf { it in options } ?: DeviceFilter.ALL
         val group = binding.mapFilterChips
         for (f in options) {
@@ -1229,9 +1230,26 @@ class MapFragment : Fragment() {
             val picked = filterChips.entries.firstOrNull { it.value.id == ids.firstOrNull() }?.key ?: return@setOnCheckedStateChangeListener
             filter = picked
             rf?.filter = picked
-            Prefs.setMapFilter(act, picked.name)
+            if (tripId == null) Prefs.setMapFilter(act, picked.name)
             if (tripId != null) loadTrip() else renderLive()
             rf?.safe("static") { rf?.maybeRedrawStatic(force = true) }
+            if (picked == DeviceFilter.AIRCRAFT && tripId == null) frameAircraft()
+        }
+    }
+
+    /** The Aircraft filter: stops following you and zooms out to show every aircraft (and you). */
+    private fun frameAircraft() {
+        val m = map ?: return
+        val air = com.rfsentinel.app.online.PoliceAircraft.all().map { it.plane.lat to it.plane.lon }
+        if (air.isEmpty()) {
+            Toast.makeText(act, "No aircraft in range right now", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (following) { following = false; applyMode(animate = false); styleFollowButton() }
+        val pts = air + listOfNotNull(myPosition())
+        rf?.safe("frame") {
+            if (pts.size == 1) m.jumpTo(pts[0].first, pts[0].second, 11.0 - ZOOM_SHIFT)
+            else m.fit(pts, (56 * resources.displayMetrics.density).toInt())
         }
     }
 
@@ -1243,6 +1261,7 @@ class MapFragment : Fragment() {
                 DeviceFilter.CELLS -> rf?.towerCount ?: 0
                 DeviceFilter.WAZE -> com.rfsentinel.app.online.WazePolice.latest.size
                 DeviceFilter.AIRCRAFT -> com.rfsentinel.app.online.PoliceAircraft.all().size
+                DeviceFilter.RADIO -> 0
                 else -> placed.count { f.matches(it) }
             }
             chip.text = if (f == DeviceFilter.ALL || n > 0) "${f.label} $n" else f.label
