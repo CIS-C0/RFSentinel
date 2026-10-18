@@ -136,7 +136,7 @@ class NavSearchActivity : AppCompatActivity() {
                 onMore = { startActivityForResult(intent(this, MODE_WORK), REQ_WORK) }))
             categories("Nearby") { categorySearch(it, along = false) }
             if (Navigator.active && Navigator.state != null) categories("Along your route") { categorySearch(it, along = true) }
-            section("Starred", Prefs.navFavorites(this), R.drawable.ic_nav_star)
+            section("Starred", Prefs.navFavorites(this), R.drawable.ic_nav_star, rename = true)
             section("Recent", Prefs.recentDestinations(this), R.drawable.ic_nav_history)
         }
         if (list.childCount == 0) setNote("Type at least ${Places.MIN_QUERY} letters to search.")
@@ -147,10 +147,10 @@ class NavSearchActivity : AppCompatActivity() {
         setPadding(px(16), px(14), px(16), px(4)); alpha = 0.7f
     })
 
-    private fun section(title: String, places: List<Place>, icon: Int) {
+    private fun section(title: String, places: List<Place>, icon: Int, rename: Boolean = false) {
         if (places.isEmpty()) return
         header(title)
-        places.forEach { p -> list.addView(placeRow(p, icon)) }
+        places.forEach { p -> list.addView(placeRow(p, icon).also { if (rename) addRename(it as LinearLayout, p) }) }
     }
 
     /** A row of kinds of place to look for (petrol, food, charging...). */
@@ -254,6 +254,16 @@ class NavSearchActivity : AppCompatActivity() {
             }, LinearLayout.LayoutParams(px(44), px(44)))
         }
         return v
+    }
+
+    /** A pencil before a starred place's star, to give it your own name. */
+    private fun addRename(row: LinearLayout, p: Place) {
+        row.addView(ImageButton(this).apply {
+            setImageResource(R.drawable.ic_nav_edit); setColorFilter(ChipStyle.onSurface(this@NavSearchActivity)); alpha = 0.6f
+            background = null; contentDescription = "Rename"
+            setOnClickListener { RenamePlace.ask(this@NavSearchActivity, p) { showStart() } }
+        }, row.childCount - 1, LinearLayout.LayoutParams(px(44), px(44)))
+        row.setOnLongClickListener { RenamePlace.ask(this, p) { showStart() }; true }
     }
 
     private fun starButton(p: Place) = ImageButton(this).apply {

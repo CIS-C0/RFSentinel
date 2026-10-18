@@ -237,7 +237,7 @@ class MainActivity : AppCompatActivity() {
         applyViewMode()
         observeDevices()
         updateStatus()
-        lifecycleScope.launch { Favorites.load(this@MainActivity) }
+        lifecycleScope.launch { Favorites.load(this@MainActivity); com.rfsentinel.app.data.DeviceNames.load(this@MainActivity) }
         // Only on a real fresh start - a theme change recreates this screen too.
         if (savedInstanceState == null && !Prefs.onboardingDone(this)) showOnboarding()
 
@@ -868,12 +868,15 @@ class MainActivity : AppCompatActivity() {
                 "${best.category.shortTag} · ${best.tier.label} ${best.confidence}%"
             else -> radioTag(s)
         }
+        val alias = com.rfsentinel.app.data.DeviceNames.of(s.mac)
         return DeviceRow(
             mac = s.mac,
-            title = best?.label ?: s.name ?: s.deviceType,
+            title = alias ?: best?.label ?: s.name ?: s.deviceType,
             subtitle = s.mac + "  ·  " + (s.vendor ?: s.addressType.label),
             meta = listOf(
-                if (best != null && s.name != null) "\"${s.name}\"" else s.deviceType,
+                // Under your own name, what it's heard as comes first.
+                if (alias != null) best?.label ?: s.name?.let { "\"$it\"" } ?: s.deviceType
+                else if (best != null && s.name != null) "\"${s.name}\"" else s.deviceType,
                 // Ordinary rows name the radio in their tag; flagged ones keep it here.
                 if (tag == radioTag(s)) null else s.sources.joinToString("+") { if (it == Advert.Source.BLE) "BLE" else "WiFi" },
                 "${ProximityUtil.band(s.rssi)} ${s.rssi} dBm ${DeviceIntel.formatDistance(s.distanceM)}",

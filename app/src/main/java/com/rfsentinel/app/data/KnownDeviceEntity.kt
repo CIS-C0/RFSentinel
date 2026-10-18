@@ -26,8 +26,14 @@ data class KnownDeviceEntity(
     val vendor: String? = null,
     val deviceType: String? = null,
     @ColumnInfo(defaultValue = "0") val favorite: Boolean = false,
-    val note: String? = null
+    /** Your own note about it, from its device page. */
+    val note: String? = null,
+    /** Your own name for it, from its device page: shown in place of the name it broadcasts. */
+    val alias: String? = null
 )
+
+/** A device's own name ([KnownDeviceDao.aliases]). */
+data class MacAlias(val mac: String, val alias: String)
 
 @Dao
 interface KnownDeviceDao {
@@ -53,18 +59,27 @@ interface KnownDeviceDao {
     @Query("SELECT mac FROM known_devices WHERE favorite = 1")
     suspend fun favorites(): List<String>
 
+    @Query("UPDATE known_devices SET alias = :alias WHERE mac = :mac")
+    suspend fun setAlias(mac: String, alias: String?)
+
+    @Query("UPDATE known_devices SET note = :note WHERE mac = :mac")
+    suspend fun setNote(mac: String, note: String?)
+
+    @Query("SELECT mac, alias FROM known_devices WHERE alias IS NOT NULL AND alias != ''")
+    suspend fun aliases(): List<MacAlias>
+
     @Query("SELECT COUNT(*) FROM known_devices")
     suspend fun count(): Int
 
     /**
      * Device history search ([com.rfsentinel.app.ui.DeviceHistoryActivity]), newest first: [query] in the
-     * MAC (with or without colons), name, vendor, type or note; only favorites, only devices that were
+     * MAC (with or without colons), name, vendor, type, note or your own name; only favorites, only devices that were
      * flagged (in the match log), only those seen since [since].
      */
     @Query("""SELECT * FROM known_devices
         WHERE (:query = '' OR mac LIKE :like ESCAPE '\' OR REPLACE(mac, ':', '') LIKE :likeHex ESCAPE '\'
                OR name LIKE :like ESCAPE '\' OR vendor LIKE :like ESCAPE '\'
-               OR deviceType LIKE :like ESCAPE '\' OR note LIKE :like ESCAPE '\')
+               OR deviceType LIKE :like ESCAPE '\' OR note LIKE :like ESCAPE '\' OR alias LIKE :like ESCAPE '\')
           AND (:favorites = 0 OR favorite = 1)
           AND (:flagged = 0 OR mac IN (SELECT mac FROM detections))
           AND lastSeen >= :since
@@ -78,8 +93,9 @@ interface KnownDeviceDao {
         fun likeHex(text: String) = like(text.replace(":", "").replace("-", ""))
     }
 
-    /** Forget non-favorite devices not heard since [before]. */
-    @Query("DELETE FROM known_devices WHERE lastSeen < :before AND favorite = 0")
+    /** Forget non-favorite devices not heard since [before]; ones you named or wrote a note on are kept. */
+    @Query("""DELETE FROM known_devices WHERE lastSeen < :before AND favorite = 0
+        AND (alias IS NULL OR alias = '') AND (note IS NULL OR note = '')""")
     suspend fun prune(before: Long): Int
 
     @Query("DELETE FROM known_devices WHERE favorite = 0")

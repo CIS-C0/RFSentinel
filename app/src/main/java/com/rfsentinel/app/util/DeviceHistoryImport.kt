@@ -52,7 +52,8 @@ object DeviceHistoryImport {
 
     /** A history row from a file's fields; null when the address is not a Bluetooth / WiFi address. */
     fun row(mac: String?, name: String?, vendor: String?, type: String?, first: String?, last: String?,
-            sessions: String?, detects: String?, favorite: String?, note: String?, now: Long = System.currentTimeMillis()): KnownDeviceEntity? {
+            sessions: String?, detects: String?, favorite: String?, note: String?, alias: String? = null,
+            now: Long = System.currentTimeMillis()): KnownDeviceEntity? {
         val m = mac?.trim().orEmpty()
         if (!MAC.matches(m)) return null
         val f = parseTime(first); val l = parseTime(last)
@@ -64,7 +65,8 @@ object DeviceHistoryImport {
             sessions = (sessions?.trim()?.toIntOrNull() ?: 1).coerceIn(1, 1_000_000),
             detectCount = (detects?.trim()?.toIntOrNull() ?: 1).coerceIn(1, 100_000_000),
             name = clean(name, 128), vendor = clean(vendor, 128), deviceType = clean(type, 64),
-            favorite = favorite?.trim()?.equals("true", true) == true, note = clean(note, 1000)
+            favorite = favorite?.trim()?.equals("true", true) == true, note = clean(note, 1000),
+            alias = clean(alias, 64)
         )
     }
 
@@ -79,7 +81,8 @@ object DeviceHistoryImport {
             detectCount = maxOf(mine.detectCount, theirs.detectCount),
             name = mine.name ?: theirs.name, vendor = mine.vendor ?: theirs.vendor, deviceType = mine.deviceType ?: theirs.deviceType,
             favorite = mine.favorite || theirs.favorite,
-            note = mine.note?.takeIf { it.isNotBlank() } ?: theirs.note
+            note = mine.note?.takeIf { it.isNotBlank() } ?: theirs.note,
+            alias = mine.alias?.takeIf { it.isNotBlank() } ?: theirs.alias
         )
     }
 
@@ -138,7 +141,7 @@ object DeviceHistoryImport {
                 }
             }
             r.endObject()
-            yield(row(f["mac"], f["name"], f["vendor"], f["deviceType"], f["firstSeen"], f["lastSeen"], f["sessions"], f["detectCount"], f["favorite"], f["note"]))
+            yield(row(f["mac"], f["name"], f["vendor"], f["deviceType"], f["firstSeen"], f["lastSeen"], f["sessions"], f["detectCount"], f["favorite"], f["note"], f["customName"]))
         }
         r.endArray()
     }
@@ -153,7 +156,8 @@ object DeviceHistoryImport {
             val r = it.next()
             if (r.all { f -> f.isBlank() }) continue
             yield(row(col(r, "mac"), col(r, "name"), col(r, "vendor"), col(r, "device_type", "devicetype"), col(r, "first_seen", "firstseen"),
-                col(r, "last_seen", "lastseen"), col(r, "sessions"), col(r, "detect_count", "detectcount"), col(r, "favorite"), col(r, "note")))
+                col(r, "last_seen", "lastseen"), col(r, "sessions"), col(r, "detect_count", "detectcount"), col(r, "favorite"), col(r, "note"),
+                col(r, "custom_name", "customname")))
         }
     }
 

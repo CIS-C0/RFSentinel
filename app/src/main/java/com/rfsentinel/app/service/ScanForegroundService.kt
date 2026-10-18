@@ -877,7 +877,8 @@ class ScanForegroundService : Service() {
                     vendor = s.vendor ?: e?.vendor,
                     deviceType = s.deviceType,
                     favorite = e?.favorite ?: false,
-                    note = e?.note
+                    note = e?.note,
+                    alias = e?.alias
                 )
             })
         }

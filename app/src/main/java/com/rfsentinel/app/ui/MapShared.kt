@@ -34,7 +34,7 @@ internal object MapPins {
             val best = s.best
             MapPin(
                 s.mac, pos.lat, pos.lon,
-                best?.label ?: s.name ?: s.deviceType,
+                com.rfsentinel.app.data.DeviceNames.of(s.mac) ?: best?.label ?: s.name ?: s.deviceType,
                 flagged,
                 DeviceColors.forDevice(context, s),
                 buildString {

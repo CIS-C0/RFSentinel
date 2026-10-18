@@ -330,6 +330,14 @@ object Prefs {
         savePlaces(context, "nav_favorites", if (now) (listOf(p) + list).take(40) else list.filterNot { sameSpot(it, p) })
         return now
     }
+    /** Gives a starred place your own name; the new place, or null when it isn't starred. */
+    fun renameNavFavorite(context: Context, p: com.rfsentinel.app.nav.Place, name: String): com.rfsentinel.app.nav.Place? {
+        val list = navFavorites(context)
+        val i = list.indexOfFirst { sameSpot(it, p) }.takeIf { it >= 0 } ?: return null
+        val renamed = list[i].copy(name = name.trim().ifEmpty { list[i].name })
+        savePlaces(context, "nav_favorites", list.toMutableList().also { it[i] = renamed })
+        return renamed
+    }
     fun clearNavPlaces(context: Context) = placesSp(context).edit { remove("nav_home"); remove("nav_work"); remove("nav_favorites") }
 
     /** Spoken driving directions (default on). Separate from the alert voice and its mute / snooze. */

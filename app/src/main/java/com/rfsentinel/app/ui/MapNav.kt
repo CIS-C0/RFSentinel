@@ -116,7 +116,7 @@ internal class MapNav(
 
     fun setup() {
         val ink = ColorStateList.valueOf(ChipStyle.onSurface(act))
-        for (v in listOf(b.navCardStar, b.navCardClose, b.navEnd, b.navOverview, b.navMenu)) v.imageTintList = ink
+        for (v in listOf(b.navCardStar, b.navCardRename, b.navCardClose, b.navEnd, b.navOverview, b.navMenu)) v.imageTintList = ink
         b.navMute.imageTintList = ColorStateList.valueOf(0xFFFFFFFF.toInt())
         b.searchButton.backgroundTintList = ColorStateList.valueOf(ChipStyle.accent(act).first)
         b.searchButton.imageTintList = ColorStateList.valueOf(ChipStyle.accent(act).second)
@@ -124,6 +124,8 @@ internal class MapNav(
 
         b.navCardClose.setOnClickListener { closeCard() }
         b.navCardStar.setOnClickListener { place?.let { Prefs.toggleNavFavorite(act, it); styleStar() } }
+        b.navCardRename.setOnClickListener { renamePlace() }
+        b.navCardTitle.setOnClickListener { if (place?.let { Prefs.isNavFavorite(act, it) } == true) renamePlace() }
         b.navStart.setOnClickListener { onStartButton() }
         b.navOpenIn.setOnClickListener { openInMenu(it) }
         ChipStyle.accent(act).first.let { accent ->
@@ -151,7 +153,7 @@ internal class MapNav(
      */
     private fun compactCard() {
         b.navCard.setPadding(px(10), px(6), px(10), px(6))
-        for (v in listOf(b.navCardStar, b.navCardClose)) v.layoutParams = LinearLayout.LayoutParams(px(40), px(40))
+        for (v in listOf(b.navCardStar, b.navCardRename, b.navCardClose)) v.layoutParams = LinearLayout.LayoutParams(px(40), px(40))
         for (v in listOf(b.navStart, b.navOpenIn)) { v.insetTop = 0; v.insetBottom = 0; v.minimumHeight = px(40) }
         (b.navStart.parent as? LinearLayout)?.let { row -> (row.layoutParams as? LinearLayout.LayoutParams)?.topMargin = px(4) }
     }
@@ -231,6 +233,13 @@ internal class MapNav(
         b.navCardStar.setImageResource(if (on) R.drawable.ic_nav_star else R.drawable.ic_nav_star_border)
         b.navCardStar.imageTintList = ColorStateList.valueOf(if (on) ChipStyle.accent(act).first else ChipStyle.onSurface(act))
         b.navCardStar.contentDescription = if (on) "Starred - tap to remove" else "Star this place"
+        b.navCardRename.visibility = if (on) View.VISIBLE else View.GONE
+    }
+
+    /** Your own name for the starred place on the card. */
+    private fun renamePlace() {
+        val p = place ?: return
+        com.rfsentinel.app.nav.RenamePlace.ask(act, p) { renamed -> if (place == p) { place = renamed; bindCard() } }
     }
 
     private fun onStartButton() {

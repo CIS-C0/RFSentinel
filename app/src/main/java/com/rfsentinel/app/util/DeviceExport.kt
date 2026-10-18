@@ -183,12 +183,12 @@ object DeviceExport {
     // ---- Long-term history ----------------------------------------------------------
 
     fun historyCsv(rows: List<KnownDeviceEntity>): String {
-        val sb = StringBuilder("mac,name,vendor,device_type,first_seen,last_seen,sessions,detect_count,favorite,note\n")
+        val sb = StringBuilder("mac,name,vendor,device_type,first_seen,last_seen,sessions,detect_count,favorite,note,custom_name\n")
         rows.forEach { r ->
             sb.append(r.mac).append(',').append(q(r.name)).append(',').append(q(r.vendor)).append(',')
                 .append(q(r.deviceType)).append(',').append(local(r.firstSeen)).append(',').append(local(r.lastSeen)).append(',')
                 .append(r.sessions).append(',').append(r.detectCount).append(',').append(r.favorite).append(',')
-                .append(q(r.note)).append('\n')
+                .append(q(r.note)).append(',').append(q(r.alias)).append('\n')
         }
         return sb.toString()
     }
@@ -200,6 +200,7 @@ object DeviceExport {
         addProperty("deviceType", r.deviceType); addProperty("firstSeen", iso(r.firstSeen))
         addProperty("lastSeen", iso(r.lastSeen)); addProperty("sessions", r.sessions)
         addProperty("detectCount", r.detectCount); addProperty("favorite", r.favorite); addProperty("note", r.note)
+        addProperty("customName", r.alias)
     }
 
     fun matchesJson(rows: List<DetectionEntity>): JsonArray = gson.toJsonTree(rows).asJsonArray

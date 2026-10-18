@@ -12,7 +12,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         DetectionEntity::class, WhitelistEntity::class, KnownDeviceEntity::class,
         TripEntity::class, TripPointEntity::class, TripDeviceEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -78,13 +78,20 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v2.25: your own names for devices. */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE known_devices ADD COLUMN alias TEXT")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "rfsentinel.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build().also { INSTANCE = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build().also { INSTANCE = it }
             }
         }
     }

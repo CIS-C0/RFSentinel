@@ -149,6 +149,7 @@ class DeviceHistoryActivity : AppCompatActivity() {
                 return@launch
             }
             com.rfsentinel.app.data.Favorites.load(this@DeviceHistoryActivity)
+            com.rfsentinel.app.data.DeviceNames.load(this@DeviceHistoryActivity)
             search(now = true)
             val keep = Prefs.retentionDays(this@DeviceHistoryActivity)
             androidx.appcompat.app.AlertDialog.Builder(this@DeviceHistoryActivity).setTitle("History imported")
@@ -196,9 +197,10 @@ class DeviceHistoryActivity : AppCompatActivity() {
         override fun onBindViewHolder(h: Holder, position: Int) {
             val k = getItem(position)
             val c = h.root.context
-            h.title.text = (if (k.favorite) "★ " else "") + (k.name?.takeIf { it.isNotBlank() } ?: k.mac) +
+            h.title.text = (if (k.favorite) "★ " else "") + (k.alias?.takeIf { it.isNotBlank() } ?: k.name?.takeIf { it.isNotBlank() } ?: k.mac) +
                 (k.deviceType?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: "")
-            h.line.text = listOfNotNull(k.vendor?.takeIf { it.isNotBlank() }, k.mac.takeIf { k.name?.isNotBlank() == true },
+            h.line.text = listOfNotNull(k.name?.takeIf { it.isNotBlank() && !k.alias.isNullOrBlank() }?.let { "\"$it\"" },
+                k.vendor?.takeIf { it.isNotBlank() }, k.mac.takeIf { k.name?.isNotBlank() == true || !k.alias.isNullOrBlank() },
                 k.note?.takeIf { it.isNotBlank() }?.let { "Note: $it" }).joinToString(" · ").ifEmpty { "Unknown vendor" }
             h.line.visibility = View.VISIBLE
             val last = DateUtils.getRelativeTimeSpanString(k.lastSeen, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)

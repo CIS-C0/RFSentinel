@@ -19,6 +19,7 @@ import com.google.android.material.button.MaterialButton
 import com.rfsentinel.app.util.AlertPlayer
 import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.DetectionEntity
+import com.rfsentinel.app.data.DeviceNames
 import com.rfsentinel.app.data.Favorites
 import com.rfsentinel.app.data.KnownDeviceEntity
 import com.rfsentinel.app.data.WhitelistCache
@@ -95,6 +96,9 @@ class DeviceDetailActivity : AppCompatActivity() {
                 refresh()
             }
         }
+        binding.actionRename.setOnClickListener { rename() }
+        binding.actionNote.setOnClickListener { editNote() }
+        binding.noteText.setOnClickListener { editNote() }
         binding.actionCopy.setOnClickListener { DeviceActions.copy(this, mac) }
         binding.actionShare.setOnClickListener { share() }
 
@@ -162,8 +166,15 @@ class DeviceDetailActivity : AppCompatActivity() {
         } else {
             binding.tagText.visibility = View.GONE
         }
-        binding.titleText.text = best?.label ?: s?.name ?: known?.name ?: s?.deviceType ?: known?.deviceType ?: "Device"
-        binding.subtitleText.text = mac + ((s?.vendor ?: known?.vendor ?: VendorDb.macVendor(mac))?.let { "\n$it" } ?: "")
+        val heardAs = best?.label ?: s?.name ?: known?.name ?: s?.deviceType ?: known?.deviceType ?: "Device"
+        val alias = DeviceNames.of(mac)
+        // Your own name in place of what it's heard as; that stays on the line below.
+        binding.titleText.text = alias ?: heardAs
+        binding.subtitleText.text = (if (alias != null) "$heardAs\n" else "") +
+            mac + ((s?.vendor ?: known?.vendor ?: VendorDb.macVendor(mac))?.let { "\n$it" } ?: "")
+        val note = known?.note?.takeIf { it.isNotBlank() }
+        binding.noteText.visibility = if (note != null) View.VISIBLE else View.GONE
+        binding.noteText.text = note?.let { "\uD83D\uDCDD $it" }
         binding.presenceText.text = when {
             liveMac != mac && live != null -> "In range under its new address $liveMac (it changed its address) · heard ${ago(now - live.lastSeen)}"
             s == null -> "Not in range right now" + (known?.let { " · last heard ${dateFmt.format(Date(it.lastSeen))}" } ?: "")
@@ -223,6 +234,7 @@ class DeviceDetailActivity : AppCompatActivity() {
             else -> "Whitelist"
         }
         binding.actionFavorite.text = if (Favorites.contains(mac)) "★ Favorite" else "☆ Favorite"
+        binding.actionNote.text = if (known?.note.isNullOrBlank()) "Add note" else "Edit note"
 
         // Sections: rebuilt only when their content changes (keeps scroll & selection stable).
         val content = buildSections(s)
@@ -482,6 +494,56 @@ class DeviceDetailActivity : AppCompatActivity() {
                 }
             }
         }
+
+    /** Your own name for the device, shown in place of the name it broadcasts. */
+    private fun rename() {
+        val s = DeviceRegistry.get(mac)
+        val heardAs = s?.best?.label ?: s?.name ?: known?.name ?: s?.deviceType ?: known?.deviceType
+        ask("Name this device", DeviceNames.of(mac).orEmpty(), heardAs ?: "Name", multiLine = false,
+            clear = DeviceNames.of(mac)?.let { "Use its own name" }) { text ->
+            lifecycleScope.launch {
+                DeviceNames.set(this@DeviceDetailActivity, mac, text, s?.name ?: known?.name, s?.vendor ?: known?.vendor, s?.deviceType)
+                known = AppDatabase.getInstance(this@DeviceDetailActivity).knownDeviceDao().get(mac)
+                refresh()
+            }
+        }
+    }
+
+    /** Your own note on the device: kept with its history, searchable there. */
+    private fun editNote() {
+        val s = DeviceRegistry.get(mac)
+        val old = known?.note.orEmpty()
+        ask(if (old.isBlank()) "Add a note" else "Edit note", old, "Where you saw it, what it is…", multiLine = true,
+            clear = old.takeIf { it.isNotBlank() }?.let { "Delete note" }) { text ->
+            lifecycleScope.launch {
+                DeviceNames.setNote(this@DeviceDetailActivity, mac, text, s?.name ?: known?.name, s?.vendor ?: known?.vendor, s?.deviceType)
+                known = AppDatabase.getInstance(this@DeviceDetailActivity).knownDeviceDao().get(mac)
+                refresh()
+            }
+        }
+    }
+
+    /** A text box with Save, Cancel and (when there is something to clear) [clear]; [done] gets the text, blank when cleared. */
+    private fun ask(title: String, value: String, hint: String, multiLine: Boolean, clear: String?, done: (String) -> Unit) {
+        val dp = resources.displayMetrics.density
+        val input = android.widget.EditText(this).apply {
+            setText(value); this.hint = hint
+            if (multiLine) { isSingleLine = false; minLines = 2; maxLines = 6 } else { isSingleLine = true; setSelectAllOnFocus(true) }
+            setSelection(text.length)
+        }
+        val box = android.widget.FrameLayout(this).apply {
+            val side = (20 * dp).toInt(); setPadding(side, (8 * dp).toInt(), side, 0); addView(input)
+        }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(title)
+            .setView(box)
+            .setPositiveButton("Save") { _, _ -> done(input.text.toString()) }
+            .setNegativeButton("Cancel", null)
+            .apply { if (clear != null) setNeutralButton(clear) { _, _ -> done("") } }
+            .show()
+            .window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        input.requestFocus()
+    }
 
     private fun ago(ms: Long) = if (ms < 2000) "just now" else "${ms / 1000}s ago"
 
