@@ -387,7 +387,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         if (!Prefs.showCctv(activity) || tripMode) { cctvLine = null; return }
         val store = CctvStore
         if (view == null) {
-            cctvLine = store.progress?.let { "CCTV: downloading around you, $it" } ?: "CCTV: zoom in to see the cameras"
+            cctvLine = store.progress?.let { "CCTV: downloading around you, $it" }
             return
         }
         val private = Prefs.cctvPrivate(activity)
@@ -395,7 +395,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         val shown = cctvs.values.count { inView(it) }
         val hiddenPrivate = if (private) 0 else store.cameras.count { it.isPrivate && inView(it) }
         cctvLine = when {
-            map.camera.zoom < CCTV_MIN_ZOOM -> store.progress?.let { "CCTV: downloading around you, $it" } ?: "CCTV: zoom in to see the cameras"
+            map.camera.zoom < CCTV_MIN_ZOOM -> store.progress?.let { "CCTV: downloading around you, $it" }
             store.progress != null -> "CCTV: downloading around you, ${store.progress}"
             store.isBusy -> "CCTV: downloading..."
             System.currentTimeMillis() - store.lastFailureAt < 60_000 -> "CCTV: map server busy - retrying"
