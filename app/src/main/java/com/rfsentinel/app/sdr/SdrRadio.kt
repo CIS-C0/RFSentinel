@@ -40,6 +40,14 @@ object SdrRadio {
     private var onEvent: ((RadioWatch.Event) -> Unit)? = null
     @Volatile private var runningDevice: String? = null
     @Volatile private var stop = false
+    /** The thread reading the dongle now; an older one still winding down stops on its own. */
+    @Volatile private var worker: Thread? = null
+    @Volatile private var usb: UsbManager? = null
+    private var appContext: Context? = null
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    private const val UNPLUGGED = "RTL-SDR unplugged"
+    /** For the reading thread: stop now (scan stopped, unplugged, or a newer thread took over). */
+    private val halted get() = stop || Thread.currentThread() !== worker
     /** Receive ADS-B on 1090 MHz instead of sweeping the radio bands; switches at the next sweep. */
     @Volatile var adsb = false
     /** Where you are (latitude, longitude), to drop impossible aircraft positions. */
@@ -52,6 +60,7 @@ object SdrRadio {
     @Synchronized
     fun start(context: Context, events: (RadioWatch.Event) -> Unit) {
         val app = context.applicationContext
+        appContext = app
         onEvent = events
         if (receiver == null) {
             val r = object : BroadcastReceiver() {
@@ -60,7 +69,7 @@ object SdrRadio {
                         UsbManager.ACTION_USB_DEVICE_ATTACHED, ACTION_PERMISSION -> connect(app)
                         UsbManager.ACTION_USB_DEVICE_DETACHED -> {
                             val d = deviceOf(intent)
-                            if (d != null && d.deviceName == runningDevice) halt("RTL-SDR unplugged")
+                            if (d != null && d.deviceName == runningDevice) { halt(UNPLUGGED); clearUnpluggedSoon() }
                         }
                     }
                 }
@@ -86,9 +95,17 @@ object SdrRadio {
     @Synchronized
     private fun halt(newStatus: String) {
         stop = true
+        worker = null
         runningDevice = null
         status = newStatus
     }
+
+    /** "RTL-SDR unplugged" stays a little, then leaves the hardware status (unless it came back). */
+    private fun clearUnpluggedSoon() = main.postDelayed({ if (status == UNPLUGGED) status = "" }, 15_000L)
+
+    /** Whether the dongle [name] is no longer plugged in (no unplug notice needed). */
+    private fun gone(name: String): Boolean =
+        runCatching { usb?.deviceList?.values?.none { it.deviceName == name } }.getOrNull() == true
 
     private fun deviceOf(intent: Intent): UsbDevice? =
         if (android.os.Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
@@ -96,8 +113,14 @@ object SdrRadio {
 
     @Synchronized
     private fun connect(context: Context) {
-        if (runningDevice != null) return
         val mgr = context.getSystemService(UsbManager::class.java) ?: return
+        usb = mgr
+        runningDevice?.let { name ->
+            if (!gone(name)) return
+            // Unplugged without the system saying so: let that one go so the dongle can start again.
+            UsbWifi.log("RTL-SDR: $name is gone - starting over")
+            halt("")
+        }
         val d = runCatching { mgr.deviceList.values.firstOrNull { isSdr(it) } }.getOrNull() ?: return
         if (!mgr.hasPermission(d)) {
             UsbWifi.log("%04x:%04x (RTL-SDR) plugged in - asking for USB access".format(d.vendorId, d.productId))
@@ -110,30 +133,53 @@ object SdrRadio {
         runningDevice = d.deviceName
         stop = false
         status = "RTL-SDR · starting…"
-        Thread({
-            runCatching { run(RtlSdr(conn, d, UsbWifi::log), d) }
-                .onFailure { UsbWifi.log("RTL-SDR stopped: ${UsbWifi.describe(it)}"); status = "RTL-SDR error: ${it.message}" }
+        val t = Thread({
+            val result = runCatching { run(RtlSdr(conn, d, UsbWifi::log), d) }
+            val failure = result.exceptionOrNull()
             runCatching { conn.close() }
-            synchronized(this) { if (runningDevice == d.deviceName) runningDevice = null }
-        }, "rtl-sdr").start()
+            synchronized(this) {
+                if (worker !== Thread.currentThread()) return@synchronized
+                worker = null
+                runningDevice = null
+                // Never leave the last "live" line behind: unplugged, failed, or just stopped answering.
+                if (gone(d.deviceName) || result.getOrNull() == true) {
+                    UsbWifi.log("RTL-SDR: unplugged or not answering")
+                    status = UNPLUGGED
+                    clearUnpluggedSoon()
+                    // Plugged back in already (it gets a new name), or it was only stuck: try again shortly.
+                    appContext?.let { main.postDelayed({ if (receiver != null) connect(it) }, 3_000L) }
+                } else if (failure != null) {
+                    UsbWifi.log("RTL-SDR stopped: ${UsbWifi.describe(failure)}")
+                    status = "RTL-SDR error: ${failure.message}"
+                }
+            }
+        }, "rtl-sdr")
+        worker = t
+        t.start()
     }
 
-    private fun run(sdr: RtlSdr, d: UsbDevice) {
+    /** Reads until stopped; true when it ended because the dongle went away (unplugged or not answering). */
+    private fun run(sdr: RtlSdr, d: UsbDevice): Boolean {
         UsbWifi.log("=== RTL-SDR radio activity watch (%04x:%04x) ===".format(d.vendorId, d.productId))
-        if (!sdr.open()) { status = "RTL-SDR: this tuner isn't supported yet (R820T / R820T2 / R860 / R828D only)"; return }
-        while (!stop && !sdr.lost) if (adsb) runAdsb(sdr) else runSweep(sdr)
+        if (!sdr.open()) {
+            if (sdr.lost || gone(d.deviceName)) return true
+            status = "RTL-SDR: this tuner isn't supported yet (R820T / R820T2 / R860 / R828D only)"; return false
+        }
+        while (!halted && !sdr.lost && !gone(d.deviceName)) if (adsb) runAdsb(sdr, d.deviceName) else runSweep(sdr, d.deviceName)
         if (sdr.lost) UsbWifi.log("RTL-SDR: the dongle stopped answering (unplugged?)")
-        sdr.close()
+        val away = sdr.lost || gone(d.deviceName)
+        if (!away) sdr.close()
+        return away && !halted
     }
 
-    private fun runAdsb(sdr: RtlSdr) {
+    private fun runAdsb(sdr: RtlSdr, name: String) {
         sdr.setSampleRate(ModeS.SAMPLE_RATE)
         sdr.setGain(ADSB_GAIN_TENTHS_DB)
         if (!sdr.tune(ModeS.FREQ_HZ)) {
             UsbWifi.log("RTL-SDR: the tuner didn't lock on 1090 MHz")
             status = "RTL-SDR · ADS-B: the tuner didn't lock on 1090 MHz"
             var waited = 0
-            while (!stop && adsb && waited < 50) { Thread.sleep(100); waited++ }
+            while (!halted && adsb && waited < 50) { Thread.sleep(100); waited++ }
             return
         }
         sdr.resetBuffer()
@@ -148,8 +194,11 @@ object SdrRadio {
         val tracker = AdsbTracker()
         val frames = ArrayList<ModeS.Frame>()
         var lastPush = 0L; var lastLog = System.currentTimeMillis(); var fails = 0; var messages = 0L; var logged = 0L
-        while (!stop && !sdr.lost && adsb) {
+        var lastCheck = System.currentTimeMillis()
+        while (!halted && !sdr.lost && adsb) {
             val n = sdr.read(buf)
+            // Every couple of seconds: still plugged in? (Reads alone can fail quietly for a long time.)
+            if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
             if (n <= 0) {
                 if (++fails % STALL_CHUNKS == 0) {
                     if (fails <= STALL_CHUNKS * 3) UsbWifi.log("RTL-SDR: no samples for $fails reads in a row - restarting the stream")
@@ -176,7 +225,7 @@ object SdrRadio {
                 val located = tracker.located(now)
                 val unlocated = tracker.unlocated(now)
                 onAircraft?.invoke(located, unlocated)
-                status = "RTL-SDR · ADS-B · ${located.size + unlocated.size} aircraft heard, ${located.size} with a position"
+                if (!halted) status = "RTL-SDR · ADS-B · ${located.size + unlocated.size} aircraft heard, ${located.size} with a position"
             }
             if (now - lastLog >= 60_000) {
                 UsbWifi.log("RTL-SDR: ADS-B ${messages - logged} messages in ${(now - lastLog) / 1000} s, " +
@@ -188,7 +237,7 @@ object SdrRadio {
         UsbWifi.log("RTL-SDR: ADS-B receiver stopped after $messages messages")
     }
 
-    private fun runSweep(sdr: RtlSdr) {
+    private fun runSweep(sdr: RtlSdr, name: String) {
         sdr.setSampleRate(SAMPLE_RATE)
         sdr.setGain(GAIN_TENTHS_DB)
         sdr.resetBuffer()
@@ -205,11 +254,13 @@ object SdrRadio {
         val iq = ByteArray(XFER * READS_PER_CHUNK)
         var lastLog = 0L; var sweepStart = System.currentTimeMillis(); var sweepMs = 0L
         var events = 0; var unlocked = 0; var readErrors = 0; var failedChunks = 0
-        while (!stop && !sdr.lost && !adsb) {
+        var lastCheck = System.currentTimeMillis()
+        while (!halted && !sdr.lost && !adsb) {
             // Settings changed: the new bands / targets / sensitivity from this sweep on.
             if (config != cfg) { cfg = config; plan = RadioWatch.plan(cfg); watch.config = cfg; logPlan() }
             for (center in plan) {
-                if (stop || sdr.lost || adsb) break
+                if (halted || sdr.lost || adsb) break
+                if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
                 if (!sdr.tune(center)) { unlocked++; continue }
                 repeat(SETTLE_READS) { sdr.read(buf) }
                 var got = 0
@@ -239,7 +290,8 @@ object SdrRadio {
             watch.sweepDone()
             val now = System.currentTimeMillis()
             sweepMs = now - sweepStart; sweepStart = now
-            status = if (watch.sweeps < 6) "RTL-SDR · learning the radio bands here…"
+            if (gone(name)) break
+            if (!halted) status = if (watch.sweeps < 6) "RTL-SDR · learning the radio bands here…"
                      else "RTL-SDR · live · sweep ${sweepMs / 100 / 10.0} s · $events transmissions nearby so far"
             if (now - lastLog > (if (watch.sweeps < 20) 10_000 else 60_000)) {
                 lastLog = now
