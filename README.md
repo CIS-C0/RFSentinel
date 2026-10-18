@@ -28,6 +28,11 @@
 </p>
 
 <p align="center">
+  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.rfsentinel.app%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FCIS-C0%2FRFSentinel%22%2C%22author%22%3A%22CIS-C0%22%2C%22name%22%3A%22RF%20Sentinel%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22-release%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22includePrereleases%5C%22%3Afalse%7D%22%7D"><img src="docs/assets/badge_obtainium.png" height="56" alt="Get it on Obtainium" /></a>
+  <br /><sub>Obtainium installs and updates RF Sentinel straight from these GitHub releases. Free-software build: <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.rfsentinel.app%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FCIS-C0%2FRFSentinel%22%2C%22author%22%3A%22CIS-C0%22%2C%22name%22%3A%22RF%20Sentinel%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22-foss%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22includePrereleases%5C%22%3Afalse%7D%22%7D">add the FOSS APK to Obtainium</a>.</sub>
+</p>
+
+<p align="center">
   <b><a href="https://cis-c0.github.io/RFSentinel/">Website</a> ·
   <a href="https://cis-c0.github.io/RFSentinel/qa.html">Q&amp;A</a> ·
   <a href="https://cis-c0.github.io/RFSentinel/how-it-works.html">How it works</a> ·
@@ -274,9 +279,14 @@ Requires **Android 8.0 or newer** on an ARM phone, 64-bit or 32-bit (practically
 5. Open **RF Sentinel**. The setup wizard walks you through theme, region, alerts, camera radius and permissions.
 6. Tap **Start** and grant location and *Nearby devices*.
 
+**With Obtainium:** install [Obtainium](https://obtainium.imranr.dev/), then on the phone tap the
+**Get it on Obtainium** badge above (or [this link for the FOSS APK](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.rfsentinel.app%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FCIS-C0%2FRFSentinel%22%2C%22author%22%3A%22CIS-C0%22%2C%22name%22%3A%22RF%20Sentinel%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22-foss%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22includePrereleases%5C%22%3Afalse%7D%22%7D)). It adds RF Sentinel
+with the right APK already picked and updates it from GitHub Releases. You can also add
+`https://github.com/CIS-C0/RFSentinel` by hand and set **APK filter** to `-release\.apk$` (or `-foss\.apk$`).
+
 <p align="center"><img src="docs/screenshots/setup-theme.jpg" width="260" alt="Setup wizard: pick a theme" /></p>
 
-**Updating:** *Check for updates* has an **Install now** button: it downloads the new release inside the app (checked against the size and SHA-256 GitHub lists for it, and against the app's own signing key) and hands it to Android's installer. Android asks you once to allow RF Sentinel to install apps, then shows its Update card. You can also install the newer APK over the existing one yourself. History and settings are kept.
+**Updating:** *Check for updates* has an **Install now** button: it downloads the new release inside the app (checked against the size and SHA-256 GitHub lists for it, and against the app's own signing key) and hands it to Android's installer. Android asks you once to allow RF Sentinel to install apps, then shows its Update card. You can also install the newer APK over the existing one yourself, or let Obtainium do it. History and settings are kept.
 Samsung, Xiaomi or OnePlus stopping the scan? Set RF Sentinel's battery usage to
 **Unrestricted** (Settings has a shortcut).
 

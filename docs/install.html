@@ -47,6 +47,7 @@
     <a class="btn primary" href="https://github.com/CIS-C0/RFSentinel/releases/latest" data-apk><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Download APK <span data-version></span></a>
     <a class="btn" href="https://github.com/CIS-C0/RFSentinel/releases/latest">All releases &amp; changelog</a>
   </div>
+  <p><a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.rfsentinel.app%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FCIS-C0%2FRFSentinel%22%2C%22author%22%3A%22CIS-C0%22%2C%22name%22%3A%22RF%20Sentinel%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22-release%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22includePrereleases%5C%22%3Afalse%7D%22%7D" rel="noopener"><img src="assets/badge_obtainium.png" width="161" height="62" alt="Get it on Obtainium"></a></p>
 </div>
 
 <h2 id="steps">Steps</h2>
@@ -58,6 +59,10 @@
 <li>Tap <b>Start scanning</b> and grant location and <i>Nearby devices</i>.</li>
 </ol>
 <p><b>Only free software?</b> The same release also has a file ending in <code>-foss.apk</code> (about 28 MB): no Mapbox map (the map is OpenFreeMap), and the few USB WiFi adapters that need non-free chip firmware ask before downloading it from kernel.org. Either file replaces the other.</p>
+
+<h2 id="obtainium">With Obtainium</h2>
+<p><a href="https://obtainium.imranr.dev/" rel="noopener">Obtainium</a> installs apps straight from their GitHub releases and keeps them updated. Install Obtainium, then on the phone tap the <b>Get it on Obtainium</b> badge above. It adds RF Sentinel with the <code>-release.apk</code> already picked. For the free-software build, use <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.rfsentinel.app%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FCIS-C0%2FRFSentinel%22%2C%22author%22%3A%22CIS-C0%22%2C%22name%22%3A%22RF%20Sentinel%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22-foss%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22includePrereleases%5C%22%3Afalse%7D%22%7D" rel="noopener">this link for the FOSS APK</a> instead.</p>
+<p>Adding it by hand: in Obtainium tap <b>Add app</b>, enter <code>https://github.com/CIS-C0/RFSentinel</code> and set <b>APK filter</b> to <code>-release\.apk$</code> (or <code>-foss\.apk$</code>). Obtainium installs the same signed APKs as GitHub, so it updates over a copy you installed by hand and the other way round.</p>
 
 <h2 id="update">Updating</h2>
 <p>Settings → <b>Lists, tools &amp; about</b> → <b>Check for updates</b> asks GitHub for the latest release and links its APK (only when you tap it). Install the newer APK over the existing one. History, watchlist and settings are kept. Every release is signed with the same key; Android refuses an update signed with a different one.</p>
