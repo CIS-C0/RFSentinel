@@ -23,6 +23,8 @@ enum class DeviceFilter(val label: String) {
     RADIO("Radio"),
     /** Waze reports: not devices, drawn on the map from the Waze poll (map only). */
     WAZE("Waze"),
+    /** Aircraft from the RTL-SDR's ADS-B receiver and the online feeds: not devices (list and map). */
+    AIRCRAFT("Aircraft"),
     /** Heard by external hardware: an ESP32 board (USB or OUI-SPY over Bluetooth) or a USB WiFi adapter. */
     EXTERNAL("External");
 
@@ -33,7 +35,7 @@ enum class DeviceFilter(val label: String) {
             s.deviceType.contains("tracker", true) || s.deviceType.contains("Find My", true))
         DRONES -> s.hits.any { it.category == Category.DRONE } || s.remoteId != null
         NEW -> s.isNew
-        CELLS, WAZE, RADIO -> false
+        CELLS, WAZE, RADIO, AIRCRAFT -> false
         EXTERNAL -> com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac) || com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac)
         FAVORITES -> Favorites.contains(s.mac)
         BLE -> Advert.Source.BLE in s.sources
@@ -54,6 +56,6 @@ enum class DeviceFilter(val label: String) {
          * The main screen's chip order: the counts worth a glance first (flagged, then what's heard on each
          * radio), so they fit without scrolling; the narrower filters after them.
          */
-        val MAIN_ORDER = listOf(ALL, FLAGGED, BLE, WIFI, CELLS, TRACKERS, DRONES, RADIO, WAZE, EXTERNAL, FAVORITES, NEW)
+        val MAIN_ORDER = listOf(ALL, FLAGGED, BLE, WIFI, CELLS, TRACKERS, DRONES, AIRCRAFT, RADIO, WAZE, EXTERNAL, FAVORITES, NEW)
     }
 }

@@ -192,4 +192,25 @@ object DemoData {
         // Oldest first: each new entry goes on top, so the newest ends up first.
         entries.sortedByDescending { it.first }.forEach { it.second() }
     }
+
+    /** Debug builds' demo: a few made-up aircraft around [me], drifting along their headings. */
+    fun aircraft(me: Pair<Double, Double>): List<com.rfsentinel.app.online.PoliceAircraft.Seen> {
+        val t = (System.currentTimeMillis() / 1000 % 600) / 3600.0
+        fun plane(hex: String, call: String, km: Double, brg: Double, trk: Double, ft: Int, kt: Double, police: Boolean): com.rfsentinel.app.online.PoliceAircraft.Seen {
+            val moved = km + kt * 1.852 * t * kotlin.math.cos(Math.toRadians(trk - brg))
+            val lat = me.first + moved / 111.0 * kotlin.math.cos(Math.toRadians(brg))
+            val lon = me.second + moved / (111.0 * kotlin.math.cos(Math.toRadians(me.first)).coerceAtLeast(0.1)) * kotlin.math.sin(Math.toRadians(brg))
+            val p = com.rfsentinel.app.online.PoliceAircraft.Plane(hex, call, null, if (police) "Helicopter" else "Airliner", if (police) "Demo police air unit" else null,
+                lat, lon, ft, kt, trk, false)
+            val hit = if (police) com.rfsentinel.app.detect.Hit(com.rfsentinel.app.detect.Category.AIRCRAFT, "Police helicopter", 85,
+                "Demo data", "Demo") else null
+            return com.rfsentinel.app.online.PoliceAircraft.Seen(p, hit)
+        }
+        return listOf(
+            plane("demo01", "POLICE1", 6.0, 40.0, 120.0, 1500, 90.0, true),
+            plane("demo02", "DEMO123", 28.0, 200.0, 20.0, 31000, 450.0, false),
+            plane("demo03", "DEMO456", 15.0, 300.0, 250.0, 12000, 280.0, false),
+            plane("demo04", "DEMO789", 40.0, 110.0, 300.0, 36000, 470.0, false)
+        )
+    }
 }

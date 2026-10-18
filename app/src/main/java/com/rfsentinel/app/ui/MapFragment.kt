@@ -1242,6 +1242,7 @@ class MapFragment : Fragment() {
             val n = when (f) {
                 DeviceFilter.CELLS -> rf?.towerCount ?: 0
                 DeviceFilter.WAZE -> com.rfsentinel.app.online.WazePolice.latest.size
+                DeviceFilter.AIRCRAFT -> com.rfsentinel.app.online.PoliceAircraft.all().size
                 else -> placed.count { f.matches(it) }
             }
             chip.text = if (f == DeviceFilter.ALL || n > 0) "${f.label} $n" else f.label

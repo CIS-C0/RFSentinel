@@ -44,6 +44,7 @@ class MainActivity : AppCompatActivity() {
         private const val CELL_ROW = "cell:"
         private const val WAZE_ROW = "waze:"
         private const val RADIO_ROW = "radio:"
+        private const val AIRCRAFT_ROW = "air:"
         /** A radio row flashes while its transmitter was heard this recently. */
         private const val RADIO_LIVE_MS = 15_000L
         private const val BLUETOOTH_TAG_COLOR = 0xFF1565C0.toInt()
@@ -105,6 +106,12 @@ class MainActivity : AppCompatActivity() {
             onClick = {
                 if (it.mac.startsWith(CELL_ROW)) startActivity(Intent(this, com.rfsentinel.app.ui.CellTowersActivity::class.java))
                 else if (it.mac.startsWith(RADIO_ROW)) startActivity(Intent(this, com.rfsentinel.app.ui.DetectionLogActivity::class.java))
+                else if (it.mac.startsWith(AIRCRAFT_ROW)) {
+                    val hex = it.mac.removePrefix(AIRCRAFT_ROW)
+                    currentAircraft(System.currentTimeMillis()).firstOrNull { a -> a.plane.hex == hex }?.let { a ->
+                        com.rfsentinel.app.ui.MapActivity.onlineIntent(this, AIRCRAFT_ROW + hex, a.plane.lat, a.plane.lon)?.let { i -> startActivity(i) }
+                    }
+                }
                 else if (it.mac.startsWith(WAZE_ROW)) {
                     com.rfsentinel.app.online.WazePolice.latest.firstOrNull { w -> WAZE_ROW + w.report.id == it.mac }?.let { w ->
                         startActivity(Intent(this, com.rfsentinel.app.ui.MapActivity::class.java)
@@ -114,7 +121,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 else DeviceActions.openDetails(this, it.mac)
             },
-            onLongPress = { if (!it.mac.startsWith(CELL_ROW) && !it.mac.startsWith(WAZE_ROW) && !it.mac.startsWith(RADIO_ROW)) DeviceActions.showQuickActions(this, it.mac) }
+            onLongPress = { if (listOf(CELL_ROW, WAZE_ROW, RADIO_ROW, AIRCRAFT_ROW).none { p -> it.mac.startsWith(p) }) DeviceActions.showQuickActions(this, it.mac) }
         )
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
@@ -571,6 +578,7 @@ class MainActivity : AppCompatActivity() {
             val n = when (f) {
                 com.rfsentinel.app.ui.DeviceFilter.CELLS -> liveCellCount(now)
                 com.rfsentinel.app.ui.DeviceFilter.WAZE -> currentWaze(now).size
+                com.rfsentinel.app.ui.DeviceFilter.AIRCRAFT -> currentAircraft(now).size
                 com.rfsentinel.app.ui.DeviceFilter.RADIO -> if (ScanForegroundService.isRunning) com.rfsentinel.app.sdr.RadioLog.current(now).size else 0
                 else -> all.count { f.matches(it) }
             }
@@ -604,12 +612,14 @@ class MainActivity : AppCompatActivity() {
             val cells = cellRows(now)
             val waze = wazeRows(now, threshold)
             val radio = radioRows(now, threshold)
-            // Waze reports and radios on the air that meet the alert threshold flash at the very top;
+            val air = aircraftRows(now, threshold)
+            // Waze reports, radios on the air and aircraft that meet the alert threshold flash at the very top;
             // the rest follow the devices.
             val (urgent, quiet) = waze.partition { it.flashing }
             val (radioLive, radioOld) = radio.partition { it.flashing }
-            submitRows(radioLive + urgent + visible.map { toRow(it, now, threshold) } + radioOld + cells + quiet)
-            shownCells = cells.size + waze.size + radio.size
+            val (airUrgent, airQuiet) = air.partition { it.flashing }
+            submitRows(airUrgent + radioLive + urgent + visible.map { toRow(it, now, threshold) } + airQuiet + radioOld + cells + quiet)
+            shownCells = cells.size + waze.size + radio.size + air.size
         }
         binding.emptyText.visibility = if (visible.isEmpty() && (!panes.listShown || shownCells == 0)) View.VISIBLE else View.GONE
         binding.emptyText.text = when {
@@ -619,6 +629,8 @@ class MainActivity : AppCompatActivity() {
                 "No Waze reports in range.\nTurn on Waze police reports in Settings and keep scanning."
             filter == com.rfsentinel.app.ui.DeviceFilter.RADIO ->
                 "No radio transmissions heard in the last 5 minutes.\nNeeds an RTL-SDR on USB and the Police radio category on in Settings."
+            filter == com.rfsentinel.app.ui.DeviceFilter.AIRCRAFT ->
+                "No aircraft yet.\nThey come from an RTL-SDR on USB set to ADS-B, or from the online feeds when that's on in Settings."
             filter == com.rfsentinel.app.ui.DeviceFilter.CELLS ->
                 "No cell towers yet - they're read every 15 s while scanning\n(needs the Fake cell tower category on in Settings)."
             else -> "No devices match this filter."
@@ -723,6 +735,53 @@ class MainActivity : AppCompatActivity() {
                     flashing = urgent,
                     bold = live,
                     confidence = r.confidence
+                )
+            }
+    }
+
+    /** The aircraft heard right now (RTL-SDR ADS-B and the online feeds); made-up ones in the demo. */
+    private fun currentAircraft(now: Long): List<com.rfsentinel.app.online.PoliceAircraft.Seen> = when {
+        demoMode -> com.rfsentinel.app.ui.DemoData.aircraft(com.rfsentinel.app.ui.DemoData.fakeLocation?.let { it.latitude to it.longitude } ?: (0.0 to 0.0))
+        !ScanForegroundService.isRunning -> emptyList()
+        else -> com.rfsentinel.app.online.PoliceAircraft.all(now)
+    }
+
+    /**
+     * Aircraft as rows: under All only the law-enforcement ones (so airliners don't fill the list), under
+     * Aircraft every one, police first, then nearest. A police one at or above the alert threshold is
+     * tinted, flashes and is pinned to the top. Tap: the aircraft on the map.
+     */
+    private fun aircraftRows(now: Long, threshold: Int): List<DeviceRow> {
+        if (filter != com.rfsentinel.app.ui.DeviceFilter.ALL && filter != com.rfsentinel.app.ui.DeviceFilter.AIRCRAFT) return emptyList()
+        val all = filter == com.rfsentinel.app.ui.DeviceFilter.AIRCRAFT
+        val me = (if (demoMode) com.rfsentinel.app.ui.DemoData.fakeLocation else ScanForegroundService.lastFix)?.let { it.latitude to it.longitude }
+        val color = com.rfsentinel.app.ui.ThemeManager.ink(this, Category.AIRCRAFT.colorArgb)
+        val air = com.rfsentinel.app.ui.AircraftActivity
+        return currentAircraft(now)
+            .filter { all || it.hit != null }
+            .filter { s -> query.isBlank() || listOfNotNull(air.name(s.plane), s.plane.type, s.plane.owner, s.plane.registration, s.hit?.label)
+                .any { it.contains(query.trim(), ignoreCase = true) } }
+            .map { s -> s to me?.let { com.rfsentinel.app.online.PoliceAircraft.distance(s.plane, it.first, it.second) } }
+            .sortedWith(compareByDescending<Pair<com.rfsentinel.app.online.PoliceAircraft.Seen, Double?>> { it.first.hit != null }
+                .thenBy { it.second ?: Double.MAX_VALUE })
+            .map { (s, d) ->
+                val p = s.plane
+                val hit = s.hit
+                val urgent = hit != null && hit.confidence >= threshold
+                val where = d?.let { m -> com.rfsentinel.app.util.Units.distance(m) +
+                    me?.let { " " + air.compass(air.bearing(it.first, it.second, p.lat, p.lon)) }.orEmpty() }
+                DeviceRow(
+                    mac = AIRCRAFT_ROW + p.hex,
+                    title = "Aircraft " + air.name(p) + (hit?.let { " · ${it.label}" } ?: ""),
+                    subtitle = listOfNotNull(where, air.altitude(p), p.speedKt?.let { String.format(java.util.Locale.US, "%.0f kt", it) })
+                        .joinToString(" · "),
+                    meta = listOfNotNull(p.type, p.owner, p.registration?.takeIf { it != air.name(p) }).joinToString(" · ").ifEmpty { p.hex.uppercase() },
+                    tag = if (hit != null) "AIRCRAFT · ${hit.confidence}%" else "AIRCRAFT",
+                    tagColor = color,
+                    highlight = if (urgent) color else null,
+                    flashing = urgent,
+                    bold = hit != null,
+                    confidence = hit?.confidence
                 )
             }
     }

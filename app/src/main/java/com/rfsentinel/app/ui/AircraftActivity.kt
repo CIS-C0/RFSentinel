@@ -144,7 +144,8 @@ class AircraftActivity : AppCompatActivity() {
             radar.set(list.mapNotNull { r ->
                 val d = r.distanceKm ?: return@mapNotNull null
                 val b = r.bearingDeg ?: return@mapNotNull null
-                AircraftRadarView.Blip(b, d, r.seen.plane.trackDeg, name(r.seen.plane), altitude(r.seen.plane), r.seen.hit != null)
+                AircraftRadarView.Blip(b, d, r.seen.plane.trackDeg, name(r.seen.plane),
+                    Units.distance(d * 1000) + (altitude(r.seen.plane)?.let { " · $it" } ?: ""), r.seen.hit != null)
             }, range)
             val now = System.currentTimeMillis()
             val mine = if (now - PoliceAircraft.localAt <= 30_000L) PoliceAircraft.local.size else 0
@@ -172,7 +173,7 @@ class AircraftActivity : AppCompatActivity() {
         val now = System.currentTimeMillis()
         val me = if (demo) (DemoData.fakeLocation?.let { it.latitude to it.longitude } ?: (0.0 to 0.0))
             else ScanForegroundService.lastFix?.let { it.latitude to it.longitude }
-        val seen = if (demo) demoAircraft(me!!) else PoliceAircraft.all(now)
+        val seen = if (demo) DemoData.aircraft(me!!) else PoliceAircraft.all(now)
         rows = seen.map { s ->
             val p = s.plane
             if (me == null) Row(s, null, null)
@@ -197,43 +198,25 @@ class AircraftActivity : AppCompatActivity() {
             .putExtra(MapActivity.EXTRA_CENTER_LON, p.lon))
     }
 
-    private fun name(p: PoliceAircraft.Plane) = p.callsign?.trim()?.ifEmpty { null } ?: p.registration ?: p.hex.uppercase()
-
-    private fun altitude(p: PoliceAircraft.Plane): String? = p.altitudeFt?.let {
-        if (Units.imperial) String.format(Locale.US, "%,d ft", it) else String.format(Locale.US, "%,d m", (it * 0.3048).toInt())
-    }
-
-    private fun compass(deg: Double) = arrayOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")[((deg + 22.5) / 45).toInt() % 8]
-
-    private fun bearing(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val p1 = Math.toRadians(lat1); val p2 = Math.toRadians(lat2); val dl = Math.toRadians(lon2 - lon1)
-        val y = sin(dl) * cos(p2)
-        val x = cos(p1) * sin(p2) - sin(p1) * cos(p2) * cos(dl)
-        return (Math.toDegrees(atan2(y, x)) + 360) % 360
-    }
-
-    /** Debug builds' demo: a few made-up aircraft around [me], drifting along their headings. */
-    private fun demoAircraft(me: Pair<Double, Double>): List<PoliceAircraft.Seen> {
-        val t = (System.currentTimeMillis() / 1000 % 600) / 3600.0
-        fun plane(hex: String, call: String, km: Double, brg: Double, trk: Double, ft: Int, kt: Double, police: Boolean): PoliceAircraft.Seen {
-            val moved = km + kt * 1.852 * t * cos(Math.toRadians(trk - brg))
-            val lat = me.first + moved / 111.0 * cos(Math.toRadians(brg))
-            val lon = me.second + moved / (111.0 * cos(Math.toRadians(me.first)).coerceAtLeast(0.1)) * sin(Math.toRadians(brg))
-            val p = PoliceAircraft.Plane(hex, call, null, if (police) "Helicopter" else "Airliner", if (police) "Demo police air unit" else null,
-                lat, lon, ft, kt, trk, false)
-            val hit = if (police) com.rfsentinel.app.detect.Hit(com.rfsentinel.app.detect.Category.AIRCRAFT, "Police helicopter", 85,
-                "Demo data", "Demo") else null
-            return PoliceAircraft.Seen(p, hit)
-        }
-        return listOf(
-            plane("demo01", "POLICE1", 6.0, 40.0, 120.0, 1500, 90.0, true),
-            plane("demo02", "DEMO123", 28.0, 200.0, 20.0, 31000, 450.0, false),
-            plane("demo03", "DEMO456", 15.0, 300.0, 250.0, 12000, 280.0, false),
-            plane("demo04", "DEMO789", 40.0, 110.0, 300.0, 36000, 470.0, false)
-        )
-    }
-
     companion object {
         private val POLICE = 0xFFD0503C.toInt()
+
+        /** Its callsign, else its registration, else its ICAO address. */
+        fun name(p: PoliceAircraft.Plane) = p.callsign?.trim()?.ifEmpty { null } ?: p.registration ?: p.hex.uppercase()
+
+        /** "alt 1,310 m", or "on the ground" (ADS-B reports the ground as 0 or below). */
+        fun altitude(p: PoliceAircraft.Plane): String? = p.altitudeFt?.let {
+            if (it <= 0) "on the ground"
+            else if (Units.imperial) String.format(Locale.US, "alt %,d ft", it) else String.format(Locale.US, "alt %,d m", (it * 0.3048).toInt())
+        }
+
+        fun compass(deg: Double) = arrayOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")[((deg + 22.5) / 45).toInt() % 8]
+
+        fun bearing(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+            val p1 = Math.toRadians(lat1); val p2 = Math.toRadians(lat2); val dl = Math.toRadians(lon2 - lon1)
+            val y = sin(dl) * cos(p2)
+            val x = cos(p1) * sin(p2) - sin(p1) * cos(p2) * cos(dl)
+            return (Math.toDegrees(atan2(y, x)) + 360) % 360
+        }
     }
 }

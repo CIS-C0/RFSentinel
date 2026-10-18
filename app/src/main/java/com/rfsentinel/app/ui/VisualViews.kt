@@ -392,7 +392,8 @@ class SatBarsView @JvmOverloads constructor(context: Context, attrs: AttributeSe
  * law-enforcement ones in red.
  */
 class AircraftRadarView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
-    class Blip(val bearingDeg: Double, val distanceKm: Double, val trackDeg: Double?, val label: String, val altitude: String?, val police: Boolean)
+    /** [detail]: the line under the name ("9.9 km · alt 1,310 m"). */
+    class Blip(val bearingDeg: Double, val distanceKm: Double, val trackDeg: Double?, val label: String, val detail: String?, val police: Boolean)
 
     private var blips: List<Blip> = emptyList()
     private var rangeKm = 50.0
@@ -440,6 +441,9 @@ class AircraftRadarView @JvmOverloads constructor(context: Context, attrs: Attri
         plane.color = accent
         canvas.drawCircle(cx, cy, 4 * dp, plane)
 
+        // Planes first (police drawn last, on top); then labels, police and nearest first, skipping any that would overlap.
+        val placed = ArrayList<RectF>()
+        val labels = ArrayList<Triple<Blip, Float, Float>>()
         for (b in blips.sortedBy { it.police }) {
             val f = (b.distanceKm / rangeKm).coerceAtMost(1.0)
             val a = Math.toRadians(b.bearingDeg - 90)
@@ -456,13 +460,25 @@ class AircraftRadarView @JvmOverloads constructor(context: Context, attrs: Attri
                 canvas.drawPath(path, plane)
             } else canvas.drawCircle(0f, 0f, s * 0.5f, plane)
             canvas.restore()
-            text.textAlign = Paint.Align.LEFT
+            labels += Triple(b, x, y)
+        }
+        text.textAlign = Paint.Align.LEFT
+        for ((b, x, y) in labels.sortedWith(compareByDescending<Triple<Blip, Float, Float>> { it.first.police }.thenBy { it.first.distanceKm })) {
+            val c = if (b.police) 0xFFD0503C.toInt() else ink
+            val s = (if (b.police) 9f else 7f) * dp
             text.typeface = if (b.police) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
             text.textSize = 10 * dp
+            val w1 = text.measureText(b.label)
+            text.textSize = 9 * dp
+            val w = maxOf(w1, b.detail?.let { text.measureText(it) } ?: 0f)
+            val lx = if (x > cx + r * 0.5f) x - w - s - 2 * dp else x + s + 2 * dp
+            val box = RectF(lx, y - 10 * dp, lx + w, y + (if (b.detail != null) 13 else 3) * dp)
+            if (placed.any { RectF.intersects(it, box) }) continue
+            placed += box
+            text.textSize = 10 * dp
             text.color = c
-            val lx = if (x > cx + r * 0.5f) x - text.measureText(b.label) - s - 2 * dp else x + s + 2 * dp
             canvas.drawText(b.label, lx, y, text)
-            b.altitude?.let {
+            b.detail?.let {
                 text.textSize = 9 * dp
                 text.color = alpha(c, 0xAA)
                 canvas.drawText(it, lx, y + 11 * dp, text)
