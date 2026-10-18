@@ -1,0 +1,1 @@
+- Patrol-vehicle grouping: a label printer and a cellular router (a stockroom) no longer read as a police vehicle. Printers only add to a group; a radio or a router needs the other, or a police-specific role.
