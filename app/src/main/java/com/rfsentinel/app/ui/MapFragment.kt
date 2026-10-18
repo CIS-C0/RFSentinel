@@ -509,9 +509,20 @@ class MapFragment : Fragment() {
         // to the free top right corner instead of being hidden under the bar.
         val atEnd = wideScreen() && Navigator.active
         val y = (if (atEnd) box.translationY.toInt() + gap / 2 else if (box.height > 0) box.bottom + box.translationY.toInt() + gap else box.top + box.translationY.toInt()).coerceAtLeast(gap)
-        b.scaleBar.translationY = y.toFloat()
         // The credit wraps to a second line rather than run under the compass and follow buttons at the right.
         val d = resources.displayMetrics.density
+        val (brandW, brandH) = engine?.brandingDp ?: (0f to 0f)
+        if (brandW > 0f && !atEnd) {
+            // Mapbox: its logo and info button at the very top, the credit line beside them, the scale under them.
+            val rowH = (brandH * d).toInt()
+            engine?.placeBranding(y, false)
+            if (b.root.width > 0) b.osmCredit.maxWidth = (b.root.width - 84 * d - brandW * d).toInt().coerceAtLeast((100 * d).toInt())
+            b.osmCredit.translationX = brandW * d - b.osmCredit.left
+            b.osmCredit.translationY = (y + (rowH - b.osmCredit.height) / 2).toFloat()
+            b.scaleBar.translationY = (y + maxOf(rowH, b.osmCredit.height) + gap / 2).toFloat()
+            return
+        }
+        b.scaleBar.translationY = y.toFloat()
         if (b.root.width > 0) b.osmCredit.maxWidth = (b.root.width - 84 * d).toInt().coerceAtLeast((140 * d).toInt())
         val scaleH = if (b.scaleBar.visibility == View.GONE) 0 else b.scaleBar.height
         b.osmCredit.translationY = (y + scaleH).toFloat()

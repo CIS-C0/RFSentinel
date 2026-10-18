@@ -356,6 +356,9 @@ internal class MapboxEngine(private val context: Context) : MapEngine {
         vp.transitionTo(state, transition, null)
     }
 
+    // Mapbox's logo (8 dp in) and its info button (96 dp in), as the SDK draws them; their size can't be changed.
+    override val brandingDp = 122f to 22f
+
     private var brandingTop = -1
     private var brandingAtEnd = false
 

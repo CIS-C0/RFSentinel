@@ -110,8 +110,10 @@ internal interface MapEngine {
     fun follow(mode: Follow, topPaddingPx: Double?, tilt: Double, zoom: Double?, ms: Long)
     /** You panned away: the map stopped following. */
     var onFollowDismissed: (() -> Unit)?
-    /** Where the provider's logo and info button go (Mapbox: under the credit line). */
+    /** Where the provider's logo and info button go: their top edge, at the start or (with [atEnd]) the end. */
     fun placeBranding(topPx: Int, atEnd: Boolean = false)
+    /** The room the logo and info button take, in dp (width from the edge, height); none for a provider without them. */
+    val brandingDp: Pair<Float, Float> get() = 0f to 0f
 
     companion object {
         /** Mapbox needs the full build (the FOSS build leaves its SDK out) and a token in local.properties. */
