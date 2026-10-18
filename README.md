@@ -29,7 +29,6 @@
 
 <p align="center">
   <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.rfsentinel.app%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FCIS-C0%2FRFSentinel%22%2C%22author%22%3A%22CIS-C0%22%2C%22name%22%3A%22RF%20Sentinel%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22-release%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22includePrereleases%5C%22%3Afalse%7D%22%7D"><img src="docs/assets/badge_obtainium.png" height="56" alt="Get it on Obtainium" /></a>
-  <br /><sub>Obtainium installs and updates RF Sentinel straight from these GitHub releases. Free-software build: <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.rfsentinel.app%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FCIS-C0%2FRFSentinel%22%2C%22author%22%3A%22CIS-C0%22%2C%22name%22%3A%22RF%20Sentinel%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22-foss%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22includePrereleases%5C%22%3Afalse%7D%22%7D">add the FOSS APK to Obtainium</a>.</sub>
 </p>
 
 <p align="center">
