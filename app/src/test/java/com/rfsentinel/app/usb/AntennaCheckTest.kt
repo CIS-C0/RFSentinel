@@ -92,4 +92,34 @@ class AntennaCheckTest {
         assertEquals("TRSW bit ignored", -60, Rtl8812auMonitor.pathPower(byteArrayOf((0x80 or 50).toByte()), 0))
         assertNull("empty path", Rtl8812auMonitor.pathPower(byteArrayOf(0), 0))
     }
+
+    @Test
+    fun historyAveragesEachSliceOldestFirst() {
+        val now = 100_000L
+        val list = listOf(
+            AntennaCheck.Sample(now - 29_900, -60, -60, -70), // oldest slice
+            AntennaCheck.Sample(now - 29_600, -62, -62, -72),
+            AntennaCheck.Sample(now - 100, -50, -50, null),    // newest slice, chain 1 missing
+            AntennaCheck.Sample(now - 40_000, -40, -40, -40),  // older than the window: left out
+        )
+        val h = AntennaCheck.history(list, now, 30_000, 60)
+        assertEquals(-61f, h.a[0], 0.01f)
+        assertEquals(-71f, h.b[0], 0.01f)
+        assertEquals(-50f, h.a[59], 0.01f)
+        assertTrue(h.b[59].isNaN())
+        assertTrue(h.a[30].isNaN())
+    }
+
+    @Test
+    fun autoWaitsForTheChannelsThenTakesTheStrongestFreshOne() {
+        val since = 0L
+        val aps = listOf(
+            AntennaCheck.Ap("02:00:00:00:00:01", "a", 1, -70, 11_000),
+            AntennaCheck.Ap("02:00:00:00:00:02", "b", 36, -40, 2_000),   // strongest, but not heard for a while
+            AntennaCheck.Ap("02:00:00:00:00:03", "c", 6, -55, 12_500),
+        )
+        assertNull(AntennaCheck.strongest(aps, 11_000, since))
+        assertEquals("02:00:00:00:00:03", AntennaCheck.strongest(aps, 13_000, since)?.bssid)
+        assertNull(AntennaCheck.strongest(emptyList(), 13_000, since))
+    }
 }
