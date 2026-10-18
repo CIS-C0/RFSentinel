@@ -61,6 +61,10 @@ class MainActivity : AppCompatActivity() {
     private var query = ""
     private var deviceCount = 0
     private var flaggedCount = 0
+    private var bleCount = 0
+    private var wifiCount = 0
+    /** The visual style's status: counters and hardware cards (Settings > Appearance). */
+    private val statusPanel by lazy { com.rfsentinel.app.ui.StatusPanel(this) }
     private var demoMode = false
 
     private val permissionLauncher = registerForActivityResult(
@@ -99,6 +103,9 @@ class MainActivity : AppCompatActivity() {
         )
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
+        (binding.statusText.parent as android.view.ViewGroup).let { p ->
+            p.addView(statusPanel.root, p.indexOfChild(binding.statusText) + 1)
+        }
         binding.newAlertPill.setOnClickListener {
             binding.recyclerView.smoothScrollToPosition(0)
             showNewAlertPill(false)
@@ -145,13 +152,16 @@ class MainActivity : AppCompatActivity() {
                 menu.add(0, 3, 2, "WiFi spectrum")
                 menu.add(0, 4, 3, "Satellites")
                 menu.add(0, 5, 4, "Antenna check")
+                menu.add(0, 6, 5, "Aircraft")
                 setOnMenuItemClickListener { item ->
                     when (item.itemId) {
+                        6 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.AircraftActivity::class.java)
+                            .putExtra("demo", demoMode))
                         5 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.AntennaCheckActivity::class.java)
                             .putExtra("demo", demoMode).putExtra("single", intent.getBooleanExtra("single", false)))
                         1 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.CellTowersActivity::class.java))
                         2 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.WifiAnalyzerActivity::class.java))
-                        4 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.GnssActivity::class.java))
+                        4 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.GnssActivity::class.java).putExtra("demo", demoMode))
                         else -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.WifiAnalyzerActivity::class.java)
                             .putExtra(com.rfsentinel.app.ui.WifiAnalyzerActivity.EXTRA_SPECTRUM, true))
                     }
@@ -309,6 +319,36 @@ class MainActivity : AppCompatActivity() {
             binding.startStopButton.setTextColor(fg)
             binding.startStopButton.iconTint = android.content.res.ColorStateList.valueOf(fg)
         }
+        val visual = com.rfsentinel.app.ui.VisualMode.on(this, com.rfsentinel.app.ui.VisualMode.Screen.STATUS)
+        binding.statusText.visibility = if (visual) View.GONE else View.VISIBLE
+        statusPanel.root.visibility = if (visual) View.VISIBLE else View.GONE
+        if (visual) {
+            val now = System.currentTimeMillis()
+            val warning = when {
+                running && !bluetoothOn() && !demoMode -> "Scanning WiFi only - turn on Bluetooth for BLE (picked up automatically)"
+                else -> listOfNotNull(
+                    com.rfsentinel.app.service.CellMonitor.lastAnomaly?.takeIf { now - it.first < 15 * 60_000L }?.second?.title,
+                    ScanForegroundService.lastWatchdogRestart?.takeIf { now - it.first < 10 * 60_000L }?.let {
+                        "${it.second} scan restarted " + java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(it.first))
+                    }
+                ).joinToString(" · ").ifEmpty { null }
+            }
+            val hardware = if (!running) emptyList() else listOfNotNull(
+                com.rfsentinel.app.esp.OuiSpyBle.status.takeIf { it.isNotBlank() }?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) },
+                com.rfsentinel.app.esp.EspBoards.status.takeIf { it.isNotBlank() }?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) },
+                com.rfsentinel.app.usb.UsbWifi.status.takeIf { it.isNotBlank() }?.let {
+                    com.rfsentinel.app.ui.StatusPanel.Hardware(it, { com.rfsentinel.app.usb.MonitorFrames.frameCount.get() }, " frames/s")
+                },
+                com.rfsentinel.app.sdr.SdrRadio.status.takeIf { it.isNotBlank() }?.let {
+                    com.rfsentinel.app.ui.StatusPanel.Hardware(it,
+                        if (it.contains("ADS-B")) ({ com.rfsentinel.app.sdr.SdrRadio.adsbMessages }) else null, " msg/s")
+                },
+                com.rfsentinel.app.sdr.RadioReference.status.takeIf { it.isNotBlank() && com.rfsentinel.app.util.Prefs.radioReferenceOn(this) }
+                    ?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) }
+            )
+            statusPanel.update(running, bleCount, wifiCount, liveCellCount(now), flaggedCount, warning, hardware)
+            return
+        }
         binding.statusText.text = when {
             !running -> "Idle - tap Start to listen for nearby devices"
             !bluetoothOn() && !demoMode -> "Scanning WiFi only - turn on Bluetooth for BLE (picked up automatically)"
@@ -458,6 +498,9 @@ class MainActivity : AppCompatActivity() {
         val threshold = Prefs.alertThreshold(this)
         binding.wazeSwipe.isEnabled = com.rfsentinel.app.ui.WazeUi.on(this) && panes.listShown
         deviceCount = all.size
+        bleCount = all.count { Advert.Source.BLE in it.sources }
+        wifiCount = all.count { Advert.Source.WIFI in it.sources }
+        adapter.visual = com.rfsentinel.app.ui.VisualMode.on(this, com.rfsentinel.app.ui.VisualMode.Screen.DEVICE_LIST)
         // The banner and radar alert only for flagged devices still in range.
         val flagged = all.filter { com.rfsentinel.app.ui.LiveWindow.alerting(it, now) }
         flaggedCount = flagged.size
@@ -582,7 +625,8 @@ class MainActivity : AppCompatActivity() {
                     tagColor = w.report.type.color,
                     highlight = if (urgent) w.report.type.color else null,
                     flashing = urgent,
-                    bold = urgent
+                    bold = urgent,
+                    confidence = w.hit.confidence
                 )
             }
     }
@@ -617,7 +661,8 @@ class MainActivity : AppCompatActivity() {
                     tagColor = color,
                     highlight = if (urgent) color else null,
                     flashing = urgent,
-                    bold = live
+                    bold = live,
+                    confidence = r.confidence
                 )
             }
     }
@@ -647,7 +692,8 @@ class MainActivity : AppCompatActivity() {
                         (c.dbm?.let { " · $it dBm" } ?: "") + " · " + (if (ageSec < 2) "now" else "${ageSec}s ago"),
                     tag = if (c.registered) "CELL · serving" else "CELL",
                     tagColor = 0xFF5E35B1.toInt(),
-                    highlight = null, flashing = false, bold = c.registered
+                    highlight = null, flashing = false, bold = c.registered,
+                    rssi = c.dbm, barBoost = 10
                 )
             }
     }
@@ -705,7 +751,9 @@ class MainActivity : AppCompatActivity() {
             bold = alert,
             heardByEsp = com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac, now),
             heardByUsb = com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac, now),
-            heardByPhone = com.rfsentinel.app.esp.HeardBy.phone.recent(s.mac, now)
+            heardByPhone = com.rfsentinel.app.esp.HeardBy.phone.recent(s.mac, now),
+            rssi = s.rssi,
+            confidence = best?.confidence?.takeIf { !whitelisted }
         )
     }
 

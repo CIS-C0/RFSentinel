@@ -28,7 +28,12 @@ data class DeviceRow(
     /** Heard by an ESP32 board (blue badge) and/or the phone's own radios (green badge). */
     val heardByEsp: Boolean = false,
     val heardByUsb: Boolean = false,
-    val heardByPhone: Boolean = false
+    val heardByPhone: Boolean = false,
+    /** For the visual style: the signal for the bars (null = none), and the match's confidence (null = not a match). */
+    val rssi: Int? = null,
+    val confidence: Int? = null,
+    /** Added to [rssi] for the bars only: cell signals run about 10 dB lower than WiFi and Bluetooth. */
+    val barBoost: Int = 0
 )
 
 private const val ESP_BADGE = 0xFF1E88E5.toInt()
@@ -58,6 +63,11 @@ class DeviceAdapter(
     private val onClick: (DeviceRow) -> Unit,
     private val onLongPress: (DeviceRow) -> Unit
 ) : ListAdapter<DeviceRow, DeviceAdapter.VH>(Diff) {
+
+    /** Visual style: signal bars and a confidence bar on each row (Settings > Appearance, or the list's own choice). */
+    @android.annotation.SuppressLint("NotifyDataSetChanged")
+    var visual = false
+        set(v) { if (field != v) { field = v; notifyDataSetChanged() } }
 
     object Diff : DiffUtil.ItemCallback<DeviceRow>() {
         override fun areItemsTheSame(a: DeviceRow, b: DeviceRow) = a.mac == b.mac
@@ -121,6 +131,14 @@ class DeviceAdapter(
         b.titleText.setTypeface(null, if (row.bold) Typeface.BOLD else Typeface.NORMAL)
         b.macText.text = row.subtitle
         b.metaText.text = metaWithBadges(row)
+        val conf = row.confidence
+        b.confidenceBar.visibility = if (visual && conf != null) View.VISIBLE else View.GONE
+        if (visual && conf != null) b.confidenceBar.set(conf / 100f, row.tagColor)
+        b.signalBox.visibility = if (visual && row.rssi != null) View.VISIBLE else View.GONE
+        if (visual && row.rssi != null) {
+            b.signalBars.set(row.rssi + row.barBoost)
+            b.signalText.text = "${row.rssi}"
+        }
         holder.setHighlight(row.highlight, row.flashing)
         holder.itemView.setOnClickListener { onClick(row) }
         holder.itemView.setOnLongClickListener { onLongPress(row); true }

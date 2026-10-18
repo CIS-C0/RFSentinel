@@ -32,6 +32,8 @@ object SdrRadio {
     private const val ADSB_PUSH_MS = 2_000L
 
     @Volatile var status: String = ""; private set
+    /** ADS-B messages decoded since the app started, for the main screen's messages-per-second line. */
+    @Volatile var adsbMessages = 0L; private set
     /** What to watch (Settings > RTL-SDR radio); picked up at the next sweep. */
     @Volatile var config = RadioWatch.Config()
     private var receiver: BroadcastReceiver? = null
@@ -165,6 +167,7 @@ object SdrRadio {
             val me = location?.invoke()
             for (f in frames) tracker.add(f, now, me?.first, me?.second)
             messages += frames.size
+            adsbMessages += frames.size
             System.arraycopy(mag, total - ModeS.OVERLAP, mag, 0, ModeS.OVERLAP)
             have = ModeS.OVERLAP
             if (now - lastPush >= ADSB_PUSH_MS) {

@@ -33,7 +33,7 @@ class GnssAnalyzer {
     }
 
     data class Sat(val system: System, val svid: Int, val cn0: Float, val elevation: Float, val usedInFix: Boolean,
-                   val carrierMhz: Float? = null)
+                   val carrierMhz: Float? = null, val azimuth: Float = 0f)
 
     /** One receiver report: the satellites, and the input gain when the phone reports it. */
     data class Snapshot(val time: Long, val sats: List<Sat>, val agcDb: Double? = null)

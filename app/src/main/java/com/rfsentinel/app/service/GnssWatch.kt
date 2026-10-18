@@ -40,7 +40,8 @@ object GnssWatch {
                 GnssAnalyzer.Sat(
                     GnssAnalyzer.System.of(status.getConstellationType(i)), status.getSvid(i), status.getCn0DbHz(i),
                     status.getElevationDegrees(i), status.usedInFix(i),
-                    if (status.hasCarrierFrequencyHz(i)) status.getCarrierFrequencyHz(i) / 1e6f else null
+                    if (status.hasCarrierFrequencyHz(i)) status.getCarrierFrequencyHz(i) / 1e6f else null,
+                    status.getAzimuthDegrees(i)
                 )
             }
             val snap = GnssAnalyzer.Snapshot(now, sats, agcDb?.takeIf { now - agcAt < 5_000L })

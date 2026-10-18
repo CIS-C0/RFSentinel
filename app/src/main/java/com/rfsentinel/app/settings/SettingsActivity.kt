@@ -1814,6 +1814,24 @@ class SettingsActivity : AppCompatActivity() {
         btn("Import a theme file...") { themeFilePicker.launch(arrayOf("application/json", "text/plain", "*/*")) }
         info(row.getChildAt(0), "Make your own theme: colours, font, banner, header and map marker. Export it as a file to share it.")
         box.addView(row, at + 1)
+        setupScreenStyle()
+    }
+
+    /** Per screen: the visual style (gauges, bars, charts) or the plain list it had before. */
+    private fun setupScreenStyle() {
+        val box = binding.sectionAppearance
+        val dp = resources.displayMetrics.density
+        box.addView(infoRow(android.widget.TextView(this).apply {
+            text = "Screen style"; setPadding(0, (14 * dp).toInt(), 0, 0); textSize = 13f
+        }, "On: the screen shows gauges, signal bars and charts.\n\nOff: the plain text list it had before.\n\n" +
+            "Each of these screens also has a list / visual button at the top to switch it there."))
+        com.rfsentinel.app.ui.VisualMode.Screen.values().forEach { s ->
+            box.addView(SwitchMaterial(this).apply {
+                text = s.label
+                isChecked = com.rfsentinel.app.ui.VisualMode.on(this@SettingsActivity, s)
+                setOnCheckedChangeListener { _, on -> com.rfsentinel.app.ui.VisualMode.set(this@SettingsActivity, s, on) }
+            }, android.widget.LinearLayout.LayoutParams(-1, -2))
+        }
     }
 
     override fun onDestroy() {

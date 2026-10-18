@@ -88,6 +88,8 @@ class WazeScreensTest {
         WazeStatus.baseS = 60
         WazeStatus.everyS = 240
         WazeStatus.motion = MotionTracker.State.PARKED
+        // The list style (Settings > Appearance > Screen style).
+        com.rfsentinel.app.ui.VisualMode.set(ctx, com.rfsentinel.app.ui.VisualMode.Screen.WAZE, false)
         val activity = Robolectric.buildActivity(WazeStatusActivity::class.java).setup().get()
         shadowOf(Looper.getMainLooper()).idle()
         val text = allViews(activity.window.decorView).filterIsInstance<TextView>().joinToString("\n") { it.text }
@@ -98,6 +100,20 @@ class WazeScreensTest {
         assertTrue(text, text.contains("Pause Waze checks"))
         assertTrue(text, text.contains("Forget Waze account"))
         activity.finish()
+
+        // The visual style says the same.
+        com.rfsentinel.app.ui.VisualMode.set(ctx, com.rfsentinel.app.ui.VisualMode.Screen.WAZE, true)
+        val visual = Robolectric.buildActivity(WazeStatusActivity::class.java).setup().get()
+        shadowOf(Looper.getMainLooper()).idle()
+        val v = allViews(visual.window.decorView).filter { it.isShown }.filterIsInstance<TextView>().joinToString("\n") { it.text }
+        assertTrue(v, v.contains("Checking"))
+        assertTrue(v, v.contains("Every 4 min"))
+        assertTrue(v, v.contains("adapted: you are parked"))
+        assertTrue(v, v.contains("Waze direct"))
+        assertTrue(v, v.contains("WHAT GOES OUT"))
+        assertTrue(v, v.contains("Pause Waze checks"))
+        assertTrue(v, v.contains("Forget Waze account"))
+        visual.finish()
     }
 
     @Test

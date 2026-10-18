@@ -48,6 +48,30 @@
             android:textColor="#888888"
             android:textSize="12sp" />
 
+        <!-- Visual style: hot / cold signal dial and the match's confidence ring -->
+        <LinearLayout
+            android:id="@+id/visualTop"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <com.rfsentinel.app.ui.SignalGaugeView
+                android:id="@+id/gauge"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1.6" />
+
+            <com.rfsentinel.app.ui.ConfidenceRingView
+                android:id="@+id/ring"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1" />
+        </LinearLayout>
+
         <!-- Live signal -->
         <LinearLayout
             android:layout_width="match_parent"

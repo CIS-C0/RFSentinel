@@ -31,6 +31,18 @@ object WazeStatus {
     /** From the last answer: reports on the map, and how many of them are inside the alert range. */
     @Volatile var onMap = 0
     @Volatile var inAlertRange = 0
+
+    /** One finished check, for the status screen's timeline: when, how long it took, the reports it gave, whether it answered. */
+    class Check(val at: Long, val ms: Long, val reports: Int, val ok: Boolean)
+
+    /** The last [KEEP] checks, oldest first. */
+    val recent = java.util.concurrent.ConcurrentLinkedDeque<Check>()
+    const val KEEP = 20
+
+    fun record(c: Check) {
+        recent.addLast(c)
+        while (recent.size > KEEP) recent.pollFirst()
+    }
 }
 
 /**
@@ -131,6 +143,7 @@ class WazeWatch(
                         WazeStatus.lastCheckAt = now
                         WazeStatus.lastCheckMs = SystemClock.elapsedRealtime() - began
                         WazeStatus.checks++
+                        WazeStatus.record(WazeStatus.Check(now, WazeStatus.lastCheckMs, WazeStatus.onMap, lastOkAt >= now))
                     } else {
                         // No GPS fix or key yet: look again in a few seconds instead of waiting out the interval.
                         lastStart = now - every * 1000L + RETRY_MS

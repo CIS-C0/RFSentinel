@@ -120,6 +120,16 @@ class DeviceDetailActivity : AppCompatActivity() {
         return true
     }
 
+    override fun onCreateOptionsMenu(menu: android.view.Menu): Boolean {
+        VisualMode.addMenu(menu, this, VisualMode.Screen.DEVICE_DETAIL); return true
+    }
+
+    override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean =
+        VisualMode.handle(item, this, VisualMode.Screen.DEVICE_DETAIL) { invalidateOptionsMenu(); refresh() } ||
+            super.onOptionsItemSelected(item)
+
+    private val visual get() = VisualMode.on(this, VisualMode.Screen.DEVICE_DETAIL)
+
     override fun onPause() {
         stopLocate()
         super.onPause()
@@ -161,25 +171,40 @@ class DeviceDetailActivity : AppCompatActivity() {
             else -> "In range · heard ${ago(now - s.lastSeen)} · ${s.sightings} packets received"
         }
 
+        // Visual style: the dial and ring take the place of the big number.
+        val visual = this.visual
+        binding.visualTop.visibility = if (visual) View.VISIBLE else View.GONE
+        binding.rssiText.visibility = if (visual) View.GONE else View.VISIBLE
+        val ringHit = best?.takeIf { !whitelisted }
+        binding.ring.visibility = if (ringHit != null) View.VISIBLE else View.GONE
+        if (ringHit != null) binding.ring.set(ringHit.confidence,
+            ThemeManager.ink(this, if (ringHit.tier == Tier.WEAK) 0xFFB26A00.toInt() else ringHit.category.colorArgb),
+            ringHit.tier.label.lowercase() + " match")
+
         // Live signal (from the newest address when it rotated)
         if (live != null) {
             binding.rssiText.text = "${live.rssi}"
             val recent = live.history.takeLast(6).dropLast(1)
-            val trend = if (recent.isEmpty()) "" else {
+            val trendDir = if (recent.isEmpty()) 0 else {
                 val avg = recent.map { it.rssi }.average()
                 when {
-                    live.rssi > avg + 3 -> "  ↑ getting closer"
-                    live.rssi < avg - 3 -> "  ↓ moving away"
-                    else -> "  → steady"
+                    live.rssi > avg + 3 -> 1
+                    live.rssi < avg - 3 -> -1
+                    else -> 0
                 }
             }
-            binding.rssiDetail.text = "dBm · ${ProximityUtil.band(live.rssi)} $trend\n" +
+            val trend = if (recent.isEmpty()) "" else when (trendDir) {
+                1 -> "  ↑ getting closer"; -1 -> "  ↓ moving away"; else -> "  → steady"
+            }
+            binding.gauge.set(live.rssi, live.bestRssi, trendDir)
+            binding.rssiDetail.text = (if (visual) "${ProximityUtil.band(live.rssi)}\n" else "dBm · ${ProximityUtil.band(live.rssi)} $trend\n") +
                 "${DeviceIntel.formatDistance(live.distanceM)} (rough) · best ${live.bestRssi} dBm" +
                 (if (liveMac != mac) "\nNow heard as $liveMac" else "")
             binding.graph.setSamples(live.history)
             binding.locateButton.isEnabled = true
         } else {
             binding.rssiText.text = "--"
+            binding.gauge.set(null, null, 0)
             binding.rssiDetail.text = "Not currently heard"
             binding.graph.setSamples(emptyList())
             binding.locateButton.isEnabled = false
@@ -201,7 +226,7 @@ class DeviceDetailActivity : AppCompatActivity() {
 
         // Sections: rebuilt only when their content changes (keeps scroll & selection stable).
         val content = buildSections(s)
-        val key = content.joinToString("|") { it.first + it.second.joinToString { r -> r.first + r.second } }
+        val key = visual.toString() + content.joinToString("|") { it.first + it.second.joinToString { r -> r.first + r.second } }
         if (key != sectionsKey) {
             sectionsKey = key
             renderSections(content)
@@ -348,6 +373,7 @@ class DeviceDetailActivity : AppCompatActivity() {
         val container = binding.sections
         container.removeAllViews()
         val dp = resources.displayMetrics.density
+        val hits = DeviceRegistry.get(mac)?.hits.orEmpty()
         for ((title, rows) in sections) {
             container.addView(TextView(this).apply {
                 text = title
@@ -355,6 +381,10 @@ class DeviceDetailActivity : AppCompatActivity() {
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
                 setPadding(0, (18 * dp).toInt(), 0, (4 * dp).toInt())
             })
+            if (visual && title == "Why it's flagged" && hits.isNotEmpty()) {
+                hits.forEach { container.addView(hitCard(it)) }
+                continue
+            }
             for ((k, v) in rows) {
                 container.addView(LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
@@ -378,6 +408,59 @@ class DeviceDetailActivity : AppCompatActivity() {
         if (tagged != null) {
             container.addView(mapButton("Show last logged location on map", tagged.latitude!!, tagged.longitude!!, "Logged match"))
         }
+    }
+
+    /** Visual style: one card per match, with its confidence as a bar and what it rests on as chips. */
+    private fun hitCard(h: com.rfsentinel.app.detect.Hit): View {
+        val dp = resources.displayMetrics.density
+        val color = ThemeManager.ink(this, if (h.tier == Tier.WEAK) 0xFFB26A00.toInt() else h.category.colorArgb)
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = VisualMode.card(this@DeviceDetailActivity, color, 0x18, 0x77, 14f)
+            val p = (12 * dp).toInt(); setPadding(p, p, p, p)
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = (4 * dp).toInt(); bottomMargin = (4 * dp).toInt() }
+            addView(LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = android.view.Gravity.CENTER_VERTICAL
+                addView(TextView(context).apply {
+                    text = h.label; setTypeface(typeface, Typeface.BOLD); setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+                }, LinearLayout.LayoutParams(0, -2, 1f))
+                addView(TextView(context).apply {
+                    text = "${h.confidence}%"; setTypeface(typeface, Typeface.BOLD); setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f); setTextColor(color)
+                })
+            })
+            addView(LevelBarView(context).apply { set(h.confidence / 100f, color) },
+                LinearLayout.LayoutParams(-1, (6 * dp).toInt()).apply { topMargin = (6 * dp).toInt(); bottomMargin = (8 * dp).toInt() })
+            addView(com.google.android.material.chip.ChipGroup(context).apply {
+                chipSpacingVertical = (4 * dp).toInt()
+                addView(VisualMode.chip(context, "${h.category.title} · ${h.tier.label}", color))
+                evidenceKinds(h.evidence).forEach { addView(VisualMode.chip(context, it, ChipStyle.accent(context).first)) }
+            })
+            addView(TextView(context).apply {
+                text = h.evidence; setTextIsSelectable(true); setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                setPadding(0, (8 * dp).toInt(), 0, 0)
+            })
+            addView(TextView(context).apply {
+                text = "Source: ${h.source}"; setTextIsSelectable(true); setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f); alpha = 0.7f
+                setPadding(0, (4 * dp).toInt(), 0, 0)
+            })
+        }
+    }
+
+    /** What a match's evidence rests on, as short chip labels. */
+    private fun evidenceKinds(evidence: String): List<String> {
+        val e = evidence.lowercase()
+        return buildList {
+            if ("service uuid" in e || "uuid" in e) add("Service UUID")
+            if ("company id" in e || "manufacturer data" in e) add("Company ID")
+            if ("payload" in e || "tag" in e) add("Payload")
+            if ("name" in e) add("Name")
+            if ("oui" in e || "address prefix" in e || "mac prefix" in e || "registrant" in e) add("Address prefix")
+            if ("probe" in e || "fingerprint" in e) add("Probe")
+            if ("remote id" in e) add("Remote ID")
+            if ("following" in e || "moving with you" in e || "with you" in e) add("Follows you")
+            if ("corroborated" in e) add("Corroborated")
+            if ("ssid" in e || "network" in e) add("WiFi")
+        }.distinct()
     }
 
     private fun addDroneButtons(container: LinearLayout) {

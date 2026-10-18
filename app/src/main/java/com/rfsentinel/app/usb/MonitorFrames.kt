@@ -48,6 +48,7 @@ class MonitorFrames {
      */
     fun frame(b: ByteArray, d: Int, end: Int, channel: Int, rssi: Int?, now: Long = System.currentTimeMillis(),
               pathA: Int? = null, pathB: Int? = null) {
+        frameCount.incrementAndGet()
         PcapRecorder.frame(b, d, end, channel, rssi, now)
         if (end - d < 24 || end > b.size) return
         fun u8(i: Int) = b[i].toInt() and 0xff
@@ -236,6 +237,9 @@ class MonitorFrames {
     }
 
     companion object {
+        /** Every frame the adapters received, for the main screen's frames-per-second line. */
+        val frameCount = java.util.concurrent.atomic.AtomicLong()
+
         const val PRUNE_MS = 60_000L
         /** Reported for a device whose frames never carried a signal reading. */
         const val NOMINAL_RSSI = -60
