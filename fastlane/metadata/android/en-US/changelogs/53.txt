@@ -1,0 +1,6 @@
+- New visual style on nine screens (counts, dials, radar); the list style stays an option per screen.
+- Aircraft: filter chip and list rows; the map filter shows every plane clearly. List and map share one filter.
+- Rename starred places; name devices and add notes on their page.
+- RTL-SDR reconnects after being unplugged.
+- OUI-SPY pairing finds the board by its Bluetooth service.
+- Antenna check: chain bars and history.

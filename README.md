@@ -212,7 +212,7 @@ Everything the app does, grouped by area.
 - Optional **cell tower layer** (or the map's **Cells** chip): every tower seen while scanning, at the spot where its signal was strongest
 - **Record traces** of your route and the devices along it, with the screen off (with the network names each device asked for, when a USB adapter or Marauder board is plugged in)
 - **History map & timeline:** heatmap of where flagged equipment showed up, and when (hour of day, day of week)
-- **Device history (search):** every device the app remembers, in range or not, searchable by address (with or without colons), name, vendor, type or your note, filtered to favorites, flagged before or seen today; tap one for its details page. History is kept as long as you set in Settings → Data
+- **Device history (search):** every device the app remembers, in range or not, searchable by address (with or without colons), name, vendor, type, your own name for it or your note, filtered to favorites, flagged before or seen today; tap one for its details page. History is kept as long as you set in Settings → Data
 
 </details>
 
@@ -354,7 +354,9 @@ The app never connects to a device. The details screen shows why it's flagged
 determined, address type and trackability, decoded protocol data, WiFi band,
 channel and security, drone Remote ID with drone and operator positions, a live
 signal graph with **Locate** mode (beeps faster as you get closer), history, and
-the raw advertisement.
+the raw advertisement. **Rename** gives the device your own name (shown in the
+list, on the map and in history) and **Add note** keeps a note with it; named or
+noted devices stay in the history.
 
 ### Map and traces
 
@@ -418,6 +420,7 @@ Turn-by-turn directions on the map, with your scanner running alongside.
   place to look for - petrol, charging, food, parking, shops, pharmacy, hospital, cash, toilets, rest stops -
   **near you**, and **along your route** while you are guided (a stop to add, in the order you reach them).
   A **long press** on the map drops a pin: it names what's there, offers *Directions*, and can be starred.
+  Starred places can be renamed with the pencil beside their star (in search and on the place card).
 - **Routes:** up to three, each with its time and the main roads it takes, drawn on the map.
   *Avoid tolls / highways / ferries* ticked while you plan (or on the trip menu) is remembered for the next
   destination, and is the same setting as Settings → *Navigation*.
@@ -600,8 +603,11 @@ open **GPIO → USB-UART Bridge** on the Flipper; RF Sentinel then talks to the
 board's Marauder through it. A BFFB v2 can also be plugged in by its own USB-C
 port.
 
-**OUI-SPY over Bluetooth:** start scanning with the board on, then **Settings →
-Pair OUI-SPY board** and pick `OUI-SPY-xxxx`. Pair it only there, not in
+**OUI-SPY over Bluetooth:** with the board on, open **Settings → Pair OUI-SPY
+board**: it looks for the board's Bluetooth service for a few seconds (scanning
+needn't be running) and lists `OUI-SPY-xxxx`. If none is found, force-stop the
+OUI-SPY app (App info → Force stop) and unplug the board for a few seconds: it
+doesn't advertise while another app is connected to it. Pair it only there, not in
 Android's Bluetooth settings: the board keeps no pairing keys, so a phone-side
 pairing breaks the link (the app tells you to tap *Forget* if it finds one).
 While scanning, RF Sentinel switches on the board's Flock-BLE, Flock-WiFi, Sky

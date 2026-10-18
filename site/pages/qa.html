@@ -620,7 +620,8 @@
 <details class="faq" id="oui-spy-pair">
 <summary>How do I pair an OUI-SPY board over Bluetooth?</summary>
 <div>
-<p>Start scanning with the board on, then <b>Settings → Pair OUI-SPY board</b> and pick <code>OUI-SPY-xxxx</code>. Pair only there, not in Android's Bluetooth settings: the board keeps no pairing keys, so a phone-side bond breaks the link (the app tells you to tap Forget if it finds one).</p>
+<p>With the board on, open <b>Settings → Pair OUI-SPY board</b>: the app looks for the board's Bluetooth service for a few seconds (scanning needn't be running) and lists <code>OUI-SPY-xxxx</code>. Pair only there, not in Android's Bluetooth settings: the board keeps no pairing keys, so a phone-side bond breaks the link (the app tells you to tap Forget if it finds one).</p>
+<p>If no board is found: the board stops advertising while another app is connected to it, so force-stop the OUI-SPY app (Android <b>App info → Force stop</b>, not just swiping it away) and unplug the board for a few seconds. Use the App-Controlled (node) firmware, which shows up as <code>OUI-SPY-xxxx</code>, and check that Bluetooth is on and Nearby devices is allowed.</p>
 </div>
 </details>
 
