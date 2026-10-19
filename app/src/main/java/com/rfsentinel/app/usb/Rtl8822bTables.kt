@@ -4,8 +4,8 @@ package com.rfsentinel.app.usb
  * RTL8822B (RTL8812BU / RTL8822BU) firmware, power sequences and phydm register
  * tables for receive-only monitor mode over USB.
  *
- * The firmware image and the BB / AGC / RF tables ship as binary assets
- * (assets/usbwifi/rtl8822b_*.bin, little-endian), extracted from devourer
+ * The firmware image is a binary asset (rtl8822b_fw.bin); the BB / AGC / RF tables ship as text
+ * (assets/usbwifi/rtl8822b_*.txt, one "register value" hex pair per line), extracted from devourer
  * (OpenIPC, https://github.com/OpenIPC/devourer, GPL-2.0), which takes them from
  * Realtek's rtl88x2bu Linux driver. The power sequences and the table walker are
  * ported from devourer's src/jaguar2/HalJaguar2.cpp and src/PhyTableLoader.cpp.
@@ -13,23 +13,32 @@ package com.rfsentinel.app.usb
 
 import android.content.Context
 import java.io.IOException
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
 object Rtl8822bTables {
 
     class Data(val firmware: ByteArray, val phyReg: IntArray, val agcTab: IntArray, val radioA: IntArray, val radioB: IntArray)
 
     fun load(ctx: Context): Data {
-        fun bytes(name: String) = Firmware.read(ctx, "rtl8822b_$name.bin")
-        fun words(name: String): IntArray {
-            val b = bytes(name)
-            if (b.size % 8 != 0) throw IOException("rtl8822b_$name.bin is damaged")
-            return IntArray(b.size / 4).also { ByteBuffer.wrap(b).order(ByteOrder.LITTLE_ENDIAN).asIntBuffer().get(it) }
-        }
-        val fw = bytes("fw")
+        fun words(name: String) = parseTable(Firmware.read(ctx, "rtl8822b_$name.txt").decodeToString(), "rtl8822b_$name.txt")
+        val fw = Firmware.read(ctx, "rtl8822b_fw.bin")
         checkFirmware(fw)
         return Data(fw, words("phy_reg"), words("agc_tab"), words("radioa"), words("radiob"))
+    }
+
+    private val WHITESPACE = Regex("\\s+")
+
+    /** A table as text: "register value" in hex per line, # comments. Flattened to register, value, register, value... */
+    fun parseTable(text: String, name: String): IntArray {
+        val out = ArrayList<Int>()
+        for (line in text.lineSequence()) {
+            val t = line.substringBefore('#').trim()
+            if (t.isEmpty()) continue
+            val parts = t.split(WHITESPACE)
+            if (parts.size != 2) throw IOException("$name is damaged")
+            parts.forEach { out += (it.toLongOrNull(16) ?: throw IOException("$name is damaged")).toInt() }
+        }
+        if (out.isEmpty()) throw IOException("$name is damaged")
+        return out.toIntArray()
     }
 
     // --- Firmware header (HalMAC WLAN_FW_HDR_*) ---

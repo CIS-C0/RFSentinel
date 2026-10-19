@@ -171,6 +171,21 @@ object SignatureEngine {
     /** Zebra's default Bluetooth name is the serial: 2-char plant, 3-letter model code, YYWW + 5 digits. */
     private val ZEBRA_SERIAL = Regex("^[A-Z0-9]{2}[A-Z]{3}\\d{9}$")
 
+    /** IDO / VeryFit smartwatch model names: IDW26, ID205, ID207... */
+    private val IDO_WATCH = Regex("^ID[A-Z]?\\d{2,4}[A-Z]?$")
+    private const val UUID_IDO = 0x0AF0
+
+    /**
+     * Cheap smartwatches (IDO / VeryFit: IDW26 and friends) put company ID 0x034D in front of their own address
+     * and advertise service 0x0AF0. Axon gear doesn't: its payload never repeats the address.
+     */
+    private fun isTaserIdSquatter(a: Advert, name: String, shorts: Set<Int>): Boolean {
+        val payload = a.manufacturerData[CID_TASER] ?: return false
+        val own = a.mac.split(':').mapNotNull { it.toIntOrNull(16)?.toByte() }
+        val repeatsAddress = own.size == 6 && payload.size >= 6 && (0 until 6).all { payload[it] == own[it] }
+        return repeatsAddress && (UUID_IDO in shorts || IDO_WATCH.matches(name))
+    }
+
     fun classify(a: Advert): List<Hit> {
         val hits = (if (a.isBle) classifyBle(a) else classifyWifi(a)) + HackerWatch.signatures(a)
         return hits.sortedByDescending { it.confidence }
@@ -190,7 +205,7 @@ object SignatureEngine {
                 "Advert payload carries Axon's \"BWCDEVICE\" tag (works even with a randomized address)",
                 "$ACAB - field-validated against visually confirmed cameras")
         }
-        if (CID_TASER in a.manufacturerData) {
+        if (CID_TASER in a.manufacturerData && !isTaserIdSquatter(a, name, allShorts)) {
             hits += Hit(Category.BODY_CAM, "Axon / TASER equipment (type unknown)", 60,
                 "Manufacturer data from company ID 0x034D (TASER International)",
                 "$SIG; ID spans body cams, holster sensors, TASER handles and batteries")
@@ -402,7 +417,7 @@ object SignatureEngine {
                 "stronger when the router is a Cradlepoint or Sierra Wireless", AXON_FLEET_GUIDE)
         CRADLEPOINT_VEHICLE_SSID.matches(ssid) -> Hit(Category.PUBLIC_SAFETY, "Cradlepoint vehicle router (default network name)", 40,
             "WiFi network \"$ssid\" is a Cradlepoint in-vehicle router's default name (model + last 3 address digits). " +
-                "Police cars, but also ambulances, buses and utility fleets", "Cradlepoint default SSID (product label); $IEEE")
+                "Police cars, but also ambulances, buses, utility fleets and traffic-signal cabinets", "Cradlepoint default SSID (product label); $IEEE")
         else -> null
     }
 

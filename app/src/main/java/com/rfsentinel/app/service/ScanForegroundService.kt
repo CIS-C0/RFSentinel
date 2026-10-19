@@ -138,6 +138,9 @@ class ScanForegroundService : Service() {
         var lastWatchdogRestart: Pair<Long, String>? = null
             private set
 
+        /** The restarted-scan note was hidden by the user. */
+        fun forgetWatchdogRestart() { lastWatchdogRestart = null }
+
         /** True while an instance is alive in this process. Source of truth for the UI. */
         @Volatile
         var isRunning = false
@@ -315,8 +318,12 @@ class ScanForegroundService : Service() {
             serviceScope.launch { pruneOldData() }
         }
 
-        // Re-evaluated on every start command, so Settings changes apply live.
-        if (Prefs.bleEnabled(this)) { bleEngine.stop(); startBle() } else stopBle()
+        // Re-evaluated on every start command, so Settings changes apply live - but the scan is only restarted when
+        // its settings changed: Android silently stops delivering to an app that starts more than 5 scans in 30 s
+        // (each start here is two), and a car start, Android Auto and Record trace can each send a start command.
+        if (Prefs.bleEnabled(this)) {
+            if (!bleEngine.isScanning() || bleSettingsKey() != bleStartedWith) { bleEngine.stop(); startBle() }
+        } else stopBle()
         if (Prefs.wifiEnabled(this)) startWifiPolling() else stopWifiPolling()
         if (Prefs.categoryEnabled(this, Category.DRONE) && NanRemoteId.supported(this) && nearbyWifiAllowed()) {
             if (nanRemoteId == null) nanRemoteId = NanRemoteId(this) { a -> pipeline.post { processPhone(a) } }.also { it.start() }
@@ -424,9 +431,15 @@ class ScanForegroundService : Service() {
 
     // ---- Scanning -----------------------------------------------------------
 
+    private fun bleWatched() = OuiWatchlist.allEntries().filter { it.isCustom && it.prefix.length == 17 }.map { it.prefix }
+    private fun bleSettingsKey() = "${Prefs.bleScanMode(this)}|${bleWatched()}"
+    /** [bleSettingsKey] of the running scan. */
+    private var bleStartedWith = ""
+
     private fun startBle() {
         bleStartedAt = System.currentTimeMillis()
-        val watched = OuiWatchlist.allEntries().filter { it.isCustom && it.prefix.length == 17 }.map { it.prefix }
+        val watched = bleWatched()
+        bleStartedWith = bleSettingsKey()
         bleEngine.start(Prefs.bleScanMode(this), watched)
         bleRestartJob?.cancel()
         bleRestartJob = serviceScope.launch {

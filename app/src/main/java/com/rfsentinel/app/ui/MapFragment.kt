@@ -152,6 +152,8 @@ class MapFragment : Fragment() {
     private var filter = DeviceFilter.ALL
     private val filterChips = HashMap<DeviceFilter, com.google.android.material.chip.Chip>()
     private var centeredOnce = false
+    /** The trace whose recording banner was hidden with its X. */
+    private var recBannerHiddenFor: Long? = null
     /** The live map opened on a world view because nothing was known about where you are: zoom in with the first fix. */
     private var startedOnWorld = false
     /** The map keeps your position centred until you pan it yourself. */
@@ -308,6 +310,7 @@ class MapFragment : Fragment() {
             binding.recordButton.visibility = View.GONE
         }
         if (embedded) compactControls()
+        binding.statusDismiss.setOnClickListener { recBannerHiddenFor = TripRecorder.activeTripId; renderLive() }
     }
 
     /** The main screen's filter chip, for the embedded map. */
@@ -1292,15 +1295,17 @@ class MapFragment : Fragment() {
         updateFilterCounts(devices)
 
         val positioned = devices.count { it.place != null }
+        // Hidden with its X: stays hidden for this trace, comes back with the next one.
+        val showRec = recording && TripRecorder.activeTripId != recBannerHiddenFor
         val status = when {
             bulkStatus() != null -> bulkStatus() // a camera download's progress wins
             System.currentTimeMillis() - com.rfsentinel.app.alpr.AlprStore.lastAutoFailureAt < CAMERA_FAIL_SHOWN_MS ->
                 "Couldn't download the cameras for this area (map server busy or offline) - retrying"
-            Navigator.active && !recording -> null // the guidance banner is the status
+            Navigator.active && !showRec -> null // the guidance banner is the status
             // In the small pane the place card needs the room: the scan status is on the main screen above it anyway.
-            embedded && nav?.cardShown == true && !recording -> null
+            embedded && nav?.cardShown == true && !showRec -> null
             !ScanForegroundService.isRunning -> "Not scanning - start scanning, then Record trace to save your route"
-            recording -> {
+            showRec -> {
                 val mins = (System.currentTimeMillis() - TripRecorder.startedAt) / 60000
                 String.format(
                     Locale.US, "● Recording %d:%02d · %.2f km · %s (%d flagged)",
@@ -1315,8 +1320,12 @@ class MapFragment : Fragment() {
         val text = listOfNotNull(status, rf?.cctvLine).joinToString("\n")
         binding.statusText.text = text
         binding.statusText.visibility = if (text.isEmpty() || (immersive && !Navigator.active)) View.GONE else View.VISIBLE
+        val dismissable = showRec && binding.statusText.visibility == View.VISIBLE && bulkStatus() == null
+        binding.statusDismiss.visibility = if (dismissable) View.VISIBLE else View.GONE
+        binding.statusText.setPaddingRelative(binding.statusText.paddingStart, binding.statusText.paddingTop,
+            ((if (dismissable) 40 else 12) * resources.displayMetrics.density).toInt(), binding.statusText.paddingBottom)
         updateGauge()
-        binding.statusText.background.mutate().setTint(if (recording) 0xFFB3261E.toInt() else 0xCC0B5C63.toInt())
+        binding.statusText.background.mutate().setTint(if (showRec) 0xFFB3261E.toInt() else 0xCC0B5C63.toInt())
     }
 
     private fun toggleRecording() {

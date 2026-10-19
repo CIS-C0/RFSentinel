@@ -13,7 +13,7 @@ import android.widget.TextView
  * The main screen's status in the visual style: a warning chip while scanning when there is one, and the USB / ESP32
  * hardware. The hardware starts folded into one thin strip of chips (a coloured dot for its state and,
  * for the WiFi adapter and the RTL-SDR, its packets per second); tap the strip to unfold a card per
- * device with a line of its rate. ✕ hides the hardware until one of them changes state.
+ * device with a line of its rate. ✕ hides the hardware until one of them changes state, and the warning until a new one.
  * The device counts are on the filter chips below.
  */
 class StatusPanel(private val context: Context) {
@@ -32,7 +32,14 @@ class StatusPanel(private val context: Context) {
         set(v) { prefs.edit().putString("status_hw_hidden", v).apply() }
 
     val root = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
-    private val note = TextView(context).apply { textSize = 12f; visibility = View.GONE }
+    private val note = TextView(context).apply { textSize = 12f }
+    private val noteHide = iconButton("✕", "Hide this warning")
+    private val noteRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; visibility = View.GONE }
+    /** The warning hidden with its ✕; a different one shows again. */
+    private var hiddenWarning: String? = null
+    private var shownWarning: String? = null
+    /** Called after the warning's ✕, e.g. to forget the restarted-scan note everywhere. */
+    var onWarningHidden: (() -> Unit)? = null
     private val strip = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
     private val chipScroll = HorizontalScrollView(context).apply { isHorizontalScrollBarEnabled = false }
     private val chips = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
@@ -63,7 +70,12 @@ class StatusPanel(private val context: Context) {
         title.setOnClickListener(toggle)
         foldButton.setOnClickListener(toggle)
         hideButton.setOnClickListener { hiddenAt = signature(last); showHardware(last) }
-        root.addView(note, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = (4 * dp).toInt() })
+        noteRow.addView(note, LinearLayout.LayoutParams(0, -2, 1f))
+        noteRow.addView(noteHide)
+        noteHide.setOnClickListener {
+            hiddenWarning = shownWarning; noteRow.visibility = View.GONE; onWarningHidden?.invoke()
+        }
+        root.addView(noteRow, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = (4 * dp).toInt() })
         root.addView(strip, LinearLayout.LayoutParams(-1, -2))
         root.addView(cards)
         root.setPadding(0, 0, 0, (4 * dp).toInt())
@@ -85,8 +97,9 @@ class StatusPanel(private val context: Context) {
     fun update(running: Boolean, warning: String?, hardware: List<Hardware>) {
         val grey = (ChipStyle.onSurface(context) and 0x00FFFFFF) or 0x99000000.toInt()
         // Idle needs no note here: the Start button says it.
-        val shown = if (!running) null else warning?.let { "⚠ $it" }
-        note.visibility = if (shown != null) View.VISIBLE else View.GONE
+        val shown = if (!running || warning == hiddenWarning) null else warning?.let { "⚠ $it" }
+        shownWarning = warning
+        noteRow.visibility = if (shown != null) View.VISIBLE else View.GONE
         if (shown != null) {
             VisualMode.text(note, shown)
             VisualMode.chip(note, if (running) 0xFFE0A33A.toInt() else grey)

@@ -53,6 +53,14 @@ class DetectionTest {
     @Test
     fun axonSigIdentifiers() {
         assertEquals(Category.BODY_CAM, best(ble(mfg = mapOf(0x034D to bytes(1, 2))))?.category)
+        // An IDO / VeryFit smartwatch borrowing TASER's company ID: its own address in the payload, service 0x0AF0.
+        val watch = Advert("F4:FD:16:03:54:5B", Advert.Source.BLE, -70, "IDW26",
+            mapOf(0x034D to bytes(0xF4, 0xFD, 0x16, 0x03, 0x54, 0x5B, 2, 1, 0x10, 1, 1, 1)),
+            serviceUuids = listOf(java.util.UUID.fromString("00000af0-0000-1000-8000-00805f9b34fb")))
+        assertTrue(SignatureEngine.classify(watch).none { it.category == Category.BODY_CAM })
+        // The same payload without the watch's name or service stays an Axon hit.
+        assertEquals(Category.BODY_CAM, best(Advert("F4:FD:16:03:54:5B", Advert.Source.BLE, -70, null,
+            mapOf(0x034D to bytes(0xF4, 0xFD, 0x16, 0x03, 0x54, 0x5B, 2, 1))))?.category)
         assertEquals(Category.BODY_CAM, best(ble(uuids = listOf(Advert.uuid16(0xFC81))))?.category)
     }
 

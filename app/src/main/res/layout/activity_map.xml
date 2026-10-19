@@ -146,17 +146,36 @@
             </LinearLayout>
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/statusText"
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/banner_bg"
-            android:paddingStart="12dp"
-            android:paddingTop="8dp"
-            android:paddingEnd="12dp"
-            android:paddingBottom="8dp"
-            android:textColor="#FFFFFF"
-            android:textSize="13sp" />
+            android:layout_height="wrap_content">
+
+            <TextView
+                android:id="@+id/statusText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/banner_bg"
+                android:paddingStart="12dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="12dp"
+                android:paddingBottom="8dp"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp" />
+
+            <!-- Hides the recording banner (the trace keeps recording; the record button still shows it). -->
+            <ImageButton
+                android:id="@+id/statusDismiss"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="top|end"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Hide the recording banner"
+                android:padding="10dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_nav_close"
+                android:visibility="gone"
+                app:tint="#FFFFFF" />
+        </FrameLayout>
 
         <com.google.android.material.progressindicator.LinearProgressIndicator
             android:id="@+id/downloadProgress"

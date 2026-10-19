@@ -1,0 +1,5 @@
+- Recording banner and scan warnings can be hidden with ✕.
+- Fewer "Bluetooth scan restarted" stalls: the scan is no longer restarted by every start request, which could trip Android's scan limit.
+- A VeryFit smartwatch (IDW26) using TASER's Bluetooth ID no longer shows as Axon gear.
+- "No signal reported" no longer logs as +127 dBm.
+- RTL8822BU register tables now ship as text.

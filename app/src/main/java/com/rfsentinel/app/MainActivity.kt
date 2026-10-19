@@ -63,7 +63,10 @@ class MainActivity : AppCompatActivity() {
     private var deviceCount = 0
     private var flaggedCount = 0
     /** The visual style's status: warning chip and hardware strip (Settings > Appearance). */
-    private val statusPanel by lazy { com.rfsentinel.app.ui.StatusPanel(this) }
+    private val statusPanel by lazy {
+        // Its ✕ on a restarted-scan note forgets the restart, so the text status and the car screen drop it too.
+        com.rfsentinel.app.ui.StatusPanel(this).apply { onWarningHidden = { ScanForegroundService.forgetWatchdogRestart() } }
+    }
     private var demoMode = false
 
     private val permissionLauncher = registerForActivityResult(

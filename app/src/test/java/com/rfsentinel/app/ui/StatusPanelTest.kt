@@ -68,6 +68,20 @@ class StatusPanelTest {
         p.update(running = false, warning = null, hardware = emptyList())
         assertEquals(emptyList<String>(), shownTexts(p.root))
         p.update(running = true, warning = "Bluetooth scan restarted", hardware = emptyList())
-        assertEquals(listOf("⚠ Bluetooth scan restarted"), shownTexts(p.root))
+        assertEquals(listOf("⚠ Bluetooth scan restarted", "✕"), shownTexts(p.root))
+    }
+
+    @Test
+    fun warningHidesUntilANewOne() {
+        val p = StatusPanel(ctx).also { it.root.visibility = View.VISIBLE }
+        var hidden = 0
+        p.onWarningHidden = { hidden++ }
+        p.update(running = true, warning = "Bluetooth scan restarted 9:04", hardware = emptyList())
+        button(p.root, "Hide this warning")!!.performClick()
+        assertEquals(1, hidden)
+        p.update(running = true, warning = "Bluetooth scan restarted 9:04", hardware = emptyList())
+        assertEquals(emptyList<String>(), shownTexts(p.root))
+        p.update(running = true, warning = "Bluetooth scan restarted 9:31", hardware = emptyList())
+        assertEquals(listOf("⚠ Bluetooth scan restarted 9:31", "✕"), shownTexts(p.root))
     }
 }

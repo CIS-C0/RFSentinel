@@ -201,7 +201,7 @@
   },
   {
     "prefix": "00:30:44",
-    "label": "Cradlepoint vehicle router - installed in police cars; also common on buses and in stores",
+    "label": "Cradlepoint vehicle router - installed in police cars; also common on buses, in stores and in traffic-signal cabinets",
     "source": "IEEE MA-L (CradlePoint, Inc); public police procurement records. Weak: common on transit and retail, and the BSSID may use a module vendor's block (all-cameras-are-beacons)",
     "confidence": "candidate",
     "score": 35,
@@ -209,7 +209,7 @@
   },
   {
     "prefix": "00:E0:1C",
-    "label": "Cradlepoint vehicle router - police cars, buses, stores",
+    "label": "Cradlepoint vehicle router - police cars, buses, stores, traffic-signal cabinets",
     "source": "IEEE MA-L (CradlePoint, Inc). Weak - see 00:30:44",
     "confidence": "candidate",
     "score": 35,
@@ -217,7 +217,7 @@
   },
   {
     "prefix": "00:A0:D5",
-    "label": "Sierra Wireless AirLink vehicle gateway (police / EMS / fleet)",
+    "label": "Sierra Wireless AirLink vehicle gateway (police / EMS / fleet, traffic signals)",
     "source": "IEEE MA-L (Sierra Wireless, ULC); AirLink routers are sold by Canadian police-vehicle integrators and installed with carrier vehicle modems. Weak: also on buses, utility trucks and kiosks",
     "confidence": "candidate",
     "score": 40,
@@ -225,7 +225,7 @@
   },
   {
     "prefix": "28:A3:31",
-    "label": "Sierra Wireless AirLink vehicle gateway (police / EMS / fleet)",
+    "label": "Sierra Wireless AirLink vehicle gateway (police / EMS / fleet, traffic signals)",
     "source": "IEEE MA-L (Sierra Wireless, ULC); AirLink routers are sold by Canadian police-vehicle integrators and installed with carrier vehicle modems. Weak: also on buses, utility trucks and kiosks",
     "confidence": "candidate",
     "score": 40,
@@ -233,7 +233,7 @@
   },
   {
     "prefix": "50:13:9D",
-    "label": "Sierra Wireless AirLink vehicle gateway (police / EMS / fleet)",
+    "label": "Sierra Wireless AirLink vehicle gateway (police / EMS / fleet, traffic signals)",
     "source": "IEEE MA-L (Sierra Wireless, ULC); AirLink routers are sold by Canadian police-vehicle integrators and installed with carrier vehicle modems. Weak: also on buses, utility trucks and kiosks",
     "confidence": "candidate",
     "score": 40,
@@ -241,7 +241,7 @@
   },
   {
     "prefix": "64:CE:6E",
-    "label": "Sierra Wireless AirLink vehicle gateway (police / EMS / fleet)",
+    "label": "Sierra Wireless AirLink vehicle gateway (police / EMS / fleet, traffic signals)",
     "source": "IEEE MA-L (Sierra Wireless, ULC); AirLink routers are sold by Canadian police-vehicle integrators and installed with carrier vehicle modems. Weak: also on buses, utility trucks and kiosks",
     "confidence": "candidate",
     "score": 40,
@@ -249,7 +249,7 @@
   },
   {
     "prefix": "84:DB:2F",
-    "label": "Sierra Wireless AirLink vehicle gateway (police / EMS / fleet)",
+    "label": "Sierra Wireless AirLink vehicle gateway (police / EMS / fleet, traffic signals)",
     "source": "IEEE MA-L (Sierra Wireless, ULC); AirLink routers are sold by Canadian police-vehicle integrators and installed with carrier vehicle modems. Weak: also on buses, utility trucks and kiosks",
     "confidence": "candidate",
     "score": 40,
@@ -257,7 +257,7 @@
   },
   {
     "prefix": "CC:93:4A",
-    "label": "Sierra Wireless AirLink vehicle gateway (police / EMS / fleet)",
+    "label": "Sierra Wireless AirLink vehicle gateway (police / EMS / fleet, traffic signals)",
     "source": "IEEE MA-L (Sierra Wireless, ULC); AirLink routers are sold by Canadian police-vehicle integrators and installed with carrier vehicle modems. Weak: also on buses, utility trucks and kiosks",
     "confidence": "candidate",
     "score": 40,

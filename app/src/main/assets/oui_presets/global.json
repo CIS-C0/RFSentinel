@@ -1265,16 +1265,16 @@
   },
   {
     "prefix": "00:30:44",
-    "label": "Cradlepoint vehicle router - police cars, buses, stores",
-    "source": "IEEE registry (CradlePoint); in-vehicle routers widely installed in police cars. Weak: also transit and retail",
+    "label": "Cradlepoint vehicle router - police cars, buses, stores, traffic-signal cabinets",
+    "source": "IEEE registry (CradlePoint); in-vehicle routers widely installed in police cars. Weak: also transit, retail and traffic-signal cabinets at intersections",
     "confidence": "candidate",
     "score": 35,
     "category": "PUBLIC_SAFETY"
   },
   {
     "prefix": "00:E0:1C",
-    "label": "Cradlepoint vehicle router - police cars, buses, stores",
-    "source": "IEEE registry (CradlePoint); in-vehicle routers widely installed in police cars. Weak: also transit and retail",
+    "label": "Cradlepoint vehicle router - police cars, buses, stores, traffic-signal cabinets",
+    "source": "IEEE registry (CradlePoint); in-vehicle routers widely installed in police cars. Weak: also transit, retail and traffic-signal cabinets at intersections",
     "confidence": "candidate",
     "score": 35,
     "category": "PUBLIC_SAFETY"
@@ -1601,7 +1601,7 @@
   },
   {
     "prefix": "00:A0:D5",
-    "label": "Sierra Wireless - AirLink vehicle gateway (police / EMS / fleet)",
+    "label": "Sierra Wireless - AirLink vehicle gateway (police / EMS / fleet, traffic signals)",
     "source": "IEEE MA-L (Sierra Wireless, ULC); listed by MaxwellDPS/Flock-You-Android; OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
     "confidence": "candidate",
     "score": 45,
@@ -1609,7 +1609,7 @@
   },
   {
     "prefix": "28:A3:31",
-    "label": "Sierra Wireless - AirLink vehicle gateway (police / EMS / fleet)",
+    "label": "Sierra Wireless - AirLink vehicle gateway (police / EMS / fleet, traffic signals)",
     "source": "IEEE MA-L (Sierra Wireless, ULC); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
     "confidence": "candidate",
     "score": 45,
@@ -1617,7 +1617,7 @@
   },
   {
     "prefix": "50:13:9D",
-    "label": "Sierra Wireless - AirLink vehicle gateway (police / EMS / fleet)",
+    "label": "Sierra Wireless - AirLink vehicle gateway (police / EMS / fleet, traffic signals)",
     "source": "IEEE MA-L (Sierra Wireless, ULC); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
     "confidence": "candidate",
     "score": 45,
@@ -1625,7 +1625,7 @@
   },
   {
     "prefix": "64:CE:6E",
-    "label": "Sierra Wireless - AirLink vehicle gateway (police / EMS / fleet)",
+    "label": "Sierra Wireless - AirLink vehicle gateway (police / EMS / fleet, traffic signals)",
     "source": "IEEE MA-L (Sierra Wireless, ULC); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
     "confidence": "candidate",
     "score": 45,
@@ -1633,7 +1633,7 @@
   },
   {
     "prefix": "84:DB:2F",
-    "label": "Sierra Wireless - AirLink vehicle gateway (police / EMS / fleet)",
+    "label": "Sierra Wireless - AirLink vehicle gateway (police / EMS / fleet, traffic signals)",
     "source": "IEEE MA-L (Sierra Wireless, ULC); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
     "confidence": "candidate",
     "score": 45,
@@ -1641,7 +1641,7 @@
   },
   {
     "prefix": "CC:93:4A",
-    "label": "Sierra Wireless - AirLink vehicle gateway (police / EMS / fleet)",
+    "label": "Sierra Wireless - AirLink vehicle gateway (police / EMS / fleet, traffic signals)",
     "source": "IEEE MA-L (Sierra Wireless, ULC); listed by OffGridPete/Fieldwatch. Common chip/module maker: a clue, not proof",
     "confidence": "candidate",
     "score": 45,

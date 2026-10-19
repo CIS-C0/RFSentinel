@@ -45,7 +45,7 @@ object AdvertFactory {
         return Advert(
             mac = mac,
             source = Advert.Source.BLE,
-            rssi = r.rssi,
+            rssi = if (r.rssi >= 127) -100 else r.rssi, // 127: no RSSI reported; counted as far rather than +127 dBm
             name = rec?.deviceName ?: runCatching { r.device.name }.getOrNull(),
             manufacturerData = mfg,
             serviceUuids = rec?.serviceUuids?.map { it.uuid }.orEmpty(),

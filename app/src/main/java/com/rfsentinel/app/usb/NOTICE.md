@@ -4,7 +4,7 @@ These drivers run USB WiFi adapters in receive-only monitor mode from userspace.
 
 - `Rtl8821auMonitor.kt` and `Rtl8821auTables.kt` drive Realtek RTL8811AU / RTL8821AU adapters (e.g. ALFA AWUS036ACS).
 - `Rtl8812auMonitor.kt` and `Rtl8812auTables.kt` drive Realtek RTL8812AU adapters (e.g. ALFA AWUS036ACH), 2.4 + 5 GHz, receive only - experimental. The tables are generated from the vendor driver (see below).
-- `Rtl8822buMonitor.kt` and `Rtl8822bTables.kt` drive Realtek RTL8812BU / RTL8822BU adapters, with the firmware and register tables in `assets/usbwifi/rtl8822b_*.bin`.
+- `Rtl8822buMonitor.kt` and `Rtl8822bTables.kt` drive Realtek RTL8812BU / RTL8822BU adapters, with the register tables as text in `assets/usbwifi/rtl8822b_*.txt` (the firmware `rtl8822b_fw.bin` is downloaded on first use in the FOSS build).
 - `Rtl8187Monitor.kt` drives Realtek RTL8187L / RTL8187B adapters (e.g. ALFA AWUS036H). They need no firmware.
 - `Rt3070Monitor.kt` drives Ralink RT3070 adapters (e.g. ALFA AWUS036NH / AWUS036NEH), with Ralink's firmware in `assets/usbwifi/rt2870.bin`.
 - `Rtl8814auMonitor.kt` and `Rtl8814auTables.kt` drive Realtek RTL8814AU adapters (e.g. ALFA AWUS1900), 2.4 + 5 GHz.
