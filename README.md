@@ -672,7 +672,9 @@ in radio range. Needs *Police aircraft* on; its *Online aircraft feeds* switch c
 be turned off so nothing leaves the phone. A 1090 MHz antenna helps.
 
 Plug an RTL-SDR dongle (R820T / R820T2 / R860 tuner, e.g. RTL-SDR Blog V3, or the
-RTL-SDR Blog V4) into the phone with an OTG cable while scanning. RF Sentinel
+RTL-SDR Blog V4) or a **HackRF One** into the phone with an OTG cable while scanning.
+The HackRF is only ever used to receive: its transmitter, RF amplifier and antenna-port
+power stay off. RF Sentinel
 sweeps the North American public-safety radio bands - the 700 and 800 MHz bands
 where police, fire and EMS radios (not towers) transmit, and the shared VHF / UHF
 land-mobile bands - and measures only **how much energy each 12.5 kHz channel
@@ -691,6 +693,14 @@ VHF / UHF, which businesses, schools and transit share, only a very strong signa
 counts, and only as a weak sign. Consumer walkie-talkies (FRS / GMRS, MURS),
 marine, railroad, weather and paging channels are skipped. The dongle's log is in
 the exported USB adapter log.
+
+**TETRA radios** (on by default when the phone's region is in Europe, a switch in
+Settings): emergency services in Europe and many other countries use TETRA, encrypted
+digital radio. Its handsets transmit on 380-385 MHz in short time slots - a ~14 ms
+burst every ~57 ms - and RF Sentinel watches that band and looks for that rhythm, so
+a **TETRA radio transmitting nearby** alert means a handset or car radio, not a mast
+(base stations send on 390-395 MHz, which is never watched). Energy and timing only:
+TETRA isn't decoded, and its encryption isn't touched.
 
 **Cellular transmitters** (optional, off by default): it can also watch the phone /
 modem side of the in-range LTE bands (600, 700 including Band 14 - the public-safety
