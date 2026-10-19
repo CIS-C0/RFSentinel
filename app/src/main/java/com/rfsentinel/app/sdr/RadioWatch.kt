@@ -18,10 +18,15 @@ import kotlin.math.sin
  * a quiet channel. The 700 / 800 MHz bands it watches are where public-safety radios
  * (not towers) transmit; on the shared VHF / UHF bands businesses, schools and transit
  * use the same kind of radios, so those count as weak signs unless very strong.
+ *
+ * In Europe (and much of the world) emergency services use TETRA, encrypted digital radio, with
+ * handsets transmitting on 380-385 MHz. A TETRA handset sends in time slots: a ~14 ms burst every
+ * ~57 ms frame. On that band the power is also kept in 2 ms steps ([Bursts]) and a burst rhythm
+ * marks the signal as a TETRA radio. Still energy only - TETRA can't and won't be decoded here.
  */
 class RadioWatch {
 
-    enum class Kind { PUBLIC_SAFETY_MOBILE, SHARED, CUSTOM, TARGET, CELLULAR_UPLINK }
+    enum class Kind { PUBLIC_SAFETY_MOBILE, SHARED, CUSTOM, TARGET, CELLULAR_UPLINK, TETRA }
 
     data class Band(val label: String, val startHz: Long, val endHz: Long, val kind: Kind)
 
@@ -41,9 +46,10 @@ class RadioWatch {
     /**
      * A strong transmission on a normally quiet channel. [repeat]: the same channel again within
      * [REPEAT_MS] - not a new alert, but it keeps the live list and the closer / farther trend current.
+     * [tdma]: it came in TETRA-like time-slot bursts.
      */
     data class Event(val freqHz: Long, val snrDb: Int, val band: Band, val confidence: Int,
-                     val target: Target? = null, val repeat: Boolean = false) {
+                     val target: Target? = null, val repeat: Boolean = false, val tdma: Boolean = false) {
         val mhz: String get() = "%.4f".format(java.util.Locale.US, freqHz / 1e6)
     }
 
@@ -70,10 +76,17 @@ class RadioWatch {
     fun sweepDone() { sweeps++ }
 
     /**
-     * One tuned chunk: [psdDb] is the averaged power spectrum (FFT-shifted, DC in the middle)
-     * at [centerHz] and [sampleRate]. Returns the transmissions worth reporting.
+     * The power spectrum in short steps over one chunk ([burstSpectrum]): [psd] the average,
+     * [groups] one spectrum per [groupMs] slice of time, all FFT-shifted like [powerSpectrum].
      */
-    fun analyze(centerHz: Long, psdDb: FloatArray, sampleRate: Int, now: Long): List<Event> {
+    class Bursts(val psd: FloatArray, val groups: Array<FloatArray>, val groupMs: Double)
+
+    /**
+     * One tuned chunk: [psdDb] is the averaged power spectrum (FFT-shifted, DC in the middle)
+     * at [centerHz] and [sampleRate]. Returns the transmissions worth reporting. [bursts]: the
+     * same samples in time steps, for the TETRA band's time-slot check.
+     */
+    fun analyze(centerHz: Long, psdDb: FloatArray, sampleRate: Int, now: Long, bursts: Bursts? = null): List<Event> {
         val n = psdDb.size
         val binHz = sampleRate.toDouble() / n
         val usableBins = (USABLE_HZ / binHz).toInt()
@@ -91,12 +104,23 @@ class RadioWatch {
                     val mid = n / 2 + (off / binHz).roundToInt()
                     var p = -200f
                     for (k in mid - half..mid + half) if (k in 0 until n && psdDb[k] > p) p = psdDb[k]
-                    val snr = (p - floor).roundToInt()
+                    var snr = (p - floor).roundToInt()
+                    var tdma = false
+                    if (band.kind == Kind.TETRA && bursts != null && bursts.groups.isNotEmpty()) {
+                        // A burst is only on part of the time: its own level, not the average, is the signal.
+                        val levels = FloatArray(bursts.groups.size) { g ->
+                            var q = -200f
+                            for (k in mid - half..mid + half) if (k in 0 until n && bursts.groups[g][k] > q) q = bursts.groups[g][k]
+                            q - floor
+                        }
+                        snr = maxOf(snr, levels.max().roundToInt())
+                        tdma = isTdma(levels, bursts.groupMs)
+                    }
                     val ch = channels.getOrPut(f) { Channel() }
                     val active = snr >= ACTIVE_DB
                     ch.recent = (ch.recent shl 1) or (if (active) 1L else 0L)
                     ch.visits++
-                    if (active) eventFor(f, snr, band, ch, now, cfg.minSnrDb)?.let { found += it }
+                    if (active) eventFor(f, snr, band, ch, now, cfg.minSnrDb, tdma)?.let { found += it }
                 }
                 f += STEP_HZ
             }
@@ -180,14 +204,17 @@ class RadioWatch {
     }
 
     /** [min]: the sensitivity setting; at the default (30 dB) the thresholds are the original ones. */
-    private fun eventFor(f: Long, snr: Int, band: Band, ch: Channel, now: Long, min: Int = DEFAULT_MIN_SNR): Event? {
+    private fun eventFor(f: Long, snr: Int, band: Band, ch: Channel, now: Long, min: Int = DEFAULT_MIN_SNR,
+                         tdma: Boolean = false): Event? {
         if (sweeps < LEARN_SWEEPS) return null                                   // still learning what's always there
         if (ch.visits >= MIN_VISITS_BUSY && ch.busyRatio() >= BUSY_RATIO) return null // tower / control channel / pager
-        val confidence = when (band.kind) {
-            Kind.PUBLIC_SAFETY_MOBILE -> when { snr >= min + 10 -> 75; snr >= min -> 60; else -> return null }
+        val confidence = when {
+            band.kind == Kind.PUBLIC_SAFETY_MOBILE -> when { snr >= min + 10 -> 75; snr >= min -> 60; else -> return null }
+            // TETRA time slots on the handset band: an emergency-services radio, and a strong sign even when weaker.
+            band.kind == Kind.TETRA && tdma -> when { snr >= min + 5 -> 80; snr >= min - 5 -> 65; else -> return null }
             else -> when { snr >= min + 15 -> 55; snr >= min + 5 -> 35; else -> return null }
         }
-        return Event(f, snr, band, confidence, repeat = now - ch.lastEvent < REPEAT_MS)
+        return Event(f, snr, band, confidence, repeat = now - ch.lastEvent < REPEAT_MS, tdma = tdma)
     }
 
     companion object {
@@ -225,6 +252,43 @@ class RadioWatch {
             Band("Cellular uplink - 850 MHz (Band 5/26)", 814_000_000L, 849_000_000L, Kind.CELLULAR_UPLINK),
             Band("Cellular uplink - AWS 1700 MHz (Band 4/66, partial)", 1_710_000_000L, 1_766_000_000L, Kind.CELLULAR_UPLINK)
         )
+
+        /**
+         * The TETRA handset (uplink) band used by emergency services across Europe and beyond; the
+         * base stations send on 390-395 MHz, left out so a mast never looks like a radio.
+         */
+        val TETRA_BAND = Band("TETRA emergency-services radio band", 380_000_000L, 385_000_000L, Kind.TETRA)
+
+        /** A TETRA slot: ~14.2 ms on air in a ~56.7 ms frame. */
+        private const val SLOT_MS = 14.17
+        private const val FRAME_MS = 56.67
+        /** Time step of [burstSpectrum]: short enough to see a slot's edges. */
+        private const val GROUP_MS = 2.0
+
+        /**
+         * Time-slot bursts in one channel's level over time ([levels], dB above the noise, one per
+         * [groupMs]): on for about one TETRA slot at a time, and truly off in between - not a carrier
+         * that stays on, and not noise. Also true for 2 slots of a frame, as a data call may use.
+         */
+        fun isTdma(levels: FloatArray, groupMs: Double): Boolean {
+            if (levels.size * groupMs < FRAME_MS * 0.9) return false
+            val peak = levels.max()
+            if (peak < ACTIVE_DB + 6) return false
+            val on = BooleanArray(levels.size) { levels[it] >= peak - 10 && levels[it] >= ACTIVE_DB }
+            val quiet = levels.count { it <= 6f }
+            var run = 0; var longest = 0; var runs = 0
+            for (i in on.indices) {
+                if (on[i]) { run++; if (run == 1) runs++; longest = maxOf(longest, run) } else run = 0
+            }
+            val longestMs = longest * groupMs
+            return runs >= 1 && quiet >= levels.size / 3 &&
+                longestMs >= SLOT_MS * 0.5 && longestMs <= 2 * SLOT_MS + 2 * groupMs &&
+                on.count { it } <= levels.size * 0.6
+        }
+
+        /** Whether the tuned chunk at [centerHz] sees part of [band]. */
+        fun covers(band: Band, centerHz: Long) =
+            band.startHz <= centerHz + USABLE_HZ.toLong() && band.endHz >= centerHz - USABLE_HZ.toLong()
 
         /** North American (FCC) public-safety land-mobile bands. */
         val BANDS = listOf(
@@ -288,6 +352,32 @@ class RadioWatch {
                 val v = acc[(k + n / 2) % n] / maxOf(1, frames)
                 (10 * log10(v + 1e-20)).toFloat()
             }
+        }
+
+        /**
+         * [powerSpectrum], also kept in ~[GROUP_MS] steps of time ([Bursts.groups]) to see a
+         * time-slot radio's bursts.
+         */
+        fun burstSpectrum(iq: ByteArray, count: Int, sampleRate: Int, n: Int = 1024): Bursts {
+            val per = maxOf(1, (GROUP_MS / 1000 * sampleRate / n).roundToInt())
+            val acc = DoubleArray(n); val part = DoubleArray(n)
+            val re = DoubleArray(n); val im = DoubleArray(n)
+            val win = DoubleArray(n) { 0.5 - 0.5 * cos(2 * PI * it / (n - 1)) }
+            val groups = ArrayList<FloatArray>()
+            fun db(a: DoubleArray, frames: Int) = FloatArray(n) { k -> (10 * log10(a[(k + n / 2) % n] / maxOf(1, frames) + 1e-20)).toFloat() }
+            var frames = 0; var inGroup = 0
+            var s = 0
+            while (s + n <= count) {
+                for (k in 0 until n) {
+                    re[k] = ((iq[2 * (s + k)].toInt() and 0xff) - 127.5) / 127.5 * win[k]
+                    im[k] = ((iq[2 * (s + k) + 1].toInt() and 0xff) - 127.5) / 127.5 * win[k]
+                }
+                fft(re, im)
+                for (k in 0 until n) { val p = re[k] * re[k] + im[k] * im[k]; acc[k] += p; part[k] += p }
+                frames++; s += n
+                if (++inGroup == per) { groups += db(part, per); part.fill(0.0); inGroup = 0 }
+            }
+            return Bursts(db(acc, frames), groups.toTypedArray(), per * n * 1000.0 / sampleRate)
         }
 
         /** In-place iterative radix-2 FFT. */

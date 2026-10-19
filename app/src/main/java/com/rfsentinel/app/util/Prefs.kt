@@ -475,6 +475,13 @@ object Prefs {
     /** Also sweep the cellular UPLINK bands for a transmitter travelling near you (experimental, off by default). */
     fun radioCellOn(context: Context): Boolean = bool(context, "radio_cell_on", false)
     fun setRadioCellOn(context: Context, value: Boolean) = setBool(context, "radio_cell_on", value)
+    /** Also sweep the TETRA handset band (380-385 MHz); on by default where the phone's region uses TETRA. */
+    fun radioTetraOn(context: Context): Boolean = bool(context, "radio_tetra_on", tetraRegion(java.util.Locale.getDefault().country))
+    fun setRadioTetraOn(context: Context, value: Boolean) = setBool(context, "radio_tetra_on", value)
+    /** Europe's emergency services use TETRA on 380-385 MHz (from the phone's language region, not its location). */
+    fun tetraRegion(country: String) = country.uppercase() in TETRA_REGIONS
+    private val TETRA_REGIONS = setOf("AT", "BE", "BG", "CH", "CY", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GB", "GR", "HR",
+        "HU", "IE", "IS", "IT", "LI", "LT", "LU", "LV", "MT", "NL", "NO", "PL", "PT", "RO", "SE", "SI", "SK")
     fun setRadioBandsOff(context: Context, v: Set<String>) = sp(context).edit { putStringSet("radio_bands_off", v) }
     /** The user's own bands, one "start-end MHz label" per line. */
     fun radioCustomBands(context: Context) = str(context, "radio_custom_bands")

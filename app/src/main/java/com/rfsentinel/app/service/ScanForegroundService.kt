@@ -1089,6 +1089,10 @@ class ScanForegroundService : Service() {
             when (e.band.kind) {
                 com.rfsentinel.app.sdr.RadioWatch.Kind.PUBLIC_SAFETY_MOBILE ->
                     "Public-safety radios (police, fire, EMS) transmit on this band; not proof of who it is."
+                com.rfsentinel.app.sdr.RadioWatch.Kind.TETRA -> if (e.tdma)
+                    "It came in TETRA time-slot bursts: an emergency-services (police, fire, ambulance) TETRA handset or car radio. " +
+                        "Encrypted, nothing decoded; not proof of who it is."
+                else "Emergency-service TETRA handsets transmit on this band, but this signal had no TETRA time slots; a weak sign on its own."
                 com.rfsentinel.app.sdr.RadioWatch.Kind.TARGET -> "One of the frequencies you watch (Settings > RTL-SDR radio)."
                 com.rfsentinel.app.sdr.RadioWatch.Kind.CUSTOM -> "A band you added in Settings > RTL-SDR radio."
                 else -> "Police use this band, but so do businesses, schools and transit; a weak sign on its own."
@@ -1101,9 +1105,11 @@ class ScanForegroundService : Service() {
         val label = when {
             cell -> "Cellular transmitter nearby (LTE uplink)"
             name != null -> "Radio transmitting: $name"
+            e.tdma -> "TETRA radio transmitting nearby"
             else -> "Two-way radio transmitting nearby"
         }
-        val hit = Hit(Category.RADIO, label, e.confidence, if (cell) cellDetail else detail, "RTL-SDR signal strength (no decoding)")
+        val hit = Hit(Category.RADIO, label, e.confidence, if (cell) cellDetail else detail,
+            if (e.tdma) "SDR signal strength and TETRA burst timing (no decoding)" else "SDR signal strength (no decoding)")
         val loc = lastLocation
         val tag = Prefs.gpsTaggingEnabled(this)
         serviceScope.launch {
@@ -1121,7 +1127,8 @@ class ScanForegroundService : Service() {
             // Spoken: the frequency (and its name) when that's on, else the short phrase.
             val spoken = when {
                 cell -> "Cellular transmitter nearby"
-                Prefs.radioSpeakFreq(this) -> "Radio ${spokenMhz(e.freqHz)}" + (name?.let { ", $it" } ?: "")
+                Prefs.radioSpeakFreq(this) -> (if (e.tdma) "TETRA radio " else "Radio ") + spokenMhz(e.freqHz) + (name?.let { ", $it" } ?: "")
+                e.tdma -> "TETRA radio nearby"
                 else -> "Radio transmitting nearby"
             }
             AlertPlayer.play(this, hit.tier, spoken)

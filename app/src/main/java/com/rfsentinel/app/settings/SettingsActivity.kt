@@ -315,7 +315,7 @@ class SettingsActivity : AppCompatActivity() {
         val s = com.rfsentinel.app.esp.EspBoards.status
         binding.espStatusText.text = s.ifBlank { "ESP32 board on USB: not connected" }
         binding.usbWifiText.text = com.rfsentinel.app.usb.UsbWifi.status.ifBlank { "USB WiFi adapter: not connected" }
-        binding.sdrStatusText.text = com.rfsentinel.app.sdr.SdrRadio.status.ifBlank { "RTL-SDR: not connected" }
+        binding.sdrStatusText.text = com.rfsentinel.app.sdr.SdrRadio.status.ifBlank { "RTL-SDR / HackRF: not connected" }
         val board = Prefs.ouiSpyBoard(this)
         binding.ouiSpyText.text = if (board == null) "OUI-SPY over Bluetooth: not paired"
         else com.rfsentinel.app.esp.OuiSpyBle.status.ifBlank { "OUI-SPY $board: connects while scanning" }
@@ -432,7 +432,7 @@ class SettingsActivity : AppCompatActivity() {
         Section("detect", binding.headerDetect, binding.sectionDetect,
             "Each type of equipment can be turned on or off. Network / home cameras are off by default (many false alarms).\n\n" +
                 "GPS / satellite checks cover every system the phone hears: GPS, GLONASS, Galileo, BeiDou, QZSS and NavIC.\n\n" +
-                "Two-way radio needs an RTL-SDR dongle on USB.\n\n" +
+                "Two-way radio needs an RTL-SDR dongle or a HackRF on USB.\n\n" +
                 "Police aircraft and Waze reports are online sources, off by default. Aircraft: every minute, a position " +
                 "rounded to about 1 km goes to the community ADS-B feeds adsb.fi / adsb.lol; matched against a list of " +
                 "about 1,400 US and Canadian law-enforcement aircraft, plus unlisted aircraft circling low overhead. With an RTL-SDR " +
@@ -561,7 +561,8 @@ class SettingsActivity : AppCompatActivity() {
                 "Adapter light: the AWUS036ACS blinks with received traffic; switch it off to keep it dark (for example in a car at night). " +
                 "Only adapters whose light the app can control have this option (the RTL8811AU / 8821AU); the others keep their own behaviour. " +
                 "Applies at once.\n\n" +
-                "• RTL-SDR dongle: notices two-way radios transmitting nearby (signal strength only, nothing is decoded).\n\n" +
+                "• RTL-SDR dongle or HackRF: notices two-way radios transmitting nearby (signal strength only, nothing is decoded). " +
+                "The HackRF is only ever used to receive.\n\n" +
                 "OUI-SPY over Bluetooth needs its App-Controlled firmware. Relay mode passes on every network and device it hears " +
                 "so RF Sentinel's own lists check them (the board also sends standard Wi-Fi scan probes).\n\n" +
                 "Adapter not working? Export its log and send it to the developer.\n\n" +
@@ -577,7 +578,7 @@ class SettingsActivity : AppCompatActivity() {
                 "Ordinary cars are counted, not listed. North America uses a different V2X radio (C-V2X) that this board can't hear. " +
                 "Receiving V2X may fall under telecom or privacy law where you are."),
         Section("radio", binding.headerRadio, binding.sectionRadio,
-            "An RTL-SDR dongle on USB notices two-way radios transmitting nearby, from signal strength only - nothing is " +
+            "An RTL-SDR dongle or a HackRF on USB notices two-way radios transmitting nearby, from signal strength only - nothing is " +
                 "decoded or recorded. Needs the Police radio category on (What to detect).\n\n" +
                 "Sensitivity: how far above the noise a burst must be to count. Lower hears farther radios, and more false alarms.\n\n" +
                 "Bands: the built-in North American public-safety bands, your own bands (one per line, \"380-400 TETRA\"), " +
@@ -1100,6 +1101,10 @@ class SettingsActivity : AppCompatActivity() {
             "Experimental. Watches the phone / modem side of the LTE bands (uplink) for a transmitter travelling near you: a vehicle modem, a " +
             "Cradlepoint-style router, a camera with a SIM. Energy only, nothing decoded. Adds time to each sweep; " +
             "a phone counts too, so it is a weak sign on its own.") { Prefs.setRadioCellOn(this, it) }
+        switch("Detect TETRA radios", Prefs.radioTetraOn(this),
+            "Watches 380-385 MHz, where emergency-service TETRA handsets transmit in Europe and many other countries. " +
+            "A handset sends short time-slot bursts; that rhythm marks it as a TETRA radio. Energy only: TETRA is encrypted " +
+            "and nothing is decoded. On by default when the phone's region is in Europe.") { Prefs.setRadioTetraOn(this, it) }
         slider(0, 20, Prefs.radioTrendDb(this), { if (it == 0) "Closer / moving away: off" else "Say \"getting closer\" / \"moving away\" when the signal changes by $it dB" }) {
             Prefs.setRadioTrendDb(this, it)
         }

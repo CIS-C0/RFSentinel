@@ -220,7 +220,9 @@ object UsbWifi {
         val sb = StringBuilder()
         val what = chipOf(d)?.let { "supported (${it.name})" }
             ?: knownOnly(d)?.let { "$it, not supported yet" }
-            ?: if (com.rfsentinel.app.sdr.RtlSdr.isRtlSdr(d.vendorId, d.productId)) "RTL-SDR (radio activity detector)" else "not a supported WiFi adapter"
+            ?: if (com.rfsentinel.app.sdr.RtlSdr.isRtlSdr(d.vendorId, d.productId)) "RTL-SDR (radio activity detector)"
+            else if (com.rfsentinel.app.sdr.HackRf.isHackRf(d.vendorId, d.productId)) "HackRF (radio activity detector, receive only)"
+            else "not a supported WiFi adapter"
         val allowed = runCatching { mgr?.hasPermission(d) }.getOrNull() == true
         // Names are only readable once USB access is allowed.
         val name = listOfNotNull(runCatching { d.manufacturerName }.getOrNull(), runCatching { d.productName }.getOrNull())

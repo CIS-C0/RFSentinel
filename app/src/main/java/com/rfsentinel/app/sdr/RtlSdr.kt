@@ -16,19 +16,22 @@ import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 
-class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevice, private val log: (String) -> Unit) {
+class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevice, private val log: (String) -> Unit) : SdrDevice {
+
+    override val label = "RTL-SDR"
+    override val settleReads = 2
 
     enum class Tuner { R820T, R828D }
 
     var tuner: Tuner? = null; private set
     /** RTL-SDR Blog V4: R828D with a 28.8 MHz crystal, its own band inputs and notch filters. */
     var blogV4 = false; private set
-    var sampleRate = 0; private set
-    var ctlErrors = 0; private set
+    override var sampleRate = 0; private set
+    override var ctlErrors = 0; private set
     /** True once the dongle stops answering altogether (unplugged, or its USB link died). */
-    @Volatile var lost = false; private set
+    @Volatile override var lost = false; private set
     /** Tuner register writes that still failed after retrying. */
-    var tunerWriteFails = 0; private set
+    override var tunerWriteFails = 0; private set
     private var ctlFailRun = 0
     private var centerHz = 0L
     private lateinit var rx: UsbEndpoint
@@ -44,7 +47,7 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
     private var input = -1
 
     /** Opens the dongle: baseband, tuner detection and init. False when no supported tuner answers. */
-    fun open(): Boolean {
+    override fun open(): Boolean {
         val intf = device.getInterface(0)
         if (!conn.claimInterface(intf, true)) log("RTL-SDR: couldn't claim the USB interface (continuing)")
         rx = (0 until intf.endpointCount).map { intf.getEndpoint(it) }.firstOrNull { it.address == 0x81 }
@@ -80,7 +83,7 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
         return ok
     }
 
-    fun close() {
+    override fun close() {
         if (lost) return
         runCatching {
             setI2cRepeater(true); r82xxStandby(); setI2cRepeater(false)
@@ -132,7 +135,7 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
     }
 
     /** Sample rate in Hz (0.9 - 3.2 MS/s), with the tuner's IF filter set to match. */
-    fun setSampleRate(rate: Int) {
+    override fun setSampleRate(rate: Int) {
         var ratio = ((RTL_XTAL.toLong() * (1L shl 22)) / rate).toInt() and 0x0ffffffc
         val real = (ratio.toLong() or ((ratio.toLong() and 0x08000000L) shl 1))
         sampleRate = ((RTL_XTAL.toLong() * (1L shl 22)) / real).toInt()
@@ -148,7 +151,7 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
     }
 
     /** Tunes to [hz]; false when the tuner's PLL doesn't lock. */
-    fun tune(hz: Long): Boolean {
+    override fun tune(hz: Long): Boolean {
         setI2cRepeater(true)
         val ok = r82xxSetFreq(hz)
         setI2cRepeater(false)
@@ -157,17 +160,17 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
     }
 
     /** Fixed tuner gain in tenths of a dB (e.g. 297 = 29.7 dB): a steady scale for comparing channels over time. */
-    fun setGain(tenthsDb: Int) {
+    override fun setGain(tenthsDb: Int) {
         setI2cRepeater(true); r82xxSetGain(tenthsDb); setI2cRepeater(false)
     }
 
-    fun resetBuffer() {
+    override fun resetBuffer() {
         writeReg(USBB, USB_EPA_CTL, 0x1002, 2)
         writeReg(USBB, USB_EPA_CTL, 0x0000, 2)
     }
 
     /** Reads raw 8-bit I/Q samples; bytes read, or a negative value on error. */
-    fun read(buf: ByteArray, len: Int = buf.size): Int = conn.bulkTransfer(rx, buf, len, 1000)
+    override fun read(buf: ByteArray, len: Int): Int = conn.bulkTransfer(rx, buf, len, 1000)
 
     // ---- register access ----
 
