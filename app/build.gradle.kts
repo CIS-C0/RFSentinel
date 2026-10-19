@@ -43,7 +43,6 @@ android {
         versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "MAPBOX_TOKEN", "\"$mapboxToken\"")
     }
 
     signingConfigs {
@@ -61,8 +60,15 @@ android {
     // anyone who wants it; the map is OpenFreeMap. Same app ID, so either one replaces the other.
     flavorDimensions += "maps"
     productFlavors {
-        if (!fossOnly) create("full") { dimension = "maps" }
-        create("foss") { dimension = "maps" }
+        if (!fossOnly) create("full") {
+            dimension = "maps"
+            buildConfigField("String", "MAPBOX_TOKEN", "\"$mapboxToken\"")
+        }
+        // No token in the FOSS build: it has no Mapbox map, and F-Droid's build of it must match ours byte for byte.
+        create("foss") {
+            dimension = "maps"
+            buildConfigField("String", "MAPBOX_TOKEN", "\"\"")
+        }
     }
 
     buildTypes {
