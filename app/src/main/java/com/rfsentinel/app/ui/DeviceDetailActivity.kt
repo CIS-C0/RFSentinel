@@ -310,7 +310,7 @@ class DeviceDetailActivity : AppCompatActivity() {
             if (r.hasPosition) rows += "Drone position" to String.format(Locale.US, "%.6f, %.6f", r.latitude, r.longitude)
             r.altitudeGeoM?.let { rows += "Altitude (WGS84)" to String.format(Locale.US, "%.0f m", it) }
             r.heightM?.let { rows += "Height above takeoff/ground" to String.format(Locale.US, "%.0f m", it) }
-            r.speedMs?.let { rows += "Ground speed" to String.format(Locale.US, "%.1f m/s (%.0f km/h)", it, it * 3.6) }
+            r.speedMs?.let { rows += "Ground speed" to String.format(Locale.US, "%.1f m/s (%s)", it, com.rfsentinel.app.util.Units.speed(it)) }
             r.verticalSpeedMs?.let { rows += "Vertical speed" to String.format(Locale.US, "%.1f m/s", it) }
             r.directionDeg?.let { rows += "Heading" to "$it°" }
             if (r.hasOperatorPosition) rows += "Operator position" to String.format(Locale.US, "%.6f, %.6f", r.operatorLatitude, r.operatorLongitude)

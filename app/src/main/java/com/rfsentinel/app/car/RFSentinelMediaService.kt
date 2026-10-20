@@ -202,7 +202,7 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
             playable(ACTION_SCAN, if (running) "Stop scanning" else "Start scanning",
                 if (running) "Scanning · ${devices.size} nearby · ${devices.count { com.rfsentinel.app.ui.LiveWindow.alerting(it) }} flagged" else "Not scanning",
                 dot(if (running) CarUi.CLEAR_COLOR else CarUi.WEAK_COLOR)),
-            playable(ACTION_MUTE, if (silenced.isEmpty()) "Mute detection alerts for 30 minutes" else "Turn detection alerts back on",
+            playable(ACTION_MUTE, if (silenced.isEmpty()) "Mute detection alerts for ${Prefs.snoozeMinutes(this)} minutes" else "Turn detection alerts back on",
                 silenced.ifEmpty { "Detection alert sound and voice are on (directions are separate)" }, dot(if (silenced.isEmpty()) CarUi.CLEAR_COLOR else CarUi.WEAK_COLOR)),
             // While guided: the directions have their own mute, so silencing them never silences the detection alerts.
             if (com.rfsentinel.app.nav.Navigator.active) playable(ACTION_NAV_MUTE, if (Prefs.navVoice(this)) "Mute spoken directions" else "Turn spoken directions back on",
@@ -297,7 +297,7 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
     private fun toggleMute() {
         if (CarUi.silencedText(this).isEmpty()) {
             AlertActionReceiver.snooze(this)
-            message("Alerts muted for 30 minutes")
+            message("Alerts muted for ${Prefs.snoozeMinutes(this)} minutes")
         } else {
             Prefs.setAlertsMuted(this, false)
             Prefs.setAlertsSnoozedUntil(this, 0L)
@@ -401,7 +401,7 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
         val muted = CarUi.silencedText(this).isNotEmpty()
         val guided = com.rfsentinel.app.nav.Navigator.active
         val directions = Prefs.navVoice(this)
-        val state = listOf(running, muted, guided, directions)
+        val state = listOf(running, muted, guided, directions, Prefs.snoozeMinutes(this))
         if (state != stateKey) {
             stateKey = state
             session.setPlaybackState(
@@ -414,7 +414,7 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
                         ACTION_SCAN, if (running) "Stop scanning" else "Start scanning",
                         if (running) R.drawable.ic_car_stop else R.drawable.ic_car_play).build())
                     .addCustomAction(PlaybackStateCompat.CustomAction.Builder(
-                        ACTION_MUTE, if (muted) "Alerts on" else "Mute alerts 30 min",
+                        ACTION_MUTE, if (muted) "Alerts on" else "Mute alerts ${Prefs.snoozeMinutes(this)} min",
                         if (muted) R.drawable.ic_car_volume else R.drawable.ic_car_snooze).build())
                     .apply {
                         if (guided) addCustomAction(PlaybackStateCompat.CustomAction.Builder(

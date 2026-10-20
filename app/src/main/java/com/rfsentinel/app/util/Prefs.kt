@@ -152,9 +152,14 @@ object Prefs {
     fun alertsMuted(context: Context): Boolean = bool(context, "alerts_muted", false)
     fun setAlertsMuted(context: Context, value: Boolean) = setBool(context, "alerts_muted", value)
 
-    /** Alert sound and voice snoozed until this time (Android Auto "Mute 30 min"); 0 = not snoozed. */
+    /** Alert sound and voice snoozed until this time (the toolbar speaker, a notification's Mute, the car); 0 = not snoozed. */
     fun alertsSnoozedUntil(context: Context): Long = sp(context).getLong("alerts_snoozed_until", 0L)
     fun setAlertsSnoozedUntil(context: Context, time: Long) = sp(context).edit { putLong("alerts_snoozed_until", time) }
+
+    /** How long a snooze lasts, in minutes (one of [SNOOZE_CHOICES]; 30 as before). */
+    fun snoozeMinutes(context: Context): Int = int(context, "snooze_minutes", 30).let { m -> if (m in SNOOZE_CHOICES) m else 30 }
+    fun setSnoozeMinutes(context: Context, minutes: Int) = setInt(context, "snooze_minutes", minutes)
+    val SNOOZE_CHOICES = listOf(5, 10, 15, 30, 60)
 
     /** Muted, or snoozed for a while: no alert sound or voice. */
     fun alertsSilenced(context: Context, now: Long = System.currentTimeMillis()): Boolean =

@@ -60,7 +60,7 @@ class TripsActivity : AppCompatActivity() {
             b.labelText.setTextColor(if (live) 0xFFB3261E.toInt() else if (t.flaggedCount > 0) 0xFFC8431A.toInt() else b.macText.currentTextColor)
             val mins = ((t.endTime ?: System.currentTimeMillis()) - t.startTime) / 60000
             b.macText.text = fmt.format(Date(t.startTime)) +
-                String.format(Locale.US, "  ·  %d:%02d  ·  %.2f km", mins / 60, mins % 60, t.distanceM / 1000)
+                String.format(Locale.US, "  ·  %d:%02d  ·  %s", mins / 60, mins % 60, com.rfsentinel.app.util.Units.trip(t.distanceM))
             b.metaText.text = (if (live) "Recording now · " else "") +
                 "${devicesLabel(t.deviceCount)} · ${t.flaggedCount} flagged · ${t.pointCount} GPS points"
             holder.itemView.setOnClickListener {
@@ -130,7 +130,7 @@ class TripsActivity : AppCompatActivity() {
             date.text = fmt.format(Date(t.startTime)) + if (live) " · recording now" else ""
             val mins = ((t.endTime ?: System.currentTimeMillis()) - t.startTime) / 60000
             stats.removeAllViews()
-            listOf(String.format(Locale.US, "%.2f km", t.distanceM / 1000), String.format(Locale.US, "%d:%02d", mins / 60, mins % 60),
+            listOf(com.rfsentinel.app.util.Units.trip(t.distanceM), String.format(Locale.US, "%d:%02d", mins / 60, mins % 60),
                 devicesLabel(t.deviceCount)).forEach { stats.addView(VisualMode.chip(context, it, accent)) }
             stats.addView(VisualMode.chip(context, "${t.flaggedCount} flagged", if (t.flaggedCount > 0) 0xFFD0503C.toInt() else accent))
             boundId = t.id

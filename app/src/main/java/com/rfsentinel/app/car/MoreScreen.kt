@@ -12,7 +12,7 @@ import com.rfsentinel.app.receiver.AlertActionReceiver
 import com.rfsentinel.app.util.Prefs
 
 /**
- * Quick settings and status for the car: snooze alerts for 30 minutes, the
+ * Quick settings and status for the car: snooze alerts (the length set under Alerts), the
  * spoken-alert options, cell towers, the connected hardware and whether
  * AirTags count as trackers. Everything else stays in the phone's Settings.
  */
@@ -27,14 +27,15 @@ class MoreScreen(carContext: CarContext) : LiveScreen(carContext, periodMs = 5_0
     override fun render(): Template {
         val now = System.currentTimeMillis()
         val snoozed = now < Prefs.alertsSnoozedUntil(carContext)
+        val mins = Prefs.snoozeMinutes(carContext)
         val voice = Prefs.carVoice(carContext)
         val short = Prefs.shortVoice(carContext)
         val noAirTags = Prefs.excludeAirTags(carContext)
         val items = ItemList.Builder()
 
         items.addItem(Row.Builder()
-            .setTitle(if (snoozed) "Resume alert sound" else "Snooze alerts 30 min")
-            .addText(if (snoozed) CarUi.silencedText(carContext) else "No alert sound or voice for half an hour")
+            .setTitle(if (snoozed) "Resume alert sound" else "Snooze alerts $mins min")
+            .addText(if (snoozed) CarUi.silencedText(carContext) else "No alert sound or voice for $mins minutes")
             .setImage(CarUi.icon(carContext, R.drawable.ic_car_snooze))
             .setOnClickListener {
                 if (snoozed) {
@@ -42,7 +43,7 @@ class MoreScreen(carContext: CarContext) : LiveScreen(carContext, periodMs = 5_0
                     toast("Alert sound back on")
                 } else {
                     AlertActionReceiver.snooze(carContext)
-                    toast("Alerts snoozed for 30 minutes")
+                    toast("Alerts snoozed for $mins minutes")
                 }
                 invalidate()
             }

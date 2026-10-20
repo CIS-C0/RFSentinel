@@ -20,8 +20,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
- * The buttons on an alert shown on the car screen: "Mute 30 min" silences alert
- * sound and voice for half an hour; "Ignore" stops alerting about that device
+ * The buttons on an alert shown on the car screen: "Mute N min" silences alert
+ * sound and voice for the snooze length set under Alerts; "Ignore" stops alerting about that device
  * (a rotating tracker until its address changes, anything else via the
  * whitelist - undo from the device's details).
  */
@@ -49,7 +49,6 @@ class AlertActionReceiver : BroadcastReceiver() {
         const val ACTION_IGNORE = "com.rfsentinel.app.action.IGNORE_DEVICE"
         private const val EXTRA_MAC = "mac"
         private const val EXTRA_NOTIFICATION = "notification"
-        const val SNOOZE_MS = 30 * 60_000L
 
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -67,9 +66,9 @@ class AlertActionReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        /** Silences alert sound and voice for [SNOOZE_MS] (also from the car's "More" screen). */
-        fun snooze(context: Context, now: Long = System.currentTimeMillis()) {
-            Prefs.setAlertsSnoozedUntil(context, now + SNOOZE_MS)
+        /** Silences alert sound and voice for [minutes] (the snooze length set under Alerts unless given). */
+        fun snooze(context: Context, now: Long = System.currentTimeMillis(), minutes: Int = Prefs.snoozeMinutes(context)) {
+            Prefs.setAlertsSnoozedUntil(context, now + minutes * 60_000L)
             Voice.silence()
         }
 

@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Android Auto's actions on the alert conversation ([CarMessages]): "mark as read"
- * clears it; a spoken reply of "mute" silences alerts for 30 minutes and "ignore"
+ * clears it; a spoken reply of "mute" snoozes alerts (the length set under Alerts) and "ignore"
  * stops alerting about the latest device (same as the alert card's buttons).
  */
 class CarMessageReceiver : BroadcastReceiver() {
@@ -28,7 +28,7 @@ class CarMessageReceiver : BroadcastReceiver() {
                 when (CarMessages.command(reply)) {
                     CarMessages.Command.MUTE -> {
                         AlertActionReceiver.snooze(app)
-                        CarMessages.post(app, "Alerts muted for 30 minutes.")
+                        CarMessages.post(app, "Alerts muted for ${com.rfsentinel.app.util.Prefs.snoozeMinutes(app)} minutes.")
                     }
                     CarMessages.Command.IGNORE -> {
                         if (mac == null) return

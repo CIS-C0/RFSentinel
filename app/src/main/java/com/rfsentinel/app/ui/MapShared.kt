@@ -99,10 +99,10 @@ internal object MapDialogs {
             p.type?.let { append("Type: $it\n") }
             p.owner?.let { append("Owner / operator: $it\n") }
             p.altitudeFt?.let { append(if (it <= 0) "On the ground\n" else "Altitude: $it ft\n") }
-            p.speedKt?.let { append(String.format(Locale.US, "Speed: %.0f kt (%.0f km/h)\n", it, it * 1.852)) }
+            p.speedKt?.let { append(String.format(Locale.US, "Speed: %.0f kt (%s)\n", it, com.rfsentinel.app.util.Units.speed(it * 0.514444))) }
             p.trackDeg?.let { append(String.format(Locale.US, "Heading: %.0f°\n", it)) }
-            me?.let { append(String.format(Locale.US, "Distance: %.1f km\n",
-                DeviceRegistry.metersBetween(it.first, it.second, p.lat, p.lon) / 1000)) }
+            me?.let { append("Distance: " + com.rfsentinel.app.util.Units.distance(
+                DeviceRegistry.metersBetween(it.first, it.second, p.lat, p.lon)) + "\n") }
             append("ICAO address: ${p.hex.uppercase()}\nSource: community ADS-B (adsb.fi / adsb.lol)")
         }
         AlertDialog.Builder(a)
@@ -118,7 +118,7 @@ internal object MapDialogs {
         r.status?.let { append("Status: $it\n") }
         r.heightM?.let { append(String.format(Locale.US, "Height: %.0f m\n", it)) }
         r.altitudeGeoM?.let { append(String.format(Locale.US, "Altitude (GPS): %.0f m\n", it)) }
-        r.speedMs?.let { append(String.format(Locale.US, "Speed: %.0f km/h\n", it * 3.6)) }
+        r.speedMs?.let { append("Speed: " + com.rfsentinel.app.util.Units.speed(it) + "\n") }
         r.directionDeg?.let { append("Heading: $it°\n") }
         r.operatorId?.let { append("Operator ID: $it\n") }
         r.selfIdDescription?.let { append("Description: $it\n") }

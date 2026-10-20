@@ -69,7 +69,7 @@ class WazeScreensTest {
             // Waze alone adds four: alert range, map range, and one interval slider per source.
             assertTrue("sliders: ${sliders.size}", sliders.size >= 4)
             sliders.forEach { it.measure(exactly, atMost) } // throws if a value does not fit its steps
-            assertEquals("one level menu per kind of report", WazePolice.Type.entries.size, views.filterIsInstance<AppCompatSpinner>().size)
+            assertEquals("one level menu per kind of report", WazePolice.Type.entries.size, views.filterIsInstance<AppCompatSpinner>().count { it.contentDescription != "Snooze length" })
             val text = views.filterIsInstance<TextView>().joinToString("\n") { it.text }
             assertTrue(text.contains("Alert when a report is within"))
             assertTrue(text.contains("Show reports on the map within"))

@@ -241,6 +241,25 @@ class CarReworkTest {
     }
 
     @Test
+    fun snoozeFollowsTheLengthSetUnderAlerts() {
+        assertEquals(30, Prefs.snoozeMinutes(car)) // as before
+        Prefs.setSnoozeMinutes(car, 10)
+        try {
+            assertEquals("Snooze alerts 10 min", rows(MoreScreen(car).onGetTemplate())[0].title.toString())
+            val now = System.currentTimeMillis()
+            AlertActionReceiver.snooze(car, now)
+            assertTrue(Prefs.alertsSilenced(car, now + 9 * 60_000L))
+            assertFalse(Prefs.alertsSilenced(car, now + 11 * 60_000L))
+            AlertActionReceiver.snooze(car, now, minutes = 60) // the speaker's long-press lengths
+            assertTrue(Prefs.alertsSilenced(car, now + 59 * 60_000L))
+            Prefs.setSnoozeMinutes(car, 7) // not a choice: back to the default
+            assertEquals(30, Prefs.snoozeMinutes(car))
+        } finally {
+            Prefs.setSnoozeMinutes(car, 30)
+        }
+    }
+
+    @Test
     fun trackerIgnoreOffersThePhonesThreeChoices() {
         val tag = "D1:22:33:44:55:66"
         DeviceRegistry.report(

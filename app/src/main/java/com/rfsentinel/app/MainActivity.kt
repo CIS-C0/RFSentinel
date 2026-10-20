@@ -45,6 +45,9 @@ class MainActivity : AppCompatActivity() {
         private const val WAZE_ROW = "waze:"
         private const val RADIO_ROW = "radio:"
         private const val AIRCRAFT_ROW = "air:"
+        // The speaker's long-press menu: after the snooze lengths (their indexes).
+        private const val MUTE_ITEM = 1000
+        private const val SOUND_ITEM = 1001
         /** A radio row flashes while its transmitter was heard this recently. */
         private const val RADIO_LIVE_MS = 15_000L
         private const val BLUETOOTH_TAG_COLOR = 0xFF1565C0.toInt()
@@ -621,6 +624,7 @@ class MainActivity : AppCompatActivity() {
                     .thenBy { it.firstSeen }
             )
 
+        refreshMuteButton()
         // The map and radar frames take the top alert's colour.
         panes.update(flagged.maxByOrNull { it.best?.confidence ?: 0 }?.let { colorFor(it) })
         if (panes.radarShown) {
@@ -989,9 +993,14 @@ class MainActivity : AppCompatActivity() {
         menu.findItem(R.id.action_waze_now)?.isVisible = wazeOn
         menu.findItem(R.id.action_waze_status)?.isVisible = wazeOn
         val muted = Prefs.alertsMuted(this)
+        val left = snoozeMinutesLeft()
         menu.findItem(R.id.action_mute)?.apply {
-            setIcon(if (muted) R.drawable.ic_car_volume_off else R.drawable.ic_car_volume)
-            title = if (muted) "Unmute alerts" else "Mute alerts"
+            setIcon(when { muted -> R.drawable.ic_car_volume_off; left > 0 -> R.drawable.ic_car_snooze; else -> R.drawable.ic_car_volume })
+            title = when {
+                muted -> "Alerts muted - tap for sound"
+                left > 0 -> "Alerts snoozed, $left min left - tap for sound"
+                else -> "Snooze alerts ${Prefs.snoozeMinutes(this@MainActivity)} min"
+            }
         }
         // The icons are white vectors; tint them to the theme's action-bar ink so they stay
         // visible on Paper and red-only in Night Drive.
@@ -999,7 +1008,88 @@ class MainActivity : AppCompatActivity() {
             supportActionBar?.themedContext ?: this, androidx.appcompat.R.attr.colorControlNormal, android.graphics.Color.WHITE
         )
         for (i in 0 until menu.size()) menu.getItem(i).icon?.mutate()?.setTint(ink)
+        // Snoozed: the minutes left on the speaker, like a radar detector's mute.
+        menu.findItem(R.id.action_mute)?.let { item ->
+            if (left > 0 && !muted) item.icon?.let { item.icon = MinutesBadge(it, left, ink) }
+        }
+        // Long-press: the other lengths, mute until turned back on, sound on. (After the toolbar has laid the button out.)
+        binding.root.post { findViewById<View>(R.id.action_mute)?.setOnLongClickListener { muteMenu(it); true } }
         return super.onPrepareOptionsMenu(menu)
+    }
+
+    /** Whole minutes of snooze left, rounded up; 0 when not snoozed. */
+    private fun snoozeMinutesLeft(now: Long = System.currentTimeMillis()): Long {
+        val until = Prefs.alertsSnoozedUntil(this)
+        return if (until > now) (until - now + 59_999) / 60_000 else 0
+    }
+
+    /** What the speaker shows (muted, minutes snoozed, sound on): the menu is redrawn when it changes, wherever it was changed from. */
+    private var muteShown: Pair<Boolean, Long>? = null
+    private fun refreshMuteButton() {
+        val now = Prefs.alertsMuted(this) to snoozeMinutesLeft()
+        if (now != muteShown) { muteShown = now; invalidateOptionsMenu() }
+    }
+
+    private fun soundOn() {
+        Prefs.setAlertsMuted(this, false)
+        Prefs.setAlertsSnoozedUntil(this, 0L)
+        invalidateOptionsMenu()
+        android.widget.Toast.makeText(this, "Alert sound on", android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    private fun snoozeFor(minutes: Int) {
+        Prefs.setAlertsMuted(this, false)
+        com.rfsentinel.app.receiver.AlertActionReceiver.snooze(this, minutes = minutes)
+        invalidateOptionsMenu()
+        android.widget.Toast.makeText(this, "Alerts snoozed for $minutes min · long-press for more", android.widget.Toast.LENGTH_SHORT).show()
+    }
+
+    private fun muteMenu(anchor: View) {
+        val silenced = Prefs.alertsSilenced(this)
+        val popup = android.widget.PopupMenu(this, anchor)
+        Prefs.SNOOZE_CHOICES.forEachIndexed { i, m -> popup.menu.add(0, i, i, "Snooze $m min") }
+        popup.menu.add(0, MUTE_ITEM, 100, "Mute until I turn it back on")
+        if (silenced) popup.menu.add(0, SOUND_ITEM, 101, "Sound on")
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                MUTE_ITEM -> {
+                    Prefs.setAlertsMuted(this, true)
+                    Prefs.setAlertsSnoozedUntil(this, 0L)
+                    com.rfsentinel.app.util.Voice.silence()
+                    invalidateOptionsMenu()
+                    android.widget.Toast.makeText(this, "Alert sound and voice muted", android.widget.Toast.LENGTH_SHORT).show()
+                }
+                SOUND_ITEM -> soundOn()
+                else -> snoozeFor(Prefs.SNOOZE_CHOICES[item.itemId])
+            }
+            true
+        }
+        popup.show()
+    }
+
+    /** The speaker icon with the snooze's minutes left in its corner. */
+    private class MinutesBadge(private val icon: android.graphics.drawable.Drawable, minutes: Long, color: Int) : android.graphics.drawable.Drawable() {
+        private val text = if (minutes > 99) "99+" else minutes.toString()
+        private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = color; typeface = android.graphics.Typeface.DEFAULT_BOLD; textAlign = android.graphics.Paint.Align.RIGHT
+        }
+        override fun getIntrinsicWidth() = icon.intrinsicWidth
+        override fun getIntrinsicHeight() = icon.intrinsicHeight
+        override fun onBoundsChange(bounds: android.graphics.Rect) { icon.bounds = bounds }
+        override fun draw(canvas: android.graphics.Canvas) {
+            val b = bounds
+            // The icon a little smaller, up and left, so the number fits bottom right without covering it.
+            canvas.save()
+            canvas.scale(0.78f, 0.78f, b.left.toFloat(), b.top.toFloat())
+            icon.draw(canvas)
+            canvas.restore()
+            paint.textSize = b.height() * 0.48f
+            canvas.drawText(text, b.right.toFloat(), b.bottom.toFloat() - b.height() * 0.02f, paint)
+        }
+        override fun setAlpha(alpha: Int) { icon.alpha = alpha; paint.alpha = alpha }
+        override fun setColorFilter(cf: android.graphics.ColorFilter?) { icon.colorFilter = cf; paint.colorFilter = cf }
+        @Deprecated("Deprecated in Java")
+        override fun getOpacity() = android.graphics.PixelFormat.TRANSLUCENT
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -1029,14 +1119,9 @@ class MainActivity : AppCompatActivity() {
             R.id.action_export -> { Exporter.showExportMenu(this); true }
             R.id.action_traces -> { startActivity(Intent(this, com.rfsentinel.app.ui.TripsActivity::class.java)); true }
             R.id.action_history -> { startActivity(Intent(this, com.rfsentinel.app.ui.HistoryActivity::class.java)); true }
+            // Like a radar detector's mute: a tap snoozes for the set length; muted or snoozed, a tap brings the sound back.
             R.id.action_mute -> {
-                val muted = !Prefs.alertsMuted(this)
-                Prefs.setAlertsMuted(this, muted)
-                if (muted) com.rfsentinel.app.util.Voice.silence()
-                invalidateOptionsMenu()
-                android.widget.Toast.makeText(
-                    this, if (muted) "Alert sound and voice muted" else "Alert sound on", android.widget.Toast.LENGTH_SHORT
-                ).show()
+                if (Prefs.alertsSilenced(this)) soundOn() else snoozeFor(Prefs.snoozeMinutes(this))
                 true
             }
             else -> super.onOptionsItemSelected(item)

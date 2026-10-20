@@ -67,10 +67,10 @@
 <li><b>Device details:</b> Whitelist, Watch and Favorite; trackers get the phone's three ignore choices (<i>it's mine</i>, <i>today only</i>, <i>pause follow warnings</i>). <b>Navigate</b> hands drones with a known position to your navigation app. A device that has left still shows its last alert.</li>
 <li><b>Recent alerts:</b> the last 40 alerts (devices, cameras, cell warnings), kept after the device is gone.</li>
 <li><b>Cameras:</b> tap one to see it alone on the map, navigate to it, or tap its row to turn its alerts off or back on (faded on the maps).</li>
-<li><b>More:</b> snooze alerts for 30 minutes, spoken alerts in the car, short spoken alerts, whether AirTags count as trackers, <b>cell towers</b> (fake-cell check status, serving cell and neighbours) and <b>hardware</b> status (phone radios and the scan watchdog, ESP32 / Marauder / Flipper on USB, OUI-SPY over Bluetooth, USB WiFi adapter).</li>
+<li><b>More:</b> snooze alerts (5 to 60 minutes, set under Alerts on the phone), spoken alerts in the car, short spoken alerts, whether AirTags count as trackers, <b>cell towers</b> (fake-cell check status, serving cell and neighbours) and <b>hardware</b> status (phone radios and the scan watchdog, ESP32 / Marauder / Flipper on USB, OUI-SPY over Bluetooth, USB WiFi adapter).</li>
 <li><b>Live map:</b> RF Sentinel's own OpenStreetMap map on the car screen with devices in list / radar colours, plate-reader, speed and red-light cameras, and your position. Drag, pinch or <b>+ / −</b>; <b>◎</b> follows the car again. Needs car API level 7; older Android Auto gets car-drawn maps with device and camera lists.</li>
 <li><b>Navigation:</b> <i>Navigate to...</i> starts from Home, Work, starred and recent places kept on the phone or a search with Photon and Nominatim (on submit only), routes with Valhalla, draws the route with next turn, ETA and distance, speaks turns and re-routes. The same navigation is on the phone.</li>
-<li><b>Alerts:</b> heads-up cards on the car screen with <b>Mute 30 min</b> and <b>Ignore</b> buttons, spoken through the car speakers as navigation guidance audio, briefly lowering music.</li>
+<li><b>Alerts:</b> heads-up cards on the car screen with <b>Mute</b> (the snooze length) and <b>Ignore</b> buttons, spoken through the car speakers as navigation guidance audio, briefly lowering music.</li>
 <li><b>Phone screen off:</b> Android limits Bluetooth scanning then. The car warns you when a scan starts that way and shows "Bluetooth limited" on its home screen; WiFi, cell checks and known cameras keep working.</li>
 </ul>
 
@@ -81,7 +81,7 @@
 <li>Open <b>Android Auto settings</b> on the phone and tap <b>Version</b> ten times to unlock developer mode.</li>
 <li><b>⋮ → Developer settings</b> → enable <b>Unknown sources</b>, then reconnect to the car.</li>
 <li><b>RF Sentinel screen (media-style):</b> tabs for <b>Threats</b>, <b>Cameras</b> (nearest known cameras, the one ahead first), <b>Alerts</b> and <b>Status</b> (start / stop scanning, mute, cell towers, hardware), plus a card with the current threat and <b>Scan</b> / <b>Mute</b> buttons. It never plays anything, so your music keeps playing and keeps the steering-wheel buttons.</li>
-<li><b>Alerts as messages:</b> every alert arrives as a message from RF Sentinel, which the car shows and can read aloud. Reply <b>"mute"</b> to silence alerts for 30 minutes, or <b>"ignore"</b> to stop alerting about the latest device.</li>
+<li><b>Alerts as messages:</b> every alert arrives as a message from RF Sentinel, which the car shows and can read aloud. Reply <b>"mute"</b> to snooze alerts (30 minutes unless you change it), or <b>"ignore"</b> to stop alerting about the latest device.</li>
 <li>If RF Sentinel is missing from the car's launcher, tick it under <b>Customize launcher</b>. The live map needs the full car app, so it stays on the Desktop Head Unit.</li>
 </ol>
 

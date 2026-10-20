@@ -1284,6 +1284,42 @@ class SettingsActivity : AppCompatActivity() {
         box.addView(group)
     }
 
+    /** Alerts > Snooze length, under Vibration: how long the toolbar speaker, a notification's Mute and the car's snooze last. */
+    private fun setupSnoozeLength() {
+        val section = binding.sectionAlerts
+        val at = (0 until section.childCount).firstOrNull { i ->
+            val v = section.getChildAt(i)
+            v === binding.vibrateSwitch || (v as? android.view.ViewGroup)?.indexOfChild(binding.vibrateSwitch)?.let { it >= 0 } == true
+        } ?: return
+        val choices = Prefs.SNOOZE_CHOICES
+        val row = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            minimumHeight = (48 * resources.displayMetrics.density).toInt()
+        }
+        row.addView(android.widget.TextView(this).apply {
+            text = "Snooze length"
+            setTextAppearance(android.R.style.TextAppearance_Material_Body1)
+        }, android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        row.addView(androidx.appcompat.widget.AppCompatSpinner(this).apply {
+            adapter = android.widget.ArrayAdapter(this@SettingsActivity, android.R.layout.simple_spinner_item, choices.map { "$it min" }).also {
+                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            setSelection(choices.indexOf(Prefs.snoozeMinutes(this@SettingsActivity)).coerceAtLeast(0))
+            contentDescription = "Snooze length"
+            onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    Prefs.setSnoozeMinutes(this@SettingsActivity, choices[position])
+                }
+                override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+            }
+        })
+        section.addView(infoRow(row, "How long a snooze silences the alert sound and voice, like a radar detector's mute: the " +
+            "speaker button at the top of the main screen (tap it), Mute on an alert notification, and the car's snooze. " +
+            "Alerts still show on screen and in the list while snoozed. Long-press the speaker button for other lengths or " +
+            "to mute until you turn the sound back on.", "Snooze length"), at + 1)
+    }
+
     /** Settings > Map: what the map shows (moved here from the map's menu). Saved as you switch. */
     private fun setupMapSection() {
         setupMapProvider()
@@ -2009,6 +2045,7 @@ class SettingsActivity : AppCompatActivity() {
         )
         binding.soundSwitch.isChecked = Prefs.soundEnabled(this)
         binding.vibrateSwitch.isChecked = Prefs.vibrateEnabled(this)
+        setupSnoozeLength()
         binding.radarBeepSwitch.isChecked = Prefs.radarBeep(this)
         binding.detectorSoundSwitch.isChecked = Prefs.detectorSound(this)
         binding.startupSweepSwitch.isChecked = Prefs.startupSweep(this)

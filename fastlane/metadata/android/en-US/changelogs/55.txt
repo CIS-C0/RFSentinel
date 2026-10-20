@@ -1,7 +1,8 @@
-- TETRA: spots emergency-service radios on 380-385 MHz by their time-slot bursts (on by default in Europe, nothing decoded).
+- TETRA: spots emergency-service radios on 380-385 MHz by their burst timing (on in Europe, nothing decoded).
 - HackRF One works as the radio detector (receive only).
-- Recording banner and scan warnings can be hidden with ✕.
-- Fewer "Bluetooth scan restarted" stalls.
-- A VeryFit watch (IDW26) using TASER's Bluetooth ID no longer shows as Axon gear.
+- Speaker button snoozes alerts (5-60 min); long-press for more.
+- Trip distances follow km/mi; the full-screen map keeps your heading.
+- ✕ hides the recording banner and scan warnings.
+- Fewer Bluetooth scan stalls.
+- An IDW26 watch no longer shows as Axon gear.
 - "No signal" no longer logs as +127 dBm.
-- RTL8822BU register tables ship as text.

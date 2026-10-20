@@ -181,7 +181,7 @@ object NotificationHelper {
                     .setContentText(if (discreet) "New alert" else hit.evidence)
                     .setSmallIcon(R.drawable.ic_tile_scan)
                     .setImportance(NotificationManagerCompat.IMPORTANCE_HIGH)
-                    .addAction(R.drawable.ic_car_volume_off, "Mute 30 min",
+                    .addAction(R.drawable.ic_car_volume_off, "Mute ${Prefs.snoozeMinutes(context)} min",
                         com.rfsentinel.app.receiver.AlertActionReceiver.snoozeIntent(context, ALERT_NOTIFICATION_ID_BASE + key.hashCode()))
                     .build()
             )
@@ -318,7 +318,7 @@ object NotificationHelper {
                     )
                     // One tap from the car screen: silence alerts for a while, or stop
                     // alerting about this device (undo from its details).
-                    .addAction(R.drawable.ic_car_volume_off, "Mute 30 min",
+                    .addAction(R.drawable.ic_car_volume_off, "Mute ${Prefs.snoozeMinutes(context)} min",
                         com.rfsentinel.app.receiver.AlertActionReceiver.snoozeIntent(context, ALERT_NOTIFICATION_ID_BASE + mac.hashCode()))
                     .addAction(R.drawable.ic_car_star_outline, "Ignore",
                         com.rfsentinel.app.receiver.AlertActionReceiver.ignoreIntent(context, mac, ALERT_NOTIFICATION_ID_BASE + mac.hashCode()))

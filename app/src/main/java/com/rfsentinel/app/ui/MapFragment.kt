@@ -88,6 +88,14 @@ class MapFragment : Fragment() {
         const val EXTRA_NAV_LON = "nav_lon"
         /** Inside the main screen (its chips drive the filter; the menu is a button on the map). */
         const val ARG_EMBEDDED = "embedded"
+        /** The view the map was opened from (lat, lon, zoom, bearing, tilt) and whether it followed you: full screen carries on from it. */
+        const val EXTRA_CAMERA = "camera"
+        const val EXTRA_FOLLOWING = "following"
+        /**
+         * The last real heading, shared by every map (like [MapGps]): a map opened while stopped or crawling
+         * turns the same way as the one before it, not north until you drive off.
+         */
+        @Volatile private var heldBearing: Float? = null
         /** A failed camera download stays in the status line this long (the retry runs after a minute). */
         private const val CAMERA_FAIL_SHOWN_MS = 90_000L
         /** [MapStart]'s levels are the classic raster map's: the vector map's are this much lower. */
@@ -169,7 +177,6 @@ class MapFragment : Fragment() {
     private var rf: RfMap? = null
     private val map: MapEngine? get() = rf?.map
     private var lastFix: Location? = null
-    private var lastBearing: Float? = null
     private var smoothKmh = -1f
     private var stopObservingBulk: (() -> Unit)? = null
     private val dateFmt = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
@@ -215,12 +222,18 @@ class MapFragment : Fragment() {
 
     /** The map on its own screen, on [place] to plan a route to when given (else on the route being followed). */
     private fun openFullMap(place: Place?) {
-        startActivity(Intent(act, MapActivity::class.java).apply {
+        startActivity(fullMapIntent().apply {
             if (place != null) {
                 putExtra(EXTRA_NAV_NAME, place.name); putExtra(EXTRA_NAV_ADDRESS, place.address)
                 putExtra(EXTRA_NAV_LAT, place.lat); putExtra(EXTRA_NAV_LON, place.lon)
             }
         })
+    }
+
+    /** The map on its own screen, looking where this one looks: same place, zoom, heading and tilt, still following you if this one was. */
+    private fun fullMapIntent() = Intent(act, MapActivity::class.java).apply {
+        map?.camera?.let { c -> putExtra(EXTRA_CAMERA, doubleArrayOf(c.lat, c.lon, c.zoom, c.bearing, c.tilt)) }
+        putExtra(EXTRA_FOLLOWING, following)
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -452,6 +465,17 @@ class MapFragment : Fragment() {
             return
         }
         if (tripId != null) return // framed on the trace once it's loaded
+        val from = args.getDoubleArray(EXTRA_CAMERA)?.takeIf { it.size == 5 }
+        if (from != null) {
+            // Opened full screen from the small map: carry on from its view rather than snap north.
+            m.jumpTo(from[0], from[1], from[2])
+            m.easeTo(bearing = from[3], tilt = from[4], ms = 0)
+            centeredOnce = true
+            lastFix = knownFix()
+            following = args.getBoolean(EXTRA_FOLLOWING) && Permissions.granted(act, android.Manifest.permission.ACCESS_FINE_LOCATION)
+            styleFollowButton()
+            return
+        }
         val knownFix = knownFix()
         val start = MapStart.camera(
             listOf(knownFix?.let { MapStart.Fix(it.latitude, it.longitude, it.time) }),
@@ -574,7 +598,7 @@ class MapFragment : Fragment() {
         binding.fullscreenButton.visibility = View.VISIBLE
         binding.fullscreenButton.backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFFFFFFF.toInt())
         binding.fullscreenButton.imageTintList = android.content.res.ColorStateList.valueOf(0xFF0B5C63.toInt())
-        binding.fullscreenButton.setOnClickListener { startActivity(Intent(act, MapActivity::class.java)) }
+        binding.fullscreenButton.setOnClickListener { startActivity(fullMapIntent()) }
         // A short pane has no room for five buttons stacked on the right: map settings, light / dark and
         // full screen join Record and Traces along the bottom; the compass and follow stay on the right.
         val gap = (8 * resources.displayMetrics.density).toInt()
@@ -904,8 +928,8 @@ class MapFragment : Fragment() {
      */
     private fun steady(fix: Location): Location {
         val moving = fix.hasSpeed() && fix.speed >= HEADING_MIN_SPEED_MS && fix.hasBearing()
-        if (moving) { lastBearing = fix.bearing; return fix }
-        return Location(fix).apply { lastBearing?.let { bearing = it } }
+        if (moving) { heldBearing = fix.bearing; return fix }
+        return Location(fix).apply { heldBearing?.let { bearing = it } }
     }
 
     /** When the map was last touched (panned, pinched...): the auto-recenter counts from it. */
@@ -1308,8 +1332,8 @@ class MapFragment : Fragment() {
             showRec -> {
                 val mins = (System.currentTimeMillis() - TripRecorder.startedAt) / 60000
                 String.format(
-                    Locale.US, "● Recording %d:%02d · %.2f km · %s (%d flagged)",
-                    mins / 60, mins % 60, TripRecorder.distanceM / 1000, devicesLabel(TripRecorder.deviceCount()), TripRecorder.flaggedCount()
+                    Locale.US, "● Recording %d:%02d · %s · %s (%d flagged)",
+                    mins / 60, mins % 60, com.rfsentinel.app.util.Units.trip(TripRecorder.distanceM), devicesLabel(TripRecorder.deviceCount()), TripRecorder.flaggedCount()
                 )
             }
             positioned == 0 -> "Scanning · waiting for GPS to place devices"
@@ -1338,8 +1362,8 @@ class MapFragment : Fragment() {
                 if (saved != null) {
                     AlertDialog.Builder(act)
                         .setTitle("Trace saved")
-                        .setMessage(String.format(Locale.US, "%s\n%.2f km · %s (%d flagged)",
-                            saved.name, saved.distanceM / 1000, devicesLabel(saved.deviceCount), saved.flaggedCount))
+                        .setMessage(String.format(Locale.US, "%s\n%s · %s (%d flagged)",
+                            saved.name, com.rfsentinel.app.util.Units.trip(saved.distanceM), devicesLabel(saved.deviceCount), saved.flaggedCount))
                         .setPositiveButton("View") { _, _ -> openTrip(saved.id) }
                         .setNeutralButton("Export") { _, _ -> Exporter.showTripExport(act, saved.id) }
                         .setNegativeButton("Close", null)
@@ -1398,8 +1422,8 @@ class MapFragment : Fragment() {
             }
             val mins = ((t.endTime ?: System.currentTimeMillis()) - t.startTime) / 60000
             binding.statusText.text = String.format(
-                Locale.US, "%s\n%s · %d:%02d · %.2f km · %s (%d flagged)",
-                t.name, dateFmt.format(Date(t.startTime)), mins / 60, mins % 60, t.distanceM / 1000,
+                Locale.US, "%s\n%s · %d:%02d · %s · %s (%d flagged)",
+                t.name, dateFmt.format(Date(t.startTime)), mins / 60, mins % 60, com.rfsentinel.app.util.Units.trip(t.distanceM),
                 devicesLabel(t.deviceCount), t.flaggedCount
             )
             binding.statusText.background.mutate().setTint(0xCC1F5FBF.toInt())

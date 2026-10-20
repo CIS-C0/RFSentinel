@@ -197,6 +197,7 @@ Everything the app does, grouped by area.
 - **Short spoken alerts** option ("Body cam", "Police car", "Speed camera, 50")
 - **Voice loudness** boost up to +15 dB (without distorting) for when music drowns the voice, in the car too, and an option to **pause music** while an alert is spoken
 - Discreet mode, adjustable alert threshold, mute from the app or the car
+- **Snooze like a radar detector:** tap the speaker at the top of the main screen to silence alerts for a while (5 to 60 minutes, set under Alerts), tap again for sound; long-press it for other lengths or to mute until you turn it back on. The minutes left show on the button
 - **Floating threat bubble** over Waze, Google Maps or any app, with a pop-up card saying what was just detected
 - **Alert card on the full screen map:** each alert (a flagged device, a known camera, a Waze report, a cell warning) pops up as a card under the turn banner - what it is, how far, how sure, "on your route" when it is - and goes by itself after a few seconds (longer for a strong match or something following you) or when dismissed; tap it to look at the place. Silent, honours Discreet mode and the alert snooze
 - **Floating mini map** over other apps: the devices and known cameras around you, like the app's map (pinch to zoom, drag, resize)
@@ -219,7 +220,7 @@ Everything the app does, grouped by area.
 <details>
 <summary><b>Driving</b></summary>
 
-- **Android Auto** app: threat headline, next camera ahead, recent alerts, filtered device lists, cell towers, hardware status, live map with cameras and drones, OpenStreetMap turn-by-turn navigation, alerts through the car speakers with Mute 30 min / Ignore buttons
+- **Android Auto** app: threat headline, next camera ahead, recent alerts, filtered device lists, cell towers, hardware status, live map with cameras and drones, OpenStreetMap turn-by-turn navigation, alerts through the car speakers with Mute (snooze) / Ignore buttons
 - **Starts by itself in the car** (your car's Bluetooth or Android Auto) and stops when you leave
 - Night Drive red-only theme; screen stays on while charging
 
@@ -513,7 +514,7 @@ A driver-safe, template-based Android Auto app:
   after the device is gone.
 - **Cameras:** tap one to see it alone on the map, navigate to it, or tap its
   row to turn its alerts off or back on (faded on the maps).
-- **More:** snooze alerts for 30 minutes, spoken alerts in the car, short
+- **More:** snooze alerts (the length set under Alerts), spoken alerts in the car, short
   spoken alerts, whether AirTags count as trackers, **cell towers** (fake-cell
   check status, serving cell and neighbours) and **hardware** status (phone
   radios and the scan watchdog, ESP32 / Marauder / Flipper on USB, OUI-SPY over
@@ -525,7 +526,7 @@ A driver-safe, template-based Android Auto app:
 - **Navigation:** *Navigate to...* searches with [Photon](https://photon.komoot.io) and
   [Nominatim](https://nominatim.org) (on submit only), starts from Home, Work, starred and recent places kept on the phone,
   routes with [Valhalla](https://valhalla.github.io/valhalla/), speaks turns and re-routes.
-- **Alerts** appear as heads-up cards with **Mute 30 min** and **Ignore**
+- **Alerts** appear as heads-up cards with **Mute N min** (the snooze length) and **Ignore**
   buttons, and play through the car speakers as navigation audio, briefly
   lowering your music.
 - Screens only redraw when what they show has changed, and a screen that fails

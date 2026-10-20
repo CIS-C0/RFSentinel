@@ -38,6 +38,10 @@ object Units {
         if (!feet) { if (m < 1000) "${m.toInt()} m" else String.format(Locale.US, "%.2f km", m / 1000) }
         else { val ft = m * 3.28084; if (ft < 1000) "${ft.toInt()} ft" else String.format(Locale.US, "%.2f mi", m / 1609.344) }
 
+    /** A trip's length, always in the big unit: "0.00 km", "12.34 km"; "0.00 mi", "7.67 mi". */
+    fun trip(m: Double, feet: Boolean = imperial): String =
+        if (feet) String.format(Locale.US, "%.2f mi", m / 1609.344) else String.format(Locale.US, "%.2f km", m / 1000)
+
     /** A plain length: "40 m"; "131 ft" (miles past 1000 ft). */
     fun length(m: Double, feet: Boolean = imperial): String = if (!feet) "${m.roundToInt()} m" else {
         val ft = m * 3.28084
