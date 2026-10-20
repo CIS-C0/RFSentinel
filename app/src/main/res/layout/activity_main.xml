@@ -255,15 +255,32 @@
                     android:paddingBottom="8dp" />
             </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-            <TextView
-                android:id="@+id/emptyText"
+            <LinearLayout
+                android:id="@+id/emptyState"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
-                android:gravity="center"
-                android:padding="24dp"
-                android:text="No devices heard yet.\nTap a device for full details.\nLong-press for quick actions (watchlist, whitelist, favorite)."
-                android:textColor="?android:attr/textColorSecondary" />
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/emptyText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:padding="24dp"
+                    android:text="No devices heard yet.\nTap a device for full details.\nLong-press for quick actions (watchlist, whitelist, favorite)."
+                    android:textColor="?android:attr/textColorSecondary" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/showAllButton"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:text="Show all"
+                    android:visibility="gone" />
+            </LinearLayout>
 
             <!-- Scrolled down when a new alert arrives above: tap to go up to it. -->
             <TextView

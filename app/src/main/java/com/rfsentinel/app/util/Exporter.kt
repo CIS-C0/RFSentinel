@@ -56,6 +56,9 @@ object Exporter {
     /** Shortcut straight to the device history's formats (CSV / JSON): what Import history reads back. */
     fun showHistoryExport(activity: AppCompatActivity) = chooseFormat(activity, Scope.HISTORY)
 
+    /** Shortcut straight to the watchlist file (it has one format). */
+    fun showWatchlistExport(activity: AppCompatActivity) = exportWatchlist(activity)
+
     /** Shortcut straight to the "all nearby devices" formats. */
     fun showExportAll(activity: AppCompatActivity) = chooseFormat(activity, Scope.SESSION)
 

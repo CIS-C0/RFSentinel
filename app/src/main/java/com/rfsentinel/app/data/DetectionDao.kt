@@ -14,6 +14,19 @@ interface DetectionDao {
     @Query("SELECT * FROM detections ORDER BY timestamp DESC LIMIT 1000")
     fun recent(): Flow<List<DetectionEntity>>
 
+    /** Match history search: text in the address, label, maker, name or evidence; one category; since a time. */
+    @Query("""SELECT * FROM detections
+        WHERE timestamp >= :since AND (:category IS NULL OR category = :category)
+          AND (:query = '' OR mac LIKE :like ESCAPE '\' OR REPLACE(mac, ':', '') LIKE :likeHex ESCAPE '\'
+               OR label LIKE :like ESCAPE '\' OR vendor LIKE :like ESCAPE '\'
+               OR deviceName LIKE :like ESCAPE '\' OR evidence LIKE :like ESCAPE '\')
+        ORDER BY timestamp DESC LIMIT 1000""")
+    fun search(query: String, like: String, likeHex: String, category: String?, since: Long): Flow<List<DetectionEntity>>
+
+    /** The categories in the log, for the filter chips. */
+    @Query("SELECT DISTINCT category FROM detections")
+    suspend fun categories(): List<String>
+
     @Query("SELECT * FROM detections WHERE mac = :mac ORDER BY timestamp DESC LIMIT 200")
     suspend fun forMac(mac: String): List<DetectionEntity>
 

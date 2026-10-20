@@ -81,7 +81,27 @@ class MainActivity : AppCompatActivity() {
             startScanning()
         } else {
             binding.statusText.text = "Location and Bluetooth-scan permissions are required to scan"
+            // Denied for good: Android no longer shows its prompt, so Start alone would do nothing.
+            if (Permissions.missingRequired(this).any { !shouldShowRequestPermissionRationale(it) }) askForAppSettings()
         }
+    }
+
+    /** The only way left to grant a refused permission: the app's page in Android's settings. */
+    private fun askForAppSettings() {
+        val what = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S)
+            "Location (precise) and Nearby devices" else "Location (precise)"
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("Permissions needed to scan")
+            .setMessage("RF Sentinel needs $what to scan, and Android won't ask again. " +
+                "Open the app's settings, then Permissions, and allow them.")
+            .setPositiveButton("Open app settings") { _, _ ->
+                runCatching {
+                    startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        android.net.Uri.fromParts("package", packageName, null)))
+                }
+            }
+            .setNegativeButton("Not now", null)
+            .show()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -311,9 +331,9 @@ class MainActivity : AppCompatActivity() {
         panes.apply()
         // The "nothing heard" note sits over the list, or over the radar when there is no list.
         val home = if (!panes.listShown && panes.radarShown) binding.radarPane else binding.listFrame
-        if (binding.emptyText.parent !== home) {
-            (binding.emptyText.parent as? android.view.ViewGroup)?.removeView(binding.emptyText)
-            home.addView(binding.emptyText, android.widget.FrameLayout.LayoutParams(
+        if (binding.emptyState.parent !== home) {
+            (binding.emptyState.parent as? android.view.ViewGroup)?.removeView(binding.emptyState)
+            home.addView(binding.emptyState, android.widget.FrameLayout.LayoutParams(
                 android.widget.FrameLayout.LayoutParams.MATCH_PARENT, android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
                 android.view.Gravity.CENTER))
         }
@@ -333,6 +353,9 @@ class MainActivity : AppCompatActivity() {
             filterChips[f] = chip
             binding.filterChips.addView(chip)
             if (f == filter) { chip.isChecked = true; scrollToChip(chip) }
+        }
+        binding.showAllButton.setOnClickListener {
+            filterChips[com.rfsentinel.app.ui.DeviceFilter.ALL]?.let { it.isChecked = true; scrollToChip(it) }
         }
         binding.filterChips.setOnCheckedStateChangeListener { _, ids ->
             filter = filterChips.entries.firstOrNull { it.value.id == ids.firstOrNull() }?.key ?: return@setOnCheckedStateChangeListener
@@ -670,7 +693,10 @@ class MainActivity : AppCompatActivity() {
             submitRows(airUrgent + radioLive + urgent + visible.map { toRow(it, now, threshold) } + airQuiet + radioOld + cells + quiet)
             shownCells = cells.size + waze.size + radio.size + air.size
         }
-        binding.emptyText.visibility = if (visible.isEmpty() && (!panes.listShown || shownCells == 0)) View.VISIBLE else View.GONE
+        binding.emptyState.visibility = if (visible.isEmpty() && (!panes.listShown || shownCells == 0)) View.VISIBLE else View.GONE
+        // A filter that hides everything heard: one tap back to the full list.
+        binding.showAllButton.visibility =
+            if (filter != com.rfsentinel.app.ui.DeviceFilter.ALL && all.isNotEmpty()) View.VISIBLE else View.GONE
         binding.emptyText.text = when {
             all.isEmpty() && !ScanForegroundService.isRunning -> "Not scanning.\nTap Start scanning to begin."
             all.isEmpty() -> "Listening... no devices heard yet."

@@ -71,8 +71,8 @@ class WaterfallActivity : AppCompatActivity() {
         super.onStop()
         SdrWaterfall.listener = null
         queue.clear()
-        // Radio detection never stays paused behind a closed screen.
-        SdrRadio.tuneHz = null
+        // Radio detection never stays paused behind a closed screen (a redraw for a new theme comes straight back).
+        if (!isChangingConfigurations) SdrRadio.tuneHz = null
     }
 
     override fun onSupportNavigateUp(): Boolean { finish(); return true }

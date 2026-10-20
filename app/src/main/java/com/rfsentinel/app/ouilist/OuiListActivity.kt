@@ -7,6 +7,7 @@ import android.view.MenuItem
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.rfsentinel.app.databinding.ActivityOuiListBinding
 import com.rfsentinel.app.oui.OuiEntry
@@ -59,6 +60,7 @@ class OuiListActivity : AppCompatActivity() {
         }
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
+        binding.searchInput.doAfterTextChanged { refresh() }
 
         val types = RuleType.entries
         binding.ruleType.setAdapter(android.widget.ArrayAdapter(this, android.R.layout.simple_list_item_1, types.map { it.label }))
@@ -77,10 +79,15 @@ class OuiListActivity : AppCompatActivity() {
             } else if (label.isEmpty()) {
                 binding.labelInput.error = "Label required"
             } else {
+                val before = OuiWatchlist.customEntry(key)
                 OuiWatchlist.addCustomEntry(this, OuiEntry(key, label, "user-added", "custom"))
                 binding.prefixInput.text?.clear()
                 binding.labelInput.text?.clear()
                 refresh()
+                com.rfsentinel.app.util.Undo.show(this, if (before != null) "Updated $label" else "Watching $label") {
+                    if (before != null) OuiWatchlist.addCustomEntry(this, before) else OuiWatchlist.removeCustomEntry(this, key)
+                    refresh()
+                }
             }
         }
 
@@ -109,7 +116,7 @@ class OuiListActivity : AppCompatActivity() {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
-        1 -> { Exporter.showExportMenu(this); true }
+        1 -> { Exporter.showWatchlistExport(this); true }
         2 -> { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")); true }
         android.R.id.home -> { finish(); true }
         else -> super.onOptionsItemSelected(item)
@@ -117,10 +124,19 @@ class OuiListActivity : AppCompatActivity() {
 
     private fun refresh() {
         OuiWatchlist.load(this)
+        val all = OuiWatchlist.allEntries()
+        // The search box: the rule, its label or where it came from (also an address typed without colons).
+        val q = binding.searchInput.text?.toString()?.trim().orEmpty()
+        val hex = q.replace(":", "").replace("-", "")
+        val shown = if (q.isEmpty()) all else all.filter { e ->
+            e.prefix.contains(q, true) || e.label.contains(q, true) || e.source.contains(q, true) ||
+                (hex.length >= 2 && e.prefix.replace(":", "").contains(hex, true))
+        }
         // Your own entries first, then presets by confidence.
-        adapter.update(OuiWatchlist.allEntries().sortedWith(
+        adapter.update(shown.sortedWith(
             compareByDescending<OuiEntry> { it.isCustom }.thenByDescending { it.effectiveScore }
         ))
+        supportActionBar?.subtitle = if (q.isEmpty()) "${all.size} rules" else "${shown.size} of ${all.size} rules"
     }
 
     private companion object {

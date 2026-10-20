@@ -43,6 +43,7 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
 
     // Where each pixel column comes from in the current rows' layout.
     private var layoutKey = ""
+    private var layoutW = 0; private var layoutH = 0
     private var colSeg = IntArray(0); private var colFrom = IntArray(0); private var colTo = IntArray(0)
     private var colHz = LongArray(0)
     /** Columns where one band stops and another starts (not side by side in frequency). */
@@ -73,8 +74,8 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
     /** Adds the newest row; call on the main thread, then [invalidate]. */
     fun add(row: SdrWaterfall.Row) {
         val w = width; if (w <= 0 || height <= waterTop + 8 * density) return
-        val key = row.tuned.toString() + w + row.segments.joinToString { "${it.startHz}-${it.endHz}" }
-        if (key != layoutKey) relayout(row, w, key)
+        val key = row.tuned.toString() + row.segments.joinToString { "${it.startHz}-${it.endHz}" }
+        if (key != layoutKey || w != layoutW || height != layoutH) relayout(row, w, key)
         // One value per column: the strongest bin under it, so a narrow signal never falls between pixels.
         val values = FloatArray(w) { x ->
             val d = row.segments[colSeg[x]].db
@@ -94,7 +95,10 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
     }
 
     private fun relayout(row: SdrWaterfall.Row, w: Int, key: String) {
-        layoutKey = key; tuned = row.tuned
+        // Only the size changed (the phone turned): the rows so far are kept, stretched to the new width.
+        val old = bitmap?.takeIf { key == layoutKey && rows > 0 && !it.isRecycled }
+        val oldRows = rows; val oldNewest = newest
+        layoutKey = key; layoutW = w; layoutH = height; tuned = row.tuned
         val segs = row.segments
         val total = segs.sumOf { it.endHz - it.startHz }.coerceAtLeast(1)
         colSeg = IntArray(w); colFrom = IntArray(w); colTo = IntArray(w); colHz = LongArray(w)
@@ -118,13 +122,24 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
         // The sweep gives a row every second or two: taller rows, so the history isn't a thin strip.
         val rowPx = if (row.tuned) 1f else 4 * density
         val h = ((height - waterTop) / rowPx).toInt().coerceAtLeast(1)
+        val fresh = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.BLACK) }
+        pixels = IntArray(w); newest = 0; rows = 0; spectrum = null; peak = null
+        if (old != null) {
+            // Newest first from row 0, as the screen shows them; the next row goes in above (ring buffer).
+            val c = Canvas(fresh)
+            val keep = minOf(oldRows, h)
+            val first = minOf(keep, old.height - oldNewest)
+            c.drawBitmap(old, Rect(0, oldNewest, old.width, oldNewest + first), Rect(0, 0, w, first), bitmapPaint)
+            if (keep > first) c.drawBitmap(old, Rect(0, 0, old.width, keep - first), Rect(0, first, w, keep), bitmapPaint)
+            rows = keep
+        } else floor = Float.NaN
         bitmap?.recycle()
-        bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.BLACK) }
-        pixels = IntArray(w); newest = 0; rows = 0; spectrum = null; peak = null; floor = Float.NaN
+        bitmap = fresh
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        if (w != oldw || h != oldh) { layoutKey = ""; bitmap?.recycle(); bitmap = null }
+        // The next row lays it out again at the new size, keeping the rows so far.
+        if (w != oldw || h != oldh) invalidate()
     }
 
     override fun onDetachedFromWindow() {
