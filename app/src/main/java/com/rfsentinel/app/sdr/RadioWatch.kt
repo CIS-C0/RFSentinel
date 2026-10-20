@@ -222,7 +222,8 @@ class RadioWatch {
         private const val CHANNEL_HALF_HZ = 5_000.0
         /** Only the flat middle of the spectrum is used; the edges roll off. */
         const val USABLE_HZ = 800_000.0
-        private const val DC_GUARD_HZ = 15_000L
+        /** Around a chunk's centre the receiver's own DC spike hides everything. */
+        const val DC_GUARD_HZ = 15_000L
         private const val ACTIVE_DB = 12
         private const val SPLATTER_HZ = 37_500L
         private const val BUSY_RATIO = 0.4

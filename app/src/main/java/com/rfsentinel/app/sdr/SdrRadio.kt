@@ -18,6 +18,9 @@ import com.rfsentinel.app.usb.UsbWifi
  *
  * Or, with [adsb] on, it stays on 1090 MHz as an ADS-B receiver ([ModeS], [AdsbTracker]):
  * aircraft heard directly, no internet needed, handed to [onAircraft] every few seconds.
+ *
+ * The radio waterfall screen ([SdrWaterfall]) gets a row per sweep, or, zoomed in with [tuneHz],
+ * holds one frequency for a fast live view (the sweep and ADS-B pause meanwhile).
  */
 object SdrRadio {
 
@@ -30,6 +33,8 @@ object SdrRadio {
     private const val STALL_CHUNKS = 8        // chunks in a row without samples before the stream is restarted
     private const val ADSB_GAIN_TENTHS_DB = 496 // the tuner's most: aircraft are far and faint
     private const val ADSB_PUSH_MS = 2_000L
+    private const val TUNED_READS = 4          // ~16 ms of samples per waterfall row
+    private const val TUNED_ROW_MS = 40L       // at most ~25 rows a second
 
     @Volatile var status: String = ""; private set
     /** ADS-B messages decoded since the app started, for the main screen's messages-per-second line. */
@@ -52,6 +57,15 @@ object SdrRadio {
     private val halted get() = stop || Thread.currentThread() !== worker
     /** Receive ADS-B on 1090 MHz instead of sweeping the radio bands; switches at the next sweep. */
     @Volatile var adsb = false
+    /**
+     * The waterfall screen zoomed in: hold this frequency instead of sweeping (or receiving ADS-B),
+     * until set back to null. Picked up within a chunk.
+     */
+    @Volatile var tuneHz: Long? = null
+    /** Learned channels for the sweep, kept while the waterfall zooms in and out (new per device). */
+    private var sweepWatch: RadioWatch? = null
+    /** An SDR is plugged in and being read. */
+    val running: Boolean get() = runningDevice != null
     /** Where you are (latitude, longitude), to drop impossible aircraft positions. */
     @Volatile var location: (() -> Pair<Double, Double>?)? = null
     /** Aircraft with a position, and addresses heard without one, every couple of seconds in ADS-B mode. */
@@ -93,6 +107,7 @@ object SdrRadio {
         receiver = null
         halt("")
         onEvent = null
+        tuneHz = null
     }
 
     @Synchronized
@@ -172,7 +187,12 @@ object SdrRadio {
                 else "RTL-SDR: this tuner isn't supported yet (R820T / R820T2 / R860 / R828D only)"
             return false
         }
-        while (!halted && !sdr.lost && !gone(d.deviceName)) if (adsb) runAdsb(sdr, d.deviceName) else runSweep(sdr, d.deviceName)
+        sweepWatch = null
+        while (!halted && !sdr.lost && !gone(d.deviceName)) when {
+            tuneHz != null -> runTuned(sdr, d.deviceName)
+            adsb -> runAdsb(sdr, d.deviceName)
+            else -> runSweep(sdr, d.deviceName)
+        }
         if (sdr.lost) UsbWifi.log("$deviceLabel: the dongle stopped answering (unplugged?)")
         val away = sdr.lost || gone(d.deviceName)
         if (!away) sdr.close()
@@ -202,7 +222,7 @@ object SdrRadio {
         val frames = ArrayList<ModeS.Frame>()
         var lastPush = 0L; var lastLog = System.currentTimeMillis(); var fails = 0; var messages = 0L; var logged = 0L
         var lastCheck = System.currentTimeMillis()
-        while (!halted && !sdr.lost && adsb) {
+        while (!halted && !sdr.lost && adsb && tuneHz == null) {
             val n = sdr.read(buf)
             // Every couple of seconds: still plugged in? (Reads alone can fail quietly for a long time.)
             if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
@@ -250,7 +270,7 @@ object SdrRadio {
         sdr.resetBuffer()
         var cfg = config
         var plan = RadioWatch.plan(cfg)
-        val watch = RadioWatch()
+        val watch = sweepWatch ?: RadioWatch().also { sweepWatch = it }
         watch.config = cfg
         fun logPlan() = UsbWifi.log("$deviceLabel: ${sdr.sampleRate} S/s, gain ${GAIN_TENTHS_DB / 10.0} dB, ${plan.size} chunks per sweep over " +
             cfg.bands.joinToString { "%.1f-%.1f MHz".format(it.startHz / 1e6, it.endHz / 1e6) } +
@@ -262,11 +282,13 @@ object SdrRadio {
         var lastLog = 0L; var sweepStart = System.currentTimeMillis(); var sweepMs = 0L
         var events = 0; var unlocked = 0; var readErrors = 0; var failedChunks = 0
         var lastCheck = System.currentTimeMillis()
-        while (!halted && !sdr.lost && !adsb) {
+        // The waterfall's row for this sweep, while it is on screen.
+        var row = ArrayList<SdrWaterfall.Segment>()
+        while (!halted && !sdr.lost && !adsb && tuneHz == null) {
             // Settings changed: the new bands / targets / sensitivity from this sweep on.
             if (config != cfg) { cfg = config; plan = RadioWatch.plan(cfg); watch.config = cfg; logPlan() }
             for (center in plan) {
-                if (halted || sdr.lost || adsb) break
+                if (halted || sdr.lost || adsb || tuneHz != null) break
                 if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
                 if (!sdr.tune(center)) { unlocked++; continue }
                 repeat(sdr.settleReads) { sdr.read(buf) }
@@ -289,6 +311,8 @@ object SdrRadio {
                 failedChunks = 0
                 val bursts = if (tetra) RadioWatch.burstSpectrum(iq, got / 2, sdr.sampleRate) else null
                 val psd = bursts?.psd ?: RadioWatch.powerSpectrum(iq, got / 2)
+                if (SdrWaterfall.listening) row += SdrWaterfall.segment(center, psd, sdr.sampleRate, RadioWatch.USABLE_HZ,
+                    cfg.bands.firstOrNull { RadioWatch.covers(it, center) }?.label)
                 for (e in watch.analyze(center, psd, sdr.sampleRate, System.currentTimeMillis(), bursts)) {
                     if (!e.repeat) {
                         events++
@@ -298,8 +322,13 @@ object SdrRadio {
                     onEvent?.invoke(e)
                 }
             }
+            if (tuneHz != null || adsb) break // cut short: not a whole sweep
             watch.sweepDone()
             val now = System.currentTimeMillis()
+            if (row.isNotEmpty()) {
+                SdrWaterfall.listener?.invoke(SdrWaterfall.Row(row.sortedBy { it.startHz }, tuned = false, at = now))
+                row = ArrayList()
+            }
             sweepMs = now - sweepStart; sweepStart = now
             if (gone(name)) break
             if (!halted) status = if (watch.sweeps < 6) "$deviceLabel · learning the radio bands here…"
@@ -311,5 +340,48 @@ object SdrRadio {
             }
         }
         UsbWifi.log("$deviceLabel: radio sweep stopped after ${watch.sweeps} sweeps")
+    }
+
+    /** Holds [tuneHz] for the waterfall screen: a row of the ~2 MHz around it every few tens of ms. */
+    private fun runTuned(sdr: SdrDevice, name: String) {
+        val hz = tuneHz ?: return
+        sdr.setSampleRate(SAMPLE_RATE)
+        sdr.setGain(GAIN_TENTHS_DB)
+        val mhz = "%.3f MHz".format(java.util.Locale.US, hz / 1e6)
+        if (!sdr.tune(hz)) {
+            UsbWifi.log("$deviceLabel: the tuner didn't lock on $mhz")
+            status = "$deviceLabel · waterfall: the tuner can't tune to $mhz"
+            while (!halted && !sdr.lost && tuneHz == hz) Thread.sleep(100)
+            return
+        }
+        sdr.resetBuffer()
+        UsbWifi.log("$deviceLabel: waterfall on $mhz (radio watch paused)")
+        status = "$deviceLabel · waterfall on $mhz · radio watch paused"
+        val buf = ByteArray(XFER)
+        val iq = ByteArray(XFER * TUNED_READS)
+        var lastRow = 0L; var lastCheck = System.currentTimeMillis(); var fails = 0
+        repeat(sdr.settleReads) { sdr.read(buf) }
+        while (!halted && !sdr.lost && tuneHz == hz) {
+            if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
+            var got = 0
+            for (i in 0 until TUNED_READS) {
+                val n = sdr.read(buf)
+                if (n <= 0) break
+                System.arraycopy(buf, 0, iq, got, n); got += n
+            }
+            if (got < 2 * 1024) {
+                if (++fails % STALL_CHUNKS == 0) sdr.resetBuffer()
+                continue
+            }
+            fails = 0
+            val now = System.currentTimeMillis()
+            val listener = SdrWaterfall.listener
+            if (listener == null || now - lastRow < TUNED_ROW_MS) continue
+            lastRow = now
+            val psd = RadioWatch.powerSpectrum(iq, got / 2)
+            // The outer tenth on each side rolls off in the receiver's filter: left out.
+            listener(SdrWaterfall.Row(listOf(SdrWaterfall.segment(hz, psd, sdr.sampleRate, sdr.sampleRate * 0.45, null)), tuned = true, at = now))
+        }
+        UsbWifi.log("$deviceLabel: waterfall left $mhz")
     }
 }

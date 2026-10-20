@@ -109,6 +109,7 @@ class DeviceDetailActivity : AppCompatActivity() {
         binding.noteText.setOnClickListener { editNote() }
         binding.actionCopy.setOnClickListener { DeviceActions.copy(this, mac) }
         binding.actionShare.setOnClickListener { share() }
+        binding.actionLearn.setOnClickListener { DeviceActions.learn(this, mac) }
 
         lifecycleScope.launch {
             val db = AppDatabase.getInstance(this@DeviceDetailActivity)
@@ -305,6 +306,10 @@ class DeviceDetailActivity : AppCompatActivity() {
                     if (OuiWatchlist.isFingerprintWatched(com.rfsentinel.app.usb.ProbeIntel.shapeKey(sk))) " · on your watchlist" else ""
             }
             if (r.probed.isNotEmpty()) id += "Networks it asked for" to r.probed.reversed().joinToString(", ")
+        }
+        a?.wifi?.probeRun?.let { run ->
+            id += "Wildcard probes" to run.describe() +
+                if (run.nonStop) " · non-stop, like a mains-powered fixed device" else ""
         }
         if (id.isNotEmpty()) out += "Identity" to id
 

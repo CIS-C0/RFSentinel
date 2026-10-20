@@ -132,5 +132,8 @@ object ProbeIntel {
 
     fun of(mac: String): Record? = byMac[mac.uppercase()]
 
+    /** Addresses heard this session whose probe requests have the fingerprint [fp]. */
+    fun sharing(fp: String): Int = byMac.values.count { it.fingerprint == fp }
+
     fun clear() = byMac.clear()
 }

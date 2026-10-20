@@ -33,13 +33,14 @@ class OuiAdapter(
             item.isVendorRule -> "Maker contains \"${item.ruleText}\""
             item.isProbeRule -> "Asks for network \"${item.ruleText}\""
             item.isFingerprintRule -> "Probe fingerprint ${item.ruleText}"
+            item.isAdvertRule -> "Bluetooth advert pattern ${item.ruleText}"
             else -> item.prefix
         }
         holder.binding.labelText.text = item.label
         holder.binding.confidenceText.text = buildString {
             append(if (item.isCustom) "Your entry" else "Preset")
             append(" · ${item.effectiveCategory.shortTag} · ${Tier.of(item.effectiveScore).label} ${item.effectiveScore}%")
-            if (!item.isCustom && item.source.isNotEmpty()) append("\n${item.source}")
+            if ((!item.isCustom || item.source == com.rfsentinel.app.oui.OuiEntry.LEARNED) && item.source.isNotEmpty()) append("\n${item.source}")
         }
         // Only user-added entries can be removed; bundled preset entries are read-only here
         // (deselect the whole preset in Settings instead).

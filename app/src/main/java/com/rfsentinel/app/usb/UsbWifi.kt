@@ -34,7 +34,9 @@ data class MonitorSighting(
     /** A client that sent wildcard probe requests (no network name). */
     val wildcardProbe: Boolean = false,
     /** Its probe requests carried the Wi-Fi Alliance element Flock cameras send ([MonitorFrames.Ies.flockIe]). */
-    val flockProbeIe: Boolean = false
+    val flockProbeIe: Boolean = false,
+    /** Its latest run of wildcard probes: how steadily it probes ([com.rfsentinel.app.detect.ProbeBehaviour]). */
+    val probeRun: com.rfsentinel.app.detect.ProbeBehaviour.Run? = null
 )
 
 /**

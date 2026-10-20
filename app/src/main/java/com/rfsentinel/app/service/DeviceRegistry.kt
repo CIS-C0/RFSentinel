@@ -362,6 +362,13 @@ object DeviceRegistry {
     }
 
     /** Full snapshot (history, path, raw advert) for the detail screen. */
+    /**
+     * Addresses heard in the last [withinMs] whose adverts have the fingerprint [fp]
+     * ([AdvertFingerprint.of]): other devices of the same model nearby, or one device changing address.
+     */
+    fun sharingFingerprint(fp: String, now: Long = System.currentTimeMillis(), withinMs: Long = 10 * 60_000L): Int =
+        tracks.values.count { t -> synchronized(t) { t.fingerprint == fp && now - t.lastSeen <= withinMs } }
+
     /** The last advert of every device in this session (to re-check them after the watchlist changes). */
     fun lastAdverts(): List<Advert> = tracks.values.mapNotNull { t -> synchronized(t) { t.advert } }
 

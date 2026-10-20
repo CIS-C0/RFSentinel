@@ -149,7 +149,7 @@ object DemoData {
                 val a = make(base + wobble.toInt(), t)
                 val vendor = VendorDb.macVendor(a.mac) ?: a.manufacturerData.keys.firstNotNullOfOrNull { VendorDb.company(it) }
                 val raw = SignatureEngine.classify(a) +
-                    OuiWatchlist.hits(a.mac, a.name, listOfNotNull(vendor)) +
+                    OuiWatchlist.hits(a.mac, a.name, listOfNotNull(vendor)) + OuiWatchlist.advertHits(a) +
                     listOfNotNull(DeviceRegistry.clusterHit(a.mac, t))
                 val rid = if (a.mac == DEMO_DRONE && anchor != null) demoRemoteId(anchor, s) else null
                 // Made-up spots around you within real Bluetooth / WiFi range (5-60 m),

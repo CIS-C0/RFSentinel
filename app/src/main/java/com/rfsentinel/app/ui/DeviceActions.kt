@@ -90,6 +90,7 @@ object DeviceActions {
                 toast(activity, if (favorite) "Removed from favorites" else "Added to favorites")
             }
         }
+        items += "I saw it: learn this device..." to { learn(activity, mac) }
         if (snap?.advert != null && snap.best == null) {
             items += "Report unknown device..." to { reportUnknown(activity, mac) }
         }
@@ -178,6 +179,91 @@ object DeviceActions {
             .setNegativeButton("Cancel", null)
             .show()
     }
+
+    /**
+     * "I saw it": the user confirmed what this device is (a camera on a pole, a patrol car...), so RF
+     * Sentinel learns every stable thing that identifies it, to know it again next time, even under a new
+     * address: its address when that is fixed, its Bluetooth advert pattern, its WiFi probe fingerprint.
+     * A pattern many devices nearby share (one phone model) is refused, and patterns learned this way
+     * stay probable matches ([LEARNED_SCORE]), never strong ones: only the exact address is certain.
+     */
+    fun learn(activity: AppCompatActivity, mac: String) {
+        val snap = DeviceRegistry.get(mac)
+        val advert = snap?.advert
+        val randomized = MacUtil.isRandomized(mac)
+        val d = activity.resources.displayMetrics.density
+        val pad = (20 * d).toInt()
+        val box = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, (8 * d).toInt(), pad, 0)
+        }
+        box.addView(TextView(activity).apply {
+            text = "Tell RF Sentinel what this is, so it knows it next time, even under a new address."
+        })
+        val label = EditText(activity).apply {
+            hint = "What it is, e.g. pole camera on the bridge"
+            setSingleLine(true)
+            setText(snap?.best?.label ?: snap?.name ?: "")
+        }
+        box.addView(label)
+
+        // Each stable identity: key, what it is, how sure a later match is, and why it can't be used.
+        class Option(val key: String, val text: String, val score: Int?, val refused: String?)
+        val options = mutableListOf<Option>()
+        if (!randomized) options += Option(mac, "This exact address ($mac)", null, null)
+        if (advert != null) com.rfsentinel.app.detect.AdvertFingerprint.of(advert)?.let { fp ->
+            val key = com.rfsentinel.app.detect.AdvertFingerprint.key(advert)!!
+            val shared = DeviceRegistry.sharingFingerprint(fp)
+            options += Option(OuiEntry.ADVERT + key, "Its Bluetooth advert pattern ($key)", LEARNED_SCORE,
+                if (shared >= MAX_SHARED) "$shared devices nearby send the same pattern" else null)
+        }
+        com.rfsentinel.app.usb.ProbeIntel.of(mac)?.fingerprint?.let { fp ->
+            val shared = com.rfsentinel.app.usb.ProbeIntel.sharing(fp)
+            options += Option(OuiEntry.FINGERPRINT + fp, "Its WiFi probe fingerprint ($fp)", LEARNED_SCORE,
+                if (shared >= MAX_SHARED) "$shared addresses heard today share it" else null)
+        }
+        val boxes = options.map { o ->
+            android.widget.CheckBox(activity).apply {
+                val watched = OuiWatchlist.customEntry(o.key) != null
+                text = o.text + when {
+                    watched -> "\nAlready on your watchlist"
+                    o.refused != null -> "\nNot usable: ${o.refused}, so it would match them too"
+                    o.score != null -> "\nMatches as probable (${o.score}%): similar devices can share it"
+                    else -> ""
+                }
+                isEnabled = o.refused == null && !watched
+                isChecked = isEnabled
+            }.also { box.addView(it) }
+        }
+        if (boxes.none { it.isEnabled }) box.addView(TextView(activity).apply {
+            setPadding(0, (8 * d).toInt(), 0, 0)
+            text = if (options.isEmpty()) "Nothing stable to learn: its address is private and changes, and it sends nothing " +
+                "that marks it apart from similar devices. Tip: add a name rule under Watchlist & rules."
+            else "Nothing new to learn from it."
+        })
+        val category = snap?.best?.category?.takeIf { it != com.rfsentinel.app.detect.Category.CUSTOM }
+        MaterialAlertDialogBuilder(activity)
+            .setTitle("I saw it")
+            .setView(ScrollView(activity).apply { addView(box) })
+            .setPositiveButton("Learn") { _, _ ->
+                val chosen = options.filterIndexed { i, _ -> boxes[i].isEnabled && boxes[i].isChecked }
+                if (chosen.isEmpty()) { toast(activity, "Nothing learned"); return@setPositiveButton }
+                val name = label.text.toString().trim().ifEmpty { "Seen device" }
+                val entries = chosen.map { OuiEntry(it.key, name, OuiEntry.LEARNED, "custom", it.score, category?.name) }
+                entries.forEach { OuiWatchlist.addCustomEntry(activity, it) }
+                com.rfsentinel.app.util.Undo.show(activity, "Learned $name (${entries.size} " +
+                    (if (entries.size == 1) "rule" else "rules") + ")") {
+                    entries.forEach { OuiWatchlist.removeCustomEntry(activity, it.prefix) }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    /** How sure a later match on a learned pattern (not an exact address) is: probable, never strong. */
+    const val LEARNED_SCORE = 60
+    /** A pattern this many devices share is refused: it would match them all. */
+    const val MAX_SHARED = 4
 
     /**
      * Shares a signature report (see [SignatureReport]) so a device RF Sentinel

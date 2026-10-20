@@ -691,7 +691,8 @@ class ScanForegroundService : Service() {
             mac = mac, source = Advert.Source.WIFI, rssi = m.rssi, name = m.ssid ?: m.wps?.label,
             addressType = com.rfsentinel.app.detect.AddressType.ofWifi(mac),
             wifi = Advert.WifiInfo(m.frequencyMhz, "", null, emptyList(), client = !m.isAccessPoint,
-                wildcardProbe = m.wildcardProbe, flockProbeIe = m.flockProbeIe, probeSkeleton = m.probeSkeleton),
+                wildcardProbe = m.wildcardProbe, flockProbeIe = m.flockProbeIe, probeSkeleton = m.probeSkeleton,
+                probeRun = m.probeRun),
             timestamp = now
         ), null)
     }
@@ -743,13 +744,16 @@ class ScanForegroundService : Service() {
         // patrol-vehicle cluster, then fused into one calibrated score.
         val raw = SignatureEngine.classify(a) +
             OuiWatchlist.hits(a.mac, a.name, listOfNotNull(macVendor) + companyVendors) +
+            OuiWatchlist.advertHits(a) +
             DeviceRegistry.inheritedHits(a.mac) +
             listOfNotNull(DeviceRegistry.clusterHit(a.mac, now)) +
             espHits[a.mac]?.takeIf { now - it.first < ESP_HIT_TTL_MS }?.second.orEmpty() +
             probeHits[a.mac]?.takeIf { now - it.first < ESP_HIT_TTL_MS }?.second.orEmpty() +
             extra
         val noAirTags = Prefs.excludeAirTags(this)
-        val sifted = DeviceIntel.dropTrainRouter(com.rfsentinel.app.detect.FlockNoise.filter(raw, a.name, OuiWatchlist.flockRegion), a)
+        val kept = DeviceIntel.dropTrainRouter(com.rfsentinel.app.detect.FlockNoise.filter(raw, a.name, OuiWatchlist.flockRegion), a)
+        // Non-stop probing backs up a fixed-camera match that survived the noise filters (never alone).
+        val sifted = kept + listOfNotNull(com.rfsentinel.app.detect.ProbeBehaviour.supportHit(a, kept))
         val hits = EvidenceFusion.fuse(sifted.filter {
             Prefs.categoryEnabled(this, it.category) && !(noAirTags && SignatureEngine.isAppleFindMy(it))
         })

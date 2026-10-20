@@ -38,6 +38,8 @@ object OuiWatchlist {
         /** Requested-network rules keyed by the lower-cased network name. */
         val probeRules: Map<String, OuiEntry>,
         val fingerprintRules: Map<String, OuiEntry>,
+        /** Bluetooth advert-pattern rules keyed by [com.rfsentinel.app.detect.AdvertFingerprint.key]. */
+        val advertRules: Map<String, OuiEntry>,
         val all: List<OuiEntry>
     )
 
@@ -55,7 +57,7 @@ object OuiWatchlist {
         private set
 
     @Volatile
-    private var state = State(emptyMap(), emptyList(), emptyList(), emptyList(), emptyMap(), emptyMap(), emptyList())
+    private var state = State(emptyMap(), emptyList(), emptyList(), emptyList(), emptyMap(), emptyMap(), emptyMap(), emptyList())
 
     /** Load order: regional presets after "global", so their labels win for shared prefixes. */
     val availablePresets = listOf("global", "canada", "us", "france", "uk", "portugal", "germany", "spain", "italy")
@@ -74,13 +76,14 @@ object OuiWatchlist {
         readCustom(context).forEach { byKey[it.prefix] = it }
         val all = byKey.values.toList()
         state = State(
-            byHex = all.filter { !it.isNameRule && !it.isStartsRule && !it.isVendorRule && !it.isProbeRule && !it.isFingerprintRule }
+            byHex = all.filter { !it.isNameRule && !it.isStartsRule && !it.isVendorRule && !it.isProbeRule && !it.isFingerprintRule && !it.isAdvertRule }
                 .associateBy { MacUtil.hex(it.prefix) },
             nameRules = all.filter { it.isNameRule && it.ruleText.isNotEmpty() },
             startsRules = all.filter { it.isStartsRule && it.ruleText.isNotEmpty() },
             vendorRules = all.filter { it.isVendorRule && it.ruleText.isNotEmpty() },
             probeRules = all.filter { it.isProbeRule && it.ruleText.isNotEmpty() }.associateBy { it.ruleText.lowercase() },
             fingerprintRules = all.filter { it.isFingerprintRule && it.ruleText.isNotEmpty() }.associateBy { it.ruleText.lowercase() },
+            advertRules = all.filter { it.isAdvertRule && it.ruleText.isNotEmpty() }.associateBy { it.ruleText.lowercase() },
             all = all
         )
         version++
@@ -117,6 +120,7 @@ object OuiWatchlist {
             k.startsWith(OuiEntry.VENDOR, ignoreCase = true) -> OuiEntry.VENDOR + k.substringAfter(':').trim()
             k.startsWith(OuiEntry.PROBE, ignoreCase = true) -> OuiEntry.PROBE + k.substringAfter(':').trim()
             k.startsWith(OuiEntry.FINGERPRINT, ignoreCase = true) -> OuiEntry.FINGERPRINT + k.substringAfter(':').trim().lowercase()
+            k.startsWith(OuiEntry.ADVERT, ignoreCase = true) -> OuiEntry.ADVERT + k.substringAfter(':').trim().lowercase()
             else -> MacUtil.normalize(k)
         }
     }
@@ -179,11 +183,11 @@ object OuiWatchlist {
 
     fun allEntries(): List<OuiEntry> = state.all
 
-    /** Valid keys: IEEE block prefix (24/28/36-bit), full MAC, or a non-empty name:/starts:/vendor:/probe:/fp: rule. */
+    /** Valid keys: IEEE block prefix (24/28/36-bit), full MAC, or a non-empty name:/starts:/vendor:/probe:/fp:/adv: rule. */
     fun isValidKey(prefix: String): Boolean {
         val k = prefix.trim()
         if (k.startsWith(OuiEntry.NAME, true) || k.startsWith(OuiEntry.STARTS, true) || k.startsWith(OuiEntry.VENDOR, true) ||
-            k.startsWith(OuiEntry.PROBE, true) || k.startsWith(OuiEntry.FINGERPRINT, true)) {
+            k.startsWith(OuiEntry.PROBE, true) || k.startsWith(OuiEntry.FINGERPRINT, true) || k.startsWith(OuiEntry.ADVERT, true)) {
             return k.substringAfter(':').isNotBlank()
         }
         return MacUtil.isValidBlock(k) || MacUtil.isValidMac(k)
@@ -235,6 +239,15 @@ object OuiWatchlist {
         ?.let { listOf(it.toHit("Its probe requests match the watched fingerprint $fp")) }.orEmpty()
 
     fun isFingerprintWatched(fp: String): Boolean = fp.lowercase() in state.fingerprintRules
+
+    /** Hits for a Bluetooth device whose adverts have a watched pattern ("adv:" rules), whatever its address. */
+    fun advertHits(a: com.rfsentinel.app.detect.Advert): List<Hit> {
+        if (state.advertRules.isEmpty()) return emptyList()
+        val key = com.rfsentinel.app.detect.AdvertFingerprint.key(a) ?: return emptyList()
+        return listOfNotNull(state.advertRules[key]?.toHit("Its Bluetooth adverts match the watched pattern $key"))
+    }
+
+    fun isAdvertWatched(key: String): Boolean = key.lowercase() in state.advertRules
 
     /** Watchlist name / maker rules against what a device's WPS block names. */
     fun wpsHits(wps: com.rfsentinel.app.usb.ProbeIntel.Wps?): List<Hit> =

@@ -181,8 +181,10 @@ class MainActivity : AppCompatActivity() {
                 menu.add(0, 4, 3, "Satellites")
                 menu.add(0, 5, 4, "Antenna check")
                 menu.add(0, 6, 5, "Aircraft")
+                menu.add(0, 7, 6, "Radio waterfall")
                 setOnMenuItemClickListener { item ->
                     when (item.itemId) {
+                        7 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.WaterfallActivity::class.java))
                         6 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.AircraftActivity::class.java)
                             .putExtra("demo", demoMode))
                         5 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.AntennaCheckActivity::class.java)

@@ -47,7 +47,9 @@ class Advert(
         /** Its probe request carried the Wi-Fi Alliance element 50:6F:9A:16 03 01 03 Flock cameras send. */
         val flockProbeIe: Boolean = false,
         /** FlipDeFlock's probe skeleton hash of a client's probe requests (USB adapter). */
-        val probeSkeleton: Long? = null
+        val probeSkeleton: Long? = null,
+        /** Its latest run of wildcard probes (USB adapter): how steadily it probes ([ProbeBehaviour]). */
+        val probeRun: ProbeBehaviour.Run? = null
     )
 
     val isBle get() = source == Source.BLE

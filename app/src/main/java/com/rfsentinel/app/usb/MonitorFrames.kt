@@ -25,6 +25,8 @@ class MonitorFrames {
         var hidden = false
         /** A client that sent wildcard probe requests; with the Flock-camera Wi-Fi Alliance element. */
         var wildcard = false; var flockIe = false
+        /** How steadily it sends wildcard probes ([com.rfsentinel.app.detect.ProbeBehaviour]). */
+        var probeRate: com.rfsentinel.app.detect.ProbeBehaviour.Counter? = null
         // Per-window counters for driver diagnostics (debug builds).
         var winHits = 0; var winMeasured = 0; var winMax = -128; var winSum = 0L
         var winOfdm = 0; var winA = -128; var winB = -128
@@ -103,7 +105,10 @@ class MonitorFrames {
                 4 -> if (captureClients && !isScannerProbe(b, d, end)) touch(a2, ap = false)?.let { s ->
                     val ies = Ies.read(b, d + 24, end)
                     ies.wps?.let { s.wps = it }
-                    if (ies.wildcard) s.wildcard = true
+                    if (ies.wildcard) {
+                        s.wildcard = true
+                        (s.probeRate ?: com.rfsentinel.app.detect.ProbeBehaviour.Counter().also { s.probeRate = it }).probe(now)
+                    }
                     if (ies.flockIe) s.flockIe = true
                     ProbeIntel.fingerprint(b, d + 24, end)?.let { s.fingerprint = it }
                     ProbeIntel.skeletonHash(b, d + 24, ProbeIntel.withoutFcs(b, d, end))?.let { s.skeleton = it }
@@ -177,7 +182,8 @@ class MonitorFrames {
                 probeSkeleton = s.skeleton,
                 hiddenNetwork = s.hidden,
                 wildcardProbe = s.wildcard,
-                flockProbeIe = s.flockIe
+                flockProbeIe = s.flockIe,
+                probeRun = s.probeRate?.run()
             )
         }
         sightings.entries.removeAll { now - it.value.lastSeen > pruneMs }

@@ -30,6 +30,16 @@ object AdvertFingerprint {
         }
     }
 
+    /**
+     * [of] as a short key for the watchlist ("adv:" rules): 8 hex digits (FNV-1a), the same
+     * for every advert the device sends, whatever its address. Null when [of] is.
+     */
+    fun key(a: Advert): String? = of(a)?.let { fp ->
+        var h = 0x811C9DC5.toInt()
+        for (byte in fp.toByteArray(Charsets.UTF_8)) { h = h xor (byte.toInt() and 0xff); h *= 0x01000193 }
+        "%08x".format(h)
+    }
+
     /** True when the address type means it's expected to rotate (or unknown on Android < 15). */
     fun mayRotate(a: Advert): Boolean = a.isBle && a.addressType != AddressType.PUBLIC &&
         a.addressType != AddressType.RANDOM_STATIC

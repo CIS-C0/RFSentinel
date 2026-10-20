@@ -15,6 +15,8 @@ data class OuiEntry(
      *  - "probe:<ssid>"        a device asks for this exact WiFi network name (probe request,
      *                          heard by a USB WiFi adapter or an ESP32 Marauder board)
      *  - "fp:<8 hex>"          a device whose probe requests have this fingerprint (same model / OS)
+     *  - "adv:<8 hex>"         a Bluetooth device whose adverts have this pattern ([com.rfsentinel.app.detect.AdvertFingerprint.key]),
+     *                          whatever its address
      */
     val prefix: String,
     val label: String,
@@ -34,6 +36,7 @@ data class OuiEntry(
     val isVendorRule get() = prefix.startsWith(VENDOR, ignoreCase = true)
     val isProbeRule get() = prefix.startsWith(PROBE, ignoreCase = true)
     val isFingerprintRule get() = prefix.startsWith(FINGERPRINT, ignoreCase = true)
+    val isAdvertRule get() = prefix.startsWith(ADVERT, ignoreCase = true)
     val ruleText get() = prefix.substringAfter(':').trim()
 
     val effectiveScore: Int
@@ -60,5 +63,8 @@ data class OuiEntry(
         const val VENDOR = "vendor:"
         const val PROBE = "probe:"
         const val FINGERPRINT = "fp:"
+        const val ADVERT = "adv:"
+        /** The source of entries made with "I saw it" ([com.rfsentinel.app.ui.DeviceActions.learn]). */
+        const val LEARNED = "learned from I saw it"
     }
 }
