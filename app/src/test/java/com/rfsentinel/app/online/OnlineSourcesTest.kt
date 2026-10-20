@@ -84,6 +84,13 @@ class OnlineSourcesTest {
     }
 
     @Test
+    fun anOddWazeEntryLeavesOutOnlyItself() {
+        val json = """{"data":{"alerts":["stray", null, {"alert_id":"p","type":"POLICE","latitude":10.0,"longitude":-20.0}]}}"""
+        assertEquals(listOf("p"), WazePolice.parse(json).map { it.id })
+        assertTrue(WazePolice.parse("""{"data":null}""").isEmpty())
+    }
+
+    @Test
     fun wazeTypesAndRadius() {
         val json = """{"data":{"alerts":[
             {"alert_id":"p","type":"POLICE","latitude":10.0,"longitude":-20.0},

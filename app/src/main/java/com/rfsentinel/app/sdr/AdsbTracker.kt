@@ -47,7 +47,7 @@ class AdsbTracker {
         // that can't be in the wrong zone), never against yours: a far aircraft would land near you.
         if (pos == null && p.positionAt > 0 && now - p.positionAt <= PAIR_MS)
             pos = ModeS.localPosition(info.cprLat, info.cprLon, odd, p.lat, p.lon)
-        if (pos == null) return
+        if (pos == null || pos.first !in -90.0..90.0) return
         if (refLat != null && refLon != null && DeviceRegistry.metersBetween(refLat, refLon, pos.first, pos.second) > MAX_RANGE_M) return
         p.lat = pos.first; p.lon = pos.second; p.positionAt = now
     }

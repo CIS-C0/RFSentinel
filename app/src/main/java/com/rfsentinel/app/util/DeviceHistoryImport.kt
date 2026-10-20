@@ -105,6 +105,8 @@ object DeviceHistoryImport {
         }
         buffered.reset()
         val reader = BufferedReader(InputStreamReader(buffered, Charsets.UTF_8))
+        // A byte-order mark (Windows editors save one) would read as a stray first character.
+        reader.mark(1); if (reader.read() != 0xFEFF) reader.reset()
         if (first == '['.code || first == '{'.code) jsonRows(reader) else csvRows(reader)
     }
 

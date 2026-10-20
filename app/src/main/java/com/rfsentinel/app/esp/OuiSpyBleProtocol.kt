@@ -124,13 +124,14 @@ object OuiSpyBleProtocol {
     }
 
     private fun drone(d: ByteArray, b: ByteBuffer, mac: String, rssi: Int, method: Int): EspSighting {
-        fun coord(at: Int) = b.getDouble(at).takeIf { it != 0.0 && it.isFinite() }
+        // A value off the globe is a corrupt packet (the map refuses latitudes past ±90).
+        fun coord(at: Int, max: Double) = b.getDouble(at).takeIf { it != 0.0 && it.isFinite() && it in -max..max }
         val info = RemoteId.Info(
             uasId = text(d, 19, 21),
-            latitude = coord(61), longitude = coord(69),
+            latitude = coord(61, 90.0), longitude = coord(69, 180.0),
             altitudeGeoM = b.getShort(77).toDouble(),
             heightM = b.getShort(79).toDouble(),
-            operatorLatitude = coord(85), operatorLongitude = coord(93),
+            operatorLatitude = coord(85, 90.0), operatorLongitude = coord(93, 180.0),
             selfIdDescription = text(d, 101, 24)
         )
         val via = when (method) { 0 -> "Bluetooth"; 1 -> "Wi-Fi NAN"; else -> "Wi-Fi beacon" }

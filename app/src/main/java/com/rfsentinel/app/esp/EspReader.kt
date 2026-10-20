@@ -19,6 +19,7 @@ class EspReader(
     private val onSightings: (List<EspSighting>) -> Unit
 ) {
     @Volatile private var stopped = false
+    private val text = Utf8Chunks()
 
     fun stop() { stopped = true }
 
@@ -101,7 +102,7 @@ class EspReader(
             val n = port.read(buf, 500)
             // A quiet V2X board only starts streaming once a vehicle is in range.
             if (n > 0 && V2x.looksLikeStream(buf, n)) { pollV2x(buf, buf.copyOf(n)); return }
-            if (n > 0) consume(String(buf, 0, n))
+            if (n > 0) consume(text.decode(buf, n))
             if (!askedDump && mode == OuiSpyReports.Mode.DETECTOR) {
                 askedDump = true
                 port.write("CMD:DUMP_LIVE\n")
@@ -155,7 +156,7 @@ class EspReader(
             while (!stopped && System.currentTimeMillis() < until) {
                 val n = port.read(buf, 300)
                 if (n > 0) {
-                    pending.append(String(buf, 0, n))
+                    pending.append(text.decode(buf, n))
                     while (true) {
                         val nl = pending.indexOf('\n')
                         if (nl < 0) break
@@ -287,10 +288,32 @@ class EspReader(
         while (!stopped && System.currentTimeMillis() < until) {
             val n = port.read(buf, 300)
             if (n > 0) {
-                sb.append(String(buf, 0, n))
+                sb.append(text.decode(buf, n))
                 if (done(sb.toString())) break
             }
         }
         return sb.toString()
+    }
+}
+
+/**
+ * Serial reads as text: a character split across two reads (an accented or emoji network name)
+ * waits for its last bytes instead of turning into two replacement characters.
+ */
+internal class Utf8Chunks {
+    private var carry = ByteArray(0)
+
+    fun decode(buf: ByteArray, n: Int): String {
+        val all = if (carry.isEmpty()) buf.copyOf(n) else carry + buf.copyOf(n)
+        var cut = all.size
+        for (back in 1..minOf(3, all.size)) {
+            val b = all[all.size - back].toInt() and 0xff
+            if (b and 0xC0 == 0x80) continue // continuation byte: look further back for its lead byte
+            val need = when { b >= 0xF0 -> 4; b >= 0xE0 -> 3; b >= 0xC0 -> 2; else -> 1 }
+            if (need > back) cut = all.size - back
+            break
+        }
+        carry = all.copyOfRange(cut, all.size)
+        return String(all, 0, cut, Charsets.UTF_8)
     }
 }

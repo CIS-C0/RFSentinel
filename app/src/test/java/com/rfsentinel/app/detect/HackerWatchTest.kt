@@ -54,6 +54,15 @@ class HackerWatchTest {
     }
 
     @Test
+    fun oneAddressHeardAgainIsNotASpamFlood() {
+        // Its classification cache cleared (watchlist edit, new evidence): the same phones look "new" again.
+        val popup = mapOf(0x004C to byteArrayOf(0x07, 0x19))
+        val t0 = 50_000_000L
+        for (round in 0 until 3) for (i in 0 until HackerWatch.SPAM_THRESHOLD / 2)
+            assertNull(HackerWatch.bleSpam(ble("AA:BB:CD:00:00:%02X".format(i), mfr = popup), t0 + round * 1_000L + i))
+    }
+
+    @Test
     fun actionCamerasAndTrafficSystems() {
         assertEquals("GoPro camera", SignatureEngine.classify(ble("AA:00:00:00:00:10", mfr = mapOf(0x02F2 to ByteArray(2)))).first().label)
         assertEquals("GoPro camera", SignatureEngine.classify(ble("AA:00:00:00:00:11", uuids = listOf(0xFEA6))).first().label)

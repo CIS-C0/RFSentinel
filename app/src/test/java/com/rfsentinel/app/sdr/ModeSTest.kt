@@ -37,6 +37,12 @@ class ModeSTest {
     }
 
     @Test
+    fun aFramePairOffTheGlobeIsDropped() {
+        // Even 0, odd 0.66 of the CPR range: both latitudes come out near 120 degrees.
+        assertNull(ModeS.globalPosition(0, (0.66 * 131072).toInt(), (0.66 * 131072).toInt(), 0, oddNewer = true))
+    }
+
+    @Test
     fun groundSpeedAndAirspeed() {
         val v = ModeS.decode(frame("8D485020994409940838175B284F"))
         assertEquals(159.2, v.speedKt!!, 0.1); assertEquals(182.88, v.trackDeg!!, 0.01)

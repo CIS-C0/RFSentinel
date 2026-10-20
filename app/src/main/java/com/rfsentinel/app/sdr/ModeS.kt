@@ -259,7 +259,8 @@ object ModeS {
 
     /**
      * Global decode from an even and an odd airborne frame (at most 10 s apart); [oddNewer]
-     * picks the newer one's latitude. Null when they straddle a longitude-zone boundary.
+     * picks the newer one's latitude. Null when they straddle a longitude-zone boundary or don't
+     * give a latitude on the globe.
      */
     fun globalPosition(evenLat: Int, evenLon: Int, oddLat: Int, oddLon: Int, oddNewer: Boolean): Pair<Double, Double>? {
         val le = evenLat / CPR_MAX; val lo = oddLat / CPR_MAX
@@ -268,6 +269,8 @@ object ModeS {
         var latO = 360.0 / 59 * (mod(j, 59.0) + lo)
         if (latE >= 270) latE -= 360
         if (latO >= 270) latO -= 360
+        // A bad frame pair can land off the globe (dump1090 drops these too).
+        if (latE !in -90.0..90.0 || latO !in -90.0..90.0) return null
         if (nl(latE) != nl(latO)) return null
         val lat = if (oddNewer) latO else latE
         val nlLat = nl(lat)

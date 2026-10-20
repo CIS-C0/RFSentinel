@@ -98,12 +98,12 @@ object RemoteId {
                     ?.let { acc.copy(uasId = it, idType = "French ID (signalement électronique)") } ?: acc
                 3 -> if (acc.idType?.startsWith("French") == true) acc else Bytes.ascii(b, v, len)?.trim()
                     ?.takeIf { it.isNotEmpty() }?.let { acc.copy(uasId = it, idType = ID_TYPES[1]) } ?: acc
-                4 -> if (len == 4) acc.copy(latitude = int() * 1e-5) else acc
-                5 -> if (len == 4) acc.copy(longitude = int() * 1e-5) else acc
+                4 -> if (len == 4 && int() in -9_000_000..9_000_000) acc.copy(latitude = int() * 1e-5) else acc
+                5 -> if (len == 4 && int() in -18_000_000..18_000_000) acc.copy(longitude = int() * 1e-5) else acc
                 6 -> if (len == 2) acc.copy(altitudeGeoM = int().toDouble()) else acc
                 7 -> if (len == 2) acc.copy(heightM = int().toDouble()) else acc
-                8 -> if (len == 4) acc.copy(operatorLatitude = int() * 1e-5) else acc
-                9 -> if (len == 4) acc.copy(operatorLongitude = int() * 1e-5) else acc
+                8 -> if (len == 4 && int() in -9_000_000..9_000_000) acc.copy(operatorLatitude = int() * 1e-5) else acc
+                9 -> if (len == 4 && int() in -18_000_000..18_000_000) acc.copy(operatorLongitude = int() * 1e-5) else acc
                 10 -> if (len == 1) acc.copy(speedMs = Bytes.u8(b, v).toDouble()) else acc
                 11 -> if (len == 2) acc.copy(directionDeg = int().takeIf { it in 0..359 } ?: acc.directionDeg) else acc
                 else -> acc
@@ -182,8 +182,8 @@ object RemoteId {
         }
         return info.copy(
             status = STATUS.getOrNull(status) ?: info.status,
-            latitude = if (lat != 0) lat * 1e-7 else info.latitude,
-            longitude = if (lon != 0) lon * 1e-7 else info.longitude,
+            latitude = latOf(lat) ?: info.latitude,
+            longitude = lonOf(lon) ?: info.longitude,
             altitudeGeoM = decodeAltitude(altGeo) ?: info.altitudeGeoM,
             heightM = decodeAltitude(height) ?: info.heightM,
             speedMs = speed ?: info.speedMs,
@@ -196,10 +196,14 @@ object RemoteId {
         val lat = Bytes.i32le(b, off + 2)
         val lon = Bytes.i32le(b, off + 6)
         return info.copy(
-            operatorLatitude = if (lat != 0) lat * 1e-7 else info.operatorLatitude,
-            operatorLongitude = if (lon != 0) lon * 1e-7 else info.operatorLongitude
+            operatorLatitude = latOf(lat) ?: info.operatorLatitude,
+            operatorLongitude = lonOf(lon) ?: info.operatorLongitude
         )
     }
+
+    /** Degrees x 1e7; 0 is "no fix", and a value off the globe is a corrupt frame: both null. */
+    private fun latOf(e7: Int): Double? = (e7 * 1e-7).takeIf { e7 != 0 && it in -90.0..90.0 }
+    private fun lonOf(e7: Int): Double? = (e7 * 1e-7).takeIf { e7 != 0 && it in -180.0..180.0 }
 
     /** Encoded 0 means "unknown" (-1000 m). */
     private fun decodeAltitude(enc: Int): Double? = if (enc == 0) null else enc * 0.5 - 1000.0

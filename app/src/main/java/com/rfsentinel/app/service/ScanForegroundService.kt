@@ -407,7 +407,6 @@ class ScanForegroundService : Service() {
         this, Manifest.permission.ACCESS_FINE_LOCATION
     ) == PackageManager.PERMISSION_GRANTED
 
-    /** A fix good enough to pin a device on the map: under 30 s old and within ~50 m. */
     /**
      * Where you are now: the last fix moved on by your speed and course for the second or two
      * since it came, so readings taken between fixes aren't placed behind you.
@@ -433,6 +432,7 @@ class ScanForegroundService : Service() {
         }
     }
 
+    /** A fix good enough to pin a device on the map: under 30 s old and within ~50 m. */
     private fun usableForPlacing(l: Location): Boolean {
         val ageMs = (android.os.SystemClock.elapsedRealtimeNanos() - l.elapsedRealtimeNanos) / 1_000_000
         return ageMs in 0..PLACING_MAX_AGE_MS && (!l.hasAccuracy() || l.accuracy <= PLACING_MAX_ACCURACY_M)

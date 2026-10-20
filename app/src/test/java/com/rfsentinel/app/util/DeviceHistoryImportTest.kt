@@ -48,6 +48,11 @@ class DeviceHistoryImportTest {
     }
 
     @Test
+    fun aJsonFileSavedWithAByteOrderMarkIsRead() {
+        assertEquals(2, run("﻿" + json).added)
+    }
+
+    @Test
     fun importingTheSameFileAgainChangesNothing() {
         run(json)
         val again = run(json)

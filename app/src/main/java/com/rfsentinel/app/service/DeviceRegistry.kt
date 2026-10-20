@@ -361,7 +361,6 @@ object DeviceRegistry {
         return tracks.values.map { t -> synchronized(t) { snap(t, full = false) } }
     }
 
-    /** Full snapshot (history, path, raw advert) for the detail screen. */
     /**
      * Addresses heard in the last [withinMs] whose adverts have the fingerprint [fp]
      * ([AdvertFingerprint.of]): other devices of the same model nearby, or one device changing address.
@@ -384,6 +383,7 @@ object DeviceRegistry {
         }
     }
 
+    /** Full snapshot (history, path, raw advert) for the detail screen. */
     fun get(mac: String): Snapshot? = tracks[mac]?.let { t -> synchronized(t) { snap(t, full = true) } }
 
     /** Devices heard since [since] with their summary, for persisting to known_devices. */

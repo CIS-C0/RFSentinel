@@ -39,6 +39,22 @@ class ProbeShapeTest {
         assertEquals(plain.size, ProbeIntel.withoutFcs(withFcs, 0, withFcs.size))
     }
 
+    @Test
+    fun aKeptChecksumNeverChangesTheFingerprint() {
+        // Find a probe whose checksum bytes read like a short element (tag, length 0..2) after the real ones.
+        var frame: ByteArray? = null
+        for (k in 0..65535) {
+            val f = ByteArray(24).also { it[0] = 0x40; it[10] = 0x02; it[11] = 0x11; it[14] = (k shr 8).toByte(); it[15] = k.toByte() } + ies
+            val c = CRC32().apply { update(f) }.value
+            if (((c shr 8) and 0xff) <= 2) { frame = f + ByteArray(4) { ((c shr (8 * it)) and 0xff).toByte() }; break }
+        }
+        val f = frame!!
+        val mf = MonitorFrames()
+        mf.frame(f, 0, f.size, 6, -50, now = 1_000L)
+        val heard = mf.drain(1_000L, 10_000L).single()
+        assertEquals(ProbeIntel.fingerprint(ies, 0, ies.size), heard.fingerprint)
+    }
+
     private fun client(mac: String, shape: Long) = Advert(mac = mac, source = Advert.Source.WIFI, rssi = -70, name = null,
         wifi = Advert.WifiInfo(2437, "", null, emptyList(), client = true, probeSkeleton = shape), timestamp = 0L)
 

@@ -257,10 +257,11 @@ object WazePolice {
     /** Alerts of the wanted types from the API's JSON (re-filtered here in case the server ignores the type filter). */
     internal fun parse(json: String, types: Set<Type> = setOf(Type.POLICE)): List<Report> {
         val root = JsonParser.parseString(json).asJsonObject
-        val data = root.getAsJsonObject("data") ?: return emptyList()
-        val alerts = data.getAsJsonArray("alerts") ?: return emptyList()
+        // "data": null or one odd entry leaves out only what is missing, not the whole answer.
+        val data = root.get("data")?.takeIf { it.isJsonObject }?.asJsonObject ?: return emptyList()
+        val alerts = data.get("alerts")?.takeIf { it.isJsonArray }?.asJsonArray ?: return emptyList()
         return alerts.mapNotNull { e ->
-            val o = e.asJsonObject
+            val o = e.takeIf { it.isJsonObject }?.asJsonObject ?: return@mapNotNull null
             val type = Type.ofWire(o.str("type"))?.takeIf { it in types } ?: return@mapNotNull null
             Report(
                 id = o.str("alert_id") ?: return@mapNotNull null,

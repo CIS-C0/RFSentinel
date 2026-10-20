@@ -294,7 +294,7 @@ object Exporter {
                 .append(q(r.label)).append(',')
                 .append(r.category).append(',')
                 .append(r.confidence).append(',')
-                .append(r.source).append(',')
+                .append(q(r.source)).append(',')
                 .append(r.rssi).append(',')
                 .append(q(r.vendor)).append(',')
                 .append(q(r.deviceName)).append(',')

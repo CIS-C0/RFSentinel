@@ -199,24 +199,28 @@ object HackerWatch {
 
     // ---- Bluetooth spam flood -------------------------------------------------------------
 
-    private val spamTimes = ArrayDeque<Long>()
+    /** Pairing-popup addresses heard in the last minute, oldest first, so one address counts once. */
+    private val spamSeen = LinkedHashMap<String, Long>()
     private var lastFlood = Long.MIN_VALUE / 2
     const val SPAM_THRESHOLD = 50
 
     /**
      * Called once per newly heard Bluetooth address. A flood of new addresses sending
      * pairing pop-ups (Apple proximity pairing / nearby action, Google Fast Pair, Microsoft
-     * Swift Pair) is what Flipper Zero and ESP32 "BLE spam" attacks look like.
+     * Swift Pair) is what Flipper Zero and ESP32 "BLE spam" attacks look like. An address already
+     * counted is skipped, even if the caller sees it as new again (its classification cache cleared).
      */
     @Synchronized
     fun bleSpam(a: Advert, now: Long): Hit? {
         if (a.source != Advert.Source.BLE || !isPairingPopup(a)) return null
-        spamTimes.addLast(now)
-        while (spamTimes.isNotEmpty() && now - spamTimes.first() > 60_000L) spamTimes.removeFirst()
-        if (spamTimes.size < SPAM_THRESHOLD || now - lastFlood < 10 * 60_000L) return null
+        val it = spamSeen.values.iterator()
+        while (it.hasNext() && now - it.next() > 60_000L) it.remove()
+        if (spamSeen.containsKey(a.mac)) return null
+        spamSeen[a.mac] = now
+        if (spamSeen.size < SPAM_THRESHOLD || now - lastFlood < 10 * 60_000L) return null
         lastFlood = now
         return Hit(Category.HACKER, "Bluetooth spam attack nearby", 75,
-            "${spamTimes.size} new devices sent pairing pop-ups in one minute - typical of a Flipper Zero / ESP32 " +
+            "${spamSeen.size} new devices sent pairing pop-ups in one minute - typical of a Flipper Zero / ESP32 " +
                 "Bluetooth spam attack. Ignore pairing requests you didn't start.", SRC)
     }
 
@@ -300,6 +304,6 @@ object HackerWatch {
 
     @Synchronized
     fun reset() {
-        bySsid.clear(); twinsFlagged.clear(); spamTimes.clear(); lastFlood = Long.MIN_VALUE / 2; networks.clear()
+        bySsid.clear(); twinsFlagged.clear(); spamSeen.clear(); lastFlood = Long.MIN_VALUE / 2; networks.clear()
     }
 }

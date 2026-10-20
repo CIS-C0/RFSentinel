@@ -103,15 +103,18 @@ class MonitorFrames {
                 // often by name - the networks it has joined before.
                 // (Bare scanner probes - a fresh random address each burst - are skipped: see isScannerProbe.)
                 4 -> if (captureClients && !isScannerProbe(b, d, end)) touch(a2, ap = false)?.let { s ->
-                    val ies = Ies.read(b, d + 24, end)
+                    // Without the checksum some drivers keep: read as elements, its bytes would now and
+                    // then add a bogus one and flip the fingerprint.
+                    val body = ProbeIntel.withoutFcs(b, d, end)
+                    val ies = Ies.read(b, d + 24, body)
                     ies.wps?.let { s.wps = it }
                     if (ies.wildcard) {
                         s.wildcard = true
                         (s.probeRate ?: com.rfsentinel.app.detect.ProbeBehaviour.Counter().also { s.probeRate = it }).probe(now)
                     }
                     if (ies.flockIe) s.flockIe = true
-                    ProbeIntel.fingerprint(b, d + 24, end)?.let { s.fingerprint = it }
-                    ProbeIntel.skeletonHash(b, d + 24, ProbeIntel.withoutFcs(b, d, end))?.let { s.skeleton = it }
+                    ProbeIntel.fingerprint(b, d + 24, body)?.let { s.fingerprint = it }
+                    ProbeIntel.skeletonHash(b, d + 24, body)?.let { s.skeleton = it }
                     ies.ssid?.takeIf { validSsid(it) }?.let { name ->
                         s.probed.remove(name); s.probed.add(name)
                         if (s.probed.size > MAX_PROBED) s.probed.remove(s.probed.first())
