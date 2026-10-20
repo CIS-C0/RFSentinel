@@ -4,10 +4,10 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.DetectionEntity
 import com.rfsentinel.app.oui.OuiWatchlist
@@ -46,7 +46,7 @@ object Exporter {
     /** Two steps: what to export, then which format. */
     fun showExportMenu(activity: AppCompatActivity) {
         val scopes = Scope.entries
-        AlertDialog.Builder(activity)
+        MaterialAlertDialogBuilder(activity)
             .setTitle("Export")
             .setItems(scopes.map { it.title }.toTypedArray()) { _, which -> chooseFormat(activity, scopes[which]) }
             .setNegativeButton("Cancel", null)
@@ -64,7 +64,7 @@ object Exporter {
             run(activity, scope, scope.formats[0])
             return
         }
-        AlertDialog.Builder(activity)
+        MaterialAlertDialogBuilder(activity)
             .setTitle(scope.title)
             .setItems(scope.formats.map { FORMAT_LABELS.getValue(it) }.toTypedArray()) { _, which ->
                 run(activity, scope, scope.formats[which])
@@ -120,18 +120,10 @@ object Exporter {
         val detections = db.detectionDao()
         val session = sessionDevices()
         shareWritten(activity, "rf_sentinel_full_export_${stamp()}.json", "application/json", "Export") { out ->
-            // The order is fixed first, so devices heard meanwhile don't shift the batches.
-            val macs = history.macsByLastSeen()
-            var at = 0
             var before = Long.MAX_VALUE
             DeviceExport.writeEverything(
                 out, com.rfsentinel.app.BuildConfig.VERSION_NAME, session, flags,
-                historyBatches = {
-                    val chunk = macs.subList(at.coerceAtMost(macs.size), (at + BATCH).coerceAtMost(macs.size))
-                    at += BATCH
-                    val order = chunk.withIndex().associate { (i, m) -> m to i }
-                    if (chunk.isEmpty()) emptyList() else history.getAll(chunk).sortedBy { order[it.mac] ?: Int.MAX_VALUE }
-                },
+                historyBatches = historyBatches(history, history.macsByLastSeen()),
                 matchBatches = { detections.pageBefore(before, BATCH).also { rows -> rows.lastOrNull()?.let { before = it.id } } },
                 watchlist = OuiWatchlist.allEntries().filter { it.isCustom }
             )
@@ -140,9 +132,36 @@ object Exporter {
 
     private const val BATCH = 500
 
+    /**
+     * The device history a batch at a time, newest first. [macs] fixes the order first, so devices heard
+     * meanwhile don't shift the batches.
+     */
+    private fun historyBatches(
+        history: com.rfsentinel.app.data.KnownDeviceDao, macs: List<String>
+    ): suspend () -> List<com.rfsentinel.app.data.KnownDeviceEntity> {
+        var at = 0
+        return {
+            val chunk = macs.subList(at.coerceAtMost(macs.size), (at + BATCH).coerceAtMost(macs.size))
+            at += BATCH
+            val order = chunk.withIndex().associate { (i, m) -> m to i }
+            if (chunk.isEmpty()) emptyList() else history.getAll(chunk).sortedBy { order[it.mac] ?: Int.MAX_VALUE }
+        }
+    }
+
     private fun exportDevices(activity: AppCompatActivity, scope: Scope, format: String) {
         launchExport(activity) {
             val db = AppDatabase.getInstance(activity)
+            if (scope == Scope.HISTORY) {
+                // Written a batch at a time: a long history doesn't fit in memory as one string.
+                val history = db.knownDeviceDao()
+                val macs = history.macsByLastSeen()
+                if (macs.isEmpty()) { toast(activity, "No device history yet"); return@launchExport }
+                val csv = format == "csv"
+                shareWritten(activity, "rf_sentinel_device_history_${stamp()}.$format", if (csv) "text/csv" else "application/json", "Export") { out ->
+                    DeviceExport.writeHistory(out, csv, historyBatches(history, macs))
+                }
+                return@launchExport
+            }
             val session = sessionDevices()
             val (name, text, mime) = withContext(Dispatchers.Default) {
                 when (scope) {
@@ -185,14 +204,14 @@ object Exporter {
             "GeoJSON - web maps, QGIS",
             "CSV - devices heard on this trace (spreadsheet)"
         )
-        AlertDialog.Builder(activity)
+        MaterialAlertDialogBuilder(activity)
             .setTitle("Export trace")
             .setItems(labels) { _, which ->
                 val format = formats[which]
                 if (format == "csv") {
                     exportTrip(activity, tripId, format, onlyFlagged = false)
                 } else {
-                    AlertDialog.Builder(activity)
+                    MaterialAlertDialogBuilder(activity)
                         .setTitle("Which devices?")
                         .setItems(arrayOf("All devices heard on the trace", "Flagged devices only")) { _, w ->
                             exportTrip(activity, tripId, format, onlyFlagged = w == 1)

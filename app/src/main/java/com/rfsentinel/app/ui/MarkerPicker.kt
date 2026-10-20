@@ -10,8 +10,8 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.slider.Slider
 import com.rfsentinel.app.util.Prefs
 
@@ -139,7 +139,7 @@ object MarkerPicker {
             addView(slider)
         }
         refresh()
-        AlertDialog.Builder(activity)
+        MaterialAlertDialogBuilder(activity)
             .setTitle("Position marker")
             .setView(ScrollView(activity).apply { addView(root) })
             .setPositiveButton("Done", null)

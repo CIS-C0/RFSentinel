@@ -101,6 +101,8 @@ class ScanForegroundService : Service() {
         private const val CELL_REPEAT_MS = 30 * 60_000L
         private const val PLACING_MAX_AGE_MS = 30_000L
         private const val ESP_HIT_TTL_MS = 5 * 60_000L
+        /** A network fix this soon after a raw GPS fix is ignored. */
+        private const val RAW_GPS_PREFERRED_MS = 10_000L
         private const val PLACING_MAX_ACCURACY_M = 50f
         /** Pinpointing: precise 1 s fixes for this long after a flagged device was last heard. */
         private const val LOCATING_HOLD_MS = 120_000L
@@ -228,7 +230,14 @@ class ScanForegroundService : Service() {
         onFix(it)
     }
 
+    /** When raw GPS last gave a fix (backstop, or a phone without fused location). */
+    private var lastRawGpsAt = 0L
+
     private fun onFix(it: Location) {
+        // Raw GPS and network run side by side: while GPS gives fixes, the coarser network ones would make the
+        // position (and a recorded trace) jump back and forth between the two.
+        if (it.provider == LocationManager.GPS_PROVIDER) lastRawGpsAt = System.currentTimeMillis()
+        else if (it.provider == LocationManager.NETWORK_PROVIDER && System.currentTimeMillis() - lastRawGpsAt < RAW_GPS_PREFERRED_MS) return
         if (it.provider == LocationManager.GPS_PROVIDER && it.hasAccuracy() && it.accuracy <= 50f) {
             val now = System.currentTimeMillis()
             if (now - lastGoodGpsAt > GPS_RECONNECT_MS) AlertPlayer.gpsConnected(this)
@@ -251,7 +260,7 @@ class ScanForegroundService : Service() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)) {
                 BluetoothAdapter.STATE_ON -> if (Prefs.bleEnabled(context)) startBle()
-                BluetoothAdapter.STATE_TURNING_OFF, BluetoothAdapter.STATE_OFF -> bleEngine.stop()
+                BluetoothAdapter.STATE_TURNING_OFF, BluetoothAdapter.STATE_OFF -> stopBle() // its periodic restart too
             }
         }
     }
@@ -431,7 +440,8 @@ class ScanForegroundService : Service() {
 
     // ---- Scanning -----------------------------------------------------------
 
-    private fun bleWatched() = OuiWatchlist.allEntries().filter { it.isCustom && it.prefix.length == 17 }.map { it.prefix }
+    // Exact addresses only: a name rule can be 17 characters long too.
+    private fun bleWatched() = OuiWatchlist.allEntries().filter { it.isCustom && com.rfsentinel.app.util.MacUtil.isValidMac(it.prefix) }.map { it.prefix }
     private fun bleSettingsKey() = "${Prefs.bleScanMode(this)}|${bleWatched()}"
     /** [bleSettingsKey] of the running scan. */
     private var bleStartedWith = ""
@@ -811,6 +821,7 @@ class ScanForegroundService : Service() {
             }
         val nearIds = near.map { it.first.osmId }.toSet()
         alprLastDistance.keys.retainAll(nearIds)
+        alprLastAlert.entries.removeAll { now - it.value >= KNOWN_ALPR_REPEAT_MS } // a long drive passes many cameras
         for ((cam, d) in near) {
             val prev = alprLastDistance.put(cam.osmId, d)
             // Only once a second fix shows you getting closer: a camera you just passed
@@ -931,8 +942,25 @@ class ScanForegroundService : Service() {
                 }
                 // Forget classification cache for devices that left.
                 classified.keys.retainAll(devices.map { it.mac }.toSet())
+                pruneTimestamps(System.currentTimeMillis())
                 watchdog()
             }
+        }
+    }
+
+    /**
+     * Drops per-address timestamps old enough to make no difference any more (an entry past its window acts
+     * the same as none), so a long scan past thousands of rotating addresses doesn't keep every one of them.
+     */
+    private fun pruneTimestamps(now: Long) {
+        val alertKeep = maxOf(Prefs.dedupeWindowMs(this), RADAR_HOLD_MS)
+        lastAlerted.entries.removeAll { now - it.value > alertKeep }
+        lastLogged.entries.removeAll { now - it.value >= LOG_THROTTLE_MS }
+        lastDroneOverhead.entries.removeAll { now - it.value >= DRONE_OVERHEAD_REPEAT_MS }
+        // These two belong to the pipeline thread.
+        pipeline.post {
+            espHits.entries.removeAll { now - it.value.first >= ESP_HIT_TTL_MS }
+            probeHits.entries.removeAll { now - it.value.first >= ESP_HIT_TTL_MS }
         }
     }
 
@@ -1078,7 +1106,7 @@ class ScanForegroundService : Service() {
         val threshold = Prefs.alertThreshold(this)
         val trend = com.rfsentinel.app.sdr.RadioLog.observe(e, name, Prefs.radioTrendDb(this), now)
         val cell = e.band.kind == com.rfsentinel.app.sdr.RadioWatch.Kind.CELLULAR_UPLINK
-        if (trend != null && e.confidence >= threshold && now >= Prefs.alertsSnoozedUntil(this)) {
+        if (trend != null && e.confidence >= threshold) {
             AlertPlayer.callout(this, (if (cell) "Cellular signal " else "Radio ${spokenMhz(e.freqHz)} ") +
                 if (trend == com.rfsentinel.app.sdr.RadioLog.Trend.CLOSER) "getting closer" else "moving away")
         }
@@ -1122,7 +1150,7 @@ class ScanForegroundService : Service() {
                 )
             )
         }
-        if (e.confidence >= threshold && now >= Prefs.alertsSnoozedUntil(this)) {
+        if (e.confidence >= threshold) {
             NotificationHelper.sendMapAlert(this, "radio:" + e.freqHz, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java)
             // Spoken: the frequency (and its name) when that's on, else the short phrase.
             val spoken = when {
@@ -1140,12 +1168,13 @@ class ScanForegroundService : Service() {
         "%.3f".format(java.util.Locale.US, hz / 1e6).trimEnd('0').trimEnd('.')
 
     /** Police aircraft (ADS-B) and Waze reports: internet sources, both off by default. */
-    private val onlineWatch by lazy {
+    private val onlineWatchLazy = lazy {
         com.rfsentinel.app.online.OnlineWatch(this, serviceScope, { lastLocation ?: lastFix },
             onCallout = { text -> pipeline.post { AlertPlayer.callout(this, text) } }) { alert ->
             pipeline.post { onOnlineHit(alert) }
         }
     }
+    private val onlineWatch by onlineWatchLazy
 
     private fun onlineActive() = Prefs.categoryEnabled(this, Category.AIRCRAFT) ||
         (Prefs.categoryEnabled(this, Category.POLICE_REPORT) && Prefs.wazeReady(this))
@@ -1171,7 +1200,7 @@ class ScanForegroundService : Service() {
             )
         }
         if (alert.level != com.rfsentinel.app.online.WazePolice.Level.LOG &&
-            hit.confidence >= Prefs.alertThreshold(this) && now >= Prefs.alertsSnoozedUntil(this)) {
+            hit.confidence >= Prefs.alertThreshold(this)) {
             NotificationHelper.sendMapAlert(this, alert.key, hit, lat = alert.lat, lon = alert.lon, online = alert.key)
             if (alert.level == com.rfsentinel.app.online.WazePolice.Level.LOUD) {
                 AlertPlayer.play(this, hit.tier, alert.spoken ?: com.rfsentinel.app.util.Spoken.shortWord(hit))
@@ -1208,7 +1237,7 @@ class ScanForegroundService : Service() {
                 )
             )
         }
-        if (a.confidence >= Prefs.alertThreshold(this) && now >= Prefs.alertsSnoozedUntil(this)) {
+        if (a.confidence >= Prefs.alertThreshold(this)) {
             NotificationHelper.sendMapAlert(this, "gnss:" + a.key, hit, com.rfsentinel.app.ui.GnssActivity::class.java)
             AlertPlayer.play(this, hit.tier, a.title)
         }
@@ -1270,7 +1299,7 @@ class ScanForegroundService : Service() {
                 )
             )
         }
-        if (hit.confidence >= Prefs.alertThreshold(this) && now >= Prefs.alertsSnoozedUntil(this)) {
+        if (hit.confidence >= Prefs.alertThreshold(this)) {
             NotificationHelper.sendMapAlert(this, key, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java)
             AlertPlayer.play(this, hit.tier, spoken)
         }
@@ -1399,8 +1428,11 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.esp.EspBoards.stop(this)
         com.rfsentinel.app.usb.UsbWifi.stop(this)
         com.rfsentinel.app.sdr.SdrRadio.stop(this)
+        // Its hooks point into this service: cleared, so a stopped scan isn't kept in memory by them.
+        com.rfsentinel.app.sdr.SdrRadio.onAircraft = null
+        com.rfsentinel.app.sdr.SdrRadio.location = null
         if (gnssWatching) { GnssWatch.stop(this, gnssListener); gnssWatching = false }
-        onlineWatch.stop()
+        if (onlineWatchLazy.isInitialized()) onlineWatch.stop() // not built just to be stopped
         com.rfsentinel.app.esp.OuiSpyBle.stop()
         // External hardware is gone with the scan: its "heard by" marks (External filter, badges) go too.
         com.rfsentinel.app.esp.HeardBy.esp.clear()

@@ -48,7 +48,7 @@ class GnssActivity : AppCompatActivity() {
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
             val v = if (viewType == 0) TextView(parent.context).apply {
                 setTypeface(typeface, Typeface.BOLD)
-                textSize = 15f
+                textSize = 16f
                 setPadding(0, (16 * resources.displayMetrics.density).toInt(), 0, (6 * resources.displayMetrics.density).toInt())
             } else ItemDetectionBinding.inflate(LayoutInflater.from(parent.context), parent, false).root
             return object : RecyclerView.ViewHolder(v) {}
@@ -119,7 +119,7 @@ class GnssActivity : AppCompatActivity() {
         val accent = ChipStyle.accent(this@GnssActivity).first
         val box = android.widget.LinearLayout(this@GnssActivity).apply { orientation = android.widget.LinearLayout.VERTICAL }
         val root = android.widget.ScrollView(this@GnssActivity).apply { addView(box); visibility = View.GONE }
-        val verdict = TextView(this@GnssActivity).apply { textSize = 15f; setTypeface(typeface, Typeface.BOLD) }
+        val verdict = TextView(this@GnssActivity).apply { textSize = 16f; setTypeface(typeface, Typeface.BOLD) }
         val verdictSub = TextView(this@GnssActivity).apply { textSize = 12f; alpha = 0.8f }
         val tiles = android.widget.FrameLayout(this@GnssActivity)
         val sky = SkyPlotView(this@GnssActivity)
@@ -144,7 +144,7 @@ class GnssActivity : AppCompatActivity() {
             box.addView(tiles, android.widget.LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = (10 * dp).toInt() })
             box.addView(card(title("SKY · NORTH UP"), sky, legend))
             box.addView(card(title("SIGNAL PER SATELLITE · dB-Hz"), bars,
-                TextView(this@GnssActivity).apply { text = "Filled: used for your position. Outlined: heard only."; textSize = 11f; alpha = 0.7f }))
+                TextView(this@GnssActivity).apply { text = "Filled: used for your position. Outlined: heard only."; textSize = 12f; alpha = 0.7f }))
         }
 
         fun show(snap: GnssAnalyzer.Snapshot, verdictText: String, sub: String, good: Boolean) {

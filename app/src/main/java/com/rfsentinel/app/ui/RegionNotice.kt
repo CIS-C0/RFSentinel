@@ -1,7 +1,7 @@
 package com.rfsentinel.app.ui
 
 import android.content.Context
-import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 /**
  * Shown when a regional preset with driving rules worth knowing is switched on: France and
@@ -32,7 +32,7 @@ object RegionNotice {
 
     fun show(context: Context, preset: String) {
         val (title, text) = textFor(preset) ?: return
-        AlertDialog.Builder(context)
+        MaterialAlertDialogBuilder(context)
             .setTitle(title)
             .setMessage(text)
             .setPositiveButton("I understand", null)

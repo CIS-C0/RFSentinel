@@ -45,7 +45,7 @@
         android:paddingEnd="12dp"
         android:paddingBottom="6dp"
         android:textColor="#FFFFFF"
-        android:textSize="14sp"
+        android:textSize="@dimen/text_body"
         android:textStyle="bold"
         android:visibility="gone" />
 
@@ -55,7 +55,7 @@
         android:layout_height="wrap_content"
         android:paddingBottom="4dp"
         android:text="Idle"
-        android:textSize="15sp" />
+        android:textSize="@dimen/text_subtitle" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -263,7 +263,7 @@
                 android:gravity="center"
                 android:padding="24dp"
                 android:text="No devices heard yet.\nTap a device for full details.\nLong-press for quick actions (watchlist, whitelist, favorite)."
-                android:textColor="#888888" />
+                android:textColor="?android:attr/textColorSecondary" />
 
             <!-- Scrolled down when a new alert arrives above: tap to go up to it. -->
             <TextView
@@ -278,7 +278,7 @@
                 android:paddingEnd="14dp"
                 android:paddingBottom="6dp"
                 android:text="▲ New alert"
-                android:textSize="14sp"
+                android:textSize="@dimen/text_body"
                 android:textStyle="bold"
                 android:visibility="gone" />
         </FrameLayout>

@@ -179,6 +179,7 @@ object RoadTiles {
     internal fun clear() = synchronized(memory) { memory.clear() }
 
     private fun load(context: Context, t: Tile) {
+        if (failedAt.size > 500) failedAt.entries.removeAll { System.currentTimeMillis() - it.value >= 60_000 } // offline all day
         val url = tileUrl(context) ?: run { failedAt[t] = System.currentTimeMillis(); return }
         val version = url.substringAfter("/planet/").substringBefore('/').ifEmpty { "x" }
         val dir = File(context.cacheDir, "road-tiles/$version")

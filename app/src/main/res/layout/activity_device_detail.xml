@@ -20,7 +20,7 @@
             android:paddingEnd="8dp"
             android:paddingBottom="2dp"
             android:textColor="#FFFFFF"
-            android:textSize="12sp"
+            android:textSize="@dimen/text_caption"
             android:textStyle="bold"
             android:visibility="gone" />
 
@@ -29,7 +29,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textIsSelectable="true"
-            android:textSize="20sp"
+            android:textSize="@dimen/text_title"
             android:textStyle="bold" />
 
         <TextView
@@ -38,15 +38,15 @@
             android:layout_height="wrap_content"
             android:fontFamily="monospace"
             android:textIsSelectable="true"
-            android:textSize="13sp" />
+            android:textSize="@dimen/text_body" />
 
         <TextView
             android:id="@+id/presenceText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:textColor="#888888"
-            android:textSize="12sp" />
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="@dimen/text_caption" />
 
         <!-- Your own note on the device: tap to edit -->
         <TextView
@@ -57,7 +57,7 @@
             android:background="?attr/selectableItemBackground"
             android:paddingTop="4dp"
             android:paddingBottom="4dp"
-            android:textSize="14sp"
+            android:textSize="@dimen/text_body"
             android:visibility="gone" />
 
         <!-- Visual style: hot / cold signal dial and the match's confidence ring -->
@@ -97,7 +97,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="--"
-                android:textSize="34sp"
+                android:textSize="@dimen/text_display"
                 android:textStyle="bold" />
 
             <TextView
@@ -106,14 +106,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
                 android:layout_weight="1"
-                android:textSize="13sp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/locateButton"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Locate" />
+                android:textSize="@dimen/text_body" />
         </LinearLayout>
 
         <com.rfsentinel.app.ui.SignalGraphView
@@ -122,18 +115,37 @@
             android:layout_height="140dp"
             android:layout_marginTop="8dp" />
 
-        <!-- Actions -->
+        <!-- The two main actions up front, side by side (same height when a label wraps) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:baselineAligned="false"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/locateButton"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:text="Locate" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/actionWatchlist"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="Add to watchlist" />
+        </LinearLayout>
+
+        <!-- The other actions -->
         <com.google.android.material.chip.ChipGroup
             android:id="@+id/actions"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp">
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/actionWatchlist"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Add to watchlist" />
+            android:layout_marginTop="4dp">
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/actionWhitelist"
@@ -184,7 +196,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:text="Everything on this screen comes from signals the device broadcasts publicly. RF Sentinel never connects to it. Distance is a rough estimate from signal strength."
-            android:textColor="#888888"
-            android:textSize="11sp" />
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="@dimen/text_caption" />
     </LinearLayout>
 </ScrollView>

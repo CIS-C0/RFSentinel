@@ -4,10 +4,10 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.databinding.ActivityLogBinding
 import com.rfsentinel.app.util.Exporter
@@ -49,7 +49,7 @@ class DetectionLogActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
         1 -> { Exporter.showExportMenu(this); true }
         2 -> {
-            AlertDialog.Builder(this)
+            MaterialAlertDialogBuilder(this)
                 .setTitle("Clear match history?")
                 .setMessage("This deletes every logged match on this device. Export first if you need a copy.")
                 .setPositiveButton("Clear") { _, _ ->

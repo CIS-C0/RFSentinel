@@ -3,7 +3,7 @@ package com.rfsentinel.app.nav
 import android.content.Context
 import android.widget.EditText
 import android.widget.FrameLayout
-import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.util.Prefs
 
 /** Asks for a new name for a starred place; [done] gets the renamed place. */
@@ -17,7 +17,7 @@ object RenamePlace {
         val box = FrameLayout(context).apply {
             val side = (20 * dp).toInt(); setPadding(side, (8 * dp).toInt(), side, 0); addView(input)
         }
-        AlertDialog.Builder(context)
+        MaterialAlertDialogBuilder(context)
             .setTitle("Rename starred place")
             .setView(box)
             .setPositiveButton("Save") { _, _ ->

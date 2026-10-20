@@ -92,6 +92,8 @@ object DeviceRegistry {
     }
 
     private class Track(val mac: String, now: Long) {
+        /** Set (atomically with the lookup) by every [report], so pruning can't drop a track that is being updated. */
+        @Volatile var touchedAt = now
         val sources = HashSet<Advert.Source>()
         var advert: Advert? = null
         var name: String? = null
@@ -156,7 +158,7 @@ object DeviceRegistry {
         broadcast: GeoSample? = null
     ): Boolean {
         var isFirst = false
-        val t = tracks.computeIfAbsent(a.mac) { isFirst = true; Track(a.mac, now) }
+        val t = tracks.compute(a.mac) { _, old -> (old ?: Track(a.mac, now).also { isFirst = true }).also { it.touchedAt = now } }!!
         if (isFirst) linkRotatedAddress(t, a, now)
         synchronized(t) {
             PatrolCluster.roleOf(hits, vendor, a.name)?.let { t.role = it }
@@ -354,7 +356,8 @@ object DeviceRegistry {
 
     /** Light snapshots for the live list; pruned first. */
     fun snapshot(now: Long = System.currentTimeMillis()): List<Snapshot> {
-        tracks.values.removeIf { now - it.lastSeen > PRUNE_AFTER_MS }
+        // Per key and atomic with report's lookup: a device heard right now is never dropped mid-update.
+        for (mac in tracks.keys) tracks.computeIfPresent(mac) { _, t -> t.takeIf { now - maxOf(t.lastSeen, t.touchedAt) <= PRUNE_AFTER_MS } }
         return tracks.values.map { t -> synchronized(t) { snap(t, full = false) } }
     }
 

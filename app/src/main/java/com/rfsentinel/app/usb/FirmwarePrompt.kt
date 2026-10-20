@@ -6,10 +6,10 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -53,7 +53,7 @@ object FirmwarePrompt {
         val blobs = Firmware.missing(activity, chip.driver).ifEmpty { UsbWifi.retry(activity); return false }
         val kb = blobs.sumOf { it.size } / 1024
         val files = blobs.joinToString("\n") { "• ${it.name}" }
-        AlertDialog.Builder(activity)
+        MaterialAlertDialogBuilder(activity)
             .setTitle("Download the ${chip.name} firmware?")
             .setMessage("This adapter needs its maker's firmware to run. That firmware isn't free software, so this " +
                 "build of RF Sentinel doesn't include it.\n\nRF Sentinel can download it once (about $kb KB) from the " +

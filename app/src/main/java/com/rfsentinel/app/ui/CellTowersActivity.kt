@@ -7,13 +7,13 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.databinding.ActivityLogBinding
 import com.rfsentinel.app.databinding.ItemDetectionBinding
 import com.rfsentinel.app.detect.CellAnalyzer
@@ -67,7 +67,7 @@ class CellTowersActivity : AppCompatActivity() {
             val v = when (viewType) {
                 0 -> TextView(parent.context).apply {
                     setTypeface(typeface, Typeface.BOLD)
-                    textSize = 15f
+                    textSize = 16f
                     setPadding(0, (16 * resources.displayMetrics.density).toInt(), 0, (6 * resources.displayMetrics.density).toInt())
                 }
                 3 -> ServingCard()
@@ -140,12 +140,12 @@ class CellTowersActivity : AppCompatActivity() {
         private val dp = resources.displayMetrics.density
         private val accent = ChipStyle.accent(context).first
         private val ratChip = TextView(context).apply { textSize = 12f; setTypeface(typeface, Typeface.BOLD) }
-        private val title = TextView(context).apply { textSize = 17f; setTypeface(typeface, Typeface.BOLD) }
+        private val title = TextView(context).apply { textSize = 16f; setTypeface(typeface, Typeface.BOLD) }
         private val dbm = TextView(context).apply { textSize = 34f; setTypeface(typeface, Typeface.BOLD) }
-        private val unit = TextView(context).apply { textSize = 13f; alpha = 0.75f; text = " dBm" }
+        private val unit = TextView(context).apply { textSize = 14f; alpha = 0.75f; text = " dBm" }
         private val bars = SignalBarsView(context)
         private val spark = SparklineView(context)
-        private val sparkLabel = TextView(context).apply { textSize = 11f; alpha = 0.7f }
+        private val sparkLabel = TextView(context).apply { textSize = 12f; alpha = 0.7f }
         private val idText = TextView(context).apply { textSize = 12f; typeface = Typeface.MONOSPACE; alpha = 0.85f }
 
         init {
@@ -292,7 +292,7 @@ class CellTowersActivity : AppCompatActivity() {
             append("\nThe map position is where your phone was when this tower's signal was strongest - ")
             append("an estimate, usually within a few hundred metres to a few km of the real tower.")
         }
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(t.ratLabel)
             .setMessage(text)
             .apply {

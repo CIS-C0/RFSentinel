@@ -19,6 +19,9 @@ interface WhitelistDao {
     @Query("SELECT * FROM whitelist ORDER BY mac ASC")
     fun all(): Flow<List<WhitelistEntity>>
 
+    @Query("SELECT * FROM whitelist WHERE mac = :mac")
+    suspend fun get(mac: String): WhitelistEntity?
+
     @Query("SELECT EXISTS(SELECT 1 FROM whitelist WHERE mac = :mac)")
     suspend fun isWhitelisted(mac: String): Boolean
 }

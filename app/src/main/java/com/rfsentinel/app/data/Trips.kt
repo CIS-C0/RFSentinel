@@ -110,6 +110,16 @@ interface TripDao {
     @Query("SELECT * FROM trip_devices WHERE tripId = :tripId ORDER BY (category IS NULL), confidence DESC, bestRssi DESC")
     suspend fun devices(tripId: Long): List<TripDeviceEntity>
 
+    /** One device of a trip, read on the caller's (background) thread: a recording trace re-reading one it let go of. */
+    @Query("SELECT * FROM trip_devices WHERE tripId = :tripId AND mac = :mac")
+    fun deviceNow(tripId: Long, mac: String): TripDeviceEntity?
+
+    @Query("SELECT COUNT(*) FROM trip_devices WHERE tripId = :tripId")
+    suspend fun deviceCount(tripId: Long): Int
+
+    @Query("SELECT COUNT(*) FROM trip_devices WHERE tripId = :tripId AND category IS NOT NULL")
+    suspend fun flaggedCount(tripId: Long): Int
+
     /** Flagged devices with a position from every recorded trace, for the history map. */
     @Query("SELECT * FROM trip_devices WHERE category IS NOT NULL AND lat IS NOT NULL AND lastSeen >= :since")
     suspend fun flaggedDevicesSince(since: Long): List<TripDeviceEntity>

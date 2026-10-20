@@ -29,6 +29,7 @@ class OuiAdapter(
         val item = items[position]
         holder.binding.prefixText.text = when {
             item.isNameRule -> "Name contains \"${item.ruleText}\""
+            item.isStartsRule -> "Name starts with \"${item.ruleText}\""
             item.isVendorRule -> "Maker contains \"${item.ruleText}\""
             item.isProbeRule -> "Asks for network \"${item.ruleText}\""
             item.isFingerprintRule -> "Probe fingerprint ${item.ruleText}"

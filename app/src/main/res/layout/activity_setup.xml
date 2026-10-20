@@ -10,7 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textColor="?attr/colorSecondary"
-        android:textSize="13sp"
+        android:textSize="@dimen/text_body"
         android:textStyle="bold" />
 
     <com.google.android.material.progressindicator.LinearProgressIndicator
@@ -25,7 +25,7 @@
         android:id="@+id/titleText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textSize="24sp"
+        android:textSize="@dimen/text_headline"
         android:textStyle="bold" />
 
     <TextView
@@ -34,7 +34,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
         android:layout_marginBottom="12dp"
-        android:textSize="14sp" />
+        android:textSize="@dimen/text_body" />
 
     <ScrollView
         android:id="@+id/pageScroll"

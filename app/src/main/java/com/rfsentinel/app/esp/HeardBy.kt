@@ -11,6 +11,8 @@ class RecentMacs {
 
     fun mark(mac: String, now: Long = System.currentTimeMillis()) {
         last[mac.uppercase()] = now
+        // A monitor-mode adapter hears thousands of addresses that are never looked up again.
+        if (last.size > MAX_MACS) last.entries.removeAll { now - it.value >= HeardBy.WINDOW_MS }
     }
 
     fun recent(mac: String, now: Long = System.currentTimeMillis()): Boolean {
@@ -22,6 +24,8 @@ class RecentMacs {
     }
 
     fun clear() = last.clear()
+
+    private companion object { const val MAX_MACS = 5_000 }
 }
 
 object HeardBy {

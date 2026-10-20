@@ -9,6 +9,8 @@ data class OuiEntry(
      *  - "AA:BB:CC"            vendor prefix (IEEE MA-L block)
      *  - "AA:BB:CC:DD:EE:FF"   one exact device
      *  - "name:<text>"         advertised name / SSID contains <text> (case-insensitive)
+     *  - "starts:<text>"       advertised name / SSID starts with <text> (case-insensitive), e.g. every
+     *                          network named "Flock-..."
      *  - "vendor:<text>"       manufacturer (IEEE registrant or Bluetooth company) contains <text>
      *  - "probe:<ssid>"        a device asks for this exact WiFi network name (probe request,
      *                          heard by a USB WiFi adapter or an ESP32 Marauder board)
@@ -28,6 +30,7 @@ data class OuiEntry(
 ) {
     val isCustom get() = confidence == "custom"
     val isNameRule get() = prefix.startsWith(NAME, ignoreCase = true)
+    val isStartsRule get() = prefix.startsWith(STARTS, ignoreCase = true)
     val isVendorRule get() = prefix.startsWith(VENDOR, ignoreCase = true)
     val isProbeRule get() = prefix.startsWith(PROBE, ignoreCase = true)
     val isFingerprintRule get() = prefix.startsWith(FINGERPRINT, ignoreCase = true)
@@ -53,6 +56,7 @@ data class OuiEntry(
 
     companion object {
         const val NAME = "name:"
+        const val STARTS = "starts:"
         const val VENDOR = "vendor:"
         const val PROBE = "probe:"
         const val FINGERPRINT = "fp:"

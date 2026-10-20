@@ -2,4 +2,6 @@
 <resources>
     <item name="mapHost" type="id" />
     <item name="visual_chip_color" type="id" />
+    <!-- Settings rows the search hid (so clearing it shows only those again) -->
+    <item name="search_hidden" type="id" />
 </resources>

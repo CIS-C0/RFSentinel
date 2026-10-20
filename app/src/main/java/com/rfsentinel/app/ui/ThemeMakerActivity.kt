@@ -21,12 +21,12 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.MaterialColors
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.rfsentinel.app.util.applySystemBarInsets
 import java.io.File
@@ -159,7 +159,7 @@ class ThemeMakerActivity : AppCompatActivity() {
 
     private fun leave() {
         if (!dirty()) { finish(); return }
-        AlertDialog.Builder(this).setTitle("Keep your changes?")
+        MaterialAlertDialogBuilder(this).setTitle("Keep your changes?")
             .setPositiveButton("Save") { _, _ -> if (save() != null) finish() }
             .setNegativeButton("Discard") { _, _ -> finish() }
             .setNeutralButton("Keep editing", null).show()
@@ -480,7 +480,7 @@ class ThemeMakerActivity : AppCompatActivity() {
             addView(hex)
         }
         refresh()
-        AlertDialog.Builder(this).setTitle("Custom colour").setView(box)
+        MaterialAlertDialogBuilder(this).setTitle("Custom colour").setView(box)
             .setPositiveButton("Use") { _, _ -> t = t.copy(accent = current() or 0xFF000000.toInt()); updateSwatches(); updatePreview() }
             .setNegativeButton("Cancel", null).show()
     }
@@ -534,7 +534,7 @@ class ThemeMakerActivity : AppCompatActivity() {
     }
 
     private fun confirmDelete() {
-        AlertDialog.Builder(this).setTitle("Delete \"${t.name}\"?")
+        MaterialAlertDialogBuilder(this).setTitle("Delete \"${t.name}\"?")
             .setMessage("Its banner and font go too. Export it first if you want to keep a copy.")
             .setPositiveButton("Delete") { _, _ ->
                 val wasUsed = ThemeManager.custom(this)?.id == t.id

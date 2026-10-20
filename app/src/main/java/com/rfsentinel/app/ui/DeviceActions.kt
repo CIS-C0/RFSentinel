@@ -10,9 +10,9 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.BuildConfig
 import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.Favorites
@@ -67,10 +67,12 @@ object DeviceActions {
         if (custom != null) {
             items += "Remove from watchlist (${custom.prefix})" to {
                 OuiWatchlist.removeCustomEntry(activity, custom.prefix)
-                toast(activity, "Removed from watchlist")
+                com.rfsentinel.app.util.Undo.show(activity, "Removed from watchlist") {
+                    OuiWatchlist.addCustomEntry(activity, custom)
+                }
             }
         } else {
-            items += "Add to watchlist..." to { addToWatchlist(activity, mac, snap?.name) }
+            items += "Add to watchlist..." to { addToWatchlist(activity, mac, snap?.name, snap?.advert?.isWifi == true) }
         }
         when {
             ignoredTracker -> items += "Stop ignoring this tracker" to {
@@ -93,7 +95,7 @@ object DeviceActions {
         }
         items += "Copy address" to { copy(activity, mac) }
 
-        AlertDialog.Builder(activity)
+        MaterialAlertDialogBuilder(activity)
             .setTitle(snap?.best?.label ?: snap?.name ?: mac)
             .setItems(items.map { it.first }.toTypedArray()) { _, which -> items[which].second() }
             .show()
@@ -101,9 +103,10 @@ object DeviceActions {
 
     /**
      * Adds a device to the watchlist, either as this exact device (full MAC, the
-     * default) or as its whole vendor prefix (disabled for randomized addresses).
+     * default), as its whole vendor prefix (disabled for randomized addresses), or
+     * as every network / device whose name starts the same way (an SSID prefix).
      */
-    fun addToWatchlist(activity: AppCompatActivity, mac: String, name: String?) {
+    fun addToWatchlist(activity: AppCompatActivity, mac: String, name: String?, wifi: Boolean = false) {
         val oui = MacUtil.oui(mac)
         val randomized = MacUtil.isRandomized(mac)
         val b = DialogAddWatchlistBinding.inflate(activity.layoutInflater)
@@ -131,20 +134,40 @@ object DeviceActions {
             if (randomized) b.warningText.text = "This is a randomized (private) address: it may change later. " +
                 "The probe fingerprint below stays the same - watch that to catch this type of device."
         }
+        // The start of its name / SSID: catches the whole family ("Flock-..."), whatever the address.
+        val named = name?.trim().orEmpty()
+        if (named.isNotEmpty()) {
+            b.scopeStarts.visibility = View.VISIBLE
+            b.scopeStarts.text = if (wifi) "Every network whose name (SSID) starts with:" else "Every device whose name starts with:"
+            b.startsInput.setText(named)
+            b.scopeGroup.setOnCheckedChangeListener { _, id ->
+                b.startsInput.visibility = if (id == b.scopeStarts.id) View.VISIBLE else View.GONE
+                if (id == b.scopeStarts.id) b.startsInput.requestFocus()
+            }
+            if (randomized && fp == null) b.warningText.text = "This is a randomized (private) address: it may change later, and its " +
+                "prefix is not a real vendor, so prefix matching is disabled. Tip: watch the start of its name instead."
+        }
         b.labelInput.setText(name ?: "")
-        AlertDialog.Builder(activity)
+        MaterialAlertDialogBuilder(activity)
             .setTitle("Add to watchlist")
             .setView(b.root)
             .setPositiveButton("Add") { _, _ ->
                 val wholePrefix = b.scopePrefix.isChecked
                 val byFingerprint = fp != null && b.scopeFingerprint.isChecked
                 val byShape = shape != null && b.scopeShape.isChecked
+                val start = b.startsInput.text.toString().trim()
+                val byStart = named.isNotEmpty() && b.scopeStarts.isChecked
+                if (byStart && start.isEmpty()) { toast(activity, "Not added: enter the start of the name"); return@setPositiveButton }
                 val key = when {
+                    byStart -> OuiEntry.STARTS + start
                     byShape -> OuiEntry.FINGERPRINT + shape; byFingerprint -> OuiEntry.FINGERPRINT + fp
                     wholePrefix -> oui; else -> mac
                 }
-                val label = b.labelInput.text.toString().trim().ifEmpty {
+                // The label box holds the device's own full name: for a name prefix, say what is watched instead.
+                val typed = b.labelInput.text.toString().trim().takeUnless { byStart && it == named }.orEmpty()
+                val label = typed.ifEmpty {
                     when {
+                        byStart -> (if (wifi) "SSID starts with " else "Name starts with ") + start
                         byShape -> "Probe shape ${shape!!.removePrefix("shape-")}"; byFingerprint -> "Device type $fp"
                         wholePrefix -> "Custom prefix $oui"; else -> "Custom device $mac"
                     }
@@ -167,7 +190,7 @@ object DeviceActions {
         val note = EditText(activity).apply { hint = "What do you think it is? (optional)"; setSingleLine(false) }
         val preview = TextView(activity).apply {
             typeface = Typeface.MONOSPACE
-            textSize = 11f
+            textSize = 12f
             setTextIsSelectable(true)
         }
         fun report() = SignatureReport.build(advert, snap.vendor, snap.deviceType, MacUtil.isRandomized(mac),
@@ -184,7 +207,7 @@ object DeviceActions {
             addView(note)
             addView(preview)
         }
-        AlertDialog.Builder(activity)
+        MaterialAlertDialogBuilder(activity)
             .setTitle("Report unknown device")
             .setView(ScrollView(activity).apply { addView(box) })
             .setPositiveButton("Share") { _, _ ->
@@ -218,11 +241,11 @@ object DeviceActions {
         val title = android.widget.TextView(activity).apply {
             val d = resources.displayMetrics.density
             setPadding((24 * d).toInt(), (20 * d).toInt(), (24 * d).toInt(), (8 * d).toInt())
-            textSize = 15f
+            textSize = 16f
             text = "Ignore this tracker?\n\nIts Bluetooth address changes about once a day, so it can't be " +
                 "whitelisted like other devices. Only ignore a tag you know - a hidden tracker would stay silent too."
         }
-        AlertDialog.Builder(activity)
+        MaterialAlertDialogBuilder(activity)
             .setCustomTitle(title)
             .setItems(choices) { _, which ->
                 when (which) {
@@ -245,7 +268,7 @@ object DeviceActions {
     }
 
     fun whitelist(activity: AppCompatActivity, mac: String, label: String) {
-        AlertDialog.Builder(activity)
+        MaterialAlertDialogBuilder(activity)
             .setTitle("Whitelist this device?")
             .setMessage("$mac\n$label\n\nIt will be marked trusted and never logged, flashed or alerted on.")
             .setPositiveButton("Whitelist") { _, _ ->
@@ -260,8 +283,12 @@ object DeviceActions {
 
     fun unwhitelist(activity: AppCompatActivity, mac: String) {
         activity.lifecycleScope.launch {
-            AppDatabase.getInstance(activity).whitelistDao().remove(WhitelistEntity(mac))
-            toast(activity, "Removed $mac from the whitelist")
+            val dao = AppDatabase.getInstance(activity).whitelistDao()
+            val was = dao.get(mac) ?: WhitelistEntity(mac)
+            dao.remove(was)
+            com.rfsentinel.app.util.Undo.show(activity, "Removed $mac from the whitelist") {
+                activity.lifecycleScope.launch { dao.add(was) }
+            }
         }
     }
 

@@ -141,7 +141,7 @@
                 android:id="@+id/wifiThrottleText"
                 style="@style/SettingsLabel"
                 android:paddingTop="2dp"
-                android:textSize="12sp" />
+                android:textSize="@dimen/text_caption" />
 
             <Button
                 android:id="@+id/wifiThrottleButton"
@@ -178,7 +178,7 @@
                 android:id="@+id/carDevicesText"
                 style="@style/SettingsLabel"
                 android:paddingTop="2dp"
-                android:textSize="12sp" />
+                android:textSize="@dimen/text_caption" />
 
             <Button
                 android:id="@+id/carDevicesButton"
@@ -360,7 +360,7 @@
                 android:id="@+id/voiceText"
                 style="@style/SettingsLabel"
                 android:paddingTop="0dp"
-                android:textSize="12sp" />
+                android:textSize="@dimen/text_caption" />
         </LinearLayout>
 
         <!-- ================= Over other apps ================= -->
@@ -433,7 +433,7 @@
                 android:id="@+id/trackerIgnoreText"
                 style="@style/SettingsLabel"
                 android:paddingTop="4dp"
-                android:textSize="12sp" />
+                android:textSize="@dimen/text_caption" />
 
             <Button
                 android:id="@+id/trackerIgnoreButton"
@@ -612,7 +612,7 @@
                 android:id="@+id/prefetchCamerasText"
                 style="@style/SettingsLabel"
                 android:paddingTop="0dp"
-                android:textSize="12sp" />
+                android:textSize="@dimen/text_caption" />
 
             <Button
                 android:id="@+id/deflockButton"
@@ -625,14 +625,14 @@
                 android:id="@+id/deflockText"
                 style="@style/SettingsLabel"
                 android:paddingTop="0dp"
-                android:textSize="12sp" />
+                android:textSize="@dimen/text_caption" />
 
             <!-- Cameras silenced from the map (tap a camera > Ignore alerts). -->
             <TextView
                 android:id="@+id/ignoredCamerasText"
                 style="@style/SettingsLabel"
                 android:paddingTop="4dp"
-                android:textSize="12sp" />
+                android:textSize="@dimen/text_caption" />
 
             <Button
                 android:id="@+id/ignoredCamerasButton"
@@ -803,7 +803,7 @@
                 android:id="@+id/liveExportText"
                 style="@style/SettingsLabel"
                 android:paddingTop="0dp"
-                android:textSize="12sp" />
+                android:textSize="@dimen/text_caption" />
 
             <TextView android:id="@+id/retentionLabel" style="@style/SettingsLabel" android:text="Keep history for" />
 

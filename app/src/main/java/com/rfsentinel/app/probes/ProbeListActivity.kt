@@ -8,11 +8,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.data.ProbeBook
 import com.rfsentinel.app.data.ProbeLog
 import com.rfsentinel.app.databinding.ActivityProbeListBinding
@@ -58,7 +58,7 @@ class ProbeListActivity : AppCompatActivity() {
         }
         binding.filterInput.doAfterTextChanged { refresh() }
         binding.clearButton.setOnClickListener {
-            AlertDialog.Builder(this)
+            MaterialAlertDialogBuilder(this)
                 .setTitle("Clear the list?")
                 .setMessage("Removes every recorded network name. Watched names stay on the watchlist.")
                 .setPositiveButton("Clear") { _, _ -> ProbeLog.clear(this); refresh() }
@@ -107,7 +107,7 @@ class ProbeListActivity : AppCompatActivity() {
     /** Watch [ssid]: the user names what it is; the label is what alerts say. */
     private fun watch(ssid: String) {
         val input = EditText(this).apply { setText("Asks for \"$ssid\""); setSelectAllOnFocus(true) }
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Alert when a device asks for \"$ssid\"")
             .setMessage("What is it? This is what the alert says.")
             .setView(input)
@@ -122,8 +122,13 @@ class ProbeListActivity : AppCompatActivity() {
     }
 
     private fun unwatch(ssid: String) {
+        val entry = OuiWatchlist.customEntry(OuiEntry.PROBE + ssid)
         OuiWatchlist.removeCustomEntry(this, OuiEntry.PROBE + ssid)
         refresh()
+        if (entry != null) com.rfsentinel.app.util.Undo.show(this, "No longer watching \"$ssid\"") {
+            OuiWatchlist.addCustomEntry(this, entry)
+            refresh()
+        }
     }
 
     private fun details(n: ProbeBook.Network) {
@@ -132,7 +137,7 @@ class ProbeListActivity : AppCompatActivity() {
             mac + "  " + (if (MacUtil.isRandomized(mac)) "random address" else VendorDb.macVendor(mac) ?: "unknown maker")
         }
         val watched = OuiWatchlist.isProbeWatched(n.ssid)
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(n.ssid)
             .setMessage("First seen ${df.format(Date(n.firstSeen))}\nLast seen ${df.format(Date(n.lastSeen))}\n\nDevices that asked for it:\n$devices")
             .setPositiveButton(if (watched) "Stop watching" else "Watch") { _, _ -> if (watched) unwatch(n.ssid) else watch(n.ssid) }

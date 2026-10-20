@@ -11,6 +11,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Records a scan trace ("trip"): your GPS path, plus every device heard along
@@ -25,6 +27,12 @@ object TripRecorder {
     private const val MIN_POINT_INTERVAL_MS = 30_000L
     /** Ignore fixes worse than this (indoor network fixes jump around). */
     private const val MAX_ACCURACY_M = 60f
+    /**
+     * A long wardrive hears tens of thousands of devices: past [DEVICES_IN_MEMORY], one not heard for
+     * [DEVICE_IDLE_MS] (and already written) is let go from memory, and read back if it is heard again.
+     */
+    private const val DEVICES_IN_MEMORY = 2_000
+    private const val DEVICE_IDLE_MS = 10 * 60_000L
 
     data class LivePoint(val time: Long, val lat: Double, val lon: Double)
 
@@ -41,22 +49,34 @@ object TripRecorder {
     private val pendingPoints = mutableListOf<TripPointEntity>()
     private val devices = ConcurrentHashMap<String, TripDeviceEntity>()
     private val dirty = ConcurrentHashMap.newKeySet<String>()
+    /** Devices let go from memory (all written), and which of them are flagged, for the totals. */
+    private val evicted = ConcurrentHashMap.newKeySet<String>()
+    private val evictedFlagged = ConcurrentHashMap.newKeySet<String>()
+    @Volatile private var tripDao: com.rfsentinel.app.data.TripDao? = null
+    /** One database write at a time: a flush still writing when the trip is stopped must not reopen or zero it. */
+    private val writing = Mutex()
 
     @Synchronized
     fun livePoints(): List<LivePoint> = points.toList()
 
-    fun deviceCount() = devices.size
-    fun flaggedCount() = devices.values.count { it.flagged }
+    /** The latest trace point, without copying the whole trace. */
+    @Synchronized
+    fun lastPoint(): LivePoint? = points.lastOrNull()
+
+    fun deviceCount() = devices.size + evicted.size
+    fun flaggedCount() = devices.values.count { it.flagged } + evictedFlagged.size
 
     /** Starts a new trip. Returns its id. */
     suspend fun start(context: Context, name: String? = null): Long {
         activeTripId?.let { return it }
         val now = System.currentTimeMillis()
         val label = name ?: ("Trace " + SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(now)))
-        val id = AppDatabase.getInstance(context).tripDao().insertTrip(TripEntity(name = label, startTime = now))
+        val dao = AppDatabase.getInstance(context).tripDao()
+        val id = dao.insertTrip(TripEntity(name = label, startTime = now))
         synchronized(this) {
+            tripDao = dao
             points.clear(); pendingPoints.clear()
-            devices.clear(); dirty.clear()
+            devices.clear(); dirty.clear(); evicted.clear(); evictedFlagged.clear()
             distanceM = 0.0
             startedAt = now
             activeTripId = id
@@ -85,19 +105,19 @@ object TripRecorder {
         val changed = takeDirty()
         Final(
             id, pendingPoints.toList(), changed, distanceM, points.size,
-            devices.size, devices.values.count { it.flagged }
+            deviceCount(), flaggedCount()
         ).also {
             // Drop the live trace too: the process often outlives the scan (and a swiped-away
             // app), and the live map would keep drawing the old route.
             points.clear(); pendingPoints.clear()
-            devices.clear(); dirty.clear()
+            devices.clear(); dirty.clear(); evicted.clear(); evictedFlagged.clear()
             distanceM = 0.0
             activeTripId = null
         }
     }
 
     /** Writes a detached trip and closes it; deletes it if nothing was recorded. */
-    suspend fun persist(context: Context, f: Final) {
+    suspend fun persist(context: Context, f: Final) = writing.withLock {
         val dao = AppDatabase.getInstance(context).tripDao()
         if (f.points.isNotEmpty()) dao.insertPoints(f.points)
         if (f.devices.isNotEmpty()) f.devices.chunked(300).forEach { dao.upsertDevices(it) }
@@ -148,7 +168,8 @@ object TripRecorder {
         loc: Location?, now: Long, probed: List<String> = emptyList()
     ) {
         val id = activeTripId ?: return
-        devices.compute(mac) { _, old ->
+        devices.compute(mac) { _, held ->
+            val old = held ?: readBack(id, mac)
             val stronger = old == null || rssi > old.bestRssi
             val hitCategory = best?.category?.name ?: old?.category
             TripDeviceEntity(
@@ -173,6 +194,25 @@ object TripRecorder {
         dirty += mac
     }
 
+    /** A device let go from memory earlier, read back from the database (null when it is new). */
+    private fun readBack(id: Long, mac: String): TripDeviceEntity? {
+        if (!evicted.remove(mac)) return null
+        evictedFlagged.remove(mac)
+        return runCatching { tripDao?.deviceNow(id, mac) }.getOrNull()
+    }
+
+    /** Lets go of devices not heard for a while (see [DEVICES_IN_MEMORY]); only ones already written. */
+    private fun evictIdle(now: Long) {
+        if (devices.size <= DEVICES_IN_MEMORY) return
+        for ((mac, d) in devices) {
+            if (now - d.lastSeen < DEVICE_IDLE_MS || mac in dirty) continue
+            evicted += mac
+            if (d.flagged) evictedFlagged += mac
+            // Changed meanwhile (heard again): it stays.
+            if (!devices.remove(mac, d)) { evicted -= mac; evictedFlagged -= mac }
+        }
+    }
+
     /** Network names asked for so far plus new ones, oldest first, at most 16 (null when none). */
     internal fun mergeProbed(old: List<String>, new: List<String>): String? {
         if (new.isEmpty()) return old.ifEmpty { null }?.joinToString("\n")
@@ -181,21 +221,27 @@ object TripRecorder {
     }
 
     /** Writes buffered points / changed devices and the trip's running totals. */
-    suspend fun flush(context: Context, closing: Boolean = false) {
-        val id = activeTripId ?: return
+    suspend fun flush(context: Context, closing: Boolean = false) = writing.withLock {
+        val id: Long
         val newPoints: List<TripPointEntity>
         val changed: List<TripDeviceEntity>
         val totalPoints: Int
+        val distance: Double
         synchronized(this) {
+            id = activeTripId ?: return@withLock
             newPoints = pendingPoints.toList(); pendingPoints.clear()
             changed = takeDirty()
             totalPoints = points.size
+            distance = distanceM
         }
         val dao = AppDatabase.getInstance(context).tripDao()
         if (newPoints.isNotEmpty()) dao.insertPoints(newPoints)
         if (changed.isNotEmpty()) changed.chunked(300).forEach { dao.upsertDevices(it) }
+        // Stopped while writing: the trip's final totals come from persist (which waits for this), not from here.
+        if (activeTripId != id) return@withLock
+        evictIdle(System.currentTimeMillis())
         dao.updateStats(
-            id, if (closing) System.currentTimeMillis() else null, distanceM,
+            id, if (closing) System.currentTimeMillis() else null, distance,
             totalPoints, deviceCount(), flaggedCount()
         )
     }
@@ -209,6 +255,6 @@ object TripRecorder {
         val end = pts.lastOrNull()?.time ?: open.startTime
         var dist = 0.0
         pts.zipWithNext { a, b -> dist += DeviceRegistry.metersBetween(a.lat, a.lon, b.lat, b.lon) }
-        dao.updateStats(open.id, end, dist, pts.size, dao.devices(open.id).size, dao.devices(open.id).count { it.flagged })
+        dao.updateStats(open.id, end, dist, pts.size, dao.deviceCount(open.id), dao.flaggedCount(open.id))
     }
 }

@@ -213,7 +213,7 @@ Everything the app does, grouped by area.
 - Optional **cell tower layer** (or the map's **Cells** chip): every tower seen while scanning, at the spot where its signal was strongest
 - **Record traces** of your route and the devices along it, with the screen off (with the network names each device asked for, when a USB adapter or Marauder board is plugged in)
 - **History map & timeline:** heatmap of where flagged equipment showed up, and when (hour of day, day of week)
-- **Device history (search):** every device the app remembers, in range or not, searchable by address (with or without colons), name, vendor, type, your own name for it or your note, filtered to favorites, flagged before or seen today; tap one for its details page. History is kept as long as you set in Settings → Data
+- **Device history:** every device the app remembers, in range or not, searchable by address (with or without colons), name, vendor, type, your own name for it or your note, filtered to favorites, flagged before or seen today; tap one for its details page. History is kept as long as you set in Settings → Data
 
 </details>
 
@@ -727,7 +727,7 @@ hardware. **Settings → RTL-SDR radio**:
   stored encrypted; your position rounded to ~1 km is sent, at most once a day per
   area). A hit takes the closest name within the set ± kHz.
 
-**Requested networks** (Menu → *Requested networks*): phones and laptops ask by
+**Requested networks** (Menu → History → *Requested networks*): phones and laptops ask by
 name for networks they joined before. With an adapter or a Marauder board
 plugged in, RF Sentinel can keep these names (off by default: they're other
 people's network names; always kept while a map trace records). Tap **Watch** on

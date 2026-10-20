@@ -3,9 +3,9 @@ package com.rfsentinel.app.util
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -117,7 +117,7 @@ object UpdateChecker {
             if (activity.isFinishing || activity.isDestroyed) return@launch
             if (silent && result.isFailure) return@launch
             val latest = result.getOrElse {
-                AlertDialog.Builder(activity)
+                MaterialAlertDialogBuilder(activity)
                     .setTitle("Couldn't check for updates")
                     .setMessage("GitHub couldn't be reached (${it.message ?: "no connection"}). You can look at the releases page instead.")
                     .setPositiveButton("Open releases") { _, _ -> open(activity, RELEASES) }
@@ -128,7 +128,7 @@ object UpdateChecker {
             val current = BuildConfig.VERSION_NAME.substringBefore('-')
             if (isNewer(latest.version, current) && BuildConfig.FLAVOR == "foss" && !signedByUs(activity)) {
                 // Built and signed by F-Droid: Android would refuse our APK over it, so F-Droid updates it.
-                AlertDialog.Builder(activity)
+                MaterialAlertDialogBuilder(activity)
                     .setTitle("RF Sentinel ${latest.version} is available")
                     .setMessage("You have $current. This copy was built and signed by F-Droid, so it updates through F-Droid " +
                         "once F-Droid has built the new version.")
@@ -136,7 +136,7 @@ object UpdateChecker {
                     .setNeutralButton("What's new") { _, _ -> open(activity, latest.notesUrl) }
                     .show()
             } else if (isNewer(latest.version, current)) {
-                AlertDialog.Builder(activity)
+                MaterialAlertDialogBuilder(activity)
                     .setTitle("RF Sentinel ${latest.version} is available")
                     .setMessage("You have $current. It downloads here and installs over this one - your history and settings are kept. " +
                         "Scanning stops while it installs.")
@@ -145,7 +145,7 @@ object UpdateChecker {
                     .setNegativeButton("Later", null)
                     .show()
             } else if (!silent) {
-                AlertDialog.Builder(activity)
+                MaterialAlertDialogBuilder(activity)
                     .setTitle("You're up to date")
                     .setMessage("RF Sentinel $current is the latest version.")
                     .setPositiveButton("OK", null)
@@ -172,7 +172,7 @@ object UpdateChecker {
             addView(text); addView(bar, android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = (12 * d).toInt() })
         }
         var job: kotlinx.coroutines.Job? = null
-        val dialog = AlertDialog.Builder(activity)
+        val dialog = MaterialAlertDialogBuilder(activity)
             .setTitle("Updating to RF Sentinel ${latest.version}")
             .setView(box)
             .setCancelable(false)
@@ -210,7 +210,7 @@ object UpdateChecker {
     }
 
     private fun failed(activity: AppCompatActivity, latest: Latest, why: String) {
-        AlertDialog.Builder(activity)
+        MaterialAlertDialogBuilder(activity)
             .setTitle("Couldn't install the update")
             .setMessage("$why\n\nYou can download RF Sentinel ${latest.version} from GitHub and install it yourself.")
             .setPositiveButton("Open release page") { _, _ -> open(activity, latest.notesUrl) }
@@ -220,7 +220,7 @@ object UpdateChecker {
 
     /** Android asks each app to be allowed to install apps: one switch, then the update carries on from here. */
     private fun askToAllowInstalls(activity: AppCompatActivity, latest: Latest) {
-        AlertDialog.Builder(activity)
+        MaterialAlertDialogBuilder(activity)
             .setTitle("Allow RF Sentinel to install updates")
             .setMessage("Android needs you to allow this once: it opens a switch called \"Allow from this source\". " +
                 "Turn it on, come back, and the update starts by itself. Nothing else is installed this way.")

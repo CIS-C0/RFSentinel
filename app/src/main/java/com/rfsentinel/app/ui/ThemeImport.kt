@@ -15,6 +15,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.materialswitch.MaterialSwitch
 
 /**
@@ -37,7 +38,7 @@ object ThemeImport {
         }.getOrNull()
         if (text == null) { Toast.makeText(activity, "Couldn't read that file (or it is too big to be a theme)", Toast.LENGTH_LONG).show(); return }
         val shared = try { CustomThemes.parseShared(text) } catch (e: CustomThemes.BadThemeFile) {
-            AlertDialog.Builder(activity).setTitle("Not imported").setMessage(e.message).setPositiveButton("OK", null).show(); return
+            MaterialAlertDialogBuilder(activity).setTitle("Not imported").setMessage(e.message).setPositiveButton("OK", null).show(); return
         }
         show(activity, shared, done)
     }
@@ -102,7 +103,7 @@ object ThemeImport {
         where.setOnCheckedChangeListener { _, _ -> update() }
         update()
 
-        val dialog = AlertDialog.Builder(activity).setTitle("Import theme")
+        val dialog = MaterialAlertDialogBuilder(activity).setTitle("Import theme")
             .setView(ScrollView(activity).apply { addView(box) })
             .setPositiveButton("Import", null)
             .setNegativeButton("Cancel", null).create()

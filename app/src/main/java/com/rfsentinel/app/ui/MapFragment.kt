@@ -15,7 +15,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.core.view.MenuProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -25,6 +24,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.TripDeviceEntity
 import com.rfsentinel.app.data.TripEntity
@@ -41,6 +41,7 @@ import com.rfsentinel.app.service.TripRecorder
 import com.rfsentinel.app.util.Exporter
 import com.rfsentinel.app.util.Permissions
 import com.rfsentinel.app.util.Prefs
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -1145,7 +1146,7 @@ class MapFragment : Fragment() {
 
     /** A saved trace: glides to where you are (the map doesn't follow you there). */
     private fun centerOnMe() {
-        val p = myPosition() ?: TripRecorder.livePoints().lastOrNull()?.let { it.lat to it.lon }
+        val p = myPosition() ?: TripRecorder.lastPoint()?.let { it.lat to it.lon }
         if (p != null) map?.easeTo(p.first, p.second, ms = 600)
         else Toast.makeText(act, "Waiting for a GPS fix...", Toast.LENGTH_SHORT).show()
     }
@@ -1354,13 +1355,17 @@ class MapFragment : Fragment() {
 
     private fun toggleRecording() {
         if (TripRecorder.isRecording) {
+            val id = TripRecorder.activeTripId
+            // Written in the app's scope: leaving the map (or rotating) mid-write must not lose the trace.
+            val app = act.application as com.rfsentinel.app.RFSentinelApp
+            val ended = TripRecorder.detach()
+            val saving = app.appScope.async { ended?.let { runCatching { TripRecorder.persist(app, it) } } }
             viewLifecycleOwner.lifecycleScope.launch {
-                val id = TripRecorder.activeTripId
-                TripRecorder.stop(act)
+                saving.await()
                 refreshServiceLocation()
                 val saved = id?.let { AppDatabase.getInstance(act).tripDao().get(it) }
                 if (saved != null) {
-                    AlertDialog.Builder(act)
+                    MaterialAlertDialogBuilder(act)
                         .setTitle("Trace saved")
                         .setMessage(String.format(Locale.US, "%s\n%s · %s (%d flagged)",
                             saved.name, com.rfsentinel.app.util.Units.trip(saved.distanceM), devicesLabel(saved.deviceCount), saved.flaggedCount))
@@ -1542,7 +1547,7 @@ class MapFragment : Fragment() {
 
     private fun rename(id: Long) {
         val input = EditText(act).apply { setText(trip?.name ?: ""); setSelection(text.length) }
-        AlertDialog.Builder(act)
+        MaterialAlertDialogBuilder(act)
             .setTitle("Rename trace")
             .setView(input)
             .setPositiveButton("Save") { _, _ ->
@@ -1556,7 +1561,7 @@ class MapFragment : Fragment() {
     }
 
     private fun confirmDelete(id: Long) {
-        AlertDialog.Builder(act)
+        MaterialAlertDialogBuilder(act)
             .setTitle("Delete this trace?")
             .setMessage("The route and its device list are deleted from this phone.")
             .setPositiveButton("Delete") { _, _ ->

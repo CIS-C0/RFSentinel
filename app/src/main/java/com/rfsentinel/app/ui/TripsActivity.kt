@@ -6,13 +6,13 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.TripEntity
 import com.rfsentinel.app.databinding.ActivityLogBinding
@@ -152,7 +152,7 @@ class TripsActivity : AppCompatActivity() {
     }
 
     private fun actions(t: TripEntity) {
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(t.name)
             .setItems(arrayOf("View on map", "Export (GPX, KML, GeoJSON, CSV)...", "Rename", "Delete")) { _, which ->
                 when (which) {
@@ -167,7 +167,7 @@ class TripsActivity : AppCompatActivity() {
 
     private fun rename(t: TripEntity) {
         val input = EditText(this).apply { setText(t.name); setSelection(text.length) }
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Rename trace")
             .setView(input)
             .setPositiveButton("Save") { _, _ ->
@@ -181,11 +181,11 @@ class TripsActivity : AppCompatActivity() {
 
     private fun delete(t: TripEntity) {
         if (t.id == TripRecorder.activeTripId) {
-            AlertDialog.Builder(this).setMessage("Stop recording on the map before deleting this trace.")
+            MaterialAlertDialogBuilder(this).setMessage("Stop recording on the map before deleting this trace.")
                 .setPositiveButton("OK", null).show()
             return
         }
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Delete \"${t.name}\"?")
             .setMessage("The route and its device list are deleted from this phone.")
             .setPositiveButton("Delete") { _, _ ->

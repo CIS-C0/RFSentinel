@@ -428,12 +428,12 @@ class SetupActivity : AppCompatActivity() {
             setPadding((16 * dp).toInt(), (12 * dp).toInt(), (16 * dp).toInt(), (12 * dp).toInt())
             addView(TextView(context).apply {
                 text = (if (selected) "◉  " else "○  ") + title
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
                 setTypeface(typeface, Typeface.BOLD)
             })
             addView(TextView(context).apply {
                 text = desc
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                 alpha = 0.8f
             })
         }

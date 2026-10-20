@@ -16,6 +16,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.util.AlertPlayer
 import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.DetectionEntity
@@ -74,6 +75,13 @@ class DeviceDetailActivity : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         binding.locateButton.setOnClickListener { toggleLocate() }
+        // The main action in the theme's highlight colour (faded while the device isn't heard).
+        ChipStyle.accent(this).let { (accent, onAccent) ->
+            val off = intArrayOf(-android.R.attr.state_enabled)
+            val on = intArrayOf()
+            binding.locateButton.backgroundTintList = android.content.res.ColorStateList(arrayOf(off, on), intArrayOf((accent and 0x00FFFFFF) or 0x55000000, accent))
+            binding.locateButton.setTextColor(android.content.res.ColorStateList(arrayOf(off, on), intArrayOf((onAccent and 0x00FFFFFF) or 0x99000000.toInt(), onAccent)))
+        }
         binding.actionWatchlist.setOnClickListener { onWatchlistAction() }
         binding.actionWhitelist.setOnClickListener {
             val s = DeviceRegistry.get(mac)
@@ -390,7 +398,7 @@ class DeviceDetailActivity : AppCompatActivity() {
             container.addView(TextView(this).apply {
                 text = title
                 setTypeface(typeface, Typeface.BOLD)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
                 setPadding(0, (18 * dp).toInt(), 0, (4 * dp).toInt())
             })
             if (visual && title == "Why it's flagged" && hits.isNotEmpty()) {
@@ -403,7 +411,7 @@ class DeviceDetailActivity : AppCompatActivity() {
                     setPadding(0, (3 * dp).toInt(), 0, (3 * dp).toInt())
                     addView(TextView(context).apply {
                         text = k
-                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                         setTextColor(0xFF888888.toInt())
                     })
                     addView(TextView(context).apply {
@@ -434,10 +442,10 @@ class DeviceDetailActivity : AppCompatActivity() {
             addView(LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL; gravity = android.view.Gravity.CENTER_VERTICAL
                 addView(TextView(context).apply {
-                    text = h.label; setTypeface(typeface, Typeface.BOLD); setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+                    text = h.label; setTypeface(typeface, Typeface.BOLD); setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
                 }, LinearLayout.LayoutParams(0, -2, 1f))
                 addView(TextView(context).apply {
-                    text = "${h.confidence}%"; setTypeface(typeface, Typeface.BOLD); setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f); setTextColor(color)
+                    text = "${h.confidence}%"; setTypeface(typeface, Typeface.BOLD); setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f); setTextColor(color)
                 })
             })
             addView(LevelBarView(context).apply { set(h.confidence / 100f, color) },
@@ -448,11 +456,11 @@ class DeviceDetailActivity : AppCompatActivity() {
                 evidenceKinds(h.evidence).forEach { addView(VisualMode.chip(context, it, ChipStyle.accent(context).first)) }
             })
             addView(TextView(context).apply {
-                text = h.evidence; setTextIsSelectable(true); setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                text = h.evidence; setTextIsSelectable(true); setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                 setPadding(0, (8 * dp).toInt(), 0, 0)
             })
             addView(TextView(context).apply {
-                text = "Source: ${h.source}"; setTextIsSelectable(true); setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f); alpha = 0.7f
+                text = "Source: ${h.source}"; setTextIsSelectable(true); setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f); alpha = 0.7f
                 setPadding(0, (4 * dp).toInt(), 0, 0)
             })
         }
@@ -534,7 +542,7 @@ class DeviceDetailActivity : AppCompatActivity() {
         val box = android.widget.FrameLayout(this).apply {
             val side = (20 * dp).toInt(); setPadding(side, (8 * dp).toInt(), side, 0); addView(input)
         }
-        androidx.appcompat.app.AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(title)
             .setView(box)
             .setPositiveButton("Save") { _, _ -> done(input.text.toString()) }
@@ -553,16 +561,19 @@ class DeviceDetailActivity : AppCompatActivity() {
         val custom = OuiWatchlist.customEntry(mac) ?: OuiWatchlist.customEntry(MacUtil.oui(mac))
         if (custom != null) {
             OuiWatchlist.removeCustomEntry(this, custom.prefix)
-            Toast.makeText(this, "Removed ${custom.prefix} from the watchlist", Toast.LENGTH_SHORT).show()
+            com.rfsentinel.app.util.Undo.show(this, "Removed ${custom.prefix} from the watchlist") {
+                OuiWatchlist.addCustomEntry(this, custom)
+            }
         } else {
-            DeviceActions.addToWatchlist(this, mac, DeviceRegistry.get(mac)?.name ?: known?.name)
+            DeviceActions.addToWatchlist(this, mac, DeviceRegistry.get(mac)?.name ?: known?.name,
+                DeviceRegistry.get(mac)?.advert?.isWifi == true)
         }
     }
 
     private fun share() {
         val s = DeviceRegistry.get(mac)
         if (s?.advert != null && s.best == null) {
-            androidx.appcompat.app.AlertDialog.Builder(this)
+            MaterialAlertDialogBuilder(this)
                 .setTitle("Share")
                 .setItems(arrayOf("Full device report", "Report unknown device (signature only)")) { _, which ->
                     if (which == 0) shareFull(s) else DeviceActions.reportUnknown(this, mac)

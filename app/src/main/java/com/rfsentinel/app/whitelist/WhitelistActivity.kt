@@ -25,7 +25,11 @@ class WhitelistActivity : AppCompatActivity() {
 
         adapter = WhitelistAdapter(entries) { entry ->
             lifecycleScope.launch {
-                AppDatabase.getInstance(this@WhitelistActivity).whitelistDao().remove(entry)
+                val dao = AppDatabase.getInstance(this@WhitelistActivity).whitelistDao()
+                dao.remove(entry)
+                com.rfsentinel.app.util.Undo.show(this@WhitelistActivity, "Removed ${entry.mac}") {
+                    lifecycleScope.launch { dao.add(entry) }
+                }
             }
         }
         binding.recyclerView.layoutManager = LinearLayoutManager(this)

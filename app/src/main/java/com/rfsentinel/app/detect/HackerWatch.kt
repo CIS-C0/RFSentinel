@@ -181,6 +181,7 @@ object HackerWatch {
         val list = bySsid.getOrPut(ssid) { ArrayList() }
         if (bySsid.size > 400) bySsid.remove(bySsid.keys.first())
         list.firstOrNull { it.bssid == a.mac }?.let { it.secured = secured; return null }
+        if (list.size >= 64) list.removeAt(0) // a hotspot chain ("xfinitywifi") has thousands of access points
         val rogue = list.any { !sameMaker(it.bssid, a.mac) && it.secured != secured }
         list += Ap(a.mac, secured)
         if (!rogue || !twinsFlagged.add(ssid + "|" + a.mac)) return null

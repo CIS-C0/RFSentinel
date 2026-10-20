@@ -365,6 +365,7 @@ class MainActivity : AppCompatActivity() {
             chip.chipMinHeight = 32 * dp
             chip.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14f)
             chip.chipStartPadding = stock[0]; chip.textStartPadding = stock[1]; chip.textEndPadding = stock[2]; chip.chipEndPadding = stock[3]
+            sameSize(chip)
             return
         }
         // Tighter sides, so All, Flagged, Bluetooth, WiFi and Cells with their counts fit a phone's width.
@@ -382,6 +383,17 @@ class MainActivity : AppCompatActivity() {
         chip.setTextColor(android.content.res.ColorStateList(arrayOf(checked, none), intArrayOf(onAccent, c)))
         chip.chipMinHeight = 28 * dp
         chip.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13f)
+        sameSize(chip)
+    }
+
+    /**
+     * Every chip the same height, however often it was restyled: Flagged is restyled each time its colour changes,
+     * and the touch frame switched on and off on the way left it a different size from the rest.
+     */
+    private fun sameSize(chip: com.google.android.material.chip.Chip) {
+        chip.setEnsureMinTouchTargetSize(false) // no invisible 48 dp frame (see setupFilterChips)
+        chip.minHeight = chip.chipMinHeight.toInt()
+        chip.requestLayout()
     }
 
     /** List / radar toggle: the selected half filled with the theme highlight. */
@@ -535,9 +547,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Where the pill is going (not where it is): a show during the hide's fade must still show it. */
+    private var newAlertPillShown = false
+
     private fun showNewAlertPill(show: Boolean) {
         val pill = binding.newAlertPill
-        if (show == (pill.visibility == View.VISIBLE)) return
+        if (show == newAlertPillShown) return
+        newAlertPillShown = show
+        pill.animate().cancel()
         if (show) {
             val (accent, onAccent) = com.rfsentinel.app.ui.ChipStyle.accent(this)
             pill.background = android.graphics.drawable.GradientDrawable().apply {

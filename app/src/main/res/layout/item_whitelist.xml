@@ -23,8 +23,8 @@
             android:id="@+id/noteText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="12sp"
-            android:textColor="#888888" />
+            android:textSize="@dimen/text_caption"
+            android:textColor="?android:attr/textColorSecondary" />
     </LinearLayout>
 
     <Button

@@ -182,15 +182,41 @@ object DeviceExport {
 
     // ---- Long-term history ----------------------------------------------------------
 
+    private const val HISTORY_CSV_HEADER = "mac,name,vendor,device_type,first_seen,last_seen,sessions,detect_count,favorite,note,custom_name\n"
+
     fun historyCsv(rows: List<KnownDeviceEntity>): String {
-        val sb = StringBuilder("mac,name,vendor,device_type,first_seen,last_seen,sessions,detect_count,favorite,note,custom_name\n")
-        rows.forEach { r ->
-            sb.append(r.mac).append(',').append(q(r.name)).append(',').append(q(r.vendor)).append(',')
-                .append(q(r.deviceType)).append(',').append(local(r.firstSeen)).append(',').append(local(r.lastSeen)).append(',')
-                .append(r.sessions).append(',').append(r.detectCount).append(',').append(r.favorite).append(',')
-                .append(q(r.note)).append(',').append(q(r.alias)).append('\n')
-        }
+        val sb = StringBuilder(HISTORY_CSV_HEADER)
+        rows.forEach { r -> historyCsvLine(sb, r) }
         return sb.toString()
+    }
+
+    private fun historyCsvLine(sb: StringBuilder, r: KnownDeviceEntity) {
+        sb.append(r.mac).append(',').append(q(r.name)).append(',').append(q(r.vendor)).append(',')
+            .append(q(r.deviceType)).append(',').append(local(r.firstSeen)).append(',').append(local(r.lastSeen)).append(',')
+            .append(r.sessions).append(',').append(r.detectCount).append(',').append(r.favorite).append(',')
+            .append(q(r.note)).append(',').append(q(r.alias)).append('\n')
+    }
+
+    /**
+     * The device history as CSV or JSON, written straight to [out] a batch at a time ([batches] gives the next
+     * rows, empty when done): 100,000+ devices built up as one string ran the app out of memory.
+     */
+    suspend fun writeHistory(out: java.io.Writer, csv: Boolean, batches: suspend () -> List<KnownDeviceEntity>) {
+        if (csv) {
+            out.write(HISTORY_CSV_HEADER)
+            val sb = StringBuilder()
+            while (true) {
+                val rows = batches(); if (rows.isEmpty()) break
+                sb.setLength(0); rows.forEach { historyCsvLine(sb, it) }; out.write(sb.toString())
+            }
+        } else {
+            val w = gson.newJsonWriter(out)
+            w.beginArray()
+            while (true) { val rows = batches(); if (rows.isEmpty()) break; rows.forEach { gson.toJson(historyItem(it), w) } }
+            w.endArray()
+            w.flush()
+        }
+        out.flush()
     }
 
     fun historyJson(rows: List<KnownDeviceEntity>): JsonArray = JsonArray().apply { rows.forEach { add(historyItem(it)) } }

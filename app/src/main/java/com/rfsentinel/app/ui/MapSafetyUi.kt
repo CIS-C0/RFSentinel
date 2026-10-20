@@ -1,8 +1,8 @@
 package com.rfsentinel.app.ui
 
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 /** What the screens tell the user after [MapSafety.recover] found that the app closed while the map was starting. */
 internal object MapSafetyUi {
@@ -25,7 +25,7 @@ internal object MapSafetyUi {
                 onTryAgain?.invoke()
             }
             MapSafety.Recovery.MAP_OFF -> {
-                val b = AlertDialog.Builder(activity).setTitle(OFF_TITLE).setCancelable(onTryAgain == null)
+                val b = MaterialAlertDialogBuilder(activity).setTitle(OFF_TITLE).setCancelable(onTryAgain == null)
                 if (onTryAgain == null) b.setMessage(OFF_MESSAGE).setPositiveButton("OK", null)
                 else b.setMessage("$OFF_MESSAGE\n\nTry the map again now?")
                     .setPositiveButton("Try the map again") { _, _ -> onTryAgain() }

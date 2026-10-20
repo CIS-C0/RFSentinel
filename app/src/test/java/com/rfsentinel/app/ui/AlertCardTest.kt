@@ -12,7 +12,6 @@ import com.rfsentinel.app.detect.Category
 import com.rfsentinel.app.util.Prefs
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -125,10 +124,11 @@ class AlertCardTest {
     }
 
     @Test
-    fun aSnoozedAlertStaysOffTheMap() {
+    fun aSnoozedAlertStillShowsOnTheMap() {
+        // Snooze only silences sound and voice: the card still shows, silently.
         Prefs.setAlertsSnoozedUntil(activity, System.currentTimeMillis() + 60_000L)
         card.show(alert())
-        assertFalse(b.alertCard.visibility == View.VISIBLE)
+        assertEquals(View.VISIBLE, b.alertCard.visibility)
     }
 
     @Test

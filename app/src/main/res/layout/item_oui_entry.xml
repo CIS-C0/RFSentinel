@@ -23,14 +23,14 @@
             android:id="@+id/labelText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="13sp" />
+            android:textSize="@dimen/text_body" />
 
         <TextView
             android:id="@+id/confidenceText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="11sp"
-            android:textColor="#888888" />
+            android:textSize="@dimen/text_caption"
+            android:textColor="?android:attr/textColorSecondary" />
     </LinearLayout>
 
     <Button

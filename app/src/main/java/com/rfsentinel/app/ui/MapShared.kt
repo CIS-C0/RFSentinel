@@ -2,8 +2,8 @@ package com.rfsentinel.app.ui
 
 import android.content.Intent
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.service.DeviceRegistry
 import java.util.Locale
 
@@ -65,7 +65,7 @@ internal object MapDialogs {
         if (list.isEmpty()) return
         if (list.size == 1) { showPin(a, list[0]); return }
         val sorted = list.sortedByDescending { it.flagged }
-        AlertDialog.Builder(a)
+        MaterialAlertDialogBuilder(a)
             .setTitle("${list.size} devices here")
             .setItems(sorted.map { (if (it.flagged) "⚠ " else "") + it.label }.toTypedArray()) { _, i -> showPin(a, sorted[i]) }
             .setNegativeButton("Close", null)
@@ -73,7 +73,7 @@ internal object MapDialogs {
     }
 
     fun showPin(a: AppCompatActivity, p: MapPin) {
-        AlertDialog.Builder(a)
+        MaterialAlertDialogBuilder(a)
             .setTitle(p.label)
             .setMessage(p.details + "\n\n" + p.whereNote)
             .setPositiveButton("Details") { _, _ -> DeviceActions.openDetails(a, p.mac) }
@@ -82,7 +82,7 @@ internal object MapDialogs {
     }
 
     fun showWaze(a: AppCompatActivity, w: com.rfsentinel.app.online.WazePolice.Shown) {
-        AlertDialog.Builder(a)
+        MaterialAlertDialogBuilder(a)
             .setTitle(w.hit.label)
             .setMessage("${w.hit.tier.label} ${w.hit.confidence}%\n${com.rfsentinel.app.online.WazePolice.relativeText(w.where, w.trend)}\n${w.hit.evidence}")
             .setNegativeButton("Close", null)
@@ -105,7 +105,7 @@ internal object MapDialogs {
                 DeviceRegistry.metersBetween(it.first, it.second, p.lat, p.lon)) + "\n") }
             append("ICAO address: ${p.hex.uppercase()}\nSource: community ADS-B (adsb.fi / adsb.lol)")
         }
-        AlertDialog.Builder(a)
+        MaterialAlertDialogBuilder(a)
             .setTitle(hit?.label ?: (p.registration ?: p.callsign ?: "Aircraft"))
             .setMessage(text)
             .setPositiveButton("OK", null)
@@ -126,7 +126,7 @@ internal object MapDialogs {
     }
 
     fun showDrone(a: AppCompatActivity, mac: String, text: String) {
-        AlertDialog.Builder(a)
+        MaterialAlertDialogBuilder(a)
             .setTitle("Drone (Remote ID)")
             .setMessage(text + "\n\nPositions are broadcast by the drone itself (ASTM F3411 Remote ID).")
             .setPositiveButton("Details") { _, _ -> DeviceActions.openDetails(a, mac) }
@@ -152,7 +152,7 @@ internal object MapDialogs {
                 "signal, so the scan can't detect them - this layer shows the ones that have been mapped. " +
                 "The shaded area is an estimate of what it sees.\n\nMap data © OpenStreetMap contributors (ODbL).")
         }
-        AlertDialog.Builder(a)
+        MaterialAlertDialogBuilder(a)
             .setTitle(com.rfsentinel.app.alpr.Cctv.title(c))
             .setMessage(text)
             .setPositiveButton("Close", null)
@@ -180,7 +180,7 @@ internal object MapDialogs {
             append("OSM: ${cam.osmId}\n\n")
             append("These cameras send their data over cellular or wire and have no Bluetooth/WiFi signature, so they can't be detected by radio - this map is the only warning. Mobile speed cameras move and are rarely mapped.\n\nMap data © OpenStreetMap contributors (ODbL).")
         }
-        AlertDialog.Builder(a)
+        MaterialAlertDialogBuilder(a)
             .setTitle(cam.label)
             .setMessage(text)
             // Kept until turned back on here (or cleared in Settings).
@@ -209,7 +209,7 @@ internal object MapDialogs {
     private fun pickDirection(a: AppCompatActivity, cam: com.rfsentinel.app.alpr.KnownCamera, current: Int?, onChanged: () -> Unit) {
         val items = COMPASS.map { "Faces ${it.lowercase()}" } + "Not set"
         val checked = current?.let { ((it + 22) % 360) / 45 } ?: COMPASS.size
-        AlertDialog.Builder(a)
+        MaterialAlertDialogBuilder(a)
             .setTitle("Which way does it face?")
             .setSingleChoiceItems(items.toTypedArray(), checked) { d, i ->
                 com.rfsentinel.app.alpr.CameraDirections.set(a, cam.osmId, if (i < COMPASS.size) i * 45 else null)
@@ -223,7 +223,7 @@ internal object MapDialogs {
     fun showTower(a: AppCompatActivity, t: com.rfsentinel.app.service.CellTowerStore.Tower) {
         val net = listOfNotNull(t.operator, "${t.mcc ?: "?"}-${t.mnc ?: "?"}").joinToString(" · ")
         val dateFmt = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT)
-        AlertDialog.Builder(a)
+        MaterialAlertDialogBuilder(a)
             .setTitle(t.ratLabel)
             .setMessage("$net\nArea ${t.area ?: "?"} · Cell ${t.cellId}" +
                 (t.bestDbm?.let { "\nStrongest signal $it dBm" } ?: "") +

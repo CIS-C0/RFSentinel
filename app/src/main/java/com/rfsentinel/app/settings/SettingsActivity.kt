@@ -6,11 +6,11 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.View
 import android.widget.RadioButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.ui.CustomThemes
 import com.rfsentinel.app.ui.ThemeManager
 import com.rfsentinel.app.ui.ThemeImport
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.switchmaterial.SwitchMaterial
@@ -119,7 +119,7 @@ class SettingsActivity : AppCompatActivity() {
             (runCatching { d.name }.getOrNull() ?: d.address) + if (car) "  (car audio)" else ""
         }.toTypedArray()
         val checked = paired.map { it.address in chosen }.toBooleanArray()
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Which Bluetooth is your car?")
             .setMultiChoiceItems(labels, checked) { _, i, on ->
                 if (on) chosen += paired[i].address else chosen -= paired[i].address
@@ -142,7 +142,7 @@ class SettingsActivity : AppCompatActivity() {
             chosen.map { a -> bonded.firstOrNull { it.address == a }?.let { runCatching { it.name }.getOrNull() } ?: a }
         } else chosen.toList()
         binding.carDevicesText.text = "Car: " + names.joinToString()
-        binding.carDevicesText.visibility = if (names.isEmpty()) View.GONE else View.VISIBLE
+        binding.carDevicesText.shownIf(names.isNotEmpty())
     }
 
     /** Ignored trackers (long-press a tracker > Ignore this tracker) and a paused follow warning. */
@@ -156,16 +156,16 @@ class SettingsActivity : AppCompatActivity() {
                 java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(until)))
         }
         binding.trackerIgnoreText.text = parts.joinToString("; ")
-        binding.trackerIgnoreText.visibility = if (parts.isEmpty()) View.GONE else View.VISIBLE
-        binding.trackerIgnoreButton.visibility = if (n > 0 || paused) android.view.View.VISIBLE else android.view.View.GONE
+        binding.trackerIgnoreText.shownIf(parts.isNotEmpty())
+        binding.trackerIgnoreButton.shownIf(n > 0 || paused)
     }
 
     /** Known cameras silenced from the map (tap a camera > Ignore alerts). */
     private fun updateIgnoredCamerasText() {
         val n = com.rfsentinel.app.alpr.IgnoredCameras.count(this)
         binding.ignoredCamerasText.text = "$n camera${if (n == 1) "" else "s"} with alerts turned off · faded on the map"
-        binding.ignoredCamerasText.visibility = if (n > 0) View.VISIBLE else View.GONE
-        binding.ignoredCamerasButton.visibility = if (n > 0) android.view.View.VISIBLE else android.view.View.GONE
+        binding.ignoredCamerasText.shownIf(n > 0)
+        binding.ignoredCamerasButton.shownIf(n > 0)
     }
 
     /** ESP32 boards on USB (OUI-Spy / GhostESP / Marauder) and an OUI-SPY board over Bluetooth. */
@@ -221,7 +221,7 @@ class SettingsActivity : AppCompatActivity() {
             }
             val names = listOf("Automatic (best English voice)") + list.mapIndexed { i, v -> label(v, i) }
             val sel = Prefs.voiceName(this)?.let { n -> list.indexOfFirst { it.name == n } + 1 } ?: 0
-            androidx.appcompat.app.AlertDialog.Builder(this)
+            MaterialAlertDialogBuilder(this)
                 .setTitle("Voice for spoken alerts")
                 .setSingleChoiceItems(names.toTypedArray(), sel) { _, which ->
                     // Each pick is spoken right away so you can compare.
@@ -305,7 +305,7 @@ class SettingsActivity : AppCompatActivity() {
             else -> "Record what the USB WiFi adapter or V2X board hears, for Wireshark"
         }
         binding.pcapButton.text = if (rec.active) "Stop and share" else "Record frames"
-        binding.pcapShareButton.visibility = if (!rec.active && file != null) View.VISIBLE else View.GONE
+        binding.pcapShareButton.shownIf(!rec.active && file != null)
         binding.pcapText.removeCallbacks(pcapTicker)
         if (rec.active) binding.pcapText.postDelayed(pcapTicker, 1_000)
     }
@@ -334,7 +334,7 @@ class SettingsActivity : AppCompatActivity() {
         if (!com.rfsentinel.app.esp.OuiSpyBle.canConnect(this)) {
             ouiSpyConnectPermission.launch(android.Manifest.permission.BLUETOOTH_CONNECT); return
         }
-        val looking = AlertDialog.Builder(this)
+        val looking = MaterialAlertDialogBuilder(this)
             .setTitle("Looking for OUI-SPY boards…")
             .setMessage("Keep the board powered and close by.")
             .setNegativeButton("Cancel", null)
@@ -359,7 +359,7 @@ class SettingsActivity : AppCompatActivity() {
         val labels = boards.map { "${it.name}  (${it.mac}, ${it.rssi} dBm)" }.toMutableList()
         if (current != null) labels += "Forget the paired board"
         if (labels.isEmpty()) {
-            AlertDialog.Builder(this)
+            MaterialAlertDialogBuilder(this)
                 .setTitle("No OUI-SPY board found")
                 .setMessage("Check that:\n\n" +
                     "• the board runs the Bluetooth \"App-Controlled\" firmware and has power\n" +
@@ -372,7 +372,7 @@ class SettingsActivity : AppCompatActivity() {
                 .show()
             return
         }
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Which OUI-SPY board?")
             .setItems(labels.toTypedArray()) { _, i ->
                 if (i < boards.size) {
@@ -645,7 +645,7 @@ class SettingsActivity : AppCompatActivity() {
                 setBackgroundResource(ripple)
                 contentDescription = "About $title"
                 setOnClickListener {
-                    AlertDialog.Builder(this@SettingsActivity).setTitle(title).setMessage(s.info)
+                    MaterialAlertDialogBuilder(this@SettingsActivity).setTitle(title).setMessage(s.info)
                         .setPositiveButton("OK", null).show()
                 }
             }
@@ -706,7 +706,7 @@ class SettingsActivity : AppCompatActivity() {
             setPadding((10 * dp).toInt(), (8 * dp).toInt(), (6 * dp).toInt(), (8 * dp).toInt())
             setBackgroundResource(ripple)
             contentDescription = "About ${title()}"
-            setOnClickListener { AlertDialog.Builder(this@SettingsActivity).setTitle(title()).setMessage(text).setPositiveButton("OK", null).show() }
+            setOnClickListener { MaterialAlertDialogBuilder(this@SettingsActivity).setTitle(title()).setMessage(text).setPositiveButton("OK", null).show() }
         }
     }
 
@@ -825,6 +825,17 @@ class SettingsActivity : AppCompatActivity() {
 
     /** Views tinted as search matches, with the background they had before. */
     private val highlighted = mutableListOf<Pair<View, android.graphics.drawable.Drawable?>>()
+    /** Settings the search hid for not matching (shown again when it changes or is cleared). */
+    private val searchHidden = mutableListOf<View>()
+
+    /**
+     * Shows or hides a setting for the app's own reasons (a switch turned off, nothing to say...). It
+     * also takes the setting off the search's list, so clearing the search leaves it the way this set it.
+     */
+    private fun View.shownIf(on: Boolean) {
+        setTag(R.id.search_hidden, null)
+        visibility = if (on) View.VISIBLE else View.GONE
+    }
     private lateinit var searchInput: android.widget.EditText
 
     /** The search field pinned above the scrolling settings (with a clear button). */
@@ -878,7 +889,7 @@ class SettingsActivity : AppCompatActivity() {
         val ripple = android.util.TypedValue().also { theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, it, true) }.resourceId
         return android.widget.TextView(this).apply {
             text = "Collapse all"
-            textSize = 13f
+            textSize = 14f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
             setTextColor(com.google.android.material.color.MaterialColors.getColor(this, androidx.appcompat.R.attr.colorPrimary, currentTextColor))
             setPadding((10 * dp).toInt(), (10 * dp).toInt(), (12 * dp).toInt(), (10 * dp).toInt())
@@ -908,6 +919,8 @@ class SettingsActivity : AppCompatActivity() {
     private fun filterSettings(raw: String) {
         highlighted.forEach { (v, bg) -> v.background = bg }
         highlighted.clear()
+        searchHidden.forEach { if (it.getTag(R.id.search_hidden) == true) { it.setTag(R.id.search_hidden, null); it.visibility = View.VISIBLE } }
+        searchHidden.clear()
         val q = raw.trim().lowercase()
         if (q.isEmpty()) {
             sectionUi.forEach { it.row.visibility = View.VISIBLE; it.divider?.visibility = View.VISIBLE; it.restore() }
@@ -924,6 +937,8 @@ class SettingsActivity : AppCompatActivity() {
             s.divider?.visibility = s.row.visibility
             if (!show) { s.body.visibility = View.GONE; continue }
             s.expand()
+            // Only the matching settings, unless the section's own name matches.
+            if (hits.isNotEmpty() && !s.title.lowercase().contains(q)) (s.body as? android.view.ViewGroup)?.let { narrow(it, hits) }
             for (v in hits) {
                 highlighted += v to v.background
                 v.background = android.graphics.drawable.ColorDrawable(tint)
@@ -940,6 +955,50 @@ class SettingsActivity : AppCompatActivity() {
                 binding.root.scrollTo(0, maxOf(0, r.top - (24 * resources.displayMetrics.density).toInt()))
             }
         }
+    }
+
+    /**
+     * Hides the settings in [box] with no match in [hits]. A setting is its label (or switch, check box,
+     * button) with what follows it up to the next one: the choices, number field or options under it.
+     * A match in the label shows the whole setting; a match further down shows the label and that part,
+     * looking inside an options panel for just the matching options. Returns whether anything is left.
+     */
+    private fun narrow(box: android.view.ViewGroup, hits: List<View>): Boolean {
+        fun holdsHit(v: View) = hits.any { h -> generateSequence(h) { it.parent as? View }.any { it === v } }
+        fun startsSetting(v: View): Boolean = when (v) {
+            is android.widget.RadioGroup -> false
+            is android.widget.EditText -> false
+            is android.widget.TextView -> true // a label, switch, check box or button
+            is android.widget.LinearLayout -> v.orientation == android.widget.LinearLayout.HORIZONTAL &&
+                v.childCount > 0 && startsSetting(v.getChildAt(0)) // a label or switch with its ⓘ
+            else -> false
+        }
+        fun hide(v: View) {
+            if (v.visibility == View.GONE) return
+            v.visibility = View.GONE
+            v.setTag(R.id.search_hidden, true)
+            searchHidden += v
+        }
+        val groups = mutableListOf<MutableList<View>>()
+        for (i in 0 until box.childCount) {
+            val c = box.getChildAt(i)
+            if (c.visibility == View.GONE) continue
+            if (groups.isEmpty() || startsSetting(c)) groups += mutableListOf(c) else groups.last() += c
+        }
+        var any = false
+        for (g in groups) {
+            val head = g.first().takeIf { startsSetting(it) }
+            if (head != null && holdsHit(head)) { any = true; continue }
+            var shown = false
+            for (v in g) {
+                if (v === head) continue
+                val keep = holdsHit(v) && (v !is android.widget.LinearLayout || v is android.widget.RadioGroup ||
+                    v.orientation == android.widget.LinearLayout.HORIZONTAL || narrow(v, hits))
+                if (keep) shown = true else hide(v)
+            }
+            if (shown) any = true else head?.let { hide(it) }
+        }
+        return any
     }
 
     /** Visible settings under [v] whose label, text or hint contains [q]. */
@@ -978,7 +1037,7 @@ class SettingsActivity : AppCompatActivity() {
         if (text == null) { Toast.makeText(this, "Couldn't read that file (or it is too big for a backup)", Toast.LENGTH_LONG).show(); return@registerForActivityResult }
         val found = when (val i = backup.inspect(text)) {
             is com.rfsentinel.app.util.SettingsBackup.Inspect.Bad -> {
-                androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Not restored").setMessage(i.why).setPositiveButton("OK", null).show()
+                MaterialAlertDialogBuilder(this).setTitle("Not restored").setMessage(i.why).setPositiveButton("OK", null).show()
                 return@registerForActivityResult
             }
             is com.rfsentinel.app.util.SettingsBackup.Inspect.Ok -> i
@@ -988,7 +1047,7 @@ class SettingsActivity : AppCompatActivity() {
         val labels = found.sections.map { s ->
             if (s == com.rfsentinel.app.util.SettingsBackup.Section.THEMES) "${s.label}: ${found.themes}" else s.label
         }.toTypedArray()
-        androidx.appcompat.app.AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Restore what? Ticked parts are replaced, then RF Sentinel restarts")
             .setMultiChoiceItems(labels, BooleanArray(labels.size) { true }) { _, which, on ->
                 if (on) chosen += found.sections[which] else chosen -= found.sections[which]
@@ -996,7 +1055,7 @@ class SettingsActivity : AppCompatActivity() {
             .setPositiveButton("Restore") { _, _ ->
                 if (chosen.isEmpty()) { Toast.makeText(this, "Nothing ticked - nothing restored", Toast.LENGTH_SHORT).show(); return@setPositiveButton }
                 when (val r = backup.restore(this, text, chosen)) {
-                    is com.rfsentinel.app.util.SettingsBackup.Result.Refused -> androidx.appcompat.app.AlertDialog.Builder(this)
+                    is com.rfsentinel.app.util.SettingsBackup.Result.Refused -> MaterialAlertDialogBuilder(this)
                         .setTitle("Not restored").setMessage(r.why).setPositiveButton("OK", null).show()
                     is com.rfsentinel.app.util.SettingsBackup.Result.Restored -> {
                         restored = true
@@ -1236,7 +1295,7 @@ class SettingsActivity : AppCompatActivity() {
         switch("Plate readers", Prefs.navAvoidPlateReaders(this)) { Prefs.setNavAvoidPlateReaders(this, it) }
 
         label("Places")
-        val places = android.widget.TextView(this).apply { textSize = 13f; alpha = 0.8f }
+        val places = android.widget.TextView(this).apply { textSize = 14f; alpha = 0.8f }
         fun showPlaces() {
             places.text = "Home: ${Prefs.navHome(this@SettingsActivity)?.name ?: "not set"}\n" +
                 "Work: ${Prefs.navWork(this@SettingsActivity)?.name ?: "not set"}\n" +
@@ -1247,7 +1306,7 @@ class SettingsActivity : AppCompatActivity() {
         box.addView(com.google.android.material.button.MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
             text = "Forget saved and recent places"
             setOnClickListener {
-                AlertDialog.Builder(this@SettingsActivity)
+                MaterialAlertDialogBuilder(this@SettingsActivity)
                     .setTitle("Forget your places?")
                     .setMessage("Removes Home, Work, starred and recent destinations from this phone.")
                     .setPositiveButton("Forget") { _, _ ->
@@ -1357,7 +1416,7 @@ class SettingsActivity : AppCompatActivity() {
             startActivity(Intent(this, com.rfsentinel.app.ui.TripsActivity::class.java))
         }
         binding.mapDeleteCamerasButton.setOnClickListener {
-            AlertDialog.Builder(this)
+            MaterialAlertDialogBuilder(this)
                 .setTitle("Delete downloaded cameras?")
                 .setMessage("Removes the saved plate, speed, red-light and CCTV cameras. They download again as you use the map.")
                 .setPositiveButton("Delete") { _, _ ->
@@ -1429,7 +1488,7 @@ class SettingsActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
             val current = all.indexOf(com.rfsentinel.app.ui.MapEngine.chosen(this))
-            androidx.appcompat.app.AlertDialog.Builder(this)
+            MaterialAlertDialogBuilder(this)
                 .setTitle("Map provider")
                 .setSingleChoiceItems(all.map { it.label }.toTypedArray(), current) { d, which ->
                     Prefs.setMapProvider(this, all[which].key)
@@ -1447,13 +1506,13 @@ class SettingsActivity : AppCompatActivity() {
         textSize = 12f
         alpha = 0.75f
         setPadding((24 * resources.displayMetrics.density).toInt(), 0, 0, (6 * resources.displayMetrics.density).toInt())
-        visibility = if (text.isBlank()) View.GONE else View.VISIBLE
+        shownIf(text.isNotBlank())
     }
 
     private fun showNote(view: android.widget.TextView?, text: String) {
         view ?: return
         view.text = text
-        view.visibility = if (text.isBlank()) View.GONE else View.VISIBLE
+        view.shownIf(text.isNotBlank())
     }
 
     /**
@@ -1476,7 +1535,7 @@ class SettingsActivity : AppCompatActivity() {
     /** Pick the radar-detector sound effect; each choice plays as a preview. */
     private fun chooseDetectorEffect() {
         var picked = Prefs.detectorEffect(this)
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Detector sound effect")
             .setSingleChoiceItems(detectorEffectNames, picked) { _, which ->
                 picked = which
@@ -1495,7 +1554,7 @@ class SettingsActivity : AppCompatActivity() {
         val texts = mutableListOf<android.widget.TextView>()
         fun slider(label: (Int) -> String, from: Int, to: Int, value: Int, save: (Int) -> Unit): com.google.android.material.slider.Slider {
             val text = android.widget.TextView(this).apply {
-                textSize = 13f
+                textSize = 14f
                 setPadding(0, (10 * resources.displayMetrics.density).toInt(), 0, 0)
                 this.text = label(value)
             }
@@ -1572,9 +1631,9 @@ class SettingsActivity : AppCompatActivity() {
         aircraftStatusText = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
         box.addView(aircraftStatusText)
         showNote(aircraftStatusText, com.rfsentinel.app.online.OnlineWatch.aircraftStatus)
-        box.visibility = if (sw.isChecked) View.VISIBLE else View.GONE
+        box.shownIf(sw.isChecked)
         binding.categoryContainer.addView(box)
-        sw.setOnCheckedChangeListener { _, on -> box.visibility = if (on) View.VISIBLE else View.GONE }
+        sw.setOnCheckedChangeListener { _, on -> box.shownIf(on) }
     }
 
     /**
@@ -1635,7 +1694,7 @@ class SettingsActivity : AppCompatActivity() {
             val steps = if (direct) Prefs.WAZE_DIRECT_INTERVALS_S else Prefs.WAZE_NINJA_INTERVALS_S
             val col = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.VERTICAL }
             val text = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
-            val hint = android.widget.TextView(this).apply { textSize = 11f; alpha = 0.6f }
+            val hint = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.6f }
             fun show(sec: Int) {
                 text.text = "Check for new reports every ${Prefs.formatInterval(sec)}"
                 hint.text = when {
@@ -1644,7 +1703,7 @@ class SettingsActivity : AppCompatActivity() {
                     sec > 90 -> "Over 90 s Waze ends the session in between, so each check logs in again (more data)."
                     else -> ""
                 }
-                hint.visibility = if (hint.text.isEmpty()) View.GONE else View.VISIBLE
+                hint.shownIf(hint.text.isNotEmpty())
             }
             val now = Prefs.wazeIntervalS(this, direct)
             show(now)
@@ -1748,10 +1807,10 @@ class SettingsActivity : AppCompatActivity() {
         }
         box.addView(wazeKeyInput)
         fun showBackend(direct: Boolean) {
-            wazeKeyInput?.visibility = if (direct) View.GONE else View.VISIBLE
-            directInterval.visibility = if (direct) View.VISIBLE else View.GONE
-            ninjaInterval.visibility = if (direct) View.GONE else View.VISIBLE
-            directBox.visibility = if (direct) View.VISIBLE else View.GONE
+            wazeKeyInput?.shownIf(!direct)
+            directInterval.shownIf(direct)
+            ninjaInterval.shownIf(!direct)
+            directBox.shownIf(direct)
         }
         val directNow = Prefs.wazeBackend(this) == Prefs.WAZE_DIRECT
         backendGroup.check(if (directNow) directBtn.id else ninjaBtn.id)
@@ -1761,7 +1820,7 @@ class SettingsActivity : AppCompatActivity() {
                 if (Prefs.wazeDirectAccepted(this)) { Prefs.setWazeBackend(this, Prefs.WAZE_DIRECT); showBackend(true) }
                 else {
                     backendGroup.check(ninjaBtn.id)
-                    AlertDialog.Builder(this)
+                    MaterialAlertDialogBuilder(this)
                         .setTitle("Waze direct: use at your own risk")
                         .setMessage(WAZE_DIRECT_WARNING)
                         .setPositiveButton("I understand, use direct") { _, _ ->
@@ -1781,13 +1840,13 @@ class SettingsActivity : AppCompatActivity() {
             text = "Waze status"
             setOnClickListener { com.rfsentinel.app.ui.WazeUi.openStatus(this@SettingsActivity) }
         })
-        box.visibility = if (sw.isChecked) View.VISIBLE else View.GONE
+        box.shownIf(sw.isChecked)
         binding.categoryContainer.addView(box)
         sw.setOnCheckedChangeListener { _, on ->
             if (on && !Prefs.wazeReady(this)) {
                 sw.isChecked = false
                 val direct = Prefs.wazeBackend(this) == Prefs.WAZE_DIRECT
-                AlertDialog.Builder(this)
+                MaterialAlertDialogBuilder(this)
                     .setTitle("Waze reports: use at your own risk")
                     .setMessage(if (direct) WAZE_DIRECT_WARNING else WAZE_WARNING)
                     .setPositiveButton("I understand, enable") { _, _ ->
@@ -1799,7 +1858,7 @@ class SettingsActivity : AppCompatActivity() {
                     .show()
                 return@setOnCheckedChangeListener
             }
-            box.visibility = if (on) View.VISIBLE else View.GONE
+            box.shownIf(on)
         }
     }
 
@@ -1866,13 +1925,13 @@ class SettingsActivity : AppCompatActivity() {
                 if (t == ThemeManager.AppTheme.MATERIAL_YOU && !ThemeManager.isDynamicColorAvailable) " (this phone: standard Material 3 colours)" else ""
         } + "\n\nYour own themes are listed after these: long-press one to edit it."
         box.addView(infoRow(android.widget.TextView(this).apply {
-            text = "Theme"; setPadding(0, (10 * resources.displayMetrics.density).toInt(), 0, 0); textSize = 13f
+            text = "Theme"; setPadding(0, (10 * resources.displayMetrics.density).toInt(), 0, 0); textSize = 14f
         }, themesInfo), at - 1)
         btn("Create a custom theme...") { editTheme(null) }
         btn("Edit a theme...") {
             val all = CustomThemes.all(this)
             if (all.isEmpty()) Toast.makeText(this, "You have no custom themes yet", Toast.LENGTH_SHORT).show()
-            else AlertDialog.Builder(this).setTitle("Edit which theme?")
+            else MaterialAlertDialogBuilder(this).setTitle("Edit which theme?")
                 .setItems(all.map { it.name }.toTypedArray()) { _, i -> editTheme(all[i].id) }.show()
         }
         btn("Import a theme file...") { themeFilePicker.launch(arrayOf("application/json", "text/plain", "*/*")) }
@@ -1886,7 +1945,7 @@ class SettingsActivity : AppCompatActivity() {
         val box = binding.sectionAppearance
         val dp = resources.displayMetrics.density
         box.addView(infoRow(android.widget.TextView(this).apply {
-            text = "Screen style"; setPadding(0, (14 * dp).toInt(), 0, 0); textSize = 13f
+            text = "Screen style"; setPadding(0, (14 * dp).toInt(), 0, 0); textSize = 14f
         }, "On: the screen shows gauges, signal bars and charts.\n\nOff: the plain text list it had before.\n\n" +
             "Each of these screens also has a list / visual button at the top to switch it there."))
         com.rfsentinel.app.ui.VisualMode.Screen.values().forEach { s ->
@@ -2076,7 +2135,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.floatingMapSwitch.setOnCheckedChangeListener { sw, on ->
             if (on && !Settings.canDrawOverlays(this)) {
                 sw.isChecked = false
-                AlertDialog.Builder(this)
+                MaterialAlertDialogBuilder(this)
                     .setTitle("Allow the floating map")
                     .setMessage("Android needs the \"Display over other apps\" permission for the floating map. " +
                         "Turn it on for RF Sentinel on the next screen, then come back and switch the map on.")
@@ -2093,7 +2152,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.bubbleSwitch.setOnCheckedChangeListener { sw, on ->
             if (on && !Settings.canDrawOverlays(this)) {
                 sw.isChecked = false
-                AlertDialog.Builder(this)
+                MaterialAlertDialogBuilder(this)
                     .setTitle("Allow the floating bubble")
                     .setMessage("Android needs the \"Display over other apps\" permission for the bubble. " +
                         "Turn it on for RF Sentinel on the next screen, then come back and switch the bubble on.")
@@ -2269,7 +2328,7 @@ class SettingsActivity : AppCompatActivity() {
             "Android throttles WiFi scans: under 30 s is wasted unless you turn it off"
         else
             "Scan throttling is off: down to 5 s works"
-        binding.wifiThrottleButton.visibility = if (throttled) View.VISIBLE else View.GONE
+        binding.wifiThrottleButton.shownIf(throttled)
     }
 
     /**
@@ -2292,7 +2351,7 @@ class SettingsActivity : AppCompatActivity() {
             return
         }
         // Explain first, then open About phone: a dialog shown behind it would go unseen.
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Unlock Developer options first")
             .setMessage(
                 "1. In About phone, tap \"Build number\" 7 times (enter your PIN if asked).\n" +
@@ -2315,7 +2374,7 @@ class SettingsActivity : AppCompatActivity() {
         else runCatching { Settings.Global.getInt(contentResolver, "wifi_scan_throttle_enabled", 1) != 0 }.getOrDefault(true)
 
     private fun confirm(title: String, message: String, action: () -> Unit) {
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(title)
             .setMessage(message)
             .setPositiveButton("Clear") { _, _ -> action() }

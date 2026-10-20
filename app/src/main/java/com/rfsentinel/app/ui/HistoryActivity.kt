@@ -2,9 +2,9 @@ package com.rfsentinel.app.ui
 
 import android.os.Bundle
 import android.view.MenuItem
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.R
 import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.databinding.ActivityHistoryBinding
@@ -177,7 +177,7 @@ class HistoryActivity : AppCompatActivity() {
         m.query(android.graphics.RectF(x - r, y - r, x + r, y + r), listOf(POINTS to "i")) { found ->
             if (isFinishing || isDestroyed) return@query
             val e = found.firstOrNull()?.firstOrNull()?.toIntOrNull()?.let { shown.getOrNull(it) } ?: return@query
-            AlertDialog.Builder(this)
+            MaterialAlertDialogBuilder(this)
                 .setTitle(e.label)
                 .setMessage("${dateFmt.format(Date(e.time))}\n${e.mac}")
                 .setPositiveButton("Details") { _, _ -> DeviceActions.openDetails(this, e.mac) }

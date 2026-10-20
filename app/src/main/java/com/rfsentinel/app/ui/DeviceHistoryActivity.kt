@@ -16,6 +16,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.chip.Chip
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.KnownDeviceDao
 import com.rfsentinel.app.data.KnownDeviceEntity
@@ -128,7 +129,7 @@ class DeviceHistoryActivity : AppCompatActivity() {
 
     private fun importFrom(uri: android.net.Uri) {
         val progress = android.widget.TextView(this).apply { text = "Reading the file..."; setPadding(64, 32, 64, 8) }
-        val dialog = androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Importing device history").setView(progress).setCancelable(false).show()
+        val dialog = MaterialAlertDialogBuilder(this).setTitle("Importing device history").setView(progress).setCancelable(false).show()
         lifecycleScope.launch {
             val result = runCatching {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -145,14 +146,14 @@ class DeviceHistoryActivity : AppCompatActivity() {
             val r = result.getOrNull()
             if (r == null) {
                 val why = (result.exceptionOrNull() as? com.rfsentinel.app.util.DeviceHistoryImport.NotHistory)?.message ?: "Couldn't read that file (${result.exceptionOrNull()?.message ?: "unknown error"})"
-                androidx.appcompat.app.AlertDialog.Builder(this@DeviceHistoryActivity).setTitle("Not imported").setMessage(why).setPositiveButton("OK", null).show()
+                MaterialAlertDialogBuilder(this@DeviceHistoryActivity).setTitle("Not imported").setMessage(why).setPositiveButton("OK", null).show()
                 return@launch
             }
             com.rfsentinel.app.data.Favorites.load(this@DeviceHistoryActivity)
             com.rfsentinel.app.data.DeviceNames.load(this@DeviceHistoryActivity)
             search(now = true)
             val keep = Prefs.retentionDays(this@DeviceHistoryActivity)
-            androidx.appcompat.app.AlertDialog.Builder(this@DeviceHistoryActivity).setTitle("History imported")
+            MaterialAlertDialogBuilder(this@DeviceHistoryActivity).setTitle("History imported")
                 .setMessage("${r.added} new devices, ${r.updated} updated, ${r.unchanged} already there" +
                     (if (r.skipped > 0) ", ${r.skipped} entries skipped (not a device)" else "") + "." +
                     (if (keep > 0) "\n\nDevices not seen for more than $keep days are removed again at the next scan unless starred (Settings > Data > Keep history)." else ""))

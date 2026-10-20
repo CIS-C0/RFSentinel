@@ -114,4 +114,16 @@ class DeviceExportTest {
         assertEquals(701, all["matchLog"].asJsonArray.size())
         assertEquals(listOf("exportedBy", "exportedAt", "sessionDevices", "deviceHistory", "matchLog", "watchlist"), all.keySet().toList())
     }
+
+    /** The history export on its own, streamed a batch at a time: the same CSV as the one-shot one, and every row in the JSON. */
+    @Test
+    fun historyExportIsStreamedInBatches() {
+        val hist = (0 until 1203).map { KnownDeviceEntity("AA:BB:CC:%02X:%02X:%02X".format(it shr 16, (it shr 8) and 0xff, it and 0xff), 1000, 2000L - it, 1, 1, "n$it", null, null) }
+        fun streamed(csv: Boolean) = java.io.StringWriter().also { out ->
+            kotlinx.coroutines.runBlocking { DeviceExport.writeHistory(out, csv, DeviceExport.batches(hist)) }
+        }.toString()
+        assertEquals(DeviceExport.historyCsv(hist), streamed(csv = true))
+        val json = JsonParser.parseString(streamed(csv = false)).asJsonArray
+        assertEquals(hist.map { it.mac }, json.map { it.asJsonObject["mac"].asString })
+    }
 }

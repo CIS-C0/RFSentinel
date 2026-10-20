@@ -4,8 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.BuildConfig
 import java.io.File
 import java.io.PrintWriter
@@ -59,7 +59,7 @@ object CrashLog {
         if (!prefs.getBoolean("unseen", false)) return
         prefs.edit().putBoolean("unseen", false).apply()
         if (!hasCrashes(activity)) return
-        AlertDialog.Builder(activity)
+        MaterialAlertDialogBuilder(activity)
             .setTitle("RF Sentinel closed unexpectedly")
             .setMessage("A crash log was saved on this phone (nothing is sent automatically). " +
                 "Sending it to the developer helps fix it.\n\nLater: Settings > Lists, tools & about > Export crash log.")

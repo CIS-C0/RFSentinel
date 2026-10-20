@@ -1,41 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="16dp">
 
-    <RadioGroup
-        android:id="@+id/ruleType"
+    <!-- What the rule matches: one dropdown instead of a row of radio buttons, so every type fits any width -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/ruleTypeLayout"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:checkedButton="@id/typeAddress"
-        android:orientation="horizontal">
+        android:hint="Rule type"
+        app:endIconMode="dropdown_menu">
 
-        <RadioButton
-            android:id="@+id/typeAddress"
-            android:layout_width="wrap_content"
+        <AutoCompleteTextView
+            android:id="@+id/ruleType"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Address" />
-
-        <RadioButton
-            android:id="@+id/typeName"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Name has" />
-
-        <RadioButton
-            android:id="@+id/typeVendor"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Maker has" />
-
-        <RadioButton
-            android:id="@+id/typeProbe"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Asks for" />
-    </RadioGroup>
+            android:inputType="none"
+            android:saveEnabled="false" />
+    </com.google.android.material.textfield.TextInputLayout>
 
     <EditText
         android:id="@+id/prefixInput"
@@ -49,7 +35,7 @@
         android:id="@+id/labelInput"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Label (what it is)"
+        android:hint="Label: what it is"
         android:importantForAutofill="no"
         android:inputType="text" />
 
@@ -64,8 +50,8 @@
         android:layout_height="wrap_content"
         android:paddingTop="4dp"
         android:text="Built-in presets (body cams, Flock, Motorola...) are listed below with their confidence. Payload signatures (Axon tags, Remote ID, trackers, glasses) are built into the detection engine - see About &amp; sources."
-        android:textColor="#888888"
-        android:textSize="11sp" />
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="@dimen/text_caption" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"

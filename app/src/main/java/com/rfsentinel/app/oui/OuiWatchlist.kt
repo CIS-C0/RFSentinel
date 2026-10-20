@@ -32,6 +32,8 @@ object OuiWatchlist {
         /** Address entries keyed by hex digits: 12 = one device, 9/7/6 = IEEE block. */
         val byHex: Map<String, OuiEntry>,
         val nameRules: List<OuiEntry>,
+        /** Name / SSID prefix rules. */
+        val startsRules: List<OuiEntry>,
         val vendorRules: List<OuiEntry>,
         /** Requested-network rules keyed by the lower-cased network name. */
         val probeRules: Map<String, OuiEntry>,
@@ -53,7 +55,7 @@ object OuiWatchlist {
         private set
 
     @Volatile
-    private var state = State(emptyMap(), emptyList(), emptyList(), emptyMap(), emptyMap(), emptyList())
+    private var state = State(emptyMap(), emptyList(), emptyList(), emptyList(), emptyMap(), emptyMap(), emptyList())
 
     /** Load order: regional presets after "global", so their labels win for shared prefixes. */
     val availablePresets = listOf("global", "canada", "us", "france", "uk", "portugal", "germany", "spain", "italy")
@@ -72,8 +74,10 @@ object OuiWatchlist {
         readCustom(context).forEach { byKey[it.prefix] = it }
         val all = byKey.values.toList()
         state = State(
-            byHex = all.filter { !it.isNameRule && !it.isVendorRule && !it.isProbeRule && !it.isFingerprintRule }.associateBy { MacUtil.hex(it.prefix) },
+            byHex = all.filter { !it.isNameRule && !it.isStartsRule && !it.isVendorRule && !it.isProbeRule && !it.isFingerprintRule }
+                .associateBy { MacUtil.hex(it.prefix) },
             nameRules = all.filter { it.isNameRule && it.ruleText.isNotEmpty() },
+            startsRules = all.filter { it.isStartsRule && it.ruleText.isNotEmpty() },
             vendorRules = all.filter { it.isVendorRule && it.ruleText.isNotEmpty() },
             probeRules = all.filter { it.isProbeRule && it.ruleText.isNotEmpty() }.associateBy { it.ruleText.lowercase() },
             fingerprintRules = all.filter { it.isFingerprintRule && it.ruleText.isNotEmpty() }.associateBy { it.ruleText.lowercase() },
@@ -109,6 +113,7 @@ object OuiWatchlist {
         val k = key.trim()
         return when {
             k.startsWith(OuiEntry.NAME, ignoreCase = true) -> OuiEntry.NAME + k.substringAfter(':').trim()
+            k.startsWith(OuiEntry.STARTS, ignoreCase = true) -> OuiEntry.STARTS + k.substringAfter(':').trim()
             k.startsWith(OuiEntry.VENDOR, ignoreCase = true) -> OuiEntry.VENDOR + k.substringAfter(':').trim()
             k.startsWith(OuiEntry.PROBE, ignoreCase = true) -> OuiEntry.PROBE + k.substringAfter(':').trim()
             k.startsWith(OuiEntry.FINGERPRINT, ignoreCase = true) -> OuiEntry.FINGERPRINT + k.substringAfter(':').trim().lowercase()
@@ -174,11 +179,11 @@ object OuiWatchlist {
 
     fun allEntries(): List<OuiEntry> = state.all
 
-    /** Valid keys: IEEE block prefix (24/28/36-bit), full MAC, or a non-empty name:/vendor: rule. */
+    /** Valid keys: IEEE block prefix (24/28/36-bit), full MAC, or a non-empty name:/starts:/vendor:/probe:/fp: rule. */
     fun isValidKey(prefix: String): Boolean {
         val k = prefix.trim()
-        if (k.startsWith(OuiEntry.NAME, true) || k.startsWith(OuiEntry.VENDOR, true) || k.startsWith(OuiEntry.PROBE, true) ||
-            k.startsWith(OuiEntry.FINGERPRINT, true)) {
+        if (k.startsWith(OuiEntry.NAME, true) || k.startsWith(OuiEntry.STARTS, true) || k.startsWith(OuiEntry.VENDOR, true) ||
+            k.startsWith(OuiEntry.PROBE, true) || k.startsWith(OuiEntry.FINGERPRINT, true)) {
             return k.substringAfter(':').isNotBlank()
         }
         return MacUtil.isValidBlock(k) || MacUtil.isValidMac(k)
@@ -210,6 +215,8 @@ object OuiWatchlist {
         if (name != null) {
             s.nameRules.filter { name.contains(it.ruleText, ignoreCase = true) }
                 .forEach { out += it.toHit("Name \"$name\" contains \"${it.ruleText}\"") }
+            s.startsRules.filter { name.trimStart().startsWith(it.ruleText, ignoreCase = true) }
+                .forEach { out += it.toHit("Name \"$name\" starts with \"${it.ruleText}\"") }
         }
         if (vendors.isNotEmpty()) {
             s.vendorRules.forEach { rule ->

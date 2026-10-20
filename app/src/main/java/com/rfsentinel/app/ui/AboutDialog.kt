@@ -2,9 +2,9 @@ package com.rfsentinel.app.ui
 
 import android.text.method.LinkMovementMethod
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.text.HtmlCompat
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.BuildConfig
 
 /** Version, scope, and where every signature and lookup table comes from. */
@@ -64,9 +64,9 @@ object AboutDialog {
             movementMethod = LinkMovementMethod.getInstance()
             val pad = (20 * resources.displayMetrics.density).toInt()
             setPadding(pad, pad / 2, pad, 0)
-            textSize = 13f
+            textSize = 14f
         }
-        AlertDialog.Builder(activity)
+        MaterialAlertDialogBuilder(activity)
             .setTitle("About & sources")
             .setView(android.widget.ScrollView(activity).apply { addView(view) })
             .setPositiveButton("Close", null)

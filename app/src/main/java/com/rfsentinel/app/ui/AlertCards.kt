@@ -75,7 +75,7 @@ internal class AlertCardController(
     }
 
     fun show(c: AlertCards.Card) {
-        if (System.currentTimeMillis() < Prefs.alertsSnoozedUntil(ctx)) return
+        // Shown while snoozed too: snooze silences sound and voice, not what's on screen.
         current = c
         val discreet = Prefs.discreetMode(ctx)
         val color = c.category.colorArgb

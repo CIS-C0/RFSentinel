@@ -19,6 +19,15 @@ class ProbeRuleTest {
     }
 
     @Test
+    fun ssidPrefixRulesAreValidKeys() {
+        assertTrue(OuiWatchlist.isValidKey("starts:Flock-"))
+        assertFalse(OuiWatchlist.isValidKey("starts: "))
+        assertEquals("starts:Flock-", OuiWatchlist.normalizeKey("STARTS: Flock- "))
+        assertTrue(OuiEntry("starts:Flock-", "x").isStartsRule)
+        assertFalse(OuiEntry("starts:Flock-", "x").isNameRule)
+    }
+
+    @Test
     fun aRequestForAWatchedNameIsAnAlertHit() {
         val rule = OuiEntry("probe:PD-MDT", "Police laptop", "user-added", "custom")
         val rules = mapOf("pd-mdt" to rule)
