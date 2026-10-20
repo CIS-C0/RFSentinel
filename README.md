@@ -174,8 +174,10 @@ Everything the app does, grouped by area.
 - **Fake cell tower signs** checked every 15 s, with persistence, call and border suppression (modelled on [EFF's Rayhunter](https://github.com/EFForg/rayhunter) as far as Android allows without root)
 - **Hidden WiFi networks** identified from WPS data, Cisco AP names and vendor elements, and linked to the visible network on the same router
 - Ordinary devices named precisely: exact AirPods / Beats model, device class, IEEE registrant; decoded Apple Continuity, iBeacon, Eddystone, Fast Pair
-- Editable **watchlist** (exact addresses, prefixes, name / vendor rules) with Global, Canada, US, France, UK, Portugal, Germany, Spain and Italy presets; per-category on/off switches
+- Editable **watchlist** (exact addresses, prefixes, name, *name starts with*, vendor and Bluetooth advert-pattern rules; search, export and undo) with Global, Canada, US, France, UK, Portugal, Germany, Spain and Italy presets; per-category on/off switches
 - Bluetooth 5 extended advertising and LE Coded (long range) where the phone supports it
+- **I saw it:** on a device's page, tell the app what it is (e.g. pole camera on the bridge) and it learns that device - its exact address, and its Bluetooth advert pattern or WiFi probe fingerprint so it's recognised after its address changes. Patterns many devices share are refused, and a learned pattern only ever counts as probable
+- **Probe-rate clue** (USB WiFi adapter): non-stop wildcard probing from one fixed address backs up a fixed-camera match, shown on the device page
 
 </details>
 
@@ -357,7 +359,11 @@ channel and security, drone Remote ID with drone and operator positions, a live
 signal graph with **Locate** mode (beeps faster as you get closer), history, and
 the raw advertisement. **Rename** gives the device your own name (shown in the
 list, on the map and in history) and **Add note** keeps a note with it; named or
-noted devices stay in the history.
+noted devices stay in the history. **I saw it** is different: it doesn't just label
+this device, it adds it to your watchlist with what you say it is (e.g. pole camera
+on the bridge): its exact address and / or its Bluetooth advert pattern or WiFi
+probe fingerprint, so you're alerted the next time it's around, even under a new
+random address.
 
 ### Map and traces
 
@@ -472,7 +478,7 @@ Menu → **Export...** (or Settings → Data → Export all devices):
 |---|---|
 | Current scan (all devices) | CSV, JSON, KML |
 | All devices ever seen | CSV, JSON |
-| Match log | CSV, JSON, GPX, KML |
+| Match log (Menu → History → *Match history*, searchable, filter by today or kind) | CSV, JSON, GPX, KML |
 | Recorded traces | GPX, KML, GeoJSON, CSV |
 | Watchlist | JSON |
 | Everything in one file | JSON |
@@ -719,6 +725,10 @@ hardware. **Settings → RTL-SDR radio**:
 - **Sensitivity** (how far above the noise a burst must be), the **built-in bands**
   on / off, **your own bands**, **ranges never to report** (e.g. a business band)
   and **frequencies to watch** (reported whenever they're active), one per line in MHz.
+- **Radio waterfall** (Tools → *Radio waterfall*): a live picture of the watched
+  bands, one row per sweep, while detection carries on. Tap a signal (or **Tune**) to
+  zoom in on about 2 MHz around it in real time; radio detection pauses until **Back
+  to sweep** or you leave the screen. Receive-only, energy only.
 - **Say the frequency** (and its name) instead of "Radio transmitting nearby", and
   a **closer / moving away** call-out when the signal changes by the set number of dB.
 - **Frequency names**: import a CSV (RadioReference's export, CHIRP, or any file with

@@ -1,0 +1,7 @@
+- "I saw it": tell the app what a device is and it learns it.
+- Live radio waterfall for RTL-SDR/HackRF; tap to zoom in.
+- Probe-rate clue spots steady fixed cameras.
+- Watchlist "name starts with" rules, search, export and undo.
+- Search Match history; filter by today or kind.
+- Snooze silences sound and voice only.
+- Fixes: false Bluetooth spam alerts, bad drone and aircraft positions, ESP32 text, BOM imports, memory use.

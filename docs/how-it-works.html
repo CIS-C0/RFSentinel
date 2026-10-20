@@ -56,7 +56,7 @@
 <p>Nothing is ever transmitted to, connected to or paired with a scanned device.</p>
 
 <h2 id="signatures">2. Signatures</h2>
-<p><code>detect/SignatureEngine.kt</code> matches payload tags (<code>BWCDEVICE</code>), Bluetooth SIG company IDs, 16 and 128-bit service UUIDs, service data, names and SSIDs. The watchlist matches exact addresses, IEEE MA-L / MA-M / MA-S prefixes and name / vendor rules, seeded by regional presets (<code>assets/oui_presets/</code>: Global, Canada, US). Every prefix used in code is checked against its IEEE registrant by <code>tools/gen_assets.py</code>, which fails the build data if one changes.</p>
+<p><code>detect/SignatureEngine.kt</code> matches payload tags (<code>BWCDEVICE</code>), Bluetooth SIG company IDs, 16 and 128-bit service UUIDs, service data, names and SSIDs. The watchlist matches exact addresses, IEEE MA-L / MA-M / MA-S prefixes, name, name-prefix (<code>starts:</code>) and vendor rules, Bluetooth advert patterns (<code>adv:</code>, learned with <i>I saw it</i>, probable at most) and WiFi probe fingerprints, seeded by regional presets (<code>assets/oui_presets/</code>: Global, Canada, US). Every prefix used in code is checked against its IEEE registrant by <code>tools/gen_assets.py</code>, which fails the build data if one changes.</p>
 <div class="table-wrap"><table>
 <thead><tr><th>Tier</th><th>Confidence</th><th>Meaning</th></tr></thead>
 <tbody>
