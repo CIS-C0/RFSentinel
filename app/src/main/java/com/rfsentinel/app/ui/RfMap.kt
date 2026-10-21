@@ -90,6 +90,8 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
     /** The area the camera, CCTV and tower layers were drawn for (redrawn when the view leaves it). */
     private var staticBox: MapEngine.Box? = null
     private var staticAt = 0L
+    /** Whether the CCTV were drawn (zoomed in enough): zooming back in past that level redraws them at once. */
+    private var staticCctv = false
     private var lastCameraFetch = 0L
     private var lastCctvFetch = 0L
 
@@ -333,14 +335,19 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         val view = map.visibleBox() ?: return
         val now = System.currentTimeMillis()
         val box = staticBox
-        if (!force && box != null && box.contains(view) && now - staticAt < 15_000) return
+        val cctvZoom = map.camera.zoom >= CCTV_MIN_ZOOM
+        if (!force && box != null && box.contains(view) && now - staticAt < 15_000 && cctvZoom == staticCctv) return
         val drawStart = android.os.SystemClock.elapsedRealtime()
         val (n, e, so, w) = grownBox(view.north, view.east, view.south, view.west, 0.5)
         val big = MapEngine.Box(n, e, so, w)
-        staticBox = big; staticAt = now
+        staticBox = big; staticAt = now; staticCctv = cctvZoom
         fun inside(lat: Double, lon: Double) = big.contains(lat, lon)
+        // Over the limit, the ones on screen come first (not whichever the file lists first).
+        fun <T> onScreenFirst(list: List<T>, max: Int, lat: (T) -> Double, lon: (T) -> Double): List<T> =
+            if (list.size <= max) list else list.partition { view.contains(lat(it), lon(it)) }.let { (seen, around) -> (seen + around).take(max) }
 
-        val cams = if (Prefs.showKnownAlpr(activity)) AlprStore.cameras.filter { inside(it.lat, it.lon) }.take(1500) else emptyList()
+        val cams = if (Prefs.showKnownAlpr(activity))
+            onScreenFirst(AlprStore.cameras.filter { inside(it.lat, it.lon) }, 1500, { it.lat }, { it.lon }) else emptyList()
         cameras = cams.associateBy { it.osmId }
         set(CAMERAS, cams.map { c ->
             GeoJson.feature(GeoJson.point(c.lat, c.lon), "id" to c.osmId, "icon" to "rf-cam-${c.type.name}",
@@ -355,8 +362,8 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
 
         val showCctv = Prefs.showCctv(activity)
         val private = Prefs.cctvPrivate(activity)
-        val cctv = if (showCctv && map.camera.zoom >= CCTV_MIN_ZOOM)
-            CctvStore.cameras.filter { (private || !it.isPrivate) && inside(it.lat, it.lon) }.take(3000) else emptyList()
+        val cctv = if (showCctv && cctvZoom)
+            onScreenFirst(CctvStore.cameras.filter { (private || !it.isPrivate) && inside(it.lat, it.lon) }, 3000, { it.lat }, { it.lon }) else emptyList()
         cctvs = cctv.associateBy { it.osmId }
         set(CCTV, cctv.map { c ->
             GeoJson.feature(GeoJson.point(c.lat, c.lon), "id" to c.osmId, "icon" to if (c.isPrivate) "rf-cctv-private" else "rf-cctv-public")
@@ -427,11 +434,18 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         val small = view.north - view.south <= span && view.east - view.west <= span
         if (Prefs.showCctv(activity) && now - lastCctvFetch > 20_000 && !CctvStore.isBusy) {
             lastCctvFetch = now
-            val here = ScanForegroundService.lastFix
-            if (here != null) CctvStore.ensureAround(activity, here.latitude, here.longitude, Prefs.cameraRadiusKm(activity).toDouble())
-            if (!CctvStore.isBusy && small && map.camera.zoom >= CCTV_MIN_ZOOM) activity.lifecycleScope.launch {
-                runCatching { CctvStore.autoDownload(activity, view.south, view.west, view.north, view.east) }
-                safe("static") { maybeRedrawStatic(force = true); onStaticChanged?.invoke() }
+            // What's on screen first; the area around you (many tiles, minutes) only once that is there.
+            // (Unless the servers just refused it: then the next tile around you is worth a try meanwhile.)
+            if (small && map.camera.zoom >= CCTV_MIN_ZOOM && now - CctvStore.lastFailureAt > 60_000 &&
+                CctvStore.needsDownload(view.south, view.west, view.north, view.east)) {
+                activity.lifecycleScope.launch {
+                    val changed = runCatching { CctvStore.autoDownload(activity, view.south, view.west, view.north, view.east) }.getOrDefault(false)
+                    if (changed) lastCctvFetch = 0L // straight on to the area around you
+                    safe("static") { maybeRedrawStatic(force = true); onStaticChanged?.invoke() }
+                }
+            } else {
+                val here = ScanForegroundService.lastFix
+                if (here != null) CctvStore.ensureAround(activity, here.latitude, here.longitude, Prefs.cameraRadiusKm(activity).toDouble())
             }
         }
         if (now - lastCameraFetch < 20_000) return

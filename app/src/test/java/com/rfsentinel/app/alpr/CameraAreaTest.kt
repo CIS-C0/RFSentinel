@@ -56,4 +56,16 @@ class CameraAreaTest {
         val max = CameraArea.expand(10.0, -21.0, 12.0, -19.0, maxSpan = 2.0)
         assertEquals(listOf(10.0, -21.0, 12.0, -19.0), max)
     }
+
+    @Test
+    fun cctvTilesStartWhereYouAre() {
+        // A point near the north-east corner of a 4 x 4 grid: its own tile first, the far corner last.
+        val tiles = CameraArea.tilesAround(10.0, -20.0, radiusKm = 200.0, maxTileDeg = 1.0)
+        val ordered = CctvStore.nearestFirst(tiles, 10.9, -19.1)
+        assertEquals(tiles.size, ordered.size)
+        val first = ordered.first()
+        assertTrue(10.9 in first[0]..first[2] && -19.1 in first[1]..first[3])
+        val last = ordered.last()
+        assertTrue(last[0] == tiles.minOf { it[0] } && last[1] == tiles.minOf { it[1] })
+    }
 }

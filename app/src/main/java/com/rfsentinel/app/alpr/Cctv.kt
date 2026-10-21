@@ -174,7 +174,7 @@ object CctvStore {
         if (busy.get()) return
         scope.launch {
             withContext(Dispatchers.IO) { load(app) }
-            val tiles = CameraArea.tilesAround(lat, lon, radiusKm, MAX_SPAN_DEG)
+            val tiles = nearestFirst(CameraArea.tilesAround(lat, lon, radiusKm, MAX_SPAN_DEG), lat, lon)
                 .filter { needsDownload(it[0], it[1], it[2], it[3]) }
             if (tiles.isEmpty()) return@launch
             runCatching { downloadTiles(app, tiles) }
@@ -184,7 +184,17 @@ object CctvStore {
     /** "Download cameras around me" (Settings): the CCTV within the radius; how many were found. */
     suspend fun downloadAround(context: Context, lat: Double, lon: Double, radiusKm: Double, onProgress: (String) -> Unit = {}): Int {
         withContext(Dispatchers.IO) { load(context) }
-        return downloadTiles(context, CameraArea.tilesAround(lat, lon, radiusKm, MAX_SPAN_DEG), onProgress)
+        return downloadTiles(context, nearestFirst(CameraArea.tilesAround(lat, lon, radiusKm, MAX_SPAN_DEG), lat, lon), onProgress)
+    }
+
+    /** Where you are first, then outwards: the cameras around you show in the first minute, not the last. */
+    fun nearestFirst(tiles: List<DoubleArray>, lat: Double, lon: Double): List<DoubleArray> {
+        val cos = kotlin.math.cos(Math.toRadians(lat))
+        return tiles.sortedBy { t ->
+            val dLat = (t[0] + t[2]) / 2 - lat
+            val dLon = ((t[1] + t[3]) / 2 - lon) * cos
+            dLat * dLat + dLon * dLon
+        }
     }
 
     /** Areas still missing after the last download around you (retried the next time the map opens). */
