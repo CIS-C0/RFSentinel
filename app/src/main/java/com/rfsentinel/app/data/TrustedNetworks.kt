@@ -7,7 +7,7 @@ import com.rfsentinel.app.service.DeviceRegistry
 
 /**
  * WiFi networks trusted by name (Whitelist > Network names): every access point whose SSID matches a rule
- * is treated like a whitelisted address. A router that is on every bus of a fleet ("LAUSD-Bus-123") is
+ * is treated like a whitelisted address. A router that is on every bus of a fleet ("SchoolBus-123") is
  * trusted once, by its name, rather than address by address.
  *
  * Pure matching in [matches] (unit-tested); this object keeps the rules and the addresses they caught.

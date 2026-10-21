@@ -215,6 +215,8 @@ Everything the app does, grouped by area.
 - Optional **cell tower layer** (or the map's **Cells** chip): every tower seen while scanning, at the spot where its signal was strongest
 - **Record traces** of your route and the devices along it, with the screen off (with the network names each device asked for, when a USB adapter or Marauder board is plugged in)
 - **History map & timeline:** heatmap of where flagged equipment showed up, and when (hour of day, day of week)
+- **Sightings map:** on a device's page, every spot that device was heard, joined in time order for each encounter
+- The main screen's map and the full screen map show the same view (place, zoom, heading, tilt, following you) and the same place card and routes
 - **Device history:** every device the app remembers, in range or not, searchable by address (with or without colons), name, vendor, type, your own name for it or your note, filtered to favorites, flagged before or seen today; tap one for its details page. History is kept as long as you set in Settings → Data
 
 </details>
@@ -337,6 +339,9 @@ A threat banner, the live list of everything in range, and the radar and map vie
   adapter). Search matches name, address, vendor and type.
 - **Tap** a device for details. **Long-press** for watchlist, whitelist,
   favorite, copy, ignore, and **Report unknown device**.
+- **Whitelist** (Menu): trusted devices by address, and WiFi networks by name
+  (*Name starts with*, *Name contains* or *Exact name*), for a router that is on
+  every bus of a fleet. Trusted devices are never flagged, logged or alerted on.
 - **Floating bubble** (Settings, needs *Display over other apps*): green when
   clear, orange for probable, red for strong or a follower, with the count.
   Each new alert shows a small card beside it for a few seconds (what, type, distance).
@@ -729,6 +734,8 @@ hardware. **Settings → RTL-SDR radio**:
   bands, one row per sweep, while detection carries on. Tap a signal (or **Tune**) to
   zoom in on about 2 MHz around it in real time; radio detection pauses until **Back
   to sweep** or you leave the screen. Receive-only, energy only.
+- On a radio signal's page, **Locate** opens the waterfall tuned to its frequency (follow
+  the strongest signal) and **Watch this frequency** adds it to the frequencies to watch.
 - **Say the frequency** (and its name) instead of "Radio transmitting nearby", and
   a **closer / moving away** call-out when the signal changes by the set number of dB.
 - **Frequency names**: import a CSV (RadioReference's export, CHIRP, or any file with

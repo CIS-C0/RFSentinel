@@ -60,7 +60,7 @@
             android:layout_height="wrap_content"
             android:paddingTop="2dp"
             android:paddingBottom="8dp"
-            android:text="WiFi networks with a matching name are trusted like a whitelisted device. Name starts with LAUSD- matches LAUSD-Bus-123; Name contains LAUSD also matches WiFi-LAUSD."
+            android:text="WiFi networks with a matching name are trusted like a whitelisted device. Name starts with SchoolBus- matches SchoolBus-123; Name contains SchoolBus also matches WiFi-SchoolBus."
             android:textColor="?android:attr/textColorSecondary"
             android:textSize="@dimen/text_caption" />
 
@@ -85,7 +85,7 @@
             android:layout_height="wrap_content"
             android:inputType="text|textNoSuggestions"
             android:importantForAutofill="no"
-            android:hint="Start of the network name, e.g. LAUSD-" />
+            android:hint="Start of the network name, e.g. SchoolBus-" />
 
         <Button
             android:id="@+id/addNetworkButton"

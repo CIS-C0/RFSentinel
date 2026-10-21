@@ -109,8 +109,8 @@ class WhitelistActivity : AppCompatActivity() {
         match = m
         binding.networkMatch.setText(m.label, false) // false: keep every choice in the list
         binding.networkInput.hint = when (m) {
-            TrustedNetworks.Match.STARTS -> "Start of the network name, e.g. LAUSD-"
-            TrustedNetworks.Match.CONTAINS -> "Part of the network name, e.g. LAUSD"
+            TrustedNetworks.Match.STARTS -> "Start of the network name, e.g. SchoolBus-"
+            TrustedNetworks.Match.CONTAINS -> "Part of the network name, e.g. SchoolBus"
             TrustedNetworks.Match.EXACT -> "The whole network name"
         }
     }

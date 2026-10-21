@@ -373,7 +373,7 @@ object DeviceActions {
             return
         }
         // A network on many vehicles (a bus fleet's routers) has a new address on each: the start of its name
-        // catches them all ("LAUSD-Bus-123" -> "LAUSD-"), as on the watchlist.
+        // catches them all ("SchoolBus-123" -> "SchoolBus-"), as on the watchlist.
         val pad = (20 * activity.resources.displayMetrics.density).toInt()
         val device = android.widget.RadioButton(activity).apply { id = View.generateViewId(); text = "Only this device ($mac)" }
         val starts = android.widget.RadioButton(activity).apply { id = View.generateViewId(); text = "Every network whose name (SSID) starts with:" }

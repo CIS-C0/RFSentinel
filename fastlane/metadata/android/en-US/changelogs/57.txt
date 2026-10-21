@@ -1,0 +1,6 @@
+- Whitelist WiFi networks by name: starts with, contains or exact.
+- Sightings map: every spot a device was heard, joined in time order.
+- Radio signals: Locate opens the waterfall; Watch this frequency.
+- Main and full screen maps share their view, place card and routes.
+- Cameras and CCTV load faster and stay on the map while downloading.
+- Fix: History map crashing every time on some phones.
