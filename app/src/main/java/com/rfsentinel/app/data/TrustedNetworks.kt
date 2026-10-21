@@ -14,12 +14,21 @@ import com.rfsentinel.app.service.DeviceRegistry
  */
 object TrustedNetworks {
 
-    data class Rule(
-        val text: String,
-        /** The whole SSID must be [text]; else any SSID containing it matches. Case never matters. */
-        val exact: Boolean
-    ) {
-        val label get() = if (exact) "Exact name" else "Name contains"
+    /** How a rule's text is matched against an SSID; case never matters. */
+    enum class Match(val label: String) {
+        STARTS("Name starts with"), CONTAINS("Name contains"), EXACT("Exact name")
+    }
+
+    data class Rule(val text: String, private val match: Match?) {
+        /** Rules saved without one (none were released) match by containing. */
+        val how: Match get() = match ?: Match.CONTAINS
+        val label get() = how.label
+
+        fun matches(name: String): Boolean = when (how) {
+            Match.STARTS -> name.startsWith(text, ignoreCase = true)
+            Match.CONTAINS -> name.contains(text, ignoreCase = true)
+            Match.EXACT -> name.equals(text, ignoreCase = true)
+        }
     }
 
     private const val PREFS = "trusted_networks"
@@ -35,7 +44,7 @@ object TrustedNetworks {
     fun matches(rules: List<Rule>, ssid: String?): Boolean {
         val name = ssid?.trim().orEmpty()
         if (name.isEmpty()) return false
-        return rules.any { r -> if (r.exact) name.equals(r.text, ignoreCase = true) else name.contains(r.text, ignoreCase = true) }
+        return rules.any { it.matches(name) }
     }
 
     fun contains(mac: String): Boolean = mac in trusted
@@ -60,7 +69,7 @@ object TrustedNetworks {
     fun save(context: Context, rule: Rule, replacing: Rule? = null) {
         val clean = rule.copy(text = rule.text.trim())
         if (clean.text.isEmpty()) return
-        val others = rules.filterNot { it == replacing || it.text.equals(clean.text, ignoreCase = true) && it.exact == clean.exact }
+        val others = rules.filterNot { it == replacing || it.text.equals(clean.text, ignoreCase = true) && it.how == clean.how }
         write(context, others + clean)
     }
 

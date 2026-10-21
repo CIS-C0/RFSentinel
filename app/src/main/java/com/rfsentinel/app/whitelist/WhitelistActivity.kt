@@ -24,8 +24,8 @@ class WhitelistActivity : AppCompatActivity() {
     private lateinit var adapter: WhitelistAdapter<WhitelistEntity>
     private val networks = mutableListOf<TrustedNetworks.Rule>()
     private lateinit var networkAdapter: WhitelistAdapter<TrustedNetworks.Rule>
-    /** The Match dropdown: whole name (true) or part of it. */
-    private var exact = false
+    /** The Match dropdown's choice. */
+    private var match = TrustedNetworks.Match.STARTS
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,10 +76,10 @@ class WhitelistActivity : AppCompatActivity() {
     }
 
     private fun setupNetworks(savedInstanceState: Bundle?) {
-        val choices = listOf("Name contains", "Exact name")
-        binding.networkMatch.setAdapter(ArrayAdapter(this, android.R.layout.simple_list_item_1, choices))
-        binding.networkMatch.setOnItemClickListener { _, _, position, _ -> setExact(position == 1) }
-        setExact(savedInstanceState?.getBoolean(STATE_EXACT) ?: false)
+        val choices = TrustedNetworks.Match.entries
+        binding.networkMatch.setAdapter(ArrayAdapter(this, android.R.layout.simple_list_item_1, choices.map { it.label }))
+        binding.networkMatch.setOnItemClickListener { _, _, position, _ -> setMatch(choices[position]) }
+        setMatch(savedInstanceState?.getInt(STATE_MATCH)?.let { choices.getOrNull(it) } ?: TrustedNetworks.Match.STARTS)
 
         networkAdapter = WhitelistAdapter(networks, { it.text }, { it.label }, { editNetwork(it) }) { rule ->
             TrustedNetworks.remove(this, rule)
@@ -98,16 +98,21 @@ class WhitelistActivity : AppCompatActivity() {
                 binding.networkInput.error = "Type a network name or part of one"
                 return@setOnClickListener
             }
-            TrustedNetworks.save(this, TrustedNetworks.Rule(text, exact))
+            TrustedNetworks.save(this, TrustedNetworks.Rule(text, match))
             binding.networkInput.text?.clear()
             showNetworks()
         }
         showNetworks()
     }
 
-    private fun setExact(on: Boolean) {
-        exact = on
-        binding.networkMatch.setText(if (on) "Exact name" else "Name contains", false) // false: keep every choice in the list
+    private fun setMatch(m: TrustedNetworks.Match) {
+        match = m
+        binding.networkMatch.setText(m.label, false) // false: keep every choice in the list
+        binding.networkInput.hint = when (m) {
+            TrustedNetworks.Match.STARTS -> "Start of the network name, e.g. LAUSD-"
+            TrustedNetworks.Match.CONTAINS -> "Part of the network name, e.g. LAUSD"
+            TrustedNetworks.Match.EXACT -> "The whole network name"
+        }
     }
 
     private fun showNetworks() {
@@ -120,9 +125,10 @@ class WhitelistActivity : AppCompatActivity() {
     private fun editNetwork(rule: TrustedNetworks.Rule) {
         val pad = (16 * resources.displayMetrics.density).toInt()
         val input = EditText(this).apply { setText(rule.text); setSelection(rule.text.length); hint = "Network name or keyword" }
-        val contains = RadioButton(this).apply { id = android.view.View.generateViewId(); text = "Name contains" }
-        val whole = RadioButton(this).apply { id = android.view.View.generateViewId(); text = "Exact name" }
-        val group = RadioGroup(this).apply { addView(contains); addView(whole); check(if (rule.exact) whole.id else contains.id) }
+        val buttons = TrustedNetworks.Match.entries.associateWith { m ->
+            RadioButton(this).apply { id = android.view.View.generateViewId(); text = m.label }
+        }
+        val group = RadioGroup(this).apply { buttons.values.forEach { addView(it) }; check(buttons.getValue(rule.how).id) }
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad / 2, pad, 0)
@@ -133,7 +139,8 @@ class WhitelistActivity : AppCompatActivity() {
             .setView(box)
             .setPositiveButton("Save") { _, _ ->
                 val text = input.text.toString().trim()
-                if (text.isNotEmpty()) TrustedNetworks.save(this, TrustedNetworks.Rule(text, group.checkedRadioButtonId == whole.id), replacing = rule)
+                val how = buttons.entries.firstOrNull { it.value.id == group.checkedRadioButtonId }?.key ?: rule.how
+                if (text.isNotEmpty()) TrustedNetworks.save(this, TrustedNetworks.Rule(text, how), replacing = rule)
                 showNetworks()
             }
             .setNegativeButton("Cancel", null)
@@ -142,10 +149,10 @@ class WhitelistActivity : AppCompatActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        outState.putBoolean(STATE_EXACT, exact)
+        outState.putInt(STATE_MATCH, match.ordinal)
     }
 
     private companion object {
-        const val STATE_EXACT = "networkExact"
+        const val STATE_MATCH = "networkMatch"
     }
 }

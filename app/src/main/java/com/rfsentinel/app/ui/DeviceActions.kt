@@ -372,15 +372,37 @@ object DeviceActions {
                 .show()
             return
         }
-        // A network on many vehicles (a bus fleet's routers) has a new address on each: its name catches them all.
-        var byName = false
+        // A network on many vehicles (a bus fleet's routers) has a new address on each: the start of its name
+        // catches them all ("LAUSD-Bus-123" -> "LAUSD-"), as on the watchlist.
+        val pad = (20 * activity.resources.displayMetrics.density).toInt()
+        val device = android.widget.RadioButton(activity).apply { id = View.generateViewId(); text = "Only this device ($mac)" }
+        val starts = android.widget.RadioButton(activity).apply { id = View.generateViewId(); text = "Every network whose name (SSID) starts with:" }
+        val startInput = EditText(activity).apply {
+            setText(name); setSelection(name.length); visibility = View.GONE
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        }
+        val group = android.widget.RadioGroup(activity).apply {
+            addView(device); addView(starts); check(device.id)
+            setOnCheckedChangeListener { _, id ->
+                startInput.visibility = if (id == starts.id) View.VISIBLE else View.GONE
+                if (id == starts.id) startInput.requestFocus()
+            }
+        }
+        val box = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, pad / 2, pad, 0)
+            addView(TextView(activity).apply { text = "Trusted, never logged, flashed or alerted on." })
+            addView(group); addView(startInput)
+        }
         MaterialAlertDialogBuilder(activity)
-            .setTitle("Whitelist: trusted, never logged, flashed or alerted on")
-            .setSingleChoiceItems(arrayOf("Only this device ($mac)", "Every network named \"$name\""), 0) { _, which -> byName = which == 1 }
+            .setTitle("Whitelist")
+            .setView(box)
             .setPositiveButton("Whitelist") { _, _ ->
-                if (!byName) { addDevice(); return@setPositiveButton }
-                TrustedNetworks.save(activity, TrustedNetworks.Rule(name, exact = true))
-                toast(activity, "Every network named $name is whitelisted")
+                if (group.checkedRadioButtonId != starts.id) { addDevice(); return@setPositiveButton }
+                val start = startInput.text.toString().trim()
+                if (start.isEmpty()) { toast(activity, "Not whitelisted: enter the start of the name"); return@setPositiveButton }
+                TrustedNetworks.save(activity, TrustedNetworks.Rule(start, TrustedNetworks.Match.STARTS))
+                toast(activity, "Networks starting with $start are whitelisted")
             }
             .setNegativeButton("Cancel", null)
             .show()
