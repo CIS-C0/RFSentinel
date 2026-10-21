@@ -69,17 +69,22 @@ object AlprStore {
      * Reads the saved cache once (later calls return at once). Everything that changes the cache loads it first:
      * a download that ran before the file was read would merge into an empty list and save over it.
      */
-    @Synchronized
     fun load(context: Context) {
-        if (loaded) return
-        cameras = runCatching {
-            file(context).takeIf { it.exists() }?.readText()?.let { gson.fromJson<List<KnownCamera>>(it, listType) }
-        }.getOrNull().orEmpty()
-        areas = runCatching {
-            areasFile(context).takeIf { it.exists() }?.readText()?.let { gson.fromJson<List<CameraArea>>(it, areaListType) }
-        }.getOrNull().orEmpty()
-        loaded = true
+        if (loaded) return // no lock once read: a merge writing the file must not hold up the map
+        synchronized(this) {
+            if (loaded) return
+            val start = android.os.SystemClock.elapsedRealtime()
+            // Streamed from the file: the US + Canada plate readers are megabytes, too big to read into one string first.
+            cameras = runCatching { readJson<List<KnownCamera>>(file(context), listType) }.getOrNull().orEmpty()
+            areas = runCatching { readJson<List<CameraArea>>(areasFile(context), areaListType) }.getOrNull().orEmpty()
+            loaded = true
+            android.util.Log.i("AlprStore", "Loaded ${cameras.size} cameras in ${android.os.SystemClock.elapsedRealtime() - start} ms")
+        }
     }
+
+    /** A saved JSON file parsed as it is read, or null when there is none. */
+    internal fun <T> readJson(file: File, type: java.lang.reflect.Type): T? =
+        file.takeIf { it.exists() }?.bufferedReader(Charsets.UTF_8, 64 * 1024)?.use { gson.fromJson<T>(it, type) }
 
     /** True when the box isn't inside an area downloaded in the last [REFRESH_MS]. */
     fun needsDownload(south: Double, west: Double, north: Double, east: Double, now: Long = System.currentTimeMillis()) =

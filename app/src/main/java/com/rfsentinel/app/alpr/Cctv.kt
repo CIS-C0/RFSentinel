@@ -153,14 +153,16 @@ object CctvStore {
     private fun file(c: Context) = File(c.filesDir, FILE)
     private fun areasFile(c: Context) = File(c.filesDir, AREAS_FILE)
 
-    @Synchronized
     fun load(context: Context) {
-        if (loaded) return
-        cameras = runCatching { file(context).takeIf { it.exists() }?.readText()?.let { gson.fromJson<List<CctvCamera>>(it, listType) } }
-            .getOrNull().orEmpty()
-        areas = runCatching { areasFile(context).takeIf { it.exists() }?.readText()?.let { gson.fromJson<List<CameraArea>>(it, areaListType) } }
-            .getOrNull().orEmpty()
-        loaded = true
+        if (loaded) return // no lock once read: a save in progress must not hold up the map
+        synchronized(this) {
+            if (loaded) return
+            val start = android.os.SystemClock.elapsedRealtime()
+            cameras = runCatching { AlprStore.readJson<List<CctvCamera>>(file(context), listType) }.getOrNull().orEmpty()
+            areas = runCatching { AlprStore.readJson<List<CameraArea>>(areasFile(context), areaListType) }.getOrNull().orEmpty()
+            loaded = true
+            android.util.Log.i("CctvStore", "Loaded ${cameras.size} CCTV in ${android.os.SystemClock.elapsedRealtime() - start} ms")
+        }
     }
 
     /**

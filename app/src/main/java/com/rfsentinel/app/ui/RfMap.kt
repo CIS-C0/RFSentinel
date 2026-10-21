@@ -334,6 +334,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         val now = System.currentTimeMillis()
         val box = staticBox
         if (!force && box != null && box.contains(view) && now - staticAt < 15_000) return
+        val drawStart = android.os.SystemClock.elapsedRealtime()
         val (n, e, so, w) = grownBox(view.north, view.east, view.south, view.west, 0.5)
         val big = MapEngine.Box(n, e, so, w)
         staticBox = big; staticAt = now
@@ -382,6 +383,8 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         })
 
         maybeFetchCameras(view)
+        val took = android.os.SystemClock.elapsedRealtime() - drawStart
+        if (took > 100) android.util.Log.i("RfMap", "Cameras, CCTV and towers drawn in $took ms (${cameras.size} + ${cctvs.size} + ${towers.size})")
     }
 
     private fun clearStatic() {

@@ -67,6 +67,10 @@ class RFSentinelApp : Application() {
         // ~60k vendor rows: load off the main thread; lookups return null until ready.
         // A trace left "recording" by a crash / force-stop gets closed.
         appScope.launch { runCatching { com.rfsentinel.app.service.TripRecorder.closeStale(this@RFSentinelApp) } }
+        // The CCTV cache too, at the same time, so the map has both ready when it opens.
+        if (com.rfsentinel.app.util.Prefs.showCctv(this)) appScope.launch(Dispatchers.IO) {
+            runCatching { com.rfsentinel.app.alpr.CctvStore.load(this@RFSentinelApp) }
+        }
         appScope.launch(Dispatchers.IO) {
             runCatching { com.rfsentinel.app.alpr.AlprStore.load(this@RFSentinelApp) }
             runCatching { com.rfsentinel.app.alpr.DeflockBulk.refreshIfDue(this@RFSentinelApp) }

@@ -89,9 +89,6 @@ class MapFragment : Fragment() {
         const val EXTRA_NAV_LON = "nav_lon"
         /** Inside the main screen (its chips drive the filter; the menu is a button on the map). */
         const val ARG_EMBEDDED = "embedded"
-        /** The view the map was opened from (lat, lon, zoom, bearing, tilt) and whether it followed you: full screen carries on from it. */
-        const val EXTRA_CAMERA = "camera"
-        const val EXTRA_FOLLOWING = "following"
         /**
          * The last real heading, shared by every map (like [MapGps]): a map opened while stopped or crawling
          * turns the same way as the one before it, not north until you drive off.
@@ -101,6 +98,8 @@ class MapFragment : Fragment() {
         private const val CAMERA_FAIL_SHOWN_MS = 90_000L
         /** [MapStart]'s levels are the classic raster map's: the vector map's are this much lower. */
         private const val ZOOM_SHIFT = MapStart.VECTOR_SHIFT
+        /** A map screen opening carries on from the other one's view if it was on screen this recently; older, it starts on where you are. */
+        private const val SHARED_VIEW_MS = 30 * 60_000L
         /** 3D: your arrow this far down the map (navigation apps: about 70 %), so you see more road ahead. */
         internal const val ARROW_HEIGHT = 0.72
 
@@ -169,6 +168,9 @@ class MapFragment : Fragment() {
     private var following = false
     /** 3D: you pinched - your zoom until the follow button. */
     private var userZoom = false
+    /** The [MapScreens] write this map has shown (its view; its place card): a newer one is picked up on resume. */
+    private var viewSeen = -1
+    private var cardSeen = -1
 
     private var engine: MapEngine? = null
     private var nav: MapNav? = null
@@ -231,11 +233,8 @@ class MapFragment : Fragment() {
         })
     }
 
-    /** The map on its own screen, looking where this one looks: same place, zoom, heading and tilt, still following you if this one was. */
-    private fun fullMapIntent() = Intent(act, MapActivity::class.java).apply {
-        map?.camera?.let { c -> putExtra(EXTRA_CAMERA, doubleArrayOf(c.lat, c.lon, c.zoom, c.bearing, c.tilt)) }
-        putExtra(EXTRA_FOLLOWING, following)
-    }
+    /** The map on its own screen, looking where this one looks (see [MapScreens], written as this one pauses). */
+    private fun fullMapIntent() = Intent(act, MapActivity::class.java)
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = ActivityMapBinding.inflate(inflater, container, false)
@@ -313,6 +312,8 @@ class MapFragment : Fragment() {
                     try {
                         while (isActive) {
                             renderLive()
+                            // Cameras, CCTV and towers for the view: following you, the map never goes idle to ask for them.
+                            rf?.safe("static") { rf?.maybeRedrawStatic() }
                             delay(3_000)
                         }
                     } finally {
@@ -466,15 +467,12 @@ class MapFragment : Fragment() {
             return
         }
         if (tripId != null) return // framed on the trace once it's loaded
-        val from = args.getDoubleArray(EXTRA_CAMERA)?.takeIf { it.size == 5 }
-        if (from != null) {
-            // Opened full screen from the small map: carry on from its view rather than snap north.
-            m.jumpTo(from[0], from[1], from[2])
-            m.easeTo(bearing = from[3], tilt = from[4], ms = 0)
-            centeredOnce = true
-            lastFix = knownFix()
-            following = args.getBoolean(EXTRA_FOLLOWING) && Permissions.granted(act, android.Manifest.permission.ACCESS_FINE_LOCATION)
-            styleFollowButton()
+        // The other map screen was looked at not long ago (opened full screen from the small map, or back to it):
+        // carry on from its view rather than snap north.
+        val shared = MapScreens.view?.takeIf { System.currentTimeMillis() - it.at < SHARED_VIEW_MS }
+        if (shared != null) {
+            viewSeen = MapScreens.version
+            lookAsShared(m, shared)
             return
         }
         val knownFix = knownFix()
@@ -488,6 +486,37 @@ class MapFragment : Fragment() {
         // Live map: keep your position centred until you pan away.
         if (Permissions.granted(act, android.Manifest.permission.ACCESS_FINE_LOCATION)) following = true
         styleFollowButton()
+    }
+
+    /** A live map, not a trace or a map opened on one thing (an aircraft, a Waze report, a place): its view is the one both map screens share. */
+    private fun liveMap() = tripId == null &&
+        !args.containsKey(EXTRA_CENTER_LAT) && !args.containsKey(EXTRA_AIRCRAFT) && !args.containsKey(EXTRA_WAZE)
+
+    private fun lookAsShared(m: MapEngine, v: MapScreens.View) {
+        m.jumpTo(v.lat, v.lon, v.zoom)
+        m.easeTo(bearing = v.bearing, tilt = v.tilt, ms = 0)
+        centeredOnce = true
+        lastFix = knownFix()
+        following = v.following && Permissions.granted(act, android.Manifest.permission.ACCESS_FINE_LOCATION)
+        userZoom = following && v.userZoom
+        styleFollowButton()
+    }
+
+    /** Leaving the screen: the other map screen opens on what this one shows. */
+    private fun shareView() {
+        if (!liveMap()) return
+        val cam = map?.camera ?: return
+        if (kotlin.math.abs(cam.lat) < 1e-4 && kotlin.math.abs(cam.lon) < 1e-4) return // it never looked anywhere
+        MapScreens.save(MapScreens.View(cam.lat, cam.lon, cam.zoom, cam.bearing, cam.tilt, following, userZoom, System.currentTimeMillis()), nav?.card())
+        viewSeen = MapScreens.version; cardSeen = MapScreens.version
+    }
+
+    /** Back on screen: what the other map screen showed since (its view, its place card and routes). */
+    private fun pickUpShared() {
+        if (!liveMap()) return
+        if (cardSeen != MapScreens.version) { cardSeen = MapScreens.version; nav?.restore(MapScreens.card) }
+        val m = map ?: return // not up yet: it starts on the shared view
+        if (viewSeen != MapScreens.version) { viewSeen = MapScreens.version; MapScreens.view?.let { lookAsShared(m, it) } }
     }
 
     /** Your position (lat, lon) for distances in the details, when known. */
@@ -1181,6 +1210,7 @@ class MapFragment : Fragment() {
         super.onResume()
         engine?.onResume()
         swapEngineIfChanged()
+        pickUpShared()
         applyMarker() // back from Settings > Map: a new marker shows at once
         startGps()
         // Precise GPS while the map is on screen, so devices land where they were heard.
@@ -1189,11 +1219,13 @@ class MapFragment : Fragment() {
         // Back from Settings > Map: show what's switched on now (and nothing that was switched off).
         // The saved cameras first: right after the app starts they may still be loading, and a map drawn without
         // them would stay empty until a new download finished.
+        // Each kind is drawn as soon as it is read (the plate readers don't wait for the CCTV).
         viewLifecycleOwner.lifecycleScope.launch {
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                com.rfsentinel.app.alpr.AlprStore.load(act)
-                if (Prefs.showCctv(act)) com.rfsentinel.app.alpr.CctvStore.load(act)
-            }
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.rfsentinel.app.alpr.AlprStore.load(act) }
+            rf?.safe("static") { rf?.maybeRedrawStatic(force = true) }
+        }
+        if (Prefs.showCctv(act)) viewLifecycleOwner.lifecycleScope.launch {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.rfsentinel.app.alpr.CctvStore.load(act) }
             rf?.safe("static") { rf?.maybeRedrawStatic(force = true) }
         }
         if (rf != null && rf?.isDark != darkTiles()) loadStyle()
@@ -1205,6 +1237,7 @@ class MapFragment : Fragment() {
     override fun onPause() {
         if (safetyArmed) { safetyArmed = false; MapSafety.disarm(act) } // paused normally: not a crash
         saveView()
+        shareView()
         stopGps()
         if (tripId == null) ScanForegroundService.mapHidden(act)
         engine?.onPause()

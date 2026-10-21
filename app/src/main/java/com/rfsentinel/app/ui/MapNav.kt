@@ -346,6 +346,23 @@ internal class MapNav(
         closeCard(keepRoute = true)
     }
 
+    /** The place card as it is, for the other map screen to show the same; null when none shows. */
+    fun card(): MapScreens.Card? = place?.takeIf { cardShown }?.let { MapScreens.Card(it, routes, selected, options) }
+
+    /** The card as the other map screen left it: the same place and routes (not looked for again), or none. */
+    fun restore(card: MapScreens.Card?) {
+        if (card == null) { if (cardShown) closeCard(); return }
+        planJob?.cancel()
+        place = card.place; routes = card.routes; selected = card.selected.coerceIn(0, (card.routes.size - 1).coerceAtLeast(0)); options = card.options
+        b.navCard.visibility = View.VISIBLE
+        b.navRoutesScroll.visibility = View.GONE
+        b.navAvoidScroll.visibility = View.GONE
+        styleBackdrop()
+        bindCard()
+        if (routes.isNotEmpty()) showRoutes(refit = false)
+        else { rf()?.drawRoutes(emptyList(), 0); rf()?.drawNavPlaces(emptyList(), card.place.lat to card.place.lon) }
+    }
+
     fun closeCard(keepRoute: Boolean = false) {
         planJob?.cancel()
         b.navCard.visibility = View.GONE
