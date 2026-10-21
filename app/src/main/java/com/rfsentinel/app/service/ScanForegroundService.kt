@@ -588,6 +588,7 @@ class ScanForegroundService : Service() {
         val now = a.timestamp
         val mac = a.mac
         if (OuiWatchlist.version != watchlistVersion) recheckWatchlist(now)
+        if (a.isWifi) com.rfsentinel.app.data.TrustedNetworks.onSeen(mac, a.name) // before anything asks whether it's whitelisted
 
         // Remote ID messages arrive one type at a time; merge every packet.
         var remoteId: RemoteId.Info? = reportedRemoteId

@@ -62,6 +62,7 @@ class RFSentinelApp : Application() {
         OuiWatchlist.load(this)
         WhitelistCache.start(this, appScope)
         appScope.launch(Dispatchers.IO) { com.rfsentinel.app.data.TrackerMutes.load(this@RFSentinelApp) }
+        appScope.launch(Dispatchers.IO) { com.rfsentinel.app.data.TrustedNetworks.load(this@RFSentinelApp) }
         appScope.launch(Dispatchers.IO) { com.rfsentinel.app.alpr.IgnoredCameras.load(this@RFSentinelApp) }
         CarState.start(this)
         // ~60k vendor rows: load off the main thread; lookups return null until ready.

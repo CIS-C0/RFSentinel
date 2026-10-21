@@ -101,8 +101,9 @@ class DeviceDetailActivity : AppCompatActivity() {
                     refresh()
                 }
                 WhitelistCache.inTable(mac) -> DeviceActions.unwhitelist(this, mac)
+                com.rfsentinel.app.data.TrustedNetworks.contains(mac) -> { DeviceActions.untrustNetwork(this, DeviceActions.ssidOf(s)); refresh() }
                 isRotatingTracker(s) -> DeviceActions.ignoreTracker(this, mac)
-                else -> DeviceActions.whitelist(this, mac, s?.let { it.best?.label ?: it.name } ?: "")
+                else -> DeviceActions.whitelist(this, mac, s?.let { it.best?.label ?: it.name } ?: "", DeviceActions.ssidOf(s))
             }
         }
         binding.actionFavorite.setOnClickListener {

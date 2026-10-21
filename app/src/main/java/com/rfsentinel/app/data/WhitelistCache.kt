@@ -13,8 +13,8 @@ object WhitelistCache {
     @Volatile
     private var macs: Set<String> = emptySet()
 
-    /** Trusted devices, plus trackers the user chose to ignore (see [TrackerMutes]). */
-    fun contains(mac: String): Boolean = mac in macs || TrackerMutes.isMuted(mac)
+    /** Trusted devices, trackers the user chose to ignore (see [TrackerMutes]) and WiFi networks trusted by name ([TrustedNetworks]). */
+    fun contains(mac: String): Boolean = mac in macs || TrackerMutes.isMuted(mac) || TrustedNetworks.contains(mac)
 
     /** Only the user's whitelist table (not ignored trackers). */
     fun inTable(mac: String): Boolean = mac in macs

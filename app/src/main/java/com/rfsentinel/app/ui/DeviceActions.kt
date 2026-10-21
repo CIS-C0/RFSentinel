@@ -16,6 +16,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.BuildConfig
 import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.Favorites
+import com.rfsentinel.app.data.TrustedNetworks
 import com.rfsentinel.app.data.WhitelistCache
 import com.rfsentinel.app.data.WhitelistEntity
 import com.rfsentinel.app.databinding.DialogAddWatchlistBinding
@@ -74,14 +75,16 @@ object DeviceActions {
         } else {
             items += "Add to watchlist..." to { addToWatchlist(activity, mac, snap?.name, snap?.advert?.isWifi == true) }
         }
+        val trustedName = !whitelisted && TrustedNetworks.contains(mac)
         when {
+            trustedName -> items += "Remove network name from whitelist" to { untrustNetwork(activity, ssidOf(snap)) }
             ignoredTracker -> items += "Stop ignoring this tracker" to {
                 com.rfsentinel.app.data.TrackerMutes.unmute(activity, mac)
                 toast(activity, "Tracker no longer ignored")
             }
             rotatingTracker && !whitelisted -> items += "Ignore this tracker..." to { ignoreTracker(activity, mac) }
             else -> items += (if (whitelisted) "Remove from whitelist" else "Whitelist (trust & ignore)") to {
-                if (whitelisted) unwhitelist(activity, mac) else whitelist(activity, mac, snap?.best?.label ?: snap?.name ?: "")
+                if (whitelisted) unwhitelist(activity, mac) else whitelist(activity, mac, snap?.best?.label ?: snap?.name ?: "", ssidOf(snap))
             }
         }
         items += (if (favorite) "Remove from favorites" else "Add to favorites ★") to {
@@ -353,19 +356,47 @@ object DeviceActions {
             .show()
     }
 
-    fun whitelist(activity: AppCompatActivity, mac: String, label: String) {
+    /** [ssid]: a WiFi network's name, offered as a choice too (every network of that name, whatever its address). */
+    fun whitelist(activity: AppCompatActivity, mac: String, label: String, ssid: String? = null) {
+        fun addDevice() = activity.lifecycleScope.launch {
+            AppDatabase.getInstance(activity).whitelistDao().add(WhitelistEntity(mac, label))
+            toast(activity, "Whitelisted $mac")
+        }
+        val name = ssid?.trim().orEmpty()
+        if (name.isEmpty()) {
+            MaterialAlertDialogBuilder(activity)
+                .setTitle("Whitelist this device?")
+                .setMessage("$mac\n$label\n\nIt will be marked trusted and never logged, flashed or alerted on.")
+                .setPositiveButton("Whitelist") { _, _ -> addDevice() }
+                .setNegativeButton("Cancel", null)
+                .show()
+            return
+        }
+        // A network on many vehicles (a bus fleet's routers) has a new address on each: its name catches them all.
+        var byName = false
         MaterialAlertDialogBuilder(activity)
-            .setTitle("Whitelist this device?")
-            .setMessage("$mac\n$label\n\nIt will be marked trusted and never logged, flashed or alerted on.")
+            .setTitle("Whitelist: trusted, never logged, flashed or alerted on")
+            .setSingleChoiceItems(arrayOf("Only this device ($mac)", "Every network named \"$name\""), 0) { _, which -> byName = which == 1 }
             .setPositiveButton("Whitelist") { _, _ ->
-                activity.lifecycleScope.launch {
-                    AppDatabase.getInstance(activity).whitelistDao().add(WhitelistEntity(mac, label))
-                    toast(activity, "Whitelisted $mac")
-                }
+                if (!byName) { addDevice(); return@setPositiveButton }
+                TrustedNetworks.save(activity, TrustedNetworks.Rule(name, exact = true))
+                toast(activity, "Every network named $name is whitelisted")
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
+
+    /** The device is trusted by its network name: that name comes off the whitelist (with Undo). */
+    fun untrustNetwork(activity: AppCompatActivity, ssid: String?) {
+        val rule = TrustedNetworks.ruleFor(ssid)
+        if (rule == null) { toast(activity, "Edit network names under Whitelist"); return }
+        TrustedNetworks.remove(activity, rule)
+        com.rfsentinel.app.util.Undo.show(activity, "Removed ${rule.text} from the whitelist") { TrustedNetworks.save(activity, rule) }
+    }
+
+    /** A WiFi network's name, for whitelisting it by name; null for Bluetooth and hidden networks. */
+    fun ssidOf(s: DeviceRegistry.Snapshot?): String? =
+        s?.takeIf { it.source == com.rfsentinel.app.detect.Advert.Source.WIFI }?.name?.trim()?.takeIf { it.isNotEmpty() }
 
     fun unwhitelist(activity: AppCompatActivity, mac: String) {
         activity.lifecycleScope.launch {
