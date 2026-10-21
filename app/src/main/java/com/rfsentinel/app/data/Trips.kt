@@ -123,4 +123,8 @@ interface TripDao {
     /** Flagged devices with a position from every recorded trace, for the history map. */
     @Query("SELECT * FROM trip_devices WHERE category IS NOT NULL AND lat IS NOT NULL AND lastSeen >= :since")
     suspend fun flaggedDevicesSince(since: Long): List<TripDeviceEntity>
+
+    /** One device in every recorded trace with a position (flagged or not), for its sightings map. */
+    @Query("SELECT * FROM trip_devices WHERE mac = :mac AND lat IS NOT NULL AND lastSeen >= :since")
+    suspend fun sightingsOf(mac: String, since: Long): List<TripDeviceEntity>
 }

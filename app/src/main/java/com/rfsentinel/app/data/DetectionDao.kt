@@ -30,6 +30,10 @@ interface DetectionDao {
     @Query("SELECT * FROM detections WHERE mac = :mac ORDER BY timestamp DESC LIMIT 200")
     suspend fun forMac(mac: String): List<DetectionEntity>
 
+    /** One device's logged matches since [since], for its sightings map. */
+    @Query("SELECT * FROM detections WHERE mac = :mac AND timestamp >= :since ORDER BY timestamp DESC LIMIT 5000")
+    suspend fun forMacSince(mac: String, since: Long): List<DetectionEntity>
+
     @Query("SELECT * FROM detections ORDER BY timestamp DESC")
     suspend fun allForExport(): List<DetectionEntity>
 

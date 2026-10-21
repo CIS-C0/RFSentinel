@@ -36,6 +36,7 @@ import com.rfsentinel.app.service.DeviceRegistry
 import com.rfsentinel.app.util.MacUtil
 import com.rfsentinel.app.util.ProximityUtil
 import com.rfsentinel.app.util.applySystemBarInsets
+import com.rfsentinel.app.util.Prefs
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -53,6 +54,13 @@ class DeviceDetailActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_MAC = "mac"
+        /** Two radio frequencies this close are the same channel (half the sweep's 12.5 kHz step). */
+        private const val RADIO_SAME_HZ = 6_250L
+        private val RADIO_KEY = Regex("""^RADIO (\d+(?:\.\d+)?) MHz$""")
+
+        /** The frequency in a radio transmission's log key ("RADIO 154.4300 MHz"), else null. */
+        fun radioHz(key: String): Long? =
+            RADIO_KEY.find(key)?.groupValues?.get(1)?.toDoubleOrNull()?.let { Math.round(it * 1_000_000) }
     }
 
     private lateinit var binding: ActivityDeviceDetailBinding
@@ -74,7 +82,8 @@ class DeviceDetailActivity : AppCompatActivity() {
         title = "Device details"
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        binding.locateButton.setOnClickListener { toggleLocate() }
+        radioHz = radioHz(mac)
+        binding.locateButton.setOnClickListener { if (radioHz != null) locateRadio() else toggleLocate() }
         // The main action in the theme's highlight colour (faded while the device isn't heard).
         ChipStyle.accent(this).let { (accent, onAccent) ->
             val off = intArrayOf(-android.R.attr.state_enabled)
@@ -82,7 +91,7 @@ class DeviceDetailActivity : AppCompatActivity() {
             binding.locateButton.backgroundTintList = android.content.res.ColorStateList(arrayOf(off, on), intArrayOf((accent and 0x00FFFFFF) or 0x55000000, accent))
             binding.locateButton.setTextColor(android.content.res.ColorStateList(arrayOf(off, on), intArrayOf((onAccent and 0x00FFFFFF) or 0x99000000.toInt(), onAccent)))
         }
-        binding.actionWatchlist.setOnClickListener { onWatchlistAction() }
+        binding.actionWatchlist.setOnClickListener { if (radioHz != null) toggleWatchedFrequency() else onWatchlistAction() }
         binding.actionWhitelist.setOnClickListener {
             val s = DeviceRegistry.get(mac)
             when {
@@ -107,6 +116,9 @@ class DeviceDetailActivity : AppCompatActivity() {
         binding.actionRename.setOnClickListener { rename() }
         binding.actionNote.setOnClickListener { editNote() }
         binding.noteText.setOnClickListener { editNote() }
+        binding.actionSightings.setOnClickListener {
+            startActivity(Intent(this, HistoryActivity::class.java).putExtra(HistoryActivity.EXTRA_MAC, mac))
+        }
         binding.actionCopy.setOnClickListener { DeviceActions.copy(this, mac) }
         binding.actionShare.setOnClickListener { share() }
         binding.actionLearn.setOnClickListener { DeviceActions.learn(this, mac) }
@@ -236,6 +248,11 @@ class DeviceDetailActivity : AppCompatActivity() {
         val custom = OuiWatchlist.customEntry(mac) ?: OuiWatchlist.customEntry(MacUtil.oui(mac))
             ?: fp?.let { OuiWatchlist.customEntry(com.rfsentinel.app.oui.OuiEntry.FINGERPRINT + it) }
         binding.actionWatchlist.text = if (custom != null) "Remove from watchlist" else "Add to watchlist"
+        radioHz?.let { hz ->
+            // A radio transmission (RTL-SDR / HackRF): found with the waterfall, watched as a frequency.
+            binding.locateButton.isEnabled = true // without an SDR it says what it needs
+            binding.actionWatchlist.text = if (watchedTarget(hz) != null) "Stop watching frequency" else "Watch this frequency"
+        }
         binding.actionWhitelist.text = when {
             com.rfsentinel.app.data.TrackerMutes.isMuted(mac) -> "Stop ignoring"
             whitelisted -> "Un-whitelist"
@@ -604,6 +621,51 @@ class DeviceDetailActivity : AppCompatActivity() {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, text)
         }, "Share device report"))
+    }
+
+    // ---- Radio transmissions (logged as "RADIO 154.4300 MHz") -----------------------
+
+    /** The frequency of a radio transmission's page, null for a Wi-Fi / Bluetooth device. */
+    private var radioHz: Long? = null
+
+    /** Locate for a radio: the waterfall zoomed in on its frequency, live, to walk towards the strongest trace. */
+    private fun locateRadio() {
+        val hz = radioHz ?: return
+        if (!com.rfsentinel.app.sdr.SdrRadio.running) {
+            Toast.makeText(this, "Plug in an RTL-SDR or HackRF and start scanning to follow this frequency", Toast.LENGTH_LONG).show()
+            return
+        }
+        startActivity(Intent(this, WaterfallActivity::class.java).putExtra(WaterfallActivity.EXTRA_TUNE_HZ, hz))
+    }
+
+    /** The watched-frequency line for [hz] (Settings > RTL-SDR radio > Watch these frequencies), if any. */
+    private fun watchedTarget(hz: Long): String? = Prefs.radioTargets(this).lines().firstOrNull { line ->
+        com.rfsentinel.app.sdr.RadioSettings.targets(line).firstOrNull()?.let { kotlin.math.abs(it.freqHz - hz) < RADIO_SAME_HZ } == true
+    }
+
+    /** Adds the frequency to the watched ones (always reported when active, whatever the sensitivity), or takes it off. */
+    private fun toggleWatchedFrequency() {
+        val hz = radioHz ?: return
+        val before = Prefs.radioTargets(this)
+        val line = watchedTarget(hz)
+        val after = if (line != null) before.lines().filterNot { it == line }.joinToString("\n")
+        else {
+            val name = com.rfsentinel.app.sdr.FreqNames.lookup(hz, Prefs.radioMatchKhz(this) * 1000L)?.name ?: DeviceNames.of(mac)
+            val add = String.format(java.util.Locale.US, "%.4f", hz / 1e6) + (name?.let { " $it" } ?: "")
+            before.trimEnd().let { if (it.isEmpty()) add else "$it\n$add" }
+        }
+        applyRadioTargets(after)
+        com.rfsentinel.app.util.Undo.show(this,
+            if (line != null) "No longer watching this frequency" else "Watching this frequency: always reported when active") {
+            applyRadioTargets(before)
+        }
+    }
+
+    private fun applyRadioTargets(text: String) {
+        Prefs.setRadioTargets(this, text)
+        // A running SDR picks it up at once (the scanner reads the settings again only on its next refresh).
+        if (com.rfsentinel.app.sdr.SdrRadio.running) com.rfsentinel.app.sdr.SdrRadio.config = com.rfsentinel.app.sdr.RadioSettings.config(this)
+        refresh()
     }
 
     // ---- Locate (Geiger-counter beeps) ------------------------------------------

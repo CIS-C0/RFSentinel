@@ -178,6 +178,12 @@
                 android:text="I saw it" />
 
             <com.google.android.material.chip.Chip
+                android:id="@+id/actionSightings"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sightings map" />
+
+            <com.google.android.material.chip.Chip
                 android:id="@+id/actionCopy"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

@@ -1187,10 +1187,15 @@ class MapFragment : Fragment() {
         if (tripId == null) ScanForegroundService.mapShown(act)
         com.rfsentinel.app.alpr.CctvStore.onChanged = { activity?.runOnUiThread { if (alive) rf?.safe("static") { rf?.maybeRedrawStatic(force = true); renderLive() } } }
         // Back from Settings > Map: show what's switched on now (and nothing that was switched off).
-        if (Prefs.showCctv(act)) viewLifecycleOwner.lifecycleScope.launch {
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { com.rfsentinel.app.alpr.CctvStore.load(act) }
+        // The saved cameras first: right after the app starts they may still be loading, and a map drawn without
+        // them would stay empty until a new download finished.
+        viewLifecycleOwner.lifecycleScope.launch {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.rfsentinel.app.alpr.AlprStore.load(act)
+                if (Prefs.showCctv(act)) com.rfsentinel.app.alpr.CctvStore.load(act)
+            }
             rf?.safe("static") { rf?.maybeRedrawStatic(force = true) }
-        } else rf?.safe("static") { rf?.maybeRedrawStatic(force = true) }
+        }
         if (rf != null && rf?.isDark != darkTiles()) loadStyle()
         styleOrientationButton()
         applyMode(animate = false)

@@ -133,4 +133,15 @@ class KnownCamerasTest {
         assertFalse(KnownCameras.watchesYourWay(cam, 0.0, direction = 90))
         assertEquals(mapOf("node/1" to 90, "way/2" to 315), CameraDirections.parse(setOf("node/1=90", "way/2=315", "bad", "node/3=400")))
     }
+
+    @Test
+    fun overpassAnswerCutShortByATimeoutIsRejected() {
+        val ok = """{"version":0.6,"elements":[{"type":"node","id":1,"lat":1.0,"lon":2.0}]}"""
+        val cut = """{"version":0.6,"elements":[],"remark":"runtime error: Query timed out in \"query\" at line 3 after 26 seconds."}"""
+        assertFalse(AlprStore.isCutShort(ok))
+        assertTrue(AlprStore.isCutShort(cut))
+        // A camera's own tags mentioning a remark are not an error.
+        assertFalse(AlprStore.isCutShort("""{"elements":[{"tags":{"note":"remark"}}]}"""))
+    }
 }
+

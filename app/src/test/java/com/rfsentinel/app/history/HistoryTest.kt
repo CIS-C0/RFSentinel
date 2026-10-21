@@ -42,4 +42,14 @@ class HistoryTest {
         assertTrue(History.busiest(enc, utc)!!.startsWith("Busiest: Mon, 08:00-09:00"))
         assertEquals("Flock Safety camera" to 3, History.topLabels(enc).first())
     }
+
+    @Test
+    fun runsSplitWhereSightingsAreFarApartInTime() {
+        val a = ev(at(28, 8, 0), "aa", 1.0); val b = ev(at(28, 8, 5), "aa", 1.1); val c = ev(at(28, 8, 14), "aa", 1.2)
+        val d = ev(at(29, 9, 0), "aa", 1.3)
+        val runs = History.runs(listOf(a, b, c, d), 10 * 60_000L)
+        assertEquals(listOf(listOf(a, b, c), listOf(d)), runs)
+        assertTrue(History.runs(emptyList(), 1).isEmpty())
+    }
 }
+

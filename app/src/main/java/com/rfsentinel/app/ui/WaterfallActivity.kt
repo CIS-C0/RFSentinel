@@ -51,6 +51,8 @@ class WaterfallActivity : AppCompatActivity() {
         binding.waterfall.onTap = { hz -> zoom(hz) }
         binding.tuneButton.setOnClickListener { askFrequency() }
         binding.sweepButton.setOnClickListener { SdrRadio.tuneHz = null; refresh() }
+        // Opened from a radio transmission's Locate: straight to its frequency (not again after a rotation).
+        if (savedInstanceState == null) intent.getLongExtra(EXTRA_TUNE_HZ, 0L).takeIf { it > 0 }?.let { zoom(it) }
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 while (true) { refresh(); delay(1000) }
@@ -128,10 +130,12 @@ class WaterfallActivity : AppCompatActivity() {
         binding.tuneButton.isEnabled = running
     }
 
-    private companion object {
+    companion object {
+        /** A frequency (Hz) to zoom in on as the screen opens. */
+        const val EXTRA_TUNE_HZ = "tune_hz"
         /** Rows waiting for the screen; older ones are dropped if it falls behind. */
-        const val MAX_QUEUED = 64
-        const val MIN_MHZ = 1.0
-        const val MAX_MHZ = 6000.0
+        private const val MAX_QUEUED = 64
+        private const val MIN_MHZ = 1.0
+        private const val MAX_MHZ = 6000.0
     }
 }

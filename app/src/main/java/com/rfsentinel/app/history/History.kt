@@ -46,6 +46,19 @@ object History {
         return out.sortedByDescending { it.time }
     }
 
+    /**
+     * [events] (oldest first) cut into runs wherever two in a row are more than [gapMs] apart: the
+     * sightings of one encounter, to link on a map (a line across days would draw a route never taken).
+     */
+    fun runs(events: List<HistoryEvent>, gapMs: Long): List<List<HistoryEvent>> {
+        val out = mutableListOf<MutableList<HistoryEvent>>()
+        for (e in events) {
+            val run = out.lastOrNull()
+            if (run != null && e.time - run.last().time <= gapMs) run += e else out += mutableListOf(e)
+        }
+        return out
+    }
+
     /** Encounters per hour of day (0-23), in [zone]. */
     fun byHour(events: List<HistoryEvent>, zone: TimeZone = TimeZone.getDefault()): IntArray {
         val out = IntArray(24)

@@ -61,13 +61,24 @@ object AlprStore {
     private fun file(context: Context) = File(context.filesDir, FILE)
     private fun areasFile(context: Context) = File(context.filesDir, AREAS_FILE)
 
+    /** The saved cache has been read (or replaced): until then [cameras] and [areas] are not the real ones. */
+    @Volatile var loaded = false
+        private set
+
+    /**
+     * Reads the saved cache once (later calls return at once). Everything that changes the cache loads it first:
+     * a download that ran before the file was read would merge into an empty list and save over it.
+     */
+    @Synchronized
     fun load(context: Context) {
+        if (loaded) return
         cameras = runCatching {
             file(context).takeIf { it.exists() }?.readText()?.let { gson.fromJson<List<KnownCamera>>(it, listType) }
         }.getOrNull().orEmpty()
         areas = runCatching {
             areasFile(context).takeIf { it.exists() }?.readText()?.let { gson.fromJson<List<CameraArea>>(it, areaListType) }
         }.getOrNull().orEmpty()
+        loaded = true
     }
 
     /** True when the box isn't inside an area downloaded in the last [REFRESH_MS]. */
@@ -80,6 +91,8 @@ object AlprStore {
      * Returns true when a download ran and changed the cache.
      */
     suspend fun autoDownload(context: Context, south: Double, west: Double, north: Double, east: Double): Boolean {
+        // Before the saved areas are read, every area looks missing.
+        withContext(Dispatchers.IO) { load(context) }
         val now = System.currentTimeMillis()
         if (!needsDownload(south, west, north, east, now)) return false
         // After a failure, leave that same area alone for a minute (other areas may go ahead).
@@ -172,6 +185,7 @@ object AlprStore {
     ): Int =
         withContext(Dispatchers.IO) {
             require(north - south <= MAX_SPAN_DEG + 1e-9 && east - west <= MAX_SPAN_DEG + 1e-9) { "Area too large - zoom in" }
+            load(context)
             val body = "data=" + URLEncoder.encode(KnownCameras.query(south, west, north, east), "UTF-8")
             // Public servers often answer 429/504 under load: one more round after a pause.
             val json = try {
@@ -249,6 +263,12 @@ object AlprStore {
         else -> "failed (${e.message ?: e.javaClass.simpleName})"
     }
 
+    /** An Overpass answer that stopped part-way: its remark (after the elements) reports a runtime error. */
+    internal fun isCutShort(json: String): Boolean =
+        CUT_SHORT.containsMatchIn(json.takeLast(2_000))
+
+    private val CUT_SHORT = Regex(""""remark"\s*:\s*"[^"]*runtime error""")
+
     /** One Overpass request; throws unless the answer is a JSON result. Reports KB received. */
     private fun fetch(endpoint: String, body: String, onOpen: (HttpURLConnection) -> Unit, onKb: (Int) -> Unit = {}): String {
         val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
@@ -276,8 +296,9 @@ object AlprStore {
                 }
             }
             val text = out.toString("UTF-8")
-            // An overloaded server can answer 200 with an HTML error page.
-            if (!text.trimStart().startsWith("{")) error("server error")
+            // An overloaded server can answer 200 with an HTML error page, or with JSON cut short by a timeout
+            // (a "runtime error" remark): taken as the area's cameras, that would wipe the ones already shown there.
+            if (!text.trimStart().startsWith("{") || isCutShort(text)) error("server error")
             return text
         } finally {
             conn.disconnect()
@@ -291,6 +312,7 @@ object AlprStore {
      */
     fun mergePlateReaders(context: Context, boxes: List<DoubleArray>, found: List<KnownCamera>) {
         synchronized(this) {
+            load(context)
             val merged = mergeCameras(cameras, boxes, found)
             file(context).writeText(gson.toJson(merged))
             cameras = merged
@@ -324,7 +346,7 @@ object AlprStore {
 
     /** Tests only: set the cache without files or network. */
     @androidx.annotation.VisibleForTesting
-    fun setForTest(list: List<KnownCamera>) { cameras = list }
+    fun setForTest(list: List<KnownCamera>) { cameras = list; loaded = true }
 
     // Synchronized with the merges, so a save that was mid-write can't bring cameras back.
     @Synchronized
@@ -334,6 +356,7 @@ object AlprStore {
         com.rfsentinel.app.util.Prefs.setDeflockUpdated(context, 0L)
         cameras = emptyList()
         areas = emptyList()
+        loaded = true
     }
 }
 
