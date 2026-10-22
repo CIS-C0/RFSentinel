@@ -1464,7 +1464,11 @@ class MapFragment : Fragment() {
                 r.drawPins(devices.filter { it.lat != null && (it.flagged || filter == DeviceFilter.ALL) }.map { it.toPin() })
             }
             val mins = ((t.endTime ?: System.currentTimeMillis()) - t.startTime) / 60000
-            binding.statusText.text = String.format(
+            // A snapshot has no route: where its devices were, and how many.
+            binding.statusText.text = if (t.snapshot) String.format(
+                Locale.US, "%s\n%s · %s (%d flagged) · %d on the map",
+                t.name, dateFmt.format(Date(t.startTime)), devicesLabel(t.deviceCount), t.flaggedCount, devices.count { it.lat != null }
+            ) else String.format(
                 Locale.US, "%s\n%s · %d:%02d · %s · %s (%d flagged)",
                 t.name, dateFmt.format(Date(t.startTime)), mins / 60, mins % 60, com.rfsentinel.app.util.Units.trip(t.distanceM),
                 devicesLabel(t.deviceCount), t.flaggedCount

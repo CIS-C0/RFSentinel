@@ -82,6 +82,8 @@ class ScanForegroundService : Service() {
         private const val BLE_RESTART_INTERVAL_MS = 25 * 60 * 1000L
         /** Watchdog: a scanner silent this long is restarted. */
         private const val BLE_SILENCE_MS = 2 * 60_000L
+        /** After the screen comes on, the unfiltered BLE scan should be delivering again within this long. */
+        private const val SCREEN_ON_CHECK_MS = 10_000L
         private const val WIFI_SILENCE_MS = 3 * 60_000L
         private const val MAX_SILENCE_MS = 16 * 60_000L
 
@@ -986,6 +988,9 @@ class ScanForegroundService : Service() {
     private val bleRate = BleRateWatch()
     private var rateTickAt = 0L
     private var wasInteractive = false
+    /** When the screen last came on, and whether the unfiltered scan was checked since. */
+    private var screenOnAt = 0L
+    private var screenOnChecked = true
 
     /** Results came back after a restart: the scanner really was stuck, so say so. */
     private fun onRecovered(which: String, restartAt: Long, now: Long) {
@@ -1021,14 +1026,26 @@ class ScanForegroundService : Service() {
         val count = bleResults.getAndSet(0)
         val span = now - rateTickAt
         rateTickAt = now
-        if (interactive && wasInteractive && adapterOn && Prefs.bleEnabled(this) && bleEngine.isScanning() &&
-            bleWatchdogRestartAt != now // already restarted for silence
-        ) {
+        val bleRunning = adapterOn && Prefs.bleEnabled(this) && bleEngine.isScanning()
+        var restarted = bleWatchdogRestartAt == now
+        if (interactive && wasInteractive && bleRunning && !restarted) {
             if (bleRate.tick(count, span, now)) {
                 Log.w(TAG, "Watchdog: Bluetooth results down to %.1f/s - restarting the scan".format(count * 1000.0 / span))
                 android.os.Handler(Looper.getMainLooper()).post { bleEngine.stop(); startBle() }
+                restarted = true
             }
-        } else bleRate.reset()
+        } else if (!bleRunning || restarted) bleRate.reset()
+        // With the screen off the baseline learned with it on is kept, so a scan that doesn't come back is still spotted.
+        if (interactive && !wasInteractive) { screenOnAt = now; screenOnChecked = false }
+        // Screen back on: Android should resume the unfiltered scan by itself, but it can stay paused while the
+        // filtered one keeps running - alerts still come, the list stays empty. Nothing unfiltered since: restart once.
+        if (interactive && !screenOnChecked && now - screenOnAt >= SCREEN_ON_CHECK_MS) {
+            screenOnChecked = true
+            if (bleRunning && !restarted && bleEngine.lastUnfilteredAt < screenOnAt && now - bleStartedAt >= SCREEN_ON_CHECK_MS) {
+                Log.w(TAG, "Watchdog: no unfiltered Bluetooth results since the screen came on - restarting the scan")
+                android.os.Handler(Looper.getMainLooper()).post { bleEngine.stop(); startBle() }
+            }
+        }
         wasInteractive = interactive
         val wifiOn = runCatching { (applicationContext.getSystemService(WIFI_SERVICE) as android.net.wifi.WifiManager).isScanAlwaysAvailable ||
             (applicationContext.getSystemService(WIFI_SERVICE) as android.net.wifi.WifiManager).isWifiEnabled }.getOrDefault(false)

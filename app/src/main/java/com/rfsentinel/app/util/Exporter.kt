@@ -199,16 +199,17 @@ object Exporter {
     }
 
     /** Export one recorded trace: pick a format, then whether to include every device. */
-    fun showTripExport(activity: AppCompatActivity, tripId: Long) {
+    /** [snapshot]: a saved device list ([com.rfsentinel.app.data.Snapshots]) - no route, just the devices. */
+    fun showTripExport(activity: AppCompatActivity, tripId: Long, snapshot: Boolean = false) {
         val formats = listOf("gpx", "kml", "geojson", "csv")
         val labels = arrayOf(
-            "GPX - track + device waypoints (GPS / map apps)",
+            if (snapshot) "GPX - device waypoints (GPS / map apps)" else "GPX - track + device waypoints (GPS / map apps)",
             "KML - Google Earth / My Maps",
             "GeoJSON - web maps, QGIS",
-            "CSV - devices heard on this trace (spreadsheet)"
+            if (snapshot) "CSV - devices in this snapshot (spreadsheet)" else "CSV - devices heard on this trace (spreadsheet)"
         )
         MaterialAlertDialogBuilder(activity)
-            .setTitle("Export trace")
+            .setTitle(if (snapshot) "Export snapshot" else "Export trace")
             .setItems(labels) { _, which ->
                 val format = formats[which]
                 if (format == "csv") {
@@ -216,7 +217,7 @@ object Exporter {
                 } else {
                     MaterialAlertDialogBuilder(activity)
                         .setTitle("Which devices?")
-                        .setItems(arrayOf("All devices heard on the trace", "Flagged devices only")) { _, w ->
+                        .setItems(arrayOf(if (snapshot) "All devices in the snapshot" else "All devices heard on the trace", "Flagged devices only")) { _, w ->
                             exportTrip(activity, tripId, format, onlyFlagged = w == 1)
                         }
                         .show()
@@ -237,7 +238,7 @@ object Exporter {
             val points = dao.points(tripId)
             val devices = dao.devices(tripId)
             if (points.isEmpty() && devices.none { it.lat != null } && format != "csv") {
-                toast(activity, "This trace has no GPS points yet")
+                toast(activity, if (trip.snapshot) "No device in this snapshot has a position" else "This trace has no GPS points yet")
                 return@launchExport
             }
             val (text, mime, ext) = withContext(Dispatchers.Default) {

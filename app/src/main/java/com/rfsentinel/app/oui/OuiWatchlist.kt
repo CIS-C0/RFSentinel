@@ -29,7 +29,7 @@ object OuiWatchlist {
     private val listType = object : TypeToken<List<OuiEntry>>() {}.type
 
     private class State(
-        /** Address entries keyed by hex digits: 12 = one device, 9/7/6 = IEEE block. */
+        /** Address entries keyed by hex digits: 12 = one device, 6 to 11 = a prefix (IEEE blocks are 9/7/6). */
         val byHex: Map<String, OuiEntry>,
         val nameRules: List<OuiEntry>,
         /** Name / SSID prefix rules. */
@@ -183,24 +183,24 @@ object OuiWatchlist {
 
     fun allEntries(): List<OuiEntry> = state.all
 
-    /** Valid keys: IEEE block prefix (24/28/36-bit), full MAC, or a non-empty name:/starts:/vendor:/probe:/fp:/adv: rule. */
+    /** Valid keys: address prefix (24 to 44 bits), full MAC, or a non-empty name:/starts:/vendor:/probe:/fp:/adv: rule. */
     fun isValidKey(prefix: String): Boolean {
         val k = prefix.trim()
         if (k.startsWith(OuiEntry.NAME, true) || k.startsWith(OuiEntry.STARTS, true) || k.startsWith(OuiEntry.VENDOR, true) ||
             k.startsWith(OuiEntry.PROBE, true) || k.startsWith(OuiEntry.FINGERPRINT, true) || k.startsWith(OuiEntry.ADVERT, true)) {
             return k.substringAfter(':').isNotBlank()
         }
-        return MacUtil.isValidBlock(k) || MacUtil.isValidMac(k)
+        return MacUtil.isValidPrefix(k) || MacUtil.isValidMac(k)
     }
 
     /**
      * Returns the address-keyed entry for a MAC, or null. The most specific
-     * entry wins: exact device, then 36-bit, 28-bit, 24-bit block.
+     * entry wins: exact device, then the longest prefix.
      */
     fun match(mac: String): OuiEntry? {
         val table = state.byHex
         val hex = MacUtil.hex(mac)
-        for (len in intArrayOf(12, 9, 7, 6)) {
+        for (len in 12 downTo 6) {
             if (hex.length >= len) table[hex.take(len)]?.let { return it }
         }
         return null
@@ -213,7 +213,7 @@ object OuiWatchlist {
         match(mac)?.let {
             out += it.toHit(
                 if (MacUtil.hex(it.prefix).length == 12) "Exact address $mac is on the watchlist"
-                else "Address is in the watchlisted block ${it.prefix}"
+                else "Address starts with the watchlisted prefix ${it.prefix}"
             )
         }
         if (name != null) {
@@ -266,4 +266,10 @@ object OuiWatchlist {
     /** The custom (user-added) entry keyed exactly by [prefix], if any. */
     fun customEntry(prefix: String): OuiEntry? =
         state.all.firstOrNull { it.prefix == normalizeKey(prefix) && it.isCustom }
+
+    /** The user's own entry for this address or the longest of their prefixes it starts with, or null. */
+    fun customAddressEntry(mac: String): OuiEntry? {
+        val hex = MacUtil.hex(mac)
+        return (12 downTo 6).firstNotNullOfOrNull { len -> state.byHex[hex.take(len)]?.takeIf { hex.length >= len && it.isCustom } }
+    }
 }

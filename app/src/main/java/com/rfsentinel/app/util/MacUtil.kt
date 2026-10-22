@@ -19,6 +19,18 @@ object MacUtil {
      */
     fun isValidBlock(prefix: String): Boolean = BLOCK.matches(normalize(prefix))
 
+    /**
+     * A watchlist address prefix of any length from 24 to 44 bits (6 to 11 hex digits), e.g. "AA:BB:CC",
+     * "AA:BB:CC:D" or "AA:BB:CC:DD:EE:F": the IEEE block sizes and anything in between.
+     */
+    fun isValidPrefix(prefix: String): Boolean {
+        val h = hex(prefix)
+        return h.length in 6..11 && h.all { it in '0'..'9' || it in 'A'..'F' } && prefix(h, h.length) == normalize(prefix)
+    }
+
+    /** The first [digits] hex digits of an address, written as a prefix: ("8C:1F:64:DF:00:11", 7) -> "8C:1F:64:D". */
+    fun prefix(mac: String, digits: Int): String = hex(mac).take(digits).chunked(2).joinToString(":")
+
     /** Hex digits only, e.g. "8C:1F:64:DF:0" -> "8C1F64DF0". */
     fun hex(macOrPrefix: String): String = normalize(macOrPrefix).replace(":", "")
 

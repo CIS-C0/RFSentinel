@@ -55,15 +55,15 @@ class AlertRangeTest {
     }
 
     @Test
-    fun wifiListWindowBelow30sIsSavedOnlyUsedWithFastScans() {
+    fun wifiListWindowBelow30sIsSavedOnlyUsedWithoutScanThrottling() {
         val ctx = androidx.test.core.app.ApplicationProvider.getApplicationContext<Application>()
-        android.provider.Settings.Global.putInt(ctx.contentResolver, android.provider.Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 1)
-        com.rfsentinel.app.util.Prefs.setScanIntervalMs(ctx, 10_000L)
+        // Throttled, Android scans about every 30 s: the list can't keep WiFi devices for less.
+        org.junit.Assert.assertEquals(30, com.rfsentinel.app.util.Prefs.minLiveWifiSec(throttled = true))
+        org.junit.Assert.assertEquals(5, com.rfsentinel.app.util.Prefs.minLiveWifiSec(throttled = false))
+        // The choice is saved as made and only raised while reading it.
         com.rfsentinel.app.util.Prefs.setLiveWifiSec(ctx, 5)
-        org.junit.Assert.assertEquals(5, com.rfsentinel.app.util.Prefs.liveWifiSec(ctx))
-        // Back to a 30 s interval: the saved 5 s is raised to 30 s.
-        com.rfsentinel.app.util.Prefs.setScanIntervalMs(ctx, 30_000L)
-        org.junit.Assert.assertEquals(30, com.rfsentinel.app.util.Prefs.liveWifiSec(ctx))
+        val min = com.rfsentinel.app.util.Prefs.minLiveWifiSec(ctx)
+        org.junit.Assert.assertEquals(maxOf(5, min), com.rfsentinel.app.util.Prefs.liveWifiSec(ctx))
     }
 
     @Test

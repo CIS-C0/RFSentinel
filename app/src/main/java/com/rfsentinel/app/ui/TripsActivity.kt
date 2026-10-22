@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -25,11 +26,28 @@ import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
 
-/** Recorded scan traces. Tap to view on the map; long-press to export, rename or delete. */
+/**
+ * Recorded scan traces and saved snapshots (the device list kept as it was, [com.rfsentinel.app.data.Snapshots]),
+ * one section each. Tap a trace to view it on the map, a snapshot to see its list; long-press to export, rename or delete.
+ */
 class TripsActivity : AppCompatActivity() {
+
+    companion object {
+        /** Opens on this section: [TripEntity.KIND_TRACE] or [TripEntity.KIND_SNAPSHOT]. */
+        const val EXTRA_SECTION = "section"
+    }
 
     private lateinit var binding: ActivityLogBinding
     private val fmt = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+    private var section = TripEntity.KIND_TRACE
+    private var all: List<TripEntity> = emptyList()
+
+    private fun open(t: TripEntity) {
+        startActivity(
+            if (t.snapshot) Intent(this, SnapshotActivity::class.java).putExtra(SnapshotActivity.EXTRA_TRIP_ID, t.id)
+            else Intent(this, MapActivity::class.java).putExtra(MapActivity.EXTRA_TRIP_ID, t.id)
+        )
+    }
 
     private val adapter = object : ListAdapter<TripEntity, RecyclerView.ViewHolder>(
         object : DiffUtil.ItemCallback<TripEntity>() {
@@ -48,9 +66,7 @@ class TripsActivity : AppCompatActivity() {
             val t = getItem(position)
             (holder.itemView as? TripCard)?.let { card ->
                 card.bind(t)
-                holder.itemView.setOnClickListener {
-                    startActivity(Intent(this@TripsActivity, MapActivity::class.java).putExtra(MapActivity.EXTRA_TRIP_ID, t.id))
-                }
+                holder.itemView.setOnClickListener { open(t) }
                 holder.itemView.setOnLongClickListener { actions(t); true }
                 return
             }
@@ -58,14 +74,19 @@ class TripsActivity : AppCompatActivity() {
             val live = t.id == TripRecorder.activeTripId
             b.labelText.text = (if (live) "● " else "") + t.name
             b.labelText.setTextColor(if (live) 0xFFB3261E.toInt() else if (t.flaggedCount > 0) 0xFFC8431A.toInt() else b.macText.currentTextColor)
+            if (t.snapshot) {
+                b.macText.text = fmt.format(Date(t.startTime))
+                b.metaText.text = "${devicesLabel(t.deviceCount)} · ${t.flaggedCount} flagged"
+                holder.itemView.setOnClickListener { open(t) }
+                holder.itemView.setOnLongClickListener { actions(t); true }
+                return
+            }
             val mins = ((t.endTime ?: System.currentTimeMillis()) - t.startTime) / 60000
             b.macText.text = fmt.format(Date(t.startTime)) +
                 String.format(Locale.US, "  ·  %d:%02d  ·  %s", mins / 60, mins % 60, com.rfsentinel.app.util.Units.trip(t.distanceM))
             b.metaText.text = (if (live) "Recording now · " else "") +
                 "${devicesLabel(t.deviceCount)} · ${t.flaggedCount} flagged · ${t.pointCount} GPS points"
-            holder.itemView.setOnClickListener {
-                startActivity(Intent(this@TripsActivity, MapActivity::class.java).putExtra(MapActivity.EXTRA_TRIP_ID, t.id))
-            }
+            holder.itemView.setOnClickListener { open(t) }
             holder.itemView.setOnLongClickListener { actions(t); true }
         }
     }
@@ -75,17 +96,47 @@ class TripsActivity : AppCompatActivity() {
         binding = ActivityLogBinding.inflate(layoutInflater)
         setContentView(binding.root)
         binding.root.applySystemBarInsets()
-        title = "Recorded traces"
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
-        binding.emptyText.text = "No recorded traces yet.\nOpen the map and tap Record trace."
+        section = savedInstanceState?.getString(EXTRA_SECTION) ?: intent.getStringExtra(EXTRA_SECTION) ?: TripEntity.KIND_TRACE
+        for ((kind, label) in listOf(TripEntity.KIND_TRACE to "Traces", TripEntity.KIND_SNAPSHOT to "Snapshots")) {
+            binding.filterChips.addView(com.google.android.material.chip.Chip(this, null, com.google.android.material.R.attr.chipStyle).apply {
+                id = View.generateViewId(); text = label; isCheckable = true; isCheckedIconVisible = false
+                ChipStyle.apply(this)
+                isChecked = kind == section
+                setOnClickListener { section = kind; show() }
+            })
+        }
+        binding.searchInput.doAfterTextChanged { show() }
 
         lifecycleScope.launch {
             AppDatabase.getInstance(this@TripsActivity).tripDao().allFlow().collect { list ->
-                adapter.submitList(list)
-                binding.emptyText.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+                all = list
+                show()
             }
+        }
+        show()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(EXTRA_SECTION, section)
+    }
+
+    /** The picked section, narrowed by the search box (name). */
+    private fun show() {
+        val snapshots = section == TripEntity.KIND_SNAPSHOT
+        title = if (snapshots) "Snapshots" else "Recorded traces"
+        val q = binding.searchInput.text?.toString()?.trim().orEmpty()
+        val mine = all.filter { it.snapshot == snapshots }
+        val list = mine.filter { q.isEmpty() || it.name.contains(q, ignoreCase = true) }
+        adapter.submitList(list)
+        binding.emptyText.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+        binding.emptyText.text = when {
+            mine.isNotEmpty() -> "Nothing matches."
+            snapshots -> "No snapshots yet.\nOn the main screen, open the menu and tap Save snapshot to keep the device list as it is."
+            else -> "No recorded traces yet.\nOpen the map and tap Record trace."
         }
     }
 
@@ -128,8 +179,16 @@ class TripsActivity : AppCompatActivity() {
             name.text = (if (live) "● " else "") + t.name
             name.setTextColor(if (live || t.flaggedCount > 0) color else ChipStyle.onSurface(context))
             date.text = fmt.format(Date(t.startTime)) + if (live) " · recording now" else ""
-            val mins = ((t.endTime ?: System.currentTimeMillis()) - t.startTime) / 60000
             stats.removeAllViews()
+            // A snapshot has no route: just its numbers.
+            route.visibility = if (t.snapshot) View.GONE else View.VISIBLE
+            if (t.snapshot) {
+                stats.addView(VisualMode.chip(context, devicesLabel(t.deviceCount), accent))
+                stats.addView(VisualMode.chip(context, "${t.flaggedCount} flagged", if (t.flaggedCount > 0) 0xFFD0503C.toInt() else accent))
+                boundId = t.id
+                return
+            }
+            val mins = ((t.endTime ?: System.currentTimeMillis()) - t.startTime) / 60000
             listOf(com.rfsentinel.app.util.Units.trip(t.distanceM), String.format(Locale.US, "%d:%02d", mins / 60, mins % 60),
                 devicesLabel(t.deviceCount)).forEach { stats.addView(VisualMode.chip(context, it, accent)) }
             stats.addView(VisualMode.chip(context, "${t.flaggedCount} flagged", if (t.flaggedCount > 0) 0xFFD0503C.toInt() else accent))
@@ -152,6 +211,21 @@ class TripsActivity : AppCompatActivity() {
     }
 
     private fun actions(t: TripEntity) {
+        if (t.snapshot) {
+            MaterialAlertDialogBuilder(this)
+                .setTitle(t.name)
+                .setItems(arrayOf("View list", "View on map", "Export (GPX, KML, GeoJSON, CSV)...", "Rename", "Delete")) { _, which ->
+                    when (which) {
+                        0 -> open(t)
+                        1 -> startActivity(Intent(this, MapActivity::class.java).putExtra(MapActivity.EXTRA_TRIP_ID, t.id))
+                        2 -> Exporter.showTripExport(this, t.id, snapshot = true)
+                        3 -> rename(t)
+                        4 -> delete(t)
+                    }
+                }
+                .show()
+            return
+        }
         MaterialAlertDialogBuilder(this)
             .setTitle(t.name)
             .setItems(arrayOf("View on map", "Export (GPX, KML, GeoJSON, CSV)...", "Rename", "Delete")) { _, which ->
@@ -168,11 +242,11 @@ class TripsActivity : AppCompatActivity() {
     private fun rename(t: TripEntity) {
         val input = EditText(this).apply { setText(t.name); setSelection(text.length) }
         MaterialAlertDialogBuilder(this)
-            .setTitle("Rename trace")
+            .setTitle(if (t.snapshot) "Rename snapshot" else "Rename trace")
             .setView(input)
             .setPositiveButton("Save") { _, _ ->
                 lifecycleScope.launch {
-                    AppDatabase.getInstance(this@TripsActivity).tripDao().rename(t.id, input.text.toString().trim().ifEmpty { "Trace" })
+                    AppDatabase.getInstance(this@TripsActivity).tripDao().rename(t.id, input.text.toString().trim().ifEmpty { if (t.snapshot) "Snapshot" else "Trace" })
                 }
             }
             .setNegativeButton("Cancel", null)
@@ -187,7 +261,7 @@ class TripsActivity : AppCompatActivity() {
         }
         MaterialAlertDialogBuilder(this)
             .setTitle("Delete \"${t.name}\"?")
-            .setMessage("The route and its device list are deleted from this phone.")
+            .setMessage(if (t.snapshot) "The saved device list is deleted from this phone." else "The route and its device list are deleted from this phone.")
             .setPositiveButton("Delete") { _, _ ->
                 lifecycleScope.launch { AppDatabase.getInstance(this@TripsActivity).tripDao().delete(t.id) }
             }

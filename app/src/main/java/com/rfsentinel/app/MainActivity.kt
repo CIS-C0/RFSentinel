@@ -50,6 +50,8 @@ class MainActivity : AppCompatActivity() {
         private const val SOUND_ITEM = 1001
         /** A radio row flashes while its transmitter was heard this recently. */
         private const val RADIO_LIVE_MS = 15_000L
+        /** Radio transmissions stay on the radar this long after they were last heard (the list keeps 5 minutes). */
+        private const val RADIO_RADAR_MS = 60_000L
         private const val BLUETOOTH_TAG_COLOR = 0xFF1565C0.toInt()
         private const val WIFI_TAG_COLOR = 0xFF00838F.toInt()
         private const val REFRESH_MS = 1_000L
@@ -64,6 +66,8 @@ class MainActivity : AppCompatActivity() {
     private val filterChips = HashMap<com.rfsentinel.app.ui.DeviceFilter, com.google.android.material.chip.Chip>()
     private var query = ""
     private var deviceCount = 0
+    /** The devices the list shows right now (filter and search applied), for Save snapshot. */
+    private var shownDevices: List<DeviceRegistry.Snapshot> = emptyList()
     private var flaggedCount = 0
     /** The visual style's status: warning chip and hardware strip (Settings > Appearance). */
     private val statusPanel by lazy {
@@ -173,7 +177,10 @@ class MainActivity : AppCompatActivity() {
         // Rows rebind every second (RSSI / "seen Xs ago"); the default change
         // crossfade would make the whole list flicker and fight the match flash.
         (binding.recyclerView.itemAnimator as? SimpleItemAnimator)?.supportsChangeAnimations = false
-        binding.radarView.onBlipClick = { DeviceActions.openDetails(this, it) }
+        binding.radarView.onBlipClick = {
+            if (it.startsWith(RADIO_ROW)) startActivity(Intent(this, com.rfsentinel.app.ui.DetectionLogActivity::class.java))
+            else DeviceActions.openDetails(this, it)
+        }
         // The app closed while the map was starting last time: switch it to OpenGL, or leave it off the main screen (and say so).
         val mapRecovery = com.rfsentinel.app.ui.MapSafety.recover(this)
         panes = com.rfsentinel.app.ui.MainPanes(this, binding)
@@ -348,7 +355,7 @@ class MainActivity : AppCompatActivity() {
                 isCheckable = true
                 // No invisible 48 dp touch frame around each chip: the row is 16 dp shorter.
                 setEnsureMinTouchTargetSize(false)
-                com.rfsentinel.app.ui.ChipStyle.apply(this)
+                com.rfsentinel.app.ui.ChipStyle.apply(this, minTouchTarget = false)
             }
             filterChips[f] = chip
             binding.filterChips.addView(chip)
@@ -380,10 +387,13 @@ class MainActivity : AppCompatActivity() {
      */
     private fun styleFilterChip(chip: com.google.android.material.chip.Chip, visual: Boolean, color: Int?) {
         val key = if (visual) "v${color ?: 0}" else "list"
-        if (chip.getTag(R.id.visual_chip_color) == key) return
+        val was = chip.getTag(R.id.visual_chip_color) as? String
+        if (was == key) return
         chip.setTag(R.id.visual_chip_color, key)
+        // Only the colour changed (the flagged count came or went): recolour, touch nothing that sizes the chip.
+        if (visual && was?.startsWith("v") == true) { tintVisualChip(chip, color); return }
         val dp = resources.displayMetrics.density
-        com.rfsentinel.app.ui.ChipStyle.apply(chip)
+        com.rfsentinel.app.ui.ChipStyle.apply(chip, minTouchTarget = false)
         val stock = chipPadding ?: floatArrayOf(chip.chipStartPadding, chip.textStartPadding, chip.textEndPadding, chip.chipEndPadding)
             .also { chipPadding = it }
         if (!visual) {
@@ -395,8 +405,15 @@ class MainActivity : AppCompatActivity() {
         }
         // Tighter sides, so All, Flagged, Bluetooth, WiFi and Cells with their counts fit a phone's width.
         chip.chipStartPadding = 2 * dp; chip.textStartPadding = 6 * dp; chip.textEndPadding = 6 * dp; chip.chipEndPadding = 2 * dp
-        // No invisible 48 dp touch frame in the visual style: the row is 16 dp shorter.
-        chip.setEnsureMinTouchTargetSize(false)
+        tintVisualChip(chip, color)
+        chip.chipStrokeWidth = 1.2f * dp
+        chip.chipMinHeight = 28 * dp
+        chip.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13f)
+        sameSize(chip)
+    }
+
+    /** The visual style's tinted pill in [color] (the theme highlight when null). */
+    private fun tintVisualChip(chip: com.google.android.material.chip.Chip, color: Int?) {
         val (accent, onAccent) = com.rfsentinel.app.ui.ChipStyle.accent(this)
         val c = color ?: accent
         val checked = intArrayOf(android.R.attr.state_checked)
@@ -404,11 +421,7 @@ class MainActivity : AppCompatActivity() {
         chip.chipBackgroundColor = android.content.res.ColorStateList(arrayOf(checked, none),
             intArrayOf(c, com.rfsentinel.app.ui.VisualMode.tint(c, 0x26)))
         chip.chipStrokeColor = android.content.res.ColorStateList(arrayOf(checked, none), intArrayOf(c, com.rfsentinel.app.ui.VisualMode.tint(c, 0x99)))
-        chip.chipStrokeWidth = 1.2f * dp
         chip.setTextColor(android.content.res.ColorStateList(arrayOf(checked, none), intArrayOf(onAccent, c)))
-        chip.chipMinHeight = 28 * dp
-        chip.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13f)
-        sameSize(chip)
     }
 
     /**
@@ -628,10 +641,11 @@ class MainActivity : AppCompatActivity() {
         // Ordinary devices leave the list and radar soon after they're out of range (LiveWindow).
         val bleMs = Prefs.liveBleSec(this) * 1000L
         val wifiMs = Prefs.liveWifiSec(this) * 1000L
+        val externalMs = Prefs.liveExternalSec(this) * 1000L
         // Settings > Scanning: trusted (whitelisted) devices can be left out of the list and radar.
         val hideTrusted = Prefs.hideWhitelisted(this)
         val all = DeviceRegistry.snapshot(now).filter {
-            com.rfsentinel.app.ui.LiveWindow.keep(it, now, bleMs, wifiMs) && !(hideTrusted && WhitelistCache.contains(it.mac))
+            com.rfsentinel.app.ui.LiveWindow.keep(it, now, bleMs, wifiMs, externalMs) && !(hideTrusted && WhitelistCache.contains(it.mac))
         }
         val threshold = Prefs.alertThreshold(this)
         binding.wazeSwipe.isEnabled = com.rfsentinel.app.ui.WazeUi.on(this) && panes.listShown
@@ -665,11 +679,15 @@ class MainActivity : AppCompatActivity() {
                     .thenBy { bandOrder(ProximityUtil.band(it.rssi)) }
                     .thenBy { it.firstSeen }
             )
+        shownDevices = visible
 
         refreshMuteButton()
         // The map and radar frames take the top alert's colour.
         panes.update(flagged.maxByOrNull { it.best?.confidence ?: 0 }?.let { colorFor(it) })
+        var radioBlips = 0
         if (panes.radarShown) {
+            val radio = radioBlips(now, threshold)
+            radioBlips = radio.size
             binding.radarView.setBlips(visible.take(200).map { s ->
                 val alert = com.rfsentinel.app.ui.LiveWindow.alerting(s, now)
                 RadarView.Blip(
@@ -678,7 +696,7 @@ class MainActivity : AppCompatActivity() {
                     alert,
                     if (alert) s.best?.label else null
                 )
-            })
+            } + radio)
         }
         if (panes.listShown) {
             val cells = cellRows(now)
@@ -693,7 +711,8 @@ class MainActivity : AppCompatActivity() {
             submitRows(airUrgent + radioLive + urgent + visible.map { toRow(it, now, threshold) } + airQuiet + radioOld + cells + quiet)
             shownCells = cells.size + waze.size + radio.size + air.size
         }
-        binding.emptyState.visibility = if (visible.isEmpty() && (!panes.listShown || shownCells == 0)) View.VISIBLE else View.GONE
+        binding.emptyState.visibility = if (visible.isEmpty() && (!panes.listShown || shownCells == 0) &&
+            (!panes.radarShown || radioBlips == 0)) View.VISIBLE else View.GONE
         // A filter that hides everything heard: one tap back to the full list.
         binding.showAllButton.visibility =
             if (filter != com.rfsentinel.app.ui.DeviceFilter.ALL && all.isNotEmpty()) View.VISIBLE else View.GONE
@@ -811,6 +830,24 @@ class MainActivity : AppCompatActivity() {
                     bold = live,
                     confidence = r.confidence
                 )
+            }
+    }
+
+    /**
+     * RTL-SDR / HackRF transmissions of the last minute on the radar, under the All and Radio filters: closer to the
+     * centre the stronger the signal. One on the air right now at or above the alert threshold pulses, with its frequency.
+     */
+    private fun radioBlips(now: Long, threshold: Int): List<RadarView.Blip> {
+        if ((filter != com.rfsentinel.app.ui.DeviceFilter.ALL && filter != com.rfsentinel.app.ui.DeviceFilter.RADIO) ||
+            !ScanForegroundService.isRunning) return emptyList()
+        val color = com.rfsentinel.app.ui.ThemeManager.ink(this, Category.RADIO.colorArgb)
+        return com.rfsentinel.app.sdr.RadioLog.current(now)
+            .filter { now - it.lastSeen <= RADIO_RADAR_MS }
+            .map { r ->
+                val alert = now - r.lastSeen <= RADIO_LIVE_MS && r.confidence >= threshold
+                // Signal above the noise as a stand-in RSSI: 40 dB lands in Near, 30 dB in Nearby (as the alert wording).
+                RadarView.Blip(RADIO_ROW + r.freqHz, (-115 + r.snrDb * 3 / 2).coerceIn(-100, -30), color, alert,
+                    if (alert) "${r.mhz} MHz" + (r.name?.let { " $it" } ?: "") else null)
             }
     }
 
@@ -1153,6 +1190,43 @@ class MainActivity : AppCompatActivity() {
         return true
     }
 
+    /** Keeps the device list as shown now (filter and search applied) under a name, to look at later (History > Snapshots). */
+    private fun saveSnapshot() {
+        val devices = shownDevices
+        if (devices.isEmpty()) {
+            android.widget.Toast.makeText(this, "The list is empty: nothing to save", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        val input = android.widget.EditText(this).apply {
+            setText(com.rfsentinel.app.data.Snapshots.defaultName()); selectAll()
+            setSingleLine()
+        }
+        val pad = (20 * resources.displayMetrics.density).toInt()
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("Save snapshot")
+            .setMessage("Keeps the ${devices.size} device${if (devices.size == 1) "" else "s"} in the list now, to look at later in History > Snapshots.")
+            .setView(android.widget.FrameLayout(this).apply { setPadding(pad, 0, pad, 0); addView(input) })
+            .setPositiveButton("Save") { _, _ ->
+                val name = input.text.toString().trim().ifEmpty { com.rfsentinel.app.data.Snapshots.defaultName() }
+                val app = applicationContext
+                lifecycleScope.launch {
+                    val id = runCatching { com.rfsentinel.app.data.Snapshots.save(app, name, devices) }.getOrNull()
+                    if (id == null) {
+                        android.widget.Toast.makeText(this@MainActivity, "Couldn't save the snapshot", android.widget.Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+                    com.google.android.material.snackbar.Snackbar.make(binding.root, "Snapshot saved", com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
+                        .setAction("View") {
+                            startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.SnapshotActivity::class.java)
+                                .putExtra(com.rfsentinel.app.ui.SnapshotActivity.EXTRA_TRIP_ID, id))
+                        }
+                        .show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_waze_now -> { com.rfsentinel.app.ui.WazeUi.checkNow(this); true }
@@ -1163,6 +1237,12 @@ class MainActivity : AppCompatActivity() {
             R.id.action_probes -> { startActivity(Intent(this, com.rfsentinel.app.probes.ProbeListActivity::class.java)); true }
             R.id.action_export -> { Exporter.showExportMenu(this); true }
             R.id.action_traces -> { startActivity(Intent(this, com.rfsentinel.app.ui.TripsActivity::class.java)); true }
+            R.id.action_snapshots -> {
+                startActivity(Intent(this, com.rfsentinel.app.ui.TripsActivity::class.java)
+                    .putExtra(com.rfsentinel.app.ui.TripsActivity.EXTRA_SECTION, com.rfsentinel.app.data.TripEntity.KIND_SNAPSHOT))
+                true
+            }
+            R.id.action_save_snapshot -> { saveSnapshot(); true }
             R.id.action_history -> { startActivity(Intent(this, com.rfsentinel.app.ui.HistoryActivity::class.java)); true }
             // Like a radar detector's mute: a tap snoozes for the set length; muted or snoozed, a tap brings the sound back.
             R.id.action_mute -> {

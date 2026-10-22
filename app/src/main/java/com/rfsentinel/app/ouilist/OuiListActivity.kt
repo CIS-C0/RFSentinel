@@ -73,7 +73,7 @@ class OuiListActivity : AppCompatActivity() {
             val key = ruleType.keyPrefix + text
             if (text.isEmpty() || !OuiWatchlist.isValidKey(key)) {
                 binding.prefixInput.error = when (ruleType) {
-                    RuleType.ADDRESS -> "Format: AA:BB:CC for a vendor, AA:BB:CC:DD:EE:FF for one device"
+                    RuleType.ADDRESS -> "Format: AA:BB:CC up to AA:BB:CC:DD:EE:F for a prefix, AA:BB:CC:DD:EE:FF for one device"
                     else -> "Enter some text to match"
                 }
             } else if (label.isEmpty()) {

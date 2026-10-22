@@ -71,6 +71,13 @@ object VendorDb {
         return table[hex.take(9)] ?: table[hex.take(7)] ?: table[hex.take(6)]
     }
 
+    /** Hex digits of the IEEE block a MAC is registered in (9, 7 or 6), or null when it's in none. */
+    fun blockDigits(mac: String): Int? {
+        val hex = mac.replace(":", "").uppercase()
+        val table = oui
+        return intArrayOf(9, 7, 6).firstOrNull { hex.length >= it && table[hex.take(it)] != null }
+    }
+
     fun company(id: Int): String? = companies[id]
 
     fun uuid16(short: Int): String? = uuids[short]

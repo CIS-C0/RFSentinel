@@ -105,6 +105,10 @@
             android:exported="false"
             android:parentActivityName=".MainActivity" />
         <activity
+            android:name=".ui.SnapshotActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.TripsActivity" />
+        <activity
             android:name=".ui.HistoryActivity"
             android:exported="false"
             android:parentActivityName=".MainActivity" />

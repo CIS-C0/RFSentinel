@@ -34,9 +34,19 @@ class BleScanEngine(
     @Volatile private var scanning = false
     @Volatile private var filteredScanning = false
 
+    /** Last result from the unfiltered scan (the filtered one alone keeps alerts going but not the list). */
+    @Volatile var lastUnfilteredAt = 0L
+        private set
+
     private val callback = object : ScanCallback() {
-        override fun onScanResult(callbackType: Int, result: ScanResult) = onResult(result)
-        override fun onBatchScanResults(results: MutableList<ScanResult>) = results.forEach(onResult)
+        override fun onScanResult(callbackType: Int, result: ScanResult) {
+            lastUnfilteredAt = System.currentTimeMillis()
+            onResult(result)
+        }
+        override fun onBatchScanResults(results: MutableList<ScanResult>) {
+            if (results.isNotEmpty()) lastUnfilteredAt = System.currentTimeMillis()
+            results.forEach(onResult)
+        }
         override fun onScanFailed(errorCode: Int) {
             Log.w(TAG, "Unfiltered BLE scan failed: $errorCode")
             scanning = false

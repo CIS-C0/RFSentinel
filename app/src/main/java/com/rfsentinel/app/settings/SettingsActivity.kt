@@ -424,11 +424,14 @@ class SettingsActivity : AppCompatActivity() {
                 "Background scanning: lets the scan keep running with the screen off.\n\n" +
                 "Remove from the list: how long an ordinary device stays in the list and radar once it stops being heard (default 30 s Bluetooth, 60 s WiFi). Flagged devices follow these too; favourite and following devices stay 3 minutes. " +
                 "Hide trusted devices: whitelisted devices are left out of the list and radar (they stay in the history). " +
-                "Both can go down to 5 s (WiFi only when Developer options are on and the WiFi interval is under 30 s)."),
+                "All can go down to 5 s (WiFi only when \"Wi-Fi scan throttling\" is off in Developer options). " +
+                "External hardware: devices heard only by an ESP32 board or a USB WiFi adapter."),
         Section("autostart", binding.headerAutoStart, binding.sectionAutoStart,
             "When the phone starts: begins scanning after a reboot.\n\n" +
                 "In the car: starts scanning when the phone connects to your car's Bluetooth and stops when you leave. " +
-                "Android Auto also starts it when RF Sentinel opens on the car screen."),
+                "Android Auto also starts it when RF Sentinel opens on the car screen.\n\n" +
+                "Record a trace in the car: records a GPS trace from the moment the phone connects to your car until you leave, " +
+                "then saves it with your other traces."),
         Section("detect", binding.headerDetect, binding.sectionDetect,
             "Each type of equipment can be turned on or off. Network / home cameras are off by default (many false alarms).\n\n" +
                 "GPS / satellite checks cover every system the phone hears: GPS, GLONASS, Galileo, BeiDou, QZSS and NavIC.\n\n" +
@@ -787,6 +790,7 @@ class SettingsActivity : AppCompatActivity() {
         withUnit(binding.intervalInput, "s")
         info(binding.batteryButton, "Opens Android's battery settings: set RF Sentinel to Unrestricted so scanning keeps going with the screen off.")
         info(binding.carAutoSwitch, "Starts scanning when the phone connects to your car's Bluetooth or Android Auto, and stops when you leave.")
+        info(binding.carRecordSwitch, "Records a GPS trace when the phone connects to your car's Bluetooth or Android Auto, and saves it when you leave. Starts scanning too if it isn't running. A trace you started yourself is never stopped.")
         info(binding.presetLabel, PRESETS_INFO)
         info(binding.thresholdLabel, "Weak: every match, more false alarms.\n\nProbable: recommended.\n\nStrong only: the fewest alerts.")
         binding.thresholdMedium.text = tagged("Probable", "recommended")
@@ -1551,16 +1555,18 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun addLiveWindowSliders() {
-        val texts = mutableListOf<android.widget.TextView>()
-        fun slider(label: (Int) -> String, from: Int, to: Int, value: Int, save: (Int) -> Unit): com.google.android.material.slider.Slider {
+        fun slider(
+            label: (Int) -> String, from: Int, to: Int, value: Int,
+            info: String = "How long a device stays in the list and radar after it was last heard. " +
+                "Flagged, favourite and following devices always stay 3 minutes.",
+            save: (Int) -> Unit
+        ): Pair<com.google.android.material.slider.Slider, android.widget.TextView> {
             val text = android.widget.TextView(this).apply {
                 textSize = 14f
                 setPadding(0, (10 * resources.displayMetrics.density).toInt(), 0, 0)
                 this.text = label(value)
             }
-            texts += text
-            binding.sectionScanning.addView(infoRow(text, "How long a device stays in the list and radar after it was last heard. " +
-                "Flagged, favourite and following devices always stay 3 minutes.", "Out of range"))
+            binding.sectionScanning.addView(infoRow(text, info, "Out of range"))
             val s = com.google.android.material.slider.Slider(this).apply {
                 valueFrom = from.toFloat(); valueTo = to.toFloat(); stepSize = 5f
                 this.value = (value - value % 5).coerceIn(from, to).toFloat()
@@ -1572,32 +1578,35 @@ class SettingsActivity : AppCompatActivity() {
                 }
             }
             binding.sectionScanning.addView(s)
-            return s
+            return s to text
         }
         slider({ "Bluetooth: off the list after $it s" }, 5, 180, Prefs.liveBleSec(this)) {
             Prefs.setLiveBleSec(this, it)
         }
-        // Below 30 s only with Developer options on and a WiFi scan interval under 30 s.
-        val wifiLabel = { s: Int -> "WiFi: off the list after $s s" }
-        val wifiSlider = slider(wifiLabel, Prefs.minLiveWifiSec(this), 180, Prefs.liveWifiSec(this)) {
+        // Below 30 s only with "Wi-Fi scan throttling" off in Developer options (see updateWifiSliderMin).
+        liveWifiSlider = slider(wifiLabel, Prefs.minLiveWifiSec(this), 180, Prefs.liveWifiSec(this)) {
             Prefs.setLiveWifiSec(this, it)
         }
-        // Follow the WiFi interval as it's typed.
-        binding.intervalInput.addTextChangedListener(object : android.text.TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: android.text.Editable?) {
-                val sec = s?.toString()?.toLongOrNull() ?: return
-                val min = Prefs.minLiveWifiSec(this@SettingsActivity, sec.coerceAtLeast(5) * 1000L)
-                if (wifiSlider.valueFrom.toInt() == min) return
-                if (wifiSlider.value < min) {
-                    wifiSlider.value = min.toFloat()
-                    Prefs.setLiveWifiSec(this@SettingsActivity, min)
-                    texts.last().text = wifiLabel(min)
-                }
-                wifiSlider.valueFrom = min.toFloat()
-            }
-        })
+        slider({ "External hardware: off the list after $it s" }, 5, 180, Prefs.liveExternalSec(this),
+            "How long a device heard only by an ESP32 board or a USB WiFi adapter stays in the list and radar after it " +
+                "was last heard. Flagged, favourite and following devices always stay 3 minutes.") {
+            Prefs.setLiveExternalSec(this, it)
+        }
+    }
+
+    private val wifiLabel = { s: Int -> "WiFi: off the list after $s s" }
+    private var liveWifiSlider: Pair<com.google.android.material.slider.Slider, android.widget.TextView>? = null
+
+    /** The WiFi slider goes down to 5 s while scan throttling is off (the user may be back from Developer options). */
+    private fun updateWifiSliderMin() {
+        val (slider, text) = liveWifiSlider ?: return
+        val min = Prefs.minLiveWifiSec(this)
+        if (slider.valueFrom.toInt() == min) return
+        if (slider.value < min) slider.value = min.toFloat()
+        slider.valueFrom = min.toFloat()
+        // Back to the chosen value when throttling goes off again ([Prefs.liveWifiSec] keeps it).
+        slider.value = (Prefs.liveWifiSec(this).let { it - it % 5 }).coerceIn(min, 180).toFloat()
+        text.text = wifiLabel(slider.value.toInt())
     }
 
     /** Aircraft search radius (10-50 km) and the feed status, under the aircraft switch. */
@@ -2050,6 +2059,10 @@ class SettingsActivity : AppCompatActivity() {
         binding.carAutoSwitch.setOnCheckedChangeListener { _, on ->
             if (on && Prefs.carDevices(this).isEmpty()) chooseCarDevices()
         }
+        binding.carRecordSwitch.isChecked = Prefs.carAutoRecord(this)
+        binding.carRecordSwitch.setOnCheckedChangeListener { _, on ->
+            if (on && Prefs.carDevices(this).isEmpty()) chooseCarDevices()
+        }
         binding.carDevicesButton.setOnClickListener { chooseCarDevices() }
         updateCarDevicesText()
         binding.batteryButton.setOnClickListener {
@@ -2323,7 +2336,8 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun updateWifiThrottleHint() {
-        val throttled = wifiScanThrottled()
+        updateWifiSliderMin()
+        val throttled = Prefs.wifiScanThrottled(this)
         binding.wifiThrottleText.text = if (throttled)
             "Android throttles WiFi scans: under 30 s is wasted unless you turn it off"
         else
@@ -2366,13 +2380,6 @@ class SettingsActivity : AppCompatActivity() {
             .show()
     }
 
-    /** Android's WiFi scan throttle (Developer options), on unless the user disabled it. */
-    /** Android 11+ keeps the developer toggle in the WiFi service; older versions in a global setting. */
-    private fun wifiScanThrottled(): Boolean =
-        if (android.os.Build.VERSION.SDK_INT >= 30)
-            runCatching { getSystemService(android.net.wifi.WifiManager::class.java).isScanThrottleEnabled }.getOrDefault(true)
-        else runCatching { Settings.Global.getInt(contentResolver, "wifi_scan_throttle_enabled", 1) != 0 }.getOrDefault(true)
-
     private fun confirm(title: String, message: String, action: () -> Unit) {
         MaterialAlertDialogBuilder(this)
             .setTitle(title)
@@ -2411,6 +2418,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setScanIntervalMs(this, intervalSec.coerceAtLeast(5) * 1000L)
         Prefs.setAutoStartOnBoot(this, binding.bootSwitch.isChecked)
         Prefs.setCarAutoStart(this, binding.carAutoSwitch.isChecked)
+        Prefs.setCarAutoRecord(this, binding.carRecordSwitch.isChecked)
 
         categorySwitches.forEach { (c, sw) -> Prefs.setCategoryEnabled(this, c, sw.isChecked) }
         airTagSwitch?.let { Prefs.setExcludeAirTags(this, it.isChecked) }

@@ -56,7 +56,7 @@ object DeviceActions {
     /** Long-press menu. */
     fun showQuickActions(activity: AppCompatActivity, mac: String) {
         val snap = DeviceRegistry.get(mac)
-        val custom = OuiWatchlist.customEntry(mac) ?: OuiWatchlist.customEntry(MacUtil.oui(mac))
+        val custom = OuiWatchlist.customAddressEntry(mac)
         val whitelisted = WhitelistCache.inTable(mac)
         val ignoredTracker = com.rfsentinel.app.data.TrackerMutes.isMuted(mac)
         // Trackers that change their address can't be whitelisted: offer ignoring instead.
@@ -111,11 +111,18 @@ object DeviceActions {
      * as every network / device whose name starts the same way (an SSID prefix).
      */
     fun addToWatchlist(activity: AppCompatActivity, mac: String, name: String?, wifi: Boolean = false) {
-        val oui = MacUtil.oui(mac)
         val randomized = MacUtil.isRandomized(mac)
         val b = DialogAddWatchlistBinding.inflate(activity.layoutInflater)
         b.scopeDevice.text = "Only this device ($mac)"
-        b.scopePrefix.text = "Every device with prefix $oui"
+        // The prefix length: the vendor's own IEEE block to start with, longer to narrow it to one batch of devices.
+        var digits = com.rfsentinel.app.detect.VendorDb.blockDigits(mac) ?: 6
+        fun showPrefix() {
+            b.scopePrefix.text = "Every device whose address starts with ${MacUtil.prefix(mac, digits)} (${digits * 4} bits)"
+        }
+        showPrefix()
+        b.prefixBitsSlider.value = digits * 4f
+        b.prefixBitsSlider.setLabelFormatter { "${it.toInt()} bits" }
+        b.prefixBitsSlider.addOnChangeListener { _, v, _ -> digits = v.toInt() / 4; showPrefix() }
         if (randomized) {
             b.warningText.visibility = View.VISIBLE
             b.warningText.text = "This is a randomized (private) address: it may change later, and its prefix " +
@@ -144,12 +151,13 @@ object DeviceActions {
             b.scopeStarts.visibility = View.VISIBLE
             b.scopeStarts.text = if (wifi) "Every network whose name (SSID) starts with:" else "Every device whose name starts with:"
             b.startsInput.setText(named)
-            b.scopeGroup.setOnCheckedChangeListener { _, id ->
-                b.startsInput.visibility = if (id == b.scopeStarts.id) View.VISIBLE else View.GONE
-                if (id == b.scopeStarts.id) b.startsInput.requestFocus()
-            }
             if (randomized && fp == null) b.warningText.text = "This is a randomized (private) address: it may change later, and its " +
                 "prefix is not a real vendor, so prefix matching is disabled. Tip: watch the start of its name instead."
+        }
+        b.scopeGroup.setOnCheckedChangeListener { _, id ->
+            b.prefixBitsSlider.visibility = if (id == b.scopePrefix.id) View.VISIBLE else View.GONE
+            b.startsInput.visibility = if (id == b.scopeStarts.id) View.VISIBLE else View.GONE
+            if (id == b.scopeStarts.id) b.startsInput.requestFocus()
         }
         b.labelInput.setText(name ?: "")
         MaterialAlertDialogBuilder(activity)
@@ -165,7 +173,7 @@ object DeviceActions {
                 val key = when {
                     byStart -> OuiEntry.STARTS + start
                     byShape -> OuiEntry.FINGERPRINT + shape; byFingerprint -> OuiEntry.FINGERPRINT + fp
-                    wholePrefix -> oui; else -> mac
+                    wholePrefix -> MacUtil.prefix(mac, digits); else -> mac
                 }
                 // The label box holds the device's own full name: for a name prefix, say what is watched instead.
                 val typed = b.labelInput.text.toString().trim().takeUnless { byStart && it == named }.orEmpty()
@@ -173,7 +181,7 @@ object DeviceActions {
                     when {
                         byStart -> (if (wifi) "SSID starts with " else "Name starts with ") + start
                         byShape -> "Probe shape ${shape!!.removePrefix("shape-")}"; byFingerprint -> "Device type $fp"
-                        wholePrefix -> "Custom prefix $oui"; else -> "Custom device $mac"
+                        wholePrefix -> "Custom prefix $key"; else -> "Custom device $mac"
                     }
                 }
                 OuiWatchlist.addCustomEntry(activity, OuiEntry(key, label, "user-added from live list", "custom"))

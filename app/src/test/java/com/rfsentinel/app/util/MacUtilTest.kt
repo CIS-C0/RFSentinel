@@ -38,6 +38,19 @@ class MacUtilTest {
     }
 
     @Test
+    fun watchlistPrefixesOfAnyLength() {
+        assertTrue(MacUtil.isValidPrefix("00:25:DF"))          // 24 bits
+        assertTrue(MacUtil.isValidPrefix("8C:1F:64:DF"))       // 32 bits
+        assertTrue(MacUtil.isValidPrefix("8c-1f-64-df-00-1"))  // 44 bits, any case/separator
+        assertFalse(MacUtil.isValidPrefix("00:25"))            // shorter than a vendor block
+        assertFalse(MacUtil.isValidPrefix("00:25:DF:11:22:33")) // a whole address, not a prefix
+        assertFalse(MacUtil.isValidPrefix("00:25:D:F1"))       // badly grouped
+        assertFalse(MacUtil.isValidPrefix("00:25:DG"))
+        assertEquals("8C:1F:64:D", MacUtil.prefix("8C:1F:64:DF:00:11", 7))
+        assertEquals("8C:1F:64:DF:00", MacUtil.prefix("8C:1F:64:DF:00:11", 10))
+    }
+
+    @Test
     fun randomizedAddressDetection() {
         assertFalse(MacUtil.isRandomized("00:25:DF:12:34:56")) // Axon, globally unique
         assertTrue(MacUtil.isRandomized("DA:A1:19:00:00:01"))  // 0xDA has the 0x02 bit set

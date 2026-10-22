@@ -25,10 +25,13 @@
             <item android:id="@+id/action_device_history" android:title="Device history" />
             <item android:id="@+id/action_match_log" android:title="Match history" />
             <item android:id="@+id/action_traces" android:title="Recorded traces" />
+            <item android:id="@+id/action_snapshots" android:title="Snapshots" />
             <item android:id="@+id/action_history" android:title="History map &amp; timeline" />
             <item android:id="@+id/action_probes" android:title="Requested networks" />
         </menu>
     </item>
 
+    <!-- The device list as it is now, kept to look at later (History > Snapshots). -->
+    <item android:id="@+id/action_save_snapshot" android:title="Save snapshot" app:showAsAction="never" />
     <item android:id="@+id/action_export" android:title="Export..." app:showAsAction="never" />
 </menu>

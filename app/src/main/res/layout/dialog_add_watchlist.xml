@@ -23,6 +23,18 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
 
+        <!-- Prefix length in bits, one hex digit (4 bits) per step: shown while the prefix is picked. -->
+        <com.google.android.material.slider.Slider
+            android:id="@+id/prefixBitsSlider"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            android:contentDescription="Prefix length in bits"
+            android:stepSize="4"
+            android:valueFrom="24"
+            android:valueTo="44"
+            android:visibility="gone" />
+
         <RadioButton
             android:id="@+id/scopeFingerprint"
             android:layout_width="wrap_content"

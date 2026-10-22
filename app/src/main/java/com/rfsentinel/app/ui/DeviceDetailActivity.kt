@@ -246,7 +246,7 @@ class DeviceDetailActivity : AppCompatActivity() {
 
         // Action labels
         val fp = com.rfsentinel.app.usb.ProbeIntel.of(mac)?.fingerprint
-        val custom = OuiWatchlist.customEntry(mac) ?: OuiWatchlist.customEntry(MacUtil.oui(mac))
+        val custom = OuiWatchlist.customAddressEntry(mac)
             ?: fp?.let { OuiWatchlist.customEntry(com.rfsentinel.app.oui.OuiEntry.FINGERPRINT + it) }
         binding.actionWatchlist.text = if (custom != null) "Remove from watchlist" else "Add to watchlist"
         radioHz?.let { hz ->
@@ -581,7 +581,7 @@ class DeviceDetailActivity : AppCompatActivity() {
     // ---- Actions --------------------------------------------------------------
 
     private fun onWatchlistAction() {
-        val custom = OuiWatchlist.customEntry(mac) ?: OuiWatchlist.customEntry(MacUtil.oui(mac))
+        val custom = OuiWatchlist.customAddressEntry(mac)
         if (custom != null) {
             OuiWatchlist.removeCustomEntry(this, custom.prefix)
             com.rfsentinel.app.util.Undo.show(this, "Removed ${custom.prefix} from the watchlist") {

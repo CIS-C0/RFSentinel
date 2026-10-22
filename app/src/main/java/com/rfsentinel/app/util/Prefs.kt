@@ -223,20 +223,23 @@ object Prefs {
     fun liveWifiSec(context: Context): Int = int(context, "live_wifi_sec", 60).coerceIn(minLiveWifiSec(context), 180)
 
     /**
-     * The WiFi list window can go below 30 s only when Developer options are on and the WiFi
-     * scan interval is under 30 s (i.e. scan throttling turned off): otherwise devices would
-     * drop out between two scans.
+     * The WiFi list window can go below 30 s only when "Wi-Fi scan throttling" is turned off in
+     * Developer options: otherwise Android scans about every 30 s and devices would drop out between two scans.
      */
-    fun minLiveWifiSec(context: Context, intervalMs: Long = scanIntervalMs(context)): Int =
-        if (fastWifiScans(context, intervalMs)) 5 else 30
+    fun minLiveWifiSec(context: Context): Int = minLiveWifiSec(wifiScanThrottled(context))
+    fun minLiveWifiSec(throttled: Boolean): Int = if (throttled) 30 else 5
 
-    fun fastWifiScans(context: Context, intervalMs: Long = scanIntervalMs(context)): Boolean =
-        intervalMs < 30_000L && runCatching {
-            android.provider.Settings.Global.getInt(context.contentResolver,
-                android.provider.Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) == 1
-        }.getOrDefault(false)
-    // Stored as chosen (down to 5 s); [liveWifiSec] raises it to 30 s whenever fast WiFi scans are off.
+    /** Android's WiFi scan throttle (Developer options), on unless the user disabled it. */
+    /** Android 11+ keeps the developer toggle in the WiFi service; older versions in a global setting. */
+    fun wifiScanThrottled(context: Context): Boolean =
+        if (android.os.Build.VERSION.SDK_INT >= 30)
+            runCatching { context.getSystemService(android.net.wifi.WifiManager::class.java).isScanThrottleEnabled }.getOrDefault(true)
+        else runCatching { android.provider.Settings.Global.getInt(context.contentResolver, "wifi_scan_throttle_enabled", 1) != 0 }.getOrDefault(true)
+    // Stored as chosen (down to 5 s); [liveWifiSec] raises it to 30 s while WiFi scans are throttled.
     fun setLiveWifiSec(context: Context, sec: Int) = setInt(context, "live_wifi_sec", sec.coerceIn(5, 180))
+    /** How long a device heard only by external hardware (ESP32 board, USB WiFi adapter) stays in the list and radar. */
+    fun liveExternalSec(context: Context): Int = int(context, "live_external_sec", 60).coerceIn(5, 180)
+    fun setLiveExternalSec(context: Context, sec: Int) = setInt(context, "live_external_sec", sec.coerceIn(5, 180))
 
     /** Police aircraft from the online ADS-B feeds; off leaves only the RTL-SDR's own receiver (on by default). */
     fun aircraftOnline(context: Context): Boolean = bool(context, "aircraft_online", true)
@@ -437,6 +440,12 @@ object Prefs {
     /** True while the running scan was started by the car (so leaving the car may stop it). */
     fun startedByCar(context: Context): Boolean = bool(context, "started_by_car", false)
     fun setStartedByCar(context: Context, value: Boolean) = setBool(context, "started_by_car", value)
+    /** Record a trace while in the car (chosen Bluetooth devices, or Android Auto). */
+    fun carAutoRecord(context: Context): Boolean = bool(context, "car_auto_record", false)
+    fun setCarAutoRecord(context: Context, value: Boolean) = setBool(context, "car_auto_record", value)
+    /** True while the trace being recorded was started by the car (so leaving the car saves it). */
+    fun recordingByCar(context: Context): Boolean = bool(context, "recording_by_car", false)
+    fun setRecordingByCar(context: Context, value: Boolean) = setBool(context, "recording_by_car", value)
 
     /** Floating threat bubble over other apps while scanning. */
     /** Floating mini map with the devices around you, drawn over other apps while scanning. */

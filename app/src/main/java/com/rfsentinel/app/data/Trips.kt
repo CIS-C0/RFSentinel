@@ -1,5 +1,6 @@
 package com.rfsentinel.app.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -10,7 +11,7 @@ import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
-/** A recorded scan trace: your GPS path plus every device heard along it. */
+/** A recorded scan trace: your GPS path plus every device heard along it. Also a snapshot: a device list saved at one moment. */
 @Entity(tableName = "trips")
 data class TripEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -20,9 +21,17 @@ data class TripEntity(
     val distanceM: Double = 0.0,
     val pointCount: Int = 0,
     val deviceCount: Int = 0,
-    val flaggedCount: Int = 0
+    val flaggedCount: Int = 0,
+    /** [KIND_TRACE] (a recorded route) or [KIND_SNAPSHOT] (the device list saved at one moment, no route). */
+    @ColumnInfo(defaultValue = KIND_TRACE) val kind: String = KIND_TRACE
 ) {
     val recording: Boolean get() = endTime == null
+    val snapshot: Boolean get() = kind == KIND_SNAPSHOT
+
+    companion object {
+        const val KIND_TRACE = "trace"
+        const val KIND_SNAPSHOT = "snapshot"
+    }
 }
 
 @Entity(

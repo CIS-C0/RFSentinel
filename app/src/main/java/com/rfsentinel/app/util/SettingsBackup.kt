@@ -39,7 +39,7 @@ object SettingsBackup {
     private val parts = listOf(
         Part("rf_sentinel_prefs", Section.SETTINGS, skip = setOf(
             // Short-lived state and where you were.
-            "alerts_snoozed_until", "tracker_follow_paused_until", "last_update_check", "map_center", "map_zoom", "deflock_updated", "started_by_car",
+            "alerts_snoozed_until", "tracker_follow_paused_until", "last_update_check", "map_center", "map_zoom", "deflock_updated", "started_by_car", "recording_by_car",
             // Acknowledgements that must be given again, and folder access that does not carry over.
             "waze_accepted", "waze_direct_accepted", "live_export", "live_export_tree")),
         Part("nav_places", Section.PLACES, only = setOf("nav_home", "nav_work", "nav_favorites")),

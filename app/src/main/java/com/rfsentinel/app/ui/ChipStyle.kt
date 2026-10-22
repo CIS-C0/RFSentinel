@@ -24,8 +24,11 @@ object ChipStyle {
     fun onSurface(context: Context): Int =
         attr(context, com.google.android.material.R.attr.colorOnSurface) ?: attr(context, android.R.attr.textColorPrimary) ?: 0xFF888888.toInt()
 
-    /** [overMap]: unselected chips get a solid background so they read on any map. */
-    fun apply(chip: Chip, overMap: Boolean = false) {
+    /**
+     * [overMap]: unselected chips get a solid background so they read on any map. [minTouchTarget]: the invisible
+     * 48 dp touch frame; switching it on and off again on a restyle can leave a chip taller than the others.
+     */
+    fun apply(chip: Chip, overMap: Boolean = false, minTouchTarget: Boolean = true) {
         val ctx = chip.context
         val (accent, onAccent) = accent(ctx)
         val text = onSurface(ctx)
@@ -39,7 +42,7 @@ object ChipStyle {
         chip.chipStrokeColor = ColorStateList(arrayOf(checked, none), intArrayOf(accent, (text and 0x00FFFFFF) or 0x66000000))
         chip.chipStrokeWidth = 1.5f * ctx.resources.displayMetrics.density
         chip.isCheckedIconVisible = false
-        chip.setEnsureMinTouchTargetSize(true)
+        if (minTouchTarget) chip.setEnsureMinTouchTargetSize(true)
         chip.typeface = android.graphics.Typeface.create(chip.typeface, android.graphics.Typeface.BOLD)
     }
 
