@@ -490,7 +490,8 @@ class MainActivity : AppCompatActivity() {
                         if (it.contains("ADS-B")) ({ com.rfsentinel.app.sdr.SdrRadio.adsbMessages }) else null, " msg/s")
                 },
                 com.rfsentinel.app.sdr.RadioReference.status.takeIf { it.isNotBlank() && com.rfsentinel.app.util.Prefs.radioReferenceOn(this) }
-                    ?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) }
+                    ?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) },
+                com.rfsentinel.app.link.PhoneLink.status.takeIf { it.isNotBlank() }?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) }
             )
             statusPanel.update(running, warning, hardware)
             return
@@ -512,7 +513,8 @@ class MainActivity : AppCompatActivity() {
                 com.rfsentinel.app.usb.UsbWifi.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
                 com.rfsentinel.app.sdr.SdrRadio.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
                 com.rfsentinel.app.sdr.RadioReference.status.takeIf { it.isNotBlank() && com.rfsentinel.app.util.Prefs.radioReferenceOn(this) }
-                    ?.let { "\n$it" }.orEmpty()
+                    ?.let { "\n$it" }.orEmpty() +
+                com.rfsentinel.app.link.PhoneLink.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty()
         }
     }
 
@@ -985,6 +987,7 @@ class MainActivity : AppCompatActivity() {
             heardByEsp = com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac, now),
             heardByUsb = com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac, now),
             heardByPhone = com.rfsentinel.app.esp.HeardBy.phone.recent(s.mac, now),
+            heardByPeer = com.rfsentinel.app.esp.HeardBy.peer.via(s.mac, now),
             rssi = s.rssi,
             confidence = best?.confidence?.takeIf { !whitelisted }
         )

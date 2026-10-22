@@ -761,6 +761,23 @@
                 android:text="AWUS036ACS: light blinks with traffic" />
         </LinearLayout>
 
+        <!-- ================= Sentinel Link ================= -->
+        <TextView android:id="@+id/headerLink" style="@style/SettingsHeader" android:text="Sentinel Link" />
+        <LinearLayout android:id="@+id/sectionLink" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/linkStatusText"
+                style="@style/SettingsLabel"
+                android:paddingTop="6dp" />
+
+            <Button
+                android:id="@+id/linkButton"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Open Sentinel Link" />
+        </LinearLayout>
+
         <!-- ================= RTL-SDR radio (filled in by SettingsActivity.setupRadioSection) ================= -->
         <TextView android:id="@+id/headerRadio" style="@style/SettingsHeader" android:text="RTL-SDR radio" />
         <LinearLayout android:id="@+id/sectionRadio" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />

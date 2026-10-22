@@ -250,14 +250,15 @@ object NotificationHelper {
         othersFlagged.takeIf { it > 0 }?.let { "+$it more flagged" }
     ).joinToString(" · ")
 
-    fun sendAlert(context: Context, mac: String, hit: Hit, rssi: Int, following: Boolean = false) {
+    /** [via]: the linked Sentinel that heard it (Sentinel Link); [rssi] is then that phone's. */
+    fun sendAlert(context: Context, mac: String, hit: Hit, rssi: Int, following: Boolean = false, via: String? = null) {
         // A drone with a Remote ID position is logged where it is; anything else where you were.
         val rid = com.rfsentinel.app.service.DeviceRegistry.get(mac)?.remoteId?.takeIf { it.hasPosition }
         recordAlert(context, mac, mac, hit, rssi, following, rid?.latitude, rid?.longitude)
         val discreet = Prefs.discreetMode(context)
         com.rfsentinel.app.ui.ThreatBubble.popup(context,
             if (discreet) "New alert" else if (following) "Following you: ${hit.label}" else hit.label,
-            if (discreet) null else listOfNotNull(hit.category.shortTag,
+            if (discreet) null else listOfNotNull(hit.category.shortTag, via?.let { "via $it" },
                 com.rfsentinel.app.service.DeviceRegistry.get(mac)?.distanceM?.takeIf { it > 0 }
                     ?.let { "~" + com.rfsentinel.app.detect.DeviceIntel.formatDistance(it) },
                 ProximityUtil.band(rssi).lowercase()).joinToString(" · "),
@@ -271,6 +272,7 @@ object NotificationHelper {
         )
         val title = when {
             following -> "May be following you: ${hit.label}"
+            via != null -> "Near $via: ${hit.label}"
             else -> "Nearby: ${hit.label}"
         }
         val snap = com.rfsentinel.app.service.DeviceRegistry.get(mac)
@@ -278,7 +280,8 @@ object NotificationHelper {
         val others = com.rfsentinel.app.service.DeviceRegistry.snapshot()
             .count { it.mac != mac && com.rfsentinel.app.ui.DeviceColors.isFlagged(it) }
         val text = "${hit.category.title} · ${hit.tier.label} (${hit.confidence}%) · $rssi dBm" +
-            (snap?.let { " · " + com.rfsentinel.app.detect.DeviceIntel.formatDistance(it.distanceM) } ?: "")
+            (snap?.let { " · " + com.rfsentinel.app.detect.DeviceIntel.formatDistance(it.distanceM) } ?: "") +
+            (via?.let { " · via $it" } ?: "")
 
         val publicVersion = NotificationCompat.Builder(context, CHANNEL_ALERTS)
             .setContentTitle("RF Sentinel")

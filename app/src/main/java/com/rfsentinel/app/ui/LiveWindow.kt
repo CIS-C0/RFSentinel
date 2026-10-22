@@ -37,8 +37,9 @@ object LiveWindow {
         // A flagged device never leaves the list while it still alerts (bubble, banner, beeps).
         if (s.best != null && inRange(s, now)) return true
         val phoneMs = if (wifi) wifiMs else bleMs
-        // Heard by an ESP32 board or a USB adapter: its own time, or the longer one when the phone hears it too.
-        val external = HeardBy.esp.recent(s.mac, now) || HeardBy.usb.recent(s.mac, now)
+        // Heard by an ESP32 board, a USB adapter or a linked Sentinel: its own time, or the longer one when the
+        // phone hears it too.
+        val external = HeardBy.esp.recent(s.mac, now) || HeardBy.usb.recent(s.mac, now) || HeardBy.peer.recent(s.mac, now)
         val ms = when {
             !external -> phoneMs
             HeardBy.phone.recent(s.mac, now) -> maxOf(phoneMs, externalMs)

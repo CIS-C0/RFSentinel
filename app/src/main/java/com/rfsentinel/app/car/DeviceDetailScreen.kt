@@ -201,10 +201,11 @@ class DeviceDetailScreen(carContext: CarContext, private val mac: String) : Live
 
     private fun heardBy(s: DeviceRegistry.Snapshot): String = listOfNotNull(
         if (com.rfsentinel.app.esp.HeardBy.phone.recent(mac) || (!com.rfsentinel.app.esp.HeardBy.esp.recent(mac) &&
-                !com.rfsentinel.app.esp.HeardBy.usb.recent(mac)))
+                !com.rfsentinel.app.esp.HeardBy.usb.recent(mac) && !com.rfsentinel.app.esp.HeardBy.peer.recent(mac)))
             "phone " + if (s.source == com.rfsentinel.app.detect.Advert.Source.WIFI) "WiFi" else "Bluetooth" else null,
         if (com.rfsentinel.app.esp.HeardBy.esp.recent(mac)) "ESP32" else null,
-        if (com.rfsentinel.app.esp.HeardBy.usb.recent(mac)) "USB WiFi" else null
+        if (com.rfsentinel.app.esp.HeardBy.usb.recent(mac)) "USB WiFi" else null,
+        com.rfsentinel.app.esp.HeardBy.peer.via(mac)?.let { "Sentinel $it" }
     ).joinToString(" + ")
 
     private fun toggleWhitelist(whitelisted: Boolean, label: String) {

@@ -311,6 +311,18 @@ class SettingsActivity : AppCompatActivity() {
     }
     private val pcapTicker = Runnable { updatePcap() }
 
+    private fun updateLinkStatus() {
+        val link = com.rfsentinel.app.link.LinkStore
+        val n = link.members(this).size
+        binding.linkStatusText.text = when {
+            !link.hasGroup(this) -> "Not linked to other phones"
+            !link.enabled(this) -> "Sharing off"
+            else -> com.rfsentinel.app.link.PhoneLink.status.ifBlank {
+                "$n Sentinel${if (n == 1) "" else "s"} in the group · links while scanning"
+            }
+        }
+    }
+
     private fun updateEspStatus() {
         val s = com.rfsentinel.app.esp.EspBoards.status
         binding.espStatusText.text = s.ifBlank { "ESP32 board on USB: not connected" }
@@ -580,6 +592,15 @@ class SettingsActivity : AppCompatActivity() {
                 "position, with an alert when their light bar or siren is on, or when they warn that they're approaching. " +
                 "Ordinary cars are counted, not listed. North America uses a different V2X radio (C-V2X) that this board can't hear. " +
                 "Receiving V2X may fall under telecom or privacy law where you are."),
+        Section("link", binding.headerLink, binding.sectionLink,
+            "Link RF Sentinel phones near each other over Bluetooth: every linked phone shows the same devices on its list, " +
+                "radar and map, whichever phone heard them first - including what each phone's ESP32 board, USB WiFi adapter " +
+                "or RTL-SDR hears. Alerts sound on every phone and say which Sentinel heard the device.\n\n" +
+                "Linking: tap \"Link up a Sentinel\" on one phone and \"Join a Sentinel\" on the other, then check that both " +
+                "screens show the same 6 digits. Three or more phones: link each new one to any phone of the group.\n\n" +
+                "Works while scanning, up to about 50-100 m between phones (Bluetooth range); a phone in reach of two others " +
+                "passes on what it hears. Everything sent is encrypted for the phones of the group only. No internet, no account, " +
+                "and no Android Bluetooth pairing."),
         Section("radio", binding.headerRadio, binding.sectionRadio,
             "An RTL-SDR dongle or a HackRF on USB notices two-way radios transmitting nearby, from signal strength only - nothing is " +
                 "decoded or recorded. Needs the Police radio category on (What to detect).\n\n" +
@@ -2187,6 +2208,7 @@ class SettingsActivity : AppCompatActivity() {
         com.rfsentinel.app.esp.EspBoards.onStatusChanged = { runOnUiThread { updateEspStatus() } }
         com.rfsentinel.app.esp.OuiSpyBle.onStatusChanged = { runOnUiThread { updateEspStatus() } }
         binding.ouiSpyButton.setOnClickListener { pairOuiSpy() }
+        binding.linkButton.setOnClickListener { startActivity(Intent(this, com.rfsentinel.app.ui.SentinelLinkActivity::class.java)) }
         binding.usbWifiLogButton.setOnClickListener { exportUsbWifiLog() }
         // FOSS build: an adapter waiting for its chip firmware asks to download it.
         binding.usbWifiText.setOnClickListener { com.rfsentinel.app.usb.FirmwarePrompt.show(this) { updateEspStatus() } }
@@ -2326,6 +2348,7 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        updateLinkStatus()
         // Back from the theme maker: its themes may have changed.
         if (loaded) buildThemeList()
         updatePcap()

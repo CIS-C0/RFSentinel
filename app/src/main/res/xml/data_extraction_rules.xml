@@ -8,10 +8,13 @@
         <exclude domain="sharedpref" path="secure_store.xml" />
         <!-- Home, Work, starred and recent destinations: addresses stay on this phone. -->
         <exclude domain="sharedpref" path="nav_places.xml" />
+        <!-- Sentinel Link: this phone's own id and its group; a copy would make two phones the same Sentinel. -->
+        <exclude domain="sharedpref" path="sentinel_link.xml" />
     </cloud-backup>
     <device-transfer>
         <include domain="database" path="." />
         <include domain="sharedpref" path="." />
         <exclude domain="sharedpref" path="secure_store.xml" />
+        <exclude domain="sharedpref" path="sentinel_link.xml" />
     </device-transfer>
 </data-extraction-rules>

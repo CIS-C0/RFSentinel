@@ -153,6 +153,9 @@ class BleScanEngine(
         val heyCyan = ParcelUuid.fromString("7905fff0-b5ce-4e99-a40f-4b1e122d00d0")
         out += ScanFilter.Builder().setServiceUuid(heyCyan).build()
         out += ScanFilter.Builder().setServiceData(heyCyan, ByteArray(0)).build()
+        // Linked Sentinels (Sentinel Link), so phones keep finding each other with the screen off.
+        out += ScanFilter.Builder().setManufacturerData(com.rfsentinel.app.link.PhoneLink.COMPANY,
+            byteArrayOf(0xA1.toByte()), byteArrayOf(0xFF.toByte())).build()
         // Controllers offload a limited number of filters; keep the total around 40.
         watchedMacs.take(8).forEach { mac ->
             runCatching { out += ScanFilter.Builder().setDeviceAddress(mac).build() }

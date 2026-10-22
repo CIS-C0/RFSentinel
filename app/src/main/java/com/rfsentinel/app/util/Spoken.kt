@@ -15,10 +15,12 @@ object Spoken {
     /** Short phrases; always in the radar-detector sound style, which speaks like a detector. */
     fun short(context: Context) = Prefs.shortVoice(context) || Prefs.detectorSound(context) || Prefs.detectorSound(context)
 
-    fun device(context: Context, hit: Hit, following: Boolean = false): String {
-        if (!short(context)) return if (following) "Warning. ${hit.label} may be following you." else "${hit.label} nearby"
+    /** [via]: the linked Sentinel that heard it (Sentinel Link). */
+    fun device(context: Context, hit: Hit, following: Boolean = false, via: String? = null): String {
+        val v = via?.let { ", via $it" } ?: ""
+        if (!short(context)) return if (following) "Warning. ${hit.label} may be following you." else "${hit.label} nearby$v"
         val word = shortWord(hit)
-        return if (following) "$word following" else word
+        return if (following) "$word following" else word + v
     }
 
     fun camera(context: Context, cam: KnownCamera): String {

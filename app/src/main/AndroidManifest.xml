@@ -12,8 +12,10 @@
          makes Android strip some beacon-style advertisements from results, and we
          hold location permission anyway (WiFi scan results require it). -->
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
-    <!-- Only to recognise your car's Bluetooth connection for auto-start (asked when you turn it on). -->
+    <!-- Your car's Bluetooth connection for auto-start, OUI-SPY boards and Sentinel Link (asked when you turn them on). -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- Sentinel Link: other RF Sentinel phones find this one by a Bluetooth advert (API 31+). -->
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
     <!-- Android Auto: the plate camera & drone map screen (PlaceListMapTemplate). -->
     <uses-permission android:name="androidx.car.app.MAP_TEMPLATES" />
     <!-- Android Auto: draw RF Sentinel's own pannable map (devices, cameras, route). -->
@@ -84,6 +86,7 @@
         <activity android:name=".ui.CellTowersActivity" android:exported="false" />
         <activity android:name=".ui.GnssActivity" android:exported="false" />
         <activity android:name=".ui.WazeStatusActivity" android:exported="false" />
+        <activity android:name=".ui.SentinelLinkActivity" android:exported="false" />
         <activity android:name=".ui.WifiAnalyzerActivity" android:exported="false" />
         <activity android:name=".ui.AntennaCheckActivity" android:exported="false" />
         <activity android:name=".ui.AircraftActivity" android:exported="false" />

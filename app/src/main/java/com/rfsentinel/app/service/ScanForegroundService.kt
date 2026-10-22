@@ -41,6 +41,8 @@ import com.rfsentinel.app.detect.Hit
 import com.rfsentinel.app.detect.RemoteId
 import com.rfsentinel.app.detect.SignatureEngine
 import com.rfsentinel.app.detect.VendorDb
+import com.rfsentinel.app.link.LinkCodec
+import com.rfsentinel.app.link.LinkOutbox
 import com.rfsentinel.app.oui.OuiWatchlist
 import com.rfsentinel.app.ui.StatusWidget
 import com.rfsentinel.app.util.AlertPlayer
@@ -77,6 +79,8 @@ class ScanForegroundService : Service() {
         const val ACTION_STOP = "com.rfsentinel.app.action.STOP"
         /** Re-evaluates location updates, e.g. after trace recording starts or stops. */
         const val ACTION_REFRESH_LOCATION = "com.rfsentinel.app.action.REFRESH_LOCATION"
+        /** Re-applies Sentinel Link (joined, left, sharing switched) to a running scan. */
+        const val ACTION_REFRESH_LINK = "com.rfsentinel.app.action.REFRESH_LINK"
 
         /** Android downgrades an unfiltered BLE scan to opportunistic after ~30 min; restart before. */
         private const val BLE_RESTART_INTERVAL_MS = 25 * 60 * 1000L
@@ -103,6 +107,10 @@ class ScanForegroundService : Service() {
         private const val CELL_REPEAT_MS = 30 * 60_000L
         private const val PLACING_MAX_AGE_MS = 30_000L
         private const val ESP_HIT_TTL_MS = 5 * 60_000L
+        /** Sentinel Link: what this phone gathers goes out about this often. */
+        private const val LINK_FLUSH_MS = 1_000L
+        /** A device this phone (or its hardware) heard this recently isn't taken from another Sentinel. */
+        private const val HEARD_HERE_MS = 10_000L
         /** A network fix this soon after a raw GPS fix is ignored. */
         private const val RAW_GPS_PREFERRED_MS = 10_000L
         private const val PLACING_MAX_ACCURACY_M = 50f
@@ -156,6 +164,12 @@ class ScanForegroundService : Service() {
 
         fun stop(context: Context) {
             context.stopService(Intent(context, ScanForegroundService::class.java))
+        }
+
+        /** Sentinel Link changed: a running scan starts or stops linking (never starts a scan). */
+        fun refreshLink(context: Context) {
+            if (!isRunning) return
+            runCatching { context.startService(Intent(context, ScanForegroundService::class.java).setAction(ACTION_REFRESH_LINK)) }
         }
     }
 
@@ -279,6 +293,8 @@ class ScanForegroundService : Service() {
             lastBleResultAt = t
             bleResults.incrementAndGet()
             bleWatchdogRestartAt?.let { onRecovered("Bluetooth", it, t); bleWatchdogRestartAt = null; bleSilenceMs = BLE_SILENCE_MS }
+            // Another Sentinel's link advert: handled by Sentinel Link, not a device to list.
+            if (com.rfsentinel.app.link.PhoneLink.onScanResult(r)) return@BleScanEngine
             pipeline.post { AdvertFactory.fromBle(r)?.let(::processPhone) }
         }
         wifiEngine = WifiScanEngine(this) { results ->
@@ -302,6 +318,11 @@ class ScanForegroundService : Service() {
             // A settings refresh must never start a scan by itself.
             if (!isRunning) { stopSelf(); return START_NOT_STICKY }
             updateLocationUpdates()
+            return START_STICKY
+        }
+        if (intent?.action == ACTION_REFRESH_LINK) {
+            if (!isRunning) { stopSelf(); return START_NOT_STICKY }
+            updateLink()
             return START_STICKY
         }
         if (!enterForeground()) {
@@ -362,6 +383,7 @@ class ScanForegroundService : Service() {
         Prefs.ouiSpyBoard(this)?.let { addr ->
             com.rfsentinel.app.esp.OuiSpyBle.start(this, addr, Prefs.ouiSpyRelayAll(this)) { list -> pipeline.post { list.forEach(::processEsp) } }
         } ?: com.rfsentinel.app.esp.OuiSpyBle.stop()
+        updateLink()
         updateLocationUpdates()
         startHousekeeping()
         startCellChecks()
@@ -583,10 +605,16 @@ class ScanForegroundService : Service() {
     /** Something the phone's own Bluetooth or Wi-Fi chip heard. */
     private fun processPhone(a: Advert) {
         com.rfsentinel.app.esp.HeardBy.phone.mark(a.mac)
+        linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_PHONE, a))
         process(a)
     }
 
-    private fun process(a: Advert, reportedRemoteId: RemoteId.Info? = null, broadcast: DeviceRegistry.GeoSample? = null) {
+    /**
+     * @param via the linked Sentinel that heard it (Sentinel Link), with [peerAt] where that Sentinel was;
+     * null for what this phone and its hardware heard.
+     */
+    private fun process(a: Advert, reportedRemoteId: RemoteId.Info? = null, broadcast: DeviceRegistry.GeoSample? = null,
+                        via: String? = null, peerAt: Location? = null) {
         val now = a.timestamp
         val mac = a.mac
         if (OuiWatchlist.version != watchlistVersion) recheckWatchlist(now)
@@ -615,8 +643,9 @@ class ScanForegroundService : Service() {
 
         // Place devices only with a fresh, precise fix: a stale or WiFi/cell-based one
         // (often 100 m+ off) would put the dot far from where the device really was.
-        val loc = lastLocation?.takeIf { usableForPlacing(it) }
-        val geo = loc?.let { placeNow(it, now) }
+        val loc = if (via != null) peerAt else lastLocation?.takeIf { usableForPlacing(it) }
+        // Heard by another Sentinel: placed where that Sentinel was.
+        val geo = if (via != null) loc?.let { DeviceRegistry.GeoSample(now, it.latitude, it.longitude) } else loc?.let { placeNow(it, now) }
         val isFirst = DeviceRegistry.report(a, c.hits, c.identity, c.vendor, remoteId, geo, now, broadcast)
         if (isFirst) serviceScope.launch { loadHistory(mac) }
         if (TripRecorder.isRecording) {
@@ -628,7 +657,7 @@ class ScanForegroundService : Service() {
             )
         }
 
-        remoteId?.let { info -> if (loc != null) maybeAlertDroneOverhead(a, info, loc, now) }
+        if (via == null) remoteId?.let { info -> if (loc != null) maybeAlertDroneOverhead(a, info, loc, now) }
 
         val best = c.hits.firstOrNull() ?: return
         // Ignored trackers (their address changes, so they can't be whitelisted); this is
@@ -642,7 +671,9 @@ class ScanForegroundService : Service() {
         noteLocating()
 
         maybeLog(a, best, c.vendor, loc, now)
-        maybeAlert(a, best, now)
+        maybeAlert(a, best, now, via)
+        // Following is about this phone: a device near another Sentinel isn't following it.
+        if (via != null) return
 
         val trackerPaused = best.category == Category.TRACKER && now < Prefs.trackerFollowPausedUntil(this)
         val followMs = Prefs.followMinMinutes(this) * 60_000L
@@ -689,7 +720,7 @@ class ScanForegroundService : Service() {
         val mac = com.rfsentinel.app.util.MacUtil.normalize(m.mac)
         com.rfsentinel.app.esp.HeardBy.usb.mark(mac, now)
         noteProbes(mac, m.probedSsids, m.rssi, now, m.wps, m.fingerprint, m.hiddenNetwork, m.probeSkeleton)
-        process(Advert(
+        val a = Advert(
             // A client has no network name; its WPS device name or model says what it is.
             mac = mac, source = Advert.Source.WIFI, rssi = m.rssi, name = m.ssid ?: m.wps?.label,
             addressType = com.rfsentinel.app.detect.AddressType.ofWifi(mac),
@@ -697,7 +728,9 @@ class ScanForegroundService : Service() {
                 wildcardProbe = m.wildcardProbe, flockProbeIe = m.flockProbeIe, probeSkeleton = m.probeSkeleton,
                 probeRun = m.probeRun),
             timestamp = now
-        ), null)
+        )
+        linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_USB, a, probed = m.probedSsids, fingerprint = m.fingerprint, hidden = m.hiddenNetwork))
+        process(a, null)
     }
 
     private fun processEsp(e: com.rfsentinel.app.esp.EspSighting) {
@@ -717,7 +750,81 @@ class ScanForegroundService : Service() {
             mac = e.mac, source = Advert.Source.WIFI, rssi = e.rssi, name = e.name,
             wifi = Advert.WifiInfo(e.frequencyMhz, e.capabilities, null, emptyList(), client = e.client), timestamp = now
         )
+        linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_ESP, advert, hits = e.hits, probed = e.probedSsids))
         process(advert, e.remoteId, e.position?.let { DeviceRegistry.GeoSample(now, it.first, it.second) })
+    }
+
+    // ---- Sentinel Link -------------------------------------------------------------
+
+    /** What this phone heard, waiting to go to the linked Sentinels (null while Sentinel Link is off). */
+    @Volatile private var linkOutbox: LinkOutbox? = null
+
+    private val linkFlush = object : Runnable {
+        override fun run() {
+            val box = linkOutbox ?: return
+            val loc = lastLocation?.takeIf { usableForPlacing(it) }
+            box.drain(System.currentTimeMillis(), loc?.latitude ?: Double.NaN, loc?.longitude ?: Double.NaN)
+                ?.let { com.rfsentinel.app.link.PhoneLink.send(it) }
+            pipeline.postDelayed(this, LINK_FLUSH_MS)
+        }
+    }
+
+    /** Sentinel Link runs with the scan when this phone is in a group and sharing is on. */
+    private fun updateLink() {
+        val link = com.rfsentinel.app.link.LinkStore
+        if (!link.hasGroup(this) || !link.enabled(this)) { stopLink(); return }
+        if (linkOutbox == null) {
+            linkOutbox = LinkOutbox(link.myId(this))
+            pipeline.postDelayed(linkFlush, LINK_FLUSH_MS)
+        }
+        com.rfsentinel.app.link.PhoneLink.start(this) { b, name -> pipeline.post { onPeerBatch(b, name) } }
+    }
+
+    private fun stopLink() {
+        if (linkOutbox == null) return
+        linkOutbox = null
+        pipeline.removeCallbacks(linkFlush)
+        com.rfsentinel.app.link.PhoneLink.stop()
+        com.rfsentinel.app.esp.HeardBy.peer.clear()
+    }
+
+    /**
+     * What a linked Sentinel heard: its hardware's evidence is kept like this phone's own, and a device this
+     * phone isn't hearing itself goes through the same pipeline (list, radar, map, alerts) placed where that
+     * Sentinel was.
+     */
+    private fun onPeerBatch(b: LinkCodec.Batch, via: String) {
+        if (linkOutbox == null) return
+        val now = System.currentTimeMillis()
+        // Phones' clocks differ: ages are kept, times are this phone's.
+        val shift = now - b.time
+        val at = if (b.lat.isNaN() || b.lon.isNaN()) null else Location("sentinel-link").apply {
+            latitude = b.lat; longitude = b.lon; time = now
+        }
+        val heardBy = com.rfsentinel.app.esp.HeardBy
+        for (s in b.sightings) {
+            val mac = s.advert.mac
+            val a = LinkCodec.rebased(s.advert, (s.advert.timestamp + shift).coerceAtMost(now))
+            heardBy.peer.mark(mac, via, now)
+            if (s.hits.isNotEmpty()) {
+                espHits[mac] = now to s.hits
+                classified.remove(mac)
+            }
+            if (s.probed.isNotEmpty() || s.fingerprint != null) {
+                noteProbes(mac, s.probed, a.rssi, now, fingerprint = s.fingerprint, hidden = s.hidden, skeleton = a.wifi?.probeSkeleton)
+            }
+            // Heard here too: this phone's own reading (signal, place) is the one shown.
+            if (heardBy.phone.within(mac, HEARD_HERE_MS, now) || heardBy.esp.within(mac, HEARD_HERE_MS, now) ||
+                heardBy.usb.within(mac, HEARD_HERE_MS, now)) continue
+            process(a, via = via, peerAt = at)
+        }
+        for (r in b.radios) {
+            val kind = runCatching { com.rfsentinel.app.sdr.RadioWatch.Kind.valueOf(r.kind) }
+                .getOrDefault(com.rfsentinel.app.sdr.RadioWatch.Kind.SHARED)
+            onRadio(com.rfsentinel.app.sdr.RadioWatch.Event(r.freqHz, r.snrDb,
+                com.rfsentinel.app.sdr.RadioWatch.Band(r.bandLabel, r.bandStartHz, r.bandEndHz, kind), r.confidence,
+                r.targetLabel?.let { com.rfsentinel.app.sdr.RadioWatch.Target(r.freqHz, it) }, r.repeat, r.tdma), via)
+        }
     }
 
     /** The watchlist version the cached classifications were made with. */
@@ -788,7 +895,7 @@ class ScanForegroundService : Service() {
         }
     }
 
-    private fun maybeAlert(a: Advert, best: Hit, now: Long) {
+    private fun maybeAlert(a: Advert, best: Hit, now: Long, via: String? = null) {
         // Someone else's tracker nearby is normal; trackers only alert when they follow you.
         if (best.category == Category.TRACKER) return
         if (best.listOnly || best.confidence < Prefs.alertThreshold(this)) return
@@ -796,8 +903,8 @@ class ScanForegroundService : Service() {
         val last = lastAlerted[a.mac] ?: 0L
         if (now - last <= window) return
         lastAlerted[a.mac] = now
-        NotificationHelper.sendAlert(this, a.mac, best, a.rssi)
-        AlertPlayer.play(this, best.tier, com.rfsentinel.app.util.Spoken.device(this, best))
+        NotificationHelper.sendAlert(this, a.mac, best, a.rssi, via = via)
+        AlertPlayer.play(this, best.tier, com.rfsentinel.app.util.Spoken.device(this, best, via = via))
     }
 
     private fun knownAlprActive() = (Prefs.knownAlprAlerts(this) || Prefs.speedCameraAlerts(this)) &&
@@ -1116,9 +1223,11 @@ class ScanForegroundService : Service() {
      * an RTL-SDR ([com.rfsentinel.app.sdr.RadioWatch]): logged, and an alert when it clears
      * the alert threshold. Only signal strength is known - nothing that was said.
      */
-    private fun onRadio(e: com.rfsentinel.app.sdr.RadioWatch.Event) {
-        if (!Prefs.categoryEnabled(this, Category.RADIO)) return
+    private fun onRadio(e: com.rfsentinel.app.sdr.RadioWatch.Event, via: String? = null) {
         val now = System.currentTimeMillis()
+        if (via == null) linkOutbox?.addRadio(LinkCodec.Radio(e.freqHz, e.snrDb, e.band.label, e.band.startHz, e.band.endHz,
+            e.band.kind.name, e.confidence, e.target?.label, e.repeat, e.tdma, now))
+        if (!Prefs.categoryEnabled(this, Category.RADIO)) return
         // Who uses this frequency: a watched frequency's own label, the imported list, or RadioReference.
         val named = com.rfsentinel.app.sdr.FreqNames.lookup(e.freqHz, Prefs.radioMatchKhz(this) * 1000L)
         val name = e.target?.label ?: named?.name
@@ -1128,13 +1237,14 @@ class ScanForegroundService : Service() {
         val threshold = Prefs.alertThreshold(this)
         val trend = com.rfsentinel.app.sdr.RadioLog.observe(e, name, Prefs.radioTrendDb(this), now)
         val cell = e.band.kind == com.rfsentinel.app.sdr.RadioWatch.Kind.CELLULAR_UPLINK
-        if (trend != null && e.confidence >= threshold) {
+        if (trend != null && e.confidence >= threshold && via == null) {
             AlertPlayer.callout(this, (if (cell) "Cellular signal " else "Radio ${spokenMhz(e.freqHz)} ") +
                 if (trend == com.rfsentinel.app.sdr.RadioLog.Trend.CLOSER) "getting closer" else "moving away")
         }
         if (e.repeat) return // same channel within 2 minutes: list and trend only, no new log entry or alert
         val near = when { e.snrDb >= 40 -> "very close"; e.snrDb >= 30 -> "close" else -> "nearby" }
-        val detail = "A radio transmitted on ${e.mhz} MHz (${e.band.label}), ${e.snrDb} dB above the noise - $near. " +
+        val heardBy = via?.let { "Heard by $it (Sentinel Link): \"$near\" is from that phone. " } ?: ""
+        val detail = heardBy + "A radio transmitted on ${e.mhz} MHz (${e.band.label}), ${e.snrDb} dB above the noise - $near. " +
             (named?.let { "Matches ${"%.4f".format(java.util.Locale.US, it.hz / 1e6)} MHz: ${it.name} (${it.source}). " } ?: "") +
             when (e.band.kind) {
                 com.rfsentinel.app.sdr.RadioWatch.Kind.PUBLIC_SAFETY_MOBILE ->
@@ -1147,7 +1257,7 @@ class ScanForegroundService : Service() {
                 com.rfsentinel.app.sdr.RadioWatch.Kind.CUSTOM -> "A band you added in Settings > RTL-SDR radio."
                 else -> "Police use this band, but so do businesses, schools and transit; a weak sign on its own."
             }
-        val cellDetail = "A cellular transmitter is on the air nearby on ${e.mhz} MHz (${e.band.label}), " +
+        val cellDetail = heardBy + "A cellular transmitter is on the air nearby on ${e.mhz} MHz (${e.band.label}), " +
             "${e.snrDb} dB above the quiet level - $near. Something is transmitting on the phone / modem side of an " +
             "LTE band: a phone, but also a vehicle modem, a Cradlepoint-style router or a camera with a SIM. Signal " +
             "strength only, nothing decoded - it can't tell devices or carriers apart. On its own it means little " +
@@ -1157,7 +1267,7 @@ class ScanForegroundService : Service() {
             name != null -> "Radio transmitting: $name"
             e.tdma -> "TETRA radio transmitting nearby"
             else -> "Two-way radio transmitting nearby"
-        }
+        } + (via?.let { " · via $it" } ?: "")
         val hit = Hit(Category.RADIO, label, e.confidence, if (cell) cellDetail else detail,
             if (e.tdma) "SDR signal strength and TETRA burst timing (no decoding)" else "SDR signal strength (no decoding)")
         val loc = lastLocation
@@ -1180,7 +1290,7 @@ class ScanForegroundService : Service() {
                 Prefs.radioSpeakFreq(this) -> (if (e.tdma) "TETRA radio " else "Radio ") + spokenMhz(e.freqHz) + (name?.let { ", $it" } ?: "")
                 e.tdma -> "TETRA radio nearby"
                 else -> "Radio transmitting nearby"
-            }
+            } + (via?.let { ", via $it" } ?: "")
             AlertPlayer.play(this, hit.tier, spoken)
         }
     }
@@ -1456,6 +1566,7 @@ class ScanForegroundService : Service() {
         if (gnssWatching) { GnssWatch.stop(this, gnssListener); gnssWatching = false }
         if (onlineWatchLazy.isInitialized()) onlineWatch.stop() // not built just to be stopped
         com.rfsentinel.app.esp.OuiSpyBle.stop()
+        stopLink()
         // External hardware is gone with the scan: its "heard by" marks (External filter, badges) go too.
         com.rfsentinel.app.esp.HeardBy.esp.clear()
         com.rfsentinel.app.esp.HeardBy.usb.clear()

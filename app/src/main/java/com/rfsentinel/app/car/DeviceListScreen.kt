@@ -70,6 +70,7 @@ class DeviceListScreen(carContext: CarContext, private val filter: DeviceFilter)
             DeviceFilter.FLAGGED -> "Flagged nearby"
             DeviceFilter.NEW -> "New devices"
             DeviceFilter.EXTERNAL -> "Heard by external hardware"
+            DeviceFilter.SENTINELS -> "Heard by linked Sentinels"
             else -> f.label
         }
 
@@ -80,6 +81,7 @@ class DeviceListScreen(carContext: CarContext, private val filter: DeviceFilter)
             f == DeviceFilter.DRONES -> "No drones nearby"
             f == DeviceFilter.FAVORITES -> "No favorites nearby"
             f == DeviceFilter.EXTERNAL -> "Nothing from an ESP32 board or USB WiFi adapter - see More > Hardware"
+            f == DeviceFilter.SENTINELS -> "Nothing from linked Sentinels - link phones in Settings > Sentinel Link"
             f == DeviceFilter.ALL -> "Listening... no devices heard yet"
             else -> "Nothing here right now"
         }

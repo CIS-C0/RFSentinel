@@ -29,6 +29,8 @@ data class DeviceRow(
     val heardByEsp: Boolean = false,
     val heardByUsb: Boolean = false,
     val heardByPhone: Boolean = false,
+    /** The linked Sentinel that heard it (Sentinel Link), or null. */
+    val heardByPeer: String? = null,
     /** For the visual style: the signal for the bars (null = none), and the match's confidence (null = not a match). */
     val rssi: Int? = null,
     val confidence: Int? = null,
@@ -39,10 +41,11 @@ data class DeviceRow(
 private const val ESP_BADGE = 0xFF1E88E5.toInt()
 private const val PHONE_BADGE = 0xFF2E7D32.toInt()
 private const val USB_BADGE = 0xFF6A1B9A.toInt()
+private const val PEER_BADGE = 0xFF00838F.toInt()
 
-/** The meta line, followed by small coloured "ESP32" / "INTERNAL" badges. */
+/** The meta line, followed by small coloured "ESP32" / "INTERNAL" / "VIA <Sentinel>" badges. */
 private fun metaWithBadges(row: DeviceRow): CharSequence {
-    if (!row.heardByEsp && !row.heardByUsb && !row.heardByPhone) return row.meta
+    if (!row.heardByEsp && !row.heardByUsb && !row.heardByPhone && row.heardByPeer == null) return row.meta
     val sb = android.text.SpannableStringBuilder(row.meta)
     fun badge(label: String, color: Int) {
         sb.append("  ")
@@ -56,6 +59,7 @@ private fun metaWithBadges(row: DeviceRow): CharSequence {
     if (row.heardByEsp) badge("ESP32", ESP_BADGE)
     if (row.heardByUsb) badge("USB WIFI", USB_BADGE)
     if (row.heardByPhone) badge("INTERNAL", PHONE_BADGE)
+    row.heardByPeer?.let { badge("VIA " + it.uppercase(), PEER_BADGE) }
     return sb
 }
 
