@@ -62,6 +62,8 @@ object PhoneLink {
     private const val AD_PAIR = 0xA2
 
     private const val MTU = 517
+    /** Longest value one write or notification can carry, whatever the MTU (Android refuses longer ones). */
+    private const val MAX_PIECE = 512
     private const val MTU_FALLBACK_MS = 2_500L
     private const val SETUP_TIMEOUT_MS = 25_000L
     private const val IDLE_TIMEOUT_MS = 60_000L
@@ -292,7 +294,7 @@ object PhoneLink {
         if (!create || server == null) return null
         if (links.size >= MAX_LINKS + 2) return null
         return ServerLink(device).also { l ->
-            serverMtu[device.address]?.let { l.payload = it - 3 }
+            serverMtu[device.address]?.let { l.payload = piece(it) }
             links += l
         }
     }
@@ -316,7 +318,7 @@ object PhoneLink {
         override fun onMtuChanged(device: BluetoothDevice, mtu: Int) {
             h.post {
                 serverMtu[device.address] = mtu
-                serverLink(device, false)?.payload = mtu - 3
+                serverLink(device, false)?.payload = piece(mtu)
             }
         }
 
@@ -352,7 +354,8 @@ object PhoneLink {
         }
 
         override fun onNotificationSent(device: BluetoothDevice, status: Int) {
-            h.post { serverLink(device, false)?.let { onSent(it) } }
+            // A piece that didn't go out breaks the message it belongs to: start the link over.
+            h.post { serverLink(device, false)?.let { if (status == BluetoothGatt.GATT_SUCCESS) onSent(it) else close(it) } }
         }
     }
 
@@ -537,7 +540,7 @@ object PhoneLink {
                 }
             }
             override fun onMtuChanged(g: BluetoothGatt, mtu: Int, status: Int) {
-                h.post { if (l.gatt === g) { if (status == BluetoothGatt.GATT_SUCCESS) l.payload = mtu - 3; discover(l, g) } }
+                h.post { if (l.gatt === g) { if (status == BluetoothGatt.GATT_SUCCESS) l.payload = piece(mtu); discover(l, g) } }
             }
             override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
                 h.post {
@@ -590,6 +593,9 @@ object PhoneLink {
         startTicking()
         return l
     }
+
+    /** How much of a message fits in one piece at this MTU: 3 bytes go to the header, and never more than 512. */
+    private fun piece(mtu: Int) = (mtu - 3).coerceIn(20, MAX_PIECE)
 
     private fun discover(l: ClientLink, g: BluetoothGatt) {
         if (l.discovering) return
