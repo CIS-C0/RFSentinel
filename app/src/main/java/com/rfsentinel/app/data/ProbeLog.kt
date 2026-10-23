@@ -49,6 +49,10 @@ object ProbeLog {
     @Synchronized
     fun network(context: Context, ssid: String): ProbeBook.Network? { ensureLoaded(context); return book.network(ssid) }
 
+    /** Every device that asked, newest first (not grouped). */
+    @Synchronized
+    fun devices(context: Context): List<ProbeBook.Device> { ensureLoaded(context); return book.devices() }
+
     /** The network whose request spots the map shows ("Show on map"), or null. */
     @Volatile var onMap: String? = null
         private set

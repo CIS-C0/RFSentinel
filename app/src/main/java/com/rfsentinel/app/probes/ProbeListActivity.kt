@@ -24,6 +24,7 @@ import com.rfsentinel.app.data.ProbeBook
 import com.rfsentinel.app.data.ProbeLog
 import com.rfsentinel.app.databinding.ActivityProbeListBinding
 import com.rfsentinel.app.databinding.ItemProbeBinding
+import com.rfsentinel.app.detect.Hit
 import com.rfsentinel.app.detect.VendorDb
 import com.rfsentinel.app.oui.OuiEntry
 import com.rfsentinel.app.oui.OuiWatchlist
@@ -44,6 +45,9 @@ class ProbeListActivity : AppCompatActivity() {
     private val adapter = Adapter()
     private val deviceAdapter = DeviceAdapter()
     private var byDevice = false
+    /** Watchlist matches from the last refresh: by network name (lowercase), and by a group's first address. */
+    private var networkHits: Map<String, List<Hit>> = emptyMap()
+    private var groupHits: Map<String, List<Hit>> = emptyMap()
     private val main = Handler(Looper.getMainLooper())
     private val tick = object : Runnable {
         override fun run() { refresh(); main.postDelayed(this, 3000) }
@@ -70,9 +74,11 @@ class ProbeListActivity : AppCompatActivity() {
             byDevice = id == binding.byDeviceButton.id
             binding.recyclerView.adapter = if (byDevice) deviceAdapter else adapter
             binding.filterInput.hint = if (byDevice) "Filter by name, address or model" else "Filter by name"
+            binding.hideRandomChip.visibility = if (byDevice) View.VISIBLE else View.GONE
             refresh()
         }
         binding.filterInput.doAfterTextChanged { refresh() }
+        binding.hideRandomChip.setOnCheckedChangeListener { _, _ -> refresh() }
         binding.clearButton.setOnClickListener {
             MaterialAlertDialogBuilder(this)
                 .setTitle("Clear the list?")
@@ -109,19 +115,34 @@ class ProbeListActivity : AppCompatActivity() {
         val filter = binding.filterInput.text.toString().trim()
         val count: Int
         val any: Boolean
+        var allRandom = false
+        // Watchlist matches, by the devices that asked and by the names asked for; matches come first.
+        val known = ProbeLog.devices(this).associateBy { it.mac }
+        val byMac = HashMap<String, List<Hit>>()
+        fun macHits(mac: String) = byMac.getOrPut(mac) { deviceHits(mac, known[mac]) }
         if (byDevice) {
             val all = ProbeLog.groups(this)
-            val shown = if (filter.isEmpty()) all else all.filter { g -> matches(g, filter) }
+            groupHits = all.associate { g ->
+                g.devices.first().mac to (g.devices.flatMap { macHits(it.mac) } + g.ssids.flatMap { nameHits(it) }).distinct()
+            }
+            // Hide random addresses: keeps only devices with a fixed (maker) address.
+            val fixed = if (binding.hideRandomChip.isChecked) all.filter { g -> g.devices.any { !MacUtil.isRandomized(it.mac) } } else all
+            val shown = (if (filter.isEmpty()) fixed else fixed.filter { g -> matches(g, filter) })
+                .sortedByDescending { g -> alerting(groupHits[g.devices.first().mac]).isNotEmpty() }
             deviceAdapter.submit(shown)
             count = shown.size; any = all.isNotEmpty()
+            allRandom = any && fixed.isEmpty()
         } else {
             val all = ProbeLog.all(this)
-            val shown = if (filter.isEmpty()) all else all.filter { it.ssid.contains(filter, ignoreCase = true) }
+            networkHits = all.associate { n -> n.ssid.lowercase() to (nameHits(n.ssid) + n.devices.flatMap { macHits(it) }).distinct() }
+            val shown = (if (filter.isEmpty()) all else all.filter { it.ssid.contains(filter, ignoreCase = true) })
+                .sortedByDescending { n -> alerting(networkHits[n.ssid.lowercase()]).isNotEmpty() }
             adapter.submit(shown)
             count = shown.size; any = all.isNotEmpty()
         }
         binding.emptyText.visibility = if (count == 0) View.VISIBLE else View.GONE
         binding.emptyText.text = when {
+            allRandom -> "Every device here uses a random address."
             any -> "Nothing matches the filter."
             !Prefs.recordProbes(this) -> "Recording is off. Turn it on above, then scan with a USB WiFi adapter or an ESP32 Marauder board plugged in."
             else -> "Nothing yet. Names appear while scanning with a USB WiFi adapter or an ESP32 Marauder board plugged in."
@@ -133,12 +154,42 @@ class ProbeListActivity : AppCompatActivity() {
             d.wpsProduct?.contains(filter, ignoreCase = true) == true || maker(d.mac).contains(filter, ignoreCase = true)
     } || g.ssids.any { it.contains(filter, ignoreCase = true) }
 
-    private fun meta(n: ProbeBook.Network, now: Long): String = listOf(
-        if (n.devices.size == 1) "1 device" else "${n.devices.size} devices",
-        if (n.encounters == 1) "seen once" else "seen ${n.encounters} times",
-        "last ${ago(now - n.lastSeen)}",
-        "${n.lastRssi} dBm"
-    ).joinToString(" · ") + if (OuiWatchlist.isProbeWatched(n.ssid)) "\nWATCHED - alerts when a device asks for it" else ""
+    /** What on the watchlist a device matches: its address or maker, its WPS name or model, its probe fingerprint. */
+    private fun deviceHits(mac: String, d: ProbeBook.Device?): List<Hit> =
+        OuiWatchlist.hits(mac, d?.wpsName, listOfNotNull(VendorDb.macVendor(mac), d?.wpsProduct)) +
+            OuiWatchlist.fingerprintHits(d?.fingerprint)
+
+    /** What on the watchlist a requested name matches: a watched name, or a name rule. */
+    private fun nameHits(ssid: String): List<Hit> = OuiWatchlist.probeHits(listOf(ssid)) + OuiWatchlist.hits("", ssid, emptyList())
+
+    /** The hits whose kind is turned on: those sort first and are marked; the others only show in the details. */
+    private fun alerting(hits: List<Hit>?): List<Hit> = hits.orEmpty().filter { Prefs.categoryEnabled(this, it.category) }
+
+    /** A row's watchlist line: the first match, and how many more. */
+    private fun watchlistLine(hits: List<Hit>): String? {
+        val first = hits.firstOrNull() ?: return null
+        return "WATCHLIST - ${first.label}" + if (hits.size > 1) " +${hits.size - 1} more" else ""
+    }
+
+    /** The details' watchlist part: every match with why. */
+    private fun watchlistText(hits: List<Hit>?): String = if (hits.isNullOrEmpty()) "" else
+        "\n\nOn the watchlist:\n" + hits.joinToString("\n") { h ->
+            "• ${h.label}: ${h.evidence}" + if (Prefs.categoryEnabled(this, h.category)) "" else " · kind turned off, no alert"
+        }
+
+    private fun meta(n: ProbeBook.Network, now: Long): String {
+        val watched = OuiWatchlist.isProbeWatched(n.ssid)
+        // A watched name already says so; the line is for the other matches.
+        val others = alerting(networkHits[n.ssid.lowercase()]) - OuiWatchlist.probeHits(listOf(n.ssid)).toSet()
+        return listOf(
+            if (n.devices.size == 1) "1 device" else "${n.devices.size} devices",
+            if (n.encounters == 1) "seen once" else "seen ${n.encounters} times",
+            "last ${ago(now - n.lastSeen)}",
+            "${n.lastRssi} dBm"
+        ).joinToString(" · ") +
+            (if (watched) "\nWATCHED - alerts when a device asks for it" else "") +
+            (watchlistLine(others)?.let { "\n$it" } ?: "")
+    }
 
     private fun ago(ms: Long) = when {
         ms < 60_000 -> "now"
@@ -171,6 +222,7 @@ class ProbeListActivity : AppCompatActivity() {
             "${d.lastRssi} dBm"
         ).joinToString(" · ")
         lines += g.ssids.take(4).joinToString(", ") { "\"$it\"" } + if (g.ssids.size > 4) " …" else ""
+        watchlistLine(alerting(groupHits[g.devices.first().mac]))?.let { lines += it }
         return lines.joinToString("\n")
     }
 
@@ -215,7 +267,7 @@ class ProbeListActivity : AppCompatActivity() {
             val pad = (20 * dp).toInt(); setPadding(pad, (8 * dp).toInt(), pad, 0)
             addView(TextView(this@ProbeListActivity).apply {
                 text = "First seen ${df.format(Date(n.firstSeen))}\nLast seen ${df.format(Date(n.lastSeen))}\n$where\n\n" +
-                    "Devices that asked for it:\n$devices"
+                    "Devices that asked for it:\n$devices" + watchlistText(networkHits[n.ssid.lowercase()])
                 setTextIsSelectable(true)
             })
             if (spots.isNotEmpty()) addView(com.google.android.material.button.MaterialButton(this@ProbeListActivity, null,
@@ -261,6 +313,7 @@ class ProbeListActivity : AppCompatActivity() {
                 append("  First seen ${df.format(Date(d.firstSeen))}\n  Last seen ${df.format(Date(d.lastSeen))}\n")
                 append("  " + (if (d.encounters == 1) "Seen once" else "Seen ${d.encounters} times") + " · ${d.lastRssi} dBm\n")
             }
+            watchlistText(groupHits[g.devices.first().mac]).takeIf { it.isNotEmpty() }?.let { append(it.trimStart('\n')).append("\n") }
             append("\nNetworks it asked for (tap one):")
         }
         val chips = ChipGroup(this).apply {
