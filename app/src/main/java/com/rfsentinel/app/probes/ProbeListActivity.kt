@@ -4,14 +4,21 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.chip.Chip
+import com.google.android.material.chip.ChipGroup
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.data.ProbeBook
 import com.rfsentinel.app.data.ProbeLog
@@ -28,13 +35,15 @@ import java.util.Date
 
 /**
  * Requested networks: the WiFi network names devices around you asked for, newest
- * first. Watch one to get an alert whenever a device asks for it (a "probe:" rule in
- * the watchlist).
+ * first, by network or by the device that asked. Watch one to get an alert whenever a
+ * device asks for it (a "probe:" rule in the watchlist); find where a name is on WiGLE.
  */
 class ProbeListActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityProbeListBinding
     private val adapter = Adapter()
+    private val deviceAdapter = DeviceAdapter()
+    private var byDevice = false
     private val main = Handler(Looper.getMainLooper())
     private val tick = object : Runnable {
         override fun run() { refresh(); main.postDelayed(this, 3000) }
@@ -56,15 +65,34 @@ class ProbeListActivity : AppCompatActivity() {
             if (on) Toast.makeText(this, "Recording while scanning with a USB WiFi adapter or an ESP32 Marauder board", Toast.LENGTH_LONG).show()
             refresh()
         }
+        binding.viewToggle.addOnButtonCheckedListener { _, id, checked ->
+            if (!checked) return@addOnButtonCheckedListener
+            byDevice = id == binding.byDeviceButton.id
+            binding.recyclerView.adapter = if (byDevice) deviceAdapter else adapter
+            binding.filterInput.hint = if (byDevice) "Filter by name, address or model" else "Filter by name"
+            refresh()
+        }
         binding.filterInput.doAfterTextChanged { refresh() }
         binding.clearButton.setOnClickListener {
             MaterialAlertDialogBuilder(this)
                 .setTitle("Clear the list?")
-                .setMessage("Removes every recorded network name. Watched names stay on the watchlist.")
+                .setMessage("Removes every recorded network name and device. Watched names stay on the watchlist.")
                 .setPositiveButton("Clear") { _, _ -> ProbeLog.clear(this); refresh() }
                 .setNegativeButton("Cancel", null)
                 .show()
         }
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menu.add(0, MENU_SEARCH, 0, "Search WiGLE")
+        menu.add(0, MENU_ACCOUNT, 1, "WiGLE account")
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
+        MENU_SEARCH -> { WigleUi.ask(this); true }
+        MENU_ACCOUNT -> { WigleUi.account(this); true }
+        else -> super.onOptionsItemSelected(item)
     }
 
     override fun onResume() { super.onResume(); main.post(tick) }
@@ -79,16 +107,31 @@ class ProbeListActivity : AppCompatActivity() {
 
     private fun refresh() {
         val filter = binding.filterInput.text.toString().trim()
-        val all = ProbeLog.all(this)
-        val shown = if (filter.isEmpty()) all else all.filter { it.ssid.contains(filter, ignoreCase = true) }
-        adapter.submit(shown)
-        binding.emptyText.visibility = if (shown.isEmpty()) View.VISIBLE else View.GONE
+        val count: Int
+        val any: Boolean
+        if (byDevice) {
+            val all = ProbeLog.groups(this)
+            val shown = if (filter.isEmpty()) all else all.filter { g -> matches(g, filter) }
+            deviceAdapter.submit(shown)
+            count = shown.size; any = all.isNotEmpty()
+        } else {
+            val all = ProbeLog.all(this)
+            val shown = if (filter.isEmpty()) all else all.filter { it.ssid.contains(filter, ignoreCase = true) }
+            adapter.submit(shown)
+            count = shown.size; any = all.isNotEmpty()
+        }
+        binding.emptyText.visibility = if (count == 0) View.VISIBLE else View.GONE
         binding.emptyText.text = when {
-            all.isNotEmpty() -> "No name matches the filter."
+            any -> "Nothing matches the filter."
             !Prefs.recordProbes(this) -> "Recording is off. Turn it on above, then scan with a USB WiFi adapter or an ESP32 Marauder board plugged in."
             else -> "Nothing yet. Names appear while scanning with a USB WiFi adapter or an ESP32 Marauder board plugged in."
         }
     }
+
+    private fun matches(g: ProbeBook.Group, filter: String): Boolean = g.devices.any { d ->
+        d.mac.contains(filter, ignoreCase = true) || d.wpsName?.contains(filter, ignoreCase = true) == true ||
+            d.wpsProduct?.contains(filter, ignoreCase = true) == true || maker(d.mac).contains(filter, ignoreCase = true)
+    } || g.ssids.any { it.contains(filter, ignoreCase = true) }
 
     private fun meta(n: ProbeBook.Network, now: Long): String = listOf(
         if (n.devices.size == 1) "1 device" else "${n.devices.size} devices",
@@ -102,6 +145,33 @@ class ProbeListActivity : AppCompatActivity() {
         ms < 3_600_000 -> "${ms / 60_000} min ago"
         ms < 86_400_000 -> "${ms / 3_600_000} h ago"
         else -> "${ms / 86_400_000} d ago"
+    }
+
+    private fun maker(mac: String) = if (MacUtil.isRandomized(mac)) "random address" else VendorDb.macVendor(mac) ?: "unknown maker"
+
+    /** A group's title: its WPS name or model when it gave one, else its maker. */
+    private fun title(g: ProbeBook.Group): String {
+        val named = g.devices.firstNotNullOfOrNull { it.wpsName } ?: g.devices.firstNotNullOfOrNull { it.wpsProduct }
+        return when {
+            named != null -> named
+            g.likelySame -> "Likely the same device"
+            else -> g.devices.first().mac
+        }
+    }
+
+    private fun groupMeta(g: ProbeBook.Group, now: Long): String {
+        val d = g.devices.maxBy { it.lastSeen }
+        val lines = mutableListOf<String>()
+        if (g.likelySame) lines += "Likely the same device · ${g.devices.size} random addresses"
+        else lines += listOfNotNull(if (title(g) != d.mac) d.mac else null, maker(d.mac)).joinToString(" · ")
+        g.devices.firstNotNullOfOrNull { it.wpsProduct }?.takeIf { it != title(g) }?.let { lines += it }
+        lines += listOf(
+            if (g.ssids.size == 1) "asked for 1 network" else "asked for ${g.ssids.size} networks",
+            "last ${ago(now - g.lastSeen)}",
+            "${d.lastRssi} dBm"
+        ).joinToString(" · ")
+        lines += g.ssids.take(4).joinToString(", ") { "\"$it\"" } + if (g.ssids.size > 4) " …" else ""
+        return lines.joinToString("\n")
     }
 
     /** Watch [ssid]: the user names what it is; the label is what alerts say. */
@@ -133,16 +203,68 @@ class ProbeListActivity : AppCompatActivity() {
 
     private fun details(n: ProbeBook.Network) {
         val df = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
-        val devices = n.devices.reversed().joinToString("\n") { mac ->
-            mac + "  " + (if (MacUtil.isRandomized(mac)) "random address" else VendorDb.macVendor(mac) ?: "unknown maker")
-        }
+        val devices = n.devices.reversed().joinToString("\n") { mac -> "$mac  ${maker(mac)}" }
         val watched = OuiWatchlist.isProbeWatched(n.ssid)
         MaterialAlertDialogBuilder(this)
             .setTitle(n.ssid)
             .setMessage("First seen ${df.format(Date(n.firstSeen))}\nLast seen ${df.format(Date(n.lastSeen))}\n\nDevices that asked for it:\n$devices")
             .setPositiveButton(if (watched) "Stop watching" else "Watch") { _, _ -> if (watched) unwatch(n.ssid) else watch(n.ssid) }
             .setNeutralButton("Remove from list") { _, _ -> ProbeLog.remove(this, n.ssid); refresh() }
+            .setNegativeButton("Find on WiGLE") { _, _ -> WigleUi.search(this, n.ssid) }
+            .show()
+    }
+
+    /** A device (or a group of addresses likely to be one): what it is, and every name it asked for as chips. */
+    private fun deviceDetails(g: ProbeBook.Group) {
+        val df = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+        val dp = resources.displayMetrics.density
+        val text = buildString {
+            if (g.likelySame) append("These random addresses have the same rare probe fingerprint and asked for a network " +
+                "name in common, so they are likely one device changing its address.\n\n")
+            g.devices.forEach { d ->
+                append(d.mac).append("  ").append(maker(d.mac)).append('\n')
+                d.wpsName?.let { append("  Name: $it\n") }
+                d.wpsProduct?.let { append("  Model: $it\n") }
+                d.fingerprint?.let { fp ->
+                    val n = ProbeLog.sharing(this@ProbeListActivity, fp)
+                    append("  Probe fingerprint: $fp" + if (n > 1) " (shared by $n addresses)\n" else "\n")
+                }
+                append("  First seen ${df.format(Date(d.firstSeen))}\n  Last seen ${df.format(Date(d.lastSeen))}\n")
+                append("  " + (if (d.encounters == 1) "Seen once" else "Seen ${d.encounters} times") + " · ${d.lastRssi} dBm\n")
+            }
+            append("\nNetworks it asked for (tap one):")
+        }
+        val chips = ChipGroup(this).apply {
+            g.ssids.forEach { ssid ->
+                addView(Chip(this@ProbeListActivity).apply {
+                    // ★ = watched: alerts when a device asks for it.
+                    this.text = if (OuiWatchlist.isProbeWatched(ssid)) "★ $ssid" else ssid
+                    setOnClickListener { ssidActions(ssid) }
+                })
+            }
+        }
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val pad = (20 * dp).toInt(); setPadding(pad, (8 * dp).toInt(), pad, 0)
+            addView(TextView(this@ProbeListActivity).apply { this.text = text; setTextIsSelectable(true) })
+            addView(chips)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(title(g))
+            .setView(ScrollView(this).apply { addView(body) })
             .setNegativeButton("Close", null)
+            .show()
+    }
+
+    private fun ssidActions(ssid: String) {
+        val network = ProbeLog.all(this).firstOrNull { it.ssid.equals(ssid, ignoreCase = true) }
+        val items = listOfNotNull(
+            network?.let { "Show this network" to { details(it) } },
+            "Find on WiGLE" to { WigleUi.search(this, ssid) }
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle(ssid)
+            .setItems(items.map { it.first }.toTypedArray()) { _, which -> items[which].second() }
             .show()
     }
 
@@ -167,5 +289,32 @@ class ProbeListActivity : AppCompatActivity() {
             holder.b.watchButton.setOnClickListener { if (watched) unwatch(n.ssid) else watch(n.ssid) }
             holder.b.root.setOnClickListener { details(n) }
         }
+    }
+
+    private inner class DeviceAdapter : RecyclerView.Adapter<DeviceAdapter.VH>() {
+        private var items: List<ProbeBook.Group> = emptyList()
+
+        inner class VH(val b: ItemProbeBinding) : RecyclerView.ViewHolder(b.root)
+
+        fun submit(list: List<ProbeBook.Group>) { items = list; notifyDataSetChanged() }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
+            VH(ItemProbeBinding.inflate(LayoutInflater.from(parent.context), parent, false).also {
+                it.watchButton.visibility = View.GONE
+            })
+
+        override fun getItemCount() = items.size
+
+        override fun onBindViewHolder(holder: VH, position: Int) {
+            val g = items[position]
+            holder.b.ssidText.text = title(g)
+            holder.b.metaText.text = groupMeta(g, System.currentTimeMillis())
+            holder.b.root.setOnClickListener { deviceDetails(g) }
+        }
+    }
+
+    private companion object {
+        const val MENU_SEARCH = 1
+        const val MENU_ACCOUNT = 2
     }
 }

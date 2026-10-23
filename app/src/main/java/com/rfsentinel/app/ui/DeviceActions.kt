@@ -97,6 +97,10 @@ object DeviceActions {
         if (snap?.advert != null && snap.best == null) {
             items += "Report unknown device..." to { reportUnknown(activity, mac) }
         }
+        // An access point's address is what WiGLE maps; a phone or laptop (client) isn't on it.
+        if (snap?.advert?.isWifi == true && snap.advert.wifi?.client != true) {
+            items += "Find on WiGLE" to { com.rfsentinel.app.probes.WigleUi.search(activity, mac) }
+        }
         items += "Copy address" to { copy(activity, mac) }
 
         MaterialAlertDialogBuilder(activity)

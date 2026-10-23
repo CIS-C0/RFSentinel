@@ -15,6 +15,7 @@ import java.io.File
 object ProbeLog {
 
     private const val FILE = "probed_networks.json"
+    private const val DEVICES_FILE = "probing_devices.json"
     private const val SAVE_EVERY_MS = 30_000L
 
     private val book = ProbeBook()
@@ -24,21 +25,35 @@ object ProbeLog {
     private val gson = Gson()
 
     /**
-     * Records that [mac] asked for each of [ssids]. Only while recording is on, or [force]d:
-     * a map trace recording keeps them too.
+     * Records that [mac] asked for each of [ssids], with what else its frames said about it ([wps],
+     * [fingerprint]: kept for a device that asked for a name). Only while recording is on, or
+     * [force]d: a map trace recording keeps them too.
      */
     @Synchronized
     fun record(context: Context, mac: String, ssids: Collection<String>, rssi: Int, now: Long = System.currentTimeMillis(),
-               force: Boolean = false) {
-        if (ssids.isEmpty() || !(force || com.rfsentinel.app.util.Prefs.recordProbes(context))) return
+               force: Boolean = false, wps: com.rfsentinel.app.usb.ProbeIntel.Wps? = null, fingerprint: String? = null) {
+        if (ssids.isEmpty() && wps == null && fingerprint == null) return
+        if (!(force || com.rfsentinel.app.util.Prefs.recordProbes(context))) return
         ensureLoaded(context)
         ssids.forEach { book.record(it, mac, rssi, now) }
+        if (!book.recordDevice(mac, ssids, rssi, now, wps?.deviceName, wps?.product, fingerprint)) return
         dirty = true
         if (now - lastSave > SAVE_EVERY_MS) save(context, now)
     }
 
     @Synchronized
     fun all(context: Context): List<ProbeBook.Network> { ensureLoaded(context); return book.all() }
+
+    /** The devices that asked, grouped ([ProbeBook.groups]), newest first. */
+    @Synchronized
+    fun groups(context: Context): List<ProbeBook.Group> {
+        ensureLoaded(context)
+        return book.groups({ com.rfsentinel.app.util.MacUtil.isRandomized(it) })
+    }
+
+    /** Recorded addresses whose probe requests have the fingerprint [fp]. */
+    @Synchronized
+    fun sharing(context: Context, fp: String): Int { ensureLoaded(context); return book.sharing(fp) }
 
     @Synchronized
     fun remove(context: Context, ssid: String) { ensureLoaded(context); book.remove(ssid); dirty = true; save(context) }
@@ -60,22 +75,34 @@ object ProbeLog {
                 book.restore(list.orEmpty())
             }
         }
+        runCatching {
+            val f = File(context.filesDir, DEVICES_FILE)
+            if (f.exists()) {
+                val list: List<ProbeBook.Device> = gson.fromJson(f.readText(), object : TypeToken<List<ProbeBook.Device>>() {}.type)
+                book.restoreDevices(list.orEmpty())
+            }
+        }
     }
 
     private fun save(context: Context, now: Long = System.currentTimeMillis()) {
         lastSave = now
         dirty = false
+        write(context, FILE, gson.toJson(book.all()))
+        write(context, DEVICES_FILE, gson.toJson(book.devices()))
+    }
+
+    private fun write(context: Context, name: String, text: String) {
         runCatching {
-            val f = File(context.filesDir, FILE)
-            val tmp = File(context.filesDir, "$FILE.tmp")
-            tmp.writeText(gson.toJson(book.all()))
+            val f = File(context.filesDir, name)
+            val tmp = File(context.filesDir, "$name.tmp")
+            tmp.writeText(text)
             if (!tmp.renameTo(f)) { f.delete(); tmp.renameTo(f) }
         }
     }
 }
 
-/** The requested-network list itself (no Android), capped to the most recent names. */
-class ProbeBook(private val maxNetworks: Int = 1000, private val maxDevices: Int = 50) {
+/** The requested-network list itself (no Android), capped to the most recent names and devices. */
+class ProbeBook(private val maxNetworks: Int = 1000, private val maxDevices: Int = 50, private val maxProbers: Int = 2000) {
 
     data class Network(
         val ssid: String,
@@ -88,7 +115,37 @@ class ProbeBook(private val maxNetworks: Int = 1000, private val maxDevices: Int
         val devices: MutableList<String>
     )
 
+    /** A device that asked for networks: what it asked for and what its frames said about it. */
+    data class Device(
+        val mac: String,
+        var firstSeen: Long,
+        var lastSeen: Long,
+        /** Separate encounters: heard again after a [GAP_MS] pause. */
+        var encounters: Int,
+        var lastRssi: Int,
+        /** Network names it asked for, most recent last. */
+        val ssids: MutableList<String>,
+        /** The name its WPS block gave (e.g. a computer name). */
+        var wpsName: String? = null,
+        /** Maker, model and number from its WPS block. */
+        var wpsProduct: String? = null,
+        /** How it builds its probe requests ([com.rfsentinel.app.usb.ProbeIntel.fingerprint]). */
+        var fingerprint: String? = null
+    )
+
+    /**
+     * Devices shown together: one address, or random addresses with the same rare probe fingerprint that
+     * asked for a network name in common ([likelySame]).
+     */
+    data class Group(val devices: List<Device>, val likelySame: Boolean) {
+        val lastSeen get() = devices.maxOf { it.lastSeen }
+        /** Every name the group asked for, most recent first. */
+        val ssids: List<String> get() = devices.sortedByDescending { it.lastSeen }
+            .flatMap { it.ssids.reversed() }.distinctBy { it.lowercase() }
+    }
+
     private val nets = LinkedHashMap<String, Network>()
+    private val probers = LinkedHashMap<String, Device>()
 
     fun record(ssid: String, mac: String, rssi: Int, now: Long) {
         val key = ssid.lowercase()
@@ -106,12 +163,80 @@ class ProbeBook(private val maxNetworks: Int = 1000, private val maxDevices: Int
         while (n.devices.size > maxDevices) n.devices.removeAt(0)
     }
 
+    /**
+     * Notes what [mac] asked for and said about itself. A device that never asked for a name isn't
+     * kept; returns false when nothing was noted.
+     */
+    fun recordDevice(mac: String, ssids: Collection<String>, rssi: Int, now: Long,
+                     wpsName: String? = null, wpsProduct: String? = null, fingerprint: String? = null): Boolean {
+        val m = mac.uppercase()
+        val d = probers[m] ?: run {
+            if (ssids.isEmpty()) return false
+            Device(m, now, now, 1, rssi, mutableListOf()).also { probers[m] = it }
+        }
+        if (now - d.lastSeen > GAP_MS) d.encounters++
+        d.lastSeen = now
+        d.lastRssi = rssi
+        ssids.forEach { s -> d.ssids.removeAll { it.equals(s, ignoreCase = true) }; d.ssids.add(s) }
+        while (d.ssids.size > maxDevices) d.ssids.removeAt(0)
+        wpsName?.let { d.wpsName = it }
+        wpsProduct?.let { d.wpsProduct = it }
+        fingerprint?.let { d.fingerprint = it }
+        if (probers.size > maxProbers) {
+            probers.values.sortedBy { it.lastSeen }.take(probers.size - maxProbers).forEach { probers.remove(it.mac) }
+        }
+        return true
+    }
+
+    /** Newest first. */
+    fun devices(): List<Device> = probers.values.sortedByDescending { it.lastSeen }.map { it.copy(ssids = it.ssids.toMutableList()) }
+
+    /** Addresses whose probe requests have the fingerprint [fp]. */
+    fun sharing(fp: String): Int = probers.values.count { it.fingerprint == fp }
+
+    /**
+     * The devices as groups, newest first: random addresses ([isRandom]) with the same fingerprint, shared
+     * by at most [rareMax] addresses, that asked for at least one name in common are likely one device
+     * changing its address. Fixed addresses always stand alone.
+     */
+    fun groups(isRandom: (String) -> Boolean, rareMax: Int = 20): List<Group> {
+        val list = devices()
+        val counts = list.mapNotNull { it.fingerprint }.groupingBy { it }.eachCount()
+        val parent = IntArray(list.size) { it }
+        fun root(i: Int): Int { var r = i; while (parent[r] != r) r = parent[r]; return r }
+        list.indices
+            .filter { i -> list[i].fingerprint.let { it != null && counts.getValue(it) in 2..rareMax } && isRandom(list[i].mac) }
+            .groupBy { list[it].fingerprint }
+            .values.forEach { same ->
+                for (x in same.indices) for (y in x + 1 until same.size) {
+                    val asked = list[same[x]].ssids.map { it.lowercase() }.toSet()
+                    if (list[same[y]].ssids.any { it.lowercase() in asked }) parent[root(same[y])] = root(same[x])
+                }
+            }
+        return list.indices.groupBy { root(it) }.values
+            .map { idx -> Group(idx.map { list[it] }, likelySame = idx.size > 1) }
+            .sortedByDescending { it.lastSeen }
+    }
+
     /** Newest first. */
     fun all(): List<Network> = nets.values.sortedByDescending { it.lastSeen }.map { it.copy(devices = it.devices.toMutableList()) }
 
-    fun remove(ssid: String) { nets.remove(ssid.lowercase()) }
+    /** Forgets [ssid], and the devices that asked for nothing else. */
+    fun remove(ssid: String) {
+        nets.remove(ssid.lowercase())
+        probers.values.forEach { d -> d.ssids.removeAll { it.equals(ssid, ignoreCase = true) } }
+        probers.values.removeAll { it.ssids.isEmpty() }
+    }
 
-    fun clear() = nets.clear()
+    fun clear() { nets.clear(); probers.clear() }
+
+    fun restoreDevices(list: List<Device>) {
+        probers.clear()
+        @Suppress("SENSELESS_COMPARISON", "USELESS_ELVIS") // Gson can leave fields null
+        list.filter { it.mac != null }.forEach {
+            probers[it.mac.uppercase()] = it.copy(mac = it.mac.uppercase(), ssids = (it.ssids ?: mutableListOf()).toMutableList())
+        }
+    }
 
     fun restore(list: List<Network>) {
         nets.clear()

@@ -712,7 +712,8 @@ class ScanForegroundService : Service() {
                            skeleton: Long? = null) {
         com.rfsentinel.app.usb.ProbeIntel.note(mac, wps, fingerprint, ssids, hidden, skeleton)
         // Kept in the requested-networks list when that's on, and always while a trace records.
-        if (ssids.isNotEmpty()) com.rfsentinel.app.data.ProbeLog.record(this, mac, ssids, rssi, now, force = TripRecorder.isRecording)
+        com.rfsentinel.app.data.ProbeLog.record(this, mac, ssids, rssi, now, force = TripRecorder.isRecording,
+            wps = wps, fingerprint = fingerprint)
         val hits = OuiWatchlist.probeHits(ssids) + OuiWatchlist.fingerprintHits(fingerprint) + OuiWatchlist.wpsHits(wps) +
             OuiWatchlist.fingerprintHits(skeleton?.let { com.rfsentinel.app.usb.ProbeIntel.shapeKey(it) })
         if (hits.isEmpty()) return

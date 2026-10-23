@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -19,7 +20,32 @@
         android:paddingBottom="8dp"
         android:textSize="@dimen/text_caption"
         android:textColor="?android:attr/textColorSecondary"
-        android:text="Phones and laptops ask by name for WiFi networks they joined before. A USB WiFi adapter or an ESP32 Marauder board hears these requests. Kept only on this phone; a map trace recording always keeps them, with the trace. Tap a name to watch it: you get an alert whenever a device asks for it." />
+        android:text="Phones and laptops ask by name for WiFi networks they joined before. A USB WiFi adapter or an ESP32 Marauder board hears these requests. Kept only on this phone; a map trace recording always keeps them, with the trace. Tap a name to watch it: you get an alert whenever a device asks for it, or to find where it is on WiGLE. By device shows each device and every name it asked for." />
+
+    <com.google.android.material.button.MaterialButtonToggleGroup
+        android:id="@+id/viewToggle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:singleSelection="true"
+        app:selectionRequired="true"
+        app:checkedButton="@id/byNetworkButton">
+
+        <Button
+            android:id="@+id/byNetworkButton"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="By network" />
+
+        <Button
+            android:id="@+id/byDeviceButton"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="By device" />
+    </com.google.android.material.button.MaterialButtonToggleGroup>
 
     <EditText
         android:id="@+id/filterInput"

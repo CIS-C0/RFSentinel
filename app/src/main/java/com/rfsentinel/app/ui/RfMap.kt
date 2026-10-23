@@ -9,6 +9,7 @@ import com.rfsentinel.app.alpr.CctvStore
 import com.rfsentinel.app.alpr.KnownCamera
 import com.rfsentinel.app.online.PoliceAircraft
 import com.rfsentinel.app.online.WazePolice
+import com.rfsentinel.app.online.WiglePins
 import com.rfsentinel.app.service.CellTowerStore
 import com.rfsentinel.app.service.DeviceRegistry
 import com.rfsentinel.app.service.ScanForegroundService
@@ -48,6 +49,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         private const val DEVICES = "rf-devices"; private const val DOTS = "rf-device-dots"; private const val LABELS = "rf-device-labels"
         private const val WAZE = "rf-waze"; private const val DRONE_OPS = "rf-drone-ops"; private const val DRONES = "rf-drones"
         private const val AIRCRAFT = "rf-aircraft"
+        private const val WIGLE = "rf-wigle"; private const val WIGLE_COLOR = "#8E24AA"
         private const val NAV_ROUTES = "rf-nav-routes"; private const val NAV_PLACES = "rf-nav-places"
         private const val NAV_ROUTE_COLOR = "#1A73E8"; private const val NAV_ALT_COLOR = "#7C8DA6"
 
@@ -87,6 +89,9 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
     private var cameras: Map<String, KnownCamera> = emptyMap()
     private var cctvs: Map<String, com.rfsentinel.app.alpr.CctvCamera> = emptyMap()
     private var towers: Map<String, CellTowerStore.Tower> = emptyMap()
+    private var wigle: Map<String, WiglePins.Pin> = emptyMap()
+    /** What the WiGLE layer was drawn for (pins' version, filter, trace mode): redrawn only when it changes. */
+    private var wigleDrawn: String? = null
     /** The area the camera, CCTV and tower layers were drawn for (redrawn when the view leaves it). */
     private var staticBox: MapEngine.Box? = null
     private var staticAt = 0L
@@ -107,8 +112,10 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
                 // The same map turned night (Mapbox): the labels' colours follow.
                 val (ink, halo) = labelColors(dark)
                 map.setPaint(LABELS, "text-color", ink); map.setPaint(LABELS, "text-halo-color", halo)
+                map.setPaint("$WIGLE-labels", "text-color", ink); map.setPaint("$WIGLE-labels", "text-halo-color", halo)
             }
             staticBox = null
+            wigleDrawn = null
             safe("loaded") { onLoaded() }
         }
     }
@@ -136,7 +143,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
 
     /** Every layer, as map style JSON (the same on both engines). */
     private fun addLayers(dark: Boolean) {
-        listOf(NAV_ROUTES, NAV_PLACES, PRECISION, CONES, CAM_CONES, TRACE, DRONE_LINES, TOWERS, CCTV, CAMERAS, DEVICES, WAZE, DRONE_OPS, DRONES, AIRCRAFT)
+        listOf(NAV_ROUTES, NAV_PLACES, PRECISION, CONES, CAM_CONES, TRACE, DRONE_LINES, TOWERS, CCTV, CAMERAS, DEVICES, WIGLE, WAZE, DRONE_OPS, DRONES, AIRCRAFT)
             .forEach { map.addSource(it) }
         fun get(k: String) = a("get", k)
         val color = a("to-color", get("color"))
@@ -194,6 +201,13 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
             layer(LABELS, "symbol", DEVICES, filter = flagged,
                 layout = o("text-field" to get("label"), "text-font" to font, "text-size" to 12.0, "text-anchor" to "top",
                     "text-offset" to a(0.0, 1.1), "text-optional" to true),
+                paint = o("text-color" to ink, "text-halo-color" to halo, "text-halo-width" to 1.5)),
+            // Networks pinned from a WiGLE search: purple, with their name.
+            layer(WIGLE, "circle", paint = o("circle-color" to WIGLE_COLOR, "circle-radius" to 7.0,
+                "circle-stroke-color" to "#FFFFFF", "circle-stroke-width" to 2.0)),
+            layer("$WIGLE-labels", "symbol", WIGLE,
+                layout = o("text-field" to get("label"), "text-font" to font, "text-size" to 12.0, "text-anchor" to "top",
+                    "text-offset" to a(0.0, 1.0), "text-optional" to true),
                 paint = o("text-color" to ink, "text-halo-color" to halo, "text-halo-width" to 1.5)),
             // Waze reports: blue police, red accident, orange hazard, brown closure, purple jam.
             layer(WAZE, "circle", paint = o("circle-color" to color, "circle-radius" to 9.0,
@@ -314,9 +328,24 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
                 ).joinToString(" · "))
         })
 
+        drawWigle()
         val trace = if (TripRecorder.isRecording) TripRecorder.livePoints() else emptyList()
         drawTrace(trace.map { it.lat to it.lon }, TRACE_COLOR)
         return shown
+    }
+
+    /** Networks pinned from WiGLE searches (the All and WiFi views), when they changed. */
+    fun drawWigle() {
+        if (!ready()) return
+        val key = "${WiglePins.version}|$filter|$tripMode"
+        if (key == wigleDrawn) return
+        wigleDrawn = key
+        val show = !tripMode && (filter == DeviceFilter.ALL || filter == DeviceFilter.WIFI)
+        val list = if (show) WiglePins.all(activity) else emptyList()
+        wigle = list.associateBy { it.net.bssid }
+        set(WIGLE, list.map { p ->
+            GeoJson.feature(GeoJson.point(p.net.lat, p.net.lon), "id" to p.net.bssid, "label" to (p.net.ssid ?: p.net.bssid).take(32))
+        })
     }
 
     /**
@@ -464,7 +493,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         val r = 22f * activity.resources.displayMetrics.density
         val box = RectF(x - r, y - r, x + r, y + r)
         val asked = listOf(AIRCRAFT to "hex", WAZE to "id", DRONES to "mac", DRONE_OPS to "mac", DOTS to "mac",
-            CAMERAS to "id", CCTV to "id", TOWERS to "id")
+            CAMERAS to "id", CCTV to "id", TOWERS to "id", WIGLE to "id")
         map.query(box, asked) { found ->
             if (activity.isFinishing || activity.isDestroyed) return@query
             safe("tap") { showTapped(found, me) }
@@ -475,6 +504,10 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         val (air, waze, drone, op, dots, cams, cctv, tower) = found
         air.firstNotNullOfOrNull { planes[it] }?.let { s -> MapDialogs.showAircraft(activity, s.plane, s.hit, me); return }
         waze.firstNotNullOfOrNull { wazeShown[it] }?.let { MapDialogs.showWaze(activity, it); return }
+        found[8].firstNotNullOfOrNull { wigle[it] }?.let { p ->
+            MapDialogs.showWigle(activity, p, me) { WiglePins.remove(activity, p.net.bssid); drawWigle() }
+            return
+        }
         (drone + op).firstNotNullOfOrNull { drones[it] }?.let { s ->
             MapDialogs.showDrone(activity, s.mac, MapDialogs.droneDetails(s, s.remoteId!!)); return
         }

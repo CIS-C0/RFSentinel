@@ -1252,6 +1252,18 @@ class SettingsActivity : AppCompatActivity() {
         for ((field, key) in secretFields) com.rfsentinel.app.util.SecureStore.put(this, key, field.text.toString().trim())
     }
 
+    /** Settings > Data: the WiGLE account used by "Find on WiGLE" (requested networks, WiFi devices). */
+    private fun setupWigleAccount() {
+        val box = binding.sectionData
+        val button = com.google.android.material.button.MaterialButton(this, null,
+            com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            text = "WiGLE account"
+            setOnClickListener { com.rfsentinel.app.probes.WigleUi.account(this@SettingsActivity) }
+        }
+        box.addView(infoRow(button, com.rfsentinel.app.probes.WigleUi.PRIVACY, "WiGLE account"),
+            box.indexOfChild(binding.importHistoryButton))
+    }
+
     // ---- Live export (Settings > Data) ---------------------------------------------------
 
     private val liveExportFolder = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -2245,6 +2257,7 @@ class SettingsActivity : AppCompatActivity() {
         setupDeviceUnits()
         setupRadioSection()
         setupLiveExport()
+        setupWigleAccount()
         addDetails()
         binding.hideTrustedSwitch.isChecked = Prefs.hideWhitelisted(this)
         binding.hideTrustedSwitch.setOnCheckedChangeListener { _, on -> Prefs.setHideWhitelisted(this, on) }

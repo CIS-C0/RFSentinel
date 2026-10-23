@@ -89,6 +89,27 @@ internal object MapDialogs {
             .show()
     }
 
+    /** A network pinned from a WiGLE search; [remove] takes the pin off the map. */
+    fun showWigle(a: AppCompatActivity, p: com.rfsentinel.app.online.WiglePins.Pin, me: Pair<Double, Double>?, remove: () -> Unit) {
+        val n = p.net
+        val text = buildString {
+            append("Address (BSSID): ${n.bssid}\n")
+            n.encryption?.let { append("Security: $it\n") }
+            n.channel?.let { append("Channel: $it\n") }
+            n.place?.let { append("Where: $it\n") }
+            n.lastSeen?.let { append("Last seen by WiGLE: ${it.take(10)}\n") }
+            me?.let { append("Distance: " + com.rfsentinel.app.util.Units.distance(
+                DeviceRegistry.metersBetween(it.first, it.second, n.lat, n.lon)) + "\n") }
+            append("\nFrom a WiGLE search for \"${p.searched}\". WiGLE's position is an estimate from wardriving uploads.")
+        }
+        MaterialAlertDialogBuilder(a)
+            .setTitle(n.ssid ?: "Hidden network")
+            .setMessage(text)
+            .setPositiveButton("Remove pin") { _, _ -> remove() }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
     /** [me] = your position (lat, lon) for the distance, when known. */
     fun showAircraft(a: AppCompatActivity, p: com.rfsentinel.app.online.PoliceAircraft.Plane, hit: com.rfsentinel.app.detect.Hit?,
                      me: Pair<Double, Double>?) {
