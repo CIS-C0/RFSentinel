@@ -53,6 +53,8 @@ class MainActivity : AppCompatActivity() {
         /** Radio transmissions stay on the radar this long after they were last heard (the list keeps 5 minutes). */
         private const val RADIO_RADAR_MS = 60_000L
         private const val BLUETOOTH_TAG_COLOR = 0xFF1565C0.toInt()
+        /** Location off: Android gives the app no Bluetooth or WiFi results. Tapping the warning opens the setting. */
+        private const val LOCATION_OFF = "Location is off - no devices can be seen. Tap to turn it on"
         private const val WIFI_TAG_COLOR = 0xFF00838F.toInt()
         private const val REFRESH_MS = 1_000L
         private const val WEAK_COLOR = 0xFFB26A00.toInt()
@@ -470,7 +472,9 @@ class MainActivity : AppCompatActivity() {
         statusPanel.root.visibility = if (visual) View.VISIBLE else View.GONE
         if (visual) {
             val now = System.currentTimeMillis()
+            val locationOff = running && !locationOn() && !demoMode
             val warning = when {
+                locationOff -> LOCATION_OFF
                 running && !bluetoothOn() && !demoMode -> "Scanning WiFi only - turn on Bluetooth for BLE (picked up automatically)"
                 else -> listOfNotNull(
                     com.rfsentinel.app.service.CellMonitor.lastAnomaly?.takeIf { now - it.first < 15 * 60_000L }?.second?.title,
@@ -494,11 +498,15 @@ class MainActivity : AppCompatActivity() {
                 com.rfsentinel.app.link.PhoneLink.status.takeIf { it.isNotBlank() }?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) },
                 com.rfsentinel.app.link.MeshNode.status.takeIf { it.isNotBlank() }?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) }
             )
-            statusPanel.update(running, warning, hardware)
+            statusPanel.update(running, warning, hardware, if (locationOff) ::openLocationSettings else null)
             return
         }
+        val locationOff = running && !locationOn() && !demoMode
+        if (locationOff) binding.statusText.setOnClickListener { openLocationSettings() }
+        else { binding.statusText.setOnClickListener(null); binding.statusText.isClickable = false }
         binding.statusText.text = when {
             !running -> "Idle - tap Start to listen for nearby devices"
+            locationOff -> "⚠ $LOCATION_OFF"
             !bluetoothOn() && !demoMode -> "Scanning WiFi only - turn on Bluetooth for BLE (picked up automatically)"
             else -> "Scanning · $deviceCount ${plural(deviceCount, "device", "devices")} nearby" +
                 (if (flaggedCount > 0) " · $flaggedCount flagged" else "") +
@@ -614,6 +622,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun bluetoothOn(): Boolean =
         (getSystemService(BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter?.isEnabled == true
+
+    /** Android hides Bluetooth and WiFi scan results from the app while Location is off: nothing shows up at all. */
+    private fun locationOn(): Boolean =
+        (getSystemService(LOCATION_SERVICE) as? android.location.LocationManager)
+            ?.let { androidx.core.location.LocationManagerCompat.isLocationEnabled(it) } != false
+
+    private fun openLocationSettings() {
+        try { startActivity(android.content.Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }
+        catch (_: android.content.ActivityNotFoundException) {
+            android.widget.Toast.makeText(this, "Turn Location on in the phone's quick settings", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
 
     /** Rebuilds the live list / radar once a second while the screen is visible. */
     private fun observeDevices() {

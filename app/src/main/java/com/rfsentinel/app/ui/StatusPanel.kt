@@ -93,13 +93,18 @@ class StatusPanel(private val context: Context) {
         isFocusable = true
     }
 
-    /** [running]: scanning; [warning]: a fake-cell or restarted-scan note; [hardware]: the non-blank hardware status lines. */
-    fun update(running: Boolean, warning: String?, hardware: List<Hardware>) {
+    /**
+     * [running]: scanning; [warning]: a fake-cell or restarted-scan note; [hardware]: the non-blank hardware status lines;
+     * [onWarningTap]: what tapping the warning does (e.g. open the Location setting), null when it does nothing.
+     */
+    fun update(running: Boolean, warning: String?, hardware: List<Hardware>, onWarningTap: (() -> Unit)? = null) {
         val grey = (ChipStyle.onSurface(context) and 0x00FFFFFF) or 0x99000000.toInt()
         // Idle needs no note here: the Start button says it.
         val shown = if (!running || warning == hiddenWarning) null else warning?.let { "⚠ $it" }
         shownWarning = warning
         noteRow.visibility = if (shown != null) View.VISIBLE else View.GONE
+        if (onWarningTap != null) note.setOnClickListener { onWarningTap() }
+        else { note.setOnClickListener(null); note.isClickable = false }
         if (shown != null) {
             VisualMode.text(note, shown)
             VisualMode.chip(note, if (running) 0xFFE0A33A.toInt() else grey)
