@@ -165,6 +165,12 @@ class ProbeListActivity : AppCompatActivity() {
     /** The hits whose kind is turned on: those sort first and are marked; the others only show in the details. */
     private fun alerting(hits: List<Hit>?): List<Hit> = hits.orEmpty().filter { Prefs.categoryEnabled(this, it.category) }
 
+    /** A matched row's background: its kind's colour, as lightly as the main device list tints a flagged row. */
+    private fun tint(hits: List<Hit>): Int {
+        val best = hits.maxByOrNull { it.confidence } ?: return android.graphics.Color.TRANSPARENT
+        return (com.rfsentinel.app.ui.ThemeManager.ink(this, best.category.colorArgb) and 0x00FFFFFF) or 0x26000000
+    }
+
     /** A row's watchlist line: the first match, and how many more. */
     private fun watchlistLine(hits: List<Hit>): String? {
         val first = hits.firstOrNull() ?: return null
@@ -370,6 +376,7 @@ class ProbeListActivity : AppCompatActivity() {
             holder.b.watchButton.text = if (watched) "Watching" else "Watch"
             holder.b.watchButton.setOnClickListener { if (watched) unwatch(n.ssid) else watch(n.ssid) }
             holder.b.findButton.setOnClickListener { WigleUi.search(this@ProbeListActivity, n.ssid) }
+            holder.b.root.setBackgroundColor(tint(alerting(networkHits[n.ssid.lowercase()])))
             holder.b.root.setOnClickListener { details(n) }
         }
     }
@@ -393,6 +400,7 @@ class ProbeListActivity : AppCompatActivity() {
             val g = items[position]
             holder.b.ssidText.text = title(g)
             holder.b.metaText.text = groupMeta(g, System.currentTimeMillis())
+            holder.b.root.setBackgroundColor(tint(alerting(groupHits[g.devices.first().mac])))
             holder.b.root.setOnClickListener { deviceDetails(g) }
         }
     }
