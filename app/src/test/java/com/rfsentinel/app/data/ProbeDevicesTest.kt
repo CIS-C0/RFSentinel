@@ -74,4 +74,21 @@ class ProbeDevicesTest {
         b.restoreDevices(listOf(ProbeBook.Device("aa:bb:cc:dd:ee:ff", 1, 2, 1, -50, mutableListOf("X"))))
         assertEquals("AA:BB:CC:DD:EE:FF", b.devices().single().mac)
     }
+
+    @Test
+    fun aListSavedBeforeDevicesWereKeptStillShowsWhoAsked() {
+        val b = ProbeBook()
+        b.restore(listOf(
+            ProbeBook.Network("Home", 100, 200, 1, -60, mutableListOf("AA:AA:AA:AA:AA:01", "AA:AA:AA:AA:AA:02")),
+            ProbeBook.Network("Office", 50, 300, 2, -70, mutableListOf("aa:aa:aa:aa:aa:01"))
+        ))
+        assertTrue(b.backfillDevices())
+        val first = b.devices().first { it.mac == "AA:AA:AA:AA:AA:01" }
+        assertEquals(listOf("Home", "Office"), first.ssids)
+        assertEquals(50L, first.firstSeen)
+        assertEquals(300L, first.lastSeen)
+        assertEquals(2, b.devices().size)
+        // Run again: nothing new.
+        assertFalse(b.backfillDevices())
+    }
 }

@@ -82,6 +82,8 @@ object ProbeLog {
                 book.restoreDevices(list.orEmpty())
             }
         }
+        // Lists saved before devices were kept (or a device file lost) still show who asked.
+        if (book.backfillDevices()) dirty = true
     }
 
     private fun save(context: Context, now: Long = System.currentTimeMillis()) {
@@ -236,6 +238,29 @@ class ProbeBook(private val maxNetworks: Int = 1000, private val maxDevices: Int
         list.filter { it.mac != null }.forEach {
             probers[it.mac.uppercase()] = it.copy(mac = it.mac.uppercase(), ssids = (it.ssids ?: mutableListOf()).toMutableList())
         }
+    }
+
+    /**
+     * Adds every address a network lists as having asked for it to that device's record, creating the
+     * record from the network's times when missing (no WPS or fingerprint: those weren't kept). Returns
+     * whether anything was added.
+     */
+    fun backfillDevices(): Boolean {
+        var added = false
+        for (n in nets.values.sortedBy { it.lastSeen }) for (mac in n.devices) {
+            val m = mac.uppercase()
+            val d = probers[m] ?: Device(m, n.firstSeen, n.lastSeen, 1, n.lastRssi, mutableListOf()).also { probers[m] = it; added = true }
+            if (d.ssids.none { it.equals(n.ssid, ignoreCase = true) }) {
+                d.ssids.add(n.ssid); added = true
+                d.firstSeen = minOf(d.firstSeen, n.firstSeen)
+                if (n.lastSeen > d.lastSeen) { d.lastSeen = n.lastSeen; d.lastRssi = n.lastRssi }
+            }
+            while (d.ssids.size > maxDevices) d.ssids.removeAt(0)
+        }
+        if (probers.size > maxProbers) {
+            probers.values.sortedBy { it.lastSeen }.take(probers.size - maxProbers).forEach { probers.remove(it.mac) }
+        }
+        return added
     }
 
     fun restore(list: List<Network>) {

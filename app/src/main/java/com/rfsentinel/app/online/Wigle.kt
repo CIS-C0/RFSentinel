@@ -125,39 +125,73 @@ object Wigle {
         return max(o.optInt("totalResults", nets.size), nets.size) to nets
     }
 
+    /** How long WiGLE gets to answer: a search near you over a big area can take it well over 20 s. */
+    const val ANSWER_TIMEOUT_MS = 60_000
+    private const val TAG = "Wigle"
+
     /**
      * Searches WiGLE for [text] (a name, or an address), within [NEAR_KM] of [near] when given
-     * (rounded first). The same search within a day is answered from this phone.
+     * (rounded first). The same search within a day is answered from this phone. [status] hears each
+     * step (on this IO thread), for the progress screen. The log gets only the outcome and timings,
+     * never what was searched or where.
      */
-    suspend fun search(context: Context, text: String, near: Pair<Double, Double>?): Answer = withContext(Dispatchers.IO) {
+    suspend fun search(context: Context, text: String, near: Pair<Double, Double>?,
+                       status: (String) -> Unit = {}): Answer = withContext(Dispatchers.IO) {
         val area = near?.let { snap(it.first, it.second) }
         val key = (if (isBssid(text)) bssid(text) else text.trim()) + "|" + (area?.let { "${it.first},${it.second}" } ?: "world")
         val now = System.currentTimeMillis()
-        cached(context, key, now)?.let { return@withContext Answer(it.nets, it.total, area != null, cached = true) }
+        status(if (isBssid(text)) "Address ${bssid(text)}" else if ('*' in text) "Name like \"${text.trim()}\"" else "Name \"${text.trim()}\"")
+        status(area?.let { String.format(Locale.US, "Area: %.1f, %.1f ± %.0f km (your position rounded to ~10 km)", it.first, it.second, NEAR_KM) }
+            ?: "Area: worldwide")
+        cached(context, key, now)?.let {
+            status("Answered from this phone: the same search was done ${ago(now - it.at)} ago (WiGLE not asked)")
+            return@withContext Answer(it.nets, it.total, area != null, cached = true)
+        }
+        status("No saved answer from today: asking WiGLE")
         val authHeader = auth(context) ?: throw Failure("Enter your WiGLE API name and token first")
         val c = (URL(url(text, area)).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 10_000
-            readTimeout = 20_000
+            connectTimeout = 15_000
+            readTimeout = ANSWER_TIMEOUT_MS
             setRequestProperty("Authorization", authHeader)
             setRequestProperty("Accept", "application/json")
             setRequestProperty("User-Agent", "${BuildConfig.APPLICATION_ID}/${BuildConfig.VERSION_NAME}")
         }
+        val start = android.os.SystemClock.elapsedRealtime()
+        fun secs() = String.format(Locale.US, "%.1f s", (android.os.SystemClock.elapsedRealtime() - start) / 1000.0)
         val body = try {
-            when (c.responseCode) {
+            status("Connecting to api.wigle.net…")
+            c.connect()
+            status("Connected in ${secs()}. Waiting for WiGLE to search its database…")
+            val code = c.responseCode
+            status("WiGLE answered HTTP $code after ${secs()}")
+            when (code) {
                 200 -> c.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                    .also { status("Downloaded ${(it.length + 1023) / 1024} KB in ${secs()}") }
                 401, 403 -> throw Failure("WiGLE didn't accept the API name and token")
                 429 -> throw Failure("WiGLE's search limit for today is used up (new accounts get only a few searches a day)")
-                else -> throw Failure("WiGLE answered HTTP ${c.responseCode}")
+                else -> throw Failure("WiGLE answered HTTP $code")
             }
+        } catch (e: java.net.SocketTimeoutException) {
+            android.util.Log.w(TAG, "search timed out after ${secs()}")
+            throw Failure("WiGLE took too long to answer (no answer in ${ANSWER_TIMEOUT_MS / 1000} s). " +
+                "Its servers may be busy: try again later.")
         } catch (e: java.io.IOException) {
+            android.util.Log.w(TAG, "search failed after ${secs()}: ${e.javaClass.simpleName}")
             throw Failure("Couldn't reach WiGLE: ${e.message ?: "no connection"}")
+        } catch (e: Failure) {
+            android.util.Log.w(TAG, "search refused after ${secs()}: HTTP ${runCatching { c.responseCode }.getOrNull()}")
+            throw e
         } finally {
             c.disconnect()
         }
         val (total, nets) = parse(body)
+        status("Read ${nets.size} networks with a position (WiGLE has $total in all)")
+        android.util.Log.i(TAG, "search answered in ${secs()}: ${nets.size} of $total")
         remember(context, key, Cached(now, total, nets))
         Answer(nets, total, area != null, cached = false)
     }
+
+    private fun ago(ms: Long) = if (ms < 3_600_000) "${ms / 60_000} min" else "${ms / 3_600_000} h"
 
     @Synchronized
     private fun cached(context: Context, key: String, now: Long): Cached? =
