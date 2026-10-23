@@ -19,6 +19,13 @@ object DeviceIntel {
         val facts: List<Pair<String, String>>
     )
 
+    /**
+     * [identity] named by a match of a kind turned off in the detection list: the match's name as the
+     * device's type, and what matched among the facts (no colour, no alert).
+     */
+    fun quietlyIdentified(identity: Identity, hit: Hit): Identity = Identity(hit.label,
+        identity.facts + listOf("Identified as" to "${hit.label} · ${hit.category.title}", "Matched" to hit.evidence))
+
     private const val CID_APPLE = 0x004C
     private const val CID_MICROSOFT = 0x0006
     private const val CID_SAMSUNG = 0x0075

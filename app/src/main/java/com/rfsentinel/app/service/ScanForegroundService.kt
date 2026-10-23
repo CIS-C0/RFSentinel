@@ -934,10 +934,14 @@ class ScanForegroundService : Service() {
         val kept = DeviceIntel.dropTrainRouter(com.rfsentinel.app.detect.FlockNoise.filter(raw, a.name, OuiWatchlist.flockRegion), a)
         // Non-stop probing backs up a fixed-camera match that survived the noise filters (never alone).
         val sifted = kept + listOfNotNull(com.rfsentinel.app.detect.ProbeBehaviour.supportHit(a, kept))
-        val hits = EvidenceFusion.fuse(sifted.filter {
-            Prefs.categoryEnabled(this, it.category) && !(noAirTags && SignatureEngine.isAppleFindMy(it))
-        })
-        return Classified(now, hits, identity, vendor)
+        val (on, off) = sifted.filter { !(noAirTags && SignatureEngine.isAppleFindMy(it)) }
+            .partition { Prefs.categoryEnabled(this, it.category) }
+        val hits = EvidenceFusion.fuse(on)
+        // A kind turned off in the detection list still names the device (an Arlo base station with home
+        // cameras off): listed like any other device, no colour, no alert, not logged.
+        val quiet = if (hits.isEmpty()) EvidenceFusion.fuse(off).firstOrNull()?.takeIf { !it.listOnly } else null
+        val named = quiet?.let { DeviceIntel.quietlyIdentified(identity, it) } ?: identity
+        return Classified(now, hits, named, vendor)
     }
 
     private fun maybeLog(a: Advert, best: Hit, vendor: String?, loc: Location?, now: Long) {
