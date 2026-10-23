@@ -24,6 +24,7 @@
   <li><a href="#limits">Range, accuracy, battery, screen off</a></li>
   <li><a href="#car">Android Auto and driving</a></li>
   <li><a href="#esp32">ESP32, OUI-Spy, GhostESP, Marauder</a></li>
+  <li><a href="#link">Sentinel Link and Meshtastic</a></li>
   <li><a href="#privacy">Privacy, safety and legality</a></li>
   <li><a href="#project">Themes, data, contributing</a></li>
 </ol>
@@ -386,6 +387,13 @@
 <section class="faq-group" id="install">
 <h2>Install, update, devices</h2>
 
+<details class="faq" id="zero-devices">
+<summary>Why does the scan find 0 devices?</summary>
+<div>
+<p>Location is probably off. Android gives apps no Bluetooth or WiFi scan results while the phone's Location is off, even with every permission granted. Turn it on in the quick settings; RF Sentinel's main screen says so and opens the setting when you tap the warning. Also check that it has location and "Nearby devices".</p>
+</div>
+</details>
+
 <details class="faq" id="is-free">
 <summary>Is RF Sentinel free? Are there ads or in-app purchases?</summary>
 <div>
@@ -657,6 +665,36 @@
 <summary>Can I use ESP32 Marauder or an ESP32-C5 board for 5 GHz WiFi on Android?</summary>
 <div>
 <p>Yes, with RF Sentinel 2.11.1+. Plug a board running <a href="https://github.com/justcallmekoko/ESP32Marauder" rel="noopener">ESP32 Marauder</a> into the phone with a USB OTG cable while scanning. RF Sentinel runs only its passive beacon and probe sniffers and adds the networks and client devices to the list. On ESP32-C5 boards (Marauder v8, BFFB v2, LilyGo T-Dongle C5, C5 DevKit) that includes 5 GHz. Keep Channel Hop on in Marauder's settings. See <a href="esp32.html#marauder">ESP32 boards</a>.</p>
+</div>
+</details>
+</section>
+
+<section class="faq-group" id="link">
+<h2>Sentinel Link and Meshtastic</h2>
+
+<details class="faq" id="sentinel-link">
+<summary>Can two phones running RF Sentinel share what they detect?</summary>
+<div>
+<p>Yes, with <b>Sentinel Link</b>. Linked phones show the same devices on their list, radar and map, whichever phone heard them first, including what any phone's ESP32 board, USB WiFi adapter or RTL-SDR picks up. A device another phone heard is marked <b>VIA</b> with that phone's name, its alerts say "via NAME", and the <b>Sentinels</b> filter chip shows only those.</p>
+<ol>
+<li>On both phones: Settings → <b>Sentinel Link</b> → Open Sentinel Link, and give each phone a name.</li>
+<li>Keep them close. Tap <b>Link up a Sentinel</b> on one and <b>Join a Sentinel</b> on the other; allow "Nearby devices" if asked.</li>
+<li>Both show a 6-digit code. Same code: tap <b>Confirm</b> on both. Different code: Cancel.</li>
+</ol>
+<p>Linked phones then share while they scan, whenever they are in Bluetooth range, and find each other again by themselves. A third phone joins the same way, from any phone of the group. The link is encrypted with a key agreed through the 6-digit code; the phones' Bluetooth adverts only carry a changing tag that means nothing without the group's key; nothing goes through the internet.</p>
+</div>
+</details>
+
+<details class="faq" id="meshtastic">
+<summary>Can Sentinels far apart share through Meshtastic?</summary>
+<div>
+<p>Yes, through <a href="https://meshtastic.org" rel="noopener">Meshtastic</a> LoRa nodes, one paired with each phone over Bluetooth. <b>This part is not yet tested on real hardware</b>: it follows Meshtastic's phone API and passes its tests, but hasn't been tried with a real node. Reports are welcome on Discord or GitHub.</p>
+<ul>
+<li><b>Hardware:</b> a LoRa board with the official Meshtastic firmware, e.g. Heltec V3, LilyGO T-Beam, or a Seeed XIAO ESP32S3 with its Wio-SX1262 LoRa board (a plain ESP32 has no LoRa radio). Set its LoRa region once in the Meshtastic app.</li>
+<li><b>Set up:</b> link the phones with Sentinel Link first, disconnect the Meshtastic app from the node, then in Sentinel Link → Meshtastic node turn on "Use a Meshtastic node" and pick it. If Android asks for a PIN, it's on the node's screen, or 123456. Start a scan: the status goes to "Meshtastic node · connected".</li>
+<li><b>Channel:</b> RF Sentinel adds a private channel named RFSentinel to a free slot of the node, with a key made from the group's key, so only your group reads it. Packets are also encrypted and signed with the group's key.</li>
+<li><b>What goes out:</b> LoRa is slow, so each packet carries the phone's position once and a few devices: watchlist matches first (within about 20 s, then every minute), then flagged devices, then everything else, one packet every minute by default (15 s to 5 min). Whitelisted devices are never sent.</li>
+</ul>
 </div>
 </details>
 </section>

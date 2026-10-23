@@ -85,6 +85,8 @@
   - [ESP32 boards](#esp32-boards)
   - [Supported USB WiFi adapters](#usb-wifi-adapter-monitor-mode)
   - [RTL-SDR: two-way radio detection](#rtl-sdr-two-way-radio-transmitting-nearby)
+- [Sentinel Link: phones that share](#sentinel-link-phones-that-share)
+  - [Over Meshtastic (LoRa)](#over-meshtastic-lora)
 - [Themes](#themes)
 - [Privacy](#privacy)
 - [Limitations](#limitations)
@@ -174,7 +176,7 @@ Everything the app does, grouped by area.
 - **Fake cell tower signs** checked every 15 s, with persistence, call and border suppression (modelled on [EFF's Rayhunter](https://github.com/EFForg/rayhunter) as far as Android allows without root)
 - **Hidden WiFi networks** identified from WPS data, Cisco AP names and vendor elements, and linked to the visible network on the same router
 - Ordinary devices named precisely: exact AirPods / Beats model, device class, IEEE registrant; decoded Apple Continuity, iBeacon, Eddystone, Fast Pair
-- Editable **watchlist** (exact addresses, prefixes, name, *name starts with*, vendor and Bluetooth advert-pattern rules; search, export and undo) with Global, Canada, US, France, UK, Portugal, Germany, Spain and Italy presets; per-category on/off switches
+- Editable **watchlist** (exact addresses, prefixes of 24 to 44 bits picked with a slider, name, *name starts with*, vendor and Bluetooth advert-pattern rules; search, export and undo) with Global, Canada, US, France, UK, Portugal, Germany, Spain and Italy presets; per-category on/off switches
 - Bluetooth 5 extended advertising and LE Coded (long range) where the phone supports it
 - **I saw it:** on a device's page, tell the app what it is (e.g. pole camera on the bridge) and it learns that device - its exact address, and its Bluetooth advert pattern or WiFi probe fingerprint so it's recognised after its address changes. Patterns many devices share are refused, and a learned pattern only ever counts as probable
 - **Probe-rate clue** (USB WiFi adapter): non-stop wildcard probing from one fixed address backs up a fixed-camera match, shown on the device page
@@ -217,6 +219,7 @@ Everything the app does, grouped by area.
 - **History map & timeline:** heatmap of where flagged equipment showed up, and when (hour of day, day of week)
 - **Sightings map:** on a device's page, every spot that device was heard, joined in time order for each encounter
 - The main screen's map and the full screen map show the same view (place, zoom, heading, tilt, following you) and the same place card and routes
+- **Snapshots:** menu ⋮ → *Save snapshot* keeps the device list exactly as shown, to look at again later (History → *Snapshots*, beside the recorded traces), on the map, or exported
 - **Device history:** every device the app remembers, in range or not, searchable by address (with or without colons), name, vendor, type, your own name for it or your note, filtered to favorites, flagged before or seen today; tap one for its details page. History is kept as long as you set in Settings → Data
 
 </details>
@@ -226,6 +229,7 @@ Everything the app does, grouped by area.
 
 - **Android Auto** app: threat headline, next camera ahead, recent alerts, filtered device lists, cell towers, hardware status, live map with cameras and drones, OpenStreetMap turn-by-turn navigation, alerts through the car speakers with Mute (snooze) / Ignore buttons
 - **Starts by itself in the car** (your car's Bluetooth or Android Auto) and stops when you leave
+- **Record a trace in the car** (Settings → Auto-start): a GPS trace from the moment the phone connects to the car until you leave, saved by itself
 - Night Drive red-only theme; screen stays on while charging
 
 </details>
@@ -238,6 +242,7 @@ Everything the app does, grouped by area.
 - **Requested networks:** the WiFi names nearby devices ask for (probe requests), from a USB adapter or a Marauder board, in an optional list; **watch** a name to get an alert whenever any device asks for it
 - **Record frames to .pcap** for Wireshark (Settings → External hardware): every frame a USB WiFi adapter or V2X board hears, with its channel and signal
 - The ALFA AWUS036ACS's light blinks with received traffic (Settings → External hardware switches it off, for the adapters whose light the app can control)
+- RTL-SDR and HackRF transmissions show on the **radar** too, for a minute after they were last heard
 - **More from every frame:** WPS maker / model / device name, a **probe fingerprint** that survives MAC randomization (watchable: "every device of this type"), and the real name of **hidden networks** when a device joins them
 
 </details>
@@ -249,6 +254,8 @@ Everything the app does, grouped by area.
 - **Tools** (wrench button next to the List / Radar / Map toggle): **Cell towers** (serving and neighbour cells with network, IDs, channel and signal, plus every tower seen while scanning), **WiFi channels** and **WiFi spectrum** analyzers for 2.4 / 5 / 6 GHz
 - **Cell towers in the live list:** the serving cell and its neighbours appear under *All*, after the devices
 - **Scan watchdog:** a scanner that goes silent is restarted on its own
+- **List time** (Settings → Scanning): how long a device stays on the list and radar after it was last heard, down to 5 s (WiFi only when scan throttling is off), with its own slider for devices heard only by external hardware
+- **Location is off** warning: Android gives apps no Bluetooth or WiFi results while Location is off, so the main screen says so and opens the setting when tapped
 - Device details: evidence, identity, decoded data, signal graph, **Locate** mode, history, raw advertisement
 - Setup wizard (theme, region, alerts and voice, bubble, car start, camera warnings, cell alerts, camera radius, screen, permissions); Settings save themselves
 - **Check for updates** (menu ⋮): compares with the latest GitHub release, only when you tap it
@@ -256,6 +263,14 @@ Everything the app does, grouped by area.
 - 13 themes, including the **DedSec** (Watch Dogs 2) and **fsociety** (Mr. Robot) fan themes
 - **Theme maker:** build your own theme - an accent colour the whole palette grows from (the way Material You does), light, dark or pure black, a font (or your own .ttf / .otf), a banner picture, the animated home-screen header with your title, and your own map marker. Export a theme as a file; importing one lets you tick which parts to take (colours, font, banner, header, marker), into a new theme or into one of yours
 - **Map marker:** an arrow, chevron or one of 13 cars and bikes in 16 colours and any size, in place of the plain dot
+
+</details>
+
+<details>
+<summary><b>Sentinel Link</b></summary>
+
+- **Phones that share:** link RF Sentinel phones near each other over Bluetooth with a 6-digit code; each one shows what the others detect (their external hardware too) on its list, radar and map, marked **VIA** with the phone's name, with full alerts. [How to](#sentinel-link-phones-that-share)
+- **Over Meshtastic:** reach Sentinels kilometres away through a Meshtastic LoRa node paired with the phone; watchlist matches go first. Not yet tested on real hardware. [How to](#over-meshtastic-lora)
 
 </details>
 
@@ -758,6 +773,75 @@ their default names.
 
 </details>
 
+## Sentinel Link: phones that share
+
+Link two or more RF Sentinel phones near each other: each one shows the
+same devices on its list, radar and map, whichever phone heard them first,
+including what any phone's ESP32 board, USB WiFi adapter or RTL-SDR picks up.
+A device another phone heard is marked **VIA** with that phone's name, and its
+alerts say *via NAME*. The **Sentinels** filter chip shows only those.
+
+**Link the phones (once):**
+
+1. On both phones: Settings → **Sentinel Link** → *Open Sentinel Link*, and
+   give each phone a name (*This phone's name*).
+2. Keep the phones close. Tap **Link up a Sentinel** on one and **Join a
+   Sentinel** on the other, and allow *Nearby devices* if asked.
+3. Both phones show a 6-digit code. If the codes are the same, tap **Confirm**
+   on both. Different codes: tap *Cancel* (another phone answered).
+4. To add a third phone, tap *Link up a Sentinel* on any phone of the group
+   and *Join a Sentinel* on the new one.
+
+**Then:** linked phones share while they scan, whenever they are in Bluetooth
+range of each other (about 10 to 50 m, more in the open); they find each other
+again by themselves. *Share with linked Sentinels* turns sharing off without
+leaving; *Leave the group* forgets it. The list of Sentinels shows each one as
+*Linked now* or when it was last heard.
+
+**Privacy:** the link is encrypted (a key agreed with the 6-digit code, AES-GCM
+for every message), and the phones' Bluetooth adverts carry only a tag that
+changes over time and means nothing without the group's key. Nothing goes
+through the internet.
+
+### Over Meshtastic (LoRa)
+
+> **Not yet tested on real hardware.** The Meshtastic part follows Meshtastic's
+> phone API and passes its tests, but hasn't been tried with a real node yet.
+> Reports welcome.
+
+Phones too far apart for Bluetooth can share through
+[Meshtastic](https://meshtastic.org) nodes: LoRa boards with the official
+Meshtastic firmware, which reach kilometres. Each phone uses its own node,
+paired with it over Bluetooth.
+
+**What you need:** a LoRa board running Meshtastic per phone, for example a
+Heltec V3, a LilyGO T-Beam, or a Seeed XIAO ESP32S3 with its Wio-SX1262 LoRa
+board (a plain ESP32 has no LoRa radio). Flash it at
+[flasher.meshtastic.org](https://flasher.meshtastic.org) and set its **LoRa
+region** once in the Meshtastic app. Fit the antenna before powering it.
+
+**Set up:**
+
+1. Link the phones with Sentinel Link first (above): the mesh uses the group's key.
+2. Disconnect the Meshtastic app from the node (a node serves one app at a time).
+3. In Sentinel Link → **Meshtastic node**, turn on *Use a Meshtastic node* and
+   pick yours from *Choose a node*. If Android asks for a PIN, it's on the
+   node's screen, or **123456** for boards without a screen.
+4. Start a scan. The status line goes to *Meshtastic node · connected*.
+
+RF Sentinel adds a private channel named **RFSentinel** to a free channel slot
+of the node; its key is made from the group's key, so every phone of the group
+gets the same channel and only your group can read it. Each packet is also
+encrypted and signed with the group's key. If every slot is in use, free one in
+the Meshtastic app.
+
+LoRa is slow, so not everything fits. Each packet carries the phone's position
+once and a few devices: **watchlist matches first** (sent again every minute
+while in range, and a new one goes out within about 20 s), then flagged devices, then
+every other device. The slider sets how often a packet goes out (15 s to 5 min,
+1 minute by default). Devices you whitelisted are never sent. Radio and drone
+detections, and full device details, stay on Bluetooth links.
+
 ## Themes
 
 Pick a theme in the setup wizard or under **Settings → Appearance**.
@@ -886,6 +970,17 @@ Install RF Sentinel, tap **Start scanning**, and grant location and *Nearby
 devices*. It matches the Bluetooth LE and WiFi signals of body cameras, radios,
 in-car routers, printers and plate readers, and groups gear that moves together
 into a possible police vehicle. [More](https://cis-c0.github.io/RFSentinel/police-detector.html)
+
+</details>
+
+<details>
+<summary><b>Why does the scan find 0 devices?</b></summary>
+
+Location is probably off. Android gives apps no Bluetooth or WiFi scan results
+while the phone's Location is off, even with every permission granted. Turn it
+on in the quick settings (the main screen says so and opens the setting when
+you tap the warning), and check that RF Sentinel has location and *Nearby
+devices*.
 
 </details>
 

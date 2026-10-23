@@ -88,6 +88,8 @@ object MeshNode {
     private val channels = HashMap<Int, MeshProto.From.ChannelInfo>()
     private var channelIndex = -1
     private var channelTries = 0
+    /** Why the node can't be used as it is (no region, no free channel): kept on screen while it retries. */
+    private var setupProblem: String? = null
 
     // One Bluetooth operation at a time.
     private sealed class Op {
@@ -213,7 +215,7 @@ object MeshNode {
         toRadio = null; fromRadio = null
         ops.clear(); inFlight = null; ioReady = false; busyTries = 0
         draining = false; drainAgain = false
-        channels.clear(); channelIndex = -1; myNode = 0L
+        channels.clear(); channelIndex = -1; myNode = 0L; setupProblem = null
         if (ready) { ready = false; changed() }
     }
 
@@ -240,7 +242,11 @@ object MeshNode {
     private fun tick() {
         if (!running) { ticking = false; return }
         val now = SystemClock.elapsedRealtime()
-        if (gatt != null && !ready && now - connectStarted > SETUP_TIMEOUT_MS) lost("no answer")
+        val problem = setupProblem
+        if (gatt != null && !ready && now - connectStarted > SETUP_TIMEOUT_MS) {
+            // Settings the user has to change: say that, not "no answer", and look again later.
+            if (problem != null) { teardown(); setStatus("Meshtastic node: $problem"); scheduleRetry() } else lost("no answer")
+        }
         else if (inFlight != null && now - opSince > OP_TIMEOUT_MS) lost("stopped answering")
         h.postDelayed(::tick, TICK_MS)
     }
@@ -411,7 +417,7 @@ object MeshNode {
     /** Settings read: use the RFSentinel channel, adding it first when it's missing or has another group's key. */
     private fun configDone() {
         val psk = channelPsk ?: return
-        if (region == 0) { setStatus("Meshtastic node: set its LoRa region in the Meshtastic app first"); return }
+        if (region == 0) { stuck("set its LoRa region in the Meshtastic app first"); return }
         val ours = channels.values.firstOrNull { it.role != MeshProto.ROLE_DISABLED && it.name == MeshCodec.CHANNEL_NAME && it.psk.contentEquals(psk) }
         if (ours != null) {
             channelIndex = ours.index
@@ -421,12 +427,12 @@ object MeshNode {
             return
         }
         if (channelTries >= 2 || myNode == 0L) {
-            setStatus("Meshtastic node: couldn't add the ${MeshCodec.CHANNEL_NAME} channel")
+            stuck("couldn't add the ${MeshCodec.CHANNEL_NAME} channel")
             return
         }
         val slot = channels.values.firstOrNull { it.index in 1..7 && it.name == MeshCodec.CHANNEL_NAME }?.index
             ?: channels.values.filter { it.index in 1..7 && it.role == MeshProto.ROLE_DISABLED }.minOfOrNull { it.index }
-        if (slot == null) { setStatus("Meshtastic node: no free channel - free one in the Meshtastic app"); return }
+        if (slot == null) { stuck("no free channel - free one in the Meshtastic app"); return }
         channelTries++
         setStatus("Meshtastic node: adding the ${MeshCodec.CHANNEL_NAME} channel…")
         // Admin message to the node itself (from this phone: no admin key needed); channels change without a restart.
@@ -434,6 +440,11 @@ object MeshNode {
             MeshProto.setChannel(slot, MeshCodec.CHANNEL_NAME, psk), packetId(), 0, MeshProto.PRIORITY_RELIABLE)))
         val g = gatt
         h.postDelayed({ if (gatt === g && g != null && !ready) askConfig() }, 3_000L)
+    }
+
+    private fun stuck(why: String) {
+        setupProblem = why
+        setStatus("Meshtastic node: $why")
     }
 
     private fun packetId(): Long {

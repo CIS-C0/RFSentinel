@@ -1,0 +1,7 @@
+- Sentinel Link: phones linked with a 6-digit code share what they detect over Bluetooth.
+- Sentinel Link over Meshtastic: reach far Sentinels through a LoRa node (not yet tested on real hardware).
+- Snapshots: save the device list to view later.
+- Record a trace in the car by itself.
+- Watchlist prefix length slider; shorter list times.
+- RTL-SDR and HackRF transmissions on the radar.
+- Warning when Location is off (nothing can be seen).
