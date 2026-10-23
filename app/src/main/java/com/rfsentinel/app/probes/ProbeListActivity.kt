@@ -205,13 +205,42 @@ class ProbeListActivity : AppCompatActivity() {
         val df = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
         val devices = n.devices.reversed().joinToString("\n") { mac -> "$mac  ${maker(mac)}" }
         val watched = OuiWatchlist.isProbeWatched(n.ssid)
-        MaterialAlertDialogBuilder(this)
+        val dp = resources.displayMetrics.density
+        val spots = n.spots
+        val where = if (spots.isEmpty()) "Where: not known (heard without a GPS fix, or before places were kept)"
+            else if (spots.size == 1) "Asked for at 1 place" else "Asked for at ${spots.size} places"
+        lateinit var dialog: androidx.appcompat.app.AlertDialog
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val pad = (20 * dp).toInt(); setPadding(pad, (8 * dp).toInt(), pad, 0)
+            addView(TextView(this@ProbeListActivity).apply {
+                text = "First seen ${df.format(Date(n.firstSeen))}\nLast seen ${df.format(Date(n.lastSeen))}\n$where\n\n" +
+                    "Devices that asked for it:\n$devices"
+                setTextIsSelectable(true)
+            })
+            if (spots.isNotEmpty()) addView(com.google.android.material.button.MaterialButton(this@ProbeListActivity, null,
+                com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+                text = "Show on map"
+                setOnClickListener { dialog.dismiss(); showOnMap(n) }
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                .apply { topMargin = (8 * dp).toInt() })
+        }
+        dialog = MaterialAlertDialogBuilder(this)
             .setTitle(n.ssid)
-            .setMessage("First seen ${df.format(Date(n.firstSeen))}\nLast seen ${df.format(Date(n.lastSeen))}\n\nDevices that asked for it:\n$devices")
+            .setView(ScrollView(this).apply { addView(body) })
             .setPositiveButton(if (watched) "Stop watching" else "Watch") { _, _ -> if (watched) unwatch(n.ssid) else watch(n.ssid) }
             .setNeutralButton("Remove from list") { _, _ -> ProbeLog.remove(this, n.ssid); refresh() }
             .setNegativeButton("Find on WiGLE") { _, _ -> WigleUi.search(this, n.ssid) }
             .show()
+    }
+
+    /** The map with the places [n] was asked for, on the latest one. */
+    private fun showOnMap(n: ProbeBook.Network) {
+        val last = n.spots.lastOrNull() ?: return
+        ProbeLog.showOnMap(n.ssid)
+        startActivity(android.content.Intent(this, com.rfsentinel.app.ui.MapActivity::class.java)
+            .putExtra(com.rfsentinel.app.ui.MapActivity.EXTRA_CENTER_LAT, last.lat)
+            .putExtra(com.rfsentinel.app.ui.MapActivity.EXTRA_CENTER_LON, last.lon))
     }
 
     /** A device (or a group of addresses likely to be one): what it is, and every name it asked for as chips. */
@@ -287,6 +316,7 @@ class ProbeListActivity : AppCompatActivity() {
             holder.b.metaText.text = meta(n, System.currentTimeMillis())
             holder.b.watchButton.text = if (watched) "Watching" else "Watch"
             holder.b.watchButton.setOnClickListener { if (watched) unwatch(n.ssid) else watch(n.ssid) }
+            holder.b.findButton.setOnClickListener { WigleUi.search(this@ProbeListActivity, n.ssid) }
             holder.b.root.setOnClickListener { details(n) }
         }
     }
@@ -301,6 +331,7 @@ class ProbeListActivity : AppCompatActivity() {
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
             VH(ItemProbeBinding.inflate(LayoutInflater.from(parent.context), parent, false).also {
                 it.watchButton.visibility = View.GONE
+                it.findButton.visibility = View.GONE
             })
 
         override fun getItemCount() = items.size

@@ -712,8 +712,11 @@ class ScanForegroundService : Service() {
                            skeleton: Long? = null) {
         com.rfsentinel.app.usb.ProbeIntel.note(mac, wps, fingerprint, ssids, hidden, skeleton)
         // Kept in the requested-networks list when that's on, and always while a trace records.
+        // Where it was asked for: this phone's position, when the fix is fresh and good enough to place devices.
+        val at = lastFix?.takeIf { usableForPlacing(it) }
+            ?.let { it.latitude to it.longitude }
         com.rfsentinel.app.data.ProbeLog.record(this, mac, ssids, rssi, now, force = TripRecorder.isRecording,
-            wps = wps, fingerprint = fingerprint)
+            wps = wps, fingerprint = fingerprint, at = at)
         val hits = OuiWatchlist.probeHits(ssids) + OuiWatchlist.fingerprintHits(fingerprint) + OuiWatchlist.wpsHits(wps) +
             OuiWatchlist.fingerprintHits(skeleton?.let { com.rfsentinel.app.usb.ProbeIntel.shapeKey(it) })
         if (hits.isEmpty()) return

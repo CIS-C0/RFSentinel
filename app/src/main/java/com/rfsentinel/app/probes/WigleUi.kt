@@ -4,12 +4,25 @@ import android.content.Context
 import android.content.Intent
 import android.location.Location
 import android.location.LocationManager
+import android.graphics.Typeface
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.TextUtils
+import android.text.style.StyleSpan
+import android.util.TypedValue
+import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.DividerItemDecoration
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.online.Wigle
 import com.rfsentinel.app.online.WiglePins
@@ -157,16 +170,79 @@ object WigleUi {
         }
         val nets = if (me == null) answer.nets
         else answer.nets.sortedBy { DeviceRegistry.metersBetween(me.first, me.second, it.lat, it.lon) }
-        val rows = nets.map { n -> line(n, me) }.toTypedArray()
         val where = if (answer.near) "within ${Wigle.NEAR_KM.toInt()} km" else "worldwide"
-        val more = if (answer.total > nets.size) " (${nets.size} of ${answer.total} shown)" else ""
-        MaterialAlertDialogBuilder(a)
-            .setTitle("\"$text\" $where$more")
-            .setItems(rows) { _, which -> pinAndShow(a, listOf(nets[which]), text, nets[which]) }
-            .setPositiveButton("Pin all on map") { _, _ -> pinAndShow(a, nets, text, nets.first()) }
-            .apply { if (answer.near) setNeutralButton("Worldwide") { _, _ -> search(a, text, worldwide = true) } }
-            .setNegativeButton("Close", null)
-            .show()
+        val dp = a.resources.displayMetrics.density
+        fun px(v: Int) = (v * dp).toInt()
+        val pad = px(20)
+        val sheet = BottomSheetDialog(a)
+
+        // Title and count on top, the answers scrolling in the middle, the buttons always at the bottom.
+        val header = LinearLayout(a).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, px(16), pad, px(8))
+            addView(TextView(a).apply {
+                this.text = "\"$text\" $where"
+                textSize = 18f; setTypeface(typeface, Typeface.BOLD)
+                maxLines = 2; ellipsize = TextUtils.TruncateAt.END
+            })
+            addView(TextView(a).apply {
+                this.text = (if (answer.total > nets.size) "${nets.size} of ${answer.total} shown"
+                    else if (nets.size == 1) "1 network" else "${nets.size} networks") +
+                    if (me != null && nets.size > 1) ", nearest first" else ""
+                textSize = 13f; alpha = 0.75f
+            })
+        }
+        val tapBackground = TypedValue().also { a.theme.resolveAttribute(android.R.attr.selectableItemBackground, it, true) }.resourceId
+        val list = RecyclerView(a).apply {
+            layoutManager = LinearLayoutManager(a)
+            addItemDecoration(DividerItemDecoration(a, DividerItemDecoration.VERTICAL))
+            adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+                override fun getItemCount() = nets.size
+                override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = object : RecyclerView.ViewHolder(
+                    TextView(a).apply {
+                        layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                        setPadding(pad, px(10), pad, px(10))
+                        textSize = 14f
+                        setBackgroundResource(tapBackground)
+                    }) {}
+                override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+                    val n = nets[position]
+                    val row = line(n, me)
+                    val nameEnd = row.indexOf('\n').takeIf { it >= 0 } ?: row.length
+                    (holder.itemView as TextView).text = SpannableString(row).apply {
+                        setSpan(StyleSpan(Typeface.BOLD), 0, nameEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    }
+                    holder.itemView.setOnClickListener { sheet.dismiss(); pinAndShow(a, listOf(n), text, n) }
+                }
+            }
+        }
+        val buttons = LinearLayout(a).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(px(16), px(8), px(16), px(12))
+            fun button(label: String, filled: Boolean, onClick: () -> Unit) = addView(
+                (if (filled) MaterialButton(a) else MaterialButton(a, null, com.google.android.material.R.attr.materialButtonOutlinedStyle)).apply {
+                    this.text = label; maxLines = 1; ellipsize = TextUtils.TruncateAt.END
+                    setOnClickListener { sheet.dismiss(); onClick() }
+                },
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = px(4); marginEnd = px(4) })
+            button("Pin all", true) { pinAndShow(a, nets, text, nets.first()) }
+            if (answer.near) button("Worldwide", false) { search(a, text, worldwide = true) }
+            button("Close", false) {}
+        }
+        // At most ~85% of the screen: the list gives up the height, never the header or the buttons.
+        val maxHeight = (a.resources.displayMetrics.heightPixels * 0.85).toInt()
+        val root = object : LinearLayout(a) {
+            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) = super.onMeasure(widthMeasureSpec,
+                MeasureSpec.makeMeasureSpec(minOf(maxHeight, MeasureSpec.getSize(heightMeasureSpec).takeIf { it > 0 } ?: maxHeight), MeasureSpec.AT_MOST))
+        }.apply {
+            orientation = LinearLayout.VERTICAL
+            addView(header)
+            addView(list, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+            addView(buttons)
+        }
+        sheet.setContentView(root)
+        sheet.behavior.apply { skipCollapsed = true; state = BottomSheetBehavior.STATE_EXPANDED }
+        sheet.show()
     }
 
     /** One answer as a list row: name and address, then where, when and how far. */

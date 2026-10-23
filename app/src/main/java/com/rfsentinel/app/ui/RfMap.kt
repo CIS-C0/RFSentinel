@@ -7,6 +7,7 @@ import com.rfsentinel.app.alpr.AlprStore
 import com.rfsentinel.app.alpr.Cctv
 import com.rfsentinel.app.alpr.CctvStore
 import com.rfsentinel.app.alpr.KnownCamera
+import com.rfsentinel.app.data.ProbeLog
 import com.rfsentinel.app.online.PoliceAircraft
 import com.rfsentinel.app.online.WazePolice
 import com.rfsentinel.app.online.WiglePins
@@ -50,6 +51,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         private const val WAZE = "rf-waze"; private const val DRONE_OPS = "rf-drone-ops"; private const val DRONES = "rf-drones"
         private const val AIRCRAFT = "rf-aircraft"
         private const val WIGLE = "rf-wigle"; private const val WIGLE_COLOR = "#8E24AA"
+        private const val ASKED = "rf-asked"; private const val ASKED_COLOR = "#00897B"
         private const val NAV_ROUTES = "rf-nav-routes"; private const val NAV_PLACES = "rf-nav-places"
         private const val NAV_ROUTE_COLOR = "#1A73E8"; private const val NAV_ALT_COLOR = "#7C8DA6"
 
@@ -92,6 +94,9 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
     private var wigle: Map<String, WiglePins.Pin> = emptyMap()
     /** What the WiGLE layer was drawn for (pins' version, filter, trace mode): redrawn only when it changes. */
     private var wigleDrawn: String? = null
+    /** The places the shown requested network was asked for, by id, and what they were drawn for. */
+    private var asked: Map<String, com.rfsentinel.app.data.ProbeBook.Spot> = emptyMap()
+    private var askedDrawn: String? = null
     /** The area the camera, CCTV and tower layers were drawn for (redrawn when the view leaves it). */
     private var staticBox: MapEngine.Box? = null
     private var staticAt = 0L
@@ -113,9 +118,11 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
                 val (ink, halo) = labelColors(dark)
                 map.setPaint(LABELS, "text-color", ink); map.setPaint(LABELS, "text-halo-color", halo)
                 map.setPaint("$WIGLE-labels", "text-color", ink); map.setPaint("$WIGLE-labels", "text-halo-color", halo)
+                map.setPaint("$ASKED-labels", "text-color", ink); map.setPaint("$ASKED-labels", "text-halo-color", halo)
             }
             staticBox = null
             wigleDrawn = null
+            askedDrawn = null
             safe("loaded") { onLoaded() }
         }
     }
@@ -143,7 +150,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
 
     /** Every layer, as map style JSON (the same on both engines). */
     private fun addLayers(dark: Boolean) {
-        listOf(NAV_ROUTES, NAV_PLACES, PRECISION, CONES, CAM_CONES, TRACE, DRONE_LINES, TOWERS, CCTV, CAMERAS, DEVICES, WIGLE, WAZE, DRONE_OPS, DRONES, AIRCRAFT)
+        listOf(NAV_ROUTES, NAV_PLACES, PRECISION, CONES, CAM_CONES, TRACE, DRONE_LINES, TOWERS, CCTV, CAMERAS, DEVICES, WIGLE, ASKED, WAZE, DRONE_OPS, DRONES, AIRCRAFT)
             .forEach { map.addSource(it) }
         fun get(k: String) = a("get", k)
         val color = a("to-color", get("color"))
@@ -206,6 +213,13 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
             layer(WIGLE, "circle", paint = o("circle-color" to WIGLE_COLOR, "circle-radius" to 7.0,
                 "circle-stroke-color" to "#FFFFFF", "circle-stroke-width" to 2.0)),
             layer("$WIGLE-labels", "symbol", WIGLE,
+                layout = o("text-field" to get("label"), "text-font" to font, "text-size" to 12.0, "text-anchor" to "top",
+                    "text-offset" to a(0.0, 1.0), "text-optional" to true),
+                paint = o("text-color" to ink, "text-halo-color" to halo, "text-halo-width" to 1.5)),
+            // Where a requested network was asked for ("Show on map" in the list): teal, with when.
+            layer(ASKED, "circle", paint = o("circle-color" to ASKED_COLOR, "circle-radius" to 7.0,
+                "circle-stroke-color" to "#FFFFFF", "circle-stroke-width" to 2.0)),
+            layer("$ASKED-labels", "symbol", ASKED,
                 layout = o("text-field" to get("label"), "text-font" to font, "text-size" to 12.0, "text-anchor" to "top",
                     "text-offset" to a(0.0, 1.0), "text-optional" to true),
                 paint = o("text-color" to ink, "text-halo-color" to halo, "text-halo-width" to 1.5)),
@@ -329,6 +343,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         })
 
         drawWigle()
+        drawAsked()
         val trace = if (TripRecorder.isRecording) TripRecorder.livePoints() else emptyList()
         drawTrace(trace.map { it.lat to it.lon }, TRACE_COLOR)
         return shown
@@ -345,6 +360,21 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         wigle = list.associateBy { it.net.bssid }
         set(WIGLE, list.map { p ->
             GeoJson.feature(GeoJson.point(p.net.lat, p.net.lon), "id" to p.net.bssid, "label" to (p.net.ssid ?: p.net.bssid).take(32))
+        })
+    }
+
+    /** Where the network picked in the requested-networks list was asked for, when it changed. */
+    fun drawAsked() {
+        if (!ready()) return
+        val ssid = ProbeLog.onMap
+        val key = "${ProbeLog.version}|$ssid|$tripMode"
+        if (key == askedDrawn) return
+        askedDrawn = key
+        val spots = if (ssid == null || tripMode) emptyList() else ProbeLog.network(activity, ssid)?.spots.orEmpty()
+        val df = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT)
+        asked = spots.withIndex().associate { (i, s) -> "asked-$i" to s }
+        set(ASKED, asked.map { (id, s) ->
+            GeoJson.feature(GeoJson.point(s.lat, s.lon), "id" to id, "label" to df.format(java.util.Date(s.at)))
         })
     }
 
@@ -493,7 +523,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         val r = 22f * activity.resources.displayMetrics.density
         val box = RectF(x - r, y - r, x + r, y + r)
         val asked = listOf(AIRCRAFT to "hex", WAZE to "id", DRONES to "mac", DRONE_OPS to "mac", DOTS to "mac",
-            CAMERAS to "id", CCTV to "id", TOWERS to "id", WIGLE to "id")
+            CAMERAS to "id", CCTV to "id", TOWERS to "id", WIGLE to "id", ASKED to "id")
         map.query(box, asked) { found ->
             if (activity.isFinishing || activity.isDestroyed) return@query
             safe("tap") { showTapped(found, me) }
@@ -506,6 +536,11 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         waze.firstNotNullOfOrNull { wazeShown[it] }?.let { MapDialogs.showWaze(activity, it); return }
         found[8].firstNotNullOfOrNull { wigle[it] }?.let { p ->
             MapDialogs.showWigle(activity, p, me) { WiglePins.remove(activity, p.net.bssid); drawWigle() }
+            return
+        }
+        found[9].firstNotNullOfOrNull { asked[it] }?.let { s ->
+            val ssid = ProbeLog.onMap ?: return
+            MapDialogs.showAsked(activity, ssid, s, me) { ProbeLog.showOnMap(null); drawAsked() }
             return
         }
         (drone + op).firstNotNullOfOrNull { drones[it] }?.let { s ->

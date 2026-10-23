@@ -26,16 +26,18 @@ object ProbeLog {
 
     /**
      * Records that [mac] asked for each of [ssids], with what else its frames said about it ([wps],
-     * [fingerprint]: kept for a device that asked for a name). Only while recording is on, or
-     * [force]d: a map trace recording keeps them too.
+     * [fingerprint]: kept for a device that asked for a name), and where this phone was ([at]). Only
+     * while recording is on, or [force]d: a map trace recording keeps them too.
      */
     @Synchronized
     fun record(context: Context, mac: String, ssids: Collection<String>, rssi: Int, now: Long = System.currentTimeMillis(),
-               force: Boolean = false, wps: com.rfsentinel.app.usb.ProbeIntel.Wps? = null, fingerprint: String? = null) {
+               force: Boolean = false, wps: com.rfsentinel.app.usb.ProbeIntel.Wps? = null, fingerprint: String? = null,
+               at: Pair<Double, Double>? = null) {
         if (ssids.isEmpty() && wps == null && fingerprint == null) return
         if (!(force || com.rfsentinel.app.util.Prefs.recordProbes(context))) return
         ensureLoaded(context)
-        ssids.forEach { book.record(it, mac, rssi, now) }
+        ssids.forEach { book.record(it, mac, rssi, now, at) }
+        if (at != null && onMap?.let { m -> ssids.any { it.equals(m, ignoreCase = true) } } == true) version++
         if (!book.recordDevice(mac, ssids, rssi, now, wps?.deviceName, wps?.product, fingerprint)) return
         dirty = true
         if (now - lastSave > SAVE_EVERY_MS) save(context, now)
@@ -43,6 +45,19 @@ object ProbeLog {
 
     @Synchronized
     fun all(context: Context): List<ProbeBook.Network> { ensureLoaded(context); return book.all() }
+
+    @Synchronized
+    fun network(context: Context, ssid: String): ProbeBook.Network? { ensureLoaded(context); return book.network(ssid) }
+
+    /** The network whose request spots the map shows ("Show on map"), or null. */
+    @Volatile var onMap: String? = null
+        private set
+
+    /** Bumped when [onMap] or a place changes, so the map redraws only then. */
+    @Volatile var version = 0
+        private set
+
+    fun showOnMap(ssid: String?) { onMap = ssid; version++ }
 
     /** The devices that asked, grouped ([ProbeBook.groups]), newest first. */
     @Synchronized
@@ -56,10 +71,10 @@ object ProbeLog {
     fun sharing(context: Context, fp: String): Int { ensureLoaded(context); return book.sharing(fp) }
 
     @Synchronized
-    fun remove(context: Context, ssid: String) { ensureLoaded(context); book.remove(ssid); dirty = true; save(context) }
+    fun remove(context: Context, ssid: String) { ensureLoaded(context); book.remove(ssid); version++; dirty = true; save(context) }
 
     @Synchronized
-    fun clear(context: Context) { ensureLoaded(context); book.clear(); dirty = true; save(context) }
+    fun clear(context: Context) { ensureLoaded(context); book.clear(); version++; dirty = true; save(context) }
 
     /** Writes pending changes (the scan stopping, the list closing). */
     @Synchronized
@@ -114,8 +129,13 @@ class ProbeBook(private val maxNetworks: Int = 1000, private val maxDevices: Int
         var encounters: Int,
         var lastRssi: Int,
         /** Devices that asked for it, most recent last. */
-        val devices: MutableList<String>
+        val devices: MutableList<String>,
+        /** Where it was asked for (this phone's position when heard), oldest first. */
+        val spots: MutableList<Spot> = mutableListOf()
     )
+
+    /** One place a network was asked for: the strongest request heard there, by [mac], last heard [at]. */
+    data class Spot(val lat: Double, val lon: Double, val at: Long, val mac: String, val rssi: Int)
 
     /** A device that asked for networks: what it asked for and what its frames said about it. */
     data class Device(
@@ -149,21 +169,40 @@ class ProbeBook(private val maxNetworks: Int = 1000, private val maxDevices: Int
     private val nets = LinkedHashMap<String, Network>()
     private val probers = LinkedHashMap<String, Device>()
 
-    fun record(ssid: String, mac: String, rssi: Int, now: Long) {
+    /** Notes that [mac] asked for [ssid], heard where this phone was ([at], when it had a fix). */
+    fun record(ssid: String, mac: String, rssi: Int, now: Long, at: Pair<Double, Double>? = null) {
         val key = ssid.lowercase()
+        val m = mac.uppercase()
         val n = nets[key]
         if (n == null) {
-            nets[key] = Network(ssid, now, now, 1, rssi, mutableListOf(mac.uppercase()))
+            nets[key] = Network(ssid, now, now, 1, rssi, mutableListOf(m)).also { at?.let { p -> spot(it, m, rssi, now, p) } }
             trim()
             return
         }
         if (now - n.lastSeen > GAP_MS) n.encounters++
         n.lastSeen = now
         n.lastRssi = rssi
-        val m = mac.uppercase()
         n.devices.remove(m); n.devices.add(m)
         while (n.devices.size > maxDevices) n.devices.removeAt(0)
+        at?.let { spot(n, m, rssi, now, it) }
     }
+
+    /**
+     * A new place, or the last one again (same encounter, within [SPOT_M]): there it moves to the
+     * strongest request, the one heard closest to the device.
+     */
+    private fun spot(n: Network, mac: String, rssi: Int, now: Long, at: Pair<Double, Double>) {
+        val last = n.spots.lastOrNull()
+        if (last != null && now - last.at <= GAP_MS && meters(last.lat, last.lon, at.first, at.second) < SPOT_M) {
+            n.spots[n.spots.lastIndex] = if (rssi > last.rssi) Spot(at.first, at.second, now, mac, rssi) else last.copy(at = now)
+            return
+        }
+        n.spots.add(Spot(at.first, at.second, now, mac, rssi))
+        while (n.spots.size > MAX_SPOTS) n.spots.removeAt(0)
+    }
+
+    /** One network by name, or null. */
+    fun network(ssid: String): Network? = nets[ssid.lowercase()]?.let { it.copy(devices = it.devices.toMutableList(), spots = it.spots.toMutableList()) }
 
     /**
      * Notes what [mac] asked for and said about itself. A device that never asked for a name isn't
@@ -221,7 +260,7 @@ class ProbeBook(private val maxNetworks: Int = 1000, private val maxDevices: Int
     }
 
     /** Newest first. */
-    fun all(): List<Network> = nets.values.sortedByDescending { it.lastSeen }.map { it.copy(devices = it.devices.toMutableList()) }
+    fun all(): List<Network> = nets.values.sortedByDescending { it.lastSeen }.map { it.copy(devices = it.devices.toMutableList(), spots = it.spots.toMutableList()) }
 
     /** Forgets [ssid], and the devices that asked for nothing else. */
     fun remove(ssid: String) {
@@ -267,7 +306,8 @@ class ProbeBook(private val maxNetworks: Int = 1000, private val maxDevices: Int
         nets.clear()
         @Suppress("SENSELESS_COMPARISON", "USELESS_ELVIS") // Gson can leave fields null
         list.filter { it.ssid != null }.forEach {
-            nets[it.ssid.lowercase()] = it.copy(devices = (it.devices ?: mutableListOf()).toMutableList())
+            nets[it.ssid.lowercase()] = it.copy(devices = (it.devices ?: mutableListOf()).toMutableList(),
+                spots = (it.spots ?: mutableListOf()).filter { s -> s != null }.toMutableList())
         }
         trim()
     }
@@ -279,5 +319,14 @@ class ProbeBook(private val maxNetworks: Int = 1000, private val maxDevices: Int
 
     companion object {
         const val GAP_MS = 10 * 60_000L
+        /** Requests heard this close together, in one encounter, are one place. */
+        const val SPOT_M = 200.0
+        const val MAX_SPOTS = 50
+
+        private fun meters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+            val dLat = Math.toRadians(lat2 - lat1)
+            val dLon = Math.toRadians(lon2 - lon1) * kotlin.math.cos(Math.toRadians((lat1 + lat2) / 2))
+            return 6_371_000.0 * kotlin.math.sqrt(dLat * dLat + dLon * dLon)
+        }
     }
 }

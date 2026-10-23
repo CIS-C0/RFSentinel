@@ -34,4 +34,12 @@
         android:layout_height="wrap_content"
         android:text="Watch" />
 
+    <Button
+        android:id="@+id/findButton"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="6dp"
+        android:text="Find" />
+
 </LinearLayout>

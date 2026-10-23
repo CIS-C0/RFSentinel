@@ -110,6 +110,27 @@ internal object MapDialogs {
             .show()
     }
 
+    /** A place where [ssid] was asked for; [hide] takes that network's places off the map. */
+    fun showAsked(a: AppCompatActivity, ssid: String, s: com.rfsentinel.app.data.ProbeBook.Spot, me: Pair<Double, Double>?, hide: () -> Unit) {
+        val df = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT)
+        val maker = if (com.rfsentinel.app.util.MacUtil.isRandomized(s.mac)) "random address"
+            else com.rfsentinel.app.detect.VendorDb.macVendor(s.mac) ?: "unknown maker"
+        val text = buildString {
+            append("Asked for by ${s.mac}  $maker\n")
+            append("Last heard here: ${df.format(java.util.Date(s.at))}\n")
+            append("Signal: ${s.rssi} dBm\n")
+            me?.let { append("Distance: " + com.rfsentinel.app.util.Units.distance(
+                DeviceRegistry.metersBetween(it.first, it.second, s.lat, s.lon)) + "\n") }
+            append("\nWhere this phone was when it heard the strongest request at this spot. The device was within WiFi range of it.")
+        }
+        MaterialAlertDialogBuilder(a)
+            .setTitle(ssid)
+            .setMessage(text)
+            .setPositiveButton("Hide from map") { _, _ -> hide() }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
     /** [me] = your position (lat, lon) for the distance, when known. */
     fun showAircraft(a: AppCompatActivity, p: com.rfsentinel.app.online.PoliceAircraft.Plane, hit: com.rfsentinel.app.detect.Hit?,
                      me: Pair<Double, Double>?) {
