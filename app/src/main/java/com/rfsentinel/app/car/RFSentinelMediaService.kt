@@ -89,8 +89,9 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
     override fun onGetRoot(clientPackageName: String, clientUid: Int, rootHints: Bundle?): BrowserRoot? {
         // No "resume playback" card in the phone's quick settings.
         if (rootHints?.getBoolean(BrowserRoot.EXTRA_RECENT) == true) return null
-        // Detections are only shown to Android Auto (and the car's own media app).
-        if (clientUid != Process.myUid() && clientPackageName !in ALLOWED_CALLERS) return null
+        // Detections are only shown to Android Auto, the car's own media app and Gearslip.
+        if (clientUid != Process.myUid() && clientPackageName !in ALLOWED_CALLERS &&
+            !CarHosts.isGearslip(this, clientPackageName, clientUid)) return null
         val extras = Bundle().apply {
             putInt(MediaConstants.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_BROWSABLE,
                 MediaConstants.DESCRIPTION_EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM)

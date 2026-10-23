@@ -23,6 +23,9 @@ class RFSentinelCarAppService : CarAppService() {
         } else {
             HostValidator.Builder(applicationContext)
                 .addAllowedHosts(androidx.car.app.R.array.hosts_allowlist_sample)
+                .apply {
+                    CarHosts.GEARSLIP_PACKAGES.forEach { addAllowedHost(it, CarHosts.GEARSLIP_CERT_SHA256) }
+                }
                 .build()
         }
     }
