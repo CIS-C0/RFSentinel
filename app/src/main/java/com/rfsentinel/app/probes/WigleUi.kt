@@ -221,7 +221,12 @@ object WigleUi {
             setPadding(px(16), px(8), px(16), px(12))
             fun button(label: String, filled: Boolean, onClick: () -> Unit) = addView(
                 (if (filled) MaterialButton(a) else MaterialButton(a, null, com.google.android.material.R.attr.materialButtonOutlinedStyle)).apply {
-                    this.text = label; maxLines = 1; ellipsize = TextUtils.TruncateAt.END
+                    // Three buttons on a narrow phone: less side padding, and the label shrinks before it's cut.
+                    this.text = label; maxLines = 1
+                    minWidth = 0; minimumWidth = 0
+                    setPaddingRelative(px(6), paddingTop, px(6), paddingBottom)
+                    androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                        this, 10, 14, 1, TypedValue.COMPLEX_UNIT_SP)
                     setOnClickListener { sheet.dismiss(); onClick() }
                 },
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = px(4); marginEnd = px(4) })
