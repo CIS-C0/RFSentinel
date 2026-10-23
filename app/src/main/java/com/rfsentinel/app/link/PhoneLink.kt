@@ -77,6 +77,7 @@ object PhoneLink {
     private const val PAIR_PICK_MS = 2_500L
     private const val ADVERT_RECHECK_MS = 5_000L
     private const val TICK_MS = 5_000L
+    private const val MESH_MAX_SKEW_MS = 15 * 60_000L
 
     private val thread = HandlerThread("rf-link").apply { start() }
     private val h = Handler(thread.looper)
@@ -85,6 +86,7 @@ object PhoneLink {
     private var ctx: Context? = null
     private var sharing = false
     private var groupKey: ByteArray? = null
+    private var meshKey: ByteArray? = null
     private var myId = 0L
     private var names: Map<Long, String> = emptyMap()
 
@@ -121,6 +123,8 @@ object PhoneLink {
 
     /** When each Sentinel was last heard from (directly or relayed), wall clock. */
     val lastHeard = ConcurrentHashMap<Long, Long>()
+    /** When each Sentinel was last heard over the mesh (Meshtastic node). */
+    val lastHeardMesh = ConcurrentHashMap<Long, Long>()
 
     private val listeners = CopyOnWriteArraySet<() -> Unit>()
     fun addListener(l: () -> Unit) { listeners += l }
@@ -208,6 +212,7 @@ object PhoneLink {
     private fun loadGroup() {
         val c = ctx ?: return
         groupKey = LinkStore.groupKey(c)
+        meshKey = groupKey?.let { MeshCodec.messageKey(it) }
         myId = LinkStore.myId(c)
         names = LinkStore.members(c).associate { it.id to it.name }
         tagSlot = Long.MIN_VALUE
@@ -749,13 +754,40 @@ object PhoneLink {
         lastHeard[b.origin] = System.currentTimeMillis()
         l.peer?.id?.let { lastHeard[it] = System.currentTimeMillis() }
         onBatch?.invoke(b, nameOf(b.origin))
-        if (b.hops < LinkCodec.MAX_HOPS) {
-            val targets = links.filter { it !== l && it.ready && it.peer?.id != b.origin && it.queuedBytes < MAX_QUEUED_BYTES }
-            if (targets.isNotEmpty()) {
-                val bytes = LinkCodec.batch(b.relayed())
-                targets.forEach { sendSealed(it, bytes) }
-            }
+        relay(b, l)
+    }
+
+    /** Passes [b] on to the other linked Sentinels, up to [LinkCodec.MAX_HOPS] times. */
+    private fun relay(b: LinkCodec.Batch, from: Link?) {
+        if (b.hops >= LinkCodec.MAX_HOPS) return
+        val targets = links.filter { it !== from && it.ready && it.peer?.id != b.origin && it.queuedBytes < MAX_QUEUED_BYTES }
+        if (targets.isEmpty()) return
+        val bytes = LinkCodec.batch(b.relayed())
+        targets.forEach { sendSealed(it, bytes) }
+    }
+
+    /**
+     * A packet from the Meshtastic node: what a Sentinel far away heard. Shown like a Bluetooth one and passed on
+     * to the Sentinels linked here over Bluetooth (each one shows it once, whichever way it arrives first).
+     */
+    fun meshIn(payload: ByteArray) = h.post {
+        if (!sharing) return@post
+        val key = meshKey ?: return@post
+        val m = MeshCodec.open(key, payload) ?: return@post
+        if (m.origin == myId) return@post
+        val now = System.currentTimeMillis()
+        // Kept from being replayed much later (phones' clocks are close enough).
+        if (kotlin.math.abs(now - m.time) > MESH_MAX_SKEW_MS) return@post
+        val c = ctx ?: return@post
+        m.name?.let { if (LinkStore.addMembers(c, listOf(LinkCodec.Member(m.origin, it)))) names = LinkStore.members(c).associate { x -> x.id to x.name } }
+        lastHeard[m.origin] = now
+        lastHeardMesh[m.origin] = now
+        val b = MeshCodec.toBatch(m)
+        if (seen.first(b.origin, b.seq)) {
+            onBatch?.invoke(b, nameOf(b.origin))
+            relay(b, null)
         }
+        changed()
     }
 
     // ---------------------------------------------------------------- linking a new phone

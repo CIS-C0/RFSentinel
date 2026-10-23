@@ -6,7 +6,9 @@ import android.os.Bundle
 import android.text.format.DateUtils
 import android.view.Gravity
 import android.view.View
+import android.widget.ArrayAdapter
 import android.widget.EditText
+import android.widget.ListView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -19,8 +21,10 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.slider.Slider
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.rfsentinel.app.link.LinkStore
+import com.rfsentinel.app.link.MeshNode
 import com.rfsentinel.app.link.PhoneLink
 import com.rfsentinel.app.service.ScanForegroundService
 import com.rfsentinel.app.util.applySystemBarInsets
@@ -37,14 +41,18 @@ class SentinelLinkActivity : AppCompatActivity() {
     private lateinit var share: SwitchMaterial
     private lateinit var list: LinearLayout
     private lateinit var leave: MaterialButton
+    private lateinit var meshSection: LinearLayout
+    private lateinit var meshSwitch: SwitchMaterial
+    private lateinit var meshNodeText: TextView
+    private lateinit var meshStatus: TextView
     private var pairDialog: AlertDialog? = null
-    private var pendingHost: Boolean? = null
+    private var pending: (() -> Unit)? = null
     private val onLinkChanged: () -> Unit = { refresh() }
 
     private val permissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        val host = pendingHost ?: return@registerForActivityResult
-        pendingHost = null
-        if (PhoneLink.canUse(this)) startPairing(host)
+        val action = pending ?: return@registerForActivityResult
+        pending = null
+        if (PhoneLink.canUse(this)) action()
         else Toast.makeText(this, "Sentinel Link needs \"Nearby devices\"", Toast.LENGTH_LONG).show()
     }
 
@@ -100,11 +108,13 @@ class SentinelLinkActivity : AppCompatActivity() {
             setOnClickListener { confirmLeave() }
         }
 
+        meshSection = meshSection(::button)
+
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad(16), pad(16), pad(16), pad(16))
             addView(intro); addView(status); addView(nameLabel); addView(name); addView(share)
-            addView(hostButton); addView(joinButton); addView(listHeader); addView(list); addView(leave)
+            addView(hostButton); addView(joinButton); addView(listHeader); addView(list); addView(meshSection); addView(leave)
         }
         val scroll = ScrollView(this).apply { addView(column) }
         setContentView(scroll)
@@ -120,11 +130,105 @@ class SentinelLinkActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         PhoneLink.addListener(onLinkChanged)
+        MeshNode.addListener(onLinkChanged)
     }
 
     override fun onStop() {
         PhoneLink.removeListener(onLinkChanged)
+        MeshNode.removeListener(onLinkChanged)
         super.onStop()
+    }
+
+    /** Meshtastic node: on / off, which node, how it's doing, how often it sends. */
+    private fun meshSection(button: (String, () -> Unit) -> MaterialButton): LinearLayout {
+        val header = TextView(this).apply {
+            textSize = 16f; setTypeface(typeface, Typeface.BOLD); text = "Meshtastic node"; setPadding(0, pad(20), 0, pad(4))
+        }
+        val about = TextView(this).apply {
+            textSize = 14f
+            setLineSpacing(0f, 1.2f)
+            text = "Reach Sentinels kilometres away through a Meshtastic node: a LoRa board with the official firmware, " +
+                "paired with this phone over Bluetooth. RF Sentinel adds a private channel named ${com.rfsentinel.app.link.MeshCodec.CHANNEL_NAME} " +
+                "to the node, made from the group's key, so only your group reads it. LoRa is slow: watchlist matches go " +
+                "first, then flagged devices, then every other device, a few per packet. While RF Sentinel uses the node, " +
+                "the Meshtastic app on this phone can't."
+        }
+        meshSwitch = SwitchMaterial(this).apply {
+            text = "Use a Meshtastic node"
+            isChecked = LinkStore.meshOn(this@SentinelLinkActivity)
+            setOnCheckedChangeListener { _, on ->
+                LinkStore.setMeshOn(this@SentinelLinkActivity, on)
+                ScanForegroundService.refreshLink(this@SentinelLinkActivity)
+                if (on && LinkStore.meshNode(this@SentinelLinkActivity) == null) chooseNode()
+                refresh()
+            }
+            setPadding(0, pad(8), 0, pad(8))
+        }
+        meshNodeText = TextView(this).apply { textSize = 14f }
+        meshStatus = TextView(this).apply { textSize = 14f; setPadding(0, pad(4), 0, 0) }
+        val choose = button("Choose a node") { chooseNode() }
+        val intervalLabel = TextView(this).apply { textSize = 14f; setPadding(0, pad(12), 0, 0) }
+        fun showInterval(s: Int) { intervalLabel.text = "Send a packet every $s s - watchlist matches sooner" }
+        val step = 15
+        val interval = Slider(this).apply {
+            valueFrom = LinkStore.MESH_INTERVAL_MIN.toFloat()
+            valueTo = LinkStore.MESH_INTERVAL_MAX.toFloat()
+            stepSize = step.toFloat()
+            value = (LinkStore.meshIntervalSec(this@SentinelLinkActivity) / step * step).toFloat()
+                .coerceIn(valueFrom, valueTo)
+            addOnChangeListener { _, v, fromUser ->
+                showInterval(v.toInt())
+                if (fromUser) LinkStore.setMeshIntervalSec(this@SentinelLinkActivity, v.toInt())
+            }
+        }
+        showInterval(interval.value.toInt())
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(header); addView(about); addView(meshSwitch); addView(meshNodeText); addView(meshStatus)
+            addView(choose); addView(intervalLabel); addView(interval)
+            setPadding(0, 0, 0, pad(12))
+        }
+    }
+
+    /** Lists the Meshtastic nodes nearby; the one tapped is paired (Android asks for its PIN) and used. */
+    private fun chooseNode() = withPermission {
+        val names = ArrayList<String>()
+        val addresses = ArrayList<String>()
+        val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, names)
+        val hint = TextView(this).apply {
+            textSize = 14f
+            text = "Looking for Meshtastic nodes nearby… Turn the node on, keep it close, and close the Meshtastic app if it's connected to it."
+            setPadding(pad(24), pad(12), pad(24), pad(8))
+        }
+        val listView = ListView(this).apply { this.adapter = adapter }
+        val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; addView(hint); addView(listView) }
+        var stop: (() -> Unit)? = null
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle("Choose a Meshtastic node")
+            .setView(body)
+            .setNegativeButton("Cancel", null)
+            .create()
+        listView.setOnItemClickListener { _, _, i, _ ->
+            val address = addresses.getOrNull(i) ?: return@setOnItemClickListener
+            stop?.invoke(); stop = null
+            LinkStore.setMeshNode(this, address, names[i].substringBefore("  ·  "))
+            LinkStore.setMeshOn(this, true)
+            meshSwitch.isChecked = true
+            MeshNode.pair(this, address)
+            ScanForegroundService.refreshLink(this)
+            dialog.dismiss()
+            refresh()
+            Toast.makeText(this, "If Android asks for a PIN: it's on the node's screen, or 123456", Toast.LENGTH_LONG).show()
+        }
+        dialog.setOnDismissListener { stop?.invoke(); stop = null }
+        stop = MeshNode.find(this) { name, address, rssi ->
+            val label = "$name  ·  $rssi dBm"
+            val i = addresses.indexOf(address)
+            if (i >= 0) names[i] = label else { addresses += address; names += label }
+            adapter.notifyDataSetChanged()
+        }
+        if (stop == null) { Toast.makeText(this, "Turn Bluetooth on first", Toast.LENGTH_LONG).show(); return@withPermission }
+        dialog.show()
     }
 
     override fun onDestroy() {
@@ -152,6 +256,15 @@ class SentinelLinkActivity : AppCompatActivity() {
         }
         share.visibility = if (grouped) View.VISIBLE else View.GONE
         leave.visibility = if (grouped) View.VISIBLE else View.GONE
+        meshSection.visibility = if (grouped) View.VISIBLE else View.GONE
+        meshNodeText.text = LinkStore.meshNodeName(this)?.let { "Node: $it" } ?: "No node chosen yet"
+        meshStatus.text = when {
+            !LinkStore.meshOn(this) -> "Off"
+            LinkStore.meshNode(this) == null -> "Choose a node"
+            !ScanForegroundService.isRunning || !LinkStore.enabled(this) -> "Starts with sharing, while scanning"
+            else -> MeshNode.status.ifBlank { "Starting…" } +
+                (MeshNode.lastSent.takeIf { it > 0 }?.let { " · sent " + DateUtils.getRelativeTimeSpanString(it, System.currentTimeMillis(), DateUtils.SECOND_IN_MILLIS) } ?: "")
+        }
 
         list.removeAllViews()
         val members = LinkStore.members(this)
@@ -166,8 +279,11 @@ class SentinelLinkActivity : AppCompatActivity() {
         val now = System.currentTimeMillis()
         for (m in members) {
             val heard = PhoneLink.lastHeard[m.id]
+            val overMesh = PhoneLink.lastHeardMesh[m.id]
             val detail = when {
                 linked.containsKey(m.id) -> "Linked now"
+                overMesh != null && overMesh == heard ->
+                    "Over the mesh · last heard " + DateUtils.getRelativeTimeSpanString(overMesh, now, DateUtils.MINUTE_IN_MILLIS)
                 heard != null -> "Last heard " + DateUtils.getRelativeTimeSpanString(heard, now, DateUtils.MINUTE_IN_MILLIS)
                 else -> "Not in reach"
             }
@@ -201,17 +317,20 @@ class SentinelLinkActivity : AppCompatActivity() {
                 .setTitle("Join another group?")
                 .setMessage("This phone is linked with $others Sentinel${if (others == 1) "" else "s"}. Joining leaves that group for the " +
                     "other phone's. To add a phone to this group instead, tap \"Link up a Sentinel\" here and \"Join a Sentinel\" on the new phone.")
-                .setPositiveButton("Join") { _, _ -> withPermission(false) }
+                .setPositiveButton("Join") { _, _ -> withPermission { startPairing(false) } }
                 .setNegativeButton("Cancel", null)
                 .show()
             return
         }
-        withPermission(host)
+        withPermission { startPairing(host) }
     }
 
-    private fun withPermission(host: Boolean) {
-        if (PhoneLink.canUse(this)) { startPairing(host); return }
-        pendingHost = host
+    private fun withPermission(action: () -> Unit) {
+        if (PhoneLink.canUse(this) && (Build.VERSION.SDK_INT < 31 ||
+                checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN) == android.content.pm.PackageManager.PERMISSION_GRANTED)) {
+            action(); return
+        }
+        pending = action
         permissions.launch(if (Build.VERSION.SDK_INT >= 31) arrayOf(
             android.Manifest.permission.BLUETOOTH_CONNECT, android.Manifest.permission.BLUETOOTH_ADVERTISE,
             android.Manifest.permission.BLUETOOTH_SCAN) else emptyArray())

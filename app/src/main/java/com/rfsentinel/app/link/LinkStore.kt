@@ -92,4 +92,34 @@ object LinkStore {
         if (changed) sp(c).edit { putString("members", now.values.joinToString("\n") { "${it.id}|${it.name}" }) }
         return changed
     }
+
+    // ---- Meshtastic node
+
+    /** Sentinel Link also goes over a Meshtastic node (off until turned on). */
+    fun meshOn(c: Context) = sp(c).getBoolean("mesh_on", false)
+    fun setMeshOn(c: Context, on: Boolean) = sp(c).edit { putBoolean("mesh_on", on) }
+    /** The node's Bluetooth address and name, null until one is chosen. */
+    fun meshNode(c: Context): String? = sp(c).getString("mesh_node", null)
+    fun meshNodeName(c: Context): String? = sp(c).getString("mesh_node_name", null)
+    fun setMeshNode(c: Context, address: String, name: String) =
+        sp(c).edit { putString("mesh_node", address); putString("mesh_node_name", name.take(40)) }
+    /** Seconds between two packets (watchlist matches can go sooner). */
+    fun meshIntervalSec(c: Context) = sp(c).getInt("mesh_interval", 60).coerceIn(MESH_INTERVAL_MIN, MESH_INTERVAL_MAX)
+    fun setMeshIntervalSec(c: Context, s: Int) = sp(c).edit { putInt("mesh_interval", s) }
+    const val MESH_INTERVAL_MIN = 15
+    const val MESH_INTERVAL_MAX = 300
+
+    private var meshNext = -1L
+    private var meshReserved = 0L
+
+    /** A message counter never used before by this phone (blocks of 256 are saved ahead, so a restart skips ahead). */
+    @Synchronized
+    fun nextMeshCounter(c: Context): Int {
+        if (meshNext < 0) { meshNext = sp(c).getLong("mesh_counter", 0L); meshReserved = meshNext }
+        if (meshNext >= meshReserved) {
+            meshReserved = meshNext + 256
+            sp(c).edit(commit = true) { putLong("mesh_counter", meshReserved) }
+        }
+        return (meshNext++ and 0x7FFFFFFFL).toInt()
+    }
 }

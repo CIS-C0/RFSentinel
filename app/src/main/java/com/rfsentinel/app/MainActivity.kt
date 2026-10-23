@@ -491,7 +491,8 @@ class MainActivity : AppCompatActivity() {
                 },
                 com.rfsentinel.app.sdr.RadioReference.status.takeIf { it.isNotBlank() && com.rfsentinel.app.util.Prefs.radioReferenceOn(this) }
                     ?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) },
-                com.rfsentinel.app.link.PhoneLink.status.takeIf { it.isNotBlank() }?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) }
+                com.rfsentinel.app.link.PhoneLink.status.takeIf { it.isNotBlank() }?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) },
+                com.rfsentinel.app.link.MeshNode.status.takeIf { it.isNotBlank() }?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) }
             )
             statusPanel.update(running, warning, hardware)
             return
@@ -514,7 +515,8 @@ class MainActivity : AppCompatActivity() {
                 com.rfsentinel.app.sdr.SdrRadio.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
                 com.rfsentinel.app.sdr.RadioReference.status.takeIf { it.isNotBlank() && com.rfsentinel.app.util.Prefs.radioReferenceOn(this) }
                     ?.let { "\n$it" }.orEmpty() +
-                com.rfsentinel.app.link.PhoneLink.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty()
+                com.rfsentinel.app.link.PhoneLink.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
+                com.rfsentinel.app.link.MeshNode.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty()
         }
     }
 

@@ -111,6 +111,11 @@ class ScanForegroundService : Service() {
         private const val LINK_FLUSH_MS = 1_000L
         /** A device this phone (or its hardware) heard this recently isn't taken from another Sentinel. */
         private const val HEARD_HERE_MS = 10_000L
+        /** Mesh: how often the send queue is checked, the shortest gap for a watchlist match, a presence packet, the name. */
+        private const val MESH_TICK_MS = 5_000L
+        private const val MESH_MIN_GAP_MS = 15_000L
+        private const val MESH_PRESENCE_MS = 10 * 60_000L
+        private const val MESH_NAME_MS = 10 * 60_000L
         /** A network fix this soon after a raw GPS fix is ignored. */
         private const val RAW_GPS_PREFERRED_MS = 10_000L
         private const val PLACING_MAX_ACCURACY_M = 50f
@@ -614,7 +619,7 @@ class ScanForegroundService : Service() {
      * null for what this phone and its hardware heard.
      */
     private fun process(a: Advert, reportedRemoteId: RemoteId.Info? = null, broadcast: DeviceRegistry.GeoSample? = null,
-                        via: String? = null, peerAt: Location? = null) {
+                        via: String? = null, peerAt: Location? = null, toMesh: Boolean = via == null) {
         val now = a.timestamp
         val mac = a.mac
         if (OuiWatchlist.version != watchlistVersion) recheckWatchlist(now)
@@ -648,6 +653,8 @@ class ScanForegroundService : Service() {
         val geo = if (via != null) loc?.let { DeviceRegistry.GeoSample(now, it.latitude, it.longitude) } else loc?.let { placeNow(it, now) }
         val isFirst = DeviceRegistry.report(a, c.hits, c.identity, c.vendor, remoteId, geo, now, broadcast)
         if (isFirst) serviceScope.launch { loadHistory(mac) }
+        // Over the mesh too (Meshtastic node): not the user's own whitelisted devices.
+        if (toMesh && !WhitelistCache.contains(mac)) meshOutbox?.add(a, c.hits, now)
         if (TripRecorder.isRecording) {
             TripRecorder.onDevice(
                 mac, a.rssi, a.source.name,
@@ -778,9 +785,71 @@ class ScanForegroundService : Service() {
             pipeline.postDelayed(linkFlush, LINK_FLUSH_MS)
         }
         com.rfsentinel.app.link.PhoneLink.start(this) { b, name -> pipeline.post { onPeerBatch(b, name) } }
+        updateMesh()
+    }
+
+    /** What goes out over the Meshtastic node (null while it's off). */
+    @Volatile private var meshOutbox: com.rfsentinel.app.link.MeshOutbox? = null
+    private var meshLastSend = 0L
+    private var meshLastName = 0L
+
+    /** The Meshtastic node runs with Sentinel Link when it's turned on and chosen. */
+    private fun updateMesh() {
+        val link = com.rfsentinel.app.link.LinkStore
+        val node = link.meshNode(this)
+        val key = link.groupKey(this)
+        if (linkOutbox == null || !link.meshOn(this) || node == null || key == null) { stopMesh(); return }
+        if (meshOutbox == null) {
+            meshOutbox = com.rfsentinel.app.link.MeshOutbox()
+            meshLastSend = 0L
+            meshLastName = 0L
+            pipeline.postDelayed(meshFlush, MESH_TICK_MS)
+        }
+        com.rfsentinel.app.link.MeshNode.start(this, node, key) { com.rfsentinel.app.link.PhoneLink.meshIn(it) }
+    }
+
+    private fun stopMesh() {
+        if (meshOutbox == null) return
+        meshOutbox = null
+        pipeline.removeCallbacks(meshFlush)
+        com.rfsentinel.app.link.MeshNode.stop()
+    }
+
+    /**
+     * One packet now and then: at the chosen interval, sooner (15 s apart at least) for a new watchlist match,
+     * and every 10 minutes even with nothing new so the others know this Sentinel is there and where.
+     */
+    private val meshFlush = object : Runnable {
+        override fun run() {
+            val box = meshOutbox ?: return
+            pipeline.postDelayed(this, MESH_TICK_MS)
+            val node = com.rfsentinel.app.link.MeshNode
+            if (!node.ready) return
+            val ctx = this@ScanForegroundService
+            val link = com.rfsentinel.app.link.LinkStore
+            val now = System.currentTimeMillis()
+            val since = now - meshLastSend
+            val urgent = box.urgent(now)
+            val presence = since >= MESH_PRESENCE_MS
+            if (since < link.meshIntervalSec(ctx) * 1000L && !(urgent && since >= MESH_MIN_GAP_MS) && !presence) return
+            val key = link.groupKey(ctx) ?: return
+            val loc = lastLocation?.takeIf { usableForPlacing(it) }
+            val lat = loc?.latitude ?: Double.NaN
+            val lon = loc?.longitude ?: Double.NaN
+            val name = if (now - meshLastName >= MESH_NAME_MS) link.myName(ctx) else null
+            val codec = com.rfsentinel.app.link.MeshCodec
+            val devices = box.take(now, codec.MAX_BODY - codec.baseSize(!lat.isNaN(), name))
+            if (devices.isEmpty() && !presence) return
+            val bytes = codec.seal(codec.messageKey(key), link.myId(ctx), link.nextMeshCounter(ctx), now, lat, lon, name, devices)
+            if (node.send(bytes, urgent)) {
+                meshLastSend = now
+                if (name != null) meshLastName = now
+            }
+        }
     }
 
     private fun stopLink() {
+        stopMesh()
         if (linkOutbox == null) return
         linkOutbox = null
         pipeline.removeCallbacks(linkFlush)
@@ -816,7 +885,8 @@ class ScanForegroundService : Service() {
             // Heard here too: this phone's own reading (signal, place) is the one shown.
             if (heardBy.phone.within(mac, HEARD_HERE_MS, now) || heardBy.esp.within(mac, HEARD_HERE_MS, now) ||
                 heardBy.usb.within(mac, HEARD_HERE_MS, now)) continue
-            process(a, via = via, peerAt = at)
+            // Heard by a Sentinel linked here over Bluetooth: this phone's node passes it on to the mesh.
+            process(a, via = via, peerAt = at, toMesh = b.hops == 0)
         }
         for (r in b.radios) {
             val kind = runCatching { com.rfsentinel.app.sdr.RadioWatch.Kind.valueOf(r.kind) }

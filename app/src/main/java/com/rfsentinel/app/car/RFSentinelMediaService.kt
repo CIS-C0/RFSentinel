@@ -218,7 +218,8 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
         UsbWifi.status.takeIf { it.isNotBlank() },
         SdrRadio.status.takeIf { it.isNotBlank() },
         OuiSpyBle.status.takeIf { it.isNotBlank() },
-        com.rfsentinel.app.link.PhoneLink.status.takeIf { it.isNotBlank() }
+        com.rfsentinel.app.link.PhoneLink.status.takeIf { it.isNotBlank() },
+        com.rfsentinel.app.link.MeshNode.status.takeIf { it.isNotBlank() }
     ).joinToString(" · ").ifEmpty { "Phone radios only" }
 
     // ---- now playing -------------------------------------------------------------------
