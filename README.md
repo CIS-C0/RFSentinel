@@ -884,7 +884,9 @@ Your own themes sit under the built-in ones: **Create a custom theme**, long-pre
 
 ## Privacy
 
-- **Receive-only.** Nothing is transmitted, jammed, spoofed or connected to.
+- **Receive-only.** Nothing is transmitted to, jammed, spoofed or connected to.
+  The only thing it ever sends is Sentinel Link's encrypted messages to your own
+  linked phones and Meshtastic node, and only when you set it up.
 - **No accounts, no cloud, no analytics.** Detections live in a local database
   excluded from cloud backup.
 - **Data leaves the phone only when you export or share it.**
