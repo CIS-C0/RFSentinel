@@ -60,17 +60,10 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         val remoteId: Boolean = false
     )
 
-    fun matches(s: DeviceRegistry.Snapshot): Boolean = matches(Seen(
-        s.mac, s.deviceType, s.name, s.hits, s.sources, s.best != null && !WhitelistCache.contains(s.mac),
-        s.facts, s.isNew, s.remoteId != null
-    ))
+    fun matches(s: DeviceRegistry.Snapshot): Boolean = matches(seen(s))
 
     /** A device saved in a snapshot or a trace (its type read with today's names, see [DeviceIntel.savedType]). */
-    fun matches(d: TripDeviceEntity): Boolean = !liveOnly && matches(Seen(
-        d.mac, DeviceIntel.savedType(d.deviceType, d.vendor, d.mac).orEmpty(), d.name,
-        listOfNotNull(Category.parse(d.category)?.let { Hit(it, d.label, d.confidence, d.evidence.orEmpty(), "") }),
-        setOfNotNull(Advert.Source.entries.firstOrNull { it.name == d.source }), d.flagged
-    ))
+    fun matches(d: TripDeviceEntity): Boolean = !liveOnly && matches(seen(d))
 
     fun matches(s: Seen): Boolean = when (this) {
         ALL -> true
@@ -125,6 +118,17 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         private fun isAppleFindMy(s: Seen) =
             s.type.contains("Find My", true) || s.type.contains("AirTag", true) ||
                 s.hits.any { com.rfsentinel.app.detect.SignatureEngine.isAppleFindMy(it) }
+
+        fun seen(s: DeviceRegistry.Snapshot) = Seen(
+            s.mac, s.deviceType, s.name, s.hits, s.sources, s.best != null && !WhitelistCache.contains(s.mac),
+            s.facts, s.isNew, s.remoteId != null
+        )
+
+        fun seen(d: TripDeviceEntity) = Seen(
+            d.mac, DeviceIntel.savedType(d.deviceType, d.vendor, d.mac).orEmpty(), d.name,
+            listOfNotNull(Category.parse(d.category)?.let { Hit(it, d.label, d.confidence, d.evidence.orEmpty(), "") }),
+            setOfNotNull(Advert.Source.entries.firstOrNull { it.name == d.source }), d.flagged
+        )
 
         fun parse(name: String?) = entries.firstOrNull { it.name == name } ?: ALL
 

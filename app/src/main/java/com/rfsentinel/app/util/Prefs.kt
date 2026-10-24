@@ -284,6 +284,12 @@ object Prefs {
         sp(context).getString("map_filter", null) ?: if (bool(context, "map_show_all", true)) "ALL" else "FLAGGED"
     fun setMapFilter(context: Context, name: String) = sp(context).edit { putString("map_filter", name) }
 
+    /** The device lists' Sort by / Group by (see ui.DeviceOrder), shared by the main screen and snapshots. */
+    fun listSort(context: Context): String? = sp(context).getString("list_sort", null)
+    fun setListSort(context: Context, name: String) = sp(context).edit { putString("list_sort", name) }
+    fun listGroup(context: Context): String? = sp(context).getString("list_group", null)
+    fun setListGroup(context: Context, name: String) = sp(context).edit { putString("list_group", name) }
+
     /** Last destinations picked (newest first, kept on this phone only). */
     fun recentDestinations(context: Context): List<com.rfsentinel.app.nav.Place> = places(context, "recent_destinations")
     fun addRecentDestination(context: Context, d: com.rfsentinel.app.nav.Place) {

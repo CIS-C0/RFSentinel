@@ -48,15 +48,21 @@ class SnapshotActivity : AppCompatActivity() {
     private val timeFmt = DateFormat.getTimeInstance(DateFormat.SHORT)
 
     private val adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-        var items: List<TripDeviceEntity> = emptyList()
+        /** Devices, and group headers (Group by) as their text. */
+        var items: List<Any> = emptyList()
 
         override fun getItemCount() = items.size
 
+        override fun getItemViewType(position: Int) = if (items[position] is String) 1 else 0
+
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
-            object : RecyclerView.ViewHolder(ItemDetectionBinding.inflate(LayoutInflater.from(parent.context), parent, false).root) {}
+            if (viewType == 1) object : RecyclerView.ViewHolder(DeviceAdapter.groupHeader(parent)) {}
+            else object : RecyclerView.ViewHolder(ItemDetectionBinding.inflate(LayoutInflater.from(parent.context), parent, false).root) {}
 
         override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
             val d = items[position]
+            if (d is String) { (holder.itemView as android.widget.TextView).text = d; return }
+            d as TripDeviceEntity
             val b = ItemDetectionBinding.bind(holder.itemView)
             val category = Category.parse(d.category)
             val type = DeviceIntel.savedType(d.deviceType, d.vendor, d.mac)
@@ -132,7 +138,17 @@ class SnapshotActivity : AppCompatActivity() {
             filter.matches(d) && (q.isEmpty() ||
                 listOfNotNull(d.mac, d.label, d.name, d.vendor, d.deviceType, DeviceIntel.savedType(d.deviceType, d.vendor, d.mac), d.evidence).any { it.contains(q, ignoreCase = true) })
         }
-        adapter.items = list
+        // Sort by / Group by, as on the main screen; by default matches first, then the strongest signal.
+        val sections = DeviceOrder.arrange(
+            list.map { d ->
+                DeviceOrder.Item(d, DeviceFilter.seen(d), DeviceIntel.savedLabel(d.label, d.deviceType, d.vendor, d.mac),
+                    d.vendor, d.bestRssi, d.firstSeen, d.lastSeen)
+            },
+            DeviceOrder.sort(this), DeviceOrder.group(this),
+            compareBy<DeviceOrder.Item<TripDeviceEntity>> { it.value.category == null }.thenByDescending { it.value.confidence }
+                .thenByDescending { it.rssi }
+        )
+        adapter.items = sections.flatMap { sec -> listOfNotNull(sec.header?.let { DeviceOrder.headerLabel(sec) }) + sec.items }
         for ((f, chip) in filterChips) {
             val n = devices.count { f.matches(it) }
             chip.text = if (f == DeviceFilter.ALL || n > 0) "${f.label} $n" else f.label
@@ -149,10 +165,11 @@ class SnapshotActivity : AppCompatActivity() {
         menu.add(0, 2, 1, "Export...")
         menu.add(0, 3, 2, "Rename")
         menu.add(0, 4, 3, "Delete")
+        DeviceOrder.addMenu(menu, this)
         return true
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
+    override fun onOptionsItemSelected(item: MenuItem): Boolean = if (DeviceOrder.onMenuItem(item, this)) { show(); true } else when (item.itemId) {
         1 -> { startActivity(Intent(this, MapActivity::class.java).putExtra(MapActivity.EXTRA_TRIP_ID, tripId)); true }
         2 -> { Exporter.showTripExport(this, tripId, snapshot = true); true }
         3 -> { rename(); true }

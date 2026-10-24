@@ -6,6 +6,7 @@ import android.graphics.Typeface
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -35,8 +36,14 @@ data class DeviceRow(
     val rssi: Int? = null,
     val confidence: Int? = null,
     /** Added to [rssi] for the bars only: cell signals run about 10 dB lower than WiFi and Bluetooth. */
-    val barBoost: Int = 0
-)
+    val barBoost: Int = 0,
+    /** A group's header ("Trackers · 3", Group by in the ⋮ menu): [title] only, not a device. */
+    val header: Boolean = false
+) {
+    companion object {
+        fun header(label: String) = DeviceRow("header:$label", label, "", "", null, 0, null, false, true, header = true)
+    }
+}
 
 private const val ESP_BADGE = 0xFF1E88E5.toInt()
 private const val PHONE_BADGE = 0xFF2E7D32.toInt()
@@ -66,7 +73,7 @@ private fun metaWithBadges(row: DeviceRow): CharSequence {
 class DeviceAdapter(
     private val onClick: (DeviceRow) -> Unit,
     private val onLongPress: (DeviceRow) -> Unit
-) : ListAdapter<DeviceRow, DeviceAdapter.VH>(Diff) {
+) : ListAdapter<DeviceRow, RecyclerView.ViewHolder>(Diff) {
 
     /** Visual style: signal bars and a confidence bar on each row (Settings > Appearance, or the list's own choice). */
     @android.annotation.SuppressLint("NotifyDataSetChanged")
@@ -118,11 +125,19 @@ class DeviceAdapter(
         }
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH =
-        VH(ItemDeviceBinding.inflate(LayoutInflater.from(parent.context), parent, false))
+    /** A group's header: bold, in the accent colour, like the settings' section headers. */
+    class HeaderVH(val text: TextView) : RecyclerView.ViewHolder(text)
 
-    override fun onBindViewHolder(holder: VH, position: Int) {
+    override fun getItemViewType(position: Int) = if (getItem(position).header) HEADER else DEVICE
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder =
+        if (viewType == HEADER) HeaderVH(groupHeader(parent))
+        else VH(ItemDeviceBinding.inflate(LayoutInflater.from(parent.context), parent, false))
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val row = getItem(position)
+        if (holder is HeaderVH) { holder.text.text = row.title; return }
+        holder as VH
         val b = holder.binding
         if (row.tag != null) {
             b.tagText.visibility = View.VISIBLE
@@ -148,8 +163,25 @@ class DeviceAdapter(
         holder.itemView.setOnLongClickListener { onLongPress(row); true }
     }
 
-    override fun onViewRecycled(holder: VH) {
-        holder.stopFlash()
+    override fun onViewRecycled(holder: RecyclerView.ViewHolder) {
+        (holder as? VH)?.stopFlash()
         super.onViewRecycled(holder)
+    }
+
+    companion object {
+        private const val DEVICE = 0
+        private const val HEADER = 1
+
+        /** The header row of a group, shared with the snapshot list so both look the same. */
+        fun groupHeader(parent: ViewGroup): TextView = TextView(parent.context).apply {
+            val dp = resources.displayMetrics.density
+            layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            setPaddingRelative((12 * dp).toInt(), (14 * dp).toInt(), (12 * dp).toInt(), (4 * dp).toInt())
+            textSize = 14f
+            setTypeface(typeface, Typeface.BOLD)
+            val tv = android.util.TypedValue()
+            if (context.theme.resolveAttribute(com.google.android.material.R.attr.colorSecondary, tv, true)) setTextColor(tv.data)
+            isClickable = false
+        }
     }
 }

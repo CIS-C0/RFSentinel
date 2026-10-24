@@ -3,6 +3,7 @@ package com.rfsentinel.app.detect
 import com.rfsentinel.app.service.DeviceRegistry
 import com.rfsentinel.app.service.DeviceRegistry.GeoSample
 import com.rfsentinel.app.ui.DeviceFilter
+import com.rfsentinel.app.ui.DeviceOrder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -241,5 +242,36 @@ class IdentifyMoreTest {
         assertEquals(listOf(DeviceFilter.HOTSPOTS), kinds("Public WiFi hotspot (Passpoint)"))
         assertEquals(emptyList<DeviceFilter>(), kinds("Business access point - Ruckus"))
         assertEquals(emptyList<DeviceFilter>(), kinds("Business WiFi (account sign-in)"))
+    }
+
+    @Test
+    fun listSortAndGroupKeepAlertsOnTop() {
+        fun item(id: String, type: String, rssi: Int, vendor: String?, flagged: Boolean = false, src: Advert.Source = Advert.Source.BLE,
+                 name: String? = null, seen: Long = 0L) =
+            DeviceOrder.Item(id, DeviceFilter.Seen("02:00:00:00:00:$id", type, name, emptyList(), setOf(src), flagged),
+                name ?: type, vendor, rssi, seen, seen)
+        val items = listOf(
+            item("01", "Phone", -50, "Samsung Electronics Co.,Ltd", name = "Zed"),
+            item("02", "AirTag (Find My)", -85, "Apple, Inc.", flagged = true),
+            item("03", "Home router - eero", -70, "eero inc.", src = Advert.Source.WIFI, name = "Alpha", seen = 5L),
+            item("04", "Phone", -90, null)
+        )
+        val none = Comparator<DeviceOrder.Item<String>> { _, _ -> 0 }
+        fun ids(sort: DeviceOrder.Sort, group: DeviceOrder.Group) =
+            DeviceOrder.arrange(items, sort, group, none).map { (it.header ?: "") to it.items }
+
+        // The flagged tracker stays first; then the chosen order.
+        assertEquals(listOf("" to listOf("02", "01", "03", "04")), ids(DeviceOrder.Sort.SIGNAL, DeviceOrder.Group.NONE))
+        assertEquals(listOf("" to listOf("02", "03", "01", "04")), ids(DeviceOrder.Sort.NAME, DeviceOrder.Group.NONE))
+        assertEquals(listOf("" to listOf("02", "03", "01", "04")), ids(DeviceOrder.Sort.RECENT, DeviceOrder.Group.NONE))
+        // Grouped: the alerts in their own group first, then the groups in order.
+        assertEquals(listOf("Alerts" to listOf("02"), "Phones" to listOf("01", "04"), "Routers" to listOf("03")),
+            ids(DeviceOrder.Sort.SIGNAL, DeviceOrder.Group.CATEGORY))
+        assertEquals(listOf("Alerts" to listOf("02"), "WiFi" to listOf("03"), "Bluetooth" to listOf("01", "04")),
+            ids(DeviceOrder.Sort.SIGNAL, DeviceOrder.Group.RADIO))
+        assertEquals(listOf("Alerts" to listOf("02"), "Near" to listOf("01"), "Nearby" to listOf("03"), "Far" to listOf("04")),
+            ids(DeviceOrder.Sort.SIGNAL, DeviceOrder.Group.DISTANCE))
+        assertEquals(listOf("Alerts", "eero", "Samsung", "Unknown maker"),
+            ids(DeviceOrder.Sort.SIGNAL, DeviceOrder.Group.MAKER).map { it.first }.map { if (it.startsWith("Samsung")) "Samsung" else it })
     }
 }

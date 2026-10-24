@@ -695,14 +695,20 @@ class MainActivity : AppCompatActivity() {
             if (chip.text != label) chip.text = label
             styleFilterChip(chip, visualChips, if (f == com.rfsentinel.app.ui.DeviceFilter.FLAGGED && n > 0) 0xFFD0503C.toInt() else null)
         }
-        val visible = all.filter { filter.matches(it) && matchesQuery(it) }
-            .sortedWith(
-                compareByDescending<DeviceRegistry.Snapshot> { it.best != null && !WhitelistCache.contains(it.mac) }
-                    .thenByDescending { it.following }
-                    .thenByDescending { it.best?.confidence ?: 0 }
-                    .thenBy { bandOrder(ProximityUtil.band(it.rssi)) }
-                    .thenBy { it.firstSeen }
-            )
+        // Sort by / Group by from the ⋮ menu (alerts stay on top); the default is alerts, then closest.
+        val sections = com.rfsentinel.app.ui.DeviceOrder.arrange(
+            all.filter { filter.matches(it) && matchesQuery(it) }.map { s ->
+                com.rfsentinel.app.ui.DeviceOrder.Item(s, com.rfsentinel.app.ui.DeviceFilter.seen(s),
+                    com.rfsentinel.app.data.DeviceNames.of(s.mac) ?: s.best?.label ?: s.name ?: s.deviceType,
+                    s.vendor, s.rssi, s.firstSeen, s.lastSeen)
+            },
+            com.rfsentinel.app.ui.DeviceOrder.sort(this), com.rfsentinel.app.ui.DeviceOrder.group(this),
+            compareByDescending<com.rfsentinel.app.ui.DeviceOrder.Item<DeviceRegistry.Snapshot>> { it.value.following }
+                .thenByDescending { it.value.best?.confidence ?: 0 }
+                .thenBy { bandOrder(ProximityUtil.band(it.rssi)) }
+                .thenBy { it.firstSeen }
+        )
+        val visible = sections.flatMap { it.items }
         shownDevices = visible
 
         refreshMuteButton()
@@ -732,7 +738,11 @@ class MainActivity : AppCompatActivity() {
             val (urgent, quiet) = waze.partition { it.flashing }
             val (radioLive, radioOld) = radio.partition { it.flashing }
             val (airUrgent, airQuiet) = air.partition { it.flashing }
-            submitRows(airUrgent + radioLive + urgent + visible.map { toRow(it, now, threshold) } + airQuiet + radioOld + cells + quiet)
+            val deviceRows = sections.flatMap { sec ->
+                listOfNotNull(sec.header?.let { DeviceRow.header(com.rfsentinel.app.ui.DeviceOrder.headerLabel(sec)) }) +
+                    sec.items.map { toRow(it, now, threshold) }
+            }
+            submitRows(airUrgent + radioLive + urgent + deviceRows + airQuiet + radioOld + cells + quiet)
             shownCells = cells.size + waze.size + radio.size + air.size
         }
         binding.emptyState.visibility = if (visible.isEmpty() && (!panes.listShown || shownCells == 0) &&
@@ -1203,6 +1213,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.menu_main, menu)
+        com.rfsentinel.app.ui.DeviceOrder.addMenu(menu, this)
         (menu.findItem(R.id.action_search)?.actionView as? SearchView)?.apply {
             queryHint = "Name, address, vendor, type..."
             setOnQueryTextListener(object : SearchView.OnQueryTextListener {
@@ -1255,6 +1266,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (com.rfsentinel.app.ui.DeviceOrder.onMenuItem(item, this)) { render(); return true }
         return when (item.itemId) {
             R.id.action_waze_now -> { com.rfsentinel.app.ui.WazeUi.checkNow(this); true }
             R.id.action_waze_status -> { com.rfsentinel.app.ui.WazeUi.openStatus(this); true }
