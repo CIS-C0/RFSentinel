@@ -208,4 +208,38 @@ class IdentifyMoreTest {
         assertEquals(AdvertFingerprint.hash("n=Buds|u=|d=|m=|t=|c="), AdvertFingerprint.hash("n=Buds|u=|d=|m=|t=|c="))
         assertEquals(8, AdvertFingerprint.hash("x").length)
     }
+
+    @Test
+    fun plainNamedNetworksSortedFromTheBeacon() {
+        fun net(mac: String, ssid: String?, caps: String = "[WPA2-PSK-CCMP]", ies: List<Pair<Int, ByteArray>> = emptyList()) =
+            DeviceIntel.identify(Advert(mac, Advert.Source.WIFI, -60, ssid, wifi = Advert.WifiInfo(2437, caps, null, ies)),
+                VendorDb.macVendor(mac)).type
+        fun tlv(type: Int, value: String) = byteArrayOf((type shr 8).toByte(), type.toByte(), 0, value.length.toByte()) + value.toByteArray()
+        fun wps(vararg attrs: ByteArray) = 221 to (byteArrayOf(0x00, 0x50, 0xF2.toByte(), 0x04) + attrs.fold(ByteArray(0)) { a, b -> a + b })
+
+        // A provider's router by its WPS model, even renamed or hidden.
+        assertEquals("Home router - Orange Livebox (Sagemcom Livebox 5)",
+            net("06:00:00:00:00:41", "Smith house", ies = listOf(wps(tlv(0x1021, "Sagemcom"), tlv(0x1023, "Livebox 5")))))
+        // By maker: a provider's router, a store-bought one, a business access point.
+        assertEquals("Home router (internet provider's) - Sagemcom", net("00:0E:59:00:00:42", "Smith house"))
+        assertEquals("Home router (internet provider's) - ZTE", net("00:15:EB:00:00:43", null))
+        assertEquals("Home router - eero", net("00:AB:48:00:00:44", "Smith house"))
+        assertEquals("Business access point - Ruckus", net("06:00:00:00:00:45", "Guest", ies = listOf(221 to byteArrayOf(0x00, 0x13, 0x92.toByte(), 0x01))))
+        // By security: account sign-in, Passpoint, open.
+        assertEquals("Business WiFi (account sign-in) - Cisco Meraki", net("00:18:0A:00:00:46", "corp", "[WPA2-EAP-CCMP]"))
+        assertEquals("Public WiFi hotspot (Passpoint)", net("06:00:00:00:00:47", "plain", ies = listOf(107 to byteArrayOf(0x10))))
+        assertEquals("Open WiFi (public or guest)", net("06:00:00:00:00:48", "plain", "[ESS]"))
+        // WPS "router" kind with no known maker.
+        assertEquals("Home router", net("06:00:00:00:00:49", "plain",
+            ies = listOf(wps(byteArrayOf(0x10, 0x54, 0, 8, 0, 6, 0x00, 0x50, 0xF2.toByte(), 0x04, 0, 2)))))
+        // A recognised name still wins; nothing to go on stays generic.
+        assertEquals("WiFi access point", net("06:00:00:00:00:4A", "plain"))
+
+        fun kinds(type: String) = DeviceFilter.KINDS.filter { it.matches(DeviceFilter.Seen("02:00:00:00:00:4B", type, null, emptyList(), emptySet(), false)) }
+        assertEquals(listOf(DeviceFilter.ROUTERS), kinds("Home router (internet provider's) - Sagemcom"))
+        assertEquals(listOf(DeviceFilter.HOTSPOTS), kinds("Open WiFi (public or guest)"))
+        assertEquals(listOf(DeviceFilter.HOTSPOTS), kinds("Public WiFi hotspot (Passpoint)"))
+        assertEquals(emptyList<DeviceFilter>(), kinds("Business access point - Ruckus"))
+        assertEquals(emptyList<DeviceFilter>(), kinds("Business WiFi (account sign-in)"))
+    }
 }

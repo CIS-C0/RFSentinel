@@ -115,7 +115,8 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         /** Detection categories that are cameras (police, home security, action / hidden, recording glasses). */
         private val CAMERA_CATEGORIES = setOf(Category.BODY_CAM, Category.ALPR, Category.NETWORK_CAMERA, Category.OTHER_CAMERA, Category.GLASSES)
         private val ROUTER_TYPE = kind("^(home router|wifi access point|vehicle / cellular router|mesh router)|access point$")
-        private val HOTSPOT_TYPE = kind("^(public wifi hotspot|mobile hotspot box|phone hotspot|train wifi)")
+        // Business access points and account sign-in WiFi stay off both: they're neither.
+        private val HOTSPOT_TYPE = kind("^(public wifi hotspot|mobile hotspot box|phone hotspot|train wifi|open wifi)")
         private val TV_TYPE = kind("^(smart tv|tv / streaming|game console|apple tv)|television|set-top|media player|^gaming")
         private val SMART_HOME_TYPE = kind("smart-home|smart home|^iot|smart plug|bthome|^sensor|environmental sensor|light|" +
             "thermostat|^hvac|^heating|air conditioning|humidifier|^fan\\b|access control|door lock|power device|domestic appliance|" +

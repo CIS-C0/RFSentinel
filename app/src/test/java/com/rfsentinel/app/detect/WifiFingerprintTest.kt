@@ -44,8 +44,9 @@ class WifiFingerprintTest {
         assertEquals("Nighthawk", info.deviceName)
 
         val id = DeviceIntel.identify(wifi("02:11:22:33:44:55", null, ies))
-        assertEquals("Hidden WiFi network - NETGEAR R7000", id.type)
-        assertTrue(id.facts.contains("Identified by" to "WPS model in the beacon"))
+        assertEquals("Home router - NETGEAR R7000", id.type)
+        assertTrue(id.facts.contains("Identified by" to "home router maker (address or WPS)"))
+        assertTrue(id.facts.contains("Network name" to "Hidden (not broadcast)"))
     }
 
     @Test

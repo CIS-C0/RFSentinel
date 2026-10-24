@@ -458,6 +458,13 @@ object DeviceIntel {
         }
         if (!generic) return Identity(type, facts)
 
+        // What kind of network a plain or hidden name hides, from the beacon itself.
+        networkKind(w, ap, macVendor, ssid.isNullOrEmpty())?.let { (kind, why) ->
+            facts += "Identified by" to why
+            if (ssid.isNullOrEmpty()) facts += "Network name" to "Hidden (not broadcast)"
+            return Identity(kind, facts)
+        }
+
         // Most specific first: WPS model, Cisco AP name, BSSID registrant (if not a
         // chipset maker), then an equipment maker's vendor IE.
         val (make, why) = when {
@@ -471,6 +478,78 @@ object DeviceIntel {
         if (make == null) return Identity(type, facts)
         facts += "Identified by" to why!!
         return Identity("$type - $make", facts)
+    }
+
+    /**
+     * Internet providers' own router models, as their WPS data names them (model name / number / device
+     * name). Platforms several providers share are named by model, not provider.
+     */
+    private val ISP_ROUTER_MODELS = listOf(
+        "livebox" to "Orange Livebox", "freebox" to "Free Freebox", "\\bbbox\\b" to "Bouygues Bbox", "speedport" to "Telekom Speedport",
+        "fritz!? ?box" to "FRITZ!Box", "vodafone ?station|gigacube" to "Vodafone Station", "sky ?(hub|q hub|broadband)" to "Sky Hub",
+        "bt ?smart ?hub|bt ?hub" to "BT Smart Hub", "giga ?hub|home ?hub ?[34]000" to "Bell Home Hub", "\\bbgw\\d{3}|\\bnvg5\\d{2}|5268ac" to "AT&T gateway",
+        "\\bg[13]100\\b|\\bcr1000|fios" to "Verizon Fios router", "\\bxb[678]\\b|\\bcgm4\\d{3}|\\btg1682|\\btg3482" to "XB gateway (Comcast platform)",
+        "\\bsax1v1|\\brac2v1" to "Spectrum router", "\\beero\\b" to "eero mesh", "\\bdeco\\b" to "TP-Link Deco mesh", "\\borbi\\b" to "NETGEAR Orbi mesh"
+    ).map { (re, name) -> Regex(re, RegexOption.IGNORE_CASE) to name }
+
+    /** Makers of the routers internet providers hand out, as the IEEE lists them (short name shown). */
+    private val ISP_ROUTER_MAKERS = listOf(
+        "^sagemcom" to "Sagemcom", "^commscope|^arris$" to "CommScope / ARRIS", "^vantiva|^technicolor" to "Technicolor / Vantiva",
+        "^askey" to "Askey", "^sercomm" to "Sercomm", "^hitron" to "Hitron", "^ubee" to "Ubee", "^calix" to "Calix",
+        "^actiontec" to "Actiontec", "^2wire|^pace americas" to "2Wire / Pace", "^compal broadband" to "Compal Broadband",
+        "^castlenet" to "CastleNet", "^nokia (solutions|shanghai)|^alcatel-lucent shanghai" to "Nokia", "^avm (audiovisuelles|gmbh)" to "AVM (FRITZ!Box)",
+        "^huawei technologies" to "Huawei", "^zte corporation" to "ZTE"
+    ).map { (re, name) -> Regex(re, RegexOption.IGNORE_CASE) to name }
+
+    /** Makers of home routers and mesh systems sold in stores. */
+    private val HOME_ROUTER_MAKERS = listOf(
+        "^netgear" to "NETGEAR", "^tp-link" to "TP-Link", "^asustek" to "ASUS", "linksys" to "Linksys", "^belkin" to "Belkin",
+        "^d-link" to "D-Link", "tenda technology" to "Tenda", "^mercusys" to "Mercusys", "^eero" to "eero", "^synology" to "Synology"
+    ).map { (re, name) -> Regex(re, RegexOption.IGNORE_CASE) to name }
+
+    /** Makers of business / campus WiFi (their own address or their beacon tags). Aruba's tags carry HPE's registration. */
+    private val BUSINESS_AP_MAKERS = listOf(
+        "^cisco systems" to "Cisco", "^cisco meraki" to "Cisco Meraki", "^hewlett packard enterprise" to "Aruba (HPE)",
+        "^ruckus" to "Ruckus", "^fortinet" to "Fortinet", "^juniper networks|^mist systems" to "Juniper Mist",
+        "^extreme networks" to "Extreme Networks", "^cambium" to "Cambium"
+    ).map { (re, name) -> Regex(re, RegexOption.IGNORE_CASE) to name }
+
+    private fun maker(table: List<Pair<Regex, String>>, vararg owners: String?): String? =
+        owners.filterNotNull().firstNotNullOfOrNull { o -> table.firstOrNull { it.first.containsMatchIn(o.trim()) }?.second }
+
+    /**
+     * A network with a plain (or no) name, sorted from its beacon: Passpoint public WiFi, account sign-in
+     * (enterprise) business WiFi, a provider's router by its WPS model, business access points by maker,
+     * provider and store-bought home routers by maker or by the WPS "router / gateway" kind, then open WiFi.
+     * The kind and why, or null.
+     */
+    internal fun networkKind(w: Advert.WifiInfo?, ap: WifiFingerprint.ApInfo, macVendor: String?, hidden: Boolean = false): Pair<String, String>? {
+        if (w == null || w.client) return null
+        val ies = w.infoElements
+        // Hotspot 2.0: the Interworking element (107) or the Wi-Fi Alliance HS2.0 indication (50:6F:9A type 0x10).
+        val passpoint = ies.any { it.first == 107 } || ies.any { (id, d) ->
+            id == 221 && d.size >= 4 && Bytes.u8(d, 0) == 0x50 && Bytes.u8(d, 1) == 0x6F && Bytes.u8(d, 2) == 0x9A && Bytes.u8(d, 3) == 0x10 }
+        if (passpoint) return "Public WiFi hotspot (Passpoint)" to "Passpoint / Hotspot 2.0 elements in the beacon"
+        val enterprise = w.capabilities.contains("EAP")
+        val business = maker(BUSINESS_AP_MAKERS, macVendor, *ap.ieVendors.toTypedArray())
+        if (enterprise) return "Business WiFi (account sign-in)" + (business?.let { " - $it" } ?: "") to
+            "WPA-Enterprise security: people sign in with an account (offices, schools, hotels)"
+        val wpsText = listOfNotNull(ap.manufacturer, ap.modelName, ap.modelNumber, ap.deviceName).joinToString(" ")
+        ISP_ROUTER_MODELS.firstOrNull { it.first.containsMatchIn(wpsText) }?.let { (_, name) ->
+            return "Home router - $name" + (ap.model?.let { " ($it)" } ?: "") to "router model in the beacon's WPS data"
+        }
+        if (business != null) return "Business access point - $business" to "business WiFi maker (address or beacon tags)"
+        maker(ISP_ROUTER_MAKERS, macVendor, ap.manufacturer)?.let {
+            return "Home router (internet provider's) - ${ap.model ?: it}" to "maker of the routers internet providers hand out (address or WPS)"
+        }
+        maker(HOME_ROUTER_MAKERS, macVendor, ap.manufacturer)?.let {
+            return "Home router - ${ap.model ?: it}" to "home router maker (address or WPS)"
+        }
+        if (ap.deviceKind == "Router" || ap.deviceKind == "Gateway") {
+            return "Home router" + (ap.model?.let { " - $it" } ?: "") to "WPS device kind \"${ap.deviceKind}\""
+        }
+        if (!hidden && security(w.capabilities) == "Open (no password)") return "Open WiFi (public or guest)" to "no password"
+        return null
     }
 
     /** "NETGEAR, Inc." -> "NETGEAR"; "TP-LINK TECHNOLOGIES CO.,LTD." -> "TP-LINK". */

@@ -155,6 +155,28 @@ The access point is identified from the first of these that answers:
    registry and split into equipment makers (Apple, Cisco, Ubiquiti...) and
    chipset makers (Broadcom, Qualcomm, MediaTek...).
 
+**Kind of network.** When the name is hidden or says nothing (no ISP default,
+chain or brand name), the beacon decides the kind, first match wins:
+
+1. Passpoint / Hotspot 2.0 (Interworking IE 107, or vendor IE `50:6F:9A`
+   type `0x10`): public WiFi hotspot.
+2. WPA-Enterprise (EAP) security: business WiFi with account sign-in, plus the
+   business maker when known.
+3. WPS model of a provider's router (Livebox, Freebox, Bbox, Speedport,
+   FRITZ!Box, Vodafone Station, BT / Sky / Bell hubs, AT&T, Verizon Fios, XB
+   gateways...): home router, named for the model. Works after a rename.
+4. Business WiFi maker, from the BSSID registrant or the beacon's vendor IEs
+   (Cisco, Meraki, Aruba / HPE, Ruckus, Fortinet, Juniper Mist, Extreme,
+   Cambium): business access point. Not on the Routers chip.
+5. Maker of the routers providers hand out (Sagemcom, CommScope / ARRIS,
+   Technicolor / Vantiva, Askey, Sercomm, Hitron, Ubee, Calix, ZTE, Huawei, AVM,
+   Nokia, Actiontec, 2Wire / Pace, Compal Broadband, CastleNet): home router
+   (internet provider's). The provider itself is never guessed.
+6. Store-bought router maker (NETGEAR, TP-Link, ASUS, Linksys, Belkin, D-Link,
+   Tenda, Mercusys, eero, Synology): home router.
+7. WPS device kind Router or Gateway: home router.
+8. No password (named networks only): open WiFi, public or guest.
+
 **Same access point.** Two BSSIDs belong to the same access point when
 octets 2–5 are equal, the last octet is within 16, and the first octet is equal
 or locally administered (virtual BSSID). The detail screen then links a hidden
