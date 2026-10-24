@@ -52,6 +52,8 @@ object DeviceOrder {
         DeviceFilter.TRACKERS, DeviceFilter.DRONES, DeviceFilter.CAMERAS, DeviceFilter.VEHICLES, DeviceFilter.PHONES,
         DeviceFilter.AUDIO, DeviceFilter.ROUTERS, DeviceFilter.HOTSPOTS, DeviceFilter.TVS, DeviceFilter.SMART_HOME
     )
+    /** The group of flagged devices, first when grouped. */
+    const val ALERTS = "Alerts"
     private const val OTHER = "Other"
     private const val UNKNOWN_MAKER = "Unknown maker"
     private val BANDS = listOf("Near", "Nearby", "Far")
@@ -83,7 +85,7 @@ object DeviceOrder {
             // Most common makers first, unknown last.
             else -> groups.keys.sortedWith(compareBy<String> { it == UNKNOWN_MAKER }.thenByDescending { groups[it]!!.size }.thenBy { it.lowercase() })
         }
-        return listOfNotNull(alerts.takeIf { it.isNotEmpty() }?.let { Section("Alerts", it.map { a -> a.value }) }) +
+        return listOfNotNull(alerts.takeIf { it.isNotEmpty() }?.let { Section(ALERTS, it.map { a -> a.value }) }) +
             keys.map { k -> Section(k, groups.getValue(k).map { it.value }) }
     }
 

@@ -41,7 +41,8 @@ data class DeviceRow(
     val header: Boolean = false
 ) {
     companion object {
-        fun header(label: String) = DeviceRow("header:$label", label, "", "", null, 0, null, false, true, header = true)
+        /** Keyed by the group ([key]), not its label: the count changing must not swap the row (it flickered). */
+        fun header(key: String, label: String) = DeviceRow("header:$key", label, "", "", null, 0, null, false, true, header = true)
     }
 }
 

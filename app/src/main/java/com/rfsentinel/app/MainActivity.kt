@@ -738,11 +738,23 @@ class MainActivity : AppCompatActivity() {
             val (urgent, quiet) = waze.partition { it.flashing }
             val (radioLive, radioOld) = radio.partition { it.flashing }
             val (airUrgent, airQuiet) = air.partition { it.flashing }
-            val deviceRows = sections.flatMap { sec ->
-                listOfNotNull(sec.header?.let { DeviceRow.header(com.rfsentinel.app.ui.DeviceOrder.headerLabel(sec)) }) +
-                    sec.items.map { toRow(it, now, threshold) }
+            if (com.rfsentinel.app.ui.DeviceOrder.group(this) == com.rfsentinel.app.ui.DeviceOrder.Group.NONE) {
+                submitRows(airUrgent + radioLive + urgent + sections.flatMap { it.items }.map { toRow(it, now, threshold) } +
+                    airQuiet + radioOld + cells + quiet)
+            } else {
+                // Grouped: everything the list shows has a group, not only Bluetooth and WiFi devices. What's
+                // urgent (Waze, radio, aircraft) joins the flagged devices in Alerts, at the top.
+                fun block(key: String, label: String, rows: List<DeviceRow>) =
+                    if (rows.isEmpty()) emptyList() else listOf(DeviceRow.header(key, "$label · ${rows.size}")) + rows
+                val alerts = com.rfsentinel.app.ui.DeviceOrder.ALERTS
+                submitRows(
+                    block(alerts, alerts, airUrgent + radioLive + urgent +
+                        sections.filter { it.header == alerts }.flatMap { it.items }.map { toRow(it, now, threshold) }) +
+                        sections.filter { it.header != alerts }.flatMap { sec -> block(sec.header.orEmpty(), sec.header.orEmpty(), sec.items.map { toRow(it, now, threshold) }) } +
+                        block("x:aircraft", "Aircraft", airQuiet) + block("x:radio", "Radio transmissions", radioOld) +
+                        block("x:waze", "Waze reports", quiet) + block("x:cells", "Cell towers", cells)
+                )
             }
-            submitRows(airUrgent + radioLive + urgent + deviceRows + airQuiet + radioOld + cells + quiet)
             shownCells = cells.size + waze.size + radio.size + air.size
         }
         binding.emptyState.visibility = if (visible.isEmpty() && (!panes.listShown || shownCells == 0) &&
