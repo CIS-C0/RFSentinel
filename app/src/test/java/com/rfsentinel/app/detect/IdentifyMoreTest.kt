@@ -280,4 +280,73 @@ class IdentifyMoreTest {
         assertEquals(listOf("Alerts", "eero", "Samsung", "Unknown maker"),
             ids(DeviceOrder.Sort.SIGNAL, DeviceOrder.Group.MAKER).map { it.first }.map { if (it.startsWith("Samsung")) "Samsung" else it })
     }
+
+    @Test
+    fun tvsAndGameGear() {
+        fun wifiType(ssid: String, mac: String = "06:00:00:00:00:61") = DeviceIntel.identify(
+            Advert(mac, Advert.Source.WIFI, -60, ssid, wifi = Advert.WifiInfo(2437, "[WPA2-PSK-CCMP]", null, emptyList())),
+            VendorDb.macVendor(mac)).type
+        fun bleType(name: String) = DeviceIntel.identify(Advert("C1:22:33:44:55:61", Advert.Source.BLE, -60, name)).type
+        listOf("DIRECT-4F-Philips TV", "[LG] webOS TV OLED55C1", "Samsung Smart TV", "Fire TV Stick-1A2B", "Roku Ultra 4K",
+            "AndroidTV-4F2A", "Google TV 3B", "SHIELD-TV", "MiBox_4S").forEach { assertEquals(it, "Smart TV / streaming device", wifiType(it)) }
+        listOf("PS5-123456", "steamdeck", "ROG Ally").forEach { assertEquals(it, "Game console", wifiType(it)) }
+        assertEquals("VR headset", wifiType("Meta Quest 3"))
+        // By maker, whatever the network is called: a Roku and a Nintendo console.
+        assertEquals("Smart TV / streaming device (WiFi)", wifiType("Living room", "D8:31:34:00:00:62"))
+        assertEquals("Game console (WiFi)", wifiType("plain", "00:09:BF:00:00:63"))
+
+        assertEquals("Game controller", bleType("Xbox Wireless Controller"))
+        assertEquals("Game controller", bleType("DualSense Wireless Controller"))
+        assertEquals("Game console", bleType("Steam Deck"))
+        assertEquals("VR headset", bleType("Meta Quest 3"))
+        assertEquals("TV / streaming device", bleType("[TV] Samsung Q70 Series"))
+        assertEquals("TV / streaming device", bleType("LG webOS TV OLED65"))
+
+        fun kinds(type: String) = DeviceFilter.KINDS.filter { it.matches(DeviceFilter.Seen("02:00:00:00:00:64", type, null, emptyList(), emptySet(), false)) }
+        listOf("Game controller", "VR headset", "Game console (WiFi)", "Smart TV / streaming device (WiFi)", "Gamepad")
+            .forEach { assertEquals(it, listOf(DeviceFilter.TVS), kinds(it)) }
+    }
+
+    @Test
+    fun hiddenNetworkOfARouterIsARouter() {
+        DeviceRegistry.clear(); DeviceRegistry.startSession()
+        fun report(mac: String, ssid: String?) {
+            val a = Advert(mac, Advert.Source.WIFI, -60, ssid, wifi = Advert.WifiInfo(2437, "[WPA2-PSK-CCMP]", null, emptyList()))
+            DeviceRegistry.report(a, emptyList(), DeviceIntel.identify(a, VendorDb.macVendor(mac)), null, null, null)
+        }
+        report("00:0E:59:12:34:50", "Smith house")
+        report("02:0E:59:12:34:52", null) // the same router's hidden network (virtual BSSID)
+        report("06:AA:BB:CC:DD:10", null) // a hidden network of no known router
+        val now = System.currentTimeMillis()
+        val byMac = DeviceRegistry.snapshot(now).associateBy { it.mac }
+        assertEquals("Home router (internet provider's) - Sagemcom (hidden network)", byMac.getValue("02:0E:59:12:34:52").deviceType)
+        assertTrue(DeviceFilter.ROUTERS.matches(byMac.getValue("02:0E:59:12:34:52")))
+        assertEquals("Hidden WiFi network", byMac.getValue("06:AA:BB:CC:DD:10").deviceType)
+        DeviceRegistry.clear()
+    }
+
+    @Test
+    fun appleAndComputers() {
+        fun bleType(name: String) = DeviceIntel.identify(Advert("C1:22:33:44:55:71", Advert.Source.BLE, -60, name)).type
+        assertEquals("Computer", bleType("Jane's MacBook Pro"))
+        assertEquals("Computer", bleType("DESKTOP-4F2A9QK"))
+        assertEquals("Computer", bleType("ThinkPad X1"))
+        assertEquals("Phone / computer", bleType("Jane's iPhone"))
+
+        fun kinds(type: String, name: String? = null, vendor: String? = null) = DeviceFilter.KINDS.filter {
+            it.matches(DeviceFilter.Seen("02:00:00:00:00:72", type, name, emptyList(), emptySet(), false, vendor = vendor))
+        }
+        assertEquals(listOf(DeviceFilter.COMPUTERS, DeviceFilter.APPLE), kinds("MacBook Pro"))
+        assertEquals(listOf(DeviceFilter.COMPUTERS), kinds("Computer"))
+        assertEquals(listOf(DeviceFilter.COMPUTERS), kinds("Windows PC (Connected Devices beacon)"))
+        assertTrue(DeviceFilter.COMPUTERS in kinds("WiFi device (laptop, phone or camera on a network)", "LAPTOP-1A2B3C4D"))
+        assertEquals(listOf(DeviceFilter.PHONES, DeviceFilter.APPLE), kinds("iPhone or cellular iPad"))
+        assertTrue(DeviceFilter.APPLE in kinds("AirPods Pro"))
+        assertTrue(DeviceFilter.APPLE in kinds("Apple TV / AirPlay speaker"))
+        assertEquals(listOf(DeviceFilter.APPLE), kinds("Bluetooth device", vendor = "Apple, Inc."))
+        // Not computers: a guess that may be a phone, a plain WiFi client, a machine-like word.
+        assertTrue(DeviceFilter.COMPUTERS !in kinds("Apple device (iPhone, iPad, Mac or Watch)"))
+        assertTrue(DeviceFilter.COMPUTERS !in kinds("WiFi device (laptop, phone or camera on a network)"))
+        assertTrue(DeviceFilter.COMPUTERS !in kinds("Machine sensor"))
+    }
 }

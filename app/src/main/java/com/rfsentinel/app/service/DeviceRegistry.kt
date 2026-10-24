@@ -466,7 +466,7 @@ object DeviceRegistry {
         sources = t.sources.toSet(),
         name = t.name,
         vendor = t.vendor,
-        deviceType = t.identity.type,
+        deviceType = hiddenRouterType(t) ?: t.identity.type,
         facts = t.identity.facts +
             listOfNotNull(
                 t.linkedFrom?.let { "Previous address" to "$it (address rotated, same advert fingerprint)" },
@@ -490,6 +490,20 @@ object DeviceRegistry {
         located = t.located,
         broadcast = t.broadcast
     )
+
+    /**
+     * A hidden network broadcast by the same access point as a router is that router's: it takes the router's
+     * type ("Home router - Sagemcom (hidden network)"), so it sorts, groups and filters with it. Null otherwise.
+     */
+    private fun hiddenRouterType(t: Track): String? {
+        if (Advert.Source.WIFI !in t.sources || !t.name.isNullOrEmpty() || t.advert?.wifi?.client == true) return null
+        if (DeviceIntel.isRouter(t.identity.type)) return null
+        return tracks.values.firstNotNullOfOrNull { o ->
+            if (o === t || !WifiFingerprint.sameAccessPoint(t.mac, o.mac)) null
+            // Read without locking [o]: this runs under [t]'s lock, and the sibling facts lock the other way round.
+            else o.identity.type.takeIf { !o.name.isNullOrEmpty() && o.advert?.isWifi == true && DeviceIntel.isRouter(it) }
+        }?.let { DeviceIntel.hiddenOnType(it) }
+    }
 
     /**
      * Other networks broadcast by the same access point (see

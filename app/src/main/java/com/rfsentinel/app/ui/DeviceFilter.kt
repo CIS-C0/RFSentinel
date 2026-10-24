@@ -42,7 +42,10 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
     ROUTERS("Routers"),
     HOTSPOTS("Hotspots"),
     TVS("TVs & consoles"),
-    SMART_HOME("Smart home");
+    SMART_HOME("Smart home"),
+    COMPUTERS("Computers"),
+    /** Made by Apple, whatever kind (iPhone, Mac, AirPods, AirTag...). */
+    APPLE("Apple");
 
     /**
      * What a filter looks at, the same for a device heard now and one saved in a snapshot or a trace,
@@ -57,7 +60,9 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         val flagged: Boolean,
         val facts: List<Pair<String, String>> = emptyList(),
         val isNew: Boolean = false,
-        val remoteId: Boolean = false
+        val remoteId: Boolean = false,
+        /** The address registrant, when the address is a fixed one. */
+        val vendor: String? = null
     )
 
     fun matches(s: DeviceRegistry.Snapshot): Boolean = matches(seen(s))
@@ -84,10 +89,13 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         AUDIO -> (AUDIO_TYPE.containsMatchIn(s.type) || s.facts.contains("Identified by" to "Fast Pair model ID")) &&
             s.hits.none { it.category == Category.AUDIO_SENSOR }
         CAMERAS -> CAMERA_TYPE.containsMatchIn(s.type) || s.hits.any { it.category in CAMERA_CATEGORIES }
-        ROUTERS -> ROUTER_TYPE.containsMatchIn(s.type)
+        ROUTERS -> DeviceIntel.isRouter(s.type)
         HOTSPOTS -> HOTSPOT_TYPE.containsMatchIn(s.type)
         TVS -> TV_TYPE.containsMatchIn(s.type)
         SMART_HOME -> SMART_HOME_TYPE.containsMatchIn(s.type) && !VEHICLE_TYPE.containsMatchIn(s.type)
+        COMPUTERS -> COMPUTER_TYPE.containsMatchIn(s.type) || s.name?.let { COMPUTER_NAME.containsMatchIn(it) } == true
+        APPLE -> APPLE_TYPE.containsMatchIn(s.type) || s.vendor?.startsWith("Apple", ignoreCase = true) == true ||
+            s.hits.any { com.rfsentinel.app.detect.SignatureEngine.isAppleFindMy(it) }
     }
 
     companion object {
@@ -95,25 +103,31 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         @Volatile var excludeAirTags = false
 
         /** The device-kind filters (from the device's type), after the main ones. */
-        val KINDS = listOf(VEHICLES, PHONES, AUDIO, CAMERAS, ROUTERS, HOTSPOTS, TVS, SMART_HOME)
+        val KINDS = listOf(VEHICLES, PHONES, COMPUTERS, AUDIO, CAMERAS, ROUTERS, HOTSPOTS, TVS, SMART_HOME, APPLE)
 
         // Each kind from the types DeviceIntel gives (its own names, the Bluetooth appearance names and
         // older versions' names, so saved snapshots and traces sort the same way).
         private fun kind(re: String) = Regex(re, RegexOption.IGNORE_CASE)
         private val TRACKER_TYPE = kind("tracker|find my|airtag|key finder|^tag$|^keyring")
         private val VEHICLE_TYPE = kind("^vehicle|^motorized vehicle|^train wifi|tire pressure")
-        private val AUDIO_TYPE = kind("headphone|earbud|airpods|beats|speaker|soundbar|\\bbuds\\b|audio|headset|hearing aid|" +
+        private val AUDIO_TYPE = kind("headphone|earbud|airpods|beats|speaker|soundbar|\\bbuds\\b|audio|(?<!vr )headset|hearing aid|" +
             "bose|jbl|jabra|sennheiser|soundcore|skullcandy|sonos")
         private val CAMERA_TYPE = kind("^(dashcam|action camera|security camera|camera)|body cam|\\bcam(era)?\\b")
         /** Detection categories that are cameras (police, home security, action / hidden, recording glasses). */
         private val CAMERA_CATEGORIES = setOf(Category.BODY_CAM, Category.ALPR, Category.NETWORK_CAMERA, Category.OTHER_CAMERA, Category.GLASSES)
-        private val ROUTER_TYPE = kind("^(home router|wifi access point|vehicle / cellular router|mesh router)|access point$")
         // Business access points and account sign-in WiFi stay off both: they're neither.
         private val HOTSPOT_TYPE = kind("^(public wifi hotspot|mobile hotspot box|phone hotspot|train wifi|open wifi)")
-        private val TV_TYPE = kind("^(smart tv|tv / streaming|game console|apple tv)|television|set-top|media player|^gaming")
+        private val TV_TYPE = kind("^(smart tv|tv / streaming|game console|game controller|vr headset|apple tv)|television|set-top|media player|^gaming|gamepad|joystick")
         private val SMART_HOME_TYPE = kind("smart-home|smart home|^iot|smart plug|bthome|^sensor|environmental sensor|light|" +
             "thermostat|^hvac|^heating|air conditioning|humidifier|^fan\\b|access control|door lock|power device|domestic appliance|" +
             "window covering|motorized device")
+
+        // Macs, PCs and laptops (not "phone or computer" guesses, nor a WiFi client that may be either).
+        private val COMPUTER_TYPE = kind("^(computer|mac|imac|laptop|desktop|notebook|chromebook|windows pc)\\b|" +
+            "\\bmac (mini|pro|studio)\\b|macbook|personal computer")
+        /** Windows' default computer names (DESKTOP-1A2B3C4, LAPTOP-1A2B3C4D) and named laptops. */
+        private val COMPUTER_NAME = kind("^(desktop|laptop)-[0-9a-z]{7,8}$|macbook|\\bimac\\b|thinkpad|chromebook|surface (pro|laptop|book)")
+        private val APPLE_TYPE = kind("^apple|iphone|\\bipad|macbook|\\bimac\\b|^mac\\b|airpods|airtag|homepod|apple tv|find my|airplay|vision pro|^beats")
 
         private fun isAppleFindMy(s: Seen) =
             s.type.contains("Find My", true) || s.type.contains("AirTag", true) ||
@@ -121,13 +135,13 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
 
         fun seen(s: DeviceRegistry.Snapshot) = Seen(
             s.mac, s.deviceType, s.name, s.hits, s.sources, s.best != null && !WhitelistCache.contains(s.mac),
-            s.facts, s.isNew, s.remoteId != null
+            s.facts, s.isNew, s.remoteId != null, s.vendor
         )
 
         fun seen(d: TripDeviceEntity) = Seen(
             d.mac, DeviceIntel.savedType(d.deviceType, d.vendor, d.mac).orEmpty(), d.name,
             listOfNotNull(Category.parse(d.category)?.let { Hit(it, d.label, d.confidence, d.evidence.orEmpty(), "") }),
-            setOfNotNull(Advert.Source.entries.firstOrNull { it.name == d.source }), d.flagged
+            setOfNotNull(Advert.Source.entries.firstOrNull { it.name == d.source }), d.flagged, vendor = d.vendor
         )
 
         fun parse(name: String?) = entries.firstOrNull { it.name == name } ?: ALL

@@ -50,7 +50,8 @@ object DeviceOrder {
     /** Category groups, in the filter chips' spirit: what matters most first. */
     private val CATEGORY_ORDER = listOf(
         DeviceFilter.TRACKERS, DeviceFilter.DRONES, DeviceFilter.CAMERAS, DeviceFilter.VEHICLES, DeviceFilter.PHONES,
-        DeviceFilter.AUDIO, DeviceFilter.ROUTERS, DeviceFilter.HOTSPOTS, DeviceFilter.TVS, DeviceFilter.SMART_HOME
+        DeviceFilter.COMPUTERS, DeviceFilter.AUDIO, DeviceFilter.ROUTERS, DeviceFilter.HOTSPOTS, DeviceFilter.TVS,
+        DeviceFilter.SMART_HOME, DeviceFilter.APPLE
     )
     /** The group of flagged devices, first when grouped. */
     const val ALERTS = "Alerts"

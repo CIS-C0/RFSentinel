@@ -107,17 +107,30 @@ object DeviceIntel {
         "^70mai|^viofo|^blackvue|^thinkware|^nextbase|^vantrue|^rexing|^garmin ?dash|^dashcam|^dash ?cam|^roav|^redtiger|^azdome" to "Dashcam",
         "^gopro|^gp[0-9]{8}$|^hero\\d+|^insta360|^osmo ?action|^akaso" to "Action camera",
         "^tello-|^dji[-_ ]|^mavic|^spark-|^phantom|^anafi|^skycontroller|^autel|^evo ?ii|^skydio|^parrot" to "Drone / controller",
-        "\\[tv\\]|^direct-[0-9a-z]{2}-(\\[tv\\]|samsung|lg|bravia|tcl|hisense|vizio)|^bravia|^lg[_ ]?(webos)?[_ ]?tv|^vizio|^roku-|^androidtv|^chromecast" to "Smart TV / streaming device",
+        // TVs and streaming sticks: their screen-mirroring / setup networks and default names.
+        "\\[tv\\]|\\[lg\\]|^direct-[0-9a-z]{2}-(\\[tv\\]|\\[lg\\]|samsung|lg|bravia|sony|tcl|hisense|vizio|philips|panasonic|sharp|toshiba|" +
+            "insignia|xiaomi|mi tv|fire ?tv|roku|skyworth|grundig|metz|loewe)|^(sony[ _-]?)?bravia|^lg[_ ]?(webos)?[_ ]?tv|^webos|^vizio|" +
+            "^roku-|^roku ?(tv|ultra|express|stick)|^android[_ ]?tv|^google[_ ]?tv|^chromecast|^fire ?tv|^shield[ _-]?(tv|android)|" +
+            "^mi[_ ]?box|^tivo|^apple ?tv|samsung ?(smart ?)?tv|^philips ?tv|^hisense ?tv|^tcl ?(smart ?)?tv" to "Smart TV / streaming device",
         "^esp[-_][0-9a-f]{4,6}$|^esp32|^esp8266|^tasmota-|^shelly|^sonoff|^espressif|^wled-|^openmqttgateway" to "IoT board (ESP / smart-home firmware)",
         "^tp-?link_smart|^kasa_|^tapo_|^wemo\\.|^meross_|^smartlife-|^smart ?life|^tuya|^gosund|^govee|^wiz_|^hue-" to "Smart plug / bulb waiting to be set up",
         "^ring setup|^ring-[0-9a-f]{4}|^nest-|^arlo|^blink-|^wyze|^eufy|^reolink|^ipc[-_]|^ezviz|^hikvision|^imou" to "Security camera / doorbell",
-        "^nintendo|^switch_|^ps[45]-|^xbox" to "Game console"
+        "^nintendo|^switch_|^ps[345]-|^ps ?vita|^xbox|^steam ?deck|^rog ?ally|^legion ?go" to "Game console",
+        "^meta ?quest|^quest[ _-]?([23]|pro)|^oculus" to "VR headset"
     ).map { (re, type) -> Regex(re, RegexOption.IGNORE_CASE) to type }
 
     private val PHONE_TYPE = Regex("^(iphone|apple watch|phone hotspot|phone / computer|apple device \\(iphone|samsung device|google device|phone$|phone -)", RegexOption.IGNORE_CASE)
     private val PHONE_NAME = Regex("iphone|galaxy|pixel|'s phone|oneplus|redmi|moto g|xperia|nothing phone", RegexOption.IGNORE_CASE)
     /** A phone maker's other gear, named after the phone ("Galaxy Buds", "Pixel Watch", "Galaxy Tab"). */
     private val NOT_PHONE_NAME = Regex("buds|watch|\\btab\\b|book|\\bfit\\b|band|\\bring\\b|smarttag|\\btag\\b|\\btv\\b|tablet|\\bear", RegexOption.IGNORE_CASE)
+
+    private val ROUTER_TYPE = Regex("^(home router|wifi access point|vehicle / cellular router|mesh router)|access point$", RegexOption.IGNORE_CASE)
+
+    /** True when a type is a router or a home / plain access point (the Routers chip); business access points aren't. */
+    fun isRouter(type: String): Boolean = ROUTER_TYPE.containsMatchIn(type)
+
+    /** The type of a hidden network another network of the same access point names: "<that type> (hidden network)". */
+    fun hiddenOnType(siblingType: String) = "$siblingType (hidden network)"
 
     /** True when a device's type (from [identify]) or broadcast name says it's a phone (or a phone's hotspot). */
     fun isPhone(type: String?, name: String?): Boolean =
@@ -141,7 +154,13 @@ object DeviceIntel {
         Regex("meshtastic|^meshcore", RegexOption.IGNORE_CASE) to MESH_NODE,
         Regex("airpods|beats|buds|earbud|headphone|headset|jbl|bose|sony w[hf]-|soundcore|jabra|sennheiser|skullcandy", RegexOption.IGNORE_CASE) to "Headphones / earbuds",
         Regex("watch|fitbit|garmin|amazfit|mi band|galaxy fit|whoop|polar|suunto|oura", RegexOption.IGNORE_CASE) to "Wearable",
-        Regex("\\b(tv|bravia|roku|chromecast|fire ?tv|shield)\\b|\\[tv\\]", RegexOption.IGNORE_CASE) to "TV / streaming device",
+        // Game gear before TVs and the generic peripherals ("Xbox Wireless Controller" is a controller, not a console).
+        Regex("xbox (wireless )?controller|dualsense|dualshock|wireless controller|pro controller|joy-con|8bitdo|gamesir|" +
+            "backbone one|razer kishi|stadia controller|luna controller", RegexOption.IGNORE_CASE) to "Game controller",
+        Regex("\\b(playstation|ps[345]|xbox( series [xs]| one)?|nintendo switch|steam ?deck|rog ally|legion go)\\b", RegexOption.IGNORE_CASE) to "Game console",
+        Regex("meta quest|oculus|\\bquest ([23]|pro)\\b|htc vive|\\bpico [34]\\b|psvr", RegexOption.IGNORE_CASE) to "VR headset",
+        Regex("\\b(tv|bravia|roku|chromecast|fire ?tv|shield|google tv|android ?tv|apple tv|webos|tizen|oled\\d{2}|qled|the frame|" +
+            "mi box|tivo)\\b|\\[tv\\]|\\[lg\\]", RegexOption.IGNORE_CASE) to "TV / streaming device",
         // Car makers and their infotainment systems' Bluetooth names (whole words: "audi" is in "audio").
         Regex("tesla|model [3sxy]\\b|\\bbmw\\b|mercedes|\\baudi\\b|volkswagen|\\bvw\\b|toyota|lexus|honda|acura|hyundai|genesis|\\bkia\\b|\\bford\\b|lincoln|" +
             "chevrolet|\\bchevy\\b|cadillac|\\bgmc\\b|buick|nissan|infiniti|subaru|volvo|polestar|rivian|mazda|jeep|dodge|chrysler|porsche|land rover|" +
@@ -152,7 +171,9 @@ object DeviceIntel {
         Regex("keyboard|mouse|\\bmx \\w+|trackpad|controller|xbox|dualsense|dualshock|joy-con", RegexOption.IGNORE_CASE) to "Peripheral / controller",
         Regex("gopro|insta360|osmo|dash ?cam|doorbell|\\bcam\\b|camera|arlo|wyze ?cam|eufy ?cam|blink", RegexOption.IGNORE_CASE) to "Camera",
         Regex("\\bnest\\b|\\bring\\b|echo|alexa|google home|\\bhue\\b|govee|wiz|kasa|tapo|switchbot|\\block\\b|august|yale", RegexOption.IGNORE_CASE) to "Smart-home device",
-        Regex("iphone|ipad|macbook|imac|galaxy|pixel|oneplus|xiaomi|redmi|motorola|moto g", RegexOption.IGNORE_CASE) to "Phone / computer",
+        Regex("macbook|\\bimac\\b|mac mini|mac studio|thinkpad|chromebook|surface (pro|laptop|book)|\\blaptop\\b|^(desktop|laptop)-[0-9a-z]{7,8}$",
+            RegexOption.IGNORE_CASE) to "Computer",
+        Regex("iphone|ipad|galaxy|pixel|oneplus|xiaomi|redmi|motorola|moto g", RegexOption.IGNORE_CASE) to "Phone / computer",
         Regex("speaker|soundbar|sonos|boom|flip \\d|charge \\d", RegexOption.IGNORE_CASE) to "Speaker"
     )
 
@@ -236,6 +257,9 @@ object DeviceIntel {
         Regex("motorola solutions|harris corp|kenwood", RegexOption.IGNORE_CASE) to "Two-way radio / public-safety gear",
         Regex("axon", RegexOption.IGNORE_CASE) to "Axon body cam / TASER",
         Regex("zepcam", RegexOption.IGNORE_CASE) to "Zepcam body camera",
+        // TV, streaming and console makers (not their parents' phone and appliance arms).
+        Regex("^roku|^vizio|^tivo|hisense electric|hisense broadband|tcl king|shenzhen tcl new|skyworth digital|^vestel|^funai", RegexOption.IGNORE_CASE) to "Smart TV / streaming device",
+        Regex("sony interactive|^nintendo|^valve corp", RegexOption.IGNORE_CASE) to "Game console",
         Regex("apple", RegexOption.IGNORE_CASE) to "Apple device",
         Regex("samsung", RegexOption.IGNORE_CASE) to "Samsung device",
         Regex("sonos|bose|harman|jbl|sennheiser|jabra|gn audio", RegexOption.IGNORE_CASE) to "Audio device",
@@ -402,7 +426,7 @@ object DeviceIntel {
     private val WIFI_VENDOR_KINDS = setOf(
         "Vehicle / cellular router", "IoT / smart-home module", "Two-way radio / public-safety gear",
         "Axon body cam / TASER", "Vehicle system", "Drone / controller", "Smart-home / camera device", "Rugged scanner / printer",
-        "Security camera / doorbell"
+        "Security camera / doorbell", "Smart TV / streaming device", "Game console"
     )
 
     private fun identifyWifi(a: Advert, macVendor: String?): Identity {
