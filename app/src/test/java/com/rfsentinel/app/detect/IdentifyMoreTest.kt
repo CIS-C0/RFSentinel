@@ -2,6 +2,7 @@ package com.rfsentinel.app.detect
 
 import com.rfsentinel.app.service.DeviceRegistry
 import com.rfsentinel.app.service.DeviceRegistry.GeoSample
+import com.rfsentinel.app.ui.DeviceFilter
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -118,9 +119,9 @@ class IdentifyMoreTest {
     fun kindFiltersPickTheirDevices() {
         DeviceRegistry.clear(); DeviceRegistry.startSession()
         val kinds = mapOf(
-            "BELL123" to com.rfsentinel.app.ui.DeviceFilter.ROUTERS, "xfinitywifi" to com.rfsentinel.app.ui.DeviceFilter.HOTSPOTS,
-            "70mai_D06_1234" to com.rfsentinel.app.ui.DeviceFilter.CAMERAS, "TELLO-5A1B2C" to com.rfsentinel.app.ui.DeviceFilter.DRONES,
-            "DIRECT-1F-[TV] Samsung Q60" to com.rfsentinel.app.ui.DeviceFilter.TVS, "ESP_1A2B3C" to com.rfsentinel.app.ui.DeviceFilter.SMART_HOME
+            "BELL123" to DeviceFilter.ROUTERS, "xfinitywifi" to DeviceFilter.HOTSPOTS,
+            "70mai_D06_1234" to DeviceFilter.CAMERAS, "TELLO-5A1B2C" to DeviceFilter.DRONES,
+            "DIRECT-1F-[TV] Samsung Q60" to DeviceFilter.TVS, "ESP_1A2B3C" to DeviceFilter.SMART_HOME
         )
         kinds.keys.forEachIndexed { i, ssid ->
             val a = Advert("02:00:00:00:00:1$i", Advert.Source.WIFI, -60, ssid, wifi = Advert.WifiInfo(2437, "[WPA2-PSK-CCMP]", null, emptyList()))
@@ -130,9 +131,28 @@ class IdentifyMoreTest {
         DeviceRegistry.report(buds, emptyList(), DeviceIntel.identify(buds), null, null, null)
         val snaps = DeviceRegistry.snapshot()
         kinds.forEach { (ssid, f) -> assertEquals(ssid, listOf(ssid), snaps.filter { f.matches(it) }.map { it.name }) }
-        assertEquals(listOf(buds.mac), snaps.filter { com.rfsentinel.app.ui.DeviceFilter.AUDIO.matches(it) }.map { it.mac })
-        assertTrue(snaps.none { com.rfsentinel.app.ui.DeviceFilter.VEHICLES.matches(it) || com.rfsentinel.app.ui.DeviceFilter.PHONES.matches(it) })
+        assertEquals(listOf(buds.mac), snaps.filter { DeviceFilter.AUDIO.matches(it) }.map { it.mac })
+        assertTrue(snaps.none { DeviceFilter.VEHICLES.matches(it) || DeviceFilter.PHONES.matches(it) })
         DeviceRegistry.clear()
+    }
+
+    @Test
+    fun savedDevicesUseTheSameFilters() {
+        fun saved(mac: String, type: String?, source: String = "WIFI", category: String? = null, label: String = type ?: mac, vendor: String? = null) =
+            com.rfsentinel.app.data.TripDeviceEntity(1, mac, label, null, vendor, type, source, category, if (category != null) 60 else 0,
+                null, 0, 0, -60, null, null)
+        val router = saved("02:00:00:00:00:21", "Home router - Bell")
+        val tile = saved("D0:00:00:00:00:22", "Tile", "BLE", "TRACKER", "Tile tracker")
+        val buds = saved("C1:22:33:44:55:23", "Bose NC 700", "BLE")
+        val all = listOf(router, tile, buds)
+        assertEquals(listOf(router), all.filter { DeviceFilter.ROUTERS.matches(it) })
+        assertEquals(listOf(tile), all.filter { DeviceFilter.TRACKERS.matches(it) })
+        assertEquals(listOf(tile), all.filter { DeviceFilter.FLAGGED.matches(it) })
+        assertEquals(listOf(buds), all.filter { DeviceFilter.AUDIO.matches(it) })
+        assertEquals(listOf(tile, buds), all.filter { DeviceFilter.BLE.matches(it) })
+        // Filters that only mean something live aren't offered, and match nothing saved.
+        assertTrue(DeviceFilter.SAVED_ORDER.none { it.liveOnly } && DeviceFilter.KINDS.all { it in DeviceFilter.SAVED_ORDER })
+        assertTrue(all.none { DeviceFilter.NEW.matches(it) })
     }
 
     @Test

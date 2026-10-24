@@ -157,7 +157,7 @@ class MapFragment : Fragment() {
     private val alive get() = _binding != null && isAdded && activity != null
     private var tripId: Long? = null
     private var trip: TripEntity? = null
-    /** Which devices the map shows (live: every filter; a saved trace: all or flagged). */
+    /** Which devices the map shows (live: every filter; a saved trace: those that work on saved devices). */
     private var filter = DeviceFilter.ALL
     private val filterChips = HashMap<DeviceFilter, com.google.android.material.chip.Chip>()
     private var centeredOnce = false
@@ -1277,8 +1277,8 @@ class MapFragment : Fragment() {
             filter = DeviceFilter.ALL
             return
         }
-        // The main screen's order; the choice is shared with it (a trace's own map keeps its own).
-        val options = if (tripId == null) DeviceFilter.MAIN_ORDER.filter { it != DeviceFilter.RADIO } else listOf(DeviceFilter.ALL, DeviceFilter.FLAGGED)
+        // The main screen's order; the choice is shared with it (a trace starts on it, then keeps its own).
+        val options = if (tripId == null) DeviceFilter.MAIN_ORDER.filter { it != DeviceFilter.RADIO } else DeviceFilter.SAVED_ORDER
         filter = DeviceFilter.parse(Prefs.mapFilter(act)).takeIf { it in options } ?: DeviceFilter.ALL
         val group = binding.mapFilterChips
         for (f in options) {
@@ -1462,7 +1462,12 @@ class MapFragment : Fragment() {
             val r = rf
             r?.safe("trip") {
                 r.drawTrace(points, RfMap.PAST_TRACE_COLOR)
-                r.drawPins(devices.filter { it.lat != null && (it.flagged || filter == DeviceFilter.ALL) }.map { it.toPin() })
+                r.drawPins(devices.filter { it.lat != null && filter.matches(it) }.map { it.toPin() })
+            }
+            val placed = devices.filter { it.lat != null }
+            for ((f, chip) in filterChips) {
+                val n = placed.count { f.matches(it) }
+                chip.text = if (f == DeviceFilter.ALL || n > 0) "${f.label} $n" else f.label
             }
             val mins = ((t.endTime ?: System.currentTimeMillis()) - t.startTime) / 60000
             // A snapshot has no route: where its devices were, and how many.

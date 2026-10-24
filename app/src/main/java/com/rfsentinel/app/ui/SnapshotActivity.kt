@@ -41,7 +41,9 @@ class SnapshotActivity : AppCompatActivity() {
     private var tripId = 0L
     private var trip: TripEntity? = null
     private var devices: List<TripDeviceEntity> = emptyList()
-    private var onlyFlagged = false
+    /** The main screen's filters (those that work on saved devices), starting on its choice. */
+    private var filter = DeviceFilter.ALL
+    private val filterChips = LinkedHashMap<DeviceFilter, Chip>()
     private val fmt = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
     private val timeFmt = DateFormat.getTimeInstance(DateFormat.SHORT)
 
@@ -87,22 +89,31 @@ class SnapshotActivity : AppCompatActivity() {
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
         binding.searchInput.doAfterTextChanged { show() }
-        onlyFlagged = savedInstanceState?.getBoolean("only_flagged") ?: false
-        fun chip(label: String, flagged: Boolean) = binding.filterChips.addView(
-            Chip(this, null, com.google.android.material.R.attr.chipStyle).apply {
-                id = View.generateViewId(); text = label; isCheckable = true; isCheckedIconVisible = false
+        filter = savedInstanceState?.getString("filter")?.let(DeviceFilter::parse) ?: DeviceFilter.savedStart(this)
+        for (f in DeviceFilter.SAVED_ORDER) {
+            val chip = Chip(this, null, com.google.android.material.R.attr.chipStyle).apply {
+                id = View.generateViewId(); text = f.label; isCheckable = true; isCheckedIconVisible = false
                 ChipStyle.apply(this)
-                isChecked = flagged == onlyFlagged
-                setOnClickListener { onlyFlagged = flagged; show() }
-            })
-        chip("All", false)
-        chip("Flagged", true)
+            }
+            filterChips[f] = chip
+            binding.filterChips.addView(chip)
+            if (f == filter) chip.isChecked = true
+        }
+        binding.filterChips.setOnCheckedStateChangeListener { _, ids ->
+            filter = filterChips.entries.firstOrNull { it.value.id == ids.firstOrNull() }?.key ?: return@setOnCheckedStateChangeListener
+            show()
+        }
+        // The main screen's choice may sit off screen: bring it into view.
+        filterChips[filter]?.let { chip ->
+            val row = binding.filterChips.parent as? android.widget.HorizontalScrollView
+            row?.post { if (chip.right > row.width) row.scrollTo((chip.left - row.width / 4).coerceAtLeast(0), 0) }
+        }
         load()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        outState.putBoolean("only_flagged", onlyFlagged)
+        outState.putString("filter", filter.name)
     }
 
     private fun load() = lifecycleScope.launch {
@@ -118,10 +129,14 @@ class SnapshotActivity : AppCompatActivity() {
         val t = trip ?: return
         val q = binding.searchInput.text?.toString()?.trim().orEmpty()
         val list = devices.filter { d ->
-            (!onlyFlagged || d.flagged) && (q.isEmpty() ||
+            filter.matches(d) && (q.isEmpty() ||
                 listOfNotNull(d.mac, d.label, d.name, d.vendor, d.deviceType, DeviceIntel.savedType(d.deviceType, d.vendor, d.mac), d.evidence).any { it.contains(q, ignoreCase = true) })
         }
         adapter.items = list
+        for ((f, chip) in filterChips) {
+            val n = devices.count { f.matches(it) }
+            chip.text = if (f == DeviceFilter.ALL || n > 0) "${f.label} $n" else f.label
+        }
         @Suppress("NotifyDataSetChanged") adapter.notifyDataSetChanged()
         binding.emptyText.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
         binding.emptyText.text = if (devices.isEmpty()) "This snapshot has no devices." else "Nothing matches."
