@@ -415,4 +415,14 @@ class IdentifyMoreTest {
         // A plain WiFi client is in no category, an Intel one is a PC's.
         assertEquals(listOf(DeviceFilter.COMPUTERS), kinds(DeviceIntel.WIFI_CLIENT_TYPE, VendorDb.macVendor("00:1B:21:00:00:A4")))
     }
+
+    @Test
+    fun partsMakersModulesInATvArentAVehicle() {
+        // LG Innotek makes LG TVs' Bluetooth: an LG TV named by its advert stays a TV, never a vehicle.
+        val tv = DeviceFilter.Seen("02:00:00:00:00:B1", "TV / streaming device", "[LG] webOS TV", emptyList(), setOf(Advert.Source.BLE), false, vendor = "LG Innotek")
+        assertEquals(listOf(DeviceFilter.TVS), DeviceFilter.KINDS.filter { it.matches(tv) })
+        // A Denso Wave barcode scanner isn't a car part either.
+        assertEquals(null, DeviceIntel.automotiveMaker("DENSO WAVE INC."))
+        assertEquals("Denso", DeviceIntel.automotiveMaker("DENSO Co.,Ltd"))
+    }
 }

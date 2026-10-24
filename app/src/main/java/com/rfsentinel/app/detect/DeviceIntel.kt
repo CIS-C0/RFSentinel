@@ -269,11 +269,17 @@ object DeviceIntel {
         "^polestar" to "Polestar", "^lucid motors" to "Lucid", "^rivian" to "Rivian", "^nio co" to "NIO",
         "harman/becker|^harman connected" to "Harman", "continental automotive|continental vehicle" to "Continental",
         "bosch car multimedia" to "Bosch", "^lg innotek" to "LG Innotek", "visteon" to "Visteon",
-        "panasonic automotive" to "Panasonic Automotive", "^denso" to "Denso",
-        "alps ?alpine|^alpsalpine|alpine electronics" to "Alps Alpine", "^aptiv" to "Aptiv", "^valeo" to "Valeo",
+        "panasonic automotive" to "Panasonic Automotive", "^denso(?! wave)" to "Denso",
+        "alps ?alpine|^alpsalpine|^alps electric" to "Alps Alpine", "alpine electronics" to "Alpine", "^aptiv" to "Aptiv", "^valeo" to "Valeo",
         "marelli" to "Marelli", "clarion" to "Clarion", "^peiker" to "peiker", "^lear corporation" to "Lear",
         "desay sv" to "Desay SV", "joynext|preh car connect" to "Preh / Joynext", "pateo" to "PATEO"
     ).map { (re, name) -> Regex(re, RegexOption.IGNORE_CASE) to name }
+
+    /** Suppliers whose radio modules also go in TVs, appliances and game controllers (LG Innotek in LG TVs,
+     *  Alps in controllers): their address alone doesn't make a car. */
+    private val COMPONENT_MAKERS = setOf("LG Innotek", "Alps Alpine")
+    /** Network types that say nothing against a car's own WiFi. */
+    private val CAR_WIFI_OK_TYPES = setOf("WiFi access point", "Hidden WiFi network", "Vehicle WiFi", "Phone hotspot")
 
     /** Car makers' and infotainment systems' WiFi names (GM's "myChevrolet" / "myBuick", "CHEVROLET 1234", "FordPass"...). */
     private val CAR_SSID = Regex("tesla|carplay|android auto|\\bcar\\b|\\bmy ?car\\b|^my ?(chevy|gmc|cadillac|buick|ford|kia|vw|audi|bmw)|" +
@@ -320,7 +326,7 @@ object DeviceIntel {
         Regex("apple", RegexOption.IGNORE_CASE) to "Apple device",
         Regex("samsung", RegexOption.IGNORE_CASE) to "Samsung device",
         Regex("sonos|bose|harman|jbl|sennheiser|jabra|gn audio", RegexOption.IGNORE_CASE) to "Audio device",
-        Regex(AUTOMOTIVE.joinToString("|") { "(?:${it.first.pattern})" }, RegexOption.IGNORE_CASE) to "Vehicle system",
+        Regex(AUTOMOTIVE.filter { it.second !in COMPONENT_MAKERS }.joinToString("|") { "(?:${it.first.pattern})" }, RegexOption.IGNORE_CASE) to "Vehicle system",
         Regex("dji|parrot|skydio|autel", RegexOption.IGNORE_CASE) to "Drone / controller",
         Regex("ring llc|arlo|wyze|eufy|reolink|hikvision|dahua|ezviz|axis communications|hanwha", RegexOption.IGNORE_CASE) to "Security camera / doorbell",
         Regex("amazon technologies|google|nest labs", RegexOption.IGNORE_CASE) to "Smart-home / camera device"
@@ -523,7 +529,11 @@ object DeviceIntel {
         // A network from a car maker's or car-electronics supplier's address is a car's own WiFi, whatever
         // its name says ("Hotspot", "DIRECT-...", a plain name): named for what it is, so cars stand apart.
         val car = if (w?.client == true || w?.standard == WIFI_AWARE || type == "Train WiFi (passenger rail)") null
-            else automotiveMaker(macVendor)
+            else automotiveMaker(macVendor)?.takeUnless { maker ->
+                // A parts maker's module counts only when neither the name nor the beacon says it's something else.
+                maker in COMPONENT_MAKERS && (type !in CAR_WIFI_OK_TYPES || ap.deviceKind != null ||
+                    listOfNotNull(ap.model, ap.deviceName).any { textType(it) != null })
+            }
         if (car != null) {
             facts += "Identified by" to "address registrant (IEEE): ${macVendor!!.trim()}, a car maker or car-electronics supplier"
             if (type != "WiFi access point" && type != "Vehicle WiFi" && type != "Hidden WiFi network") facts += "Network name suggests" to type
