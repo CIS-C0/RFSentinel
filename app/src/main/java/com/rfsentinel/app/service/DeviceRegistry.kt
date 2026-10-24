@@ -497,7 +497,7 @@ object DeviceRegistry {
      */
     private fun hiddenRouterType(t: Track): String? {
         if (Advert.Source.WIFI !in t.sources || !t.name.isNullOrEmpty() || t.advert?.wifi?.client == true) return null
-        if (DeviceIntel.isRouter(t.identity.type)) return null
+        if (DeviceIntel.isRouter(t.identity.type) || t.identity.type.contains(" (WiFi)")) return null
         return tracks.values.firstNotNullOfOrNull { o ->
             if (o === t || !WifiFingerprint.sameAccessPoint(t.mac, o.mac)) null
             // Read without locking [o]: this runs under [t]'s lock, and the sibling facts lock the other way round.

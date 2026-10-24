@@ -137,6 +137,51 @@ object DeviceIntel {
         type?.let { PHONE_TYPE.containsMatchIn(it) } == true ||
             name?.let { PHONE_NAME.containsMatchIn(it) && !NOT_PHONE_NAME.containsMatchIn(it) } == true
 
+    /** A device heard on a network (not an access point): it could be anything. */
+    const val WIFI_CLIENT_TYPE = "WiFi device (laptop, phone or camera on a network)"
+
+    /** What a name or model text says a device is (a network name's pattern, else a device name's), or null. */
+    fun textType(text: String): String? = ssidType(text) ?: NAME_TYPES.firstOrNull { it.first.containsMatchIn(text) }?.second
+
+    /** WPS device categories that name a kind the list has a category for (not routers: a provider's hotspot runs on one). */
+    private val WPS_KIND_TYPES = mapOf(
+        "Computer" to "Computer", "Camera" to "Camera", "Display" to "Smart TV / streaming device",
+        "Multimedia device" to "Smart TV / streaming device", "Gaming device" to "Game console", "Phone" to "Phone",
+        "Audio device" to "Audio device"
+    )
+
+    private fun vendorKind(v: String) = VENDOR_CLASSES.firstOrNull { it.first.containsMatchIn(v.trim()) }?.second
+
+    /** Maker classes that place a device from any evidence (not chip-module makers nor brand-wide guesses). */
+    private val HINT_VENDOR_KINDS by lazy {
+        WIFI_VENDOR_KINDS - setOf("IoT / smart-home module", "Smart-home / camera device") + setOf("Audio device", "Zepcam body camera")
+    }
+    private val PRODUCT_IN_PARENS = Regex("\\((.+)\\)$")
+    private val hintCache = java.util.concurrent.ConcurrentHashMap<List<Any?>, List<String>>()
+
+    /**
+     * Every kind of device the evidence points to besides the type that won: the device name (not a network
+     * name, which already decided the type), the beacon's WPS name, model and kind, its equipment makers'
+     * tags, the advertised appearance and model IDs, and the address registrant. The category chips use them
+     * all, so a device lands in its category whichever clue names it.
+     */
+    fun hintTypes(name: String?, facts: List<Pair<String, String>>, vendor: String?, nameIsSsid: Boolean): List<String> {
+        val key = listOf(name.takeUnless { nameIsSsid }, vendor, facts)
+        hintCache[key]?.let { return it }
+        val out = LinkedHashSet<String>()
+        if (!nameIsSsid) name?.takeIf { it.isNotBlank() }?.let { textType(it)?.let(out::add) }
+        for ((k, v) in facts) when (k) {
+            "AP model (WPS)", "AP device name (WPS)" -> textType(v)?.let(out::add)
+            "Apple model ID", "Google Fast Pair" -> PRODUCT_IN_PARENS.find(v)?.groupValues?.get(1)?.let { p -> out += p; textType(p)?.let(out::add) }
+            "Network name suggests", "Appearance" -> out += v
+            "Device kind (WPS)" -> WPS_KIND_TYPES[v]?.let(out::add)
+            "Equipment maker (vendor IEs)" -> v.split(", ").forEach { m -> vendorKind(m)?.takeIf { it in HINT_VENDOR_KINDS }?.let(out::add) }
+        }
+        vendor?.let { v -> vendorKind(v)?.takeIf { it in HINT_VENDOR_KINDS }?.let(out::add) }
+        if (hintCache.size > 5000) hintCache.clear()
+        return out.toList().also { hintCache[key] = it }
+    }
+
     /** What a network's name says it is ([SSID_TYPES]), or null. */
     fun ssidType(ssid: String): String? = SSID_TYPES.firstOrNull { it.first.containsMatchIn(ssid.trim()) }?.second
 
@@ -443,7 +488,7 @@ object DeviceIntel {
         }
         val ssid = a.name
         val type = when {
-            w?.client == true -> "WiFi device (laptop, phone or camera on a network)"
+            w?.client == true -> WIFI_CLIENT_TYPE
             w?.standard == WIFI_AWARE -> "Drone Remote ID over Wi-Fi Aware"
             ssid.isNullOrEmpty() -> "Hidden WiFi network"
             TRAIN_SSID.containsMatchIn(ssid) -> "Train WiFi (passenger rail)"
@@ -481,6 +526,19 @@ object DeviceIntel {
             return Identity("$byVendor (WiFi)" + (ap.model?.let { " - $it" } ?: ""), facts)
         }
         if (!generic) return Identity(type, facts)
+
+        // What the beacon itself says the device is: its WPS name or model ("65\" TCL Roku TV"), else an
+        // equipment maker's tag (Roku, Nintendo...). Not a router or hotspot name: those are sorted below.
+        val byBeacon = listOfNotNull(ap.deviceName, ap.model).firstNotNullOfOrNull { t ->
+            textType(t)?.takeIf { !isRouter(it) && !it.contains("hotspot", true) && !it.contains("wifi", true) }
+        }?.let { (if (it == "TV / streaming device") "Smart TV / streaming device" else it) to "WPS name or model in the beacon" }
+            ?: ap.equipmentVendors.firstNotNullOfOrNull { v -> vendorKind(v)?.takeIf { it in WIFI_VENDOR_KINDS } }
+                ?.let { it to "equipment maker's tag in the beacon (vendor IE)" }
+        if (byBeacon != null) {
+            facts += "Identified by" to byBeacon.second
+            if (ssid.isNullOrEmpty()) facts += "Network name" to "Hidden (not broadcast)"
+            return Identity("${byBeacon.first} (WiFi)" + (ap.model?.let { " - $it" } ?: ""), facts)
+        }
 
         // What kind of network a plain or hidden name hides, from the beacon itself.
         networkKind(w, ap, macVendor, ssid.isNullOrEmpty())?.let { (kind, why) ->

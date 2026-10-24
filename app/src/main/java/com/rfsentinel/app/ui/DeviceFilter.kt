@@ -63,7 +63,14 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         val remoteId: Boolean = false,
         /** The address registrant, when the address is a fixed one. */
         val vendor: String? = null
-    )
+    ) {
+        /** The type and every other kind the evidence points to ([DeviceIntel.hintTypes]): the category chips use them all. */
+        val types: List<String> by lazy {
+            // A device heard on someone's network only says it's some WiFi device: it counts for no category by itself.
+            listOfNotNull(type.takeUnless { it.startsWith(DeviceIntel.WIFI_CLIENT_TYPE) }) + DeviceIntel.hintTypes(name, facts, vendor, nameIsSsid = Advert.Source.BLE !in sources && Advert.Source.WIFI in sources)
+        }
+        fun anyType(re: Regex) = types.any { re.containsMatchIn(it) }
+    }
 
     fun matches(s: DeviceRegistry.Snapshot): Boolean = matches(seen(s))
 
@@ -83,18 +90,19 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         FAVORITES -> Favorites.contains(s.mac)
         BLE -> Advert.Source.BLE in s.sources
         WIFI -> Advert.Source.WIFI in s.sources
-        VEHICLES -> VEHICLE_TYPE.containsMatchIn(s.type) || s.hits.any { it.category == Category.V2X }
+        // The kinds below look at every clue (the type and the hints, see [Seen.types]), not only the type that won.
+        VEHICLES -> s.anyType(VEHICLE_TYPE) || s.hits.any { it.category == Category.V2X }
         // A watch counts as its owner's phone for tracker checks, not on this chip.
-        PHONES -> DeviceIntel.isPhone(s.type, s.name) && !s.type.startsWith("Apple Watch")
-        AUDIO -> (AUDIO_TYPE.containsMatchIn(s.type) || s.facts.contains("Identified by" to "Fast Pair model ID")) &&
+        PHONES -> (s.types.any { DeviceIntel.isPhone(it, null) } || DeviceIntel.isPhone(null, s.name)) && !s.type.startsWith("Apple Watch")
+        AUDIO -> (s.anyType(AUDIO_TYPE) || s.facts.contains("Identified by" to "Fast Pair model ID")) &&
             s.hits.none { it.category == Category.AUDIO_SENSOR }
-        CAMERAS -> CAMERA_TYPE.containsMatchIn(s.type) || s.hits.any { it.category in CAMERA_CATEGORIES }
-        ROUTERS -> DeviceIntel.isRouter(s.type)
-        HOTSPOTS -> HOTSPOT_TYPE.containsMatchIn(s.type)
-        TVS -> TV_TYPE.containsMatchIn(s.type)
-        SMART_HOME -> SMART_HOME_TYPE.containsMatchIn(s.type) && !VEHICLE_TYPE.containsMatchIn(s.type)
-        COMPUTERS -> COMPUTER_TYPE.containsMatchIn(s.type) || s.name?.let { COMPUTER_NAME.containsMatchIn(it) } == true
-        APPLE -> APPLE_TYPE.containsMatchIn(s.type) || s.vendor?.startsWith("Apple", ignoreCase = true) == true ||
+        CAMERAS -> s.anyType(CAMERA_TYPE) || s.hits.any { it.category in CAMERA_CATEGORIES }
+        ROUTERS -> s.types.any { DeviceIntel.isRouter(it) }
+        HOTSPOTS -> s.anyType(HOTSPOT_TYPE)
+        TVS -> s.anyType(TV_TYPE)
+        SMART_HOME -> s.anyType(SMART_HOME_TYPE) && !s.anyType(VEHICLE_TYPE)
+        COMPUTERS -> s.anyType(COMPUTER_TYPE) || s.name?.let { COMPUTER_NAME.containsMatchIn(it) } == true
+        APPLE -> s.anyType(APPLE_TYPE) || s.vendor?.startsWith("Apple", ignoreCase = true) == true ||
             s.hits.any { com.rfsentinel.app.detect.SignatureEngine.isAppleFindMy(it) }
     }
 

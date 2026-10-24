@@ -346,7 +346,42 @@ class IdentifyMoreTest {
         assertEquals(listOf(DeviceFilter.APPLE), kinds("Bluetooth device", vendor = "Apple, Inc."))
         // Not computers: a guess that may be a phone, a plain WiFi client, a machine-like word.
         assertTrue(DeviceFilter.COMPUTERS !in kinds("Apple device (iPhone, iPad, Mac or Watch)"))
-        assertTrue(DeviceFilter.COMPUTERS !in kinds("WiFi device (laptop, phone or camera on a network)"))
+        assertEquals(emptyList<DeviceFilter>(), kinds("WiFi device (laptop, phone or camera on a network)"))
         assertTrue(DeviceFilter.COMPUTERS !in kinds("Machine sensor"))
+    }
+
+    @Test
+    fun categoriesFromEveryClue() {
+        fun tlv(type: Int, value: String) = byteArrayOf((type shr 8).toByte(), type.toByte(), 0, value.length.toByte()) + value.toByteArray()
+        fun wps(vararg attrs: ByteArray) = 221 to (byteArrayOf(0x00, 0x50, 0xF2.toByte(), 0x04) + attrs.fold(ByteArray(0)) { a, b -> a + b })
+        val rokuTag = 221 to byteArrayOf(0xD8.toByte(), 0x31, 0x34, 0x01, 0x02)
+        fun hidden(mac: String, ies: List<Pair<Int, ByteArray>>) = DeviceIntel.identify(
+            Advert(mac, Advert.Source.WIFI, -60, null, wifi = Advert.WifiInfo(2437, "[WPA2-PSK-CCMP]", null, ies)), VendorDb.macVendor(mac))
+
+        // A TV's hidden network (random address) named by its WPS device name, or by the maker's tag alone.
+        val tv = hidden("06:00:00:00:00:81", listOf(wps(tlv(0x1011, "65\" TCL Roku TV")), rokuTag))
+        assertEquals("Smart TV / streaming device (WiFi)", tv.type)
+        assertTrue(tv.facts.contains("Network name" to "Hidden (not broadcast)"))
+        assertEquals("Smart TV / streaming device (WiFi)", hidden("06:00:00:00:00:82", listOf(rokuTag)).type)
+        // A router's WPS name stays a router.
+        val router = DeviceIntel.identify(Advert("02:11:22:33:44:83", Advert.Source.WIFI, -60, null,
+            wifi = Advert.WifiInfo(2437, "[WPA2-PSK-CCMP]", null, listOf(wps(tlv(0x1021, "NETGEAR, Inc."), tlv(0x1023, "R7000"), tlv(0x1011, "Nighthawk"))))))
+        assertEquals("Home router - NETGEAR R7000", router.type)
+
+        // The chips read every clue, not only the type that won.
+        fun kinds(type: String, facts: List<Pair<String, String>> = emptyList(), name: String? = null, vendor: String? = null,
+                  sources: Set<Advert.Source> = setOf(Advert.Source.WIFI)) =
+            DeviceFilter.KINDS.filter { it.matches(DeviceFilter.Seen("06:00:00:00:00:84", type, name, emptyList(), sources, false, facts, vendor = vendor)) }
+        assertEquals(listOf(DeviceFilter.TVS), kinds("Hidden WiFi network", listOf("AP device name (WPS)" to "65\" TCL Roku TV")))
+        assertEquals(listOf(DeviceFilter.TVS), kinds("Hidden WiFi network", listOf("Equipment maker (vendor IEs)" to "Roku")))
+        assertEquals(listOf(DeviceFilter.TVS), kinds("WiFi access point", listOf("Device kind (WPS)" to "Gaming device")))
+        assertTrue(DeviceFilter.AUDIO in kinds("Bluetooth device", listOf("Google Fast Pair" to "Ready to pair, model ID 0x123456 (Pixel Buds Pro)"),
+            sources = setOf(Advert.Source.BLE)))
+        assertTrue(DeviceFilter.COMPUTERS in kinds("Bluetooth device", name = "Jane's MacBook Air", sources = setOf(Advert.Source.BLE)))
+        assertTrue(DeviceFilter.TVS in kinds("Bluetooth device", vendor = "Roku, Inc.", sources = setOf(Advert.Source.BLE)))
+        // A network's name already decided its type: it isn't read again (a router called "Galaxy" isn't a phone).
+        assertTrue(DeviceFilter.PHONES !in kinds("Home router - NETGEAR", name = "Galaxy"))
+        // A provider's hotspot on a home gateway stays off Routers.
+        assertEquals(listOf(DeviceFilter.HOTSPOTS), kinds("Public WiFi hotspot (Passpoint)", listOf("Device kind (WPS)" to "Router")))
     }
 }
