@@ -317,6 +317,12 @@ class DeviceDetailActivity : AppCompatActivity() {
         DeviceRegistry.companions(DeviceRegistry.currentAddress(mac)).takeIf { it.isNotEmpty() }?.let { c ->
             id += "Moved together with" to c.joinToString("\n") { (m, label) -> (DeviceNames.of(m) ?: label) + " · " + m }
         }
+        s?.hits?.firstOrNull { it.category == com.rfsentinel.app.detect.Category.TRACKER }
+            ?.takeIf { !com.rfsentinel.app.detect.SignatureEngine.reportsOwnerState(it) }?.let {
+                DeviceRegistry.ownerPhone(DeviceRegistry.currentAddress(mac))?.let { phone ->
+                    id += "With its owner" to "Moved with $phone at every place: most likely that phone owner's tag, so it doesn't alert as following you"
+                }
+            }
         // Heard by a USB WiFi adapter / Marauder board: its WPS block, fingerprint, network requests.
         com.rfsentinel.app.usb.ProbeIntel.of(mac)?.let { r ->
             if (r.hidden) id += "Hidden network" to (s?.name?.let { "Its name, \"$it\", was revealed by a device joining or asking for it" }

@@ -5,6 +5,7 @@ import com.rfsentinel.app.data.WhitelistCache
 import com.rfsentinel.app.detect.AddressType
 import com.rfsentinel.app.detect.Advert
 import com.rfsentinel.app.detect.AdvertFingerprint
+import com.rfsentinel.app.detect.Category
 import com.rfsentinel.app.detect.PatrolCluster
 import com.rfsentinel.app.detect.WifiFingerprint
 import com.rfsentinel.app.detect.DeviceIntel
@@ -391,6 +392,26 @@ object DeviceRegistry {
             val (theirs, label) = synchronized(o) { o.path.toList() to (o.name ?: o.identity.type) }
             sharedPlaces(mine, theirs).takeIf { it > 0 }?.let { Triple(o.mac, label, it) }
         }.sortedByDescending { it.third }.take(max).map { it.first to it.second }
+    }
+
+    /**
+     * The phone a tracker travels with, as its name or type, when there is one: a phone (not itself a
+     * tracker) heard with [mac] at every one of its places along your way ([sharedPlaces]). A tag that
+     * never leaves a phone's side is most likely that phone owner's (a passenger's keys or bag), the
+     * way an AirTag near its owner's iPhone doesn't report itself separated. Null otherwise.
+     */
+    fun ownerPhone(mac: String): String? {
+        val t = tracks[mac] ?: return null
+        val mine = synchronized(t) { t.path.toList() }
+        val places = sharedPlaces(mine, mine).takeIf { it > 0 } ?: return null
+        return tracks.values.firstNotNullOfOrNull { o ->
+            if (o === t) return@firstNotNullOfOrNull null
+            val (theirs, label, phone) = synchronized(o) {
+                Triple(o.path.toList(), o.name ?: o.identity.type,
+                    o.hits.none { it.category == Category.TRACKER } && DeviceIntel.isPhone(o.identity.type, o.name))
+            }
+            label.takeIf { phone && sharedPlaces(mine, theirs) >= places }
+        }
     }
 
     /** How many separate places of [a] had [b] heard too (within [TOGETHER_MS]), when they make a companion; else 0. */

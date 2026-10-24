@@ -24,6 +24,13 @@ object SignatureEngine {
     /** An Apple Find My tag match (AirTag or compatible), for Settings > Exclude AirTags. */
     fun isAppleFindMy(hit: Hit) = hit.category == Category.TRACKER && hit.label.startsWith("Apple Find My")
 
+    /**
+     * A tracker match whose tag says by itself that it's away from its owner (Apple Find My, Google Find Hub
+     * "separated" frames). Other tags (Tile, SmartTag, Chipolo...) don't, so the owner is inferred instead
+     * ([com.rfsentinel.app.service.DeviceRegistry.ownerPhone]).
+     */
+    fun reportsOwnerState(hit: Hit) = isAppleFindMy(hit) || hit.label.startsWith("Google Find Hub")
+
 
     private const val ACAB = "all-cameras-are-beacons signature reference (Apache-2.0)"
     private const val SIG = "Bluetooth SIG assigned numbers"

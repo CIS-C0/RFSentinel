@@ -102,6 +102,13 @@ object DeviceIntel {
         "^nintendo|^switch_|^ps[45]-|^xbox" to "Game console"
     ).map { (re, type) -> Regex(re, RegexOption.IGNORE_CASE) to type }
 
+    private val PHONE_TYPE = Regex("^(iphone|apple watch|phone hotspot|phone / computer|apple device \\(iphone|samsung device|google device)", RegexOption.IGNORE_CASE)
+    private val PHONE_NAME = Regex("iphone|galaxy|pixel|'s phone|oneplus|redmi|moto g", RegexOption.IGNORE_CASE)
+
+    /** True when a device's type (from [identify]) or broadcast name says it's a phone (or a phone's hotspot). */
+    fun isPhone(type: String?, name: String?): Boolean =
+        type?.let { PHONE_TYPE.containsMatchIn(it) } == true || name?.let { PHONE_NAME.containsMatchIn(it) } == true
+
     /** What a network's name says it is ([SSID_TYPES]), or null. */
     fun ssidType(ssid: String): String? = SSID_TYPES.firstOrNull { it.first.containsMatchIn(ssid.trim()) }?.second
 

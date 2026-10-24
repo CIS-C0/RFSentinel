@@ -85,6 +85,36 @@ class IdentifyMoreTest {
     }
 
     @Test
+    fun aTagThatNeverLeavesAPhoneIsItsOwners() {
+        DeviceRegistry.clear(); DeviceRegistry.startSession()
+        val tile = Advert("D0:00:00:00:00:01", Advert.Source.BLE, -60, null,
+            serviceData = mapOf(Advert.uuid16(0xFEED) to bytes(0x02, 0x00)))
+        val tileHit = Hit(Category.TRACKER, "Tile tracker", 55, "e", "test")
+        val phone = Advert("D0:00:00:00:00:02", Advert.Source.BLE, -60, "Galaxy S24")
+        val watch = Advert("D0:00:00:00:00:03", Advert.Source.BLE, -60, "Fitbit")
+        // Five places ~550 m apart, a minute each; the phone is there at all of them, the watch at the first three.
+        (0 until 5).forEach { i ->
+            val at = GeoSample(i * 60_000L, 45.0 + i * 0.005, -70.0)
+            DeviceRegistry.report(tile, listOf(tileHit), DeviceIntel.Identity("Tile", emptyList()), null, null, at, at.time)
+            DeviceRegistry.report(phone, emptyList(), DeviceIntel.Identity("Samsung device", emptyList()), null, null, at, at.time + 5_000)
+            if (i < 3) DeviceRegistry.report(watch, emptyList(), DeviceIntel.Identity("Wearable", emptyList()), null, null, at, at.time + 5_000)
+        }
+        assertEquals("Galaxy S24", DeviceRegistry.ownerPhone(tile.mac))
+        // Without the phone, nothing: a watch there all the way isn't a phone.
+        DeviceRegistry.clear(); DeviceRegistry.startSession()
+        (0 until 5).forEach { i ->
+            val at = GeoSample(i * 60_000L, 45.0 + i * 0.005, -70.0)
+            DeviceRegistry.report(tile, listOf(tileHit), DeviceIntel.Identity("Tile", emptyList()), null, null, at, at.time)
+            DeviceRegistry.report(watch, emptyList(), DeviceIntel.Identity("Wearable", emptyList()), null, null, at, at.time + 5_000)
+        }
+        assertNull(DeviceRegistry.ownerPhone(tile.mac))
+        // AirTags and Find Hub tags say it themselves; the rest need this.
+        assertTrue(SignatureEngine.reportsOwnerState(Hit(Category.TRACKER, SignatureEngine.APPLE_FIND_MY_LABEL, 70, "e", "s")))
+        assertTrue(!SignatureEngine.reportsOwnerState(tileHit))
+        DeviceRegistry.clear()
+    }
+
+    @Test
     fun advertHashIsStable() {
         assertEquals(AdvertFingerprint.hash("n=Buds|u=|d=|m=|t=|c="), AdvertFingerprint.hash("n=Buds|u=|d=|m=|t=|c="))
         assertEquals(8, AdvertFingerprint.hash("x").length)

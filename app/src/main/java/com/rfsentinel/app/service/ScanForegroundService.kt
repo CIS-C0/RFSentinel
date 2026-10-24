@@ -68,6 +68,7 @@ class ScanForegroundService : Service() {
     companion object {
         /** Radar beeps: start after the alert's own beeps, last up to 2 min, stop once the device is out of range. */
         private const val RADAR_QUIET_MS = 2_500L
+        private const val OWNER_CHECK_MS = 30_000L
         private const val RADAR_HOLD_MS = 120_000L
         /** "GPS connected" again only after the fix was lost this long. */
         private const val GPS_RECONNECT_MS = 120_000L
@@ -687,13 +688,26 @@ class ScanForegroundService : Service() {
         val followM = Prefs.followMinMeters(this).toDouble()
         // Followers that stay in range, and ones that keep turning up at places along your way.
         if (loc != null && !best.listOnly) placeFollow.heard(mac, DeviceRegistry.linkedFrom(mac), now, loc.latitude, loc.longitude)
-        if (loc != null && Prefs.followerAlerts(this) && !trackerPaused && !best.listOnly &&
+        // A tag that can't say it's with its owner (Tile, SmartTag, Chipolo...) and never leaves a phone's
+        // side is that phone owner's, like an AirTag near its iPhone: no follow alert while that holds.
+        val withOwner = loc != null && best.category == Category.TRACKER && !SignatureEngine.reportsOwnerState(best) &&
+            ownerPhone(mac, now) != null
+        if (loc != null && Prefs.followerAlerts(this) && !trackerPaused && !best.listOnly && !withOwner &&
             (DeviceRegistry.checkFollowing(mac, followMs, followM).also { if (it) placeFollow.alertedNow(mac, now) } ||
                 placeFollow.follower(mac, now, followMs, followM).also { if (it) DeviceRegistry.markFollowing(mac) })
         ) {
             NotificationHelper.sendAlert(this, mac, best, a.rssi, following = true)
             AlertPlayer.play(this, best.tier, com.rfsentinel.app.util.Spoken.device(this, best, following = true), following = true)
         }
+    }
+
+    /** [DeviceRegistry.ownerPhone] per tracker, rechecked every [OWNER_CHECK_MS]. */
+    private val ownerChecks = HashMap<String, Pair<Long, String?>>()
+
+    private fun ownerPhone(mac: String, now: Long): String? = synchronized(ownerChecks) {
+        ownerChecks[mac]?.takeIf { now - it.first < OWNER_CHECK_MS }?.let { return it.second }
+        if (ownerChecks.size > 200) ownerChecks.entries.removeIf { now - it.value.first >= OWNER_CHECK_MS }
+        DeviceRegistry.ownerPhone(mac).also { ownerChecks[mac] = now to it }
     }
 
     /** Matches an ESP32 board reported, kept a few minutes so re-classification keeps them. */
