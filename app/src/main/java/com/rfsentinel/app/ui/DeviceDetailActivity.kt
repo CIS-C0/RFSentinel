@@ -296,6 +296,10 @@ class DeviceDetailActivity : AppCompatActivity() {
         // Identity
         val id = mutableListOf<Pair<String, String>>()
         (s?.deviceType ?: knownType)?.let { id += "Device type" to it }
+        // The category the list files it under (a device no longer heard: from its saved type and name).
+        (s?.let { DeviceFilter.seen(it) } ?: knownType?.let {
+            DeviceFilter.Seen(mac, it, known?.name, emptyList(), emptySet(), false, vendor = VendorDb.macVendor(mac))
+        })?.let { id += "Category" to DeviceOrder.categoryLabel(it) }
         (s?.name ?: known?.name)?.let { id += (if (a?.isWifi == true) "Network name (SSID)" else "Advertised name") to it }
         VendorDb.macVendor(mac)?.let { id += "Address registrant (IEEE)" to it }
         a?.manufacturerData?.keys?.forEach { cid ->

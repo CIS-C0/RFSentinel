@@ -56,6 +56,19 @@ object DeviceOrder {
     /** The group of flagged devices, first when grouped. */
     const val ALERTS = "Alerts"
     private const val OTHER = "Other"
+
+    /**
+     * The categories a device is in, the one Group by Category files it under first ("Phones (also Apple)"),
+     * or "Other" when it's in none.
+     */
+    fun categoryLabel(s: DeviceFilter.Seen): String {
+        val all = CATEGORY_ORDER.filter { it.matches(s) }.map { it.label }
+        return when {
+            all.isEmpty() -> OTHER
+            all.size == 1 -> all[0]
+            else -> "${all[0]} (also ${all.drop(1).joinToString()})"
+        }
+    }
     private const val UNKNOWN_MAKER = "Unknown maker"
     private val BANDS = listOf("Near", "Nearby", "Far")
 
