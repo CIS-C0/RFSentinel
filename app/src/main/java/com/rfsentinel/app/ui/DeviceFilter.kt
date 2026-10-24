@@ -67,9 +67,11 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         val vendor: String? = null
     ) {
         /** The type and every other kind the evidence points to ([DeviceIntel.hintTypes]): the category chips use them all. */
+        /** The name is a network's name (an access point heard on WiFi only): it already decided the type. */
+        val nameIsSsid get() = Advert.Source.BLE !in sources && Advert.Source.WIFI in sources
         val types: List<String> by lazy {
             // A device heard on someone's network only says it's some WiFi device: it counts for no category by itself.
-            listOfNotNull(type.takeUnless { it.startsWith(DeviceIntel.WIFI_CLIENT_TYPE) }) + DeviceIntel.hintTypes(name, facts, vendor, nameIsSsid = Advert.Source.BLE !in sources && Advert.Source.WIFI in sources)
+            listOfNotNull(type.takeUnless { it.startsWith(DeviceIntel.WIFI_CLIENT_TYPE) }) + DeviceIntel.hintTypes(name, facts, vendor, nameIsSsid)
         }
         fun anyType(re: Regex) = types.any { re.containsMatchIn(it) }
     }
@@ -95,7 +97,7 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         // The kinds below look at every clue (the type and the hints, see [Seen.types]), not only the type that won.
         VEHICLES -> s.anyType(VEHICLE_TYPE) || s.hits.any { it.category == Category.V2X }
         // A watch counts as its owner's phone for tracker checks, not on this chip.
-        PHONES -> (s.types.any { DeviceIntel.isPhone(it, null) } || DeviceIntel.isPhone(null, s.name)) && !s.type.startsWith("Apple Watch")
+        PHONES -> (s.types.any { DeviceIntel.isPhone(it, null) } || (!s.nameIsSsid && DeviceIntel.isPhone(null, s.name))) && !s.type.startsWith("Apple Watch")
         AUDIO -> (s.anyType(AUDIO_TYPE) || s.facts.contains("Identified by" to "Fast Pair model ID")) &&
             s.hits.none { it.category == Category.AUDIO_SENSOR }
         CAMERAS -> s.anyType(CAMERA_TYPE) || s.hits.any { it.category in CAMERA_CATEGORIES }

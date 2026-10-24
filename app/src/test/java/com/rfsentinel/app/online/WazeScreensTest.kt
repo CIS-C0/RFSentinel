@@ -131,7 +131,9 @@ class WazeScreensTest {
         val list = activity.findViewById<RecyclerView>(com.rfsentinel.app.R.id.recyclerView)
         @Suppress("UNCHECKED_CAST")
         val rows = (list.adapter as ListAdapter<DeviceRow, *>).currentList
-        val first = rows.first()
+        // Grouped by category by default: the report heads the Alerts section, right under its header.
+        val first = rows.first { !it.header }
+        assertTrue(rows.indexOf(first) <= 1 && (rows.indexOf(first) == 0 || rows[0].title.startsWith("Alerts")))
         assertEquals("Police reported on Waze", first.title)
         assertEquals("120 m N · ahead · closing in", first.subtitle)
         assertTrue("flashing: it is above the alert threshold", first.flashing)
