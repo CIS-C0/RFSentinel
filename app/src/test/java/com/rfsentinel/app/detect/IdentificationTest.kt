@@ -285,4 +285,21 @@ class IdentificationTest {
         assertEquals("Vehicle / cellular router (WiFi)", router.type)
         assertNotNull(router.facts.firstOrNull { it.first == "Identified by" })
     }
+
+    private fun ap(mac: String, ssid: String?) = DeviceIntel.identify(
+        Advert(mac, Advert.Source.WIFI, -60, ssid, wifi = Advert.WifiInfo(2437, "[WPA2-PSK-CCMP]", null, emptyList())),
+        VendorDb.macVendor(mac))
+
+    @Test
+    fun aCarMakersAddressMakesAnyNetworkVehicleWifi() {
+        // Registry prefixes (IEEE): Tesla, Inc. / Harman-Becker Automotive / Visteon.
+        val hotspot = ap("0C:29:8F:00:00:01", "Model Y Hotspot")
+        assertEquals("Vehicle WiFi - Tesla", hotspot.type)
+        assertTrue(hotspot.facts.contains("Network name suggests" to "Phone hotspot"))
+        assertEquals("Vehicle WiFi - Harman", ap("00:1C:D7:00:00:01", "DIRECT-xy-Car").type)
+        assertEquals("Vehicle WiFi - Visteon", ap("00:09:93:00:00:01", null).type)
+        // Not car makers: a Tesla-named controls company, and an ordinary router.
+        assertEquals(null, DeviceIntel.automotiveMaker("Tesla Controls"))
+        assertFalse(ap("00:30:44:00:00:01", "Hotspot").type.startsWith("Vehicle WiFi"))
+    }
 }

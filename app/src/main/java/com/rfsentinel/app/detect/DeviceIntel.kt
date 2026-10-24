@@ -116,6 +116,27 @@ object DeviceIntel {
         0xFE79 to "Zebra printer / scanner", 0xFD66 to "Zebra device"
     )
 
+    /**
+     * Car makers and car-electronics suppliers (infotainment, telematics), as IEEE registrants spell them,
+     * with the name shown. Their addresses on a WiFi network mean a car's own WiFi.
+     */
+    private val AUTOMOTIVE = listOf(
+        "^tesla,? ?inc" to "Tesla", "^ford motor" to "Ford", "^general motors" to "GM", "^volkswagen" to "Volkswagen",
+        "^bmw ag" to "BMW", "^mercedes-benz" to "Mercedes-Benz", "^daimler truck" to "Daimler Truck",
+        "^honda motor|^sony honda mobility" to "Honda", "toyota" to "Toyota", "^volvo car" to "Volvo",
+        "^polestar" to "Polestar", "^lucid motors" to "Lucid", "^rivian" to "Rivian", "^nio co" to "NIO",
+        "harman/becker|^harman connected" to "Harman", "continental automotive|continental vehicle" to "Continental",
+        "bosch car multimedia" to "Bosch", "^lg innotek" to "LG Innotek", "visteon" to "Visteon",
+        "panasonic automotive" to "Panasonic Automotive", "^denso" to "Denso",
+        "alps ?alpine|^alpsalpine|alpine electronics" to "Alps Alpine", "^aptiv" to "Aptiv", "^valeo" to "Valeo",
+        "marelli" to "Marelli", "clarion" to "Clarion", "^peiker" to "peiker", "^lear corporation" to "Lear",
+        "desay sv" to "Desay SV", "joynext|preh car connect" to "Preh / Joynext", "pateo" to "PATEO"
+    ).map { (re, name) -> Regex(re, RegexOption.IGNORE_CASE) to name }
+
+    /** The car maker or supplier a registrant is, or null. */
+    fun automotiveMaker(vendor: String?): String? =
+        vendor?.let { v -> AUTOMOTIVE.firstOrNull { it.first.containsMatchIn(v.trim()) }?.second }
+
     /** Device kind implied by the IEEE registrant of a fixed address. */
     private val VENDOR_CLASSES = listOf(
         Regex("cradlepoint|sierra wireless|peplink|inseego|digi international", RegexOption.IGNORE_CASE) to "Vehicle / cellular router",
@@ -128,7 +149,7 @@ object DeviceIntel {
         Regex("apple", RegexOption.IGNORE_CASE) to "Apple device",
         Regex("samsung", RegexOption.IGNORE_CASE) to "Samsung device",
         Regex("sonos|bose|harman|jbl|sennheiser|jabra|gn audio", RegexOption.IGNORE_CASE) to "Audio device",
-        Regex("tesla|continental automotive|harman becker|alps alpine|denso|panasonic automotive|lg innotek", RegexOption.IGNORE_CASE) to "Vehicle system",
+        Regex(AUTOMOTIVE.joinToString("|") { "(?:${it.first.pattern})" }, RegexOption.IGNORE_CASE) to "Vehicle system",
         Regex("dji|parrot|skydio|autel", RegexOption.IGNORE_CASE) to "Drone / controller",
         Regex("ring llc|amazon technologies|google|nest labs|arlo|wyze", RegexOption.IGNORE_CASE) to "Smart-home / camera device"
     )
@@ -298,6 +319,16 @@ object DeviceIntel {
         ap.ciscoApName?.let { facts += "Cisco AP name" to it }
         if (ap.equipmentVendors.isNotEmpty()) facts += "Equipment maker (vendor IEs)" to ap.equipmentVendors.joinToString { shortVendor(it) }
         if (ap.chipsetVendors.isNotEmpty()) facts += "WiFi chipset (vendor IEs)" to ap.chipsetVendors.joinToString { shortVendor(it) }
+
+        // A network from a car maker's or car-electronics supplier's address is a car's own WiFi, whatever
+        // its name says ("Hotspot", "DIRECT-...", a plain name): named for what it is, so cars stand apart.
+        val car = if (w?.client == true || w?.standard == WIFI_AWARE || type == "Train WiFi (passenger rail)") null
+            else automotiveMaker(macVendor)
+        if (car != null) {
+            facts += "Identified by" to "address registrant (IEEE): ${macVendor!!.trim()}, a car maker or car-electronics supplier"
+            if (type != "WiFi access point" && type != "Vehicle WiFi" && type != "Hidden WiFi network") facts += "Network name suggests" to type
+            return Identity("Vehicle WiFi - $car" + (ap.model?.let { " - $it" } ?: ""), facts)
+        }
 
         val generic = type == "WiFi access point" || type == "Hidden WiFi network"
         // A generic SSID says little; the registrant of a fixed BSSID can say more.
