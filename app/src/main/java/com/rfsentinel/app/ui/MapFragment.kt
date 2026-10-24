@@ -1282,7 +1282,7 @@ class MapFragment : Fragment() {
         filter = DeviceFilter.parse(Prefs.mapFilter(act)).takeIf { it in options } ?: DeviceFilter.ALL
         val group = binding.mapFilterChips
         for (f in options) {
-            val chip = com.google.android.material.chip.Chip(act, null, com.google.android.material.R.attr.chipStyle).apply {
+            val chip = FitChip(act).apply {
                 id = View.generateViewId()
                 text = f.label
                 isCheckable = true

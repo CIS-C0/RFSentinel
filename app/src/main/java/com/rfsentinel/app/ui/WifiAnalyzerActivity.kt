@@ -81,7 +81,7 @@ class WifiAnalyzerActivity : AppCompatActivity() {
             title = if (s) "WiFi spectrum" else "WiFi channels"
         }
         for (band in Band.entries) {
-            val chip = Chip(this).apply {
+            val chip = FitChip(this).apply {
                 text = band.label
                 isCheckable = true
                 id = android.view.View.generateViewId()

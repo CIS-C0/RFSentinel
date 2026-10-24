@@ -97,7 +97,7 @@ class SnapshotActivity : AppCompatActivity() {
         binding.searchInput.doAfterTextChanged { show() }
         filter = savedInstanceState?.getString("filter")?.let(DeviceFilter::parse) ?: DeviceFilter.savedStart(this)
         for (f in DeviceFilter.SAVED_ORDER) {
-            val chip = Chip(this, null, com.google.android.material.R.attr.chipStyle).apply {
+            val chip = FitChip(this).apply {
                 id = View.generateViewId(); text = f.label; isCheckable = true; isCheckedIconVisible = false
                 ChipStyle.apply(this)
             }

@@ -158,7 +158,7 @@ class NavSearchActivity : AppCompatActivity() {
         header(title)
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         for (c in PlaceCategories.Category.entries) {
-            row.addView(com.google.android.material.chip.Chip(this).apply {
+            row.addView(com.rfsentinel.app.ui.FitChip(this).apply {
                 text = c.label
                 setEnsureMinTouchTargetSize(false)
                 ChipStyle.apply(this)

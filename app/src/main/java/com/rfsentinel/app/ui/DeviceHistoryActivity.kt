@@ -53,7 +53,7 @@ class DeviceHistoryActivity : AppCompatActivity() {
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
         for (f in Filter.entries) {
-            val chip = Chip(this, null, com.google.android.material.R.attr.chipStyle).apply {
+            val chip = FitChip(this).apply {
                 id = View.generateViewId(); text = f.label; isCheckable = true; isCheckedIconVisible = false
                 ChipStyle.apply(this)
                 isChecked = f == filter

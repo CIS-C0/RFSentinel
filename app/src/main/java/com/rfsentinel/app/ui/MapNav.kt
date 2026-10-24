@@ -307,7 +307,7 @@ internal class MapNav(
     private fun buildAvoidChips() {
         b.navAvoidScroll.visibility = View.VISIBLE
         b.navAvoid.removeAllViews()
-        fun chip(label: String, on: Boolean, set: (Valhalla.Options, Boolean) -> Valhalla.Options) = Chip(act).apply {
+        fun chip(label: String, on: Boolean, set: (Valhalla.Options, Boolean) -> Valhalla.Options) = FitChip(act).apply {
             text = label; isCheckable = true; isChecked = on; isCheckedIconVisible = false
             setEnsureMinTouchTargetSize(false)
             ChipStyle.apply(this)

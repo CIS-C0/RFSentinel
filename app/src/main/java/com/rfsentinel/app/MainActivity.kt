@@ -351,7 +351,7 @@ class MainActivity : AppCompatActivity() {
     /** Filter chips from [com.rfsentinel.app.ui.DeviceFilter] (same rules as the map), counts filled in by render(). */
     private fun setupFilterChips() {
         for (f in com.rfsentinel.app.ui.DeviceFilter.MAIN_ORDER) {
-            val chip = com.google.android.material.chip.Chip(this, null, com.google.android.material.R.attr.chipStyle).apply {
+            val chip = com.rfsentinel.app.ui.FitChip(this).apply {
                 id = View.generateViewId()
                 text = f.label
                 isCheckable = true

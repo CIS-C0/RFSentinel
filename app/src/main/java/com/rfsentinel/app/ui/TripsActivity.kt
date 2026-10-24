@@ -101,7 +101,7 @@ class TripsActivity : AppCompatActivity() {
         binding.recyclerView.adapter = adapter
         section = savedInstanceState?.getString(EXTRA_SECTION) ?: intent.getStringExtra(EXTRA_SECTION) ?: TripEntity.KIND_TRACE
         for ((kind, label) in listOf(TripEntity.KIND_TRACE to "Traces", TripEntity.KIND_SNAPSHOT to "Snapshots")) {
-            binding.filterChips.addView(com.google.android.material.chip.Chip(this, null, com.google.android.material.R.attr.chipStyle).apply {
+            binding.filterChips.addView(com.rfsentinel.app.ui.FitChip(this).apply {
                 id = View.generateViewId(); text = label; isCheckable = true; isCheckedIconVisible = false
                 ChipStyle.apply(this)
                 isChecked = kind == section
