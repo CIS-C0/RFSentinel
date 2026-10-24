@@ -250,7 +250,7 @@ Everything the app does, grouped by area.
 <details>
 <summary><b>Interface</b></summary>
 
-- Live list and radar view, filter chips with live counts (flagged, trackers, drones, favorites, new, Bluetooth, WiFi, cells, Waze, external hardware), search; Waze reports in range show nearest first with their exact distance and direction from you (ahead / behind / left / right while driving), and flash at the top once they reach your alert threshold; pull the list down (or use the menu) to check Waze right now, and the Waze status screen shows what is sent and when
+- Live list and radar view, filter chips with live counts (flagged, trackers, drones, favorites, new, Bluetooth, WiFi, cells, Waze, external hardware, and device kinds: vehicles, phones, computers, audio, cameras, routers, hotspots, TVs & consoles, smart home, Apple, other), sort and group by category, radio, maker or distance, search; Waze reports in range show nearest first with their exact distance and direction from you (ahead / behind / left / right while driving), and flash at the top once they reach your alert threshold; pull the list down (or use the menu) to check Waze right now, and the Waze status screen shows what is sent and when
 - **Tools** (wrench button next to the List / Radar / Map toggle): **Cell towers** (serving and neighbour cells with network, IDs, channel and signal, plus every tower seen while scanning), **WiFi channels** and **WiFi spectrum** analyzers for 2.4 / 5 / 6 GHz
 - **Cell towers in the live list:** the serving cell and its neighbours appear under *All*, after the devices
 - **Scan watchdog:** a scanner that goes silent is restarted on its own
@@ -351,7 +351,13 @@ A threat banner, the live list of everything in range, and the radar and map vie
   a *New alert* pill takes you up.
 - **Filters and search:** All, Flagged, Trackers, Drones, Favorites, New,
   Bluetooth, WiFi, Cells, External (heard by an ESP32 board or a USB WiFi
-  adapter). Search matches name, address, vendor and type.
+  adapter), and by kind: Vehicles, Phones, Computers, Audio, Cameras, Routers,
+  Hotspots, TVs & consoles, Smart home, Apple and Other (none of those). A
+  device's kind comes from every clue: type, name, maker, WPS model and
+  equipment-maker elements; a plain WiFi client stays under Other. Search
+  matches name, address, vendor and type.
+- **Sort by / Group by** (Menu): category (the default), radio, maker or
+  distance, on the main list and in snapshots; alerts stay on top.
 - **Tap** a device for details. **Long-press** for watchlist, whitelist,
   favorite, copy, ignore, and **Report unknown device**.
 - **Whitelist** (Menu): trusted devices by address, and WiFi networks by name
@@ -377,7 +383,7 @@ The app never connects to a device. The details screen shows why it's flagged
 determined, address type and trackability, decoded protocol data, WiFi band,
 channel and security, drone Remote ID with drone and operator positions, a live
 signal graph with **Locate** mode (beeps faster as you get closer), history, and
-the raw advertisement. **Rename** gives the device your own name (shown in the
+the raw advertisement, plus its **Category**. **Rename** gives the device your own name (shown in the
 list, on the map and in history) and **Add note** keeps a note with it; named or
 noted devices stay in the history. **I saw it** is different: it doesn't just label
 this device, it adds it to your watchlist with what you say it is (e.g. pole camera
@@ -763,7 +769,10 @@ hardware. **Settings → RTL-SDR radio**:
 name for networks they joined before. With an adapter or a Marauder board
 plugged in, RF Sentinel can keep these names (off by default: they're other
 people's network names; always kept while a map trace records). Tap **Watch** on
-one to get an alert whenever any device asks for it. Devices also show their
+one to get an alert whenever any device asks for it, or **search WiGLE** for
+where those networks are (map pins, a *By device* view, and where each was asked for;
+needs your own WiGLE API name and token, stored encrypted; only the searched name and, for
+a search near you, your position rounded to ~10 km are sent). Devices also show their
 **WPS** maker / model / name, a **probe fingerprint** you can watch ("every
 device of this type", even with random addresses) and its coarser **probe shape**
 (FlipDeFlock's hash, which can be watched too), and hidden networks show
@@ -1155,6 +1164,9 @@ checks follow [AIMSICD](https://github.com/CellularPrivacy/Android-IMSI-Catcher-
 [SnoopSnitch](https://github.com/srlabs/snoopsnitch) (GPL-3.0; ideas only). European V2X (ITS-G5) frames are read the way
 [V2X2MAP](https://github.com/pit711/V2X2MAP) by Peter Holzhauser does (MIT; see
 `esp/V2X2MAP-LICENSE`), with the CAM / DENM messages decoded from ETSI's own ASN.1.
+Fast Pair devices are named from the genuine-device list in
+[Momentum-Apps](https://github.com/Next-Flip/Momentum-Apps)' BLE Spam (GPL-3.0, @Willy-JL,
+@Spooks4576; `assets/vendors/fast_pair.tsv`) - thank you.
 Tracker service IDs follow [AirGuard](https://github.com/seemoo-lab/AirGuard) by
 SEEMOO / TU Darmstadt (Apache-2.0). The USB WiFi monitor-mode driver for RTL8811AU /
 RTL8821AU adapters (`app/src/main/java/com/rfsentinel/app/usb/`) is ported from

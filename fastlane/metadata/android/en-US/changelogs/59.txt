@@ -1,0 +1,7 @@
+- Filter chips by kind: Vehicles, Phones, Computers, Audio, Cameras, Routers, Hotspots, TVs, Smart home, Apple, Other.
+- Sort by / Group by; grouped by category by default; category in device details.
+- WiGLE search for requested networks.
+- Fast Pair model names (Momentum-Apps list).
+- Car WiFi as Vehicle WiFi; better TV, console, LED and alarm panel detection.
+- Tags carried with a phone don't alert as following.
+- Snapshots look like the main list.
