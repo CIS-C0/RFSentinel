@@ -54,7 +54,7 @@ Before shipping, the identifiers were checked against these registries:
 | Audio sensor | 128-bit service UUIDs with short IDs `0x3100` to `0x3500` (Flock Raven) | 80 | ACAB field capture |
 | Drone | Service data `0xFFFA` with ASTM F3411 app code `0x0D`; decoded | 95 | ASTM F3411 / opendroneid |
 | Drone | WiFi vendor IE with OUI `FA:0B:BC`, type `0x0D` | 95 | ASTM F3411 |
-| Drone | Drone makers' own IEEE blocks (DJI, Parrot, Skydio, Autel /28, Yuneec /28, and others) | 60 | IEEE / ACAB |
+| Drone | Drone makers' own IEEE blocks (DJI, Parrot, Skydio, Autel /28, Yuneec /28, Hubsan, FIMI, uAvionix Remote ID modules and others); DJI handhelds named Osmo, OM, RS / Ronin or Mic are left out | 60 | IEEE / ACAB |
 | Tracker | Apple company ID `0x004C`, type `0x12`, length `0x19` (separated from owner only) | 70 | ACAB; arXiv 2501.17452 |
 | Tracker | Google `0xFEAA` service data, frame `0x41` (separated; frame `0x40` = near owner, ignored) | 70 | Find Hub Network spec |
 | Tracker | Samsung `0xFD5A` / Tile `0xFEED` or `0xFEEC` service data | 55 | SIG |
@@ -65,6 +65,7 @@ Before shipping, the identifiers were checked against these registries:
 | Glasses | HeyCyan SDK UUID `7905FFF0-B5CE-4E99-A40F-4B1E122D00D0`, full 16-byte match only | 68 | ACAB |
 | Network camera (off by default) | SSID starting with `ARLO_VMB_` or `NTGR_VMB_` | 88 | ACAB |
 | Network camera (off by default) | Arlo, Blink, Ezviz, Uniview, Amcrest, Wyze, Swann, Night Owl, SkyBell or WUUK blocks (WiFi only) | 65 | IEEE / ACAB |
+| Network camera (off by default) | Any other block whose IEEE registrant is a camera / recorder maker (Hikvision, Dahua, Tiandy, Rhombus, Eagle Eye Networks, FLIR, Bosch Security, IDIS, TVT, Digital Watchdog, Speco, Jovision, Zmodo, Canary...) (WiFi only) | 60 | IEEE |
 
 A WiFi network named after a passenger rail operator (Amtrak, Brightline, Eurostar, SNCF `_WIFI_INOUI`,
 VIA Rail, Deutsche Bahn `WIFIonICE`; Wardrive Go's rail list) is shown as **Train WiFi** and its

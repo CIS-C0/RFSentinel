@@ -91,6 +91,18 @@ object DeviceIntel {
         "^movistar_|^miwifi_" to "Home router - Movistar", "^tim-\\d|^telecomitalia" to "Home router - TIM", "^fastweb" to "Home router - Fastweb",
         "^telstra[0-9a-f]{4}" to "Home router - Telstra", "^optus_" to "Home router - Optus", "^ziggo" to "Home router - Ziggo",
         "^kpn ?[0-9a-z]{4}|^experiabox" to "Home router - KPN", "^upc\\d{6,7}$" to "Home router - UPC",
+        // Public WiFi of chains found in many countries, and plainly free networks.
+        "^(google )?starbucks|^mcdonalds|^mcdonald's|^mcd ?free|^tim ?hortons|^panera|^boingo|^wayport|^ikea ?wifi|^subway ?wifi|^costa ?wifi|^pret ?wifi|^kfc ?wifi|^burger ?king|^walmart ?wifi" to "Public WiFi hotspot",
+        "^_?free[ _-]?(public[ _-]?)?wi-?fi|^public[ _-]?wi-?fi$|^_?airport[ _-]?(free[ _-]?)?wi-?fi" to "Public WiFi hotspot",
+        // Routers' own default names (the maker, before anyone renamed it).
+        "^netgear\\d{2}(-5g)?$|^orbi\\d{2,3}$" to "Home router - NETGEAR", "^tp-?link_[0-9a-f]{4}(_5g)?$|^deco[_-]?[0-9a-f]{4}$" to "Home router - TP-Link",
+        "^asus(_[0-9a-f]{2})?(_5g)?$|^asus_rt" to "Home router - ASUS", "^linksys\\d{5}(_5ghz)?$" to "Home router - Linksys",
+        "^d-?link[-_][0-9a-f]{4}" to "Home router - D-Link", "^belkin[._-][0-9a-f]{3}" to "Home router - Belkin",
+        "^huawei-[0-9a-z]{4}(-5g)?$" to "Home router - Huawei", "^tenda_[0-9a-f]{6}" to "Home router - Tenda",
+        "^xiaomi_[0-9a-f]{4}|^redmi_[0-9a-f]{4}" to "Home router - Xiaomi", "^mercusys_[0-9a-f]{4}" to "Home router - Mercusys",
+        "^arris-[0-9a-f]{4}|^sbg\\d{4}" to "Home router - ARRIS", "^sagemcom[0-9a-f]{4}" to "Home router - Sagemcom",
+        "^technicolor|^tc8717t|^tg1672g" to "Home router - Technicolor", "^hitron-[0-9a-f]{4}" to "Home router - Hitron",
+        "^fritz!?box" to "Home router - FRITZ!Box", "^zyxel_[0-9a-f]{4}" to "Home router - Zyxel", "^ubee[0-9a-f]{4}" to "Home router - Ubee",
         // Gadgets that make their own network.
         "^70mai|^viofo|^blackvue|^thinkware|^nextbase|^vantrue|^rexing|^garmin ?dash|^dashcam|^dash ?cam|^roav|^redtiger|^azdome" to "Dashcam",
         "^gopro|^gp[0-9]{8}$|^hero\\d+|^insta360|^osmo ?action|^akaso" to "Action camera",
@@ -102,12 +114,15 @@ object DeviceIntel {
         "^nintendo|^switch_|^ps[45]-|^xbox" to "Game console"
     ).map { (re, type) -> Regex(re, RegexOption.IGNORE_CASE) to type }
 
-    private val PHONE_TYPE = Regex("^(iphone|apple watch|phone hotspot|phone / computer|apple device \\(iphone|samsung device|google device)", RegexOption.IGNORE_CASE)
-    private val PHONE_NAME = Regex("iphone|galaxy|pixel|'s phone|oneplus|redmi|moto g", RegexOption.IGNORE_CASE)
+    private val PHONE_TYPE = Regex("^(iphone|apple watch|phone hotspot|phone / computer|apple device \\(iphone|samsung device|google device|phone$|phone -)", RegexOption.IGNORE_CASE)
+    private val PHONE_NAME = Regex("iphone|galaxy|pixel|'s phone|oneplus|redmi|moto g|xperia|nothing phone", RegexOption.IGNORE_CASE)
+    /** A phone maker's other gear, named after the phone ("Galaxy Buds", "Pixel Watch", "Galaxy Tab"). */
+    private val NOT_PHONE_NAME = Regex("buds|watch|\\btab\\b|book|\\bfit\\b|band|\\bring\\b|smarttag|\\btag\\b|\\btv\\b|tablet|\\bear", RegexOption.IGNORE_CASE)
 
     /** True when a device's type (from [identify]) or broadcast name says it's a phone (or a phone's hotspot). */
     fun isPhone(type: String?, name: String?): Boolean =
-        type?.let { PHONE_TYPE.containsMatchIn(it) } == true || name?.let { PHONE_NAME.containsMatchIn(it) } == true
+        type?.let { PHONE_TYPE.containsMatchIn(it) } == true ||
+            name?.let { PHONE_NAME.containsMatchIn(it) && !NOT_PHONE_NAME.containsMatchIn(it) } == true
 
     /** What a network's name says it is ([SSID_TYPES]), or null. */
     fun ssidType(ssid: String): String? = SSID_TYPES.firstOrNull { it.first.containsMatchIn(ssid.trim()) }?.second
@@ -127,10 +142,15 @@ object DeviceIntel {
         Regex("airpods|beats|buds|earbud|headphone|headset|jbl|bose|sony w[hf]-|soundcore|jabra|sennheiser|skullcandy", RegexOption.IGNORE_CASE) to "Headphones / earbuds",
         Regex("watch|fitbit|garmin|amazfit|mi band|galaxy fit|whoop|polar|suunto|oura", RegexOption.IGNORE_CASE) to "Wearable",
         Regex("\\b(tv|bravia|roku|chromecast|fire ?tv|shield)\\b|\\[tv\\]", RegexOption.IGNORE_CASE) to "TV / streaming device",
-        Regex("tesla|model [3sxy]\\b|bmw|mercedes|audi|volkswagen|\\bvw\\b|toyota|honda|hyundai|\\bkia\\b|ford|chevrolet|nissan|subaru|volvo|polestar|rivian|mazda|jeep|carplay", RegexOption.IGNORE_CASE) to "Vehicle",
+        // Car makers and their infotainment systems' Bluetooth names (whole words: "audi" is in "audio").
+        Regex("tesla|model [3sxy]\\b|\\bbmw\\b|mercedes|\\baudi\\b|volkswagen|\\bvw\\b|toyota|lexus|honda|acura|hyundai|genesis|\\bkia\\b|\\bford\\b|lincoln|" +
+            "chevrolet|\\bchevy\\b|cadillac|\\bgmc\\b|buick|nissan|infiniti|subaru|volvo|polestar|rivian|mazda|jeep|dodge|chrysler|porsche|land rover|" +
+            "jaguar|mini cooper|peugeot|renault|citro[eë]n|skoda|\\bopel\\b|vauxhall|\\bfiat\\b|carplay|uconnect|\\bmy ?car\\b|^sync$|mbux|\\bmmi\\b|" +
+            "idrive|onstar|mylink|entune", RegexOption.IGNORE_CASE) to "Vehicle",
         Regex("printer|deskjet|officejet|laserjet|epson|canon|brother", RegexOption.IGNORE_CASE) to "Printer",
         Regex("airtag|\\btile\\b|smarttag|chipolo|pebblebee", RegexOption.IGNORE_CASE) to "Item tracker",
         Regex("keyboard|mouse|\\bmx \\w+|trackpad|controller|xbox|dualsense|dualshock|joy-con", RegexOption.IGNORE_CASE) to "Peripheral / controller",
+        Regex("gopro|insta360|osmo|dash ?cam|doorbell|\\bcam\\b|camera|arlo|wyze ?cam|eufy ?cam|blink", RegexOption.IGNORE_CASE) to "Camera",
         Regex("\\bnest\\b|\\bring\\b|echo|alexa|google home|\\bhue\\b|govee|wiz|kasa|tapo|switchbot|\\block\\b|august|yale", RegexOption.IGNORE_CASE) to "Smart-home device",
         Regex("iphone|ipad|macbook|imac|galaxy|pixel|oneplus|xiaomi|redmi|motorola|moto g", RegexOption.IGNORE_CASE) to "Phone / computer",
         Regex("speaker|soundbar|sonos|boom|flip \\d|charge \\d", RegexOption.IGNORE_CASE) to "Speaker"
@@ -221,7 +241,8 @@ object DeviceIntel {
         Regex("sonos|bose|harman|jbl|sennheiser|jabra|gn audio", RegexOption.IGNORE_CASE) to "Audio device",
         Regex(AUTOMOTIVE.joinToString("|") { "(?:${it.first.pattern})" }, RegexOption.IGNORE_CASE) to "Vehicle system",
         Regex("dji|parrot|skydio|autel", RegexOption.IGNORE_CASE) to "Drone / controller",
-        Regex("ring llc|amazon technologies|google|nest labs|arlo|wyze", RegexOption.IGNORE_CASE) to "Smart-home / camera device"
+        Regex("ring llc|arlo|wyze|eufy|reolink|hikvision|dahua|ezviz|axis communications|hanwha", RegexOption.IGNORE_CASE) to "Security camera / doorbell",
+        Regex("amazon technologies|google|nest labs", RegexOption.IGNORE_CASE) to "Smart-home / camera device"
     )
 
     /**
@@ -380,7 +401,8 @@ object DeviceIntel {
 
     private val WIFI_VENDOR_KINDS = setOf(
         "Vehicle / cellular router", "IoT / smart-home module", "Two-way radio / public-safety gear",
-        "Axon body cam / TASER", "Vehicle system", "Drone / controller", "Smart-home / camera device", "Rugged scanner / printer"
+        "Axon body cam / TASER", "Vehicle system", "Drone / controller", "Smart-home / camera device", "Rugged scanner / printer",
+        "Security camera / doorbell"
     )
 
     private fun identifyWifi(a: Advert, macVendor: String?): Identity {
@@ -404,7 +426,7 @@ object DeviceIntel {
             ssidType(ssid) != null -> ssidType(ssid)!!
             Regex("iphone|androidap|galaxy|pixel|hotspot|'s phone", RegexOption.IGNORE_CASE).containsMatchIn(ssid) -> "Phone hotspot"
             Regex("direct-|printer|hp-print|epson|canon", RegexOption.IGNORE_CASE).containsMatchIn(ssid) -> "WiFi Direct / printer"
-            Regex("tesla|carplay|android auto|\\bcar\\b|bmw|mercedes|audi|toyota", RegexOption.IGNORE_CASE).containsMatchIn(ssid) -> "Vehicle WiFi"
+            Regex("tesla|carplay|android auto|\\bcar\\b|\\bbmw\\b|mercedes|\\baudi\\b|toyota|uconnect|onstar|\\bmy ?car\\b|\\bvw\\b|volkswagen|hyundai|\\bkia\\b|porsche|volvo|rivian|polestar", RegexOption.IGNORE_CASE).containsMatchIn(ssid) -> "Vehicle WiFi"
             else -> "WiFi access point"
         }
         // Make / model from the beacon itself (works for hidden networks too).

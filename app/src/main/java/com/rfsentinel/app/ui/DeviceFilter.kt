@@ -76,7 +76,7 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         ALL -> true
         FLAGGED -> s.flagged
         TRACKERS -> !(excludeAirTags && isAppleFindMy(s)) && (s.hits.any { it.category == Category.TRACKER } ||
-            s.type.contains("tracker", true) || s.type.contains("Find My", true))
+            TRACKER_TYPE.containsMatchIn(s.type))
         DRONES -> s.hits.any { it.category == Category.DRONE } || s.remoteId || s.type.startsWith("Drone")
         NEW -> s.isNew
         CELLS, WAZE, RADIO, AIRCRAFT -> false
@@ -85,14 +85,16 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         FAVORITES -> Favorites.contains(s.mac)
         BLE -> Advert.Source.BLE in s.sources
         WIFI -> Advert.Source.WIFI in s.sources
-        VEHICLES -> s.type.startsWith("Vehicle")
-        PHONES -> DeviceIntel.isPhone(s.type, s.name)
-        AUDIO -> AUDIO_TYPE.containsMatchIn(s.type) || s.facts.contains("Identified by" to "Fast Pair model ID")
-        CAMERAS -> CAMERA_TYPE.containsMatchIn(s.type)
-        ROUTERS -> s.type.startsWith("Home router")
+        VEHICLES -> VEHICLE_TYPE.containsMatchIn(s.type) || s.hits.any { it.category == Category.V2X }
+        // A watch counts as its owner's phone for tracker checks, not on this chip.
+        PHONES -> DeviceIntel.isPhone(s.type, s.name) && !s.type.startsWith("Apple Watch")
+        AUDIO -> (AUDIO_TYPE.containsMatchIn(s.type) || s.facts.contains("Identified by" to "Fast Pair model ID")) &&
+            s.hits.none { it.category == Category.AUDIO_SENSOR }
+        CAMERAS -> CAMERA_TYPE.containsMatchIn(s.type) || s.hits.any { it.category in CAMERA_CATEGORIES }
+        ROUTERS -> ROUTER_TYPE.containsMatchIn(s.type)
         HOTSPOTS -> HOTSPOT_TYPE.containsMatchIn(s.type)
         TVS -> TV_TYPE.containsMatchIn(s.type)
-        SMART_HOME -> SMART_HOME_TYPE.containsMatchIn(s.type)
+        SMART_HOME -> SMART_HOME_TYPE.containsMatchIn(s.type) && !VEHICLE_TYPE.containsMatchIn(s.type)
     }
 
     companion object {
@@ -102,11 +104,22 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         /** The device-kind filters (from the device's type), after the main ones. */
         val KINDS = listOf(VEHICLES, PHONES, AUDIO, CAMERAS, ROUTERS, HOTSPOTS, TVS, SMART_HOME)
 
-        private val AUDIO_TYPE = Regex("headphone|earbud|airpods|beats|speaker|soundbar|\\bbuds\\b|audio|bose|jbl|jabra|sennheiser|soundcore|skullcandy|sonos", RegexOption.IGNORE_CASE)
-        private val CAMERA_TYPE = Regex("^(dashcam|action camera|security camera|smart-home / camera)", RegexOption.IGNORE_CASE)
-        private val HOTSPOT_TYPE = Regex("^(public wifi hotspot|mobile hotspot box|phone hotspot)", RegexOption.IGNORE_CASE)
-        private val TV_TYPE = Regex("^(smart tv|tv / streaming|game console|apple tv)", RegexOption.IGNORE_CASE)
-        private val SMART_HOME_TYPE = Regex("^(iot board|iot / smart-home|smart plug|smart-home device)", RegexOption.IGNORE_CASE)
+        // Each kind from the types DeviceIntel gives (its own names, the Bluetooth appearance names and
+        // older versions' names, so saved snapshots and traces sort the same way).
+        private fun kind(re: String) = Regex(re, RegexOption.IGNORE_CASE)
+        private val TRACKER_TYPE = kind("tracker|find my|airtag|key finder|^tag$|^keyring")
+        private val VEHICLE_TYPE = kind("^vehicle|^motorized vehicle|^train wifi|tire pressure")
+        private val AUDIO_TYPE = kind("headphone|earbud|airpods|beats|speaker|soundbar|\\bbuds\\b|audio|headset|hearing aid|" +
+            "bose|jbl|jabra|sennheiser|soundcore|skullcandy|sonos")
+        private val CAMERA_TYPE = kind("^(dashcam|action camera|security camera|camera)|body cam|\\bcam(era)?\\b")
+        /** Detection categories that are cameras (police, home security, action / hidden, recording glasses). */
+        private val CAMERA_CATEGORIES = setOf(Category.BODY_CAM, Category.ALPR, Category.NETWORK_CAMERA, Category.OTHER_CAMERA, Category.GLASSES)
+        private val ROUTER_TYPE = kind("^(home router|wifi access point|vehicle / cellular router|mesh router)|access point$")
+        private val HOTSPOT_TYPE = kind("^(public wifi hotspot|mobile hotspot box|phone hotspot|train wifi)")
+        private val TV_TYPE = kind("^(smart tv|tv / streaming|game console|apple tv)|television|set-top|media player|^gaming")
+        private val SMART_HOME_TYPE = kind("smart-home|smart home|^iot|smart plug|bthome|^sensor|environmental sensor|light|" +
+            "thermostat|^hvac|^heating|air conditioning|humidifier|^fan\\b|access control|door lock|power device|domestic appliance|" +
+            "window covering|motorized device")
 
         private fun isAppleFindMy(s: Seen) =
             s.type.contains("Find My", true) || s.type.contains("AirTag", true) ||

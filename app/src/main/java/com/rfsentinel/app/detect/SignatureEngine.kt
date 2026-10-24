@@ -95,10 +95,14 @@ object SignatureEngine {
      * counts (Hikvision alone has 100+), not just a hand-picked few.
      */
     private val CAMERA_MAKER_NAME = Regex(
-        "hikvision|zhejiang dahua|ezviz|lorex|amcrest|swann communications|wyze labs|^ring llc|arlo technologies|reolink|" +
+        "hikvision|zhejiang dahua|ezviz|lorex technology|amcrest|swann communications|wyze labs|^ring llc|arlo technologies|reolink|" +
             "vivint|simplisafe|uniview|vivotek|avigilon|verkada|geovision|mobotix|sunell|march networks|" +
             "ava security|hanwha vision|hanwha techwin|samsung techwin|axis communications|" +
-            "fantasia trading|shenzhen phaten|tp-link.*tapo",
+            "fantasia trading|shenzhen phaten|tp-link.*tapo|" +
+            // More camera / recorder makers, registrants as the IEEE lists them.
+            "tiandy technologies|^rhombus (systems|europe)|eagle eye networks|zmodo|^night owl|skybell|wuuk labs|canary connect|" +
+            "^blink by amazon|^flir systems|bosch security systems|^idis (co|nederland)|^tvt co|honeywell video|costar video|" +
+            "digital watchdog|speco technologies|jovision",
         RegexOption.IGNORE_CASE
     )
     private const val UUID_REMOTE_ID = 0xFFFA      // ASTM Remote ID (SIG SDO UUID)
@@ -134,7 +138,9 @@ object SignatureEngine {
                 "8C1F64B07" to "AeroVironment", "34B5F32" to "Inspired Flight", "AC86D17" to "Quantum Systems",
                 "8C1F640F1" to "ideaForge", "8C1F64A2D" to "ACSL", "74B80F" to "Zipline",
                 "24A10D7" to "Cyon Drones", "B44D43A" to "UAV Navigation", "14DD48" to "Shield AI",
-                "E8B470C" to "Anduril Industries"
+                "E8B470C" to "Anduril Industries", "98AAFC7" to "Hubsan", "6CDFFBE" to "FIMI (Xiaomi drones)",
+                // uAvionix makes the add-on Remote ID and ADS-B modules many drones carry.
+                "04714B1" to "uAvionix (drone Remote ID module)", "546F71" to "uAvionix (drone Remote ID module)"
             )
     )
 
@@ -177,6 +183,12 @@ object SignatureEngine {
     private val PENGUIN_NUMERIC = Regex("^\\d{8,12}$")
     /** Zebra's default Bluetooth name is the serial: 2-char plant, 3-letter model code, YYWW + 5 digits. */
     private val ZEBRA_SERIAL = Regex("^[A-Z0-9]{2}[A-Z]{3}\\d{9}$")
+
+    /** Brother's mobile printers by their default model names (RJ-4250WB, PJ-763MFi...). */
+    private val BROTHER_MOBILE = Regex("^(rj|pj)-?\\d{3,4}", RegexOption.IGNORE_CASE)
+
+    /** Meta's VR headsets, which share Meta's company ID and services with the glasses. */
+    private val META_HEADSET = Regex("quest|oculus", RegexOption.IGNORE_CASE)
 
     /** IDO / VeryFit smartwatch model names: IDW26, ID205, ID207... */
     private val IDO_WATCH = Regex("^ID[A-Z]?\\d{2,4}[A-Z]?$")
@@ -255,7 +267,11 @@ object SignatureEngine {
                     "store scanners and handhelds", SIG)
         }
         if (CID_BROTHER in a.manufacturerData) {
-            hits += Hit(Category.PUBLIC_SAFETY, "Brother printer", 20,
+            // RuggedJet (RJ-) and PocketJet (PJ-) are the mobile models, named after the model by default.
+            hits += if (BROTHER_MOBILE.containsMatchIn(name)) Hit(Category.PUBLIC_SAFETY, "Brother mobile printer (RuggedJet / PocketJet)", 35,
+                "Brother Industries company ID 0x0755 and a mobile-printer model name \"$name\" - in-car printers for " +
+                    "tickets and reports, but also utility, delivery and field-service vans", SIG)
+            else Hit(Category.PUBLIC_SAFETY, "Brother printer", 20,
                 "Brother Industries company ID 0x0755 - RuggedJet / PocketJet in-car printers, but mostly " +
                     "home and office printers", SIG)
         }
@@ -401,7 +417,8 @@ object SignatureEngine {
                     "Meta manufacturer data carries the META_RB_GLASS token", ACAB)
             }
         }
-        if (CID_META in a.manufacturerData || META_UUIDS.any { it in allShorts }) {
+        // A Quest headset names itself; it has no camera pointed at people.
+        if ((CID_META in a.manufacturerData || META_UUIDS.any { it in allShorts }) && !META_HEADSET.containsMatchIn(name)) {
             hits += Hit(Category.GLASSES, "Meta hardware - possibly Ray-Ban Meta glasses", 45,
                 "Meta Platforms company ID 0x01AB or UUID 0xFEB7/0xFEB8 (also used by Quest headsets)",
                 "$SIG; $ACAB field capture 2026-07-31")
@@ -583,8 +600,8 @@ object SignatureEngine {
         return hits
     }
 
-    /** DJI's handheld cameras and gimbals share its address blocks; they aren't drones. */
-    private val DJI_HANDHELD = Regex("^(dji ?)?osmo|^om ?\\d", RegexOption.IGNORE_CASE)
+    /** DJI's handheld cameras, gimbals and microphones share its address blocks; they aren't drones. */
+    private val DJI_HANDHELD = Regex("^(dji ?)?(osmo|om ?\\d|rs ?\\d|ronin|mic\\b|mic ?(mini|\\d))", RegexOption.IGNORE_CASE)
 
     private fun droneByPrefix(a: Advert): Hit? {
         if (isLocallyAdministered(a.mac)) return null
@@ -605,7 +622,11 @@ object SignatureEngine {
             "avigilon" to "Avigilon", "verkada" to "Verkada", "geovision" to "GeoVision", "mobotix" to "Mobotix",
             "sunell" to "Sunell", "march networks" to "March Networks", "ava security" to "Ava Security",
             "hanwha" to "Hanwha Vision", "samsung techwin" to "Hanwha Vision", "axis" to "Axis", "blink" to "Blink (Amazon)",
-            "fantasia trading" to "Eufy (Anker)", "phaten" to "Phaten (camera OEM)", "tapo" to "TP-Link Tapo"
+            "fantasia trading" to "Eufy (Anker)", "phaten" to "Phaten (camera OEM)", "tapo" to "TP-Link Tapo",
+            "tiandy" to "Tiandy", "rhombus" to "Rhombus", "eagle eye" to "Eagle Eye Networks", "zmodo" to "Zmodo",
+            "night owl" to "Night Owl", "skybell" to "SkyBell", "wuuk" to "WUUK", "canary" to "Canary", "flir" to "FLIR",
+            "bosch security" to "Bosch Security", "idis" to "IDIS", "tvt" to "TVT", "honeywell video" to "Honeywell",
+            "costar" to "Costar", "digital watchdog" to "Digital Watchdog", "speco" to "Speco", "jovision" to "Jovision"
         ).firstOrNull { it.first in o }?.second ?: owner
     }
 

@@ -156,6 +156,54 @@ class IdentifyMoreTest {
     }
 
     @Test
+    fun kindChipsSortTheCommonCases() {
+        fun seen(type: String, name: String? = null, vararg cats: Category) = DeviceFilter.Seen("02:00:00:00:00:31", type, name,
+            cats.map { Hit(it, "x", 60, "e", "s") }, setOf(Advert.Source.BLE), cats.isNotEmpty())
+        fun kinds(s: DeviceFilter.Seen) = DeviceFilter.KINDS.filter { it.matches(s) }
+        assertEquals(listOf(DeviceFilter.AUDIO), kinds(seen("Wearable Audio Device - Earbud")))
+        assertEquals(listOf(DeviceFilter.AUDIO), kinds(seen("Hearing aid")))
+        assertEquals(listOf(DeviceFilter.TVS), kinds(seen("Display Equipment - Television")))
+        assertEquals(listOf(DeviceFilter.VEHICLES), kinds(seen("Motorized Vehicle - Car")))
+        assertEquals(listOf(DeviceFilter.VEHICLES), kinds(seen("Sensor - Vehicle Tire Pressure Sensor")))
+        assertEquals(listOf(DeviceFilter.SMART_HOME), kinds(seen("HVAC - Thermostat")))
+        assertEquals(listOf(DeviceFilter.ROUTERS), kinds(seen("WiFi access point - NETGEAR")))
+        assertEquals(listOf(DeviceFilter.CAMERAS), kinds(seen("Body cam", null, Category.BODY_CAM)))
+        assertEquals(listOf(DeviceFilter.PHONES), kinds(seen("Phone")))
+        assertTrue(DeviceFilter.TRACKERS.matches(seen("Tag")))
+        // A watch rides with its owner (tracker checks) but isn't on the Phones chip; Galaxy Buds aren't a phone.
+        assertTrue(DeviceIntel.isPhone("Apple Watch", null) && !DeviceFilter.PHONES.matches(seen("Apple Watch")))
+        assertTrue(!DeviceIntel.isPhone("Bluetooth device", "Galaxy Buds2 Pro") && DeviceIntel.isPhone("Bluetooth device", "Galaxy S24"))
+        // A gunshot sensor isn't headphones.
+        assertTrue(!DeviceFilter.AUDIO.matches(seen("Audio / gunshot sensor", null, Category.AUDIO_SENSOR)))
+        // Names: "Audio" isn't an Audi; a doorbell is a camera.
+        assertEquals("Speaker", DeviceIntel.identify(Advert("C1:22:33:44:55:32", Advert.Source.BLE, -60, "Audio Pro speaker")).type)
+        assertEquals("Camera", DeviceIntel.identify(Advert("C1:22:33:44:55:33", Advert.Source.BLE, -60, "Ring Doorbell")).type)
+        assertEquals("Vehicle", DeviceIntel.identify(Advert("C1:22:33:44:55:34", Advert.Source.BLE, -60, "Uconnect 4C")).type)
+        mapOf("NETGEAR47" to "Home router - NETGEAR", "TP-Link_3F2A" to "Home router - TP-Link", "Starbucks WiFi" to "Public WiFi hotspot",
+            "_Free_WiFi" to "Public WiFi hotspot", "FRITZ!Box 7590 XY" to "Home router - FRITZ!Box"
+        ).forEach { (ssid, type) -> assertEquals(ssid, type, DeviceIntel.identify(wifi(ssid)).type) }
+    }
+
+    @Test
+    fun detectionMakersAndLookalikes() {
+        fun hits(mac: String, name: String? = null, source: Advert.Source = Advert.Source.WIFI, mfg: Map<Int, ByteArray> = emptyMap()) =
+            SignatureEngine.classify(Advert(mac, source, -60, name, mfg,
+                wifi = if (source == Advert.Source.WIFI) Advert.WifiInfo(2437, "[WPA2-PSK-CCMP]", null, emptyList()) else null))
+        // More drone makers' blocks; DJI gimbals and mics aren't drones.
+        assertTrue(hits("98:AA:FC:71:22:33", "x", Advert.Source.BLE).any { it.category == Category.DRONE && it.label.startsWith("Hubsan") })
+        assertTrue(hits("60:60:1F:11:22:33", "RS 4 Pro-1A2B", Advert.Source.BLE).none { it.category == Category.DRONE })
+        assertTrue(hits("60:60:1F:11:22:33", "DJI MIC 2", Advert.Source.BLE).none { it.category == Category.DRONE })
+        assertTrue(hits("60:60:1F:11:22:33", "Mavic 3", Advert.Source.BLE).any { it.category == Category.DRONE })
+        // Any block of a camera maker, by its registrant.
+        assertEquals("Tiandy camera, hub or recorder", hits("3C:DA:6D:11:22:33", "cam").first { it.category == Category.NETWORK_CAMERA }.label)
+        // A Quest headset isn't camera glasses; Brother's mobile printers say so.
+        assertTrue(hits("C1:22:33:44:55:41", "Quest 3", Advert.Source.BLE, mapOf(0x01AB to bytes(1, 2))).none { it.category == Category.GLASSES })
+        assertTrue(hits("C1:22:33:44:55:42", null, Advert.Source.BLE, mapOf(0x01AB to bytes(1, 2))).any { it.category == Category.GLASSES })
+        assertEquals(35, hits("C1:22:33:44:55:43", "RJ-4250WB_1234", Advert.Source.BLE, mapOf(0x0755 to bytes(1, 2)))
+            .first { it.label.startsWith("Brother") }.confidence)
+    }
+
+    @Test
     fun advertHashIsStable() {
         assertEquals(AdvertFingerprint.hash("n=Buds|u=|d=|m=|t=|c="), AdvertFingerprint.hash("n=Buds|u=|d=|m=|t=|c="))
         assertEquals(8, AdvertFingerprint.hash("x").length)
