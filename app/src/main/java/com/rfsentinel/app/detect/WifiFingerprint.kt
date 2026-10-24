@@ -117,6 +117,8 @@ object WifiFingerprint {
      * first octet equal or one of them locally administered (virtual BSSID).
      */
     fun sameAccessPoint(a: String, b: String): Boolean {
+        // Quick reject (this runs for every pair of networks): octets 2-4 must match before parsing.
+        if (a.length != 17 || b.length != 17 || !a.regionMatches(3, b, 3, 11, ignoreCase = true)) return false
         val x = a.split(':').mapNotNull { it.toIntOrNull(16) }
         val y = b.split(':').mapNotNull { it.toIntOrNull(16) }
         if (x.size != 6 || y.size != 6 || a.equals(b, ignoreCase = true)) return false
