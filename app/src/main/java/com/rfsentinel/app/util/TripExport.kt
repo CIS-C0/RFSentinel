@@ -6,6 +6,7 @@ import com.google.gson.JsonObject
 import com.rfsentinel.app.data.TripDeviceEntity
 import com.rfsentinel.app.data.TripEntity
 import com.rfsentinel.app.data.TripPointEntity
+import com.rfsentinel.app.detect.DeviceIntel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -105,8 +106,8 @@ object TripExport {
                     add("coordinates", JsonArray().apply { add(d.lon); add(d.lat) })
                 })
                 add("properties", JsonObject().apply {
-                    addProperty("kind", "device"); addProperty("mac", d.mac); addProperty("label", d.label)
-                    addProperty("name", d.name); addProperty("vendor", d.vendor); addProperty("deviceType", d.deviceType)
+                    addProperty("kind", "device"); addProperty("mac", d.mac); addProperty("label", DeviceIntel.savedLabel(d.label, d.deviceType, d.vendor, d.mac))
+                    addProperty("name", d.name); addProperty("vendor", d.vendor); addProperty("deviceType", DeviceIntel.savedType(d.deviceType, d.vendor, d.mac))
                     addProperty("source", d.source); addProperty("category", d.category); addProperty("confidence", d.confidence)
                     addProperty("evidence", d.evidence); addProperty("bestRssi", d.bestRssi)
                     add("requestedNetworks", JsonArray().apply { d.probedList.forEach { add(it) } })
@@ -125,8 +126,8 @@ object TripExport {
     fun devicesCsv(devices: List<TripDeviceEntity>): String {
         val sb = StringBuilder("mac,label,name,vendor,device_type,source,flagged,category,confidence,evidence,first_seen,last_seen,best_rssi,latitude,longitude,requested_networks\n")
         devices.forEach { d ->
-            sb.append(d.mac).append(',').append(q(d.label)).append(',').append(q(d.name)).append(',')
-                .append(q(d.vendor)).append(',').append(q(d.deviceType)).append(',').append(d.source).append(',')
+            sb.append(d.mac).append(',').append(q(DeviceIntel.savedLabel(d.label, d.deviceType, d.vendor, d.mac))).append(',').append(q(d.name)).append(',')
+                .append(q(d.vendor)).append(',').append(q(DeviceIntel.savedType(d.deviceType, d.vendor, d.mac))).append(',').append(d.source).append(',')
                 .append(d.flagged).append(',').append(d.category ?: "").append(',').append(d.confidence).append(',')
                 .append(q(d.evidence)).append(',').append(local(d.firstSeen)).append(',').append(local(d.lastSeen)).append(',')
                 .append(d.bestRssi).append(',').append(d.lat ?: "").append(',').append(d.lon ?: "").append(',')

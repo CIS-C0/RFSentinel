@@ -291,6 +291,24 @@ class IdentificationTest {
         VendorDb.macVendor(mac))
 
     @Test
+    fun savedRecordsOfCarWifiReadAsVehicleWifi() {
+        // Types saved by older versions, upgraded at view time from the saved registrant or the address.
+        assertEquals("Vehicle WiFi - Tesla", DeviceIntel.savedType("Phone hotspot", "Tesla,Inc.", "0C:29:8F:00:00:01"))
+        assertEquals("Vehicle WiFi - Harman", DeviceIntel.savedType("Hidden WiFi network", null, "00:1C:D7:00:00:01"))
+        assertEquals("Vehicle WiFi - Visteon - MIB3", DeviceIntel.savedType("Vehicle system (WiFi) - MIB3", null, "00:09:93:00:00:01"))
+        assertEquals("Vehicle WiFi - Tesla", DeviceIntel.savedType("WiFi access point - Tesla", "Tesla,Inc.", "0C:29:8F:00:00:01"))
+        // Clients, other makers and already-current types stay as saved.
+        assertEquals("WiFi device (laptop, phone or camera on a network)",
+            DeviceIntel.savedType("WiFi device (laptop, phone or camera on a network)", "Tesla,Inc.", "0C:29:8F:00:00:01"))
+        assertEquals("Phone hotspot", DeviceIntel.savedType("Phone hotspot", "Apple, Inc.", "00:00:00:00:00:01"))
+        assertEquals("Vehicle WiFi - Tesla", DeviceIntel.savedType("Vehicle WiFi - Tesla", "Tesla,Inc.", "0C:29:8F:00:00:01"))
+        assertNull(DeviceIntel.savedType(null, "Tesla,Inc.", "0C:29:8F:00:00:01"))
+        // A label that was the old type follows it; a network name stays.
+        assertEquals("Vehicle WiFi - Tesla", DeviceIntel.savedLabel("Hidden WiFi network", "Hidden WiFi network", "Tesla,Inc.", "0C:29:8F:00:00:01"))
+        assertEquals("My Model 3", DeviceIntel.savedLabel("My Model 3", "WiFi access point", "Tesla,Inc.", "0C:29:8F:00:00:01"))
+    }
+
+    @Test
     fun aCarMakersAddressMakesAnyNetworkVehicleWifi() {
         // Registry prefixes (IEEE): Tesla, Inc. / Harman-Becker Automotive / Visteon.
         val hotspot = ap("0C:29:8F:00:00:01", "Model Y Hotspot")

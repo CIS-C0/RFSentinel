@@ -21,6 +21,7 @@ import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.KnownDeviceDao
 import com.rfsentinel.app.data.KnownDeviceEntity
 import com.rfsentinel.app.databinding.ActivityDeviceHistoryBinding
+import com.rfsentinel.app.detect.DeviceIntel
 import com.rfsentinel.app.util.Prefs
 import com.rfsentinel.app.util.applySystemBarInsets
 import kotlinx.coroutines.Job
@@ -199,7 +200,7 @@ class DeviceHistoryActivity : AppCompatActivity() {
             val k = getItem(position)
             val c = h.root.context
             h.title.text = (if (k.favorite) "★ " else "") + (k.alias?.takeIf { it.isNotBlank() } ?: k.name?.takeIf { it.isNotBlank() } ?: k.mac) +
-                (k.deviceType?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: "")
+                (DeviceIntel.savedType(k.deviceType, k.vendor, k.mac)?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: "")
             h.line.text = listOfNotNull(k.name?.takeIf { it.isNotBlank() && !k.alias.isNullOrBlank() }?.let { "\"$it\"" },
                 k.vendor?.takeIf { it.isNotBlank() }, k.mac.takeIf { k.name?.isNotBlank() == true || !k.alias.isNullOrBlank() },
                 k.note?.takeIf { it.isNotBlank() }?.let { "Note: $it" }).joinToString(" · ").ifEmpty { "Unknown vendor" }

@@ -137,6 +137,22 @@ object DeviceIntel {
     fun automotiveMaker(vendor: String?): String? =
         vendor?.let { v -> AUTOMOTIVE.firstOrNull { it.first.containsMatchIn(v.trim()) }?.second }
 
+    /** WiFi types older versions gave a car's own network, before it was named by its maker's address. */
+    private val OLD_CAR_WIFI_TYPES = setOf("Hidden WiFi network", "Phone hotspot", "WiFi Direct / printer", "Vehicle WiFi", "WiFi access point")
+
+    /** A saved record's type as this version names it: snapshots, traces and history saved before car WiFi
+     *  was named by maker read "Vehicle WiFi - <maker>" too. The saved data itself is left as it was. */
+    fun savedType(type: String?, vendor: String?, mac: String): String? {
+        if (type == null || !(type in OLD_CAR_WIFI_TYPES || type.startsWith("WiFi access point - ") || type.startsWith("Vehicle system (WiFi)"))) return type
+        val car = automotiveMaker(vendor ?: VendorDb.macVendor(mac)) ?: return type
+        val model = type.substringAfter("Vehicle system (WiFi) - ", "").takeIf { it.isNotEmpty() }
+        return "Vehicle WiFi - $car" + (model?.let { " - $it" } ?: "")
+    }
+
+    /** A saved label that was only the old type reads as the new one; a network or device name stays. */
+    fun savedLabel(label: String, type: String?, vendor: String?, mac: String): String =
+        if (label == type) savedType(type, vendor, mac) ?: label else label
+
     /** Device kind implied by the IEEE registrant of a fixed address. */
     private val VENDOR_CLASSES = listOf(
         Regex("cradlepoint|sierra wireless|peplink|inseego|digi international", RegexOption.IGNORE_CASE) to "Vehicle / cellular router",

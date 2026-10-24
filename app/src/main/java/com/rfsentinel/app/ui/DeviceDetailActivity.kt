@@ -67,6 +67,8 @@ class DeviceDetailActivity : AppCompatActivity() {
     private lateinit var mac: String
     private var sectionsKey = ""
     private var known: KnownDeviceEntity? = null
+    /** The saved record's type as this version names it. */
+    private val knownType get() = known?.let { DeviceIntel.savedType(it.deviceType, it.vendor, it.mac) }
     private var pastMatches: List<DetectionEntity> = emptyList()
     private var locateJob: Job? = null
     private var tone: ToneGenerator? = null
@@ -188,7 +190,7 @@ class DeviceDetailActivity : AppCompatActivity() {
         } else {
             binding.tagText.visibility = View.GONE
         }
-        val heardAs = best?.label ?: s?.name ?: known?.name ?: s?.deviceType ?: known?.deviceType ?: "Device"
+        val heardAs = best?.label ?: s?.name ?: known?.name ?: s?.deviceType ?: knownType ?: "Device"
         val alias = DeviceNames.of(mac)
         // Your own name in place of what it's heard as; that stays on the line below.
         binding.titleText.text = alias ?: heardAs
@@ -293,7 +295,7 @@ class DeviceDetailActivity : AppCompatActivity() {
 
         // Identity
         val id = mutableListOf<Pair<String, String>>()
-        (s?.deviceType ?: known?.deviceType)?.let { id += "Device type" to it }
+        (s?.deviceType ?: knownType)?.let { id += "Device type" to it }
         (s?.name ?: known?.name)?.let { id += (if (a?.isWifi == true) "Network name (SSID)" else "Advertised name") to it }
         VendorDb.macVendor(mac)?.let { id += "Address registrant (IEEE)" to it }
         a?.manufacturerData?.keys?.forEach { cid ->
@@ -529,7 +531,7 @@ class DeviceDetailActivity : AppCompatActivity() {
     /** Your own name for the device, shown in place of the name it broadcasts. */
     private fun rename() {
         val s = DeviceRegistry.get(mac)
-        val heardAs = s?.best?.label ?: s?.name ?: known?.name ?: s?.deviceType ?: known?.deviceType
+        val heardAs = s?.best?.label ?: s?.name ?: known?.name ?: s?.deviceType ?: knownType
         ask("Name this device", DeviceNames.of(mac).orEmpty(), heardAs ?: "Name", multiLine = false,
             clear = DeviceNames.of(mac)?.let { "Use its own name" }) { text ->
             lifecycleScope.launch {

@@ -29,6 +29,7 @@ import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.TripDeviceEntity
 import com.rfsentinel.app.data.TripEntity
 import com.rfsentinel.app.databinding.ActivityMapBinding
+import com.rfsentinel.app.detect.DeviceIntel
 import com.rfsentinel.app.nav.NavCamera
 import com.rfsentinel.app.nav.NavSearchActivity
 import com.rfsentinel.app.nav.Navigator
@@ -1492,11 +1493,12 @@ class MapFragment : Fragment() {
     private fun TripDeviceEntity.toPin(): MapPin {
         val cat = Category.parse(category)
         return MapPin(
-            mac, lat!!, lon!!, label, flagged,
+            mac, lat!!, lon!!, DeviceIntel.savedLabel(label, deviceType, vendor, mac), flagged,
             DeviceColors.forMatch(act, if (flagged) cat else null, confidence),
             buildString {
                 append(mac)
                 vendor?.let { append("\n").append(it) }
+                DeviceIntel.savedType(deviceType, vendor, mac)?.takeIf { it != deviceType }?.let { append("\n").append(it) }
                 if (cat != null) append("\n${cat.title} · ${Tier.of(confidence).label} $confidence%")
                 evidence?.let { append("\n").append(it) }
                 probedList.takeIf { it.isNotEmpty() }?.let { append("\nAsked for networks: ").append(it.joinToString(", ")) }

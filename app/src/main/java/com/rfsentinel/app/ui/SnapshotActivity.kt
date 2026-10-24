@@ -21,6 +21,7 @@ import com.rfsentinel.app.data.TripEntity
 import com.rfsentinel.app.databinding.ActivityLogBinding
 import com.rfsentinel.app.databinding.ItemDetectionBinding
 import com.rfsentinel.app.detect.Category
+import com.rfsentinel.app.detect.DeviceIntel
 import com.rfsentinel.app.detect.Tier
 import com.rfsentinel.app.util.Exporter
 import com.rfsentinel.app.util.ProximityUtil
@@ -56,7 +57,9 @@ class SnapshotActivity : AppCompatActivity() {
             val d = items[position]
             val b = ItemDetectionBinding.bind(holder.itemView)
             val category = Category.parse(d.category)
-            b.labelText.text = d.label
+            val type = DeviceIntel.savedType(d.deviceType, d.vendor, d.mac)
+            val label = DeviceIntel.savedLabel(d.label, d.deviceType, d.vendor, d.mac)
+            b.labelText.text = label
             b.labelText.setTextColor(
                 if (category != null) ThemeManager.ink(this@SnapshotActivity, category.colorArgb) else b.macText.currentTextColor
             )
@@ -65,6 +68,7 @@ class SnapshotActivity : AppCompatActivity() {
             category?.let { parts += it.shortTag }
             if (d.confidence > 0) parts += "${Tier.of(d.confidence).label} ${d.confidence}%"
             d.name?.takeIf { it != d.label }?.let { parts += it }
+            type?.takeIf { it != d.deviceType && it != label }?.let { parts += it }
             parts += "${if (d.source == "WIFI") "WiFi" else "Bluetooth"} ${ProximityUtil.band(d.bestRssi)} ${d.bestRssi} dBm"
             parts += timeFmt.format(Date(d.firstSeen)) + "–" + timeFmt.format(Date(d.lastSeen))
             b.metaText.text = parts.joinToString(" · ")
@@ -115,7 +119,7 @@ class SnapshotActivity : AppCompatActivity() {
         val q = binding.searchInput.text?.toString()?.trim().orEmpty()
         val list = devices.filter { d ->
             (!onlyFlagged || d.flagged) && (q.isEmpty() ||
-                listOfNotNull(d.mac, d.label, d.name, d.vendor, d.deviceType, d.evidence).any { it.contains(q, ignoreCase = true) })
+                listOfNotNull(d.mac, d.label, d.name, d.vendor, d.deviceType, DeviceIntel.savedType(d.deviceType, d.vendor, d.mac), d.evidence).any { it.contains(q, ignoreCase = true) })
         }
         adapter.items = list
         @Suppress("NotifyDataSetChanged") adapter.notifyDataSetChanged()

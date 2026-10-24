@@ -8,6 +8,7 @@ import com.rfsentinel.app.data.KnownDeviceEntity
 import com.rfsentinel.app.detect.Advert
 import com.rfsentinel.app.detect.AdStructure
 import com.rfsentinel.app.detect.Bytes
+import com.rfsentinel.app.detect.DeviceIntel
 import com.rfsentinel.app.detect.VendorDb
 import com.rfsentinel.app.oui.OuiEntry
 import com.rfsentinel.app.service.DeviceRegistry
@@ -192,7 +193,7 @@ object DeviceExport {
 
     private fun historyCsvLine(sb: StringBuilder, r: KnownDeviceEntity) {
         sb.append(r.mac).append(',').append(q(r.name)).append(',').append(q(r.vendor)).append(',')
-            .append(q(r.deviceType)).append(',').append(local(r.firstSeen)).append(',').append(local(r.lastSeen)).append(',')
+            .append(q(DeviceIntel.savedType(r.deviceType, r.vendor, r.mac))).append(',').append(local(r.firstSeen)).append(',').append(local(r.lastSeen)).append(',')
             .append(r.sessions).append(',').append(r.detectCount).append(',').append(r.favorite).append(',')
             .append(q(r.note)).append(',').append(q(r.alias)).append('\n')
     }
@@ -223,7 +224,7 @@ object DeviceExport {
 
     private fun historyItem(r: KnownDeviceEntity) = JsonObject().apply {
         addProperty("mac", r.mac); addProperty("name", r.name); addProperty("vendor", r.vendor)
-        addProperty("deviceType", r.deviceType); addProperty("firstSeen", iso(r.firstSeen))
+        addProperty("deviceType", DeviceIntel.savedType(r.deviceType, r.vendor, r.mac)); addProperty("firstSeen", iso(r.firstSeen))
         addProperty("lastSeen", iso(r.lastSeen)); addProperty("sessions", r.sessions)
         addProperty("detectCount", r.detectCount); addProperty("favorite", r.favorite); addProperty("note", r.note)
         addProperty("customName", r.alias)
