@@ -86,7 +86,8 @@ object MeshNode {
     private var region = -1
     private var txEnabled = true
     private val channels = HashMap<Int, MeshProto.From.ChannelInfo>()
-    private var channelIndex = -1
+    /** The node's slot RF Sentinel sends on (1-7), -1 until set up. */
+    @Volatile var channelIndex = -1; private set
     private var channelTries = 0
     /** Why the node can't be used as it is (no region, no free channel): kept on screen while it retries. */
     private var setupProblem: String? = null
@@ -121,6 +122,16 @@ object MeshNode {
         connect()
     }
 
+    /** The chosen channel slot changed: set the channel up again where it now belongs. */
+    fun slotChanged() = h.post {
+        if (!running || !ioReady) return@post
+        ready = false
+        channelIndex = -1
+        channelTries = 0
+        setupProblem = null
+        askConfig()
+    }
+
     fun stop() = h.post {
         if (!running) return@post
         running = false
@@ -135,8 +146,9 @@ object MeshNode {
         h.post {
             if (!ready || channelIndex < 0 || !txEnabled) return@post
             if (ops.count { it is Op.Write } >= MAX_QUEUED) return@post
+            val hops = minOf(ctx?.let { LinkStore.meshHops(it) } ?: LinkStore.MESH_HOPS_MIN, hopLimit)
             enqueue(Op.Write(MeshProto.packet(MeshProto.BROADCAST, channelIndex, MeshProto.PORT_PRIVATE_APP, payload,
-                packetId(), hopLimit, if (urgent) MeshProto.PRIORITY_RELIABLE else MeshProto.PRIORITY_BACKGROUND)))
+                packetId(), hops, if (urgent) MeshProto.PRIORITY_RELIABLE else MeshProto.PRIORITY_BACKGROUND)))
             lastSent = System.currentTimeMillis()
             changed()
         }
@@ -418,21 +430,31 @@ object MeshNode {
     private fun configDone() {
         val psk = channelPsk ?: return
         if (region == 0) { stuck("set its LoRa region in the Meshtastic app first"); return }
-        val ours = channels.values.firstOrNull { it.role != MeshProto.ROLE_DISABLED && it.name == MeshCodec.CHANNEL_NAME && it.psk.contentEquals(psk) }
+        // Never the primary (0): it's often a whole city's public channel.
+        val wanted = ctx?.let { LinkStore.meshSlot(it) } ?: 0
+        val ours = channels.values.filter {
+            it.index in 1..7 && it.role != MeshProto.ROLE_DISABLED && it.name == MeshCodec.CHANNEL_NAME && it.psk.contentEquals(psk)
+        }.let { l -> if (wanted > 0) l.firstOrNull { it.index == wanted } else l.minByOrNull { it.index } }
         if (ours != null) {
             channelIndex = ours.index
             ready = true
             retryMs = RETRY_MIN_MS
-            setStatus(if (!txEnabled) "Meshtastic node: its LoRa transmit is off" else "Meshtastic node · connected")
+            setStatus(if (!txEnabled) "Meshtastic node: its LoRa transmit is off" else "Meshtastic node · channel ${ours.index}, encrypted")
             return
         }
         if (channelTries >= 2 || myNode == 0L) {
             stuck("couldn't add the ${MeshCodec.CHANNEL_NAME} channel")
             return
         }
-        val slot = channels.values.firstOrNull { it.index in 1..7 && it.name == MeshCodec.CHANNEL_NAME }?.index
-            ?: channels.values.filter { it.index in 1..7 && it.role == MeshProto.ROLE_DISABLED }.minOfOrNull { it.index }
-        if (slot == null) { stuck("no free channel - free one in the Meshtastic app"); return }
+        // Only an empty slot or our own channel (another group's key): never a channel someone set up.
+        fun free(i: Int) = channels[i]?.let { it.role == MeshProto.ROLE_DISABLED || it.name == MeshCodec.CHANNEL_NAME } == true
+        val slot = if (wanted > 0) wanted.takeIf { free(it) }
+            else channels.values.firstOrNull { it.index in 1..7 && it.name == MeshCodec.CHANNEL_NAME }?.index
+                ?: (1..7).firstOrNull { channels[it]?.role == MeshProto.ROLE_DISABLED }
+        if (slot == null) {
+            stuck(if (wanted > 0) "channel $wanted is in use - pick another slot" else "no free channel - free one in the Meshtastic app")
+            return
+        }
         channelTries++
         setStatus("Meshtastic node: adding the ${MeshCodec.CHANNEL_NAME} channel…")
         // Admin message to the node itself (from this phone: no admin key needed); channels change without a restart.

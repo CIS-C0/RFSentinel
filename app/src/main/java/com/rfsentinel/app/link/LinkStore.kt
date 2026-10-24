@@ -109,6 +109,17 @@ object LinkStore {
     const val MESH_INTERVAL_MIN = 15
     const val MESH_INTERVAL_MAX = 300
 
+    /** The node's channel slot for RF Sentinel's channel: 0 picks the first empty one of 1-7. Never 0, the primary. */
+    fun meshSlot(c: Context) = sp(c).getInt("mesh_slot", 0).coerceIn(0, 7)
+    fun setMeshSlot(c: Context, slot: Int) = sp(c).edit { putInt("mesh_slot", slot) }
+
+    /** How many times other nodes pass a packet on (at most the node's own hop limit). 1: only nodes in range of
+     *  yours relay it, so a city mesh isn't flooded with it. */
+    fun meshHops(c: Context) = sp(c).getInt("mesh_hops", 1).coerceIn(MESH_HOPS_MIN, MESH_HOPS_MAX)
+    fun setMeshHops(c: Context, hops: Int) = sp(c).edit { putInt("mesh_hops", hops) }
+    const val MESH_HOPS_MIN = 1
+    const val MESH_HOPS_MAX = 7
+
     private var meshNext = -1L
     private var meshReserved = 0L
 

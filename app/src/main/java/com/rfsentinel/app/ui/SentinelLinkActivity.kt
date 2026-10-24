@@ -149,7 +149,9 @@ class SentinelLinkActivity : AppCompatActivity() {
             setLineSpacing(0f, 1.2f)
             text = "Reach Sentinels kilometres away through a Meshtastic node: a LoRa board with the official firmware, " +
                 "paired with this phone over Bluetooth. RF Sentinel adds a private channel named ${com.rfsentinel.app.link.MeshCodec.CHANNEL_NAME} " +
-                "to the node, made from the group's key, so only your group reads it. LoRa is slow: watchlist matches go " +
+                "to the node, made from the group's key, so only your group reads it. It goes in an empty slot (1 to 7) and " +
+                "RF Sentinel only sends on it: never on the primary channel 0 or a channel you set up, and never to MQTT. " +
+                "Others only see encrypted packets. LoRa is slow: watchlist matches go " +
                 "first, then flagged devices, then every other device, a few per packet. While RF Sentinel uses the node, " +
                 "the Meshtastic app on this phone can't."
         }
@@ -182,10 +184,42 @@ class SentinelLinkActivity : AppCompatActivity() {
             }
         }
         showInterval(interval.value.toInt())
+        fun slotLabel(s: Int) = if (s == 0) "Channel slot: automatic" else "Channel slot: $s"
+        lateinit var slotButton: MaterialButton
+        slotButton = button(slotLabel(LinkStore.meshSlot(this))) {
+            val names = arrayOf("Automatic - first empty slot") + (1..7).map { "Slot $it" }
+            MaterialAlertDialogBuilder(this)
+                .setTitle("Channel slot on the node")
+                .setMessage("Slot 0 is the primary channel and is never used. A slot that already holds another channel isn't changed.")
+                .setSingleChoiceItems(names, LinkStore.meshSlot(this)) { d, which ->
+                    LinkStore.setMeshSlot(this, which)
+                    slotButton.text = slotLabel(which)
+                    MeshNode.slotChanged()
+                    d.dismiss()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+        val hopsLabel = TextView(this).apply { textSize = 14f; setPadding(0, pad(12), 0, 0) }
+        fun showHops(n: Int) {
+            hopsLabel.text = if (n == 1) "Hops: 1 - only nodes in range of yours pass it on"
+                else "Hops: $n - relayed up to $n times (at most your node's own hop limit)"
+        }
+        val hops = Slider(this).apply {
+            valueFrom = LinkStore.MESH_HOPS_MIN.toFloat()
+            valueTo = LinkStore.MESH_HOPS_MAX.toFloat()
+            stepSize = 1f
+            value = LinkStore.meshHops(this@SentinelLinkActivity).toFloat()
+            addOnChangeListener { _, v, fromUser ->
+                showHops(v.toInt())
+                if (fromUser) LinkStore.setMeshHops(this@SentinelLinkActivity, v.toInt())
+            }
+        }
+        showHops(hops.value.toInt())
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             addView(header); addView(about); addView(meshSwitch); addView(meshNodeText); addView(meshStatus)
-            addView(choose); addView(intervalLabel); addView(interval)
+            addView(choose); addView(slotButton); addView(intervalLabel); addView(interval); addView(hopsLabel); addView(hops)
             setPadding(0, 0, 0, pad(12))
         }
     }
