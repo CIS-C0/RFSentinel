@@ -45,7 +45,8 @@ object DeviceOrder {
     class Section<T>(val header: String?, val items: List<T>)
 
     fun sort(context: Context) = Sort.entries.firstOrNull { it.name == Prefs.listSort(context) } ?: Sort.ALERTS
-    fun group(context: Context) = Group.entries.firstOrNull { it.name == Prefs.listGroup(context) } ?: Group.NONE
+    // Grouped by category until a grouping is picked (picking None is kept).
+    fun group(context: Context) = Group.entries.firstOrNull { it.name == Prefs.listGroup(context) } ?: Group.CATEGORY
 
     /** Category groups, in the filter chips' spirit: what matters most first. */
     private val CATEGORY_ORDER = listOf(
