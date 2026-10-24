@@ -154,7 +154,7 @@ object DeviceIntel {
 
     /** Maker classes that place a device from any evidence (not chip-module makers nor brand-wide guesses). */
     private val HINT_VENDOR_KINDS by lazy {
-        WIFI_VENDOR_KINDS - setOf("IoT / smart-home module", "Smart-home / camera device") + setOf("Audio device", "Zepcam body camera")
+        WIFI_VENDOR_KINDS - setOf("IoT / smart-home module", "Smart-home / camera device") + setOf("Audio device", "Zepcam body camera", "Computer")
     }
     private val PRODUCT_IN_PARENS = Regex("\\((.+)\\)$")
     private val hintCache = java.util.concurrent.ConcurrentHashMap<List<Any?>, List<String>>()
@@ -212,6 +212,8 @@ object DeviceIntel {
             "jaguar|mini cooper|peugeot|renault|citro[eë]n|skoda|\\bopel\\b|vauxhall|\\bfiat\\b|carplay|uconnect|\\bmy ?car\\b|^sync$|mbux|\\bmmi\\b|" +
             "idrive|onstar|mylink|entune", RegexOption.IGNORE_CASE) to "Vehicle",
         Regex("printer|deskjet|officejet|laserjet|epson|canon|brother", RegexOption.IGNORE_CASE) to "Printer",
+        // Cheap Bluetooth LED strip / bulb controllers' default names.
+        Regex("^(elk-ble|elk-bulb|bledom|triones|ledble|ledblue|melk-|qhm-|lednet|ihoment|ble-led|bj_led|sp110e|magichome)", RegexOption.IGNORE_CASE) to "Smart light / LED controller",
         Regex("airtag|\\btile\\b|smarttag|chipolo|pebblebee", RegexOption.IGNORE_CASE) to "Item tracker",
         Regex("keyboard|mouse|\\bmx \\w+|trackpad|controller|xbox|dualsense|dualshock|joy-con", RegexOption.IGNORE_CASE) to "Peripheral / controller",
         Regex("gopro|insta360|osmo|dash ?cam|doorbell|\\bcam\\b|camera|arlo|wyze ?cam|eufy ?cam|blink", RegexOption.IGNORE_CASE) to "Camera",
@@ -308,6 +310,10 @@ object DeviceIntel {
         Regex("motorola solutions|harris corp|kenwood", RegexOption.IGNORE_CASE) to "Two-way radio / public-safety gear",
         Regex("axon", RegexOption.IGNORE_CASE) to "Axon body cam / TASER",
         Regex("zepcam", RegexOption.IGNORE_CASE) to "Zepcam body camera",
+        // Home alarm panels and their makers (Qolsys IQ Panel, 2GIG, Resideo / Honeywell Home, Alarm.com, Ajax).
+        Regex("^qolsys|^nortek security|^2gig|^resideo|^alarm\\.com|^ajax systems|^tyco safety|^dsc ", RegexOption.IGNORE_CASE) to "Alarm / security panel",
+        // An Intel WiFi or Bluetooth address is almost always a PC's.
+        Regex("^intel corp", RegexOption.IGNORE_CASE) to "Computer",
         // TV, streaming and console makers (not their parents' phone and appliance arms).
         Regex("^roku|^vizio|^tivo|hisense electric|hisense broadband|tcl king|shenzhen tcl new|skyworth digital|^vestel|^funai", RegexOption.IGNORE_CASE) to "Smart TV / streaming device",
         Regex("sony interactive|^nintendo|^valve corp", RegexOption.IGNORE_CASE) to "Game console",
@@ -477,7 +483,7 @@ object DeviceIntel {
     private val WIFI_VENDOR_KINDS = setOf(
         "Vehicle / cellular router", "IoT / smart-home module", "Two-way radio / public-safety gear",
         "Axon body cam / TASER", "Vehicle system", "Drone / controller", "Smart-home / camera device", "Rugged scanner / printer",
-        "Security camera / doorbell", "Smart TV / streaming device", "Game console"
+        "Security camera / doorbell", "Smart TV / streaming device", "Game console", "Alarm / security panel"
     )
 
     private fun identifyWifi(a: Advert, macVendor: String?): Identity {

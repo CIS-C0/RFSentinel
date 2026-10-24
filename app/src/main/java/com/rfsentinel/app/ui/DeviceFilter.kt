@@ -132,7 +132,7 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         private val HOTSPOT_TYPE = kind("^(public wifi hotspot|mobile hotspot box|phone hotspot|train wifi|open wifi)")
         private val TV_TYPE = kind("^(smart tv|tv / streaming|game console|game controller|vr headset|apple tv)|television|set-top|media player|^gaming|gamepad|joystick")
         private val SMART_HOME_TYPE = kind("smart-home|smart home|^iot|smart plug|bthome|^sensor|environmental sensor|light|" +
-            "thermostat|^hvac|^heating|air conditioning|humidifier|^fan\\b|access control|door lock|power device|domestic appliance|" +
+            "thermostat|alarm / security panel|^hvac|^heating|air conditioning|humidifier|^fan\\b|access control|door lock|power device|domestic appliance|" +
             "window covering|motorized device")
 
         // Macs, PCs and laptops (not "phone or computer" guesses, nor a WiFi client that may be either).

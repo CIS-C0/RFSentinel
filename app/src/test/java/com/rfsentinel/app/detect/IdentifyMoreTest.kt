@@ -400,4 +400,19 @@ class IdentifyMoreTest {
         assertEquals(listOf(DeviceFilter.VEHICLES), kinds("Vehicle / cellular router (WiFi)"))
         assertEquals(listOf(DeviceFilter.ROUTERS), kinds("WiFi access point"))
     }
+
+    @Test
+    fun ledControllersAlarmPanelsAndIntelPcs() {
+        assertEquals("Smart light / LED controller", DeviceIntel.identify(Advert("C1:22:33:44:55:A1", Advert.Source.BLE, -60, "ELK-BLEDOM04")).type)
+        fun wifi(mac: String, client: Boolean) = DeviceIntel.identify(Advert(mac, Advert.Source.WIFI, -60, if (client) null else "Home",
+            wifi = Advert.WifiInfo(2437, "[WPA2-PSK-CCMP]", null, emptyList(), client = client)), VendorDb.macVendor(mac))
+        val panel = wifi("18:C1:E2:00:00:A2", client = false)
+        assertEquals("Alarm / security panel (WiFi)", panel.type)
+        fun kinds(type: String, vendor: String?) = DeviceFilter.KINDS.filter {
+            it.matches(DeviceFilter.Seen("02:00:00:00:00:A3", type, null, emptyList(), setOf(Advert.Source.WIFI), false, vendor = vendor))
+        }
+        assertEquals(listOf(DeviceFilter.SMART_HOME), kinds(panel.type, "Qolsys Inc."))
+        // A plain WiFi client is in no category, an Intel one is a PC's.
+        assertEquals(listOf(DeviceFilter.COMPUTERS), kinds(DeviceIntel.WIFI_CLIENT_TYPE, VendorDb.macVendor("00:1B:21:00:00:A4")))
+    }
 }
