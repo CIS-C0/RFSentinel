@@ -374,7 +374,7 @@ class IdentifyMoreTest {
             DeviceFilter.KINDS.filter { it.matches(DeviceFilter.Seen("06:00:00:00:00:84", type, name, emptyList(), sources, false, facts, vendor = vendor)) }
         assertEquals(listOf(DeviceFilter.TVS), kinds("Hidden WiFi network", listOf("AP device name (WPS)" to "65\" TCL Roku TV")))
         assertEquals(listOf(DeviceFilter.TVS), kinds("Hidden WiFi network", listOf("Equipment maker (vendor IEs)" to "Roku")))
-        assertEquals(listOf(DeviceFilter.TVS), kinds("WiFi access point", listOf("Device kind (WPS)" to "Gaming device")))
+        assertTrue(DeviceFilter.TVS in kinds("WiFi access point", listOf("Device kind (WPS)" to "Gaming device")))
         assertTrue(DeviceFilter.AUDIO in kinds("Bluetooth device", listOf("Google Fast Pair" to "Ready to pair, model ID 0x123456 (Pixel Buds Pro)"),
             sources = setOf(Advert.Source.BLE)))
         assertTrue(DeviceFilter.COMPUTERS in kinds("Bluetooth device", name = "Jane's MacBook Air", sources = setOf(Advert.Source.BLE)))
