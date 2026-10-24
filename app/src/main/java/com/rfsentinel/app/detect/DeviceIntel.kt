@@ -526,11 +526,19 @@ object DeviceIntel {
     internal fun networkKind(w: Advert.WifiInfo?, ap: WifiFingerprint.ApInfo, macVendor: String?, hidden: Boolean = false): Pair<String, String>? {
         if (w == null || w.client) return null
         val ies = w.infoElements
-        // Hotspot 2.0: the Interworking element (107) or the Wi-Fi Alliance HS2.0 indication (50:6F:9A type 0x10).
-        val passpoint = ies.any { it.first == 107 } || ies.any { (id, d) ->
-            id == 221 && d.size >= 4 && Bytes.u8(d, 0) == 0x50 && Bytes.u8(d, 1) == 0x6F && Bytes.u8(d, 2) == 0x9A && Bytes.u8(d, 3) == 0x10 }
-        if (passpoint) return "Public WiFi hotspot (Passpoint)" to "Passpoint / Hotspot 2.0 elements in the beacon"
         val enterprise = w.capabilities.contains("EAP")
+        val open = security(w.capabilities) == "Open (no password)"
+        // Public only when the beacon says so and nobody needs the owner's password. Home routers often carry an
+        // Interworking element (107) too, saying "private network": that alone means nothing.
+        // Passpoint: the Wi-Fi Alliance HS2.0 indication (50:6F:9A type 0x10), always with account sign-in.
+        val hs20 = ies.any { (id, d) ->
+            id == 221 && d.size >= 4 && Bytes.u8(d, 0) == 0x50 && Bytes.u8(d, 1) == 0x6F && Bytes.u8(d, 2) == 0x9A && Bytes.u8(d, 3) == 0x10 }
+        if (hs20 && enterprise) return "Public WiFi hotspot (Passpoint)" to "Passpoint / Hotspot 2.0 elements in the beacon"
+        // Interworking access network type (low 4 bits): 2 chargeable public, 3 free public.
+        val access = ies.firstOrNull { it.first == 107 && it.second.isNotEmpty() }?.let { Bytes.u8(it.second, 0) and 0x0F }
+        if ((access == 2 || access == 3) && (enterprise || open) && !hidden) {
+            return "Public WiFi hotspot" to "beacon's Interworking element: ${if (access == 2) "paid" else "free"} public network"
+        }
         val business = maker(BUSINESS_AP_MAKERS, macVendor, *ap.ieVendors.toTypedArray())
         if (enterprise) return "Business WiFi (account sign-in)" + (business?.let { " - $it" } ?: "") to
             "WPA-Enterprise security: people sign in with an account (offices, schools, hotels)"
@@ -548,7 +556,7 @@ object DeviceIntel {
         if (ap.deviceKind == "Router" || ap.deviceKind == "Gateway") {
             return "Home router" + (ap.model?.let { " - $it" } ?: "") to "WPS device kind \"${ap.deviceKind}\""
         }
-        if (!hidden && security(w.capabilities) == "Open (no password)") return "Open WiFi (public or guest)" to "no password"
+        if (!hidden && open) return "Open WiFi (public or guest)" to "no password"
         return null
     }
 

@@ -228,7 +228,13 @@ class IdentifyMoreTest {
         assertEquals("Business access point - Ruckus", net("06:00:00:00:00:45", "Guest", ies = listOf(221 to byteArrayOf(0x00, 0x13, 0x92.toByte(), 0x01))))
         // By security: account sign-in, Passpoint, open.
         assertEquals("Business WiFi (account sign-in) - Cisco Meraki", net("00:18:0A:00:00:46", "corp", "[WPA2-EAP-CCMP]"))
-        assertEquals("Public WiFi hotspot (Passpoint)", net("06:00:00:00:00:47", "plain", ies = listOf(107 to byteArrayOf(0x10))))
+        val hs20 = 221 to byteArrayOf(0x50, 0x6F, 0x9A.toByte(), 0x10, 0x00)
+        assertEquals("Public WiFi hotspot (Passpoint)", net("06:00:00:00:00:47", "plain", "[WPA2-EAP-CCMP]", listOf(hs20, 107 to byteArrayOf(0x12))))
+        assertEquals("Public WiFi hotspot", net("06:00:00:00:00:4C", "plain", "[ESS]", listOf(107 to byteArrayOf(0x03))))
+        // A home router's Interworking element ("private network") or a stray HS2.0 tag on a password network: still a router.
+        assertEquals("Home router (internet provider's) - Sagemcom", net("00:0E:59:00:00:4D", "Smith house", ies = listOf(107 to byteArrayOf(0x10))))
+        assertEquals("Home router (internet provider's) - Sagemcom", net("00:0E:59:00:00:4E", "Smith house", ies = listOf(hs20, 107 to byteArrayOf(0x03))))
+        assertEquals("WiFi access point", net("06:00:00:00:00:4F", "plain", ies = listOf(107 to byteArrayOf(0x00))))
         assertEquals("Open WiFi (public or guest)", net("06:00:00:00:00:48", "plain", "[ESS]"))
         // WPS "router" kind with no known maker.
         assertEquals("Home router", net("06:00:00:00:00:49", "plain",

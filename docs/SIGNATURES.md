@@ -158,8 +158,10 @@ The access point is identified from the first of these that answers:
 **Kind of network.** When the name is hidden or says nothing (no ISP default,
 chain or brand name), the beacon decides the kind, first match wins:
 
-1. Passpoint / Hotspot 2.0 (Interworking IE 107, or vendor IE `50:6F:9A`
-   type `0x10`): public WiFi hotspot.
+1. Passpoint (vendor IE `50:6F:9A` type `0x10` on an account sign-in network),
+   or an Interworking IE 107 whose access network type is public (2 paid,
+   3 free) on an open or sign-in network: public WiFi hotspot. Home routers
+   often carry IE 107 saying "private", so IE 107 alone counts for nothing.
 2. WPA-Enterprise (EAP) security: business WiFi with account sign-in, plus the
    business maker when known.
 3. WPS model of a provider's router (Livebox, Freebox, Bbox, Speedport,
