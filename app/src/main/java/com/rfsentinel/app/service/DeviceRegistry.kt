@@ -35,6 +35,11 @@ object DeviceRegistry {
     private const val HISTORY_MIN_SPACING_MS = 1000L
     private const val LOCATION_SPACING_MS = 45_000L
     private const val ROTATION_SILENCE_MS = 1_500L
+    /** Companions ([companions]): heard this close in time, at this many places this far apart, over this distance. */
+    private const val TOGETHER_MS = 90_000L
+    private const val TOGETHER_PLACES = 3
+    private const val PLACE_M = 300.0
+    private const val TOGETHER_SPREAD_M = 1_000.0
     /** How long a device keeps a match after the evidence was last observed. */
     const val HIT_HOLD_MS = 120_000L
     /** Weight of each new RSSI reading (0..1): 0.3 settles in about a second of adverts. */
@@ -367,6 +372,46 @@ object DeviceRegistry {
      */
     fun sharingFingerprint(fp: String, now: Long = System.currentTimeMillis(), withinMs: Long = 10 * 60_000L): Int =
         tracks.values.count { t -> synchronized(t) { t.fingerprint == fp && now - t.lastSeen <= withinMs } }
+
+    /** [mac]'s advert fingerprint ([AdvertFingerprint.of]), or null. */
+    fun fingerprintOf(mac: String): String? = tracks[mac]?.let { synchronized(it) { it.fingerprint } }
+
+    /**
+     * Devices that moved along with [mac]: heard within [TOGETHER_MS] of it at [TOGETHER_PLACES] or more
+     * places of your way, [PLACE_M] apart and spread over [TOGETHER_SPREAD_M]. Things that travel together
+     * (a phone with its watch and earbuds, a car's WiFi with a tag hidden in it) turn up this way.
+     * Most places first, at most [max], as (address, name or type).
+     */
+    fun companions(mac: String, max: Int = 3): List<Pair<String, String>> {
+        val t = tracks[mac] ?: return emptyList()
+        val mine = synchronized(t) { t.path.toList() }
+        if (mine.size < TOGETHER_PLACES) return emptyList()
+        return tracks.values.mapNotNull { o ->
+            if (o === t) return@mapNotNull null
+            val (theirs, label) = synchronized(o) { o.path.toList() to (o.name ?: o.identity.type) }
+            sharedPlaces(mine, theirs).takeIf { it > 0 }?.let { Triple(o.mac, label, it) }
+        }.sortedByDescending { it.third }.take(max).map { it.first to it.second }
+    }
+
+    /** How many separate places of [a] had [b] heard too (within [TOGETHER_MS]), when they make a companion; else 0. */
+    internal fun sharedPlaces(a: List<GeoSample>, b: List<GeoSample>): Int {
+        if (b.size < TOGETHER_PLACES) return 0
+        val places = ArrayList<GeoSample>()
+        var j = 0
+        for (p in a) {
+            while (j < b.size && b[j].time < p.time - TOGETHER_MS) j++
+            var k = j
+            var with = false
+            while (!with && k < b.size && b[k].time <= p.time + TOGETHER_MS) {
+                with = metersBetween(p.lat, p.lon, b[k].lat, b[k].lon) < PLACE_M
+                k++
+            }
+            if (with && places.none { metersBetween(it.lat, it.lon, p.lat, p.lon) < PLACE_M }) places += p
+        }
+        if (places.size < TOGETHER_PLACES) return 0
+        val spread = places.maxOf { x -> places.maxOf { y -> metersBetween(x.lat, x.lon, y.lat, y.lon) } }
+        return if (spread >= TOGETHER_SPREAD_M) places.size else 0
+    }
 
     /** The last advert of every device in this session (to re-check them after the watchlist changes). */
     fun lastAdverts(): List<Advert> = tracks.values.mapNotNull { t -> synchronized(t) { t.advert } }

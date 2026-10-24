@@ -311,6 +311,12 @@ class DeviceDetailActivity : AppCompatActivity() {
         a?.phy?.let { id += "PHY" to it }
         a?.txPower?.let { id += "Advertised TX power" to "$it dBm" }
         s?.facts?.forEach { id += it }
+        DeviceNames.lookalike(mac, DeviceRegistry.fingerprintOf(DeviceRegistry.currentAddress(mac)))?.let {
+            id += "Looks like" to "Your \"$it\": its adverts look the same, so it's that device under a new address, or one of the same model"
+        }
+        DeviceRegistry.companions(DeviceRegistry.currentAddress(mac)).takeIf { it.isNotEmpty() }?.let { c ->
+            id += "Moved together with" to c.joinToString("\n") { (m, label) -> (DeviceNames.of(m) ?: label) + " · " + m }
+        }
         // Heard by a USB WiFi adapter / Marauder board: its WPS block, fingerprint, network requests.
         com.rfsentinel.app.usb.ProbeIntel.of(mac)?.let { r ->
             if (r.hidden) id += "Hidden network" to (s?.name?.let { "Its name, \"$it\", was revealed by a device joining or asking for it" }
@@ -535,7 +541,8 @@ class DeviceDetailActivity : AppCompatActivity() {
         ask("Name this device", DeviceNames.of(mac).orEmpty(), heardAs ?: "Name", multiLine = false,
             clear = DeviceNames.of(mac)?.let { "Use its own name" }) { text ->
             lifecycleScope.launch {
-                DeviceNames.set(this@DeviceDetailActivity, mac, text, s?.name ?: known?.name, s?.vendor ?: known?.vendor, s?.deviceType)
+                DeviceNames.set(this@DeviceDetailActivity, mac, text, s?.name ?: known?.name, s?.vendor ?: known?.vendor, s?.deviceType,
+                    DeviceRegistry.fingerprintOf(mac))
                 known = AppDatabase.getInstance(this@DeviceDetailActivity).knownDeviceDao().get(mac)
                 refresh()
             }

@@ -15,6 +15,7 @@ object VendorDb {
     @Volatile private var oui: Map<String, String> = emptyMap()
     @Volatile private var companies: Map<Int, String> = emptyMap()
     @Volatile private var uuids: Map<Int, String> = emptyMap()
+    @Volatile private var fastPair: Map<Int, String> = emptyMap()
     /** (category shl 8 or subcategory, subcategory -1 stored as 0xFF) -> name. */
     @Volatile private var appearance: Map<Int, String> = emptyMap()
 
@@ -28,6 +29,7 @@ object VendorDb {
         oui = readTsv(open("vendors/oui.tsv")) { k, v -> k to v }
         companies = readTsv(open("vendors/bt_company.tsv")) { k, v -> k.toInt(16) to v }
         uuids = readTsv(open("vendors/bt_uuid16.tsv")) { k, v -> k.toInt(16) to v }
+        fastPair = readTsv(open("vendors/fast_pair.tsv")) { k, v -> k.toInt(16) to v }
         val app = HashMap<Int, String>()
         BufferedReader(InputStreamReader(open("vendors/bt_appearance.tsv"), Charsets.UTF_8)).useLines { lines ->
             lines.filter { !it.startsWith("#") }.forEach { line ->
@@ -81,6 +83,9 @@ object VendorDb {
     fun company(id: Int): String? = companies[id]
 
     fun uuid16(short: Int): String? = uuids[short]
+
+    /** The product a Google Fast Pair model ID (24 bits) belongs to, or null. */
+    fun fastPairModel(id: Int): String? = fastPair[id]
 
     /** Human description of a 16-bit GAP appearance value. */
     fun appearance(value: Int): String? {

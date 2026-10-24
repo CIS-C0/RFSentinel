@@ -982,6 +982,7 @@ class MainActivity : AppCompatActivity() {
             else -> radioTag(s)
         }
         val alias = com.rfsentinel.app.data.DeviceNames.of(s.mac)
+        val lookalike = com.rfsentinel.app.data.DeviceNames.lookalike(s.mac, DeviceRegistry.fingerprintOf(s.mac))
         return DeviceRow(
             mac = s.mac,
             title = alias ?: best?.label ?: s.name ?: s.deviceType,
@@ -990,6 +991,7 @@ class MainActivity : AppCompatActivity() {
                 // Under your own name, what it's heard as comes first.
                 if (alias != null) best?.label ?: s.name?.let { "\"$it\"" } ?: s.deviceType
                 else if (best != null && s.name != null) "\"${s.name}\"" else s.deviceType,
+                lookalike?.let { "like your \"$it\"" },
                 // Ordinary rows name the radio in their tag; flagged ones keep it here.
                 if (tag == radioTag(s)) null else s.sources.joinToString("+") { if (it == Advert.Source.BLE) "BLE" else "WiFi" },
                 "${ProximityUtil.band(s.rssi)} ${s.rssi} dBm ${DeviceIntel.formatDistance(s.distanceM)}",

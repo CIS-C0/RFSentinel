@@ -59,6 +59,53 @@ object DeviceIntel {
     internal val TRAIN_SSID = Regex("amtrak|brightline|eurostar|sncf|wifi_inoui|wifionice|via ?rail|^via[-_ ]?wi-?fi\$", RegexOption.IGNORE_CASE)
 
     /**
+     * What a network is, from the default name its maker or internet provider gives it: home routers
+     * by provider (many countries, so a name says what, never where), providers' public hotspots,
+     * mobile hotspot boxes, and gadgets that make their own network (dashcams, drones, cameras, TVs,
+     * devices waiting to be set up). First match wins.
+     */
+    private val SSID_TYPES = listOf(
+        // Providers' public hotspots (before their home-router patterns).
+        "^xfinitywifi$|^xfinity ?mobile$" to "Public WiFi hotspot - Xfinity", "^coxwifi$" to "Public WiFi hotspot - Cox",
+        "^optimumwifi$" to "Public WiFi hotspot - Optimum", "^spectrumwifi( plus)?$" to "Public WiFi hotspot - Spectrum",
+        "^attwifi$" to "Public WiFi hotspot - AT&T", "^btwi-?fi|^bt-?fon$|^btopenzone" to "Public WiFi hotspot - BT",
+        "^shaw ?(open|go|passpoint)" to "Public WiFi hotspot - Shaw", "^telekom(_fon)?$|^telekom_fon" to "Public WiFi hotspot - Telekom",
+        "^vodafone ?(homespot|hotspot|wifi)$" to "Public WiFi hotspot - Vodafone", "^orange$|^freewifi(_secure)?$|^sfr wifi" to "Public WiFi hotspot - French provider",
+        "^_?the cloud$|^virgin ?media ?wifi|^skywifi$" to "Public WiFi hotspot - UK provider",
+        // Mobile hotspot boxes.
+        "^(verizon-)?mifi|^jetpack|^verizon-[a-z0-9]{4,6}-[a-z0-9]{4}$|^nighthawk ?m\\d|^netgear-?m[1-6]\\b|^moxee|^inseego|^t-mobile hotspot|^huawei-e5|^alcatel link|^zte[_-]?mf" to "Mobile hotspot box",
+        // Home routers by provider.
+        "^att(?=.*\\d)[a-z0-9]{6,7}$|^att-?wifi-" to "Home router - AT&T", "^fios-[a-z0-9]{5}$|^verizon_[a-z0-9]{6}$" to "Home router - Verizon",
+        "^spectrum(setup)?-[a-z0-9]{2,4}$|^myspectrumwifi" to "Home router - Spectrum", "^xfinity|^home-[0-9a-f]{4}(-5g)?$" to "Home router - Xfinity",
+        "^centurylink" to "Home router - CenturyLink", "^frontier\\d{3,4}$" to "Home router - Frontier",
+        "^cox-?wifi-" to "Home router - Cox", "^optimum ?\\d|^optimum-" to "Home router - Optimum", "^tmobile ?home|^t-mobile ?home|^tmobile-[0-9a-f]{4}$" to "Home router - T-Mobile",
+        "^bell\\d{3}$" to "Home router - Bell", "^telus\\d{4}" to "Home router - Telus", "^rogers|^ignite ?\\d|^ignite-" to "Home router - Rogers",
+        "^videotron|^helix-?" to "Home router - Videotron", "^shaw-[0-9a-f]{6}" to "Home router - Shaw", "^sasktel" to "Home router - SaskTel",
+        "^cogeco-" to "Home router - Cogeco", "^eastlink" to "Home router - Eastlink", "^virgin ?plus|^virgin-?\\d" to "Home router - Virgin Plus",
+        "^bt-[a-z0-9]{6,7}$|^bthub\\d|^btbhub|^bt ?smart ?hub" to "Home router - BT", "^sky(?=.*\\d)[a-z0-9]{5}$|^sky_?wifi_" to "Home router - Sky",
+        "^vm[0-9a-f]{7}$|^virgin ?media" to "Home router - Virgin Media", "^talktalk" to "Home router - TalkTalk",
+        "^plusnet-" to "Home router - Plusnet", "^ee-[a-z0-9]{5,7}$|^ee-hub|^ee ?smart" to "Home router - EE",
+        "^livebox-" to "Home router - Orange", "^freebox-" to "Home router - Free", "^sfr[-_]|^neufbox" to "Home router - SFR",
+        "^bbox-" to "Home router - Bouygues", "^magentawlan|^wlan-[0-9a-z]{6}$|^speedport" to "Home router - Telekom",
+        "^vodafone-?[0-9a-z]{4,}|^vodafone ?(station|homespot)" to "Home router - Vodafone", "^o2-wlan|^o2 ?homespot" to "Home router - O2",
+        "^movistar_|^miwifi_" to "Home router - Movistar", "^tim-\\d|^telecomitalia" to "Home router - TIM", "^fastweb" to "Home router - Fastweb",
+        "^telstra[0-9a-f]{4}" to "Home router - Telstra", "^optus_" to "Home router - Optus", "^ziggo" to "Home router - Ziggo",
+        "^kpn ?[0-9a-z]{4}|^experiabox" to "Home router - KPN", "^upc\\d{6,7}$" to "Home router - UPC",
+        // Gadgets that make their own network.
+        "^70mai|^viofo|^blackvue|^thinkware|^nextbase|^vantrue|^rexing|^garmin ?dash|^dashcam|^dash ?cam|^roav|^redtiger|^azdome" to "Dashcam",
+        "^gopro|^gp[0-9]{8}$|^hero\\d+|^insta360|^osmo ?action|^akaso" to "Action camera",
+        "^tello-|^dji[-_ ]|^mavic|^spark-|^phantom|^anafi|^skycontroller|^autel|^evo ?ii|^skydio|^parrot" to "Drone / controller",
+        "\\[tv\\]|^direct-[0-9a-z]{2}-(\\[tv\\]|samsung|lg|bravia|tcl|hisense|vizio)|^bravia|^lg[_ ]?(webos)?[_ ]?tv|^vizio|^roku-|^androidtv|^chromecast" to "Smart TV / streaming device",
+        "^esp[-_][0-9a-f]{4,6}$|^esp32|^esp8266|^tasmota-|^shelly|^sonoff|^espressif|^wled-|^openmqttgateway" to "IoT board (ESP / smart-home firmware)",
+        "^tp-?link_smart|^kasa_|^tapo_|^wemo\\.|^meross_|^smartlife-|^smart ?life|^tuya|^gosund|^govee|^wiz_|^hue-" to "Smart plug / bulb waiting to be set up",
+        "^ring setup|^ring-[0-9a-f]{4}|^nest-|^arlo|^blink-|^wyze|^eufy|^reolink|^ipc[-_]|^ezviz|^hikvision|^imou" to "Security camera / doorbell",
+        "^nintendo|^switch_|^ps[45]-|^xbox" to "Game console"
+    ).map { (re, type) -> Regex(re, RegexOption.IGNORE_CASE) to type }
+
+    /** What a network's name says it is ([SSID_TYPES]), or null. */
+    fun ssidType(ssid: String): String? = SSID_TYPES.firstOrNull { it.first.containsMatchIn(ssid.trim()) }?.second
+
+    /**
      * A train's WiFi rides along with you, and its router often comes from the same vehicle-router
      * makers police cars use (Cradlepoint, Sierra Wireless): those matches are dropped for it.
      */
@@ -229,6 +276,11 @@ object DeviceIntel {
                 0x07 in typesIn(d) -> "AirPods / Beats"
                 0x12 in typesIn(d) -> "Apple Find My device (AirTag, iPhone, Mac...)"
                 0x09 in typesIn(d) -> "Apple TV / AirPlay speaker"
+                // Only a Watch reports being on a wrist or offers Magic Switch; only a phone drives,
+                // and only a phone or cellular iPad offers its hotspot.
+                0x0B in typesIn(d) || appleActivity(d) == 0x0A -> "Apple Watch"
+                appleActivity(d) == 0x0D -> "iPhone"
+                0x0E in typesIn(d) -> "iPhone or cellular iPad"
                 0x10 in typesIn(d) || 0x0C in typesIn(d) -> "Apple device (iPhone, iPad, Mac or Watch)"
                 else -> "Apple device"
             }
@@ -246,8 +298,16 @@ object DeviceIntel {
                 }, "Microsoft beacon")
             }
         }
-        if (a.serviceData.keys.any { Advert.shortOf(it) == 0xFE2C }) {
-            facts += "Google Fast Pair" to "Pairing / account-key broadcast"
+        a.serviceData.entries.firstOrNull { Advert.shortOf(it.key) == 0xFE2C }?.value?.let { d ->
+            // In pairing mode the service data is just the 3-byte model ID; otherwise an account-key filter.
+            if (d.size == 3) {
+                val model = (Bytes.u8(d, 0) shl 16) or (Bytes.u8(d, 1) shl 8) or Bytes.u8(d, 2)
+                val product = VendorDb.fastPairModel(model)
+                facts += "Google Fast Pair" to "Ready to pair, model ID " + String.format("0x%06X", model) + (product?.let { " ($it)" } ?: "")
+                decide(product, "Fast Pair model ID")
+            } else {
+                facts += "Google Fast Pair" to "Pairing / account-key broadcast"
+            }
         }
         a.serviceData[Advert.uuid16(0xFEAA)]?.takeIf { it.isNotEmpty() }?.let { d ->
             val frame = when (Bytes.u8(d, 0)) {
@@ -287,6 +347,18 @@ object DeviceIntel {
         return Identity(type ?: "Bluetooth device", facts)
     }
 
+    /** The activity code (low 4 bits of the status byte) of an Apple Nearby Info message, or null. */
+    private fun appleActivity(d: ByteArray): Int? {
+        var i = 0
+        while (i + 1 < d.size) {
+            val len = Bytes.u8(d, i + 1)
+            if (Bytes.u8(d, i) == 0x10 && len >= 1 && i + 2 < d.size) return Bytes.u8(d, i + 2) and 0x0F
+            if (len == 0) break
+            i += 2 + len
+        }
+        return null
+    }
+
     private fun typesIn(d: ByteArray): Set<Int> {
         val out = HashSet<Int>()
         var i = 0
@@ -322,6 +394,7 @@ object DeviceIntel {
             w?.standard == WIFI_AWARE -> "Drone Remote ID over Wi-Fi Aware"
             ssid.isNullOrEmpty() -> "Hidden WiFi network"
             TRAIN_SSID.containsMatchIn(ssid) -> "Train WiFi (passenger rail)"
+            ssidType(ssid) != null -> ssidType(ssid)!!
             Regex("iphone|androidap|galaxy|pixel|hotspot|'s phone", RegexOption.IGNORE_CASE).containsMatchIn(ssid) -> "Phone hotspot"
             Regex("direct-|printer|hp-print|epson|canon", RegexOption.IGNORE_CASE).containsMatchIn(ssid) -> "WiFi Direct / printer"
             Regex("tesla|carplay|android auto|\\bcar\\b|bmw|mercedes|audi|toyota", RegexOption.IGNORE_CASE).containsMatchIn(ssid) -> "Vehicle WiFi"
