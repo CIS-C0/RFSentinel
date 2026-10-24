@@ -347,6 +347,9 @@ class IdentifyMoreTest {
         // Not computers: a guess that may be a phone, a plain WiFi client, a machine-like word.
         assertTrue(DeviceFilter.COMPUTERS !in kinds("Apple device (iPhone, iPad, Mac or Watch)"))
         assertEquals(emptyList<DeviceFilter>(), kinds("WiFi device (laptop, phone or camera on a network)"))
+        val client = DeviceFilter.Seen("02:00:00:00:00:73", "WiFi device (laptop, phone or camera on a network)", null, emptyList(), emptySet(), false)
+        assertTrue(DeviceFilter.OTHER.matches(client))
+        assertTrue(!DeviceFilter.OTHER.matches(DeviceFilter.Seen("02:00:00:00:00:74", "Computer", null, emptyList(), emptySet(), false)))
         assertTrue(DeviceFilter.COMPUTERS !in kinds("Machine sensor"))
     }
 

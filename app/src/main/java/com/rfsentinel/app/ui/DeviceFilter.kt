@@ -45,7 +45,9 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
     SMART_HOME("Smart home"),
     COMPUTERS("Computers"),
     /** Made by Apple, whatever kind (iPhone, Mac, AirPods, AirTag...). */
-    APPLE("Apple");
+    APPLE("Apple"),
+    /** In none of the kinds above (nor a tracker or drone): what Group by Category puts under "Other". */
+    OTHER("Other");
 
     /**
      * What a filter looks at, the same for a device heard now and one saved in a snapshot or a trace,
@@ -104,6 +106,7 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         COMPUTERS -> s.anyType(COMPUTER_TYPE) || s.name?.let { COMPUTER_NAME.containsMatchIn(it) } == true
         APPLE -> s.anyType(APPLE_TYPE) || s.vendor?.startsWith("Apple", ignoreCase = true) == true ||
             s.hits.any { com.rfsentinel.app.detect.SignatureEngine.isAppleFindMy(it) }
+        OTHER -> (listOf(TRACKERS, DRONES, CAMERAS) + KINDS).none { it.matches(s) }
     }
 
     companion object {
@@ -158,7 +161,7 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
          * The main screen's chip order: the counts worth a glance first (flagged, then what's heard on each
          * radio), so they fit without scrolling; the narrower filters after them.
          */
-        val MAIN_ORDER = listOf(ALL, FLAGGED, BLE, WIFI, CELLS, TRACKERS, DRONES, AIRCRAFT, RADIO, WAZE, EXTERNAL, SENTINELS, FAVORITES, NEW) + KINDS
+        val MAIN_ORDER = listOf(ALL, FLAGGED, BLE, WIFI, CELLS, TRACKERS, DRONES, AIRCRAFT, RADIO, WAZE, EXTERNAL, SENTINELS, FAVORITES, NEW) + KINDS + OTHER
 
         /** The chips of a saved snapshot or trace: the main screen's, less those that only mean something live. */
         val SAVED_ORDER = MAIN_ORDER.filterNot { it.liveOnly }
