@@ -387,4 +387,17 @@ class IdentifyMoreTest {
         // A provider's hotspot on a home gateway stays off Routers.
         assertEquals(listOf(DeviceFilter.HOTSPOTS), kinds("Public WiFi hotspot (Passpoint)", listOf("Device kind (WPS)" to "Router")))
     }
+
+    @Test
+    fun carWifiIsAVehicleNotARouter() {
+        fun wifi(mac: String, ssid: String) = DeviceIntel.identify(
+            Advert(mac, Advert.Source.WIFI, -60, ssid, wifi = Advert.WifiInfo(2437, "[WPA2-PSK-CCMP]", null, emptyList())), VendorDb.macVendor(mac)).type
+        listOf("myChevrolet", "myBuick", "CHEVROLET 4G", "myGMC", "Kia Hotspot", "FordPass 1234").forEach {
+            assertEquals(it, "Vehicle WiFi", wifi("06:00:00:00:00:91", it))
+        }
+        fun kinds(type: String) = DeviceFilter.KINDS.filter { it.matches(DeviceFilter.Seen("06:00:00:00:00:92", type, null, emptyList(), setOf(Advert.Source.WIFI), false)) }
+        assertEquals(listOf(DeviceFilter.VEHICLES), kinds("Vehicle WiFi"))
+        assertEquals(listOf(DeviceFilter.VEHICLES), kinds("Vehicle / cellular router (WiFi)"))
+        assertEquals(listOf(DeviceFilter.ROUTERS), kinds("WiFi access point"))
+    }
 }

@@ -101,7 +101,7 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         AUDIO -> (s.anyType(AUDIO_TYPE) || s.facts.contains("Identified by" to "Fast Pair model ID")) &&
             s.hits.none { it.category == Category.AUDIO_SENSOR }
         CAMERAS -> s.anyType(CAMERA_TYPE) || s.hits.any { it.category in CAMERA_CATEGORIES }
-        ROUTERS -> s.types.any { DeviceIntel.isRouter(it) }
+        ROUTERS -> s.types.any { DeviceIntel.isRouter(it) } && !s.anyType(VEHICLE_TYPE)
         HOTSPOTS -> s.anyType(HOTSPOT_TYPE)
         TVS -> s.anyType(TV_TYPE)
         SMART_HOME -> s.anyType(SMART_HOME_TYPE) && !s.anyType(VEHICLE_TYPE)

@@ -273,6 +273,12 @@ object DeviceIntel {
         "desay sv" to "Desay SV", "joynext|preh car connect" to "Preh / Joynext", "pateo" to "PATEO"
     ).map { (re, name) -> Regex(re, RegexOption.IGNORE_CASE) to name }
 
+    /** Car makers' and infotainment systems' WiFi names (GM's "myChevrolet" / "myBuick", "CHEVROLET 1234", "FordPass"...). */
+    private val CAR_SSID = Regex("tesla|carplay|android auto|\\bcar\\b|\\bmy ?car\\b|^my ?(chevy|gmc|cadillac|buick|ford|kia|vw|audi|bmw)|" +
+        "chevrolet|\\bchevy\\b|cadillac|\\bgmc\\b|buick|\\bford ?pass|\\bford\\b|\\bbmw\\b|mercedes|\\baudi\\b|volkswagen|\\bvw\\b|toyota|lexus|" +
+        "honda|acura|hyundai|\\bkia\\b|nissan|infiniti|subaru|mazda|\\bjeep\\b|\\bdodge\\b|chrysler|porsche|land ?rover|volvo|rivian|polestar|" +
+        "peugeot|renault|citro[eë]n|skoda|\\bopel\\b|vauxhall|\\bfiat\\b|uconnect|onstar|mylink|entune|\\bmbux\\b", RegexOption.IGNORE_CASE)
+
     /** The car maker or supplier a registrant is, or null. */
     fun automotiveMaker(vendor: String?): String? =
         vendor?.let { v -> AUTOMOTIVE.firstOrNull { it.first.containsMatchIn(v.trim()) }?.second }
@@ -493,9 +499,10 @@ object DeviceIntel {
             ssid.isNullOrEmpty() -> "Hidden WiFi network"
             TRAIN_SSID.containsMatchIn(ssid) -> "Train WiFi (passenger rail)"
             ssidType(ssid) != null -> ssidType(ssid)!!
+            // A car's hotspot before a phone's: "Kia Hotspot", "myChevrolet", "CHEVROLET 4G".
+            CAR_SSID.containsMatchIn(ssid) -> "Vehicle WiFi"
             Regex("iphone|androidap|galaxy|pixel|hotspot|'s phone", RegexOption.IGNORE_CASE).containsMatchIn(ssid) -> "Phone hotspot"
             Regex("direct-|printer|hp-print|epson|canon", RegexOption.IGNORE_CASE).containsMatchIn(ssid) -> "WiFi Direct / printer"
-            Regex("tesla|carplay|android auto|\\bcar\\b|\\bbmw\\b|mercedes|\\baudi\\b|toyota|uconnect|onstar|\\bmy ?car\\b|\\bvw\\b|volkswagen|hyundai|\\bkia\\b|porsche|volvo|rivian|polestar", RegexOption.IGNORE_CASE).containsMatchIn(ssid) -> "Vehicle WiFi"
             else -> "WiFi access point"
         }
         // Make / model from the beacon itself (works for hidden networks too).
