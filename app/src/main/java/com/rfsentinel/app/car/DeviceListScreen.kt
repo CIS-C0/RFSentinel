@@ -63,7 +63,8 @@ class DeviceListScreen(carContext: CarContext, private val filter: DeviceFilter)
 
     companion object {
         /** The filters offered in the car (cell towers have their own screen). */
-        val CAR_FILTERS = DeviceFilter.entries.filter { it != DeviceFilter.CELLS && it != DeviceFilter.WAZE && it != DeviceFilter.RADIO && it != DeviceFilter.AIRCRAFT }
+        val CAR_FILTERS = DeviceFilter.entries.filter { it != DeviceFilter.CELLS && it != DeviceFilter.WAZE && it != DeviceFilter.RADIO && it != DeviceFilter.AIRCRAFT &&
+            it !in DeviceFilter.KINDS }
 
         fun titleOf(f: DeviceFilter) = when (f) {
             DeviceFilter.ALL -> "All nearby"

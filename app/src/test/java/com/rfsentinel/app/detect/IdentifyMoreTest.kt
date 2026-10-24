@@ -115,6 +115,27 @@ class IdentifyMoreTest {
     }
 
     @Test
+    fun kindFiltersPickTheirDevices() {
+        DeviceRegistry.clear(); DeviceRegistry.startSession()
+        val kinds = mapOf(
+            "BELL123" to com.rfsentinel.app.ui.DeviceFilter.ROUTERS, "xfinitywifi" to com.rfsentinel.app.ui.DeviceFilter.HOTSPOTS,
+            "70mai_D06_1234" to com.rfsentinel.app.ui.DeviceFilter.CAMERAS, "TELLO-5A1B2C" to com.rfsentinel.app.ui.DeviceFilter.DRONES,
+            "DIRECT-1F-[TV] Samsung Q60" to com.rfsentinel.app.ui.DeviceFilter.TVS, "ESP_1A2B3C" to com.rfsentinel.app.ui.DeviceFilter.SMART_HOME
+        )
+        kinds.keys.forEachIndexed { i, ssid ->
+            val a = Advert("02:00:00:00:00:1$i", Advert.Source.WIFI, -60, ssid, wifi = Advert.WifiInfo(2437, "[WPA2-PSK-CCMP]", null, emptyList()))
+            DeviceRegistry.report(a, emptyList(), DeviceIntel.identify(a), null, null, null)
+        }
+        val buds = ble(data = mapOf(Advert.uuid16(0xFE2C) to bytes(0xCD, 0x82, 0x56)))
+        DeviceRegistry.report(buds, emptyList(), DeviceIntel.identify(buds), null, null, null)
+        val snaps = DeviceRegistry.snapshot()
+        kinds.forEach { (ssid, f) -> assertEquals(ssid, listOf(ssid), snaps.filter { f.matches(it) }.map { it.name }) }
+        assertEquals(listOf(buds.mac), snaps.filter { com.rfsentinel.app.ui.DeviceFilter.AUDIO.matches(it) }.map { it.mac })
+        assertTrue(snaps.none { com.rfsentinel.app.ui.DeviceFilter.VEHICLES.matches(it) || com.rfsentinel.app.ui.DeviceFilter.PHONES.matches(it) })
+        DeviceRegistry.clear()
+    }
+
+    @Test
     fun advertHashIsStable() {
         assertEquals(AdvertFingerprint.hash("n=Buds|u=|d=|m=|t=|c="), AdvertFingerprint.hash("n=Buds|u=|d=|m=|t=|c="))
         assertEquals(8, AdvertFingerprint.hash("x").length)
