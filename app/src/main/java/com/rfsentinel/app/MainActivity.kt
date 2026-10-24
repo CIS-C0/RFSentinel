@@ -52,10 +52,8 @@ class MainActivity : AppCompatActivity() {
         private const val RADIO_LIVE_MS = 15_000L
         /** Radio transmissions stay on the radar this long after they were last heard (the list keeps 5 minutes). */
         private const val RADIO_RADAR_MS = 60_000L
-        private const val BLUETOOTH_TAG_COLOR = 0xFF1565C0.toInt()
         /** Location off: Android gives the app no Bluetooth or WiFi results. Tapping the warning opens the setting. */
         private const val LOCATION_OFF = "Location is off - no devices can be seen. Tap to turn it on"
-        private const val WIFI_TAG_COLOR = 0xFF00838F.toInt()
         private const val REFRESH_MS = 1_000L
         private const val WEAK_COLOR = 0xFFB26A00.toInt()
         private const val WHITELIST_COLOR = 0xFF6B7B80.toInt()
@@ -782,14 +780,9 @@ class MainActivity : AppCompatActivity() {
      * under the All filter. Read every 15 s while scanning; tap opens Tools > Cell towers.
      */
     /** The radio tag on ordinary rows, like the purple CELL tag on cell towers. */
-    private fun radioTag(s: DeviceRegistry.Snapshot): String = when {
-        Advert.Source.BLE in s.sources && Advert.Source.WIFI in s.sources -> "BLUETOOTH + WIFI"
-        Advert.Source.WIFI in s.sources -> "WIFI"
-        else -> "BLUETOOTH"
-    }
+    private fun radioTag(s: DeviceRegistry.Snapshot): String = com.rfsentinel.app.ui.DeviceRows.radioTag(s.sources)
 
-    private fun radioColor(s: DeviceRegistry.Snapshot): Int =
-        if (Advert.Source.BLE in s.sources) BLUETOOTH_TAG_COLOR else WIFI_TAG_COLOR
+    private fun radioColor(s: DeviceRegistry.Snapshot): Int = com.rfsentinel.app.ui.DeviceRows.radioColor(s.sources)
 
     private fun liveCellCount(now: Long): Int =
         if (ScanForegroundService.isRunning && now - com.rfsentinel.app.service.CellTowerStore.currentAt <= 60_000L)
@@ -983,7 +976,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun colorFor(s: DeviceRegistry.Snapshot): Int {
         val best = s.best ?: return com.rfsentinel.app.ui.ThemeManager.ink(this, WHITELIST_COLOR)
-        return com.rfsentinel.app.ui.ThemeManager.ink(this, if (best.tier == Tier.WEAK) WEAK_COLOR else best.category.colorArgb)
+        return com.rfsentinel.app.ui.DeviceRows.matchColor(this, best.category, best.tier)
     }
 
     private fun toRow(s: DeviceRegistry.Snapshot, now: Long, threshold: Int): DeviceRow {
