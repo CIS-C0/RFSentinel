@@ -487,8 +487,10 @@ object Prefs {
     private fun setStr(c: Context, key: String, v: String) = sp(c).edit { putString(key, v) }
 
     /** Report a radio from this many dB above the noise (15-50; 30 = the original sensitivity). */
-    fun radioMinSnr(context: Context): Int = int(context, "radio_min_snr", com.rfsentinel.app.sdr.RadioWatch.DEFAULT_MIN_SNR).coerceIn(15, 50)
-    fun setRadioMinSnr(context: Context, v: Int) = setInt(context, "radio_min_snr", v.coerceIn(15, 50))
+    fun radioMinSnr(context: Context): Int = int(context, "radio_min_snr", com.rfsentinel.app.sdr.RadioWatch.DEFAULT_MIN_SNR)
+        .coerceIn(com.rfsentinel.app.sdr.RadioWatch.MIN_SNR_SETTING, com.rfsentinel.app.sdr.RadioWatch.MAX_SNR_SETTING)
+    fun setRadioMinSnr(context: Context, v: Int) = setInt(context, "radio_min_snr",
+        v.coerceIn(com.rfsentinel.app.sdr.RadioWatch.MIN_SNR_SETTING, com.rfsentinel.app.sdr.RadioWatch.MAX_SNR_SETTING))
     /** Built-in bands switched off ("700", "800", "vhf", "uhf"). */
     fun radioBandsOff(context: Context): Set<String> = sp(context).getStringSet("radio_bands_off", emptySet()).orEmpty()
 

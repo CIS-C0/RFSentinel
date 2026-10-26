@@ -1160,10 +1160,13 @@ class SettingsActivity : AppCompatActivity() {
         switch("ADS-B aircraft receiver", Prefs.sdrAdsb(this),
             "Listens on 1090 MHz for aircraft instead of sweeping the radio bands. Police aircraft are found without internet. " +
             "Needs Police aircraft turned on. A 1090 MHz antenna helps; the stock one hears out to about 50 km.") { Prefs.setSdrAdsb(this, it) }
-        slider(15, 50, Prefs.radioMinSnr(this), { "Sensitivity: $it dB above the noise" }) {
+        slider(com.rfsentinel.app.sdr.RadioWatch.MIN_SNR_SETTING, com.rfsentinel.app.sdr.RadioWatch.MAX_SNR_SETTING, Prefs.radioMinSnr(this),
+            { "Sensitivity: $it dB above the noise" }) {
             Prefs.setRadioMinSnr(this, it)
         }
-        info(box.getChildAt(box.childCount - 2), "A radio is reported once its signal is this far above the noise. Lower hears farther, with more false alarms.", "Sensitivity")
+        info(box.getChildAt(box.childCount - 2), "A radio is reported once its signal is this far above the noise. Lower hears farther, with more false alarms. " +
+            "Below about 10 dB the noise's own flicker sets off some alerts: good for testing how far a known radio carries " +
+            "(a fire station's TETRA, say), noisy for everyday use.", "Sensitivity")
         label("Bands to sweep")
         val off = Prefs.radioBandsOff(this).toMutableSet()
         for ((key, band) in com.rfsentinel.app.sdr.RadioSettings.BUILT_IN) {

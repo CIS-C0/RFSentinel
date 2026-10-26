@@ -114,13 +114,14 @@ class RadioWatch {
                             q - floor
                         }
                         snr = maxOf(snr, levels.max().roundToInt())
-                        tdma = isTdma(levels, bursts.groupMs)
+                        tdma = isTdma(levels, bursts.groupMs, activeDb(cfg.minSnrDb))
                     }
                     val ch = channels.getOrPut(f) { Channel() }
                     val active = snr >= ACTIVE_DB
                     ch.recent = (ch.recent shl 1) or (if (active) 1L else 0L)
                     ch.visits++
-                    if (active) eventFor(f, snr, band, ch, now, cfg.minSnrDb, tdma)?.let { found += it }
+                    // The busy-channel learning keeps the fixed level; a low sensitivity setting only reports weaker radios.
+                    if (snr >= activeDb(cfg.minSnrDb)) eventFor(f, snr, band, ch, now, cfg.minSnrDb, tdma)?.let { found += it }
                 }
                 f += STEP_HZ
             }
@@ -134,7 +135,7 @@ class RadioWatch {
             for (k in mid - half..mid + half) if (k in 0 until n && psdDb[k] > p) p = psdDb[k]
             val snr = (p - floor).roundToInt()
             val st = targetState.getOrPut(t.freqHz) { Channel() }
-            if (snr < maxOf(ACTIVE_DB, cfg.minSnrDb - 10)) continue
+            if (snr < maxOf(activeDb(cfg.minSnrDb), cfg.minSnrDb - 10)) continue
             found += Event(t.freqHz, snr, Band(t.label, t.freqHz, t.freqHz, Kind.TARGET), TARGET_CONFIDENCE, t,
                 repeat = now - st.lastEvent < REPEAT_MS)
         }
@@ -225,6 +226,11 @@ class RadioWatch {
         /** Around a chunk's centre the receiver's own DC spike hides everything. */
         const val DC_GUARD_HZ = 15_000L
         private const val ACTIVE_DB = 12
+        /** The lowest sensitivity setting: weaker than this is lost in the noise's own flicker. */
+        const val MIN_SNR_SETTING = 6
+        const val MAX_SNR_SETTING = 50
+        /** Above the noise a signal must be to count as on: lower only when the sensitivity setting is below 15 dB. */
+        fun activeDb(minSnr: Int) = minOf(ACTIVE_DB, minSnr - 3).coerceAtLeast(MIN_SNR_SETTING - 3)
         private const val SPLATTER_HZ = 37_500L
         private const val BUSY_RATIO = 0.4
         private const val MIN_VISITS_BUSY = 6
@@ -271,12 +277,12 @@ class RadioWatch {
          * [groupMs]): on for about one TETRA slot at a time, and truly off in between - not a carrier
          * that stays on, and not noise. Also true for 2 slots of a frame, as a data call may use.
          */
-        fun isTdma(levels: FloatArray, groupMs: Double): Boolean {
+        fun isTdma(levels: FloatArray, groupMs: Double, active: Int = ACTIVE_DB): Boolean {
             if (levels.size * groupMs < FRAME_MS * 0.9) return false
             val peak = levels.max()
-            if (peak < ACTIVE_DB + 6) return false
-            val on = BooleanArray(levels.size) { levels[it] >= peak - 10 && levels[it] >= ACTIVE_DB }
-            val quiet = levels.count { it <= 6f }
+            if (peak < active + 6) return false
+            val on = BooleanArray(levels.size) { levels[it] >= peak - 10 && levels[it] >= active }
+            val quiet = levels.count { it <= minOf(6, active + 2) }
             var run = 0; var longest = 0; var runs = 0
             for (i in on.indices) {
                 if (on[i]) { run++; if (run == 1) runs++; longest = maxOf(longest, run) } else run = 0
