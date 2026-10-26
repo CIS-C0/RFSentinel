@@ -143,6 +143,7 @@ object UsbWifi {
     )
 
     private var receiver: BroadcastReceiver? = null
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
     /** Debug builds: driver commands from adb, e.g.
      *  `adb shell am broadcast -a com.rfsentinel.app.USB_WIFI_CMD -p com.rfsentinel.app.debug --es cmd "park 11"` */
     private var cmdReceiver: BroadcastReceiver? = null
@@ -261,7 +262,12 @@ object UsbWifi {
             val r = object : BroadcastReceiver() {
                 override fun onReceive(c: Context, intent: Intent) {
                     when (intent.action) {
-                        UsbManager.ACTION_USB_DEVICE_ATTACHED, ACTION_PERMISSION -> connect(app)
+                        // Just plugged in: Android's "Open RF Sentinel?" prompt comes first; ask ourselves only if it didn't help.
+                        UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
+                            connect(app, ask = false)
+                            main.postDelayed({ if (receiver != null) connect(app) }, UsbAttachActivity.ATTACH_GRACE_MS)
+                        }
+                        ACTION_PERMISSION, UsbAttachActivity.ACTION_READY -> connect(app)
                         UsbManager.ACTION_USB_DEVICE_DETACHED -> {
                             val d = deviceOf(intent)
                             if (d != null && d.deviceName == runningDevice) stopAdapter("USB WiFi adapter unplugged")
@@ -276,6 +282,7 @@ object UsbWifi {
                 addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
                 addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
                 addAction(ACTION_PERMISSION)
+                addAction(UsbAttachActivity.ACTION_READY)
             }
             ContextCompat.registerReceiver(app, r, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
             receiver = r
@@ -311,8 +318,9 @@ object UsbWifi {
         if (android.os.Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
         else @Suppress("DEPRECATION") intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
 
+    /** [ask]: false right after a plug-in, while Android's own prompt may still give access. */
     @Synchronized
-    private fun connect(context: Context) {
+    private fun connect(context: Context, ask: Boolean = true) {
         if (runningDevice != null) return
         val mgr = context.getSystemService(UsbManager::class.java) ?: return
         val all = runCatching { mgr.deviceList.values.toList() }.getOrDefault(emptyList())
@@ -325,6 +333,7 @@ object UsbWifi {
             return
         }
         if (!mgr.hasPermission(d)) {
+            if (!ask) { status = "USB WiFi adapter found - allow USB access on the prompt"; return }
             log("%04x:%04x (%s) plugged in - asking for USB access".format(d.vendorId, d.productId, chipOf(d)?.name))
             val pi = PendingIntent.getBroadcast(context, 1, Intent(ACTION_PERMISSION).setPackage(context.packageName),
                 PendingIntent.FLAG_MUTABLE)

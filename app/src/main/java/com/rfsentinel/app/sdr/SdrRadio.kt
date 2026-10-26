@@ -83,7 +83,12 @@ object SdrRadio {
             val r = object : BroadcastReceiver() {
                 override fun onReceive(c: Context, intent: Intent) {
                     when (intent.action) {
-                        UsbManager.ACTION_USB_DEVICE_ATTACHED, ACTION_PERMISSION -> connect(app)
+                        // Just plugged in: Android's "Open RF Sentinel?" prompt comes first; ask ourselves only if it didn't help.
+                        UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
+                            connect(app, ask = false)
+                            main.postDelayed({ if (receiver != null) connect(app) }, com.rfsentinel.app.usb.UsbAttachActivity.ATTACH_GRACE_MS)
+                        }
+                        ACTION_PERMISSION, com.rfsentinel.app.usb.UsbAttachActivity.ACTION_READY -> connect(app)
                         UsbManager.ACTION_USB_DEVICE_DETACHED -> {
                             val d = deviceOf(intent)
                             if (d != null && d.deviceName == runningDevice) { halt(UNPLUGGED); clearUnpluggedSoon() }
@@ -95,6 +100,7 @@ object SdrRadio {
                 addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
                 addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
                 addAction(ACTION_PERMISSION)
+                addAction(com.rfsentinel.app.usb.UsbAttachActivity.ACTION_READY)
             }, ContextCompat.RECEIVER_NOT_EXPORTED)
             receiver = r
         }
@@ -129,8 +135,9 @@ object SdrRadio {
         if (android.os.Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
         else @Suppress("DEPRECATION") intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
 
+    /** [ask]: false right after a plug-in, while Android's own prompt may still give access. */
     @Synchronized
-    private fun connect(context: Context) {
+    private fun connect(context: Context, ask: Boolean = true) {
         val mgr = context.getSystemService(UsbManager::class.java) ?: return
         usb = mgr
         runningDevice?.let { name ->
@@ -144,6 +151,7 @@ object SdrRadio {
         if (!mgr.hasPermission(d)) {
             UsbWifi.log("%04x:%04x ($deviceLabel) plugged in - asking for USB access".format(d.vendorId, d.productId))
             status = "$deviceLabel found - allow USB access on the prompt"
+            if (!ask) return
             val pi = PendingIntent.getBroadcast(context, 2, Intent(ACTION_PERMISSION).setPackage(context.packageName), PendingIntent.FLAG_MUTABLE)
             runCatching { mgr.requestPermission(d, pi) }
             return

@@ -75,6 +75,21 @@
             </intent-filter>
         </activity>
 
+        <!-- Plugging in an SDR, ESP32 board or USB WiFi adapter: Android offers RF Sentinel, which then has USB access. -->
+        <activity
+            android:name=".usb.UsbAttachActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+                android:resource="@xml/usb_device_filter" />
+        </activity>
         <activity android:name=".settings.SettingsActivity" android:exported="false" />
         <activity android:name=".whitelist.WhitelistActivity" android:exported="false" />
         <activity android:name=".ouilist.OuiListActivity" android:exported="false" />

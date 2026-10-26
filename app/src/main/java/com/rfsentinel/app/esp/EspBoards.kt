@@ -25,6 +25,7 @@ object EspBoards {
 
     private val running = HashMap<String, Running>()
     private var receiver: BroadcastReceiver? = null
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
     private var onSightings: ((List<EspSighting>) -> Unit)? = null
 
     /** Latest status per board, for Settings and the notification. */
@@ -43,7 +44,12 @@ object EspBoards {
             val r = object : BroadcastReceiver() {
                 override fun onReceive(c: Context, intent: Intent) {
                     when (intent.action) {
-                        UsbManager.ACTION_USB_DEVICE_ATTACHED, ACTION_PERMISSION -> connectAll(app)
+                        // Just plugged in: Android's "Open RF Sentinel?" prompt comes first; ask ourselves only if it didn't help.
+                        UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
+                            connectAll(app, ask = false)
+                            main.postDelayed({ if (receiver != null) connectAll(app) }, com.rfsentinel.app.usb.UsbAttachActivity.ATTACH_GRACE_MS)
+                        }
+                        ACTION_PERMISSION, com.rfsentinel.app.usb.UsbAttachActivity.ACTION_READY -> connectAll(app)
                         UsbManager.ACTION_USB_DEVICE_DETACHED -> {
                             deviceOf(intent)?.let { stopBoard(it.deviceName) }
                         }
@@ -54,6 +60,7 @@ object EspBoards {
                 addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
                 addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
                 addAction(ACTION_PERMISSION)
+                addAction(com.rfsentinel.app.usb.UsbAttachActivity.ACTION_READY)
             }
             ContextCompat.registerReceiver(app, r, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
             receiver = r
@@ -74,19 +81,21 @@ object EspBoards {
         if (android.os.Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
         else @Suppress("DEPRECATION") intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
 
+    /** [ask]: false right after a plug-in, while Android's own prompt may still give access. */
     @Synchronized
-    private fun connectAll(context: Context) {
+    private fun connectAll(context: Context, ask: Boolean = true) {
         val mgr = context.getSystemService(UsbManager::class.java) ?: return
         val boards = runCatching { mgr.deviceList.values.filter { isEsp32(it) } }.getOrDefault(emptyList())
         if (boards.isEmpty() && running.isEmpty()) setStatus("")
         for (d in boards) {
             if (running.containsKey(d.deviceName)) continue
             if (!mgr.hasPermission(d)) {
+                setStatus("ESP32 found - allow USB access on the prompt")
+                if (!ask) continue
                 val pi = PendingIntent.getBroadcast(
                     context, 0, Intent(ACTION_PERMISSION).setPackage(context.packageName),
                     PendingIntent.FLAG_MUTABLE
                 )
-                setStatus("ESP32 found - allow USB access on the prompt")
                 runCatching { mgr.requestPermission(d, pi) }
                 continue
             }
