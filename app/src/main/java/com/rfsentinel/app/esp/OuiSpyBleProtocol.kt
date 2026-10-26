@@ -37,8 +37,12 @@ object OuiSpyBleProtocol {
     /** Detection engines; RF Sentinel never touches the others (UniPwn, PCAP, Foxhunter). */
     val ENGINES = listOf(ENGINE_FLOCK_BLE, ENGINE_FLOCK_WIFI, ENGINE_SKYSPY, ENGINE_DETECTOR)
 
-    /** Engines to switch on; [relayAll] adds the survey engine so RF Sentinel's own rules see everything. */
-    fun engines(relayAll: Boolean) = if (relayAll) ENGINES + ENGINE_WARDRIVE else ENGINES
+    /** The detection engines by name, for Settings and the status line. */
+    val ENGINE_NAMES = linkedMapOf(ENGINE_FLOCK_BLE to "Flock BLE", ENGINE_FLOCK_WIFI to "Flock WiFi",
+        ENGINE_SKYSPY to "Sky Spy", ENGINE_DETECTOR to "Detector")
+
+    /** Engines to switch on: [chosen] of [ENGINES]; [relayAll] adds the survey engine so RF Sentinel's own rules see everything. */
+    fun engines(relayAll: Boolean, chosen: List<Int> = ENGINES) = if (relayAll) chosen + ENGINE_WARDRIVE else chosen
 
     fun enable(engine: Int): ByteArray = byteArrayOf(0x01, engine.toByte())
     fun disable(engine: Int): ByteArray = byteArrayOf(0x00, engine.toByte())

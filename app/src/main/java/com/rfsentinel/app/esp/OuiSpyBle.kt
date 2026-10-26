@@ -44,6 +44,8 @@ object OuiSpyBle {
     private var appContext: Context? = null
     private var address: String? = null
     private var relayAll = true
+    /** The detection engines to switch on (Settings > OUI-SPY engines). */
+    private var engines: List<Int> = OuiSpyBleProtocol.ENGINES
     private var onSightings: ((List<EspSighting>) -> Unit)? = null
     @Volatile private var active = false
 
@@ -51,7 +53,11 @@ object OuiSpyBle {
     val connected: Boolean get() = active
     private var inSpool = false
     private var discovering = false
-    private var live = false
+    /** Set up and reporting. */
+    @Volatile var live = false; private set
+    /** Told when [live] changes (the scan hands the phone's Bluetooth scan to the board, or takes it back). */
+    var onLiveChanged: ((Boolean) -> Unit)? = null
+    private fun setLive(v: Boolean) { if (live != v) { live = v; onLiveChanged?.invoke(v) } }
     private var closingUntil = 0L
     private var detections = 0
     /** GATT writes must be sent one at a time. */
@@ -101,13 +107,15 @@ object OuiSpyBle {
     }
 
     /** Starts (or keeps) the link to the board at [boardAddress] while scanning. */
-    fun start(context: Context, boardAddress: String, relayEverything: Boolean, sightings: (List<EspSighting>) -> Unit) = main.post {
+    fun start(context: Context, boardAddress: String, relayEverything: Boolean, chosen: List<Int> = OuiSpyBleProtocol.ENGINES,
+              sightings: (List<EspSighting>) -> Unit) = main.post {
         onSightings = sightings
-        if (active && address == boardAddress && relayAll == relayEverything) return@post
+        if (active && address == boardAddress && relayAll == relayEverything && engines == chosen) return@post
         stopNow()
         appContext = context.applicationContext
         address = boardAddress
         relayAll = relayEverything
+        engines = chosen
         active = true
         connect()
     }
@@ -117,6 +125,7 @@ object OuiSpyBle {
     @SuppressLint("MissingPermission") // checked by canConnect()
     private fun stopNow() {
         active = false
+        setLive(false)
         main.removeCallbacksAndMessages(null)
         val g = gatt ?: return
         // Switch our engines off so the board goes quiet, then let go.
@@ -173,10 +182,14 @@ object OuiSpyBle {
     @SuppressLint("MissingPermission")
     private fun writeNext(g: BluetoothGatt) {
         val next = pending.removeFirstOrNull() ?: run {
-            live = true
+            setLive(true)
             Log.i(TAG, "live")
-            setStatus(if (relayAll) "OUI-SPY · live · relaying everything it hears"
-                else "OUI-SPY · live · Flock, Sky Spy and Detector engines on")
+            val names = engines.mapNotNull { OuiSpyBleProtocol.ENGINE_NAMES[it] }
+            setStatus(when {
+                relayAll -> "OUI-SPY · live · relaying everything it hears"
+                names.isEmpty() -> "OUI-SPY · live · every engine off"
+                else -> "OUI-SPY · live · ${names.joinToString()} on"
+            })
             return
         }
         val ctl = g.getService(OuiSpyBleProtocol.SERVICE)?.getCharacteristic(OuiSpyBleProtocol.ENGINE_CONTROL) ?: return
@@ -210,7 +223,7 @@ object OuiSpyBle {
                 if (g !== gatt) return@post
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     setStatus("OUI-SPY: connected, setting up…")
-                    live = false
+                    setLive(false)
                     discovering = false
                     // On a reused link Android may never answer the MTU request: go on anyway.
                     if (!g.requestMtu(MTU)) discover(g)
@@ -228,6 +241,7 @@ object OuiSpyBle {
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     runCatching { g.close() }
                     gatt = null
+                    setLive(false)
                     if (active) { setStatus("OUI-SPY: out of reach - reconnecting…"); retry() }
                 }
             }
@@ -267,7 +281,9 @@ object OuiSpyBle {
                 if (g !== gatt) return@post
                 inSpool = false
                 pending.clear()
-                OuiSpyBleProtocol.engines(relayAll).forEach { pending.addLast(OuiSpyBleProtocol.enable(it)) }
+                // Engines turned off in Settings go off on the board too (its own app may have left them on).
+                (OuiSpyBleProtocol.ENGINES - engines.toSet()).forEach { pending.addLast(OuiSpyBleProtocol.disable(it)) }
+                OuiSpyBleProtocol.engines(relayAll, engines).forEach { pending.addLast(OuiSpyBleProtocol.enable(it)) }
                 writeNext(g)
             }
         }

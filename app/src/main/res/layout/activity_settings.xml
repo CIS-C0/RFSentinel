@@ -755,6 +755,19 @@
                 android:layout_height="wrap_content"
                 android:text="OUI-SPY: relay everything" />
 
+            <Button
+                android:id="@+id/ouiSpyEnginesButton"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="OUI-SPY engines" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/ouiSpyPhoneBleSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Phone Bluetooth scan with OUI-SPY" />
+
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/rtl5gSwitch"
                 android:layout_width="match_parent"

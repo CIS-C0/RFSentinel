@@ -404,6 +404,17 @@ object Prefs {
     fun setDeflockUpdated(context: Context, time: Long) = sp(context).edit { putLong("deflock_updated", time) }
     fun ouiSpyRelayAll(context: Context): Boolean = bool(context, "ouispy_relay_all", true)
     fun setOuiSpyRelayAll(context: Context, value: Boolean) = setBool(context, "ouispy_relay_all", value)
+    /** The OUI-SPY detection engines to switch on (all by default; Flock off where there are no Flock cameras). */
+    fun ouiSpyEngines(context: Context): List<Int> {
+        val off = sp(context).getStringSet("ouispy_engines_off", emptySet()).orEmpty()
+        return com.rfsentinel.app.esp.OuiSpyBleProtocol.ENGINES.filter { it.toString() !in off }
+    }
+    fun setOuiSpyEngines(context: Context, on: List<Int>) = sp(context).edit {
+        putStringSet("ouispy_engines_off", com.rfsentinel.app.esp.OuiSpyBleProtocol.ENGINES.filter { it !in on }.map { it.toString() }.toSet())
+    }
+    /** Keep the phone's own Bluetooth scan running while the OUI-SPY board is live (off: the board scans alone). */
+    fun ouiSpyPhoneBle(context: Context): Boolean = bool(context, "ouispy_phone_ble", true)
+    fun setOuiSpyPhoneBle(context: Context, value: Boolean) = setBool(context, "ouispy_phone_ble", value)
     /** Two- or three-word spoken alerts ("Body cam", "Speed camera, 50") instead of full labels. */
     fun shortVoice(context: Context): Boolean = bool(context, "short_voice", false)
     fun setShortVoice(context: Context, value: Boolean) = setBool(context, "short_voice", value)

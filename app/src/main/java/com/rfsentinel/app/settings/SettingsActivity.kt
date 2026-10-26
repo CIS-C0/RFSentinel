@@ -358,6 +358,23 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    /** Settings > OUI-SPY engines: which of the board's detection engines run (applied to a running scan right away). */
+    private fun chooseOuiSpyEngines() {
+        val all = com.rfsentinel.app.esp.OuiSpyBleProtocol.ENGINE_NAMES
+        val ids = all.keys.toList()
+        val on = Prefs.ouiSpyEngines(this)
+        val checked = BooleanArray(ids.size) { ids[it] in on }
+        MaterialAlertDialogBuilder(this)
+            .setTitle("OUI-SPY engines")
+            .setMultiChoiceItems(all.values.toTypedArray(), checked) { _, i, v -> checked[i] = v }
+            .setPositiveButton("OK") { _, _ ->
+                Prefs.setOuiSpyEngines(this, ids.filterIndexed { i, _ -> checked[i] })
+                if (com.rfsentinel.app.service.ScanForegroundService.isRunning) com.rfsentinel.app.service.ScanForegroundService.start(this)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     private class Board(val mac: String, val name: String, val rssi: Int)
 
     private fun showOuiSpyBoards(found: List<com.rfsentinel.app.esp.OuiSpyBle.Found>) {
@@ -836,6 +853,12 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.disable2gLabel, "2G doesn't check that a tower is real. Turning it off is the best protection against fake cell towers (IMSI catchers).")
         info(binding.cellSecurityLabel, "Android 15 and newer can warn you when a network asks for your phone's identity or turns encryption off.")
         info(binding.ouiSpyRelaySwitch, "Every device the OUI-SPY board hears comes into the list, not just its own matches.")
+        info(binding.ouiSpyEnginesButton, "Which of the board's detection engines run: Flock BLE and Flock WiFi (Flock Safety " +
+            "cameras), Sky Spy (drones) and Detector. Where there are no Flock cameras, turn the two Flock engines off. " +
+            "RF Sentinel's own checks are set under Categories.")
+        info(binding.ouiSpyPhoneBleSwitch, "Off: while the OUI-SPY board is connected and live, the phone's own Bluetooth scan " +
+            "pauses and the board does the Bluetooth scanning (it hears farther, and faster). It comes back on its own if the " +
+            "board drops out. Turn on Relay everything too, or only the board's engine matches come in.")
         info(binding.rtl5gSwitch, "For RTL8811AU / RTL8821AU adapters such as the ALFA AWUS036ACS. Experimental.")
         info(binding.usbLightSwitch, "For RTL8811AU / RTL8821AU adapters such as the ALFA AWUS036ACS: the light blinks with received traffic.")
         info(binding.pinpointSwitch, "Works out where a flagged device is from many readings as you move (GPS runs precise every second while one is in range).")
@@ -2225,6 +2248,7 @@ class SettingsActivity : AppCompatActivity() {
         com.rfsentinel.app.esp.EspBoards.onStatusChanged = { runOnUiThread { updateEspStatus() } }
         com.rfsentinel.app.esp.OuiSpyBle.onStatusChanged = { runOnUiThread { updateEspStatus() } }
         binding.ouiSpyButton.setOnClickListener { pairOuiSpy() }
+        binding.ouiSpyEnginesButton.setOnClickListener { chooseOuiSpyEngines() }
         binding.linkButton.setOnClickListener { startActivity(Intent(this, com.rfsentinel.app.ui.SentinelLinkActivity::class.java)) }
         binding.usbWifiLogButton.setOnClickListener { exportUsbWifiLog() }
         // FOSS build: an adapter waiting for its chip firmware asks to download it.
@@ -2248,6 +2272,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.pinpointSwitch.isChecked = Prefs.pinpointFlagged(this)
         binding.autoRecordSwitch.isChecked = Prefs.autoRecordTrace(this)
         binding.ouiSpyRelaySwitch.isChecked = Prefs.ouiSpyRelayAll(this)
+        binding.ouiSpyPhoneBleSwitch.isChecked = Prefs.ouiSpyPhoneBle(this)
         binding.screenModeGroup.check(when (Prefs.screenMode(this)) {
             Prefs.ScreenMode.ALWAYS_ON -> R.id.screenAlwaysOn
             Prefs.ScreenMode.ON_WHILE_CHARGING -> R.id.screenOnCharging
@@ -2512,6 +2537,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setPinpointFlagged(this, binding.pinpointSwitch.isChecked)
         Prefs.setAutoRecordTrace(this, binding.autoRecordSwitch.isChecked)
         Prefs.setOuiSpyRelayAll(this, binding.ouiSpyRelaySwitch.isChecked)
+        Prefs.setOuiSpyPhoneBle(this, binding.ouiSpyPhoneBleSwitch.isChecked)
         Prefs.setScreenMode(this, when (binding.screenModeGroup.checkedRadioButtonId) {
             R.id.screenAlwaysOn -> Prefs.ScreenMode.ALWAYS_ON
             R.id.screenNormal -> Prefs.ScreenMode.NORMAL

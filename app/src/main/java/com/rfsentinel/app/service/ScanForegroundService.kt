@@ -364,9 +364,7 @@ class ScanForegroundService : Service() {
         // Re-evaluated on every start command, so Settings changes apply live - but the scan is only restarted when
         // its settings changed: Android silently stops delivering to an app that starts more than 5 scans in 30 s
         // (each start here is two), and a car start, Android Auto and Record trace can each send a start command.
-        if (Prefs.bleEnabled(this)) {
-            if (!bleEngine.isScanning() || bleSettingsKey() != bleStartedWith) { bleEngine.stop(); startBle() }
-        } else stopBle()
+        applyBle()
         if (Prefs.wifiEnabled(this)) startWifiPolling() else stopWifiPolling()
         if (Prefs.categoryEnabled(this, Category.DRONE) && NanRemoteId.supported(this) && nearbyWifiAllowed()) {
             if (nanRemoteId == null) nanRemoteId = NanRemoteId(this) { a -> pipeline.post { processPhone(a) } }.also { it.start() }
@@ -392,7 +390,10 @@ class ScanForegroundService : Service() {
         else com.rfsentinel.app.sdr.SdrRadio.stop(this)
         // An OUI-SPY board paired over Bluetooth (App-Controlled firmware).
         Prefs.ouiSpyBoard(this)?.let { addr ->
-            com.rfsentinel.app.esp.OuiSpyBle.start(this, addr, Prefs.ouiSpyRelayAll(this)) { list -> pipeline.post { list.forEach(::processEsp) } }
+            com.rfsentinel.app.esp.OuiSpyBle.onLiveChanged = { serviceScope.launch { applyBle() } }
+            com.rfsentinel.app.esp.OuiSpyBle.start(this, addr, Prefs.ouiSpyRelayAll(this), Prefs.ouiSpyEngines(this)) { list ->
+                pipeline.post { list.forEach(::processEsp) }
+            }
         } ?: com.rfsentinel.app.esp.OuiSpyBle.stop()
         updateLink()
         updateLocationUpdates()
@@ -480,6 +481,17 @@ class ScanForegroundService : Service() {
     private fun bleSettingsKey() = "${Prefs.bleScanMode(this)}|${bleWatched()}"
     /** [bleSettingsKey] of the running scan. */
     private var bleStartedWith = ""
+
+    /**
+     * The phone's Bluetooth scan on or off as Settings say. With "Phone Bluetooth scan with OUI-SPY" off it pauses
+     * while the OUI-SPY board is live (the board hears farther) and comes back as soon as the board drops out.
+     */
+    private fun applyBle() {
+        val toBoard = !Prefs.ouiSpyPhoneBle(this) && Prefs.ouiSpyBoard(this) != null && com.rfsentinel.app.esp.OuiSpyBle.live
+        if (Prefs.bleEnabled(this) && !toBoard) {
+            if (!bleEngine.isScanning() || bleSettingsKey() != bleStartedWith) { bleEngine.stop(); startBle() }
+        } else stopBle()
+    }
 
     private fun startBle() {
         bleStartedAt = System.currentTimeMillis()
