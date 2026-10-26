@@ -53,25 +53,54 @@ class GnssAnalyzerTest {
         val a = GnssAnalyzer()
         feed(a, 0, 30, sky(), 30.0)
         val fake = (1..8).map { Sat(System.GPS, it, 45f + (it % 2) * 0.5f, (it * 10).toFloat(), true) }
-        val out = feed(a, 30_000, 10, fake, 30.0)
-        assertTrue(out.any { it.key == "uniform" })
+        assertTrue(feed(a, 30_000, 10, fake, 30.0).none { it.key == "uniform" }) // a moment isn't enough
+        assertTrue(feed(a, 40_000, 10, fake, 30.0).any { it.key == "uniform" })
     }
 
     @Test
     fun otherSystemsVanishingWhileGpsStaysStrong() {
         val a = GnssAnalyzer()
         feed(a, 0, 60, sky(shift = 10f), 30.0)
-        val out = feed(a, 60_000, 10, sky(shift = 10f, systems = setOf(System.GPS)), 30.0)
+        val out = feed(a, 60_000, 20, sky(shift = 10f, systems = setOf(System.GPS)), 30.0)
         assertTrue(out.any { it.key == "gpsonly" })
     }
 
     @Test
     fun clockSkewAndImpossibleJumps() {
         val a = GnssAnalyzer()
-        assertTrue(a.onFix(GnssAnalyzer.Fix(1_000_000, 1_000_000, 10.0, -20.0, 5f)).isEmpty())
-        val jump = a.onFix(GnssAnalyzer.Fix(1_002_000, 1_002_000, 11.0, -20.0, 5f)) // ~111 km in 2 s
-        assertEquals("jump", jump.single().key)
-        val skew = a.onFix(GnssAnalyzer.Fix(1_004_000 + 3_600_000, 1_004_000, 11.0, -20.0, 5f))
-        assertTrue(skew.any { it.key == "time" })
+        fun fix(t: Long, lat: Double, skewMs: Long = 0) = a.onFix(GnssAnalyzer.Fix(t + skewMs, t, lat, -20.0, 5f))
+        assertTrue(fix(1_000_000, 10.0).isEmpty())
+        // ~111 km in 2 s, and it stays there: a jump once the following fixes agree.
+        assertTrue(fix(1_002_000, 11.0).isEmpty())
+        assertTrue(fix(1_003_000, 11.0).isEmpty())
+        assertTrue(fix(1_004_000, 11.0).isEmpty())
+        assertEquals("jump", fix(1_005_000, 11.0).single().key)
+        // The clock an hour off, fix after fix.
+        assertTrue(fix(1_006_000, 11.0, 3_600_000).isEmpty())
+        assertTrue(fix(1_007_000, 11.0, 3_600_000).isEmpty())
+        assertTrue(fix(1_008_000, 11.0, 3_600_000).any { it.key == "time" })
+    }
+
+    @Test
+    fun oneBadFixOrAHandSetClockIsNoSign() {
+        val a = GnssAnalyzer()
+        fun fix(t: Long, lat: Double, skewMs: Long = 0, networkClock: Boolean = true, acc: Float = 5f) =
+            a.onFix(GnssAnalyzer.Fix(t + skewMs, t, lat, -20.0, acc, networkClock))
+        // Out and straight back: one bad fix.
+        assertTrue((0..6).flatMap { fix(1_000_000L + it * 1000, if (it == 2) 11.0 else 10.0) }.isEmpty())
+        // A rough fix far away isn't even compared.
+        assertTrue(fix(1_008_000, 12.0, acc = 400f).isEmpty())
+        // The phone's clock set by hand: its gap to GNSS time means nothing.
+        assertTrue((0..5).flatMap { fix(1_010_000L + it * 1000, 10.0, 3_600_000, networkClock = false) }.isEmpty())
+        // A leap-second gap (18 s) after a cold start isn't spoofing.
+        assertTrue((0..5).flatMap { fix(1_020_000L + it * 1000, 10.0, 18_000) }.isEmpty())
+    }
+
+    @Test
+    fun equallyStrongSatellitesAllAtOneHeightAreNoSign() {
+        val a = GnssAnalyzer()
+        feed(a, 0, 30, sky(), 30.0)
+        val same = (1..8).map { Sat(System.GPS, it, 45f, 60f + it, true) }
+        assertTrue(feed(a, 30_000, 30, same, 30.0).none { it.key == "uniform" })
     }
 }

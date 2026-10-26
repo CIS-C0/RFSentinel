@@ -68,9 +68,18 @@ object GnssWatch {
         }
     }
 
+    private var appContext: Context? = null
+
     private val fixListener = LocationListenerCompat { loc: Location ->
-        if (loc.provider == LocationManager.GPS_PROVIDER)
-            emit(analyzer.onFix(GnssAnalyzer.Fix(loc.time, System.currentTimeMillis(), loc.latitude, loc.longitude, loc.accuracy)))
+        if (loc.provider == LocationManager.GPS_PROVIDER) {
+            // The phone's clock when the fix was made, not when it was handed over (passive fixes can come late).
+            val ageMs = (android.os.SystemClock.elapsedRealtimeNanos() - loc.elapsedRealtimeNanos) / 1_000_000
+            val networkClock = appContext?.let {
+                runCatching { android.provider.Settings.Global.getInt(it.contentResolver, android.provider.Settings.Global.AUTO_TIME) == 1 }.getOrNull()
+            } ?: false
+            emit(analyzer.onFix(GnssAnalyzer.Fix(loc.time, System.currentTimeMillis() - ageMs.coerceAtLeast(0),
+                loc.latitude, loc.longitude, loc.accuracy, networkClock)))
+        }
     }
 
     private fun emit(list: List<GnssAnalyzer.Anomaly>) {
@@ -84,6 +93,7 @@ object GnssWatch {
     @Synchronized
     fun start(context: Context, onAnomaly: ((GnssAnalyzer.Anomaly) -> Unit)? = null) {
         onAnomaly?.let { listeners += it }
+        appContext = context.applicationContext
         users++
         if (users > 1) return
         val lm = context.applicationContext.getSystemService(LocationManager::class.java) ?: return

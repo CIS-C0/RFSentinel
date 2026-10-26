@@ -38,8 +38,12 @@ class GnssAnalyzer {
     /** One receiver report: the satellites, and the input gain when the phone reports it. */
     data class Snapshot(val time: Long, val sats: List<Sat>, val agcDb: Double? = null)
 
-    /** A GNSS fix with the phone's (network) clock when it arrived. */
-    data class Fix(val gnssTime: Long, val systemTime: Long, val lat: Double, val lon: Double, val accuracyM: Float)
+    /**
+     * A GNSS fix with the phone's clock when it was made. [networkClock]: the phone sets its clock from the
+     * network, so a gap between the two clocks means something (a hand-set clock can be off by anything).
+     */
+    data class Fix(val gnssTime: Long, val systemTime: Long, val lat: Double, val lon: Double, val accuracyM: Float,
+                   val networkClock: Boolean = true)
 
     data class Anomaly(val key: String, val title: String, val detail: String, val confidence: Int)
 
@@ -52,6 +56,11 @@ class GnssAnalyzer {
     private var uniformSince = 0L
     private var gpsOnlySince = 0L
     private var lastFix: Fix? = null
+    /** Fixes in a row whose clock is far off the network's. */
+    private var skewedFixes = 0
+    /** A jump waiting to be confirmed by the fixes after it (one bad fix jumps out and back). */
+    private class Jump(val from: Fix, val to: Fix) { var confirms = 0 }
+    private var jump: Jump? = null
     private val lastAlert = HashMap<String, Long>()
 
     /** The latest state in words, for the satellite screen. */
@@ -93,9 +102,11 @@ class GnssAnalyzer {
             val mean = cn.average()
             val sd = sqrt(cn.sumOf { (it - mean) * (it - mean) } / cn.size)
             val corr = correlation(strong.map { it.elevation.toDouble() }, cn)
-            if (sd < UNIFORM_SD_DB && mean >= 38) {
+            // Alike only means something when they're spread over the sky: low ones are weaker for real.
+            val heights = strong.maxOf { it.elevation } - strong.minOf { it.elevation }
+            if (sd < UNIFORM_SD_DB && mean >= 38 && heights >= UNIFORM_MIN_SPREAD_DEG) {
                 if (uniformSince == 0L) uniformSince = s.time
-                if (s.time - uniformSince >= SUSTAIN_MS) report(out, s.time, "uniform", "GNSS spoofing signs",
+                if (s.time - uniformSince >= SPOOF_SUSTAIN_MS) report(out, s.time, "uniform", "GNSS spoofing signs",
                     "${strong.size} satellites all arrive at almost the same strength (${fmt(mean)} dB-Hz, spread ${fmt(sd)} dB) " +
                         "whatever their height in the sky. Real satellites near the horizon are weaker; one fake transmitter " +
                         "makes them all alike.", if (corr < 0.1) 65 else 50)
@@ -106,13 +117,16 @@ class GnssAnalyzer {
         val now = s.time
         val present = tracked.filter { it.cn0 >= 20f }.map { it.system }.toSet()
         for (sys in present) systemsSeen[sys] = now
-        val othersRecently = systemsSeen.filter { (sys, t) -> sys != System.GPS && sys != System.SBAS && sys != System.QZSS && now - t < 10 * 60_000L }.keys
+        // Only systems heard just before: some phones stop tracking the others now and then to save power.
+        val othersRecently = systemsSeen.filter { (sys, t) ->
+            sys != System.GPS && sys != System.SBAS && sys != System.QZSS && now - t < OTHERS_RECENT_MS + SPOOF_SUSTAIN_MS
+        }.keys
         val gpsStrong = tracked.count { it.system == System.GPS && it.cn0 >= 30f } >= 4
         val othersGone = othersRecently.isNotEmpty() && othersRecently.none { it in present }
         if (gpsStrong && othersGone && cn0Base != null) {
             if (gpsOnlySince == 0L) gpsOnlySince = s.time
-            if (s.time - gpsOnlySince >= SUSTAIN_MS) report(out, s.time, "gpsonly", "GNSS spoofing signs",
-                "GPS is still strong, but ${othersRecently.joinToString { it.label }} - tracked a few minutes ago - vanished at once. " +
+            if (s.time - gpsOnlySince >= SPOOF_SUSTAIN_MS) report(out, s.time, "gpsonly", "GNSS spoofing signs",
+                "GPS is still strong, but ${othersRecently.joinToString { it.label }} - tracked moments before - vanished at once. " +
                     "Most spoofers fake GPS only.", 50)
         } else gpsOnlySince = 0L
 
@@ -132,25 +146,47 @@ class GnssAnalyzer {
         return out
     }
 
-    /** Spoofing: GNSS time far from network time, or a jump no vehicle could make. */
+    /**
+     * Spoofing: GNSS time far from network time for several fixes, or a jump no vehicle could make that the
+     * fixes after it confirm. Rough fixes are left out: they wander on their own.
+     */
     fun onFix(f: Fix): List<Anomaly> {
         val out = ArrayList<Anomaly>()
+        if (f.accuracyM > MAX_FIX_ACCURACY_M) return out
+        // A receiver just started can be a leap-second count (18 s) off for a while: only far more counts.
         val skew = abs(f.gnssTime - f.systemTime) / 1000
-        if (skew >= TIME_SKEW_S) report(out, f.systemTime, "time", "GNSS spoofing signs",
-            "The satellite clock says ${skew} s ${if (f.gnssTime > f.systemTime) "ahead of" else "behind"} the network time. " +
-                "Spoofers often shift the time.", 55)
-        lastFix?.let { p ->
-            val dt = (f.gnssTime - p.gnssTime) / 1000.0
-            if (dt in 0.5..120.0) {
-                val d = distanceM(p.lat, p.lon, f.lat, f.lon) - p.accuracyM - f.accuracyM
-                if (d / dt > MAX_SPEED_MPS) report(out, f.systemTime, "jump", "GNSS spoofing signs",
-                    "The position jumped ${fmt(d / 1000)} km in ${fmt(dt)} s (${(d / dt * 3.6).toInt()} km/h). " +
-                        "No car or plane moves like that; a spoofer moving the fake position can.", 55)
-            }
-        }
+        if (f.networkClock && skew >= TIME_SKEW_S) {
+            if (++skewedFixes >= SKEW_FIXES) report(out, f.systemTime, "time", "GNSS spoofing signs",
+                "The satellite clock says ${skew} s ${if (f.gnssTime > f.systemTime) "ahead of" else "behind"} the network time, " +
+                    "fix after fix. Spoofers often shift the time.", 55)
+        } else skewedFixes = 0
+        val p = lastFix
+        val pending = jump
+        if (pending != null && p != null) {
+            if (plausible(p, f)) {
+                if (++pending.confirms >= JUMP_CONFIRMS) {
+                    jump = null
+                    val dt = (pending.to.gnssTime - pending.from.gnssTime) / 1000.0
+                    val d = gapM(pending.from, pending.to)
+                    report(out, f.systemTime, "jump", "GNSS spoofing signs",
+                        "The position jumped ${fmt(d / 1000)} km in ${fmt(dt)} s (${(d / dt * 3.6).toInt()} km/h) and stayed there. " +
+                            "No car or plane moves like that; a spoofer moving the fake position can.", 55)
+                }
+            } else jump = null // back where it was (one bad fix), or jumping about: no sign
+        } else if (p != null && speedMps(p, f)?.let { it > MAX_SPEED_MPS } == true) jump = Jump(p, f)
         lastFix = f
         return out
     }
+
+    private fun gapM(a: Fix, b: Fix) = distanceM(a.lat, a.lon, b.lat, b.lon) - a.accuracyM - b.accuracyM
+
+    /** Speed between two fixes, or null when they're too close in time or too far apart to compare. */
+    private fun speedMps(a: Fix, b: Fix): Double? {
+        val dt = (b.gnssTime - a.gnssTime) / 1000.0
+        return if (dt in 0.5..120.0) gapM(a, b) / dt else null
+    }
+
+    private fun plausible(a: Fix, b: Fix) = speedMps(a, b)?.let { it <= MAX_SPEED_MPS } == true
 
     private fun report(out: MutableList<Anomaly>, now: Long, key: String, title: String, detail: String, confidence: Int) {
         if (now - (lastAlert[key] ?: Long.MIN_VALUE / 2) < REPEAT_MS) return
@@ -162,11 +198,23 @@ class GnssAnalyzer {
 
     companion object {
         const val SUSTAIN_MS = 4_000L
+        /** Spoofing signs must last this long: a moment of odd readings happens under trees and between buildings. */
+        const val SPOOF_SUSTAIN_MS = 15_000L
+        /** Other systems must have been heard this recently before they "vanished at once". */
+        private const val OTHERS_RECENT_MS = 30_000L
+        /** Equally strong satellites count only when they're this many degrees apart in height. */
+        private const val UNIFORM_MIN_SPREAD_DEG = 30f
+        /** Fixes in a row with a far-off clock before it counts. */
+        private const val SKEW_FIXES = 3
+        /** Fixes after a jump that must agree with the new position. */
+        private const val JUMP_CONFIRMS = 3
+        /** Rougher fixes than this aren't checked for jumps or clock gaps. */
+        private const val MAX_FIX_ACCURACY_M = 50f
         private const val REPEAT_MS = 10 * 60_000L
         private const val AGC_JAM_DB = 6.0
         private const val CN0_JAM_DB = 8.0
         private const val UNIFORM_SD_DB = 1.5
-        private const val TIME_SKEW_S = 20L
+        private const val TIME_SKEW_S = 60L
         private const val MAX_SPEED_MPS = 340.0
 
         private fun fmt(v: Double) = "%.1f".format(java.util.Locale.US, v)
