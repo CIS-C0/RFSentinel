@@ -25,7 +25,7 @@ object EspBoards {
 
     private val running = HashMap<String, Running>()
     private var receiver: BroadcastReceiver? = null
-    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    private val main by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
     private var onSightings: ((List<EspSighting>) -> Unit)? = null
 
     /** Latest status per board, for Settings and the notification. */

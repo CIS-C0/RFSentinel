@@ -1,0 +1,9 @@
+- Live read card on the map and floating map while locating or pinpointing.
+- GPS dot: red, yellow, green by accuracy.
+- Plugged-in USB devices get access without asking (tick Always).
+- OUI-SPY: choose engines; let the board do Bluetooth scanning.
+- Fake tracker flood: weighted score, quieter in crowds.
+- Stricter GNSS spoofing signs.
+- Radio sensitivity down to 6 dB.
+- Match history shows WiFi band, channel and more.
+- Meshtastic channel slot and hops; GPS voice toggle.

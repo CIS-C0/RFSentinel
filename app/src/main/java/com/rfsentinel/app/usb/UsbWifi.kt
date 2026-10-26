@@ -143,7 +143,7 @@ object UsbWifi {
     )
 
     private var receiver: BroadcastReceiver? = null
-    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    private val main by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
     /** Debug builds: driver commands from adb, e.g.
      *  `adb shell am broadcast -a com.rfsentinel.app.USB_WIFI_CMD -p com.rfsentinel.app.debug --es cmd "park 11"` */
     private var cmdReceiver: BroadcastReceiver? = null

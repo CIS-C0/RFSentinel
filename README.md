@@ -169,6 +169,8 @@ Everything the app does, grouped by area.
 - **Evidence fusion:** independent matches on one device strengthen each other (noisy-OR, capped at 90)
 - **Patrol-vehicle detection:** police-type gear whose signals rise and fall together is grouped as a possible police vehicle
 - **Address-rotation linking:** keeps following a device when its Bluetooth address changes, including in Locate
+- **Live read card:** while Locate follows a device or a flagged device is being pinpointed, the map and the floating map show its flag, signal bar, dBm, rough distance and whether you're getting closer, with a ✕ to close it
+- **GPS dot:** the main screen's status shows red without a position, yellow when rougher than 20 m, green at 20 m or better
 - **Pinpointing:** a flagged device you pass from more than one side is placed where it most likely is, from its signal at every spot you passed (multilateration), with a circle it's very likely in; a straight road that can't tell the side gets a circle covering both. GPS runs precise every second while a flagged device is in range (Settings → Location, on by default)
 - **Follower alerts:** a tracker or flagged device that stays with you (default 10 min and 800 m, adjustable) raises *may be following you*, and so does one that keeps turning up - heard at 3 or more places along your way within 2 hours, even with gaps between
 - **Remote ID drones** decoded live, with a *drone overhead* alert within 200 m
@@ -382,7 +384,8 @@ The app never connects to a device. The details screen shows why it's flagged
 (each signature with its evidence and source), identity and how it was
 determined, address type and trackability, decoded protocol data, WiFi band,
 channel and security, drone Remote ID with drone and operator positions, a live
-signal graph with **Locate** mode (beeps faster as you get closer), history, and
+signal graph with **Locate** mode (beeps faster as you get closer; it keeps going while you
+look at the map, where a live read card shows the signal, rough distance and trend), history, and
 the raw advertisement, plus its **Category**. **Rename** gives the device your own name (shown in the
 list, on the map and in history) and **Add note** keeps a note with it; named or
 noted devices stay in the history. **I saw it** is different: it doesn't just label
@@ -606,8 +609,9 @@ RF Sentinel works with the phone alone. These add-ons extend what it can hear.
 
 ### ESP32 boards
 
-Plug an ESP32 board into the phone with a USB OTG cable while scanning (allow
-USB access the first time), or pair one over Bluetooth. What the board reports
+Plug an ESP32 board into the phone with a USB OTG cable while scanning (Android
+offers RF Sentinel when it's plugged in; tick **Always** and it never asks again),
+or pair one over Bluetooth. SDR dongles and USB WiFi adapters work the same way. What the board reports
 merges into the list with a blue **ESP32** badge.
 
 | Firmware | Link | What RF Sentinel gets |
@@ -648,7 +652,12 @@ Spy and Detector engines, and by default its Wardrive survey engine so the board
 relays **every** WiFi network and Bluetooth device for RF Sentinel's own rules.
 In that mode the board sends standard WiFi probe requests; turn **Settings →
 OUI-SPY: relay every network and Bluetooth device** off to keep it listening
-only. The board's UniPwn, PCAP and Foxhunter engines are never used.
+only. **Settings → OUI-SPY engines** chooses which detection engines run (turn
+the two Flock ones off where there are no Flock cameras). With **Phone Bluetooth
+scan with OUI-SPY** off, the phone's own Bluetooth scan pauses while the board is
+live and the board does the Bluetooth scanning (it hears farther); it comes back
+if the board drops out. Keep relaying on with it, or only the board's engine
+matches come in. The board's UniPwn, PCAP and Foxhunter engines are never used.
 
 </details>
 
@@ -748,7 +757,7 @@ its name when known, signal above the noise, and whether it's **getting closer o
 moving away**. The dongle's status shows on the main screen next to the other
 hardware. **Settings → RTL-SDR radio**:
 
-- **Sensitivity** (how far above the noise a burst must be), the **built-in bands**
+- **Sensitivity** (how far above the noise a burst must be, down to 6 dB to test how far a radio carries), the **built-in bands**
   on / off, **your own bands**, **ranges never to report** (e.g. a business band)
   and **frequencies to watch** (reported whenever they're active), one per line in MHz.
 - **Radio waterfall** (Tools → *Radio waterfall*): a live picture of the watched
@@ -839,7 +848,9 @@ region** once in the Meshtastic app. Fit the antenna before powering it.
 4. Start a scan. The status line goes to *Meshtastic node · connected*.
 
 RF Sentinel adds a private channel named **RFSentinel** to a free channel slot
-of the node; its key is made from the group's key, so every phone of the group
+of the node (or the slot you choose; never the primary channel, which is often a
+city's public one). **Hops** (1 by default) sets how many times other nodes pass a
+packet on, so a city mesh isn't flooded; its key is made from the group's key, so every phone of the group
 gets the same channel and only your group can read it. Each packet is also
 encrypted and signed with the group's key. If every slot is in use, free one in
 the Meshtastic app.
