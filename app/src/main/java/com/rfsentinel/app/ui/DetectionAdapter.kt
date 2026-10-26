@@ -54,11 +54,13 @@ class DetectionAdapter(
                 else 0xFFB26A00.toInt()
             )
         )
-        holder.binding.macText.text = item.mac + (item.vendor?.let { "  ·  $it" } ?: "")
+        // Its name or network (SSID) first when it had one: easier to recognise than the address.
+        holder.binding.macText.text = listOfNotNull(item.deviceName?.takeIf { it.isNotBlank() }, item.mac, item.vendor).joinToString("  ·  ")
         val parts = mutableListOf<String>()
         category?.let { parts += it.shortTag }
         if (item.confidence > 0) parts += "${Tier.of(item.confidence).label} ${item.confidence}%"
         parts += "${item.source} ${ProximityUtil.band(item.rssi)} ${item.rssi} dBm"
+        item.radio?.let { parts += it }
         parts += fmt.format(Date(item.timestamp))
         if (item.latitude != null) parts += String.format(Locale.US, "📍 %.4f, %.4f", item.latitude, item.longitude)
         holder.binding.metaText.text = parts.joinToString(" · ")

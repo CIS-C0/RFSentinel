@@ -679,6 +679,35 @@ object DeviceIntel {
         else -> "Open (no password)"
     }
 
+    /** "2.4 GHz", "5 GHz" or "6 GHz" for a WiFi frequency, or null when unknown. */
+    fun wifiBand(mhz: Int): String? = when {
+        mhz in 2400..2500 -> "2.4 GHz"
+        mhz in 4900..5925 -> "5 GHz"
+        mhz in 5925..7125 -> "6 GHz"
+        else -> null
+    }
+
+    /**
+     * The radio side of a sighting in a few words, for the match history: WiFi "5 GHz · channel 36 · WPA2 · 802.11ax",
+     * Bluetooth "BLE · Random static · connectable · LE 1M · TX 4 dBm". Null when there is nothing to say.
+     */
+    fun radioSummary(a: Advert): String? {
+        val w = a.wifi
+        val parts = if (a.isWifi && w != null) listOfNotNull(
+            wifiBand(w.frequencyMhz),
+            channelOf(w.frequencyMhz).takeIf { it > 0 }?.let { "channel $it" },
+            if (w.client) "client device" else w.capabilities.takeIf { it.isNotBlank() }?.let { security(it) },
+            w.standard?.takeIf { it != WIFI_AWARE }
+        ) else if (a.isBle) listOfNotNull(
+            "BLE",
+            a.addressType.takeIf { it != AddressType.UNKNOWN }?.label,
+            if (a.connectable == true) "connectable" else null,
+            a.phy,
+            a.txPower?.let { "TX $it dBm" }
+        ) else emptyList()
+        return parts.takeIf { it.size > 1 || (it.isNotEmpty() && !a.isBle) }?.joinToString(" · ")
+    }
+
     fun channelOf(mhz: Int): Int = when {
         mhz == 2484 -> 14
         mhz in 2412..2472 -> (mhz - 2407) / 5

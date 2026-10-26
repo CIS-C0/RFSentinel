@@ -425,4 +425,17 @@ class IdentifyMoreTest {
         assertEquals(null, DeviceIntel.automotiveMaker("DENSO WAVE INC."))
         assertEquals("Denso", DeviceIntel.automotiveMaker("DENSO Co.,Ltd"))
     }
+
+    @Test
+    fun theMatchHistoryKeepsTheRadioSide() {
+        val ap = Advert("02:00:00:00:00:C1", Advert.Source.WIFI, -60, "Cafe",
+            wifi = Advert.WifiInfo(5180, "[WPA2-PSK-CCMP][ESS]", "802.11ax", emptyList()))
+        assertEquals("5 GHz · channel 36 · WPA2 · 802.11ax", DeviceIntel.radioSummary(ap))
+        val six = Advert("02:00:00:00:00:C2", Advert.Source.WIFI, -60, "x", wifi = Advert.WifiInfo(5975, "[SAE]", null, emptyList()))
+        assertEquals("6 GHz · channel 5 · WPA3", DeviceIntel.radioSummary(six))
+        val tag = Advert("C2:00:00:00:00:C3", Advert.Source.BLE, -60, addressType = AddressType.RANDOM_STATIC,
+            connectable = true, phy = "LE 1M", txPower = 4)
+        assertEquals("BLE · Random static · connectable · LE 1M · TX 4 dBm", DeviceIntel.radioSummary(tag))
+        assertNull(DeviceIntel.radioSummary(Advert("C2:00:00:00:00:C4", Advert.Source.BLE, -60)))
+    }
 }

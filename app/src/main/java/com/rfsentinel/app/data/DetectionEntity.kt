@@ -21,5 +21,7 @@ data class DetectionEntity(
     @ColumnInfo(defaultValue = "0") val confidence: Int = 0,
     @ColumnInfo(defaultValue = "") val evidence: String = "",
     val vendor: String? = null,
-    val deviceName: String? = null
+    val deviceName: String? = null,
+    /** The radio side in words ("5 GHz · channel 36 · WPA2"), from v2.30 ([com.rfsentinel.app.detect.DeviceIntel.radioSummary]). */
+    val radio: String? = null
 )

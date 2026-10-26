@@ -998,7 +998,8 @@ class ScanForegroundService : Service() {
                     confidence = best.confidence,
                     evidence = best.evidence,
                     vendor = vendor,
-                    deviceName = a.name
+                    deviceName = a.name,
+                    radio = com.rfsentinel.app.detect.DeviceIntel.radioSummary(a)
                 )
             )
         }

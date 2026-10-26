@@ -12,7 +12,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         DetectionEntity::class, WhitelistEntity::class, KnownDeviceEntity::class,
         TripEntity::class, TripPointEntity::class, TripDeviceEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -92,13 +92,20 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v2.30: the match history keeps the radio side (WiFi band, channel, security; Bluetooth address type...). */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE detections ADD COLUMN radio TEXT")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "rfsentinel.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build().also { INSTANCE = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build().also { INSTANCE = it }
             }
         }
     }
