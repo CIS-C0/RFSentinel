@@ -392,7 +392,8 @@ class ScanForegroundService : Service() {
         else com.rfsentinel.app.sdr.SdrRadio.stop(this)
         // An OUI-SPY board paired over Bluetooth (App-Controlled firmware).
         Prefs.ouiSpyBoard(this)?.let { addr ->
-            com.rfsentinel.app.esp.OuiSpyBle.onLiveChanged = { serviceScope.launch { applyBle() } }
+            // On the main thread, like every other start / stop of the phone's scan.
+            com.rfsentinel.app.esp.OuiSpyBle.onLiveChanged = { locatingHandler.post { if (isRunning) applyBle() } }
             com.rfsentinel.app.esp.OuiSpyBle.start(this, addr, Prefs.ouiSpyRelayAll(this), Prefs.ouiSpyEngines(this)) { list ->
                 pipeline.post { list.forEach(::processEsp) }
             }
@@ -1688,6 +1689,7 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.sdr.SdrRadio.location = null
         if (gnssWatching) { GnssWatch.stop(this, gnssListener); gnssWatching = false }
         if (onlineWatchLazy.isInitialized()) onlineWatch.stop() // not built just to be stopped
+        com.rfsentinel.app.esp.OuiSpyBle.onLiveChanged = null // its stop must not restart the phone's scan here
         com.rfsentinel.app.esp.OuiSpyBle.stop()
         stopLink()
         // External hardware is gone with the scan: its "heard by" marks (External filter, badges) go too.
