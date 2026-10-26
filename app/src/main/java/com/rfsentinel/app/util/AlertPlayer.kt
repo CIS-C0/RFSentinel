@@ -187,7 +187,7 @@ object AlertPlayer {
 
     /** Radar-detector sound style: "GPS connected" once the first good fix arrives. */
     fun gpsConnected(context: Context) {
-        if (Prefs.detectorSound(context)) announce(context, "GPS connected")
+        if (Prefs.detectorSound(context) && Prefs.gpsVoice(context)) announce(context, "GPS connected")
     }
 
     /** A spoken navigation instruction (no beep, no vibration); silent when alerts are muted. */

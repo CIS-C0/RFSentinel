@@ -264,6 +264,13 @@
                 android:paddingStart="24dp"
                 android:text="Start beep when a scan starts" />
 
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/gpsVoiceSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="24dp"
+                android:text="Say GPS connected" />
+
             <Button
                 android:id="@+id/detectorEffectButton"
                 style="@style/Widget.MaterialComponents.Button.TextButton"

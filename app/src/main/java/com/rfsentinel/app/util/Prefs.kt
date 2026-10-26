@@ -477,6 +477,10 @@ object Prefs {
     fun startupSweep(context: Context): Boolean = bool(context, "startup_sweep", false)
     fun setStartupSweep(context: Context, value: Boolean) = setBool(context, "startup_sweep", value)
 
+    /** Radar-detector sound style: say "GPS connected" when the GPS locks (on by default). */
+    fun gpsVoice(context: Context): Boolean = bool(context, "gps_voice", true)
+    fun setGpsVoice(context: Context, value: Boolean) = setBool(context, "gps_voice", value)
+
     /** Play the intro sound when a scan starts. */
     fun scanIntro(context: Context): Boolean = bool(context, "scan_intro", false)
     fun setScanIntro(context: Context, value: Boolean) = setBool(context, "scan_intro", value)

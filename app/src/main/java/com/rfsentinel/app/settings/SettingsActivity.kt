@@ -487,7 +487,7 @@ class SettingsActivity : AppCompatActivity() {
                 "Radar-detector sound (off by default): radar-detector alert sounds instead of the plain beeps - " +
                 "by strength (effect 1 strong, 2 probable, 3 weak, 4 following) or always the effect you pick - then " +
                 "the short voice says what it is (\"Body cam\"); the proximity beeps use a pulse of the same effect. " +
-                "\"GPS connected\" when the GPS locks; optional start beep (power-on sweep) when a scan starts, off by default.\n\n" +
+                "\"GPS connected\" when the GPS locks (can be turned off); optional start beep (power-on sweep) when a scan starts, off by default.\n\n" +
                 "Intro sound (off by default): plays when a scan starts.\n\n" +
                 "Re-alert: how long before the same device can alert again."),
         Section("voice", binding.headerVoice, binding.sectionVoice,
@@ -817,6 +817,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.thresholdMedium.text = tagged("Probable", "recommended")
         info(binding.radarBeepSwitch, "Beeps faster as a flagged device gets closer, like a radar detector.")
         info(binding.detectorSoundSwitch, "Alerts use radar-detector tones (Ka, K and X) and say \"GPS connected\" when the first GPS fix comes in.")
+        info(binding.gpsVoiceSwitch, "With the radar-detector sound: says \"GPS connected\" when the GPS locks, and again when it comes back after losing the fix.")
         info(binding.dedupeLabel, "The same device won't alert again until this many minutes have passed.")
         withUnit(binding.dedupeInput, "min")
         info(binding.shortVoiceSwitch, "\"Body cam\", \"Police car\", \"Speed camera, 50\" instead of whole sentences.")
@@ -2157,6 +2158,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.radarBeepSwitch.isChecked = Prefs.radarBeep(this)
         binding.detectorSoundSwitch.isChecked = Prefs.detectorSound(this)
         binding.startupSweepSwitch.isChecked = Prefs.startupSweep(this)
+        binding.gpsVoiceSwitch.isChecked = Prefs.gpsVoice(this)
         binding.scanIntroSwitch.isChecked = Prefs.scanIntro(this)
         updateDetectorEffectButton()
         binding.detectorEffectButton.isEnabled = binding.detectorSoundSwitch.isChecked
@@ -2490,6 +2492,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setRadarBeep(this, binding.radarBeepSwitch.isChecked)
         Prefs.setDetectorSound(this, binding.detectorSoundSwitch.isChecked)
         Prefs.setStartupSweep(this, binding.startupSweepSwitch.isChecked)
+        Prefs.setGpsVoice(this, binding.gpsVoiceSwitch.isChecked)
         Prefs.setScanIntro(this, binding.scanIntroSwitch.isChecked)
         Prefs.setVibrateEnabled(this, binding.vibrateSwitch.isChecked)
         Prefs.setVoiceEnabled(this, binding.voiceSwitch.isChecked)
