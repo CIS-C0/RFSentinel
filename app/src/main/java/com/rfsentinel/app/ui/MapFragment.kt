@@ -178,6 +178,7 @@ class MapFragment : Fragment() {
     private var navArgsHandled = false
     private var alertCards: AlertCardController? = null
     private var stopAlertCards: (() -> Unit)? = null
+    private var stopLiveRead: (() -> Unit)? = null
     private var rf: RfMap? = null
     private val map: MapEngine? get() = rf?.map
     private var lastFix: Location? = null
@@ -294,6 +295,9 @@ class MapFragment : Fragment() {
                 // One that came in just before this screen opened (tapping its notification, say) is still shown.
                 AlertCards.latest?.takeIf { System.currentTimeMillis() - it.atMs < 6_000L }?.let { cards.show(it) }
             }
+            // Locate or pinpointing: the followed device's live signal, on the full map and the main screen's pane.
+            val live = LiveReadCard(binding.liveRead)
+            stopLiveRead = LiveRead.addListener { live.show(it) }
         } else {
             binding.searchButton.visibility = View.GONE
         }
@@ -1257,6 +1261,7 @@ class MapFragment : Fragment() {
     override fun onDestroyView() {
         if (safetyArmed) { safetyArmed = false; MapSafety.disarm(act) } // leaving normally is not a crash
         stopAlertCards?.invoke(); stopAlertCards = null
+        stopLiveRead?.invoke(); stopLiveRead = null
         alertCards?.hide(); alertCards = null
         nav?.destroy(); nav = null
         stopObservingBulk?.invoke()

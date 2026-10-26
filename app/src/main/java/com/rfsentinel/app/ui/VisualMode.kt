@@ -127,6 +127,14 @@ object VisualMode {
         else -> 0xFFD0503C.toInt()
     }
 
+    /** Cold blue at the weakest, warm red at the strongest (the signal gauge's scale). */
+    fun heat(level: Float): Int {
+        val stops = intArrayOf(0xFF3D7BD9.toInt(), 0xFF2EA6A0.toInt(), 0xFFE0A33A.toInt(), 0xFFD0503C.toInt())
+        val x = level.coerceIn(0f, 1f) * (stops.size - 1)
+        val i = x.toInt().coerceAtMost(stops.size - 2)
+        return android.animation.ArgbEvaluator().evaluate(x - i, stops[i], stops[i + 1]) as Int
+    }
+
     /** Signal strength 0..1 over -100..-30 dBm. */
     fun dbmLevel(dbm: Int?): Float = dbm?.let { ((it + 100) / 70f).coerceIn(0f, 1f) } ?: 0f
 }

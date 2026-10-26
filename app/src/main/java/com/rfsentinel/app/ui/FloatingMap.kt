@@ -14,7 +14,9 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.view.ContextThemeWrapper
 import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewOutlineProvider
@@ -23,6 +25,8 @@ import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.edit
+import com.rfsentinel.app.R
+import com.rfsentinel.app.databinding.ViewLiveReadBinding
 import com.rfsentinel.app.service.ScanForegroundService
 import com.rfsentinel.app.util.Prefs
 import org.maplibre.android.camera.CameraPosition
@@ -82,6 +86,13 @@ object FloatingMap {
     private var lastHere: Location? = null
     /** Saved-scale zoom (see [ZOOM_SHIFT]). */
     private var zoom = ZOOM
+    /** The map window's place and size, which the live read card follows. */
+    private var mapLp: WindowManager.LayoutParams? = null
+    /** The live read card (Locate or pinpointing): a small window of its own just under the map. */
+    private var live: ViewLiveReadBinding? = null
+    private var liveLp: WindowManager.LayoutParams? = null
+    private var liveCard: LiveReadCard? = null
+    private var stopLive: (() -> Unit)? = null
 
     fun canShow(context: Context) = Settings.canDrawOverlays(context)
 
@@ -131,6 +142,9 @@ object FloatingMap {
 
     private fun removeNow(context: Context) {
         val r = root ?: return
+        stopLive?.invoke(); stopLive = null
+        removeLive(context)
+        mapLp = null
         runCatching { (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).removeView(r) }
         view?.let { v -> runCatching { v.onPause(); v.onStop(); v.onDestroy() } }
         root = null; view = null; map = null; badge = null; waiting = null; border = null
@@ -139,6 +153,52 @@ object FloatingMap {
     }
 
     private fun dp(context: Context, v: Float) = (v * context.resources.displayMetrics.density).toInt()
+
+    private fun overlayType() = if (Build.VERSION.SDK_INT >= 26) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
+
+    /** Shows, updates or (null) removes the live read card under the map. */
+    private fun showLive(context: Context, r: LiveRead.Read?) {
+        if (r == null || root == null) { removeLive(context); return }
+        if (live == null) {
+            val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            val b = ViewLiveReadBinding.inflate(LayoutInflater.from(ContextThemeWrapper(context, R.style.Theme_RFSentinel)))
+            // A little smaller than on the full map: it sits beside another app.
+            b.liveTitle.textSize = 14f; b.liveDetail.textSize = 12f
+            b.root.elevation = 6f * context.resources.displayMetrics.density
+            val lp = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, overlayType(),
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT
+            ).apply { gravity = Gravity.TOP or Gravity.END }
+            if (runCatching { wm.addView(b.root, lp) }.isFailure) return
+            live = b; liveLp = lp; liveCard = LiveReadCard(b)
+            // Placed again once its height is known (above the map when there is no room below).
+            b.root.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
+                if (bottom - top != oldBottom - oldTop) placeLive(context)
+            }
+        }
+        liveCard?.show(r)
+        placeLive(context)
+    }
+
+    /** The card just under the map, its right edge on the map's, at least as wide as the map; above it near the bottom. */
+    private fun placeLive(context: Context) {
+        val b = live ?: return; val lp = liveLp ?: return; val m = mapLp ?: return
+        val dm = context.resources.displayMetrics
+        val gap = dp(context, 6f)
+        lp.width = maxOf(m.width, dp(context, 240f)).coerceAtMost(dm.widthPixels - dp(context, 16f))
+        // Gravity END: x is from the right edge; kept on screen when the map is near the left.
+        lp.x = m.x.coerceIn(0, (dm.widthPixels - lp.width).coerceAtLeast(0))
+        val h = b.root.height.takeIf { it > 0 } ?: dp(context, 84f)
+        lp.y = if (m.y + m.height + gap + h <= dm.heightPixels) m.y + m.height + gap else (m.y - gap - h).coerceAtLeast(0)
+        runCatching { (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).updateViewLayout(b.root, lp) }
+    }
+
+    private fun removeLive(context: Context) {
+        val b = live ?: return
+        runCatching { (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).removeView(b.root) }
+        live = null; liveLp = null; liveCard = null
+    }
 
     @SuppressLint("ClickableViewAccessibility", "SetTextI18n")
     private fun add(context: Context): FrameLayout? {
@@ -150,9 +210,7 @@ object FloatingMap {
         val maxSize = (context.resources.displayMetrics.widthPixels - dp(context, 16f)).coerceAtLeast(minSize)
         val size = prefs.getInt("size", dp(context, SIZE_DP.toFloat())).coerceIn(minSize, maxSize)
         val lp = WindowManager.LayoutParams(
-            size, size,
-            if (Build.VERSION.SDK_INT >= 26) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
+            size, size, overlayType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
@@ -254,7 +312,7 @@ object FloatingMap {
                     val dx = e.rawX - downX; val dy = e.rawY - downY
                     if (abs(dx) > 8 * d || abs(dy) > 8 * d) moved = true
                     // Gravity END: x grows to the left.
-                    if (moved) { lp.x = startX - dx.toInt(); lp.y = startY + dy.toInt(); runCatching { wm.updateViewLayout(frame, lp) } }
+                    if (moved) { lp.x = startX - dx.toInt(); lp.y = startY + dy.toInt(); runCatching { wm.updateViewLayout(frame, lp) }; placeLive(context) }
                 }
                 MotionEvent.ACTION_UP -> {
                     if (pinched) prefs.edit { putFloat("zoom", zoom.toFloat()) }
@@ -291,7 +349,7 @@ object FloatingMap {
                     // Out (left / down) grows it, in (right / up) shrinks it; it stays square.
                     val grow = maxOf(resizeDownX - e.rawX, e.rawY - resizeDownY)
                     val n = (startSize + grow).toInt().coerceIn(minSize, maxSize)
-                    if (n != lp.width) { lp.width = n; lp.height = n; runCatching { wm.updateViewLayout(frame, lp) } }
+                    if (n != lp.width) { lp.width = n; lp.height = n; runCatching { wm.updateViewLayout(frame, lp) }; placeLive(context) }
                 }
                 MotionEvent.ACTION_UP -> prefs.edit { putInt("size", lp.width) }
             }
@@ -301,8 +359,9 @@ object FloatingMap {
         return runCatching {
             wm.addView(frame, lp)
             m.onStart(); m.onResume()
-            root = frame; view = m; badge = count; waiting = wait
+            root = frame; view = m; badge = count; waiting = wait; mapLp = lp
             ScanForegroundService.mapShown(context)
+            stopLive = LiveRead.addListener { showLive(context, it) }
             frame
         }.getOrNull()
     }

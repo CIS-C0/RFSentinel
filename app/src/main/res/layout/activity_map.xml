@@ -283,6 +283,14 @@
                 android:src="@drawable/ic_nav_close"
                 app:tint="#B0BAC1" />
         </LinearLayout>
+
+        <!-- Locate or pinpointing: the followed device's signal, live (LiveReadCard). -->
+        <include
+            android:id="@+id/liveRead"
+            layout="@layout/view_live_read"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp" />
     </LinearLayout>
 
     <!-- Bottom: follow button, device filter chips, controls -->

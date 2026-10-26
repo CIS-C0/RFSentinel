@@ -223,6 +223,8 @@ class ScanForegroundService : Service() {
     private var locationMode = 0
     /** A flagged device was heard recently: GPS runs precise and fast so it can be pinpointed. */
     @Volatile private var locatingUntil = 0L
+    /** This round of [locatingUntil] pinpoints (the setting is on and precise location allowed). */
+    @Volatile private var pinpointing = false
     private val locatingHandler = android.os.Handler(Looper.getMainLooper())
     private val locatingCheck = object : Runnable {
         override fun run() {
@@ -455,17 +457,24 @@ class ScanForegroundService : Service() {
         return DeviceRegistry.GeoSample(now, lat, lon)
     }
 
-    /** A flagged device was heard: keep precise, fast GPS on for a while so it can be pinpointed. */
-    private fun noteLocating() {
+    /**
+     * A flagged device ([mac]) was heard: keep precise, fast GPS on for a while so it can be pinpointed, and show
+     * its live read on the map ([com.rfsentinel.app.ui.LiveRead]).
+     */
+    private fun noteLocating(mac: String) {
         val now = System.currentTimeMillis()
         val was = now < locatingUntil
         locatingUntil = now + LOCATING_HOLD_MS
         // Called for every packet of a flagged device: only the switch-on does the setting / permission checks.
-        if (!was && Prefs.pinpointFlagged(this) && hasFineLocation()) {
-            updateLocationOnMain()
-            locatingHandler.removeCallbacks(locatingCheck)
-            locatingHandler.postDelayed(locatingCheck, LOCATING_HOLD_MS + 1_000)
+        if (!was) {
+            pinpointing = Prefs.pinpointFlagged(this) && hasFineLocation()
+            if (pinpointing) {
+                updateLocationOnMain()
+                locatingHandler.removeCallbacks(locatingCheck)
+                locatingHandler.postDelayed(locatingCheck, LOCATING_HOLD_MS + 1_000)
+            }
         }
+        if (pinpointing) com.rfsentinel.app.ui.LiveRead.pinpoint(mac, now, locatingUntil)
     }
 
     /** A fix good enough to pin a device on the map: under 30 s old and within ~50 m. */
@@ -693,7 +702,7 @@ class ScanForegroundService : Service() {
                 this, mac, trackerHit.label, a.rssi, now, DeviceRegistry.linkedFrom(mac))
         ) return
         if (WhitelistCache.contains(mac)) return
-        noteLocating()
+        noteLocating(mac)
 
         maybeLog(a, best, c.vendor, loc, now)
         maybeAlert(a, best, now, via)
@@ -1664,6 +1673,7 @@ class ScanForegroundService : Service() {
     }
 
     override fun onDestroy() {
+        com.rfsentinel.app.ui.LiveRead.reset()
         com.rfsentinel.app.usb.DeauthWatch.onAttack = null
         com.rfsentinel.app.usb.DeauthWatch.clear()
         com.rfsentinel.app.usb.KarmaWatch.onAttack = null

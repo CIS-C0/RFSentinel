@@ -2,8 +2,6 @@ package com.rfsentinel.app.ui
 
 import android.content.Intent
 import android.graphics.Typeface
-import android.media.AudioManager
-import android.media.ToneGenerator
 import android.net.Uri
 import android.os.Bundle
 import android.util.TypedValue
@@ -17,7 +15,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.rfsentinel.app.util.AlertPlayer
 import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.DetectionEntity
 import com.rfsentinel.app.data.DeviceNames
@@ -37,7 +34,6 @@ import com.rfsentinel.app.util.MacUtil
 import com.rfsentinel.app.util.ProximityUtil
 import com.rfsentinel.app.util.applySystemBarInsets
 import com.rfsentinel.app.util.Prefs
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -70,8 +66,6 @@ class DeviceDetailActivity : AppCompatActivity() {
     /** The saved record's type as this version names it. */
     private val knownType get() = known?.let { DeviceIntel.savedType(it.deviceType, it.vendor, it.mac) }
     private var pastMatches: List<DetectionEntity> = emptyList()
-    private var locateJob: Job? = null
-    private var tone: ToneGenerator? = null
     private val dateFmt = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
     private val timeFmt = DateFormat.getTimeInstance(DateFormat.MEDIUM)
 
@@ -158,11 +152,6 @@ class DeviceDetailActivity : AppCompatActivity() {
 
     private val visual get() = VisualMode.on(this, VisualMode.Screen.DEVICE_DETAIL)
 
-    override fun onPause() {
-        stopLocate()
-        super.onPause()
-    }
-
     // ---- Rendering ------------------------------------------------------------
 
     private fun isRotatingTracker(s: DeviceRegistry.Snapshot?) =
@@ -219,16 +208,8 @@ class DeviceDetailActivity : AppCompatActivity() {
         // Live signal (from the newest address when it rotated)
         if (live != null) {
             binding.rssiText.text = "${live.rssi}"
-            val recent = live.history.takeLast(6).dropLast(1)
-            val trendDir = if (recent.isEmpty()) 0 else {
-                val avg = recent.map { it.rssi }.average()
-                when {
-                    live.rssi > avg + 3 -> 1
-                    live.rssi < avg - 3 -> -1
-                    else -> 0
-                }
-            }
-            val trend = if (recent.isEmpty()) "" else when (trendDir) {
+            val trendDir = LiveRead.trend(live)
+            val trend = if (live.history.size < 2) "" else when (trendDir) {
                 1 -> "  ↑ getting closer"; -1 -> "  ↓ moving away"; else -> "  → steady"
             }
             binding.gauge.set(live.rssi, live.bestRssi, trendDir)
@@ -237,6 +218,7 @@ class DeviceDetailActivity : AppCompatActivity() {
                 (if (liveMac != mac) "\nNow heard as $liveMac" else "")
             binding.graph.setSamples(live.history)
             binding.locateButton.isEnabled = true
+            binding.locateButton.text = if (locatingThis()) "Stop" else "Locate"
         } else {
             binding.rssiText.text = "--"
             binding.gauge.set(null, null, 0)
@@ -690,40 +672,21 @@ class DeviceDetailActivity : AppCompatActivity() {
 
     // ---- Locate (Geiger-counter beeps) ------------------------------------------
 
+    // Locate runs in LiveRead, so it keeps going while you look at the map (its live read card shows there).
+    private fun locatingThis() = LiveRead.locating == mac
+
     private fun toggleLocate() {
-        if (locateJob != null) stopLocate() else startLocate()
+        if (locatingThis()) stopLocate() else startLocate()
     }
 
-    /** The address Locate is following (changes when the device rotates its address). */
-    private var followed: String? = null
-
     private fun startLocate() {
-        followed = null
-        tone = runCatching { ToneGenerator(AudioManager.STREAM_MUSIC, 80) }.getOrNull()
+        LiveRead.startLocate(this, mac)
         binding.locateButton.text = "Stop"
-        Toast.makeText(this, "Walk around: beeps speed up as the signal gets stronger", Toast.LENGTH_LONG).show()
-        locateJob = lifecycleScope.launch {
-            while (isActive) {
-                // Keeps following it when it changes its address (a tag rotating its random address).
-                val liveMac = DeviceRegistry.currentAddress(mac)
-                if (liveMac != followed) {
-                    if (followed != null) Toast.makeText(this@DeviceDetailActivity, "It changed its address - still following it", Toast.LENGTH_SHORT).show()
-                    followed = liveMac
-                }
-                val rssi = DeviceRegistry.get(liveMac)?.rssi ?: -100
-                // Faster as the signal gets stronger (same curve as the radar beeps).
-                val interval = com.rfsentinel.app.util.Beeper.tickIntervalMs(rssi)
-                if (!AlertPlayer.locateTick(this@DeviceDetailActivity)) tone?.startTone(ToneGenerator.TONE_PROP_BEEP, 60)
-                delay(interval)
-            }
-        }
+        Toast.makeText(this, "Walk around: beeps speed up as the signal gets stronger. It keeps going on the map", Toast.LENGTH_LONG).show()
     }
 
     private fun stopLocate() {
-        locateJob?.cancel()
-        locateJob = null
-        tone?.release()
-        tone = null
+        if (locatingThis()) LiveRead.stopLocate()
         if (::binding.isInitialized) binding.locateButton.text = "Locate"
     }
 }

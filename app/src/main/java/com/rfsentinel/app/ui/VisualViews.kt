@@ -57,6 +57,8 @@ class LevelBarView @JvmOverloads constructor(context: Context, attrs: AttributeS
     private val ink = ChipStyle.onSurface(context)
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rect = RectF()
+    /** The empty part's colour, for a bar on a background of its own (the live read card); default a faint ink. */
+    var track: Int? = null
 
     fun set(fraction: Float, color: Int) { this.fraction = fraction.coerceIn(0f, 1f); this.color = color; invalidate() }
 
@@ -66,7 +68,7 @@ class LevelBarView @JvmOverloads constructor(context: Context, attrs: AttributeS
     override fun onDraw(canvas: Canvas) {
         val r = height / 2f
         rect.set(0f, 0f, width.toFloat(), height.toFloat())
-        paint.color = alpha(ink, 0x22); canvas.drawRoundRect(rect, r, r, paint)
+        paint.color = track ?: alpha(ink, 0x22); canvas.drawRoundRect(rect, r, r, paint)
         if (fraction > 0f) {
             rect.right = width * fraction
             paint.color = color; canvas.drawRoundRect(rect, r, r, paint)
@@ -147,13 +149,7 @@ class SignalGaugeView @JvmOverloads constructor(context: Context, attrs: Attribu
 
     private fun trendText() = when (trend) { 1 -> "getting closer"; -1 -> "moving away"; else -> "steady" }
 
-    /** Cold blue at the weakest, warm red at the strongest. */
-    private fun heat(level: Float): Int {
-        val stops = intArrayOf(0xFF3D7BD9.toInt(), 0xFF2EA6A0.toInt(), 0xFFE0A33A.toInt(), 0xFFD0503C.toInt())
-        val x = level.coerceIn(0f, 1f) * (stops.size - 1)
-        val i = x.toInt().coerceAtMost(stops.size - 2)
-        return android.animation.ArgbEvaluator().evaluate(x - i, stops[i], stops[i + 1]) as Int
-    }
+    private fun heat(level: Float) = VisualMode.heat(level)
 
     override fun onMeasure(w: Int, h: Int) {
         val width = MeasureSpec.getSize(w)
