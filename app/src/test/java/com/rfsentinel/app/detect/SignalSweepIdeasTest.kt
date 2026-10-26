@@ -224,6 +224,56 @@ class SignalSweepIdeasTest {
         assertNull(HackerWatch.trackerNetwork(ble("E2:00:00:00:00:01", mfr = mapOf(0x004C to byteArrayOf(0x12, 0x02, 0, 2)))))
     }
 
+    /** Real tags in a crowd: each heard several times, then moving on. */
+    private fun crowd(n: Int, from: Long): Long {
+        var t = from
+        repeat(n) { i -> repeat(5) { HackerWatch.tagFlood(airTag("E0:00:00:00:01:%02X".format(i)), t); t += 100 } }
+        return t
+    }
+
+    @Test
+    fun inACrowdAFloodScoresLow() {
+        var t = fakes(HackerWatch.FLOOD_EVIDENCE, 0L) + HackerWatch.FLOOD_QUIET_MS
+        val alone = HackerWatch.tagFlood(airTag("D1:00:00:00:00:01"), t)!!
+        assertTrue(alone.score >= 70) // all of the tags heard were throwaways, all equally strong
+        HackerWatch.reset()
+        t = crowd(40, 0L)
+        t = fakes(HackerWatch.FLOOD_EVIDENCE, t) + HackerWatch.FLOOD_QUIET_MS
+        val crowded = HackerWatch.tagFlood(airTag("D1:00:00:00:00:01"), t)!!
+        assertTrue(crowded.heard > 40)
+        assertTrue(crowded.score < 50) // most tags here are real: below the default alert threshold
+    }
+
+    @Test
+    fun aFadingFloodDoesntAlertAgain() {
+        var t = fakes(HackerWatch.FLOOD_EVIDENCE, 0L) + HackerWatch.FLOOD_QUIET_MS
+        val first = HackerWatch.tagFlood(airTag("D1:00:00:00:00:01"), t)!!
+        // Near the window's end a crowd arrives and a few more fakes come and go: the score is lower now.
+        t += HackerWatch.FLOOD_WINDOW_MS - 90_000L
+        t = crowd(40, t)
+        t = fakes(HackerWatch.FLOOD_EVIDENCE, t, prefix = "D2") + HackerWatch.FLOOD_QUIET_MS + 40_000L
+        assertNull(HackerWatch.tagFlood(airTag("D1:00:00:00:00:01"), t))
+        assertTrue(first.score > 50)
+    }
+
+    @Test
+    fun findMyKeysARealTagCouldntHave() {
+        // The P-224 generator's x: a point on the curve. Its top two bits go in byte 25, the next 5 bytes in the address.
+        val gx = "b70e0cbd6bb4bf7f321390b94a03c1d356c21122343280d6115c1d21".chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+        fun advert(mac: String, x: ByteArray) = ble(mac, mfr = mapOf(0x004C to byteArrayOf(0x12, 0x19, 0) +
+            x.copyOfRange(6, 28) + byteArrayOf(((x[0].toInt() and 0xFF) shr 6).toByte(), 0)))
+        val on = "F7:0E:0C:BD:6B:B4" // 0xB7's low six bits with the random-static top bits set
+        assertTrue(HackerWatch.findMyKeyValid(advert(on, gx)))
+        // x + 1 is off the curve: no real tag has it.
+        val off = gx.copyOf().also { it[27] = (it[27] + 1).toByte() }
+        assertFalse(HackerWatch.findMyKeyValid(advert(on, off)))
+        // A real tag's address is random static (top two bits set).
+        assertFalse(HackerWatch.findMyKeyValid(advert("37:0E:0C:BD:6B:B4", gx)))
+        // Throwaway addresses that can't be a tag's: counted in the flood.
+        val t = fakes(HackerWatch.FLOOD_EVIDENCE, 0L, prefix = "50") + HackerWatch.FLOOD_QUIET_MS
+        assertEquals(HackerWatch.FLOOD_EVIDENCE, HackerWatch.tagFlood(airTag("D1:00:00:00:00:01"), t)!!.invalidKeys)
+    }
+
     @Test
     fun theFindingNetworks() {
         assertEquals("Google Find Hub", HackerWatch.trackerNetwork(ble("E3:00:00:00:00:01", data = mapOf(Advert.uuid16(0xFEAA) to byteArrayOf(0x41)))))

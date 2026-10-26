@@ -232,8 +232,13 @@ object HackerWatch {
 
     // ---- Fake-tracker flood ---------------------------------------------------------------
 
-    /** A flood of fake [network] trackers: [addresses] throwaway addresses in the last [windowS] s, [sample] one of them. */
-    data class TagFlood(val network: String, val addresses: Int, val sample: String, val windowS: Int)
+    /**
+     * A flood of fake [network] trackers: [addresses] throwaway addresses in the last [windowS] s out of [heard]
+     * tags of that network heard, [sample] one of them. [invalidKeys] of them sent a key no real tag can have;
+     * [spreadDb] is how much their signal strengths differ. [score] weighs it all (the confidence).
+     */
+    data class TagFlood(val network: String, val addresses: Int, val sample: String, val windowS: Int,
+                        val heard: Int = addresses, val invalidKeys: Int = 0, val spreadDb: Int = 0, val score: Int = 65)
 
     /** A real tag keeps its address for a long time; a fake one is heard a couple of times, briefly. */
     const val FLOOD_MAX_HITS = 3
@@ -246,13 +251,23 @@ object HackerWatch {
     /** Weaker than this doesn't count: real tags in passing cars are short-lived too, but far. */
     const val FLOOD_MIN_RSSI = -80
     private const val FLOOD_MAX_ADDRESSES = 64
+    private const val FLOOD_MAX_HEARD = 1024
+    /** Reported again before the window is up only when the score rose this much... */
+    const val FLOOD_RISE = 10
+    /** ...and at least this long after the last report. */
+    const val FLOOD_RISE_GAP_MS = 60_000L
 
-    private class TagAddr(val first: Long, var last: Long, var hits: Int, var best: Int)
+    private class TagAddr(val first: Long, var last: Long, var hits: Int, var best: Int, val invalidKey: Boolean)
+    private class Gone(val at: Long, val best: Int, val invalidKey: Boolean)
     private class Network {
         val addrs = LinkedHashMap<String, TagAddr>()
-        /** When each short-lived address went quiet, by address. */
-        val evidence = LinkedHashMap<String, Long>()
+        /** Each short-lived address that went quiet, by address. */
+        val evidence = LinkedHashMap<String, Gone>()
+        /** Every address of this network heard in the window (real tags too), last heard. */
+        val heard = LinkedHashMap<String, Long>()
         var lastReport = Long.MIN_VALUE / 2
+        /** The score last reported in this flood; 0 once it's over. Never reported again lower. */
+        var lastScore = 0
     }
     private val networks = HashMap<String, Network>()
 
@@ -262,7 +277,7 @@ object HackerWatch {
      */
     internal fun trackerNetwork(a: Advert): String? {
         if (a.source != Advert.Source.BLE) return null
-        a.manufacturerData[0x004C]?.let { d -> if (d.size >= 2 && Bytes.u8(d, 0) == 0x12 && Bytes.u8(d, 1) == 0x19) return "Apple Find My" }
+        a.manufacturerData[0x004C]?.let { d -> if (d.size >= 2 && Bytes.u8(d, 0) == 0x12 && Bytes.u8(d, 1) == 0x19) return FIND_MY }
         a.serviceData[Advert.uuid16(0xFEAA)]?.let { d -> if (d.isNotEmpty() && Bytes.u8(d, 0) in 0x40..0x41) return "Google Find Hub" }
         val shorts = a.serviceData.keys.mapNotNull { Advert.shortOf(it) }
         if (shorts.any { it == 0xFD5A || it == 0xFD59 }) return "Samsung SmartTag"
@@ -283,8 +298,11 @@ object HackerWatch {
         val n = networks.getOrPut(kind) { Network() }
         fun gone(mac: String, t: TagAddr, at: Long) {
             val fake = t.hits <= FLOOD_MAX_HITS && t.last - t.first <= FLOOD_MAX_SPAN_MS && t.best >= FLOOD_MIN_RSSI
-            if (fake && mac !in n.evidence) n.evidence[mac] = at
+            if (fake && mac !in n.evidence) n.evidence[mac] = Gone(at, t.best, t.invalidKey)
         }
+        n.heard.remove(a.mac); n.heard[a.mac] = now
+        n.heard.entries.removeAll { now - it.value > FLOOD_WINDOW_MS }
+        while (n.heard.size > FLOOD_MAX_HEARD) n.heard.remove(n.heard.keys.first())
         val iter = n.addrs.entries.iterator()
         while (iter.hasNext()) {
             val (mac, t) = iter.next()
@@ -294,12 +312,69 @@ object HackerWatch {
         if (t != null) { t.last = now; t.hits++; if (a.rssi > t.best) t.best = a.rssi }
         else {
             if (n.addrs.size >= FLOOD_MAX_ADDRESSES) n.addrs.entries.first().let { (mac, old) -> gone(mac, old, now); n.addrs.remove(mac) }
-            n.addrs[a.mac] = TagAddr(now, now, 1, a.rssi)
+            n.addrs[a.mac] = TagAddr(now, now, 1, a.rssi, kind == FIND_MY && !findMyKeyValid(a))
         }
-        n.evidence.entries.removeAll { now - it.value > FLOOD_WINDOW_MS }
-        if (n.evidence.size < FLOOD_EVIDENCE || now - n.lastReport < FLOOD_WINDOW_MS) return null
+        n.evidence.entries.removeAll { now - it.value.at > FLOOD_WINDOW_MS }
+        if (n.evidence.size < FLOOD_EVIDENCE) { n.lastScore = 0; return null }
+        val f = flood(kind, n)
+        // Again only when it got worse (or, after the window, as bad): never as it fades.
+        val since = now - n.lastReport
+        val rising = n.lastScore > 0 && f.score >= n.lastScore + FLOOD_RISE && since >= FLOOD_RISE_GAP_MS
+        val again = f.score >= n.lastScore && since >= FLOOD_WINDOW_MS
+        if (!rising && !again) return null
         n.lastReport = now
-        return TagFlood(kind, n.evidence.size, n.evidence.keys.last(), (FLOOD_WINDOW_MS / 1000).toInt())
+        n.lastScore = f.score
+        return f
+    }
+
+    /**
+     * Weighs a flood: how many of the network's tags heard here are the throwaway kind (in a crowd most tags
+     * are real and keep their address), how alike their signal strengths are (one transmitter makes them all
+     * about as strong; a crowd's tags are near and far), how many sent a key no real tag can have, and how
+     * many there were.
+     */
+    private fun flood(kind: String, n: Network): TagFlood {
+        val ev = n.evidence.values
+        val count = ev.size
+        val heard = maxOf(n.heard.size, count)
+        val share = count.toDouble() / heard
+        val mean = ev.sumOf { it.best }.toDouble() / count
+        val spread = kotlin.math.sqrt(ev.sumOf { (it.best - mean) * (it.best - mean) } / count)
+        val invalid = ev.count { it.invalidKey }
+        var score = 40
+        score += when { share >= 0.8 -> 20; share >= 0.6 -> 10; share >= 0.4 -> 0; share >= 0.2 -> -15; else -> -30 }
+        score += when { spread <= 4 -> 10; spread <= 8 -> 5; spread >= 15 -> -10; else -> 0 }
+        score += when { count >= 30 -> 10; count >= 15 -> 5; else -> 0 }
+        score += when { invalid >= 3 && invalid * 5 >= count -> 25; invalid >= 1 -> 10; else -> 0 }
+        return TagFlood(kind, count, n.evidence.keys.last(), (FLOOD_WINDOW_MS / 1000).toInt(), heard, invalid,
+            kotlin.math.round(spread).toInt(), score.coerceIn(10, 95))
+    }
+
+    private const val FIND_MY = "Apple Find My"
+    /** P-224 (secp224r1): Find My keys are points on this curve. */
+    private val P224_P = java.math.BigInteger("ffffffffffffffffffffffffffffffff000000000000000000000001", 16)
+    private val P224_B = java.math.BigInteger("b4050a850c04b3abf54132565044b0b7d7bfd8ba270b39432355ffb4", 16)
+
+    /**
+     * Whether a separated Find My advert carries a key a real tag could have: a random static address (its
+     * top two bits set) and, with the advert's 22 key bytes and two top bits, an x that is on the P-224
+     * curve. Every real tag's is; random bytes from a spam tool miss about half the time.
+     */
+    internal fun findMyKeyValid(a: Advert): Boolean {
+        val d = a.manufacturerData[0x004C] ?: return false
+        if (d.size != 27 || Bytes.u8(d, 0) != 0x12 || Bytes.u8(d, 1) != 0x19) return false
+        val mac = a.mac.split(':').mapNotNull { it.toIntOrNull(16) }
+        if (mac.size != 6 || (mac[0] and 0xC0) != 0xC0) return false
+        val key = ByteArray(28)
+        key[0] = ((mac[0] and 0x3F) or ((Bytes.u8(d, 25) and 0x03) shl 6)).toByte()
+        for (i in 1..5) key[i] = mac[i].toByte()
+        System.arraycopy(d, 3, key, 6, 22)
+        val x = java.math.BigInteger(1, key)
+        if (x >= P224_P) return false
+        val p = P224_P
+        val rhs = x.modPow(java.math.BigInteger.valueOf(3), p).subtract(x.multiply(java.math.BigInteger.valueOf(3))).add(P224_B).mod(p)
+        // Euler's criterion: a square mod p (a y exists) when rhs^((p-1)/2) is 1.
+        return rhs.signum() == 0 || rhs.modPow(p.shiftRight(1), p) == java.math.BigInteger.ONE
     }
 
     @Synchronized

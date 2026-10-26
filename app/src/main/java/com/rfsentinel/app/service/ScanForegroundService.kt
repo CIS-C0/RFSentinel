@@ -1502,10 +1502,13 @@ class ScanForegroundService : Service() {
     private fun onTagFlood(f: com.rfsentinel.app.detect.HackerWatch.TagFlood) {
         if (!Prefs.categoryEnabled(this, Category.HACKER)) return
         val now = System.currentTimeMillis()
-        val detail = "${f.addresses} fake ${f.network} trackers in ${f.windowS / 60} min, each heard once or twice on an address " +
-            "it never used again - real tags keep theirs. A Flipper Zero or ESP32 tracker-spam attack makes phones show " +
-            "\"tracker found\" warnings that aren't real. Real trackers are still reported as usual."
-        val hit = Hit(Category.HACKER, "Fake tracker flood (${f.network})", 65, detail,
+        val detail = "${f.addresses} of the ${f.heard} ${f.network} trackers heard in ${f.windowS / 60} min were each heard once or twice " +
+            "on an address they never used again - real tags keep theirs. Their signal strengths differ by about ${f.spreadDb} dB" +
+            (if (f.spreadDb <= 4) " (alike: likely one transmitter)" else "") + "." +
+            (if (f.invalidKeys > 0) " ${f.invalidKeys} sent a key no real tag can have." else "") +
+            " A Flipper Zero or ESP32 tracker-spam attack makes phones show \"tracker found\" warnings that aren't real; " +
+            "in a crowd, many real tags come and go too, which lowers the confidence. Real trackers are still reported as usual."
+        val hit = Hit(Category.HACKER, "Fake tracker flood (${f.network})", f.score, detail,
             "Bluetooth adverts, receive-only; SignalSweep research (GPL-3.0; facts only)")
         reportAttack(f.sample, "BLE", hit, null, "tagflood:" + f.network, "Fake trackers nearby", now)
     }
