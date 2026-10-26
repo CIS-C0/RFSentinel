@@ -496,13 +496,14 @@ class MainActivity : AppCompatActivity() {
                 com.rfsentinel.app.link.PhoneLink.status.takeIf { it.isNotBlank() }?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) },
                 com.rfsentinel.app.link.MeshNode.status.takeIf { it.isNotBlank() }?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) }
             )
-            statusPanel.update(running, warning, hardware, if (locationOff) ::openLocationSettings else null)
+            statusPanel.update(running, warning, hardware, if (locationOff) ::openLocationSettings else null,
+                if (running && !locationOff) com.rfsentinel.app.ui.GpsDot.text(this, demoMode) else null)
             return
         }
         val locationOff = running && !locationOn() && !demoMode
         if (locationOff) binding.statusText.setOnClickListener { openLocationSettings() }
         else { binding.statusText.setOnClickListener(null); binding.statusText.isClickable = false }
-        binding.statusText.text = when {
+        val line: CharSequence = when {
             !running -> "Idle - tap Start to listen for nearby devices"
             locationOff -> "⚠ $LOCATION_OFF"
             !bluetoothOn() && !demoMode -> "Scanning WiFi only - turn on Bluetooth for BLE (picked up automatically)"
@@ -524,6 +525,8 @@ class MainActivity : AppCompatActivity() {
                 com.rfsentinel.app.link.PhoneLink.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
                 com.rfsentinel.app.link.MeshNode.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty()
         }
+        binding.statusText.text = if (running && !locationOff)
+            android.text.SpannableStringBuilder(com.rfsentinel.app.ui.GpsDot.text(this, demoMode)).append(" · ").append(line) else line
     }
 
     /**

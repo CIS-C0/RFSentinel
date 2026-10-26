@@ -33,6 +33,8 @@ class StatusPanel(private val context: Context) {
 
     val root = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
     private val note = TextView(context).apply { textSize = 12f }
+    /** The GPS dot and accuracy while scanning ([GpsDot]). */
+    private val gps = TextView(context).apply { textSize = 12f; visibility = View.GONE }
     private val noteHide = iconButton("✕", "Hide this warning")
     private val noteRow = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; visibility = View.GONE }
     /** The warning hidden with its ✕; a different one shows again. */
@@ -75,6 +77,7 @@ class StatusPanel(private val context: Context) {
         noteHide.setOnClickListener {
             hiddenWarning = shownWarning; noteRow.visibility = View.GONE; onWarningHidden?.invoke()
         }
+        root.addView(gps, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = (4 * dp).toInt() })
         root.addView(noteRow, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = (4 * dp).toInt() })
         root.addView(strip, LinearLayout.LayoutParams(-1, -2))
         root.addView(cards)
@@ -97,7 +100,9 @@ class StatusPanel(private val context: Context) {
      * [running]: scanning; [warning]: a fake-cell or restarted-scan note; [hardware]: the non-blank hardware status lines;
      * [onWarningTap]: what tapping the warning does (e.g. open the Location setting), null when it does nothing.
      */
-    fun update(running: Boolean, warning: String?, hardware: List<Hardware>, onWarningTap: (() -> Unit)? = null) {
+    fun update(running: Boolean, warning: String?, hardware: List<Hardware>, onWarningTap: (() -> Unit)? = null, gpsLine: CharSequence? = null) {
+        gps.visibility = if (gpsLine == null) View.GONE else View.VISIBLE
+        gps.text = gpsLine
         val grey = (ChipStyle.onSurface(context) and 0x00FFFFFF) or 0x99000000.toInt()
         // Idle needs no note here: the Start button says it.
         val shown = if (!running || warning == hiddenWarning) null else warning?.let { "⚠ $it" }

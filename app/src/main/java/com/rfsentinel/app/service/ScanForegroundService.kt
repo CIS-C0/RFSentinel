@@ -72,6 +72,9 @@ class ScanForegroundService : Service() {
         private const val RADAR_HOLD_MS = 120_000L
         /** "GPS connected" again only after the fix was lost this long. */
         private const val GPS_RECONNECT_MS = 120_000L
+        /** The latest position's time and accuracy, for the GPS dot (null: none while scanning). */
+        @Volatile var gpsAt = 0L; private set
+        @Volatile var gpsAccuracyM: Float? = null; private set
         /** No fused fix this long after asking (precise / balanced): raw GPS and network fill in. */
         private const val FUSED_SILENT_FAST_MS = 15_000L
         private const val FUSED_SILENT_MS = 30_000L
@@ -267,6 +270,7 @@ class ScanForegroundService : Service() {
         }
         lastLocation = it
         lastFix = it
+        if (it.hasAccuracy()) { gpsAt = System.currentTimeMillis(); gpsAccuracyM = it.accuracy }
         com.rfsentinel.app.ui.MapGps.offer(it)
         TripRecorder.onLocation(it)
         checkKnownAlpr(it)
@@ -351,6 +355,7 @@ class ScanForegroundService : Service() {
             DeviceRegistry.startSession()
             classified.clear()
             lastGoodGpsAt = 0L
+            gpsAt = 0L; gpsAccuracyM = null
             AlertPlayer.preload(this)
             AlertPlayer.startup(this)
             serviceScope.launch { pruneOldData() }
