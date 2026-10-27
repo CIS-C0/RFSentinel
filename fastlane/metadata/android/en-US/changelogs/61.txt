@@ -1,0 +1,2 @@
+• Smaller, leaner APK: unused library code is now stripped at build time (R8).
+• The APK no longer carries Google's encrypted dependency list.

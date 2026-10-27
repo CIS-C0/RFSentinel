@@ -289,7 +289,7 @@ Everything the app does, grouped by area.
 
 ## Quick start
 
-Requires **Android 8.0 or newer** on an ARM phone, 64-bit or 32-bit (practically every Android phone; the release APK is about 50 MB).
+Requires **Android 8.0 or newer** on an ARM phone, 64-bit or 32-bit (practically every Android phone; the release APK is about 44 MB).
 
 1. On your phone, tap **Download the app** above, or open the [latest release](https://github.com/CIS-C0/RFSentinel/releases/latest).
 2. Under **Assets**, tap the file ending in **`-release.apk`** (not the "Source code" archives).

@@ -7,8 +7,8 @@ plugins {
 }
 
 // Bump both for every release. versionName ends up in the APK file name.
-val appVersionCode = 60
-val appVersionName = "2.30.0"
+val appVersionCode = 61
+val appVersionName = "2.30.1"
 
 // Release signing credentials live in keystore.properties (git-ignored).
 // Without that file, release builds are produced unsigned.
@@ -81,7 +81,8 @@ android {
             // The map engines' native libraries are ~15 MB per CPU type: ARM phones only, 64-bit and 32-bit
             // (older or low-end phones), not the x86 emulator builds, which debug builds keep.
             ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
-            isMinifyEnabled = false
+            // R8 shrinks the libraries' unused code; the app's own classes are kept whole (proguard-rules.pro).
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -91,6 +92,12 @@ android {
 
     // Native libraries stored compressed: a much smaller APK to download (unpacked once at install).
     packaging { jniLibs { useLegacyPackaging = true } }
+
+    // No Google-encrypted dependency list in the APK or bundle (F-Droid's scanner flags it; only Play reads it).
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
