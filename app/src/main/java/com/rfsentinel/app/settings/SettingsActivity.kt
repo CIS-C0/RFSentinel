@@ -2547,6 +2547,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setKnownAlprAlerts(this, binding.knownAlprSwitch.isChecked)
         Prefs.setCellChangeAlerts(this, binding.cellChangeSwitch.isChecked)
         Prefs.setSpeedCameraAlerts(this, binding.speedCameraSwitch.isChecked)
+        if (binding.autoCamerasSwitch.isChecked != Prefs.autoCameras(this)) Prefs.setCamerasAsked(this, true)
         Prefs.setAutoCameras(this, binding.autoCamerasSwitch.isChecked)
         // Turning the check on or off here answers the one-time question too.
         if (binding.autoUpdateSwitch.isChecked != Prefs.autoUpdateCheck(this)) Prefs.setUpdateCheckAsked(this, true)

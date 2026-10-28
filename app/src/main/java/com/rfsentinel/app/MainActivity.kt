@@ -287,7 +287,10 @@ class MainActivity : AppCompatActivity() {
         }
         updateStatus()
         // Every time the app comes to the front (this screen can stay alive for days): Settings > Check for updates on app open.
-        if (Prefs.onboardingDone(this)) com.rfsentinel.app.util.UpdateChecker.checkOnStartup(this)
+        // The FOSS build first asks whether it may fetch the known cameras on its own.
+        if (Prefs.onboardingDone(this)) com.rfsentinel.app.util.CameraQuestion.askIfNeeded(this) {
+            com.rfsentinel.app.util.UpdateChecker.checkOnStartup(this)
+        }
     }
 
 

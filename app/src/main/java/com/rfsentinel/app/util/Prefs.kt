@@ -251,7 +251,12 @@ object Prefs {
     fun cameraRadiusKm(context: Context): Int = int(context, "camera_radius_km", 100).coerceIn(10, 200)
     fun setCameraRadiusKm(context: Context, km: Int) = setInt(context, "camera_radius_km", km.coerceIn(10, 200))
 
-    fun autoCameras(context: Context): Boolean = bool(context, "auto_cameras", true)
+    /** Fetch the known cameras for the area in view. The FOSS (F-Droid) build fetches nothing until you've said yes. */
+    fun autoCameras(context: Context): Boolean =
+        bool(context, "auto_cameras", true) && (com.rfsentinel.app.BuildConfig.FLAVOR != "foss" || camerasAsked(context))
+    /** Whether the FOSS build asked (once) if it may fetch the known cameras on its own. */
+    fun camerasAsked(context: Context): Boolean = bool(context, "cameras_asked", false)
+    fun setCamerasAsked(context: Context, value: Boolean) = setBool(context, "cameras_asked", value)
     fun setAutoCameras(context: Context, value: Boolean) = setBool(context, "auto_cameras", value)
 
     /** Check GitHub for a new release when the app opens. Off by default: it contacts GitHub. */
