@@ -82,9 +82,36 @@ object UpdateChecker {
      * is out: no "checking", "up to date" or connection-error messages.
      */
     fun checkOnStartup(activity: AppCompatActivity) {
+        // Already turned on (setup wizard or Settings, before this question existed) counts as a yes.
+        if (!Prefs.updateCheckAsked(activity) && !Prefs.autoUpdateCheck(activity)) { ask(activity); return }
         if (!Prefs.autoUpdateCheck(activity) || checking) return
         if (!due(Prefs.lastUpdateCheck(activity), System.currentTimeMillis())) return
         check(activity, silent = true)
+    }
+
+    @Volatile private var asking = false
+
+    /**
+     * Asks once whether the app may check GitHub for updates when it opens, and keeps the answer
+     * (Settings > Check for updates on app open changes it later). Until answered, nothing is checked.
+     */
+    private fun ask(activity: AppCompatActivity) {
+        if (asking || activity.isFinishing || activity.isDestroyed) return
+        asking = true
+        fun answer(yes: Boolean) {
+            Prefs.setAutoUpdateCheck(activity, yes)
+            Prefs.setUpdateCheckAsked(activity, true)
+        }
+        MaterialAlertDialogBuilder(activity)
+            .setTitle("Check for updates?")
+            .setMessage("RF Sentinel can ask GitHub whether a newer version is out when the app opens (at most every " +
+                "6 hours). GitHub sees your IP address; nothing about your scans is sent.\n\nIf you installed it from " +
+                "F-Droid, F-Droid already brings you updates.\n\nYou can change this any time in Settings.")
+            .setPositiveButton("Check for updates") { _, _ -> answer(true); checkOnStartup(activity) }
+            .setNegativeButton("Don't check") { _, _ -> answer(false) }
+            .setCancelable(false)
+            .setOnDismissListener { asking = false }
+            .show()
     }
 
     /** Whether the automatic check is due: [last] is when the last one ended (0 = never). */

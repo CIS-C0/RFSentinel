@@ -2548,6 +2548,8 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setCellChangeAlerts(this, binding.cellChangeSwitch.isChecked)
         Prefs.setSpeedCameraAlerts(this, binding.speedCameraSwitch.isChecked)
         Prefs.setAutoCameras(this, binding.autoCamerasSwitch.isChecked)
+        // Turning the check on or off here answers the one-time question too.
+        if (binding.autoUpdateSwitch.isChecked != Prefs.autoUpdateCheck(this)) Prefs.setUpdateCheckAsked(this, true)
         Prefs.setAutoUpdateCheck(this, binding.autoUpdateSwitch.isChecked)
 
         Prefs.setRetentionDays(this, (binding.retentionInput.text.toString().toIntOrNull() ?: 90).coerceAtLeast(0))

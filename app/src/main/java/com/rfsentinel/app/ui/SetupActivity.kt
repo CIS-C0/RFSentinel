@@ -283,6 +283,7 @@ class SetupActivity : AppCompatActivity() {
         }
         switch("Check for updates when the app opens (asks GitHub at most every 6 hours)", Prefs.autoUpdateCheck(this)) {
             Prefs.setAutoUpdateCheck(this, it)
+            Prefs.setUpdateCheckAsked(this, true)
         }
         label("Known cameras")
         switch("Warn me before plate-reader cameras mapped in OpenStreetMap", Prefs.knownAlprAlerts(this)) {

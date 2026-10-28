@@ -1,0 +1,1 @@
+• On first start RF Sentinel asks once whether it may check GitHub for updates when it opens, and respects your answer. It never checks before you answer; change it any time in Settings.

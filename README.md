@@ -260,7 +260,7 @@ Everything the app does, grouped by area.
 - **Location is off** warning: Android gives apps no Bluetooth or WiFi results while Location is off, so the main screen says so and opens the setting when tapped
 - Device details: evidence, identity, decoded data, signal graph, **Locate** mode, history, raw advertisement
 - Setup wizard (theme, region, alerts and voice, bubble, car start, camera warnings, cell alerts, camera radius, screen, permissions); Settings save themselves
-- **Check for updates** (menu ⋮): compares with the latest GitHub release, only when you tap it
+- **Check for updates** (menu ⋮): compares with the latest GitHub release, when you tap it. On first start the app asks once whether it may also check when it opens (at most every 6 hours); your answer is kept and can be changed in Settings
 - **Screen rotation** (Settings → General): normal, auto-rotate **including upside down**, or always upside down with the USB-C port at the top for an antenna or adapter - even on phones like the Pixel that never auto-rotate upside down
 - 13 themes, including the **DedSec** (Watch Dogs 2) and **fsociety** (Mr. Robot) fan themes
 - **Theme maker:** build your own theme - an accent colour the whole palette grows from (the way Material You does), light, dark or pure black, a font (or your own .ttf / .otf), a banner picture, the animated home-screen header with your title, and your own map marker. Export a theme as a file; importing one lets you tick which parts to take (colours, font, banner, header, marker), into a new theme or into one of yours
