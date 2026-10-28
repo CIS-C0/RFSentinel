@@ -1,5 +1,6 @@
 package com.rfsentinel.app.util
 
+import com.rfsentinel.app.data.AlertKind
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
@@ -55,12 +56,13 @@ object AlertPlayer {
     private val main = Handler(Looper.getMainLooper())
     private var focusRequest: AudioFocusRequest? = null
 
-    fun play(context: Context, tier: Tier, spoken: String?, following: Boolean = false) {
+    /** [off]: the ways this device's watchlist entry says not to alert ([AlertKind]). */
+    fun play(context: Context, tier: Tier, spoken: String?, following: Boolean = false, off: Set<AlertKind> = emptySet()) {
         val inCar = CarState.connected
         val muted = Prefs.alertsSilenced(context)
-        val willSpeak = !muted && spoken != null && (Prefs.voiceEnabled(context) || (inCar && Prefs.carVoice(context)))
+        val willSpeak = !muted && spoken != null && AlertKind.VOICE !in off && (Prefs.voiceEnabled(context) || (inCar && Prefs.carVoice(context)))
         var beepMs = 0
-        if (!muted && Prefs.soundEnabled(context) && (inCar || ringerAllowsSound(context))) {
+        if (!muted && AlertKind.SOUND !in off && Prefs.soundEnabled(context) && (inCar || ringerAllowsSound(context))) {
             // Speech holds its own audio focus for exactly as long as it talks; this covers the beeps.
             val detector = Prefs.detectorSound(context)
             duckOthers(context, if (detector) 4_500L else 2_500L)
@@ -82,7 +84,7 @@ object AlertPlayer {
             } else Beeper.play(attrs, Beeper.pattern(beeps, following))
             alertSoundUntil = System.currentTimeMillis() + beepMs
         }
-        if (Prefs.vibrateEnabled(context)) {
+        if (AlertKind.VIBRATE !in off && Prefs.vibrateEnabled(context)) {
             val pattern = when {
                 following -> longArrayOf(0, 600, 150, 150, 150, 600)
                 tier == Tier.STRONG -> longArrayOf(0, 220, 120, 220, 120, 220)

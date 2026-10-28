@@ -70,6 +70,15 @@ class SettingsActivity : AppCompatActivity() {
     private var stopObservingPrefetch: (() -> Unit)? = null
     private var stopObservingDeflock: (() -> Unit)? = null
     private val categorySwitches = mutableMapOf<Category, SwitchMaterial>()
+    /** What follows each category switch (its alert chips, its own controls): one listener calls them all. */
+    private val switchFollowers = HashMap<SwitchMaterial, MutableList<(Boolean) -> Unit>>()
+
+    private fun SwitchMaterial.onToggle(f: (Boolean) -> Unit) {
+        val list = switchFollowers.getOrPut(this) {
+            mutableListOf<(Boolean) -> Unit>().also { l -> setOnCheckedChangeListener { _, on -> l.toList().forEach { it(on) } } }
+        }
+        list += f
+    }
     private var airTagSwitch: SwitchMaterial? = null
     private var wazeKeyInput: android.widget.EditText? = null
     private var aircraftStatusText: android.widget.TextView? = null
@@ -327,6 +336,9 @@ class SettingsActivity : AppCompatActivity() {
         val s = com.rfsentinel.app.esp.EspBoards.status
         binding.espStatusText.text = s.ifBlank { "ESP32 board on USB: not connected" }
         binding.usbWifiText.text = com.rfsentinel.app.usb.UsbWifi.status.ifBlank { "USB WiFi adapter: not connected" }
+        binding.usbBtText.text = com.rfsentinel.app.usb.UsbBluetooth.status.ifBlank {
+            if (Prefs.usbBluetooth(this)) "USB Bluetooth adapter: not connected" else "USB Bluetooth adapter: off"
+        }
         binding.sdrStatusText.text = com.rfsentinel.app.sdr.SdrRadio.status.ifBlank { "RTL-SDR / HackRF: not connected" }
         val board = Prefs.ouiSpyBoard(this)
         binding.ouiSpyText.text = if (board == null) "OUI-SPY over Bluetooth: not paired"
@@ -467,7 +479,8 @@ class SettingsActivity : AppCompatActivity() {
                 "Two-way radio needs an RTL-SDR dongle or a HackRF on USB.\n\n" +
                 "Police aircraft and Waze reports are online sources, off by default. Aircraft: every minute, a position " +
                 "rounded to about 1 km goes to the community ADS-B feeds adsb.fi / adsb.lol; matched against a list of " +
-                "about 1,400 US and Canadian law-enforcement aircraft, plus unlisted aircraft circling low overhead. With an RTL-SDR " +
+                "about 1,400 US and Canadian law-enforcement aircraft, plus unlisted aircraft circling low overhead. Only a strong match " +
+                "within 5 km alerts; the rest are listed and logged. With an RTL-SDR " +
                 "set up as an ADS-B receiver, aircraft are also heard directly, and the online feeds can be turned off. " +
                 "Waze: crowd reports (police, and any other kind you tick), at your own risk. Either through your own OpenWeb Ninja key " +
                 "(Waze never sees you), or Waze direct: no key, free, but an anonymous Waze account on this phone sends Waze (Google) your " +
@@ -767,6 +780,60 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * A What to detect row: the label with its ⓘ ([info]) right after the text, then the switch and its ▾ ([fold]).
+     * A row with no ▾ keeps the slot empty, so every switch in the list lines up.
+     */
+    private fun detectRow(sw: SwitchMaterial, info: String? = null, title: String? = null, fold: View? = null): View {
+        val slot = fold ?: foldIcon().apply { visibility = View.INVISIBLE; importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }
+        if (info == null) return android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            addView(sw, android.widget.LinearLayout.LayoutParams(0, -2, 1f))
+            addView(slot)
+        }
+        // The label leaves the switch so the ⓘ can sit right after its text; tapping the label still flips the switch.
+        val name = sw.text.toString()
+        val label = android.widget.TextView(this).apply {
+            text = name
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, sw.textSize)
+            setTextColor(sw.textColors)
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            setOnClickListener { sw.toggle() }
+        }
+        sw.text = null
+        sw.contentDescription = name
+        val icon = infoIcon(info) { title ?: name }
+        return object : android.widget.LinearLayout(this) {
+            override fun onMeasure(widthSpec: Int, heightSpec: Int) {
+                // A long label wraps before the ⓘ, switch and ▾, instead of pushing them off the row.
+                val free = MeasureSpec.getSize(widthSpec) - paddingLeft - paddingRight
+                var rest = 0
+                for (v in listOf(icon, sw, slot)) { measureChild(v, widthSpec, heightSpec); rest += v.measuredWidth }
+                label.maxWidth = (free - rest).coerceAtLeast(0)
+                super.onMeasure(widthSpec, heightSpec)
+            }
+        }.apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            addView(label)
+            addView(icon)
+            addView(View(this@SettingsActivity), android.widget.LinearLayout.LayoutParams(0, 0, 1f))
+            addView(sw)
+            addView(slot)
+        }
+    }
+
+    /** The ▾ that opens a category's alert chips, styled like an ⓘ. */
+    private fun foldIcon() = android.widget.TextView(this).apply {
+        val dp = resources.displayMetrics.density
+        text = "▾"; textSize = 18f; alpha = 0.7f
+        gravity = android.view.Gravity.CENTER
+        minWidth = (36 * dp).toInt()
+        setPadding((6 * dp).toInt(), (8 * dp).toInt(), (6 * dp).toInt(), (8 * dp).toInt())
+        setBackgroundResource(android.util.TypedValue().also { theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, it, true) }.resourceId)
+    }
+
     /** Puts an ⓘ at the end of [view]'s row, where it already sits. */
     private fun info(view: View, text: String, title: String? = null) {
         val parent = view.parent as? android.view.ViewGroup ?: return
@@ -844,7 +911,7 @@ class SettingsActivity : AppCompatActivity() {
         withUnit(binding.followMinutesInput, "min")
         withUnit(binding.followMetersInput, "m")
         info(binding.mapProviderLabel, "OpenFreeMap: free and open, OpenStreetMap data.\n\nMapbox: Mapbox's Standard map with 3D buildings and day / night light.\n\nThe floating mini map and the Android Auto map always use OpenStreetMap maps.")
-        info(binding.mapAutoRecenterSwitch, "While you drive, the map goes back to your position a few seconds after you stop touching it.")
+        info(binding.mapAutoRecenterSwitch, "While you drive, the map goes back to your position once you've left it alone for the time set under it (Re-center after).")
         info(binding.mapSpeedometerSwitch, "Your speed and the posted limit in a corner of the map; your speed turns red over the limit.")
         info(binding.mapSpeedLimitLiveSwitch, "Shows the posted limit with no destination too, by asking the route server (Valhalla, OpenStreetMap data) about the road you're on. Your position is sent to it.")
         info(binding.autoCamerasSwitch, "Fetches the known cameras (OpenStreetMap) for the area the map shows, as you move it.")
@@ -859,6 +926,10 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.ouiSpyPhoneBleSwitch, "Off: while the OUI-SPY board is connected and live, the phone's own Bluetooth scan " +
             "pauses and the board does the Bluetooth scanning (it hears farther, and faster). It comes back on its own if the " +
             "board drops out. Turn on Relay everything too, or only the board's engine matches come in.")
+        info(binding.usbBtSwitch, "Uses the Bluetooth part of a USB adapter as a second Bluetooth radio, next to the phone's own: " +
+            "a Bluetooth dongle, or a combo adapter with WiFi and Bluetooth (MT7921AU, Realtek). It only listens for " +
+            "advertisements, never connects. On a combo adapter WiFi and Bluetooth share the antennas. Off: only the phone's " +
+            "Bluetooth scans.")
         info(binding.rtl5gSwitch, "For RTL8811AU / RTL8821AU adapters such as the ALFA AWUS036ACS. Experimental.")
         info(binding.usbLightSwitch, "For RTL8811AU / RTL8821AU adapters such as the ALFA AWUS036ACS: the light blinks with received traffic.")
         info(binding.pinpointSwitch, "Works out where a flagged device is from many readings as you move (GPS runs precise every second while one is in range).")
@@ -971,6 +1042,7 @@ class SettingsActivity : AppCompatActivity() {
         searchHidden.forEach { if (it.getTag(R.id.search_hidden) == true) { it.setTag(R.id.search_hidden, null); it.visibility = View.VISIBLE } }
         searchHidden.clear()
         val q = raw.trim().lowercase()
+        folds.values.forEach { it.searching(q.isNotEmpty()) }
         if (q.isEmpty()) {
             sectionUi.forEach { it.row.visibility = View.VISIBLE; it.divider?.visibility = View.VISIBLE; it.restore() }
             return
@@ -1443,6 +1515,44 @@ class SettingsActivity : AppCompatActivity() {
             "to mute until you turn the sound back on.", "Snooze length"), at + 1)
     }
 
+    /** Map > Re-center after, under Auto-recenter: how long after your last touch the map goes back to you. */
+    private var recenterDelay: android.widget.Spinner? = null
+
+    private fun setupRecenterDelay() {
+        // Under the Auto-recenter row (with its ⓘ).
+        val switchRow = binding.mapAutoRecenterSwitch.parent as? android.view.ViewGroup ?: return
+        val section = switchRow.parent as? android.view.ViewGroup ?: return
+        val choices = Prefs.RECENTER_CHOICES
+        val row = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            minimumHeight = (48 * resources.displayMetrics.density).toInt()
+        }
+        row.addView(android.widget.TextView(this).apply {
+            text = "Re-center after"
+            setTextAppearance(android.R.style.TextAppearance_Material_Body1)
+        }, android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        recenterDelay = androidx.appcompat.widget.AppCompatSpinner(this).apply {
+            adapter = android.widget.ArrayAdapter(this@SettingsActivity, android.R.layout.simple_spinner_item,
+                choices.map { if (it < 60) "$it s" else "${it / 60} min" }).also {
+                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            setSelection(choices.indexOf(Prefs.mapRecenterSec(this@SettingsActivity)).coerceAtLeast(0))
+            isEnabled = binding.mapAutoRecenterSwitch.isChecked
+            contentDescription = "Re-center after"
+            onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    Prefs.setMapRecenterSec(this@SettingsActivity, choices[position])
+                }
+                override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+            }
+        }
+        row.addView(recenterDelay)
+        section.addView(infoRow(row, "After you pan or zoom the map while driving, it goes back to following you once you " +
+            "haven't touched it for this long. Turn Auto-recenter off to leave it where you put it.", "Re-center after"),
+            section.indexOfChild(switchRow) + 1)
+    }
+
     /** Settings > Map: what the map shows (moved here from the map's menu). Saved as you switch. */
     private fun setupMapSection() {
         setupMapProvider()
@@ -1455,7 +1565,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.mapKnownCamerasSwitch.isChecked = Prefs.showKnownAlpr(this)
         binding.mapKnownCamerasSwitch.setOnCheckedChangeListener { _, on -> Prefs.setShowKnownAlpr(this, on) }
         binding.mapAutoRecenterSwitch.isChecked = Prefs.mapAutoRecenter(this)
-        binding.mapAutoRecenterSwitch.setOnCheckedChangeListener { _, on -> Prefs.setMapAutoRecenter(this, on) }
+        binding.mapAutoRecenterSwitch.setOnCheckedChangeListener { _, on -> Prefs.setMapAutoRecenter(this, on); recenterDelay?.isEnabled = on }
         binding.mapSpeedometerSwitch.isChecked = Prefs.mapSpeedometer(this)
         binding.mapSpeedLimitLiveSwitch.isChecked = Prefs.mapSpeedLimitLive(this)
         binding.mapSpeedLimitLiveSwitch.isEnabled = binding.mapSpeedometerSwitch.isChecked
@@ -1669,6 +1779,65 @@ class SettingsActivity : AppCompatActivity() {
         text.text = wifiLabel(slider.value.toInt())
     }
 
+    /**
+     * Under a category's switch: a chip per way it alerts you (the same chips as a watchlist entry's), on unless you
+     * turn it off. Opened by the category's ▾ ([fold]); saved at once.
+     */
+    private fun addCategoryAlertChips(c: Category, sw: SwitchMaterial, fold: android.widget.TextView) {
+        val dp = resources.displayMetrics.density
+        val box = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding((24 * dp).toInt(), 0, 0, (4 * dp).toInt())
+        }
+        box.addView(android.widget.TextView(this).apply {
+            text = "Alerts you with"
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, resources.getDimension(R.dimen.text_caption))
+            setTextColor(com.google.android.material.color.MaterialColors.getColor(this, android.R.attr.textColorSecondary))
+        })
+        val chips = com.google.android.material.chip.ChipGroup(this).apply {
+            chipSpacingHorizontal = (6 * dp).toInt(); chipSpacingVertical = 0
+        }
+        var off = Prefs.categoryAlertsOff(this, c)
+        com.rfsentinel.app.data.AlertKind.entries.forEach { kind ->
+            chips.addView(com.rfsentinel.app.ui.FitChip(this).apply {
+                text = kind.label; isCheckable = true
+                com.rfsentinel.app.ui.ChipStyle.apply(this)
+                isChecked = kind !in off
+                contentDescription = "${kind.label} alerts for ${sw.contentDescription ?: sw.text}"
+                setOnClickListener {
+                    off = if (isChecked) off - kind else off + kind
+                    Prefs.setCategoryAlertsOff(this@SettingsActivity, c, off)
+                }
+            })
+        }
+        box.addView(chips)
+        binding.categoryContainer.addView(box)
+        folds[sw] = Fold(sw, fold).also { it.add(box) }
+    }
+
+    private val folds = HashMap<SwitchMaterial, Fold>()
+
+    /** A category's ▾ and what it opens: its alert chips, then its own settings (aircraft, Waze). */
+    private inner class Fold(val sw: SwitchMaterial, val arrow: android.widget.TextView) {
+        private var open = false
+        private val panels = mutableListOf<View>()
+        init {
+            arrow.setOnClickListener { open = !open; show() }
+            // Turning on a category that has its own settings opens them.
+            sw.onToggle { on -> if (on && panels.size > 1) open = true; show() }
+        }
+        fun add(panel: View) { panels += panel; show() }
+        /** Search only looks at what's shown: while searching, a category's own settings show, folded or not (not its chips). */
+        fun searching(on: Boolean) { show(); if (on) panels.drop(1).forEach { it.shownIf(sw.isChecked) } }
+        private fun show() {
+            panels.forEach { it.shownIf(open && sw.isChecked) }
+            arrow.text = if (open) "▴" else "▾"
+            // Off: nothing to open, but the slot stays so the switches line up.
+            arrow.visibility = if (sw.isChecked) View.VISIBLE else View.INVISIBLE
+            arrow.contentDescription = "Options for ${sw.contentDescription ?: sw.text}, ${if (open) "expanded" else "collapsed"}"
+        }
+    }
+
     /** Aircraft search radius (10-50 km) and the feed status, under the aircraft switch. */
     private fun addAircraftControls(sw: SwitchMaterial) {
         val dp = resources.displayMetrics.density
@@ -1676,7 +1845,7 @@ class SettingsActivity : AppCompatActivity() {
             orientation = android.widget.LinearLayout.VERTICAL
             setPadding((24 * dp).toInt(), 0, 0, (6 * dp).toInt())
         }
-        box.addView(infoRow(SwitchMaterial(this).apply {
+        box.addView(detectRow(SwitchMaterial(this).apply {
             text = "Online aircraft feeds"; isChecked = Prefs.aircraftOnline(this@SettingsActivity)
             setOnCheckedChangeListener { _, v -> Prefs.setAircraftOnline(this@SettingsActivity, v) }
         }, "Asks adsb.fi / adsb.lol every minute for aircraft near a position rounded to about 1 km. Turn off to use only " +
@@ -1700,9 +1869,8 @@ class SettingsActivity : AppCompatActivity() {
         aircraftStatusText = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
         box.addView(aircraftStatusText)
         showNote(aircraftStatusText, com.rfsentinel.app.online.OnlineWatch.aircraftStatus)
-        box.shownIf(sw.isChecked)
         binding.categoryContainer.addView(box)
-        sw.setOnCheckedChangeListener { _, on -> box.shownIf(on) }
+        folds[sw]?.add(box)
     }
 
     /**
@@ -1909,9 +2077,9 @@ class SettingsActivity : AppCompatActivity() {
             text = "Waze status"
             setOnClickListener { com.rfsentinel.app.ui.WazeUi.openStatus(this@SettingsActivity) }
         })
-        box.shownIf(sw.isChecked)
         binding.categoryContainer.addView(box)
-        sw.setOnCheckedChangeListener { _, on ->
+        folds[sw]?.add(box)
+        sw.onToggle { on ->
             if (on && !Prefs.wazeReady(this)) {
                 sw.isChecked = false
                 val direct = Prefs.wazeBackend(this) == Prefs.WAZE_DIRECT
@@ -1925,9 +2093,7 @@ class SettingsActivity : AppCompatActivity() {
                     }
                     .setNegativeButton("Cancel", null)
                     .show()
-                return@setOnCheckedChangeListener
             }
-            box.shownIf(on)
         }
     }
 
@@ -2138,17 +2304,20 @@ class SettingsActivity : AppCompatActivity() {
                 isChecked = Prefs.categoryEnabled(this@SettingsActivity, c)
             }
             val details = listOfNotNull(more, if (c == Category.POLICE_REPORT) WAZE_WARNING_SHORT else null).joinToString("\n\n")
-            binding.categoryContainer.addView(if (details.isEmpty()) sw else infoRow(sw, details, short))
+            val fold = foldIcon()
+            binding.categoryContainer.addView(detectRow(sw, details.ifEmpty { null }, short, fold))
             categorySwitches[c] = sw
+            addCategoryAlertChips(c, sw, fold)
             if (c == Category.TRACKER) {
                 airTagSwitch = SwitchMaterial(this).apply {
                     text = "Exclude Apple AirTags"
                     isChecked = Prefs.excludeAirTags(this@SettingsActivity)
-                    setPadding((24 * resources.displayMetrics.density).toInt(), 0, 0, 0)
                     isEnabled = sw.isChecked
                 }
-                sw.setOnCheckedChangeListener { _, on -> airTagSwitch?.isEnabled = on }
-                binding.categoryContainer.addView(airTagSwitch)
+                sw.onToggle { on -> airTagSwitch?.isEnabled = on }
+                binding.categoryContainer.addView(detectRow(airTagSwitch!!).apply {
+                    setPadding((24 * resources.displayMetrics.density).toInt(), 0, 0, 0)
+                })
             }
             if (c == Category.AIRCRAFT) addAircraftControls(sw)
             if (c == Category.POLICE_REPORT) addWazeControls(sw)
@@ -2253,6 +2422,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.usbWifiLogButton.setOnClickListener { exportUsbWifiLog() }
         // FOSS build: an adapter waiting for its chip firmware asks to download it.
         binding.usbWifiText.setOnClickListener { com.rfsentinel.app.usb.FirmwarePrompt.show(this) { updateEspStatus() } }
+        binding.usbBtText.setOnClickListener { com.rfsentinel.app.usb.FirmwarePrompt.show(this) { updateEspStatus() } }
         if (intent.getBooleanExtra(com.rfsentinel.app.usb.FirmwarePrompt.EXTRA, false)) {
             intent.removeExtra(com.rfsentinel.app.usb.FirmwarePrompt.EXTRA)
             com.rfsentinel.app.usb.FirmwarePrompt.show(this) { updateEspStatus() }
@@ -2289,12 +2459,19 @@ class SettingsActivity : AppCompatActivity() {
         setupLiveExport()
         setupWigleAccount()
         addDetails()
+        setupRecenterDelay()
         binding.hideTrustedSwitch.isChecked = Prefs.hideWhitelisted(this)
         binding.hideTrustedSwitch.setOnCheckedChangeListener { _, on -> Prefs.setHideWhitelisted(this, on) }
         binding.usbLightSwitch.isChecked = Prefs.usbAdapterLight(this)
         binding.usbLightSwitch.setOnCheckedChangeListener { _, on ->
             Prefs.setUsbAdapterLight(this, on)
             com.rfsentinel.app.usb.Rtl8821auMonitor.lightEnabled = on // live, also while scanning
+        }
+        binding.usbBtSwitch.isChecked = Prefs.usbBluetooth(this)
+        binding.usbBtSwitch.setOnCheckedChangeListener { _, on ->
+            Prefs.setUsbBluetooth(this, on)
+            com.rfsentinel.app.usb.UsbBluetooth.settingChanged(this) // starts or stops it live while scanning
+            updateEspStatus()
         }
         binding.rtl5gSwitch.isChecked = Prefs.rtl8821au5g(this)
         binding.rtl5gSwitch.setOnCheckedChangeListener { _, on -> Prefs.setRtl8821au5g(this, on) }
@@ -2364,6 +2541,7 @@ class SettingsActivity : AppCompatActivity() {
             confirm("Forget device history?", "New/returning status, detect counts and the cell towers remembered for the fake-cell checks start over. Favorites are kept.") {
                 lifecycleScope.launch {
                     AppDatabase.getInstance(this@SettingsActivity).knownDeviceDao().clearNonFavorites()
+                    AppDatabase.getInstance(this@SettingsActivity).deviceDetailsDao().pruneOrphans()
                     com.rfsentinel.app.service.CellMonitor.forget(this@SettingsActivity)
                     com.rfsentinel.app.service.CellTowerStore.forget(this@SettingsActivity)
                     Toast.makeText(this@SettingsActivity, "Device history cleared", Toast.LENGTH_SHORT).show()

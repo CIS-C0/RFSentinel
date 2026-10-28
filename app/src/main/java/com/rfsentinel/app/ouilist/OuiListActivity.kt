@@ -50,14 +50,17 @@ class OuiListActivity : AppCompatActivity() {
         title = "Watchlist & rules"
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        adapter = OuiAdapter(mutableListOf()) { entry ->
+        adapter = OuiAdapter(mutableListOf(), onRemove = { entry ->
             OuiWatchlist.removeCustomEntry(this, entry.prefix)
             refresh()
             com.rfsentinel.app.util.Undo.show(this, "Removed ${entry.label}") {
                 OuiWatchlist.addCustomEntry(this, entry)
                 refresh()
             }
-        }
+        }, onAlertsOff = { entry, off ->
+            OuiWatchlist.addCustomEntry(this, entry.copy(alertsOff = com.rfsentinel.app.data.AlertKind.format(off)))
+            refresh()
+        })
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
         binding.searchInput.doAfterTextChanged { refresh() }

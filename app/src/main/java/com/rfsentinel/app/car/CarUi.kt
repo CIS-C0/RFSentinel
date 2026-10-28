@@ -94,9 +94,10 @@ object CarUi {
         }
     }
 
-    /** Which radio heard it: an ESP32 board, a USB WiFi adapter, a linked Sentinel, or the phone (Bluetooth / WiFi). */
+    /** Which radio heard it: an ESP32 board, a USB WiFi or Bluetooth adapter, a linked Sentinel, or the phone (Bluetooth / WiFi). */
     fun sourceTag(s: DeviceRegistry.Snapshot): String = when {
         com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac) -> "USB WiFi"
+        com.rfsentinel.app.esp.HeardBy.usbBt.recent(s.mac) -> "USB Bluetooth"
         com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac) -> "ESP32"
         !com.rfsentinel.app.esp.HeardBy.phone.recent(s.mac) && com.rfsentinel.app.esp.HeardBy.peer.recent(s.mac) ->
             "via " + com.rfsentinel.app.esp.HeardBy.peer.via(s.mac)

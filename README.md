@@ -178,7 +178,7 @@ Everything the app does, grouped by area.
 - **Fake cell tower signs** checked every 15 s, with persistence, call and border suppression (modelled on [EFF's Rayhunter](https://github.com/EFForg/rayhunter) as far as Android allows without root)
 - **Hidden WiFi networks** identified from WPS data, Cisco AP names and vendor elements, and linked to the visible network on the same router
 - Ordinary devices named precisely: exact AirPods / Beats model, device class, IEEE registrant; decoded Apple Continuity, iBeacon, Eddystone, Fast Pair
-- Editable **watchlist** (exact addresses, prefixes of 24 to 44 bits picked with a slider, name, *name starts with*, vendor and Bluetooth advert-pattern rules; search, export and undo) with Global, Canada, US, France, UK, Portugal, Germany, Spain and Italy presets; per-category on/off switches
+- Editable **watchlist** (exact addresses, prefixes of 24 to 44 bits picked with a slider, name, *name starts with*, vendor and Bluetooth advert-pattern rules; search, export and undo) with Global, Canada, US, France, UK, Portugal, Germany, Spain and Italy presets; per-category on/off switches, and for each category which ways it alerts you (banner, sound, voice, vibration, radar beep)
 - Bluetooth 5 extended advertising and LE Coded (long range) where the phone supports it
 - **I saw it:** on a device's page, tell the app what it is (e.g. pole camera on the bridge) and it learns that device - its exact address, and its Bluetooth advert pattern or WiFi probe fingerprint so it's recognised after its address changes. Patterns many devices share are refused, and a learned pattern only ever counts as probable
 - **Probe-rate clue** (USB WiFi adapter): non-stop wildcard probing from one fixed address backs up a fixed-camera match, shown on the device page
@@ -222,7 +222,7 @@ Everything the app does, grouped by area.
 - **Sightings map:** on a device's page, every spot that device was heard, joined in time order for each encounter
 - The main screen's map and the full screen map show the same view (place, zoom, heading, tilt, following you) and the same place card and routes
 - **Snapshots:** menu ⋮ → *Save snapshot* keeps the device list exactly as shown, to look at again later (History → *Snapshots*, beside the recorded traces), on the map, or exported
-- **Device history:** every device the app remembers, in range or not, searchable by address (with or without colons), name, vendor, type, your own name for it or your note, filtered to favorites, flagged before or seen today; tap one for its details page. History is kept as long as you set in Settings → Data
+- **Device history:** every device the app remembers, in range or not, searchable by address (with or without colons), name, vendor, type, your own name for it or your note, filtered to favorites, flagged before or seen today; tap one for its details page, which shows everything it showed the last time the device was heard (identity, matches, Remote ID, raw data). History is kept as long as you set in Settings → Data
 
 </details>
 
@@ -242,6 +242,7 @@ Everything the app does, grouped by area.
 - ESP32 boards over USB OTG (OUI-Spy, GhostESP, Marauder incl. dual-band ESP32-C5 boards, or through a Flipper Zero) or Bluetooth (OUI-SPY App-Controlled) add their detections and extend range
 - **USB WiFi adapters in monitor mode** over OTG, no root: RTL8811AU / RTL8821AU (e.g. ALFA AWUS036ACS, 2.4 GHz; 5 GHz experimental, Settings → External hardware), **RTL8812AU** (e.g. ALFA AWUS036ACH, 2.4 + 5 GHz, experimental), **RTL8812BU / RTL8822BU** (2.4 + 5 GHz, e.g. TP-Link Archer T3U, Wise Tiger AC1200), **RTL8814AU** (ALFA AWUS1900, 2.4 + 5 GHz), **MT7612U** (ALFA AWUS036ACM, 2.4 + 5 GHz), **MT7921AU** (ALFA AWUS036AXML / AXM, WiFi 6E: 2.4 + 5 + **6 GHz**), **RTL8187** (ALFA AWUS036H), **RT3070** (ALFA AWUS036NH / NEH) and, experimental, **AR9271** (ALFA AWUS036NHA). No Android scan limit, longer range, and **client devices** (laptops, phones, cameras connected to a network) the phone's WiFi scan can't see. Single-antenna dongles are detected and handled automatically
 - **Requested networks:** the WiFi names nearby devices ask for (probe requests), from a USB adapter or a Marauder board, in an optional list; **watch** a name to get an alert whenever any device asks for it
+- **USB Bluetooth adapters** as a second Bluetooth LE scanner, no root: the Bluetooth part of an MT7921AU, RTL8821AU or RTL8822BU combo adapter, or a USB Bluetooth dongle (standard controllers, Realtek RTL8761B / 8761C and others), listening only, with LE Coded long range where the chip has it; devices it hears get a **USB BT** badge (Settings → External hardware)
 - **Record frames to .pcap** for Wireshark (Settings → External hardware): every frame a USB WiFi adapter or V2X board hears, with its channel and signal
 - The ALFA AWUS036ACS's light blinks with received traffic (Settings → External hardware switches it off, for the adapters whose light the app can control)
 - RTL-SDR and HackRF transmissions show on the **radar** too, for a minute after they were last heard
@@ -352,7 +353,7 @@ A threat banner, the live list of everything in range, and the radar and map vie
 - **Scrolled to the top**, the list stays there as alerts arrive; scrolled down,
   a *New alert* pill takes you up.
 - **Filters and search:** All, Flagged, Trackers, Drones, Favorites, New,
-  Bluetooth, WiFi, Cells, External (heard by an ESP32 board or a USB WiFi
+  Bluetooth, WiFi, Cells, External (heard by an ESP32 board, a USB Bluetooth adapter or a USB WiFi
   adapter), and by kind: Vehicles, Phones, Computers, Audio, Cameras, Routers,
   Hotspots, TVs & consoles, Smart home, Apple and Other (none of those). A
   device's kind comes from every clue: type, name, maker, WPS model and
@@ -673,18 +674,35 @@ MT7921AU, 6 GHz on its 15 preferred scanning channels, where access points beaco
 go through RF Sentinel's own rules like everything else, with a purple
 **USB WIFI** badge.
 
-| Chip | Example adapters | Status |
+**USB Bluetooth:** the Bluetooth part of a combo WiFi + Bluetooth adapter
+(MT7921AU, RTL8821AU, RTL8822BU), or a plain USB Bluetooth dongle (standard
+controllers, Realtek RTL8761B / 8761C / 8723B / 8821C / 8822B and similar),
+works as a second Bluetooth LE scanner next to the phone's own, listening only
+(LE 1M, and LE Coded long range where the chip has it). Its devices get a
+**USB BT** badge and count as external hardware. On a combo adapter WiFi and
+Bluetooth share the antennas. Turn it off in **Settings → External hardware →
+Scan Bluetooth with a USB adapter** to leave the adapter to WiFi only.
+Realtek RTL8822CU / 8852 and Intel dongles aren't supported yet.
+
+| Bluetooth chip | In RF Sentinel | Dongles with this chip |
 |---|---|---|
-| Realtek RTL8811AU / RTL8821AU (`0bda:0811`) | ALFA AWUS036ACS | Supported (2.4 GHz; 5 GHz experimental, opt-in) |
-| Realtek RTL8812AU (`0bda:8812`, `0bda:881a` and ~30 other IDs) | ALFA AWUS036ACH, TP-Link Archer T4U / T4UH, Netgear A6200v2, Edimax | Experimental (2.4 + 5 GHz): written from the Realtek driver, not yet tested on a real adapter |
-| Realtek RTL8812BU / RTL8822BU (`0bda:b812`, `0bda:b82c` and ~35 other IDs) | TP-Link Archer T3U, ASUS USB-AC53/AC55/AC58, Edimax EW-7822U*, Wise Tiger AC1200 | Supported (2.4 + 5 GHz), tested on a Wise Tiger 8812BU |
-| Realtek RTL8814AU (`0bda:8813` and 13 other IDs) | ALFA AWUS1900, TP-Link Archer T9UH, ASUS USB-AC68, Netgear A7000 | Supported (2.4 + 5 GHz), not yet tested on hardware |
-| MediaTek MT7612U / MT7632U (`0e8d:7612` and 16 other IDs) | ALFA AWUS036ACM, ASUS USB-AC55, Netgear A6210 | Supported (2.4 + 5 GHz), tested on an ALFA AWUS036ACM |
-| MediaTek MT7921AU (`0e8d:7961` and 4 other IDs) | ALFA AWUS036AXML / AXM, Comfast CF-952AX, Netgear A8000 / A7500, TP-Link TXE50UH | Supported (2.4 + 5 + 6 GHz), tested on an ALFA AWUS036AXML / AXM |
-| Realtek RTL8187L / RTL8187B (`0bda:8187` and 20 other IDs) | ALFA AWUS036H, Netgear WG111v2/v3 | Supported (2.4 GHz), tested on an ALFA AWUS036H |
-| Ralink RT3070 (`148f:3070` and 4 other IDs) | ALFA AWUS036NH / AWUS036NEH | Supported (2.4 GHz), tested on an ALFA AWUS036NEH |
-| Atheros AR9271 (`0cf3:9271` and 17 other IDs) | ALFA AWUS036NHA, TP-Link TL-WN722N v1 | Experimental (2.4 GHz) |
-| RTL8811CU / 8821CU, RT5370, MT7610U, AR7010 | | Detected and named, not supported yet |
+| Generic USB Bluetooth (any standard controller, class e0) | Used, no firmware needed | CSR8510 A10 dongles and clones (TP-Link UB400, Avantree DG40S, many no-name "Bluetooth 4.0" dongles), Broadcom / Cypress BCM20702 (ASUS USB-BT400, Plugable USB-BT4LE, Kinivo BTD-400, IOGEAR GBU521) |
+| Realtek RTL8761B / RTL8761C | Used, Realtek firmware | TP-Link UB500, ASUS USB-BT500, UGREEN CM390 / CM591, Maxuni and other "Bluetooth 5.0 / 5.1 / 5.3" dongles |
+| Realtek RTL8723BU / 8821CU combo | Used, Realtek firmware | Edimax EW-7611ULB, many WiFi + Bluetooth nano adapters |
+| Intel, RTL8822CU / 8852, Qualcomm with firmware | Not yet | Intel AX200 / AX210 USB kits, newer RTL8852-based dongles |
+
+| Chip | WiFi in RF Sentinel | Bluetooth | Status | Adapters with this chip | USB IDs |
+|---|---|---|---|---|---|
+| Realtek RTL8811AU / RTL8821AU | 2.4 GHz (5 GHz experimental, opt-in) | 8821AU: Bluetooth 4.0 used (opt-out), not yet tested; 8811AU none | Supported | ALFA AWUS036ACS | `0bda:0811` |
+| Realtek RTL8812AU | 2.4 + 5 GHz | None | Experimental: written from the Realtek driver, not yet tested on a real adapter | ALFA AWUS036ACH, TP-Link Archer T4U / T4UH, Netgear A6200v2, Linksys WUSB6300, Buffalo WI-U3-866D, Tenda U12, ASUS, D-Link, Edimax, TRENDnet, Belkin, ZyXEL, EnGenius, Planex, I-O DATA | `0bda:8812`, `0bda:881a` and ~30 other IDs |
+| Realtek RTL8812BU / RTL8822BU | 2.4 + 5 GHz | 8822BU: Bluetooth used (opt-out), not yet tested; 8812BU none | Supported, tested on a Wise Tiger 8812BU | TP-Link Archer T3U / T4U v3, ASUS USB-AC53 / AC55 / AC58, Edimax EW-7822U*, Netgear A6150, Linksys WUSB6400M / WUSB3600 v2, Wise Tiger AC1200, D-Link, TRENDnet, Buffalo | `0bda:b812`, `0bda:b82c` and ~35 other IDs |
+| Realtek RTL8814AU | 2.4 + 5 GHz | None | Supported, not yet tested on hardware | ALFA AWUS1900, TP-Link Archer T9UH, ASUS USB-AC68, Netgear A7000, Edimax, ELECOM, D-Link, TRENDnet | `0bda:8813` and 13 other IDs |
+| MediaTek MT7612U / MT7632U | 2.4 + 5 GHz | Not used | Supported, tested on an ALFA AWUS036ACM | ALFA AWUS036ACM, ASUS USB-AC54 / AC55 / N53 B1, Netgear A6210 / WNDA3100v3, Aukey USB-AC1200, Xbox One wireless adapter, TP-Link, Edimax, ELECOM | `0e8d:7612` and 16 other IDs |
+| MediaTek MT7921AU (WiFi 6E) | 2.4 + 5 + 6 GHz | Bluetooth 5.2 used (opt-out, LE Coded long range), not yet tested | Supported, tested on an ALFA AWUS036AXML / AXM | ALFA AWUS036AXML / AXM, Comfast CF-952AX, Netgear A8000 / A7500, TP-Link TXE50UH | `0e8d:7961` and 4 other IDs |
+| Realtek RTL8187L / RTL8187B | 2.4 GHz | None | Supported, tested on an ALFA AWUS036H | ALFA AWUS036H, Netgear WG111v2 / v3, ASUS, HP, Belkin | `0bda:8187` and 20 other IDs |
+| Ralink RT3070 | 2.4 GHz | None | Supported, tested on an ALFA AWUS036NEH | ALFA AWUS036NH / AWUS036NEH, Edimax | `148f:3070` and 4 other IDs |
+| Atheros AR9271 | 2.4 GHz | None | Experimental | ALFA AWUS036NHA, TP-Link TL-WN722N v1, Netgear WNA1100, D-Link DWA-126 | `0cf3:9271` and 17 other IDs |
+| RTL8811CU / 8821CU / 8812CU, RT5370 / 5372, RT3071 / 3072, MT7610U, AR7010 | Not yet | Not used | Detected and named, not supported yet | | |
 
 <details>
 <summary><b>Receive-only, the adapter log and single-antenna dongles</b></summary>

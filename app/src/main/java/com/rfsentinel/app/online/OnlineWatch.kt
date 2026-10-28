@@ -89,16 +89,13 @@ class OnlineWatch(
         synchronized(loiter) {
             for (p in planes) {
                 val circling = loiter.update(p, now)
-                val hit = PoliceAircraft.classify(p, registry, circling, PoliceAircraft.distance(p, me.latitude, me.longitude))
+                val distanceM = PoliceAircraft.distance(p, me.latitude, me.longitude)
+                val hit = PoliceAircraft.classify(p, registry, circling, distanceM)
                 seen += PoliceAircraft.Seen(p, hit)
                 if (hit == null) continue
-                if (best == null || hit.confidence > best!!.confidence) best = hit
-                // One report per aircraft per 20 minutes (or sooner if it starts circling).
-                val last = lastAircraftHit[p.hex] ?: 0L
-                if (now - last >= AIRCRAFT_REPEAT_MS) {
-                    lastAircraftHit[p.hex] = now
-                    onAlert(Alert(hit, p.lat, p.lon, "air:" + p.hex))
-                }
+                val loud = PoliceAircraft.alerts(hit, distanceM)
+                if (loud && (best == null || hit.confidence > best!!.confidence)) best = hit
+                reportAircraft(hit, p.hex, p.lat, p.lon, loud, now)
             }
             loiter.prune(now)
             lastAircraftHit.entries.removeAll { now - it.value > AIRCRAFT_REPEAT_MS }
@@ -107,7 +104,7 @@ class OnlineWatch(
         PoliceAircraft.latestAt = now
         AmbientThreats.aircraft = best?.let { now to AmbientThreats.Threat(it.confidence, it.label, Category.AIRCRAFT) }
         aircraftStatus = "Updated ${clock(now)}: ${planes.size} aircraft within $radiusKm km" +
-            (best?.let { " · ${it.label}" } ?: ", none police")
+            ((best ?: seen.mapNotNull { it.hit }.maxByOrNull { it.confidence })?.let { " · ${it.label}" } ?: ", none police")
     }
 
     /**
@@ -121,31 +118,45 @@ class OnlineWatch(
         val registry = PoliceAircraft.load(context)
         val me = location()
         val seen = ArrayList<PoliceAircraft.Seen>(planes.size)
+        var best: Hit? = null
         synchronized(loiter) {
-            fun report(hit: Hit, key: String, lat: Double, lon: Double) {
-                val last = lastAircraftHit[key] ?: 0L
-                if (now - last < AIRCRAFT_REPEAT_MS) return
-                lastAircraftHit[key] = now
-                onAlert(Alert(hit, lat, lon, "air:$key"))
-            }
             for (p in planes) {
                 val circling = loiter.update(p, now)
-                val hit = PoliceAircraft.classify(p, registry, circling,
-                    me?.let { PoliceAircraft.distance(p, it.latitude, it.longitude) }, PoliceAircraft.VIA_LOCAL)
+                val distanceM = me?.let { PoliceAircraft.distance(p, it.latitude, it.longitude) }
+                val hit = PoliceAircraft.classify(p, registry, circling, distanceM, PoliceAircraft.VIA_LOCAL)
                 seen += PoliceAircraft.Seen(p, hit)
-                hit?.let { report(it, p.hex, p.lat, p.lon) }
+                if (hit == null) continue
+                val loud = PoliceAircraft.alerts(hit, distanceM)
+                if (loud && (best == null || hit.confidence > best!!.confidence)) best = hit
+                reportAircraft(hit, p.hex, p.lat, p.lon, loud, now)
             }
-            // No position: logged where you are, which is where it was heard.
-            if (me != null) for (hex in unlocated) PoliceAircraft.heardNearby(hex, registry)?.let { report(it, hex, me.latitude, me.longitude) }
+            // No position: logged where you are, which is where it was heard; its distance is unknown, so no alert.
+            if (me != null) for (hex in unlocated) PoliceAircraft.heardNearby(hex, registry)?.let {
+                reportAircraft(it, hex, me.latitude, me.longitude, false, now)
+            }
             loiter.prune(now)
         }
         PoliceAircraft.local = seen
         PoliceAircraft.localAt = now
-        seen.mapNotNull { it.hit }.maxByOrNull { it.confidence }?.let { best ->
+        best?.let { best ->
             val cur = AmbientThreats.aircraft
             if (cur == null || now - cur.first > AIRCRAFT_MS || best.confidence >= cur.second.score)
                 AmbientThreats.aircraft = now to AmbientThreats.Threat(best.confidence, best.label, Category.AIRCRAFT)
         }
+    }
+
+    /**
+     * Logs an aircraft hit once per aircraft per 20 minutes; [loud] (strong and close, [PoliceAircraft.alerts]) also
+     * alerts, once more when one that was only logged comes close. Called with [loiter] held.
+     */
+    private fun reportAircraft(hit: Hit, hex: String, lat: Double, lon: Double, loud: Boolean, now: Long) {
+        val key = if (loud) "$hex!" else hex
+        if (now - (lastAircraftHit[key] ?: 0L) < AIRCRAFT_REPEAT_MS) return
+        // Logged already while it was far: the alert needn't log it again.
+        val loggedRecently = loud && now - (lastAircraftHit[hex] ?: 0L) < AIRCRAFT_REPEAT_MS
+        lastAircraftHit[key] = now
+        lastAircraftHit[hex] = now
+        onAlert(Alert(hit, lat, lon, "air:$hex", level = if (loud) WazePolice.Level.LOUD else WazePolice.Level.LOG, log = !loggedRecently))
     }
 
     private fun clock(t: Long) = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(t))

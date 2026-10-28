@@ -178,13 +178,14 @@ object MeshNode {
         return { runCatching { scanner.stopScan(cb) } }
     }
 
-    /** Pairs with the node now, while the user is looking: Android asks for its PIN (on its screen, or 123456). */
-    fun pair(context: Context, nodeAddress: String) {
-        runCatching {
-            val d = context.getSystemService(BluetoothManager::class.java)?.adapter?.getRemoteDevice(nodeAddress) ?: return
-            if (d.bondState == BluetoothDevice.BOND_NONE) d.createBond()
-        }
-    }
+    /**
+     * Pairs with the node now, while the user is looking (from a screen, so Android shows its PIN dialog
+     * rather than a notification): the PIN is on the node's screen, or 123456. False when it's already paired.
+     */
+    fun pair(context: Context, nodeAddress: String): Boolean = runCatching {
+        val d = context.getSystemService(BluetoothManager::class.java)?.adapter?.getRemoteDevice(nodeAddress) ?: return false
+        d.bondState == BluetoothDevice.BOND_NONE && d.createBond()
+    }.getOrDefault(false)
 
     // ---------------------------------------------------------------- connection
 
@@ -199,21 +200,22 @@ object MeshNode {
         if (adapter == null || !adapter.isEnabled) { setStatus("Meshtastic node: Bluetooth is off"); scheduleRetry(); return }
         val device = runCatching { adapter.getRemoteDevice(addr) }.getOrNull()
             ?: run { setStatus("Meshtastic node: choose the node again"); return }
-        // Meshtastic nodes want a paired phone (PIN on the node's screen, or 123456).
+        // Meshtastic nodes want a paired phone (PIN on the node's screen, or 123456). Pairing asked from the
+        // background only gets Android's small "pairing request" notification, often cut off with no PIN box:
+        // ours opens Sentinel Link, which asks in the foreground so Android shows its PIN dialog.
         when (device.bondState) {
             BluetoothDevice.BOND_NONE -> {
                 if (bondStarted == 0L || SystemClock.elapsedRealtime() - bondStarted > BOND_WAIT_MS) {
                     bondStarted = SystemClock.elapsedRealtime()
-                    runCatching { device.createBond() }
-                    setStatus("Meshtastic node: pairing - enter the node's PIN if Android asks")
-                } else {
-                    setStatus("Meshtastic node: not paired - enter the PIN Android asks for")
+                    com.rfsentinel.app.util.NotificationHelper.showMeshPairing(c)
                 }
+                setStatus("Meshtastic node: not paired - tap here to pair")
                 scheduleRetry(5_000L)
                 return
             }
-            BluetoothDevice.BOND_BONDING -> { setStatus("Meshtastic node: pairing…"); scheduleRetry(3_000L); return }
+            BluetoothDevice.BOND_BONDING -> { setStatus("Meshtastic node: pairing - enter the PIN Android asks for"); scheduleRetry(3_000L); return }
         }
+        if (bondStarted != 0L) com.rfsentinel.app.util.NotificationHelper.cancelMeshPairing(c)
         bondStarted = 0L
         setStatus("Meshtastic node: connecting…")
         connectStarted = SystemClock.elapsedRealtime()

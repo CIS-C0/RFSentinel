@@ -85,6 +85,36 @@ object NotificationHelper {
         runCatching { nm.notify(DOWNLOAD_NOTIFICATION_ID, b.build()) } // no-op without the notification permission
     }
 
+    private const val MESH_PAIR_NOTIFICATION_ID = 3
+
+    /** The Meshtastic node isn't paired: tapping opens Sentinel Link, which asks Android to pair (its PIN dialog). */
+    fun showMeshPairing(context: Context) {
+        val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        val open = PendingIntent.getActivity(
+            context, MESH_PAIR_NOTIFICATION_ID,
+            Intent(context, com.rfsentinel.app.ui.SentinelLinkActivity::class.java)
+                .putExtra(com.rfsentinel.app.ui.SentinelLinkActivity.EXTRA_PAIR, true)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val text = "Tap to pair. Android then asks for the PIN: it's on the node's screen, or 123456."
+        val n = NotificationCompat.Builder(context, CHANNEL_ALERTS)
+            .setSmallIcon(R.drawable.ic_tile_scan)
+            .setContentTitle("Pair your Meshtastic node")
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .build()
+        runCatching { nm.notify(MESH_PAIR_NOTIFICATION_ID, n) } // no-op without the notification permission
+    }
+
+    fun cancelMeshPairing(context: Context) {
+        context.getSystemService(NotificationManager::class.java)?.cancel(MESH_PAIR_NOTIFICATION_ID)
+    }
+
     /** Clears a progress notification left behind when the app was killed mid-download. */
     fun clearStaleCameraDownload(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
@@ -150,9 +180,12 @@ object NotificationHelper {
         /** Where the thing is (a camera); else where you were. */
         lat: Double? = null, lon: Double? = null,
         /** An internet alert's key ("air:..." aircraft, "waze:..." report): tapping opens the map on it ([lat] / [lon] where it was). */
-        online: String? = null
+        online: String? = null,
+        /** False: only logged (its category's banner is turned off). */
+        banner: Boolean = true
     ) {
-        recordAlert(context, key, null, hit, null, false, lat, lon)
+        recordAlert(context, key, null, hit, null, false, lat, lon, card = banner)
+        if (!banner) return
         val discreet = Prefs.discreetMode(context)
         com.rfsentinel.app.ui.ThreatBubble.popup(context, if (discreet) "New alert" else hit.label,
             if (discreet) null else hit.category.shortTag, hit.category.colorArgb)
@@ -200,7 +233,7 @@ object NotificationHelper {
      */
     private fun recordAlert(
         context: Context, key: String, mac: String?, hit: Hit, rssi: Int?, following: Boolean,
-        lat: Double?, lon: Double?
+        lat: Double?, lon: Double?, card: Boolean = true
     ) {
         runCatching {
             val tag = Prefs.gpsTaggingEnabled(context)
@@ -211,7 +244,7 @@ object NotificationHelper {
             )
         }
         // The full screen map shows it as a card (nothing is stored there: it is gone when the card is).
-        runCatching {
+        if (card) runCatching {
             com.rfsentinel.app.ui.AlertCards.publish(com.rfsentinel.app.ui.AlertCards.Card(
                 key, mac, hit.label, hit.evidence, hit.category, hit.confidence, following, rssi, lat, lon, System.currentTimeMillis()))
         }
@@ -251,10 +284,12 @@ object NotificationHelper {
     ).joinToString(" · ")
 
     /** [via]: the linked Sentinel that heard it (Sentinel Link); [rssi] is then that phone's. */
-    fun sendAlert(context: Context, mac: String, hit: Hit, rssi: Int, following: Boolean = false, via: String? = null) {
+    /** [banner] false: the alert is only logged (its watchlist entry turned the banner off). */
+    fun sendAlert(context: Context, mac: String, hit: Hit, rssi: Int, following: Boolean = false, via: String? = null, banner: Boolean = true) {
         // A drone with a Remote ID position is logged where it is; anything else where you were.
         val rid = com.rfsentinel.app.service.DeviceRegistry.get(mac)?.remoteId?.takeIf { it.hasPosition }
-        recordAlert(context, mac, mac, hit, rssi, following, rid?.latitude, rid?.longitude)
+        recordAlert(context, mac, mac, hit, rssi, following, rid?.latitude, rid?.longitude, card = banner)
+        if (!banner) return
         val discreet = Prefs.discreetMode(context)
         com.rfsentinel.app.ui.ThreatBubble.popup(context,
             if (discreet) "New alert" else if (following) "Following you: ${hit.label}" else hit.label,

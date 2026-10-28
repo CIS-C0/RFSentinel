@@ -116,7 +116,7 @@ class MapFragment : Fragment() {
             else -> base - (kmh - 30f) / 80f * 1.6
         }
 
-        /** After panning or zooming the map, it goes back to following you once this long has passed without a touch. */
+        /** The shortest re-center delay: after panning or zooming, the map follows you again once this long (Settings > Map: longer) has passed without a touch. */
         const val RECENTER_AFTER_MS = 10_000L
 
         /**
@@ -163,6 +163,10 @@ class MapFragment : Fragment() {
     private var centeredOnce = false
     /** The trace whose recording banner was hidden with its X. */
     private var recBannerHiddenFor: Long? = null
+    /** The camera / CCTV download lines were hidden with the banner's X: they stay hidden until the map opens again. */
+    private var downloadsHidden = false
+    /** A camera / CCTV download line is on the banner now (its X hides those first). */
+    private var downloadShown = false
     /** The live map opened on a world view because nothing was known about where you are: zoom in with the first fix. */
     private var startedOnWorld = false
     /** The map keeps your position centred until you pan it yourself. */
@@ -284,7 +288,7 @@ class MapFragment : Fragment() {
         if (tripId == null) {
             nav = MapNav(act, binding, viewLifecycleOwner.lifecycleScope, embedded, { alive }, { rf }, { lastFix ?: knownFix() }, navHost)
                 .also { it.setup() }
-            // Alerts pop up over the full screen map (the small pane on the main screen has the list under it).
+            // Alerts pop up over the full screen map only, never the main screen's split-view pane.
             if (!embedded) {
                 val cards = AlertCardController(act, binding, { lastFix ?: knownFix() }) { lat, lon ->
                     navHost.navLookAtRoute()
@@ -295,9 +299,11 @@ class MapFragment : Fragment() {
                 // One that came in just before this screen opened (tapping its notification, say) is still shown.
                 AlertCards.latest?.takeIf { System.currentTimeMillis() - it.atMs < 6_000L }?.let { cards.show(it) }
             }
-            // Locate or pinpointing: the followed device's live signal, on the full map and the main screen's pane.
-            val live = LiveReadCard(binding.liveRead)
-            stopLiveRead = LiveRead.addListener { live.show(it) }
+            // Locate or pinpointing: the followed device's live signal, on the full screen map only (not the split-view pane).
+            if (!embedded) {
+                val live = LiveReadCard(binding.liveRead)
+                stopLiveRead = LiveRead.addListener { live.show(it) }
+            }
         } else {
             binding.searchButton.visibility = View.GONE
         }
@@ -330,7 +336,11 @@ class MapFragment : Fragment() {
             binding.recordButton.visibility = View.GONE
         }
         if (embedded) compactControls()
-        binding.statusDismiss.setOnClickListener { recBannerHiddenFor = TripRecorder.activeTripId; renderLive() }
+        binding.statusDismiss.setOnClickListener {
+            // A download line goes first; the recording banner with the next tap.
+            if (downloadShown) downloadsHidden = true else recBannerHiddenFor = TripRecorder.activeTripId
+            renderLive()
+        }
     }
 
     /** The main screen's filter chip, for the embedded map. */
@@ -975,7 +985,7 @@ class MapFragment : Fragment() {
         lastFix = fix
         gpsFix = fix
         if (shouldRecenter(Prefs.mapAutoRecenter(act), following, tripId == null, Navigator.active, if (fix.hasSpeed()) fix.speed else 0f,
-                nav?.cardShown == true, android.os.SystemClock.elapsedRealtime() - touchedAt)) setFollow(true, quiet = true)
+                nav?.cardShown == true, android.os.SystemClock.elapsedRealtime() - touchedAt, Prefs.mapRecenterSec(act) * 1000L)) setFollow(true, quiet = true)
         if (tripId == null && !Navigator.active && Prefs.mapSpeedometer(act) && Prefs.mapSpeedLimitLive(act) && fix.hasSpeed())
             com.rfsentinel.app.nav.SpeedLimits.Live.onFix(fix.latitude, fix.longitude, fix.speed)
         updateGauge()
@@ -1366,10 +1376,16 @@ class MapFragment : Fragment() {
         val positioned = devices.count { it.place != null }
         // Hidden with its X: stays hidden for this trace, comes back with the next one.
         val showRec = recording && TripRecorder.activeTripId != recBannerHiddenFor
-        val status = when {
+        val download = when {
+            downloadsHidden -> null
             bulkStatus() != null -> bulkStatus() // a camera download's progress wins
             System.currentTimeMillis() - com.rfsentinel.app.alpr.AlprStore.lastAutoFailureAt < CAMERA_FAIL_SHOWN_MS ->
                 "Couldn't download the cameras for this area (map server busy or offline) - retrying"
+            else -> null
+        }
+        val cctv = rf?.cctvLine?.takeUnless { downloadsHidden }
+        val status = when {
+            download != null -> download
             Navigator.active && !showRec -> null // the guidance banner is the status
             // In the small pane the place card needs the room: the scan status is on the main screen above it anyway.
             embedded && nav?.cardShown == true && !showRec -> null
@@ -1386,10 +1402,11 @@ class MapFragment : Fragment() {
             embedded -> null
             else -> "Scanning · ${drawn.size} on map" + if (filter != DeviceFilter.ALL) " (${filter.label} only)" else ""
         }
-        val text = listOfNotNull(status, rf?.cctvLine).joinToString("\n")
+        val text = listOfNotNull(status, cctv).joinToString("\n")
         binding.statusText.text = text
         binding.statusText.visibility = if (text.isEmpty() || (immersive && !Navigator.active)) View.GONE else View.VISIBLE
-        val dismissable = showRec && binding.statusText.visibility == View.VISIBLE && bulkStatus() == null
+        downloadShown = download != null || cctv != null
+        val dismissable = (showRec || downloadShown) && binding.statusText.visibility == View.VISIBLE
         binding.statusDismiss.visibility = if (dismissable) View.VISIBLE else View.GONE
         binding.statusText.setPaddingRelative(binding.statusText.paddingStart, binding.statusText.paddingTop,
             ((if (dismissable) 40 else 12) * resources.displayMetrics.density).toInt(), binding.statusText.paddingBottom)

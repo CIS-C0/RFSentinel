@@ -46,6 +46,15 @@ object Prefs {
     fun setCategoryEnabled(context: Context, category: Category, value: Boolean) =
         setBool(context, "cat_" + category.name, value)
 
+    /** The ways a category doesn't alert you (Settings › What to detect): banner, sound, voice, vibration, radar beep. */
+    fun categoryAlertsOff(context: Context, category: Category): Set<com.rfsentinel.app.data.AlertKind> =
+        com.rfsentinel.app.data.AlertKind.parse(sp(context).getString("cat_alerts_off_" + category.name, null))
+
+    fun setCategoryAlertsOff(context: Context, category: Category, off: Set<com.rfsentinel.app.data.AlertKind>) = sp(context).edit {
+        val key = "cat_alerts_off_" + category.name
+        com.rfsentinel.app.data.AlertKind.format(off)?.let { putString(key, it) } ?: remove(key)
+    }
+
     // ---- Alerts ---------------------------------------------------------------
 
     fun soundEnabled(context: Context): Boolean = bool(context, "sound_enabled", true)
@@ -568,6 +577,9 @@ object Prefs {
     /** The USB adapter's own light (only adapters whose light the app can drive: RTL8811AU / 8821AU): on by default. */
     fun usbAdapterLight(context: Context): Boolean = bool(context, "usb_adapter_light", true)
     fun setUsbAdapterLight(context: Context, value: Boolean) = setBool(context, "usb_adapter_light", value)
+    /** Scan Bluetooth with a USB adapter's Bluetooth part (dongle or combo adapter). */
+    fun usbBluetooth(context: Context): Boolean = bool(context, "usb_bluetooth", true)
+    fun setUsbBluetooth(context: Context, value: Boolean) = setBool(context, "usb_bluetooth", value)
     fun setRtl8821au5g(context: Context, value: Boolean) = setBool(context, "rtl8821au_5g", value)
 
     /** Hide trusted (whitelisted) devices from the live list and radar (off by default). */
@@ -648,6 +660,10 @@ object Prefs {
     /** The live map goes back to following you a few seconds after you stop touching it while you drive (as Google Maps does). */
     fun mapAutoRecenter(context: Context): Boolean = bool(context, "map_auto_recenter", true)
     fun setMapAutoRecenter(context: Context, value: Boolean) = setBool(context, "map_auto_recenter", value)
+    /** How long after your last touch the map goes back to you, in seconds (one of [RECENTER_CHOICES]). */
+    fun mapRecenterSec(context: Context): Int = int(context, "map_recenter_sec", 30).let { if (it in RECENTER_CHOICES) it else 30 }
+    fun setMapRecenterSec(context: Context, sec: Int) = setInt(context, "map_recenter_sec", sec)
+    val RECENTER_CHOICES = listOf(10, 30, 60, 120)
 
     /** The speedometer in the corner of the live map: your speed, and the posted limit while it is known. */
     fun mapSpeedometer(context: Context): Boolean = bool(context, "map_speedometer", true)

@@ -29,6 +29,8 @@ data class DeviceRow(
     /** Heard by an ESP32 board (blue badge) and/or the phone's own radios (green badge). */
     val heardByEsp: Boolean = false,
     val heardByUsb: Boolean = false,
+    /** Heard by a USB Bluetooth adapter. */
+    val heardByUsbBt: Boolean = false,
     val heardByPhone: Boolean = false,
     /** The linked Sentinel that heard it (Sentinel Link), or null. */
     val heardByPeer: String? = null,
@@ -38,7 +40,10 @@ data class DeviceRow(
     /** Added to [rssi] for the bars only: cell signals run about 10 dB lower than WiFi and Bluetooth. */
     val barBoost: Int = 0,
     /** A group's header ("Trackers · 3", Group by in the ⋮ menu): [title] only, not a device. */
-    val header: Boolean = false
+    val header: Boolean = false,
+    /** A flagged device: its row has the mute button ([com.rfsentinel.app.data.AlertMutes]). */
+    val canMute: Boolean = false,
+    val muted: Boolean = false
 ) {
     companion object {
         /** Keyed by the group ([key]), not its label: the count changing must not swap the row (it flickered). */
@@ -53,7 +58,7 @@ private const val PEER_BADGE = 0xFF00838F.toInt()
 
 /** The meta line, followed by small coloured "ESP32" / "INTERNAL" / "VIA <Sentinel>" badges. */
 private fun metaWithBadges(row: DeviceRow): CharSequence {
-    if (!row.heardByEsp && !row.heardByUsb && !row.heardByPhone && row.heardByPeer == null) return row.meta
+    if (!row.heardByEsp && !row.heardByUsb && !row.heardByUsbBt && !row.heardByPhone && row.heardByPeer == null) return row.meta
     val sb = android.text.SpannableStringBuilder(row.meta)
     fun badge(label: String, color: Int) {
         sb.append("  ")
@@ -66,6 +71,7 @@ private fun metaWithBadges(row: DeviceRow): CharSequence {
     }
     if (row.heardByEsp) badge("ESP32", ESP_BADGE)
     if (row.heardByUsb) badge("USB WIFI", USB_BADGE)
+    if (row.heardByUsbBt) badge("USB BT", USB_BADGE)
     if (row.heardByPhone) badge("INTERNAL", PHONE_BADGE)
     row.heardByPeer?.let { badge("VIA " + it.uppercase(), PEER_BADGE) }
     return sb
@@ -73,7 +79,9 @@ private fun metaWithBadges(row: DeviceRow): CharSequence {
 
 class DeviceAdapter(
     private val onClick: (DeviceRow) -> Unit,
-    private val onLongPress: (DeviceRow) -> Unit
+    private val onLongPress: (DeviceRow) -> Unit,
+    /** The mute button on a flagged row; [forever] on a long press. Null: no mute buttons. */
+    private val onMute: ((row: DeviceRow, forever: Boolean) -> Unit)? = null
 ) : ListAdapter<DeviceRow, RecyclerView.ViewHolder>(Diff) {
 
     /** Visual style: signal bars and a confidence bar on each row (Settings > Appearance, or the list's own choice). */
@@ -158,6 +166,17 @@ class DeviceAdapter(
         if (visual && row.rssi != null) {
             b.signalBars.set(row.rssi + row.barBoost)
             b.signalText.text = "${row.rssi}"
+        }
+        val mute = onMute?.takeIf { row.canMute }
+        b.muteButton.visibility = if (mute != null) View.VISIBLE else View.GONE
+        if (mute != null) {
+            // Muted: in the highlight colour; tap again to unmute.
+            b.muteButton.imageTintList = android.content.res.ColorStateList.valueOf(
+                if (row.muted) ChipStyle.accent(b.root.context).first else ChipStyle.onSurface(b.root.context))
+            b.muteButton.alpha = if (row.muted) 1f else 0.6f
+            b.muteButton.contentDescription = if (row.muted) "Unmute this device's alerts" else "Mute this device's alerts"
+            b.muteButton.setOnClickListener { mute(row, false) }
+            b.muteButton.setOnLongClickListener { mute(row, true); true }
         }
         holder.setHighlight(row.highlight, row.flashing)
         holder.itemView.setOnClickListener { onClick(row) }

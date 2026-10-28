@@ -67,6 +67,10 @@ public final class WazeRtFetcher {
     private static final long BACKOFF_BASE_MS = 30_000L;
     private static final long BACKOFF_MAX_MS = 10 * 60_000L;
     private static final long GENERIC_FAIL_BACKOFF_MS = 15_000L;
+    /** A session only hears about removals while it lasts and is never re-sent what it already has, so a report
+     *  whose removal was missed (out of the boxes queried, a dropped poll) would stay forever. Logging in again
+     *  this often makes Waze re-send every report still active, and the cache drops the rest. */
+    private static final long FULL_REFRESH_MS = 10 * 60_000L;
     private static final long DAY_MS = 24 * 3600_000L;
 
     /** One Waze police report, reduced to what RF Sentinel scores. */
@@ -108,6 +112,8 @@ public final class WazeRtFetcher {
     private final WazeAlertCache cache = new WazeAlertCache();
 
     private WazeSession session;
+    /** When {@link #session} logged in (elapsed realtime). */
+    private long sessionStartedAt;
     private int consecutiveRejections = 0;
     private long backoffUntilMs = 0L;
 
@@ -189,6 +195,8 @@ public final class WazeRtFetcher {
                     "backing off " + ((backoffUntilMs - now) / 1000) + "s after a rejected session");
         }
         try {
+            // The new session's first box replaces the cache (see queryArea), so a failed re-login keeps it meanwhile.
+            if (session != null && now - sessionStartedAt >= FULL_REFRESH_MS) session = null;
             double[] at = snapToGrid(lat, lon);
             Diagnostics.sentLat = at[0];
             Diagnostics.sentLon = at[1];
@@ -254,7 +262,10 @@ public final class WazeRtFetcher {
     // ── session + query ──────────────────────────────────────────────────────
 
     private void queryArea(double lat, double lon, double radiusMeters) throws Exception {
-        if (session == null) session = restoreOrCreateSession();
+        if (session == null) {
+            session = restoreOrCreateSession();
+            sessionStartedAt = SystemClock.elapsedRealtime();
+        }
         boolean wasUnregistered = session.getCredentials() == null;
         if (wasUnregistered && !canRegisterToday()) {
             throw new WazeExceptions.WazeOperationException(

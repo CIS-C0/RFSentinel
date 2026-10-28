@@ -151,7 +151,8 @@ class MainActivity : AppCompatActivity() {
                 }
                 else DeviceActions.openDetails(this, it.mac)
             },
-            onLongPress = { if (listOf(CELL_ROW, WAZE_ROW, RADIO_ROW, AIRCRAFT_ROW).none { p -> it.mac.startsWith(p) }) DeviceActions.showQuickActions(this, it.mac) }
+            onLongPress = { if (listOf(CELL_ROW, WAZE_ROW, RADIO_ROW, AIRCRAFT_ROW).none { p -> it.mac.startsWith(p) }) DeviceActions.showQuickActions(this, it.mac) },
+            onMute = { row, forever -> toggleMute(row, forever) }
         )
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
@@ -490,6 +491,9 @@ class MainActivity : AppCompatActivity() {
                 com.rfsentinel.app.usb.UsbWifi.status.takeIf { it.isNotBlank() }?.let {
                     com.rfsentinel.app.ui.StatusPanel.Hardware(it, { com.rfsentinel.app.usb.MonitorFrames.frameCount.get() }, " frames/s")
                 },
+                com.rfsentinel.app.usb.UsbBluetooth.status.takeIf { it.isNotBlank() }?.let {
+                    com.rfsentinel.app.ui.StatusPanel.Hardware(it, { com.rfsentinel.app.usb.UsbBluetooth.reportCount.get() }, " adverts/s")
+                },
                 com.rfsentinel.app.sdr.SdrRadio.status.takeIf { it.isNotBlank() }?.let {
                     com.rfsentinel.app.ui.StatusPanel.Hardware(it,
                         if (it.contains("ADS-B")) ({ com.rfsentinel.app.sdr.SdrRadio.adsbMessages }) else null, " msg/s")
@@ -522,6 +526,7 @@ class MainActivity : AppCompatActivity() {
                 com.rfsentinel.app.esp.OuiSpyBle.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
                 com.rfsentinel.app.esp.EspBoards.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
                 com.rfsentinel.app.usb.UsbWifi.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
+                com.rfsentinel.app.usb.UsbBluetooth.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
                 com.rfsentinel.app.sdr.SdrRadio.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
                 com.rfsentinel.app.sdr.RadioReference.status.takeIf { it.isNotBlank() && com.rfsentinel.app.util.Prefs.radioReferenceOn(this) }
                     ?.let { "\n$it" }.orEmpty() +
@@ -985,16 +990,33 @@ class MainActivity : AppCompatActivity() {
         return com.rfsentinel.app.ui.DeviceRows.matchColor(this, best.category, best.tier)
     }
 
+    /** A flagged row's mute button: no alerts from it for a while ([forever]: until unmuted); tapped while muted, unmutes. */
+    private fun toggleMute(row: DeviceRow, forever: Boolean) {
+        val mutes = com.rfsentinel.app.data.AlertMutes
+        val name = row.title
+        if (mutes.isMuted(this, row.mac) && !forever) {
+            mutes.unmute(this, row.mac)
+            android.widget.Toast.makeText(this, "Alerts back on for $name", android.widget.Toast.LENGTH_SHORT).show()
+        } else {
+            mutes.mute(this, row.mac, if (forever) mutes.FOREVER else System.currentTimeMillis() + mutes.TAP_MS)
+            android.widget.Toast.makeText(this, if (forever) "$name muted until you unmute it (tap the button again)"
+                else "$name muted for ${mutes.TAP_MS / 60_000} min (hold the button to mute it until you unmute it)", android.widget.Toast.LENGTH_LONG).show()
+        }
+        render()
+    }
+
     private fun toRow(s: DeviceRegistry.Snapshot, now: Long, threshold: Int): DeviceRow {
         val whitelisted = WhitelistCache.contains(s.mac)
         val best = s.best
         val alert = best != null && !whitelisted
+        val muted = alert && com.rfsentinel.app.data.AlertMutes.isMuted(this, s.mac, now)
         val ageSec = (now - s.lastSeen) / 1000
         val age = if (ageSec < 2) "now" else "${ageSec}s ago"
         val badges = buildList {
             if (s.following) add("FOLLOWING")
             if (Favorites.contains(s.mac)) add("★")
             if (s.isNew) add("NEW")
+            if (muted) com.rfsentinel.app.data.AlertMutes.label(this@MainActivity, s.mac, now)?.let { add(it.uppercase()) }
         }
         val tag = when {
             whitelisted -> "WHITELISTED"
@@ -1026,15 +1048,18 @@ class MainActivity : AppCompatActivity() {
             },
             highlight = if (alert) colorFor(s) else null,
             // Flashes only while still in range (like the beeps); a gone device keeps a steady tint.
-            flashing = alert && com.rfsentinel.app.ui.LiveWindow.inRange(s, now) &&
+            flashing = alert && !muted && com.rfsentinel.app.ui.LiveWindow.inRange(s, now) &&
                 (s.following || (best!!.confidence >= threshold && best.category != Category.TRACKER)),
             bold = alert,
             heardByEsp = com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac, now),
             heardByUsb = com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac, now),
+            heardByUsbBt = com.rfsentinel.app.esp.HeardBy.usbBt.recent(s.mac, now),
             heardByPhone = com.rfsentinel.app.esp.HeardBy.phone.recent(s.mac, now),
             heardByPeer = com.rfsentinel.app.esp.HeardBy.peer.via(s.mac, now),
             rssi = s.rssi,
-            confidence = best?.confidence?.takeIf { !whitelisted }
+            confidence = best?.confidence?.takeIf { !whitelisted },
+            canMute = alert,
+            muted = muted
         )
     }
 

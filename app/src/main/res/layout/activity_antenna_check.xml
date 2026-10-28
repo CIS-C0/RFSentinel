@@ -11,6 +11,33 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
+        <!-- Which adapter: shown when both a USB WiFi and a USB Bluetooth adapter are live. -->
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/radioGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:visibility="gone"
+            app:singleSelection="true"
+            app:selectionRequired="true">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/radioWifi"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="USB WiFi" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/radioBt"
+                style="?attr/materialButtonOutlinedStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="USB Bluetooth" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
         <com.google.android.material.button.MaterialButtonToggleGroup
             android:id="@+id/modeGroup"
             android:layout_width="match_parent"
@@ -229,6 +256,7 @@
                 android:textSize="@dimen/text_body" />
 
             <TextView
+                android:id="@+id/zeroHelp"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
@@ -245,6 +273,7 @@
                 android:text="Swap test: capture with antenna A, swap to antenna B, capture again. Each capture averages the last 5 s; keep the phone still." />
 
             <TextView
+                android:id="@+id/aboutText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"

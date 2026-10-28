@@ -217,6 +217,7 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
     private fun hardwareSummary(): String = listOfNotNull(
         EspBoards.status.takeIf { it.isNotBlank() },
         UsbWifi.status.takeIf { it.isNotBlank() },
+        com.rfsentinel.app.usb.UsbBluetooth.status.takeIf { it.isNotBlank() },
         SdrRadio.status.takeIf { it.isNotBlank() },
         OuiSpyBle.status.takeIf { it.isNotBlank() },
         com.rfsentinel.app.link.PhoneLink.status.takeIf { it.isNotBlank() },

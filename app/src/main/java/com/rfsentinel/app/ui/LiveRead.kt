@@ -2,12 +2,18 @@ package com.rfsentinel.app.ui
 
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.PixelFormat
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.view.ContextThemeWrapper
+import android.view.LayoutInflater
 import android.view.View
+import android.view.WindowManager
 import android.widget.Toast
+import com.rfsentinel.app.R
 import com.rfsentinel.app.data.DeviceNames
 import com.rfsentinel.app.databinding.ViewLiveReadBinding
 import com.rfsentinel.app.detect.DeviceIntel
@@ -208,5 +214,65 @@ internal class LiveReadCard(private val b: ViewLiveReadBinding) {
         b.liveBar.set(level, VisualMode.heat(level))
         b.liveClose.contentDescription = if (r.mode == LiveRead.Mode.LOCATE) "Stop locating" else "Hide the live read"
         b.root.visibility = View.VISIBLE
+    }
+}
+
+/**
+ * The live read card in a small window of its own over other apps (under the floating map, beside the threat
+ * bubble), shown while there is a read. [place] sets the window's gravity, x, y and width for a card [height]
+ * tall; call [replace] when what it sits by moves. [wanted]: false while another overlay shows the card.
+ */
+internal class LiveReadOverlay(
+    private val context: Context,
+    private val wanted: () -> Boolean = { true },
+    private val place: (lp: WindowManager.LayoutParams, height: Int) -> Unit
+) {
+    private var b: ViewLiveReadBinding? = null
+    private var lp: WindowManager.LayoutParams? = null
+    private var card: LiveReadCard? = null
+    private var stopListening: (() -> Unit)? = null
+    private val wm get() = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
+    fun start() { if (stopListening == null) stopListening = LiveRead.addListener { show(it) } }
+
+    fun stop() {
+        stopListening?.invoke(); stopListening = null
+        remove()
+    }
+
+    fun replace() {
+        val b = b ?: return; val lp = lp ?: return
+        place(lp, b.root.height.takeIf { it > 0 } ?: (84 * context.resources.displayMetrics.density).toInt())
+        runCatching { wm.updateViewLayout(b.root, lp) }
+    }
+
+    private fun show(r: LiveRead.Read?) {
+        if (r == null || !wanted()) { remove(); return }
+        if (b == null) {
+            val nb = ViewLiveReadBinding.inflate(LayoutInflater.from(ContextThemeWrapper(context, R.style.Theme_RFSentinel)))
+            // A little smaller than on the full map: it sits beside another app.
+            nb.liveTitle.textSize = 14f; nb.liveDetail.textSize = 12f
+            nb.root.elevation = 6f * context.resources.displayMetrics.density
+            val type = if (Build.VERSION.SDK_INT >= 26) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
+            val nlp = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, type,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT
+            )
+            if (runCatching { wm.addView(nb.root, nlp) }.isFailure) return
+            b = nb; lp = nlp; card = LiveReadCard(nb)
+            // Placed again once its height is known (it may go above what it sits by when there's no room below).
+            nb.root.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
+                if (bottom - top != oldBottom - oldTop) replace()
+            }
+        }
+        card?.show(r)
+        replace()
+    }
+
+    private fun remove() {
+        val v = b ?: return
+        runCatching { wm.removeView(v.root) }
+        b = null; lp = null; card = null
     }
 }

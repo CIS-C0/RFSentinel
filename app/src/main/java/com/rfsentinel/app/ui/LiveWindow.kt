@@ -39,7 +39,7 @@ object LiveWindow {
         val phoneMs = if (wifi) wifiMs else bleMs
         // Heard by an ESP32 board, a USB adapter or a linked Sentinel: its own time, or the longer one when the
         // phone hears it too.
-        val external = HeardBy.esp.recent(s.mac, now) || HeardBy.usb.recent(s.mac, now) || HeardBy.peer.recent(s.mac, now)
+        val external = HeardBy.esp.recent(s.mac, now) || HeardBy.usb.recent(s.mac, now) || HeardBy.usbBt.recent(s.mac, now) || HeardBy.peer.recent(s.mac, now)
         val ms = when {
             !external -> phoneMs
             HeardBy.phone.recent(s.mac, now) -> maxOf(phoneMs, externalMs)

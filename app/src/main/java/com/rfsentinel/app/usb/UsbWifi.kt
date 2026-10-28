@@ -48,7 +48,7 @@ data class MonitorSighting(
 object UsbWifi {
 
     private const val TAG = "UsbWifi"
-    private const val ACTION_PERMISSION = "com.rfsentinel.app.USB_WIFI_PERMISSION"
+    internal const val ACTION_PERMISSION = "com.rfsentinel.app.USB_WIFI_PERMISSION"
 
     /** Driver families. */
     enum class Driver { RTL88XXAU, RTL8812AU, RTL88X2BU, RTL8187, RT3070, RTL8814AU, MT7612U, MT7921U, AR9271 }
@@ -346,7 +346,7 @@ object UsbWifi {
         if (missing.isNotEmpty()) {
             if (firmwareNeeded != chip) {
                 log("${chip.name} needs firmware that isn't downloaded yet: ${missing.joinToString { it.name }}")
-                FirmwarePrompt.notify(context, chip)
+                FirmwarePrompt.notify(context, chip.name)
             }
             firmwareNeeded = chip
             status = "USB WiFi (${chip.name}) needs its chip firmware: tap the notification, or this line in Settings, to download it"
@@ -358,8 +358,12 @@ object UsbWifi {
         status = "USB WiFi (${chip.name}) · starting…"
         log("Starting ${chip.name} (${"%04x:%04x".format(d.vendorId, d.productId)}) - RF Sentinel ${com.rfsentinel.app.BuildConfig.VERSION_NAME}, " +
             "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}, Android ${android.os.Build.VERSION.RELEASE}")
+        val previous = thread
         thread = Thread({
             runCatching {
+                // A quick stop and start: each driver refuses to start while its last session is still stopping.
+                previous?.join(3_000)
+                if (previous?.isAlive == true) { status = "USB WiFi (${chip.name}): the last session is still stopping - unplug and replug the adapter"; return@runCatching }
                 val onStatus: (String) -> Unit = { s -> status = s }
                 val onFrames: (List<MonitorSighting>) -> Unit = { list -> onSightings?.invoke(list) }
                 when (chip.driver) {
@@ -395,7 +399,6 @@ object UsbWifi {
         Ar9271Monitor.abort()
         runningDevice = null
         runningChip = null
-        thread = null
         status = newStatus
         com.rfsentinel.app.esp.HeardBy.usb.clear() // unplugged or stopped: nothing is "heard by USB" any more
     }

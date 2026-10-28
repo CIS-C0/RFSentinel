@@ -3,13 +3,18 @@ package com.rfsentinel.app.ouilist
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import com.rfsentinel.app.data.AlertKind
 import com.rfsentinel.app.databinding.ItemOuiEntryBinding
 import com.rfsentinel.app.detect.Tier
 import com.rfsentinel.app.oui.OuiEntry
+import com.rfsentinel.app.ui.ChipStyle
+import com.rfsentinel.app.ui.FitChip
 
 class OuiAdapter(
     private val items: MutableList<OuiEntry>,
-    private val onRemove: (OuiEntry) -> Unit
+    private val onRemove: (OuiEntry) -> Unit,
+    /** One of your entries' alert chips was toggled: the ways it now doesn't alert you. */
+    private val onAlertsOff: (OuiEntry, Set<AlertKind>) -> Unit
 ) : RecyclerView.Adapter<OuiAdapter.VH>() {
 
     fun update(newItems: List<OuiEntry>) {
@@ -47,6 +52,24 @@ class OuiAdapter(
         holder.binding.removeButton.visibility =
             if (item.confidence == "custom") android.view.View.VISIBLE else android.view.View.GONE
         holder.binding.removeButton.setOnClickListener { onRemove(item) }
+        // Your entries: a chip per way it alerts you, on unless you turned it off.
+        val chips = holder.binding.alertChips
+        val vis = if (item.isCustom) android.view.View.VISIBLE else android.view.View.GONE
+        chips.visibility = vis
+        holder.binding.alertsLabel.visibility = vis
+        chips.removeAllViews()
+        if (item.isCustom) {
+            val off = item.alertsOffSet
+            AlertKind.entries.forEach { kind ->
+                chips.addView(FitChip(chips.context).apply {
+                    text = kind.label; isCheckable = true
+                    ChipStyle.apply(this)
+                    isChecked = kind !in off
+                    contentDescription = "${kind.label} alerts for ${item.label}"
+                    setOnClickListener { onAlertsOff(item, if (isChecked) off - kind else off + kind) }
+                })
+            }
+        }
     }
 
     override fun getItemCount() = items.size

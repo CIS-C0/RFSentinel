@@ -1,0 +1,5 @@
+• USB Bluetooth: the Bluetooth part of an MT7921AU, RTL8821AU or RTL8822BU combo adapter, or a USB Bluetooth dongle, scans as a second Bluetooth LE receiver, listening only.
+• Choose per category how it alerts you: banner, sound, voice, vibration, radar beep (Settings › What to detect, under ▾).
+• A device opened from history shows everything its page showed when last heard.
+• Alert cards show only on the full-screen map.
+• USB adapter restart fixes.

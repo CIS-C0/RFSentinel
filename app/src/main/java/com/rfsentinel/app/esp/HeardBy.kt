@@ -62,6 +62,8 @@ object HeardBy {
     val esp = RecentMacs()
     /** A USB WiFi adapter in monitor mode. */
     val usb = RecentMacs()
+    /** A USB Bluetooth adapter (dongle, or the Bluetooth half of a combo adapter). */
+    val usbBt = RecentMacs()
     val phone = RecentMacs()
     /** Another Sentinel (Sentinel Link). */
     val peer = PeerMacs()

@@ -126,7 +126,7 @@ object DeviceIntel {
 
     private val ROUTER_TYPE = Regex("^(home router|wifi access point|vehicle / cellular router|mesh router)|access point$", RegexOption.IGNORE_CASE)
 
-    /** True when a type is a router or a home / plain access point (the Routers chip); business access points aren't. */
+    /** True when a type is a router or a home / plain access point (the Routers chip); business ones are Access points. */
     fun isRouter(type: String): Boolean = ROUTER_TYPE.containsMatchIn(type)
 
     /** The type of a hidden network another network of the same access point names: "<that type> (hidden network)". */

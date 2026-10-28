@@ -28,9 +28,12 @@ import androidx.core.content.ContextCompat
 import com.rfsentinel.app.RFSentinelApp
 import com.rfsentinel.app.alpr.AlprStore
 import com.rfsentinel.app.alpr.KnownCameras
+import com.rfsentinel.app.data.AlertKind
 import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.DetectionEntity
+import com.rfsentinel.app.data.DeviceDetailsEntity
 import com.rfsentinel.app.data.KnownDeviceEntity
+import com.rfsentinel.app.data.LastHeard
 import com.rfsentinel.app.data.WhitelistCache
 import com.rfsentinel.app.detect.Advert
 import com.rfsentinel.app.detect.Category
@@ -75,6 +78,8 @@ class ScanForegroundService : Service() {
         /** The latest position's time and accuracy, for the GPS dot (null: none while scanning). */
         @Volatile var gpsAt = 0L; private set
         @Volatile var gpsAccuracyM: Float? = null; private set
+        /** How old the latest position may get before the GPS dot calls it lost: fixes come every ~20 s on balanced. */
+        @Volatile var gpsStaleMs = 10_000L; private set
         /** No fused fix this long after asking (precise / balanced): raw GPS and network fill in. */
         private const val FUSED_SILENT_FAST_MS = 15_000L
         private const val FUSED_SILENT_MS = 30_000L
@@ -105,6 +110,10 @@ class ScanForegroundService : Service() {
         /** Each periodic job holds a short wake lock only while it runs. */
         private const val WAKE_SLICE_MS = 10_000L
         private const val HISTORY_FLUSH_MS = 60_000L
+        /** A device page's details are saved at least this often while it's heard (and whenever its matches change). */
+        private const val DETAILS_SAVE_MS = 5 * 60_000L
+        /** Saved device pages kept (newest first, plus every favourite / named / noted device): a few KB each. */
+        private const val DETAILS_KEEP = 10_000
         private const val DRONE_OVERHEAD_REPEAT_MS = 5 * 60_000L
         private const val KNOWN_ALPR_REPEAT_MS = 30 * 60_000L
         private const val CELL_CHECK_MS = 15_000L
@@ -375,6 +384,8 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.esp.EspBoards.start(this) { list -> pipeline.post { list.forEach(::processEsp) } }
         // A USB WiFi adapter in monitor mode (e.g. AWUS036ACS): access points and client devices.
         com.rfsentinel.app.usb.UsbWifi.start(this) { list -> pipeline.post { list.forEach(::processUsbWifi) } }
+        // A USB Bluetooth adapter (dongle or combo adapter), next to the phone's own Bluetooth (Settings › External hardware).
+        com.rfsentinel.app.usb.UsbBluetooth.start(this) { list -> pipeline.post { list.forEach(::processUsbBt) } }
         com.rfsentinel.app.usb.DeauthWatch.onAttack = { a -> pipeline.post { onDeauth(a) } }
         com.rfsentinel.app.usb.KarmaWatch.onAttack = { a -> pipeline.post { onKarma(a) } }
         // An RTL-SDR dongle: strong two-way radio transmissions nearby (signal strength only),
@@ -580,6 +591,7 @@ class ScanForegroundService : Service() {
                     !fusedEverFixed -> locatingHandler.postDelayed(backstopCheck, if (fast) FUSED_SILENT_FAST_MS else FUSED_SILENT_MS)
                 }
             } else requestFixes(lm, rawProviders(lm), locationListener)
+            requestDotFixes(lm)
             locationListening = true
         }
     }
@@ -626,8 +638,27 @@ class ScanForegroundService : Service() {
         requestFixes(lm, raw, backstopListener)
     }
 
+    /**
+     * Every fix the phone computes, with no distance filter: the requests above skip fixes until you move 5-25 m,
+     * so standing still would leave the GPS dot red. Only refreshes the dot; the scan still uses [onFix].
+     */
+    private val dotListener = LocationListenerCompat {
+        if (!it.hasAccuracy()) return@LocationListenerCompat
+        if (it.provider == LocationManager.NETWORK_PROVIDER && System.currentTimeMillis() - lastRawGpsAt < RAW_GPS_PREFERRED_MS) return@LocationListenerCompat
+        gpsAt = System.currentTimeMillis(); gpsAccuracyM = it.accuracy
+    }
+
+    @SuppressLint("MissingPermission") // only called from updateLocationUpdates(), which checks it
+    private fun requestDotFixes(lm: LocationManager) {
+        gpsStaleMs = if (locationMode >= 1) 10_000L else 60_000L
+        if (!lm.allProviders.contains(LocationManager.PASSIVE_PROVIDER)) return
+        runCatching { lm.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER, 1_000L, 0f, dotListener, Looper.getMainLooper()) }
+            .onFailure { Log.w(TAG, "Passive location unavailable", it) }
+    }
+
     private fun stopLocationUpdates(lm: LocationManager) {
         locatingHandler.removeCallbacks(backstopCheck)
+        runCatching { lm.removeUpdates(dotListener) }
         runCatching { lm.removeUpdates(locationListener) }
         runCatching { lm.removeUpdates(backstopListener) } // backstopOn stays: re-requested with the next mode
         locationListening = false
@@ -706,7 +737,7 @@ class ScanForegroundService : Service() {
         noteLocating(mac)
 
         maybeLog(a, best, c.vendor, loc, now)
-        maybeAlert(a, best, now, via)
+        maybeAlert(a, best, c.hits, now, via)
         // Following is about this phone: a device near another Sentinel isn't following it.
         if (via != null) return
 
@@ -721,10 +752,12 @@ class ScanForegroundService : Service() {
             ownerPhone(mac, now) != null
         if (loc != null && Prefs.followerAlerts(this) && !trackerPaused && !best.listOnly && !withOwner &&
             (DeviceRegistry.checkFollowing(mac, followMs, followM).also { if (it) placeFollow.alertedNow(mac, now) } ||
-                placeFollow.follower(mac, now, followMs, followM).also { if (it) DeviceRegistry.markFollowing(mac) })
+                placeFollow.follower(mac, now, followMs, followM).also { if (it) DeviceRegistry.markFollowing(mac) }) &&
+            !com.rfsentinel.app.data.AlertMutes.isMuted(this, mac, now)
         ) {
-            NotificationHelper.sendAlert(this, mac, best, a.rssi, following = true)
-            AlertPlayer.play(this, best.tier, com.rfsentinel.app.util.Spoken.device(this, best, following = true), following = true)
+            val off = alertsOff(best.category, mac, c.hits)
+            NotificationHelper.sendAlert(this, mac, best, a.rssi, following = true, banner = AlertKind.BANNER !in off)
+            AlertPlayer.play(this, best.tier, com.rfsentinel.app.util.Spoken.device(this, best, following = true), following = true, off = off)
         }
     }
 
@@ -783,6 +816,15 @@ class ScanForegroundService : Service() {
         )
         linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_USB, a, probed = m.probedSsids, fingerprint = m.fingerprint, hidden = m.hiddenNetwork))
         process(a, null)
+    }
+
+    /** A USB Bluetooth adapter's advertising report: the same as one the phone's Bluetooth heard, badged USB BT. */
+    private fun processUsbBt(r: com.rfsentinel.app.usb.UsbBluetooth.Report) {
+        val a = AdvertFactory.fromHci(r)
+        com.rfsentinel.app.esp.HeardBy.usbBt.mark(a.mac, a.timestamp)
+        com.rfsentinel.app.usb.AntennaCheck.heardBt(a.mac, a.name, a.rssi, a.timestamp)
+        linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_PHONE, a))
+        process(a)
     }
 
     private fun processEsp(e: com.rfsentinel.app.esp.EspSighting) {
@@ -929,7 +971,7 @@ class ScanForegroundService : Service() {
             }
             // Heard here too: this phone's own reading (signal, place) is the one shown.
             if (heardBy.phone.within(mac, HEARD_HERE_MS, now) || heardBy.esp.within(mac, HEARD_HERE_MS, now) ||
-                heardBy.usb.within(mac, HEARD_HERE_MS, now)) continue
+                heardBy.usb.within(mac, HEARD_HERE_MS, now) || heardBy.usbBt.within(mac, HEARD_HERE_MS, now)) continue
             // Heard by a Sentinel linked here over Bluetooth: this phone's node passes it on to the mesh.
             process(a, via = via, peerAt = at, toMesh = b.hops == 0)
         }
@@ -1015,16 +1057,27 @@ class ScanForegroundService : Service() {
         }
     }
 
-    private fun maybeAlert(a: Advert, best: Hit, now: Long, via: String? = null) {
+    /**
+     * The ways not to alert you about this: what its category has turned off (Settings › What to detect)
+     * plus what your watchlist entry for the device has.
+     */
+    private fun alertsOff(category: Category, mac: String? = null, hits: List<Hit> = emptyList()): Set<AlertKind> =
+        Prefs.categoryAlertsOff(this, category) + (if (mac != null) OuiWatchlist.alertsOff(mac, hits) else emptySet())
+
+    private fun maybeAlert(a: Advert, best: Hit, hits: List<Hit>, now: Long, via: String? = null) {
         // Someone else's tracker nearby is normal; trackers only alert when they follow you.
         if (best.category == Category.TRACKER) return
         if (best.listOnly || best.confidence < Prefs.alertThreshold(this)) return
+        // Acknowledged from the list: listed and logged, no alert.
+        if (com.rfsentinel.app.data.AlertMutes.isMuted(this, a.mac, now)) return
         val window = Prefs.dedupeWindowMs(this)
         val last = lastAlerted[a.mac] ?: 0L
         if (now - last <= window) return
         lastAlerted[a.mac] = now
-        NotificationHelper.sendAlert(this, a.mac, best, a.rssi, via = via)
-        AlertPlayer.play(this, best.tier, com.rfsentinel.app.util.Spoken.device(this, best, via = via))
+        // The ways your watchlist entry for it says not to alert.
+        val off = alertsOff(best.category, a.mac, hits)
+        NotificationHelper.sendAlert(this, a.mac, best, a.rssi, via = via, banner = AlertKind.BANNER !in off)
+        AlertPlayer.play(this, best.tier, com.rfsentinel.app.util.Spoken.device(this, best, via = via), off = off)
     }
 
     private fun knownAlprActive() = (Prefs.knownAlprAlerts(this) || Prefs.speedCameraAlerts(this)) &&
@@ -1070,8 +1123,9 @@ class ScanForegroundService : Service() {
                     ". Mapped in OpenStreetMap" + (if (alpr) " - it may not broadcast any signal." else "."),
                 "OpenStreetMap (" + (if (alpr) "surveillance:type=ALPR" else "highway=speed_camera / enforcement") + "), ODbL"
             )
-            NotificationHelper.sendMapAlert(this, "alpr:" + cam.osmId, hit, lat = cam.lat, lon = cam.lon)
-            AlertPlayer.play(this, hit.tier, com.rfsentinel.app.util.Spoken.camera(this, cam))
+            val off = alertsOff(hit.category)
+            NotificationHelper.sendMapAlert(this, "alpr:" + cam.osmId, hit, lat = cam.lat, lon = cam.lon, banner = AlertKind.BANNER !in off)
+            AlertPlayer.play(this, hit.tier, com.rfsentinel.app.util.Spoken.camera(this, cam), off = off)
             break // one warning per fix is enough
         }
     }
@@ -1079,12 +1133,14 @@ class ScanForegroundService : Service() {
     /** Remote ID puts the drone within ~200 m of you: alert once per drone per 5 minutes. */
     private fun maybeAlertDroneOverhead(a: Advert, info: RemoteId.Info, loc: Location, now: Long) {
         if (!Prefs.categoryEnabled(this, Category.DRONE) || WhitelistCache.contains(a.mac)) return
+        if (com.rfsentinel.app.data.AlertMutes.isMuted(this, a.mac, now)) return
         val hit = DroneProximity.overheadHit(info, loc.latitude, loc.longitude) ?: return
         val last = lastDroneOverhead[a.mac] ?: 0L
         if (now - last < DRONE_OVERHEAD_REPEAT_MS) return
         lastDroneOverhead[a.mac] = now
-        NotificationHelper.sendAlert(this, a.mac, hit, a.rssi)
-        AlertPlayer.play(this, hit.tier, "Drone overhead")
+        val off = alertsOff(hit.category, a.mac)
+        NotificationHelper.sendAlert(this, a.mac, hit, a.rssi, banner = AlertKind.BANNER !in off)
+        AlertPlayer.play(this, hit.tier, "Drone overhead", off = off)
     }
 
     // ---- History & housekeeping -----------------------------------------------
@@ -1103,14 +1159,33 @@ class ScanForegroundService : Service() {
         runCatching { wakeLock?.acquire(WAKE_SLICE_MS) }
     }
 
-    /** Sightings to merge into known_devices, taken synchronously from memory. */
-    private class HistoryBatch(val seen: List<DeviceRegistry.Snapshot>, val sessionStart: Long)
+    /** Sightings to merge into known_devices, and the pages to save ([LastHeard]), taken synchronously from memory. */
+    private class HistoryBatch(val seen: List<DeviceRegistry.Snapshot>, val sessionStart: Long, val details: List<DeviceDetailsEntity>)
 
-    private fun takeHistory(): HistoryBatch? {
+    /** When each device's page was last saved, and the matches it had then. */
+    private val detailsSaved = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Int>>()
+
+    /** [final]: the scan is stopping, so every page with something newer is saved. */
+    private fun takeHistory(final: Boolean = false): HistoryBatch? {
         val since = lastHistoryFlush
-        lastHistoryFlush = System.currentTimeMillis()
+        val now = System.currentTimeMillis()
+        lastHistoryFlush = now
+        // Forget long-unsaved devices (rotating addresses): one heard again is just saved again.
+        detailsSaved.values.removeIf { now - it.first > 2 * DETAILS_SAVE_MS }
         val seen = DeviceRegistry.summaries(since)
-        return if (seen.isEmpty()) null else HistoryBatch(seen, DeviceRegistry.sessionStart)
+        if (seen.isEmpty()) return null
+        // A page is saved when first heard, when its matches change, and otherwise every few minutes.
+        val details = seen.mapNotNull { sum ->
+            val (savedAt, hits) = detailsSaved[sum.mac] ?: (0L to 0)
+            val due = savedAt == 0L || hits != sum.hits.hashCode() ||
+                (if (final) sum.lastSeen > savedAt else now - savedAt >= DETAILS_SAVE_MS)
+            if (!due) return@mapNotNull null
+            val s = DeviceRegistry.get(sum.mac) ?: return@mapNotNull null
+            runCatching { DeviceDetailsEntity(s.mac, now, LastHeard.toJson(LastHeard.of(this, s))) }
+                .onFailure { Log.w(TAG, "Device page save failed", it) }.getOrNull()
+                ?.also { detailsSaved[s.mac] = now to s.hits.hashCode() }
+        }
+        return HistoryBatch(seen, DeviceRegistry.sessionStart, details)
     }
 
     /** Merges this session's sightings into known_devices (throttled, batched). */
@@ -1140,15 +1215,18 @@ class ScanForegroundService : Service() {
                 )
             })
         }
+        batch.details.chunked(200).forEach { AppDatabase.getInstance(this).deviceDetailsDao().upsertAll(it) }
     }
 
     private suspend fun pruneOldData() {
+        val db = AppDatabase.getInstance(this)
+        db.deviceDetailsDao().keepNewest(DETAILS_KEEP)
         val days = Prefs.retentionDays(this)
         if (days <= 0) return
         val before = System.currentTimeMillis() - days * 24L * 60 * 60 * 1000
-        val db = AppDatabase.getInstance(this)
         db.detectionDao().prune(before)
         db.knownDeviceDao().prune(before)
+        db.deviceDetailsDao().pruneOrphans()
     }
 
     private fun startHousekeeping() {
@@ -1322,8 +1400,9 @@ class ScanForegroundService : Service() {
             (serving.operator?.let { " on $it" } ?: "") + (serving.dbm?.let { ", $it dBm" } ?: "") +
             ". Normal while moving; a change while you're parked is worth a look."
         val hit = Hit(Category.CELL_ANOMALY, "Cell tower changed", 30, detail, "Android cell info")
-        NotificationHelper.sendMapAlert(this, "cellchange", hit, com.rfsentinel.app.ui.CellTowersActivity::class.java)
-        AlertPlayer.play(this, hit.tier, "Cell tower changed")
+        val off = alertsOff(hit.category)
+        NotificationHelper.sendMapAlert(this, "cellchange", hit, com.rfsentinel.app.ui.CellTowersActivity::class.java, banner = AlertKind.BANNER !in off)
+        AlertPlayer.play(this, hit.tier, "Cell tower changed", off = off)
         val loc = lastLocation
         val tag = Prefs.gpsTaggingEnabled(this)
         serviceScope.launch {
@@ -1403,7 +1482,9 @@ class ScanForegroundService : Service() {
             )
         }
         if (e.confidence >= threshold) {
-            NotificationHelper.sendMapAlert(this, "radio:" + e.freqHz, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java)
+            val off = alertsOff(hit.category)
+            NotificationHelper.sendMapAlert(this, "radio:" + e.freqHz, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java,
+                banner = AlertKind.BANNER !in off)
             // Spoken: the frequency (and its name) when that's on, else the short phrase.
             val spoken = when {
                 cell -> "Cellular transmitter nearby"
@@ -1411,7 +1492,7 @@ class ScanForegroundService : Service() {
                 e.tdma -> "TETRA radio nearby"
                 else -> "Radio transmitting nearby"
             } + (via?.let { ", via $it" } ?: "")
-            AlertPlayer.play(this, hit.tier, spoken)
+            AlertPlayer.play(this, hit.tier, spoken, off = off)
         }
     }
 
@@ -1453,9 +1534,11 @@ class ScanForegroundService : Service() {
         }
         if (alert.level != com.rfsentinel.app.online.WazePolice.Level.LOG &&
             hit.confidence >= Prefs.alertThreshold(this)) {
-            NotificationHelper.sendMapAlert(this, alert.key, hit, lat = alert.lat, lon = alert.lon, online = alert.key)
+            val off = alertsOff(hit.category)
+            NotificationHelper.sendMapAlert(this, alert.key, hit, lat = alert.lat, lon = alert.lon, online = alert.key,
+                banner = AlertKind.BANNER !in off)
             if (alert.level == com.rfsentinel.app.online.WazePolice.Level.LOUD) {
-                AlertPlayer.play(this, hit.tier, alert.spoken ?: com.rfsentinel.app.util.Spoken.shortWord(hit))
+                AlertPlayer.play(this, hit.tier, alert.spoken ?: com.rfsentinel.app.util.Spoken.shortWord(hit), off = off)
             }
         }
     }
@@ -1490,8 +1573,9 @@ class ScanForegroundService : Service() {
             )
         }
         if (a.confidence >= Prefs.alertThreshold(this)) {
-            NotificationHelper.sendMapAlert(this, "gnss:" + a.key, hit, com.rfsentinel.app.ui.GnssActivity::class.java)
-            AlertPlayer.play(this, hit.tier, a.title)
+            val off = alertsOff(hit.category)
+            NotificationHelper.sendMapAlert(this, "gnss:" + a.key, hit, com.rfsentinel.app.ui.GnssActivity::class.java, banner = AlertKind.BANNER !in off)
+            AlertPlayer.play(this, hit.tier, a.title, off = off)
         }
     }
 
@@ -1555,8 +1639,9 @@ class ScanForegroundService : Service() {
             )
         }
         if (hit.confidence >= Prefs.alertThreshold(this)) {
-            NotificationHelper.sendMapAlert(this, key, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java)
-            AlertPlayer.play(this, hit.tier, spoken)
+            val off = alertsOff(hit.category)
+            NotificationHelper.sendMapAlert(this, key, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java, banner = AlertKind.BANNER !in off)
+            AlertPlayer.play(this, hit.tier, spoken, off = off)
         }
     }
 
@@ -1579,8 +1664,9 @@ class ScanForegroundService : Service() {
             )
         }
         if (a.confidence >= Prefs.alertThreshold(this)) {
-            NotificationHelper.sendMapAlert(this, "cell:" + a.key, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java)
-            AlertPlayer.play(this, hit.tier, "Cell network warning")
+            val off = alertsOff(hit.category)
+            NotificationHelper.sendMapAlert(this, "cell:" + a.key, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java, banner = AlertKind.BANNER !in off)
+            AlertPlayer.play(this, hit.tier, "Cell network warning", off = off)
         }
     }
 
@@ -1597,9 +1683,11 @@ class ScanForegroundService : Service() {
                 val ctx = this@ScanForegroundService
                 val now = System.currentTimeMillis()
                 val target = if (!Prefs.radarBeep(ctx)) null else lastAlerted.entries
-                    .filter { now - it.value in RADAR_QUIET_MS..RADAR_HOLD_MS && !WhitelistCache.contains(it.key) }
+                    .filter { now - it.value in RADAR_QUIET_MS..RADAR_HOLD_MS && !WhitelistCache.contains(it.key) &&
+                        !com.rfsentinel.app.data.AlertMutes.isMuted(ctx, it.key, now) }
                     .mapNotNull { DeviceRegistry.get(it.key) }
-                    .filter { com.rfsentinel.app.ui.LiveWindow.alerting(it, now) }
+                    .filter { s -> com.rfsentinel.app.ui.LiveWindow.alerting(s, now) &&
+                        AlertKind.BEEP !in (s.best?.let { alertsOff(it.category, s.mac, s.hits) } ?: OuiWatchlist.alertsOff(s.mac, s.hits)) }
                     .maxByOrNull { it.rssi }
                 if (target == null) delay(1_000L)
                 else {
@@ -1674,6 +1762,8 @@ class ScanForegroundService : Service() {
     }
 
     override fun onDestroy() {
+        // Take the final history first, while the extra info its saved pages show (USB probes...) is still here.
+        val history = runCatching { takeHistory(final = true) }.onFailure { Log.w(TAG, "History take failed", it) }.getOrNull()
         com.rfsentinel.app.ui.LiveRead.reset()
         com.rfsentinel.app.usb.DeauthWatch.onAttack = null
         com.rfsentinel.app.usb.DeauthWatch.clear()
@@ -1683,6 +1773,7 @@ class ScanForegroundService : Service() {
         locatingHandler.removeCallbacks(locatingCheck)
         com.rfsentinel.app.esp.EspBoards.stop(this)
         com.rfsentinel.app.usb.UsbWifi.stop(this)
+        com.rfsentinel.app.usb.UsbBluetooth.stop(this)
         com.rfsentinel.app.sdr.SdrRadio.stop(this)
         // Its hooks point into this service: cleared, so a stopped scan isn't kept in memory by them.
         com.rfsentinel.app.sdr.SdrRadio.onAircraft = null
@@ -1695,6 +1786,7 @@ class ScanForegroundService : Service() {
         // External hardware is gone with the scan: its "heard by" marks (External filter, badges) go too.
         com.rfsentinel.app.esp.HeardBy.esp.clear()
         com.rfsentinel.app.esp.HeardBy.usb.clear()
+        com.rfsentinel.app.esp.HeardBy.usbBt.clear()
         com.rfsentinel.app.usb.ProbeIntel.clear()
         com.rfsentinel.app.data.ProbeLog.flush(this)
         nanRemoteId?.stop()
@@ -1711,9 +1803,8 @@ class ScanForegroundService : Service() {
         cellMonitor?.close()
         com.rfsentinel.app.ui.ThreatBubble.hide(this)
         com.rfsentinel.app.ui.FloatingMap.hide(this)
-        // Take the final history and trace synchronously, so a scan restarted right
-        // away (new session, new trace) can't clear or reuse them; write them after.
-        val history = takeHistory()
+        // The final history (taken above) and trace are taken synchronously, so a scan restarted right
+        // away (new session, new trace) can't clear or reuse them; written after.
         val trip = TripRecorder.detach() // stopping the scanner ends the trace recording too
         val app = application as RFSentinelApp
         app.appScope.launch {

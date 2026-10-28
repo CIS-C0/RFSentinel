@@ -133,6 +133,13 @@ object PoliceAircraft {
             "FAA / Transport Canada aircraft registry; $VIA_LOCAL")
     }
 
+    /** Closer than this (ground distance) a strong match alerts; farther, or weaker, it's only logged and listed. */
+    const val ALERT_M = 5_000.0
+
+    /** Whether a hit alerts (sound, voice, notification): a strong match within [ALERT_M]; otherwise it's only logged. */
+    fun alerts(hit: Hit, distanceM: Double?): Boolean =
+        hit.confidence >= com.rfsentinel.app.detect.Tier.STRONG.min && distanceM != null && distanceM <= ALERT_M
+
     const val VIA_ONLINE = "ADS-B (adsb.fi / adsb.lol)"
     const val VIA_LOCAL = "ADS-B heard by your RTL-SDR"
 
@@ -149,9 +156,12 @@ object PoliceAircraft {
     }
 
     /**
-     * Spots aircraft orbiting over one area: in the last 12 minutes it turned through at
-     * least one and a half full circles while staying within 4 km of its own average
-     * position, below 8,000 ft and slower than 180 kt (airliners and passing traffic don't).
+     * Spots aircraft orbiting over one area: in the last 12 minutes it turned through at least one and a half
+     * full circles while staying within 4 km of its own average position, below 8,000 ft and slower than 180 kt
+     * (airliners and passing traffic don't). Its positions must also go all the way around that average spot:
+     * the reported heading alone can't be trusted (a taxiing plane, a hovering helicopter or a jumpy heading
+     * adds up turns while flying straight). Fixes on the ground, slower than 30 kt or without a new position
+     * don't count.
      */
     class LoiterTracker {
         private data class Fix(val time: Long, val lat: Double, val lon: Double, val track: Double)
@@ -159,29 +169,43 @@ object PoliceAircraft {
 
         fun update(p: Plane, now: Long): Boolean {
             val q = tracks.getOrPut(p.hex) { ArrayDeque() }
-            p.trackDeg?.let { q.addLast(Fix(now, p.lat, p.lon, it)) }
+            val airborne = (p.altitudeFt ?: 1) > 0 && (p.speedKt ?: MIN_SPEED_KT) >= MIN_SPEED_KT
+            val last = q.lastOrNull()
+            // The RTL-SDR's list repeats the last position every couple of seconds until a new one is decoded.
+            val fresh = last == null || (now - last.time >= MIN_GAP_MS && (last.lat != p.lat || last.lon != p.lon))
+            if (airborne && fresh) p.trackDeg?.let { q.addLast(Fix(now, p.lat, p.lon, it)) }
             while (q.isNotEmpty() && now - q.first().time > WINDOW_MS) q.removeFirst()
-            if (q.size < 6 || now - q.first().time < 5 * 60_000L) return false
+            if (!airborne || q.size < 6 || now - q.first().time < 5 * 60_000L) return false
             if ((p.altitudeFt ?: 0) > 8_000 || (p.speedKt ?: 0.0) > 180) return false
             var turned = 0.0
-            for (i in 1 until q.size) {
-                var d = q[i].track - q[i - 1].track
-                if (d > 180) d -= 360
-                if (d < -180) d += 360
-                turned += d
-            }
+            for (i in 1 until q.size) turned += wrap(q[i].track - q[i - 1].track)
             val cLat = q.sumOf { it.lat } / q.size
             val cLon = q.sumOf { it.lon } / q.size
-            val spread = q.maxOf { DeviceRegistry.metersBetween(cLat, cLon, it.lat, it.lon) }
-            return abs(turned) >= 540 && spread <= 4_000
+            val dist = q.map { DeviceRegistry.metersBetween(cLat, cLon, it.lat, it.lon) }
+            if (dist.max() > 4_000 || dist.average() < MIN_RADIUS_M) return false
+            // How far the positions went around the average spot (a straight pass sweeps under 180 degrees).
+            var around = 0.0
+            for (i in 1 until q.size) around += wrap(bearing(cLat, cLon, q[i]) - bearing(cLat, cLon, q[i - 1]))
+            return abs(turned) >= 540 && abs(around) >= 360 && turned * around > 0
         }
+
+        private fun wrap(d: Double): Double = when { d > 180 -> d - 360; d < -180 -> d + 360; else -> d }
+
+        private fun bearing(lat: Double, lon: Double, f: Fix): Double =
+            Math.toDegrees(kotlin.math.atan2((f.lon - lon) * kotlin.math.cos(Math.toRadians(lat)), f.lat - lat))
 
         /** Forgets aircraft not heard for a while. */
         fun prune(now: Long) {
             tracks.entries.removeAll { (_, q) -> q.isEmpty() || now - q.last().time > WINDOW_MS }
         }
 
-        companion object { private const val WINDOW_MS = 12 * 60_000L }
+        companion object {
+            private const val WINDOW_MS = 12 * 60_000L
+            private const val MIN_GAP_MS = 5_000L
+            private const val MIN_SPEED_KT = 30.0
+            /** Average distance from the middle of the orbit: a real one is wider than this. */
+            private const val MIN_RADIUS_M = 150.0
+        }
     }
 
     /** Ground distance in metres. */

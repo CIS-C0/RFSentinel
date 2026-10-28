@@ -47,14 +47,33 @@ class OnlineSourcesTest {
         val base = PoliceAircraft.parseFeed(feed)[0]
         val orbit = PoliceAircraft.LoiterTracker()
         var circling = false
-        for (i in 0..12) { // a full turn every 4 minutes, 1 fix a minute, staying put
-            val p = base.copy(trackDeg = (i * 90.0) % 360, lat = 10.10 + 0.002 * (i % 2), lon = -20.10)
-            circling = orbit.update(p, i * 60_000L)
+        for (i in 0..24) { // a full turn every 4 minutes, a fix every 30 s, about 1 km around one spot
+            val a = Math.toRadians(i * 45.0)
+            val p = base.copy(trackDeg = (i * 45.0 + 90) % 360, lat = 10.10 + 0.009 * kotlin.math.cos(a), lon = -20.10 + 0.009 * kotlin.math.sin(a))
+            circling = orbit.update(p, i * 30_000L)
         }
         assertTrue(circling)
         val straight = PoliceAircraft.LoiterTracker()
         var flagged = false
         for (i in 0..12) flagged = straight.update(base.copy(trackDeg = 10.0, lat = 10.10 + 0.02 * i), i * 60_000L)
+        assertFalse(flagged)
+    }
+
+    @Test
+    fun straightFlightWithAJumpyHeadingIsNotCircling() {
+        val base = PoliceAircraft.parseFeed(feed)[0].copy(speedKt = 60.0)
+        val t = PoliceAircraft.LoiterTracker()
+        var flagged = false
+        // Slow and straight, but the reported heading keeps stepping round (a bad heading source).
+        for (i in 0..24) flagged = flagged || t.update(base.copy(trackDeg = (i * 100.0) % 360, lat = 10.10 + 0.0008 * i), i * 30_000L)
+        assertFalse(flagged)
+        // On the ground: taxiing turns don't count.
+        val ground = PoliceAircraft.LoiterTracker()
+        for (i in 0..24) {
+            val a = Math.toRadians(i * 45.0)
+            flagged = flagged || ground.update(base.copy(altitudeFt = 0, trackDeg = (i * 45.0 + 90) % 360,
+                lat = 10.10 + 0.009 * kotlin.math.cos(a), lon = -20.10 + 0.009 * kotlin.math.sin(a)), i * 30_000L)
+        }
         assertFalse(flagged)
     }
 

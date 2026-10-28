@@ -246,8 +246,9 @@ class IdentifyMoreTest {
         assertEquals(listOf(DeviceFilter.ROUTERS), kinds("Home router (internet provider's) - Sagemcom"))
         assertEquals(listOf(DeviceFilter.HOTSPOTS), kinds("Open WiFi (public or guest)"))
         assertEquals(listOf(DeviceFilter.HOTSPOTS), kinds("Public WiFi hotspot (Passpoint)"))
-        assertEquals(emptyList<DeviceFilter>(), kinds("Business access point - Ruckus"))
-        assertEquals(emptyList<DeviceFilter>(), kinds("Business WiFi (account sign-in)"))
+        assertEquals(listOf(DeviceFilter.ACCESS_POINTS), kinds("Business access point - Ruckus"))
+        assertEquals(listOf(DeviceFilter.ACCESS_POINTS), kinds("Business WiFi (account sign-in)"))
+        assertEquals(listOf(DeviceFilter.ACCESS_POINTS), kinds("Business access point - Aruba (hidden network)"))
     }
 
     @Test

@@ -43,7 +43,9 @@ class HardwareScreen(carContext: CarContext) : LiveScreen(carContext, periodMs =
             Triple("USB WiFi adapter", UsbWifi.status.ifBlank {
                 if (running) "None connected (RTL8811AU / 8821AU or RTL8812BU / 8822BU)" else "Connects while scanning"
             }, R.drawable.ic_car_usb)
-        )
+        ) + listOfNotNull(com.rfsentinel.app.usb.UsbBluetooth.status.takeIf { it.isNotBlank() }?.let {
+            Triple("USB Bluetooth adapter", it, R.drawable.ic_car_usb)
+        })
     }
 
     override fun contentKey(): Any = lines()

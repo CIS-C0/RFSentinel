@@ -40,6 +40,8 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
     AUDIO("Audio"),
     CAMERAS("Cameras"),
     ROUTERS("Routers"),
+    /** Business access points and account sign-in (enterprise) WiFi: offices, shops, schools, hotels. */
+    ACCESS_POINTS("Access points"),
     HOTSPOTS("Hotspots"),
     TVS("TVs & consoles"),
     SMART_HOME("Smart home"),
@@ -89,7 +91,8 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         DRONES -> s.hits.any { it.category == Category.DRONE } || s.remoteId || s.type.startsWith("Drone")
         NEW -> s.isNew
         CELLS, WAZE, RADIO, AIRCRAFT -> false
-        EXTERNAL -> com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac) || com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac)
+        EXTERNAL -> com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac) || com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac) ||
+            com.rfsentinel.app.esp.HeardBy.usbBt.recent(s.mac)
         SENTINELS -> com.rfsentinel.app.esp.HeardBy.peer.recent(s.mac)
         FAVORITES -> Favorites.contains(s.mac)
         BLE -> Advert.Source.BLE in s.sources
@@ -102,6 +105,7 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
             s.hits.none { it.category == Category.AUDIO_SENSOR }
         CAMERAS -> s.anyType(CAMERA_TYPE) || s.hits.any { it.category in CAMERA_CATEGORIES }
         ROUTERS -> s.types.any { DeviceIntel.isRouter(it) } && !s.anyType(VEHICLE_TYPE)
+        ACCESS_POINTS -> s.anyType(ACCESS_POINT_TYPE)
         HOTSPOTS -> s.anyType(HOTSPOT_TYPE)
         TVS -> s.anyType(TV_TYPE)
         SMART_HOME -> s.anyType(SMART_HOME_TYPE) && !s.anyType(VEHICLE_TYPE)
@@ -116,7 +120,7 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         @Volatile var excludeAirTags = false
 
         /** The device-kind filters (from the device's type), after the main ones. */
-        val KINDS = listOf(VEHICLES, PHONES, COMPUTERS, AUDIO, CAMERAS, ROUTERS, HOTSPOTS, TVS, SMART_HOME, APPLE)
+        val KINDS = listOf(VEHICLES, PHONES, COMPUTERS, AUDIO, CAMERAS, ROUTERS, ACCESS_POINTS, HOTSPOTS, TVS, SMART_HOME, APPLE)
 
         // Each kind from the types DeviceIntel gives (its own names, the Bluetooth appearance names and
         // older versions' names, so saved snapshots and traces sort the same way).
@@ -128,7 +132,8 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         private val CAMERA_TYPE = kind("^(dashcam|action camera|security camera|camera)|body cam|\\bcam(era)?\\b")
         /** Detection categories that are cameras (police, home security, action / hidden, recording glasses). */
         private val CAMERA_CATEGORIES = setOf(Category.BODY_CAM, Category.ALPR, Category.NETWORK_CAMERA, Category.OTHER_CAMERA, Category.GLASSES)
-        // Business access points and account sign-in WiFi stay off both: they're neither.
+        // Business access points and account sign-in WiFi are neither routers nor hotspots: they have their own kind.
+        private val ACCESS_POINT_TYPE = kind("^business (access point|wifi)")
         private val HOTSPOT_TYPE = kind("^(public wifi hotspot|mobile hotspot box|phone hotspot|train wifi|open wifi)")
         private val TV_TYPE = kind("^(smart tv|tv / streaming|game console|game controller|vr headset|apple tv)|television|set-top|media player|^gaming|gamepad|joystick")
         private val SMART_HOME_TYPE = kind("smart-home|smart home|^iot|smart plug|bthome|^sensor|environmental sensor|light|" +

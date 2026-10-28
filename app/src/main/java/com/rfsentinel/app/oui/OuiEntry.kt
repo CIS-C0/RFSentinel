@@ -1,5 +1,6 @@
 package com.rfsentinel.app.oui
 
+import com.rfsentinel.app.data.AlertKind
 import com.rfsentinel.app.detect.Category
 import com.rfsentinel.app.detect.Hit
 
@@ -28,8 +29,12 @@ data class OuiEntry(
     /** 0-100; defaults from [confidence] when absent. */
     val score: Int? = null,
     /** A [Category] name; defaults to CUSTOM for user entries. */
-    val category: String? = null
+    val category: String? = null,
+    /** Your entries: the ways it doesn't alert you ([AlertKind] names, comma-separated); null = every way. */
+    val alertsOff: String? = null
 ) {
+    val alertsOffSet: Set<AlertKind> get() = AlertKind.parse(alertsOff)
+
     val isCustom get() = confidence == "custom"
     val isNameRule get() = prefix.startsWith(NAME, ignoreCase = true)
     val isStartsRule get() = prefix.startsWith(STARTS, ignoreCase = true)
@@ -54,10 +59,12 @@ data class OuiEntry(
         label = label,
         confidence = effectiveScore,
         evidence = evidence,
-        source = if (isCustom) "Your watchlist" else source.ifEmpty { "Watchlist preset" }
+        source = if (isCustom) YOURS else source.ifEmpty { "Watchlist preset" }
     )
 
     companion object {
+        /** The source of hits from your own entries. */
+        const val YOURS = "Your watchlist"
         const val NAME = "name:"
         const val STARTS = "starts:"
         const val VENDOR = "vendor:"

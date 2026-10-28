@@ -13,6 +13,7 @@ These drivers run USB WiFi adapters in receive-only monitor mode from userspace.
 - `Ar9271Monitor.kt` and `Ar9271Tables.kt` drive Atheros AR9271 adapters (e.g. ALFA AWUS036NHA) - experimental - with the open ath9k_htc firmware in `assets/usbwifi/htc_9271-1.4.0.fw`.
 - `BulkRx.kt` is the USB receive loop of the RTL8187, RT3070, RTL8814AU, MT7612U and AR9271 drivers.
 - The FREE-WiLi 2 (an ESP32-C5 WiFi board with a USB console) is read by `esp/EspReader.kt` / `esp/EspReports.kt` (FreeWiliReports), ported from Wardrive Go.
+- `UsbBluetooth.kt`, `HciUsb.kt`, `BtMediatek.kt` and `BtRealtek.kt` use the Bluetooth part of a USB adapter (a Bluetooth dongle, or the Bluetooth side of an MT7921AU or Realtek combo adapter) as a second LE scanner, receive only: standard HCI over USB, with MediaTek's and Realtek's firmware set-up.
 - `MonitorFrames.kt` turns the received 802.11 frames into access points and client devices for all of them.
 - `AntennaCheck.kt` (and the Antenna check screen) compares the adapter's antennas on a reference access point: per-chain signal with Zero and Identify, and an A / B swap test, after the antenna check in Wardrive Go (written anew here, no code copied).
 
@@ -33,6 +34,11 @@ These drivers run USB WiFi adapters in receive-only monitor mode from userspace.
 | MT7921AU userspace USB driver (WFSYS reset, USB / WFDMA setup, ROM patch and firmware download, MCU command framing, efuse calibration push, monitor filters and sniffer mode, channel switching, RX descriptor parsing) | [mt76-usb-macos](https://github.com/Network-Weather/mt76-usb-macos) by Network Weather (Copyright (c) 2026 Primatech Paper Co LLC d/b/a Network Weather), a transcription of the MT7921 path of the Linux mt76 driver ([openwrt/mt76](https://github.com/openwrt/mt76): Copyright (C) 2020-2023 MediaTek Inc., (C) 2018 Lorenzo Bianconi, (C) 2016 Felix Fietkau) | BSD-3-Clause-Clear |
 | MT7921AU ROM patch `WIFI_MT7961_patch_mcu_1_2_hdr.bin` and firmware `WIFI_RAM_CODE_MT7961_1.bin` (unmodified, from linux-firmware commit e981caea6ed3) | MediaTek Inc. | Redistributable binary, see `assets/usbwifi/LICENCE.mediatek` |
 | AR9271 firmware `htc_9271-1.4.0.fw` (unmodified, from linux-firmware; Wardrive Go ships a build that differs in 10 bytes) | [open-ath9k-htc-firmware](https://github.com/qca/open-ath9k-htc-firmware), Qualcomm Atheros and others | Free software, see `assets/usbwifi/LICENCE.open-ath9k-htc-firmware` |
+| USB Bluetooth HCI transport (class control commands, interrupt-endpoint event reassembly) | Linux `btusb` driver (`drivers/bluetooth/btusb.c`: Marcel Holtmann and others) | GPL-2.0 |
+| MT7921AU Bluetooth set-up (chip ID, WMT patch download, subsystem reset, function on / off) | Linux `btmtk` driver (`drivers/bluetooth/btmtk.c`, Copyright (c) 2021 MediaTek Inc.) | GPL-2.0 |
+| Realtek Bluetooth set-up (chip identification, v1 epatch parsing, firmware / config download) | Linux `btrtl` driver (`drivers/bluetooth/btrtl.c`, Copyright (C) 2015 Endless Mobile, Inc.; Realtek Semiconductor Corp.) | GPL-2.0 |
+| MT7921AU Bluetooth firmware `BT_RAM_CODE_MT7961_1_2_hdr.bin` (unmodified, from linux-firmware) | MediaTek Inc. | Redistributable binary, see `assets/usbwifi/LICENCE.mediatek` |
+| Realtek Bluetooth firmware and config files `bt_rtl*.bin` (unmodified, from linux-firmware `rtl_bt/`) | Realtek Semiconductor Corp. | Redistributable binary, see `assets/usbwifi/LICENCE.rtlwifi_firmware.txt` |
 | RTL-SDR driver (`sdr/RtlSdr.kt`: RTL2832U baseband, R820T / R828D tuner, RTL-SDR Blog V4 band switching) | [librtlsdr](https://github.com/osmocom/rtl-sdr) (osmocom: Steve Markgraf, Dimitri Stolnikov and others; R82xx code by Mauro Carvalho Chehab and Steve Markgraf; Blog V4 support by RTL-SDR Blog) | GPL-2.0-or-later |
 | Integration into RF Sentinel; removal of handshake / PMKID capture (8821AU, RT3070) and of every transmit, beamforming and calibration-for-TX path (8822BU, RTL8187); RT3070 fixes checked against the kernel (eFuse addressing, EEPROM reads, DMA / frame-length setup, receive gain, external LNA, EEPROM BBP overrides); MT7612U: bad-checksum frames dropped, auto-responder off, kernel ROM-patch rule; AR9271: signal relative to the noise floor, FCS removed, packets spanning transfers reassembled, WMI answers matched, running firmware reused; MT7921AU: Android USB host API instead of IOKit, no port reset, commands while receiving answered on the shared endpoint without blocking, bad-checksum frames dropped, failed register reads never written back, every transmit path (injection, TX descriptors) left out | RF Sentinel (CIS-C0) | GPL-3.0 |
 
@@ -46,11 +52,11 @@ RF Sentinel is distributed under the GNU GPL v3.0 (see `LICENSE`). The register
 values and firmware are hardware configuration data from Realtek's driver; credit
 and thanks to Realtek, the aircrack-ng rtl8812au maintainers, RocketGod for
 Wardrive Go, OpenIPC for devourer, Network Weather for mt76-usb-macos, MediaTek and
-the mt76 authors, the Linux rtl8187 and rt2x00 authors, and Kismet. The Ralink and MediaTek firmware is redistributed under its own licences
+the mt76 authors, the Linux btusb / btmtk / btrtl authors, the Linux rtl8187 and rt2x00 authors, and Kismet. The Ralink and MediaTek firmware is redistributed under its own licences
 (binary only, unmodified, no reverse engineering), reproduced in
 `assets/usbwifi/LICENCE.ralink-firmware.txt` and
 `assets/usbwifi/LICENCE.ralink_a_mediatek_company_firmware` and
-`assets/usbwifi/LICENCE.mediatek` (MT7961: redistributed for use with MediaTek
+`assets/usbwifi/LICENCE.mediatek` and `assets/usbwifi/LICENCE.rtlwifi_firmware.txt` (Realtek WiFi and Bluetooth firmware) (MT7961: redistributed for use with MediaTek
 chipsets, as separate files not covered by this app's GPL); the ath9k_htc firmware
 is free software (`assets/usbwifi/LICENCE.open-ath9k-htc-firmware`, sources at
 https://github.com/qca/open-ath9k-htc-firmware).

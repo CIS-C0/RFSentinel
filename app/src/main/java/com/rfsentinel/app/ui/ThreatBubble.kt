@@ -33,7 +33,8 @@ import kotlin.math.min
  * or something following you, with the number of flagged devices. Tap to open
  * the app, drag to move. Needs the "Display over other apps" permission; hidden
  * while RF Sentinel itself is on screen. Each new alert also shows a small card
- * next to the bubble for a few seconds saying what was detected.
+ * next to the bubble for a few seconds saying what was detected, and Locate or
+ * pinpointing shows the live read card under it (unless the floating map shows it).
  */
 object ThreatBubble {
 
@@ -45,6 +46,8 @@ object ThreatBubble {
     private var popupView: TextView? = null
     private val hidePopup = Runnable { popupView?.let { removePopupNow(it.context) } }
     private const val POPUP_MS = 6_000L
+    /** The live read card (Locate or pinpointing) under the bubble. */
+    private var live: LiveReadOverlay? = null
 
     fun canShow(context: Context) = Settings.canDrawOverlays(context)
 
@@ -121,6 +124,7 @@ object ThreatBubble {
 
     private fun removeNow(context: Context) {
         removePopupNow(context)
+        live?.stop(); live = null
         val v = view ?: return
         runCatching { (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).removeView(v) }
         view = null; params = null
@@ -151,7 +155,7 @@ object ThreatBubble {
                 MotionEvent.ACTION_MOVE -> {
                     val dx = e.rawX - downX; val dy = e.rawY - downY
                     if (!moved && (abs(dx) > 8 * d || abs(dy) > 8 * d)) { moved = true; removePopupNow(context) }
-                    if (moved) { lp.x = startX + dx.toInt(); lp.y = startY + dy.toInt(); runCatching { wm.updateViewLayout(v, lp) } }
+                    if (moved) { lp.x = startX + dx.toInt(); lp.y = startY + dy.toInt(); runCatching { wm.updateViewLayout(v, lp) }; live?.replace() }
                 }
                 MotionEvent.ACTION_UP -> {
                     if (moved) prefs.edit { putInt("x", lp.x); putInt("y", lp.y) }
@@ -161,7 +165,21 @@ object ThreatBubble {
             }
             true
         }
-        return runCatching { wm.addView(v, lp); view = v; params = lp; v }.getOrNull()
+        return runCatching { wm.addView(v, lp); view = v; params = lp; v }.getOrNull()?.also {
+            live = LiveReadOverlay(context, wanted = { !FloatingMap.showing }) { clp, h -> placeLive(context, clp, h) }.also { it.start() }
+        }
+    }
+
+    /** The live read card just under the bubble, its left edge on the bubble's (kept on screen); above it near the bottom. */
+    private fun placeLive(context: Context, clp: WindowManager.LayoutParams, h: Int) {
+        val b = params ?: return
+        val dm = context.resources.displayMetrics
+        val d = dm.density
+        val gap = (6 * d).toInt()
+        clp.gravity = Gravity.TOP or Gravity.START
+        clp.width = (260 * d).toInt().coerceAtMost(dm.widthPixels - (16 * d).toInt())
+        clp.x = b.x.coerceIn(0, (dm.widthPixels - clp.width).coerceAtLeast(0))
+        clp.y = if (b.y + b.height + gap + h <= dm.heightPixels) b.y + b.height + gap else (b.y - gap - h).coerceAtLeast(0)
     }
 
     /** The drawn bubble: coloured disc, white ring, count or check mark. */

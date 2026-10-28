@@ -4,6 +4,9 @@ package com.rfsentinel.app.usb
  * Antenna check for the USB WiFi adapter, after Wardrive Go's (RocketGod): pick a nearby access
  * point as the reference, the adapter stops hopping and holds its channel, and every frame the
  * reference sends is kept with its signal per antenna (chain) where the adapter reports one.
+ * In [bluetooth] mode the same is done with the USB Bluetooth adapter: the reference is a nearby
+ * Bluetooth LE device and each of its advertisements gives one signal (HCI reports no per-antenna
+ * value), so only the swap test applies; the WiFi adapter keeps hopping meanwhile.
  * That compares antennas by how strongly they hear the same transmitter; it isn't an SWR or
  * impedance measurement. Only the open screen uses it, and nothing here is logged or stored.
  *
@@ -11,7 +14,7 @@ package com.rfsentinel.app.usb
  */
 object AntennaCheck {
 
-    /** An access point the adapter heard while the check is open. */
+    /** An access point (or, in [bluetooth] mode, a Bluetooth LE device) the adapter heard while the check is open. */
     class Ap(val bssid: String, val ssid: String?, val channel: Int, val rssi: Int, val lastSeen: Long)
 
     /** One frame from the reference: its signal, and per antenna when the adapter reports both. */
@@ -31,7 +34,12 @@ object AntennaCheck {
     /** The channel the driver is holding for the check (set by the driver once it's tuned). */
     @Volatile var holding = 0
 
+    /** Checking the USB Bluetooth adapter instead of the USB WiFi adapter. */
+    @Volatile var bluetooth = false
+        private set
+
     @Volatile private var target: ByteArray? = null
+    @Volatile private var btTarget: String? = null
     private val aps = LinkedHashMap<String, Ap>()
     private val samples = ArrayDeque<Sample>()
 
@@ -47,8 +55,17 @@ object AntennaCheck {
         synchronized(this) { aps.clear() }
     }
 
+    /** Switches the check between the USB WiFi and the USB Bluetooth adapter: everything heard so far is dropped. */
+    fun useBluetooth(on: Boolean) {
+        if (on == bluetooth) return
+        unlock()
+        bluetooth = on
+        synchronized(this) { aps.clear() }
+    }
+
     fun lock(bssid: String, channel: Int) {
         synchronized(this) { samples.clear() }
+        if (bluetooth) { btTarget = bssid; return } // nothing to tune: Bluetooth adverts come on all three advertising channels
         target = macBytes(bssid)
         holding = 0
         lockChannel = channel
@@ -56,6 +73,7 @@ object AntennaCheck {
 
     fun unlock() {
         target = null
+        btTarget = null
         lockChannel = 0
         holding = 0
         synchronized(this) { samples.clear() }
@@ -67,7 +85,7 @@ object AntennaCheck {
     // ---- from the drivers (RX thread, via MonitorFrames) ----
 
     internal fun heardAp(bssid: String, ssid: String?, channel: Int, rssi: Int?, now: Long) {
-        if (channel == 0) return
+        if (channel == 0 || bluetooth) return
         synchronized(this) {
             val old = aps[bssid]
             aps[bssid] = Ap(bssid, ssid ?: old?.ssid, channel,
@@ -88,9 +106,25 @@ object AntennaCheck {
         }
     }
 
+    // ---- from the USB Bluetooth adapter (scan pipeline) ----
+
+    /** An advertisement the USB Bluetooth adapter heard: listed as a possible reference, kept when it's the reference's. */
+    fun heardBt(mac: String, name: String?, rssi: Int, now: Long) {
+        if (!listening || !bluetooth) return
+        synchronized(this) {
+            val old = aps[mac]
+            aps[mac] = Ap(mac, name ?: old?.ssid, 0, rssi, now)
+            if (aps.size > 500) aps.remove(aps.keys.first())
+            if (mac == btTarget) {
+                samples.addLast(Sample(now, rssi, null, null))
+                while (samples.size > MAX_SAMPLES || (samples.isNotEmpty() && now - samples.first().at > KEEP_MS)) samples.removeFirst()
+            }
+        }
+    }
+
     /** Debug builds' demo: a made-up frame from the reference, for checking the screen without an adapter. */
     internal fun demoSample(rssi: Int, a: Int?, b: Int?, now: Long) {
-        if (target == null) return
+        if (target == null && btTarget == null) return
         synchronized(this) { samples.addLast(Sample(now, rssi, a, b)); while (samples.size > MAX_SAMPLES) samples.removeFirst() }
     }
 
@@ -193,6 +227,7 @@ object AntennaCheck {
 
     /** "5 GHz ch 36" for a channel in [MonitorFrames]' numbering. */
     fun channelName(ch: Int): String = when {
+        ch == 0 -> "Bluetooth LE"
         ch >= 5955 -> "6 GHz ch ${(ch - 5950) / 5}"
         ch > 14 -> "5 GHz ch $ch"
         else -> "2.4 GHz ch $ch"

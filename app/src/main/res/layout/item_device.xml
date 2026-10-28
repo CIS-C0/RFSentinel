@@ -87,6 +87,18 @@
                 android:textColor="?android:attr/textColorSecondary"
                 android:textSize="@dimen/text_caption" />
         </LinearLayout>
+
+        <!-- Flagged rows: mute this device's alerts (tap 30 min, hold until unmuted) -->
+        <ImageButton
+            android:id="@+id/muteButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="-8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Mute this device's alerts"
+            android:src="@drawable/ic_car_volume_off"
+            android:visibility="gone" />
     </LinearLayout>
 
     <View

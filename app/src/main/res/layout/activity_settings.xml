@@ -698,6 +698,17 @@
                 style="@style/SettingsLabel"
                 android:paddingTop="6dp" />
 
+            <TextView
+                android:id="@+id/usbBtText"
+                style="@style/SettingsLabel"
+                android:paddingTop="6dp" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/usbBtSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Scan Bluetooth with a USB adapter" />
+
             <Button
                 android:id="@+id/usbWifiLogButton"
                 style="@style/Widget.MaterialComponents.Button.TextButton"

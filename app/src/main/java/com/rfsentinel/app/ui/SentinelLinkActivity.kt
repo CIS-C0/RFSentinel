@@ -1,5 +1,6 @@
 package com.rfsentinel.app.ui
 
+import android.content.Intent
 import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
@@ -36,6 +37,11 @@ import kotlinx.coroutines.launch
  * "Join a Sentinel" on the other, same 6 digits on both), the Sentinels of the group, and leaving it.
  */
 class SentinelLinkActivity : AppCompatActivity() {
+
+    companion object {
+        /** Opened from the "Pair your Meshtastic node" notification: pair now. */
+        const val EXTRA_PAIR = "pair_mesh_node"
+    }
 
     private lateinit var status: TextView
     private lateinit var share: SwitchMaterial
@@ -167,7 +173,11 @@ class SentinelLinkActivity : AppCompatActivity() {
             setPadding(0, pad(8), 0, pad(8))
         }
         meshNodeText = TextView(this).apply { textSize = 14f }
-        meshStatus = TextView(this).apply { textSize = 14f; setPadding(0, pad(4), 0, 0) }
+        meshStatus = TextView(this).apply {
+            textSize = 14f; setPadding(0, pad(4), 0, 0)
+            // "not paired - tap here to pair"
+            setOnClickListener { LinkStore.meshNode(this@SentinelLinkActivity)?.let { pairMeshNode(it) } }
+        }
         val choose = button("Choose a node") { chooseNode() }
         val intervalLabel = TextView(this).apply { textSize = 14f; setPadding(0, pad(12), 0, 0) }
         fun showInterval(s: Int) { intervalLabel.text = "Send a packet every $s s - watchlist matches sooner" }
@@ -248,11 +258,10 @@ class SentinelLinkActivity : AppCompatActivity() {
             LinkStore.setMeshNode(this, address, names[i].substringBefore("  ·  "))
             LinkStore.setMeshOn(this, true)
             meshSwitch.isChecked = true
-            MeshNode.pair(this, address)
+            pairMeshNode(address)
             ScanForegroundService.refreshLink(this)
             dialog.dismiss()
             refresh()
-            Toast.makeText(this, "If Android asks for a PIN: it's on the node's screen, or 123456", Toast.LENGTH_LONG).show()
         }
         dialog.setOnDismissListener { stop?.invoke(); stop = null }
         stop = MeshNode.find(this) { name, address, rssi ->
@@ -263,6 +272,27 @@ class SentinelLinkActivity : AppCompatActivity() {
         }
         if (stop == null) { Toast.makeText(this, "Turn Bluetooth on first", Toast.LENGTH_LONG).show(); return@withPermission }
         dialog.show()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // From the "Pair your Meshtastic node" notification: asked here, in front, Android shows its PIN dialog.
+        if (intent.getBooleanExtra(EXTRA_PAIR, false)) {
+            intent.removeExtra(EXTRA_PAIR)
+            LinkStore.meshNode(this)?.let { pairMeshNode(it) }
+        }
+    }
+
+    /** Asks Android to pair with the node, from this screen so its PIN dialog shows (not a notification). */
+    private fun pairMeshNode(address: String) {
+        com.rfsentinel.app.util.NotificationHelper.cancelMeshPairing(this)
+        if (MeshNode.pair(this, address))
+            Toast.makeText(this, "Android asks for a PIN: it's on the node's screen, or 123456", Toast.LENGTH_LONG).show()
     }
 
     override fun onDestroy() {

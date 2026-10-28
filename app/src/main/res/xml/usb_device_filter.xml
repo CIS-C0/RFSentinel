@@ -202,4 +202,6 @@
     <usb-device vendor-id="2364" product-id="8282" />
     <!-- Espressif native USB (ESP32-S2, S3, C3, C5, C6...): every product -->
     <usb-device vendor-id="12346" />
+    <!-- Any standard USB Bluetooth controller (class e0 / 01 / 01) -->
+    <usb-device class="224" subclass="1" protocol="1" />
 </resources>

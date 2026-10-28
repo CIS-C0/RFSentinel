@@ -5,6 +5,7 @@ import androidx.core.content.edit
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
+import com.rfsentinel.app.data.AlertKind
 import com.rfsentinel.app.detect.Hit
 import com.rfsentinel.app.util.MacUtil
 import java.io.BufferedReader
@@ -266,6 +267,18 @@ object OuiWatchlist {
     /** The custom (user-added) entry keyed exactly by [prefix], if any. */
     fun customEntry(prefix: String): OuiEntry? =
         state.all.firstOrNull { it.prefix == normalizeKey(prefix) && it.isCustom }
+
+    /**
+     * The ways a device doesn't alert you, from your own entries it matches ([OuiEntry.alertsOff]): its address
+     * entry first, then the entries behind its watchlist matches.
+     */
+    fun alertsOff(mac: String, hits: List<Hit>): Set<AlertKind> {
+        if (hits.isEmpty()) return emptySet()
+        val all = state.all
+        val entries = listOfNotNull(customAddressEntry(mac)) +
+            hits.filter { it.source == OuiEntry.YOURS }.mapNotNull { h -> all.firstOrNull { it.isCustom && it.label == h.label } }
+        return entries.firstOrNull { it.alertsOff != null }?.alertsOffSet.orEmpty()
+    }
 
     /** The user's own entry for this address or the longest of their prefixes it starts with, or null. */
     fun customAddressEntry(mac: String): OuiEntry? {

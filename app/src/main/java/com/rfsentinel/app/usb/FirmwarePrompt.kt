@@ -16,8 +16,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * FOSS build: asks before downloading a USB WiFi chip's non-free firmware ([Firmware]). A notification when the
- * adapter is plugged in; tapping it (or the adapter line in Settings) opens Settings with the question.
+ * FOSS build: asks before downloading a USB WiFi or Bluetooth chip's non-free firmware ([Firmware]). A notification
+ * when the adapter is plugged in; tapping it (or the adapter line in Settings) opens Settings with the question.
  */
 object FirmwarePrompt {
 
@@ -25,7 +25,8 @@ object FirmwarePrompt {
     private const val CHANNEL = "usb_firmware"
     private const val NOTIFICATION_ID = 4130
 
-    fun notify(context: Context, chip: UsbWifi.Chip) {
+    /** [chip]: what the adapter is called ("MT7921AU", "RTL8761BU Bluetooth"). */
+    fun notify(context: Context, chip: String) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "USB adapter firmware", NotificationManager.IMPORTANCE_DEFAULT))
         val open = PendingIntent.getActivity(context, NOTIFICATION_ID,
@@ -35,7 +36,7 @@ object FirmwarePrompt {
         runCatching {
             nm.notify(NOTIFICATION_ID, NotificationCompat.Builder(context, CHANNEL)
                 .setSmallIcon(R.drawable.ic_tile_scan)
-                .setContentTitle("${chip.name} adapter needs its firmware")
+                .setContentTitle("$chip adapter needs its firmware")
                 .setContentText("Tap to download it once from kernel.org")
                 .setContentIntent(open)
                 .setAutoCancel(true)
@@ -47,10 +48,28 @@ object FirmwarePrompt {
         context.getSystemService(NotificationManager::class.java)?.cancel(NOTIFICATION_ID)
     }
 
+    /** What waits for firmware: its name, the files still missing, and how to start it once they're here. */
+    private class Waiting(val name: String, val blobs: List<Firmware.Blob>, val retry: (Context) -> Unit)
+
+    /** The WiFi adapter first, else the Bluetooth one; null when neither waits (or its files just arrived: started). */
+    private fun waiting(context: Context): Waiting? {
+        UsbWifi.firmwareNeeded?.let { chip ->
+            val blobs = Firmware.missing(context, chip.driver)
+            if (blobs.isNotEmpty()) return Waiting(chip.name, blobs, UsbWifi::retry)
+            UsbWifi.retry(context)
+        }
+        UsbBluetooth.firmwareNeeded?.let { (chip, files) ->
+            val blobs = Firmware.missingFiles(context, files)
+            if (blobs.isNotEmpty()) return Waiting("$chip Bluetooth", blobs, UsbBluetooth::retry)
+            UsbBluetooth.retry(context)
+        }
+        return null
+    }
+
     /** The question, for the adapter waiting for its firmware; false when none is waiting. */
     fun show(activity: AppCompatActivity, onDone: () -> Unit = {}): Boolean {
-        val chip = UsbWifi.firmwareNeeded ?: return false
-        val blobs = Firmware.missing(activity, chip.driver).ifEmpty { UsbWifi.retry(activity); return false }
+        val chip = waiting(activity) ?: return false
+        val blobs = chip.blobs
         val kb = blobs.sumOf { it.size } / 1024
         val files = blobs.joinToString("\n") { "• ${it.name}" }
         MaterialAlertDialogBuilder(activity)
@@ -71,7 +90,7 @@ object FirmwarePrompt {
         return true
     }
 
-    private fun download(activity: AppCompatActivity, chip: UsbWifi.Chip, blobs: List<Firmware.Blob>, onDone: () -> Unit) {
+    private fun download(activity: AppCompatActivity, chip: Waiting, blobs: List<Firmware.Blob>, onDone: () -> Unit) {
         val app = activity.applicationContext
         Toast.makeText(activity, "Downloading the ${chip.name} firmware…", Toast.LENGTH_SHORT).show()
         activity.lifecycleScope.launch {
@@ -79,7 +98,7 @@ object FirmwarePrompt {
             if (error == null) {
                 UsbWifi.log("Firmware for ${chip.name} downloaded and checked")
                 cancel(app)
-                UsbWifi.retry(app)
+                chip.retry(app)
                 Toast.makeText(app, "Firmware ready: starting the ${chip.name} adapter", Toast.LENGTH_SHORT).show()
             } else {
                 UsbWifi.log("Firmware download failed: ${UsbWifi.describe(error)}")

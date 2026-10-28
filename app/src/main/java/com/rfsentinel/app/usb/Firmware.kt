@@ -8,7 +8,7 @@ import java.net.URL
 import java.security.MessageDigest
 
 /**
- * The USB WiFi chips' own firmware. The full build carries it in assets/usbwifi. The FOSS build leaves out the
+ * The USB WiFi and Bluetooth chips' own firmware. The full build carries it in assets/usbwifi. The FOSS build leaves out the
  * firmware that isn't free software (Ralink, MediaTek and Realtek binaries) and, with your OK, downloads those exact
  * files once from linux-firmware on kernel.org, pinned to one commit and checked against their SHA-256, into the
  * app's own storage. The free ath9k_htc firmware and the Realtek register tables (GPL-2.0) ship in both builds.
@@ -35,8 +35,36 @@ object Firmware {
     private val RTL8822B = Blob("rtl8822b_fw.bin", "rtw88/rtw8822b_fw.bin",
         "a72da690597bfa99d8eb6fc2ab090d18d8ad92ac2befd35db1c9e3662d8d8418", 161240, "LICENCE.rtlwifi_firmware.txt")
 
+    /** USB Bluetooth controllers' firmware ([BtMediatek], [BtRealtek]): Realtek's renamed bt_*, as two chips share a name with WiFi files. */
+    private val BLUETOOTH = listOf(
+        Blob("BT_RAM_CODE_MT7961_1_2_hdr.bin", "mediatek/BT_RAM_CODE_MT7961_1_2_hdr.bin",
+            "7a440a0f7404c73a2f03d8cc0475ac9f7fdc931b494dce37705e7d578153dbae", 533870, "LICENCE.mediatek"),
+        Blob("bt_rtl8723b_fw.bin", "rtl_bt/rtl8723b_fw.bin",
+            "c9c8a9f6ebd90b7449a7e4d38ee39952dc7cc47d6c1d054e42cfbb5e4d818853", 45048, "LICENCE.rtlwifi_firmware.txt"),
+        Blob("bt_rtl8761a_fw.bin", "rtl_bt/rtl8761a_fw.bin",
+            "581e5e81f5b51a29f475f8a276be95ad3210b3e3065987541c508e7f7a83a462", 74488, "LICENCE.rtlwifi_firmware.txt"),
+        Blob("bt_rtl8761bu_fw.bin", "rtl_bt/rtl8761bu_fw.bin",
+            "1d7a9597349ad89344fa16c1913d3e39e9a12e966e417ca16871bc79bbe59edb", 44484, "LICENCE.rtlwifi_firmware.txt"),
+        Blob("bt_rtl8761bu_config.bin", "rtl_bt/rtl8761bu_config.bin",
+            "6c28a3f07c6a30ed208c4b64862a23f02b7d93543ea980edd24df16bab45095f", 6, "LICENCE.rtlwifi_firmware.txt"),
+        Blob("bt_rtl8761cu_fw.bin", "rtl_bt/rtl8761cu_fw.bin",
+            "525bfa5ab9a3ed74b788f9ac494467c522a436c1bc5290ebcb05c7f920533c09", 10296, "LICENCE.rtlwifi_firmware.txt"),
+        Blob("bt_rtl8761cu_config.bin", "rtl_bt/rtl8761cu_config.bin",
+            "3142c2732470e4edcdb68edf58cc505b581e38d56b3ec09c64eddcb1d5099507", 11, "LICENCE.rtlwifi_firmware.txt"),
+        Blob("bt_rtl8821a_fw.bin", "rtl_bt/rtl8821a_fw.bin",
+            "3ed5077f8f02ff2b06be257691dc72061efac976cd2dc174057833624c820b9d", 37420, "LICENCE.rtlwifi_firmware.txt"),
+        Blob("bt_rtl8821c_fw.bin", "rtl_bt/rtl8821c_fw.bin",
+            "dfe7ef772d078ec09490c02190a32fcd40b3eaf3b040049d8930eb80e6d5743c", 54636, "LICENCE.rtlwifi_firmware.txt"),
+        Blob("bt_rtl8821c_config.bin", "rtl_bt/rtl8821c_config.bin",
+            "292717b0610ce920f66b734c299d349ea59a4c4400044078d8fc65625f17e382", 10, "LICENCE.rtlwifi_firmware.txt"),
+        Blob("bt_rtl8822b_fw.bin", "rtl_bt/rtl8822b_fw.bin",
+            "eecef2c3b2ff03c3a41292a93a25eca6f4ec38eb4a7491a3651b530be89a04fc", 51176, "LICENCE.rtlwifi_firmware.txt"),
+        Blob("bt_rtl8822b_config.bin", "rtl_bt/rtl8822b_config.bin",
+            "ea082136d5285655372e3805cd50d961bd7d42085c6fc1058a115a7e844df9c1", 14, "LICENCE.rtlwifi_firmware.txt")
+    )
+
     /** Every file the FOSS build may download. */
-    val ALL = listOf(RT2870, MT7662_PATCH, MT7662, MT7961_PATCH, MT7961_RAM, RTL8822B)
+    val ALL = listOf(RT2870, MT7662_PATCH, MT7662, MT7961_PATCH, MT7961_RAM, RTL8822B) + BLUETOOTH
 
     /** The non-free files a driver needs (none for the drivers that load no firmware or only free files). */
     fun needed(driver: UsbWifi.Driver): List<Blob> = when (driver) {
@@ -58,6 +86,10 @@ object Firmware {
     /** The files of [driver] that are neither in this APK nor downloaded yet. */
     fun missing(context: Context, driver: UsbWifi.Driver): List<Blob> =
         needed(driver).filter { !inAssets(context, it.name) && !File(dir(context), it.name).isFile }
+
+    /** Of the files named [names] (a USB Bluetooth controller's), those neither in this APK nor downloaded yet. */
+    fun missingFiles(context: Context, names: List<String>): List<Blob> =
+        ALL.filter { it.name in names && !inAssets(context, it.name) && !File(dir(context), it.name).isFile }
 
     /** A file from assets/usbwifi, or one downloaded earlier (checked again before use). */
     fun read(context: Context, name: String): ByteArray {
