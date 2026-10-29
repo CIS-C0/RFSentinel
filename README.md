@@ -64,7 +64,7 @@
 <p align="center"><sub>List + map (fsociety) · why a device is flagged (Night Drive) · 3D map (Synthwave) · map and radar split views (Dark). Demo data only.<br/><a href="#themes">All 13 themes</a> · <a href="#android-auto">Android Auto</a></sub></p>
 
 <p align="center">
-  <a href="https://github.com/CIS-C0/RFSentinel/stargazers"><img src="docs/star-banner.svg" width="560" alt="Like RF Sentinel? Give it a star on GitHub - it's free, takes one click and helps others find it" /></a>
+  <a href=""><img src="docs/star-banner.svg" width="560" alt="Like RF Sentinel? Give it a star on GitHub - it's free, takes one click and helps others find it" /></a>
   <br />
   <a href="https://discord.gg/NDTjn8HMGq"><img src="docs/discord-banner.svg" width="560" alt="Join the RF Sentinel Discord - help, ideas, new signatures, ESP32 builds" /></a>
 </p>
