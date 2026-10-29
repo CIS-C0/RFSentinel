@@ -684,25 +684,25 @@ Bluetooth share the antennas. Turn it off in **Settings â†’ External hardware â†
 Scan Bluetooth with a USB adapter** to leave the adapter to WiFi only.
 Realtek RTL8822CU / 8852 and Intel dongles aren't supported yet.
 
-| Bluetooth chip | In RF Sentinel | Dongles with this chip |
-|---|---|---|
-| Generic USB Bluetooth (any standard controller, class e0) | Used, no firmware needed | CSR8510 A10 dongles and clones (TP-Link UB400, Avantree DG40S, many no-name "Bluetooth 4.0" dongles), Broadcom / Cypress BCM20702 (ASUS USB-BT400, Plugable USB-BT4LE, Kinivo BTD-400, IOGEAR GBU521) |
-| Realtek RTL8761B / RTL8761C | Used, Realtek firmware | TP-Link UB500, ASUS USB-BT500, UGREEN CM390 / CM591, Maxuni and other "Bluetooth 5.0 / 5.1 / 5.3" dongles |
-| Realtek RTL8723BU / 8821CU combo | Used, Realtek firmware | Edimax EW-7611ULB, many WiFi + Bluetooth nano adapters |
-| Intel, RTL8822CU / 8852, Qualcomm with firmware | Not yet | Intel AX200 / AX210 USB kits, newer RTL8852-based dongles |
+| Bluetooth chip | Dongles |
+|---|---|
+| Any standard controller | CSR8510 (TP-Link UB400), Broadcom BCM20702 (ASUS USB-BT400) |
+| RTL8761B / RTL8761C | TP-Link UB500, ASUS USB-BT500, UGREEN CM390 |
+| RTL8723BU / RTL8821CU | Edimax EW-7611ULB |
 
-| Chip | WiFi in RF Sentinel | Bluetooth | Status | Adapters with this chip | USB IDs |
-|---|---|---|---|---|---|
-| Realtek RTL8811AU / RTL8821AU | 2.4 GHz (5 GHz experimental, opt-in) | 8821AU: Bluetooth 4.0 used (opt-out), not yet tested; 8811AU none | Supported | ALFA AWUS036ACS | `0bda:0811` |
-| Realtek RTL8812AU | 2.4 + 5 GHz | None | Experimental: written from the Realtek driver, not yet tested on a real adapter | ALFA AWUS036ACH, TP-Link Archer T4U / T4UH, Netgear A6200v2, Linksys WUSB6300, Buffalo WI-U3-866D, Tenda U12, ASUS, D-Link, Edimax, TRENDnet, Belkin, ZyXEL, EnGenius, Planex, I-O DATA | `0bda:8812`, `0bda:881a` and ~30 other IDs |
-| Realtek RTL8812BU / RTL8822BU | 2.4 + 5 GHz | 8822BU: Bluetooth used (opt-out), not yet tested; 8812BU none | Supported, tested on a Wise Tiger 8812BU | TP-Link Archer T3U / T4U v3, ASUS USB-AC53 / AC55 / AC58, Edimax EW-7822U*, Netgear A6150, Linksys WUSB6400M / WUSB3600 v2, Wise Tiger AC1200, D-Link, TRENDnet, Buffalo | `0bda:b812`, `0bda:b82c` and ~35 other IDs |
-| Realtek RTL8814AU | 2.4 + 5 GHz | None | Supported, not yet tested on hardware | ALFA AWUS1900, TP-Link Archer T9UH, ASUS USB-AC68, Netgear A7000, Edimax, ELECOM, D-Link, TRENDnet | `0bda:8813` and 13 other IDs |
-| MediaTek MT7612U / MT7632U | 2.4 + 5 GHz | Not used | Supported, tested on an ALFA AWUS036ACM | ALFA AWUS036ACM, ASUS USB-AC54 / AC55 / N53 B1, Netgear A6210 / WNDA3100v3, Aukey USB-AC1200, Xbox One wireless adapter, TP-Link, Edimax, ELECOM | `0e8d:7612` and 16 other IDs |
-| MediaTek MT7921AU (WiFi 6E) | 2.4 + 5 + 6 GHz | Bluetooth 5.2 used (opt-out, LE Coded long range), not yet tested | Supported, tested on an ALFA AWUS036AXML / AXM | ALFA AWUS036AXML / AXM, Comfast CF-952AX, Netgear A8000 / A7500, TP-Link TXE50UH | `0e8d:7961` and 4 other IDs |
-| Realtek RTL8187L / RTL8187B | 2.4 GHz | None | Supported, tested on an ALFA AWUS036H | ALFA AWUS036H, Netgear WG111v2 / v3, ASUS, HP, Belkin | `0bda:8187` and 20 other IDs |
-| Ralink RT3070 | 2.4 GHz | None | Supported, tested on an ALFA AWUS036NEH | ALFA AWUS036NH / AWUS036NEH, Edimax | `148f:3070` and 4 other IDs |
-| Atheros AR9271 | 2.4 GHz | None | Experimental | ALFA AWUS036NHA, TP-Link TL-WN722N v1, Netgear WNA1100, D-Link DWA-126 | `0cf3:9271` and 17 other IDs |
-| RTL8811CU / 8821CU / 8812CU, RT5370 / 5372, RT3071 / 3072, MT7610U, AR7010 | Not yet | Not used | Detected and named, not supported yet | | |
+| Chip | WiFi | Bluetooth | Adapters |
+|---|---|---|---|
+| RTL8811AU / RTL8821AU | 2.4 GHz, 5 GHz experimental | 8821AU | ALFA AWUS036ACS |
+| RTL8812AU | 2.4 + 5 GHz, experimental | - | ALFA AWUS036ACH, TP-Link Archer T4U, Netgear A6200v2 |
+| RTL8812BU / RTL8822BU | 2.4 + 5 GHz | 8822BU | TP-Link Archer T3U, ASUS USB-AC53 / AC58, Wise Tiger AC1200 |
+| RTL8814AU | 2.4 + 5 GHz | - | ALFA AWUS1900, TP-Link Archer T9UH, ASUS USB-AC68 |
+| MT7612U | 2.4 + 5 GHz | - | ALFA AWUS036ACM, Netgear A6210, ASUS USB-AC55 |
+| MT7921AU (WiFi 6E) | 2.4 + 5 + 6 GHz | Yes, long range | ALFA AWUS036AXML / AXM, Comfast CF-952AX, Netgear A8000 |
+| RTL8187 | 2.4 GHz | - | ALFA AWUS036H, Netgear WG111v2 |
+| RT3070 | 2.4 GHz | - | ALFA AWUS036NH / NEH |
+| AR9271 | 2.4 GHz, experimental | - | ALFA AWUS036NHA, TP-Link TL-WN722N v1 |
+
+Recognised but not supported yet: RTL8811CU / 8821CU / 8812CU, RT5370, MT7610U, AR7010.
 
 <details>
 <summary><b>Receive-only, the adapter log and single-antenna dongles</b></summary>
