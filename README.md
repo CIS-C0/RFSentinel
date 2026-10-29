@@ -19,7 +19,7 @@
   <img src="https://img.shields.io/badge/Android%20Auto-supported-4285F4?logo=androidauto&logoColor=white" alt="Android Auto supported" />
   <img src="https://img.shields.io/badge/tracking-none-555555" alt="No tracking" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0" /></a>
-  <a href=""><img src="https://img.shields.io/github/stars/CIS-C0/RFSentinel?style=flat&color=FFB000" alt="GitHub stars" /></a>
+  <a href="https://github.com/CIS-C0/RFSentinel/"><img src="https://img.shields.io/github/stars/CIS-C0/RFSentinel?style=flat&color=FFB000" alt="GitHub stars" /></a>
   <a href="https://discord.gg/NDTjn8HMGq"><img src="https://img.shields.io/badge/Discord-join%20the%20community-5865F2?logo=discord&logoColor=white" alt="Join the Discord" /></a>
 </p>
 
@@ -64,7 +64,7 @@
 <p align="center"><sub>List + map (fsociety) · why a device is flagged (Night Drive) · 3D map (Synthwave) · map and radar split views (Dark). Demo data only.<br/><a href="#themes">All 13 themes</a> · <a href="#android-auto">Android Auto</a></sub></p>
 
 <p align="center">
-  <a href=""><img src="docs/star-banner.svg" width="560" alt="Like RF Sentinel? Give it a star on GitHub - it's free, takes one click and helps others find it" /></a>
+  <a href="https://github.com/CIS-C0/RFSentinel/"><img src="docs/star-banner.svg" width="560" alt="Like RF Sentinel? Give it a star on GitHub - it's free, takes one click and helps others find it" /></a>
   <br />
   <a href="https://discord.gg/NDTjn8HMGq"><img src="docs/discord-banner.svg" width="560" alt="Join the RF Sentinel Discord - help, ideas, new signatures, ESP32 builds" /></a>
 </p>
