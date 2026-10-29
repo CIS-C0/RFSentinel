@@ -60,7 +60,7 @@ META keys (JSON):
   search query people type first, then `| RF Sentinel`. Plain text; `&` is fine.
 - `description` (required): meta description, ~150-300 chars, technical.
 - `nav`: which top-nav item is highlighted: `index`, `how-it-works`, `guides`,
-  `install`, `android-auto`, `esp32`, `qa`.
+  `install`, `android-auto`, `hardware`, `qa`.
 - `crumb`: breadcrumb name for structured data (defaults to the title).
 - `noindex`: `true` keeps the page out of search and the sitemap (404 only).
 

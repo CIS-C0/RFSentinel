@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>External hardware for RF Sentinel: ESP32, USB WiFi, USB Bluetooth, RTL-SDR</title>
+<meta name="description" content="Add an ESP32 board (OUI-Spy, GhostESP, Marauder, Flipper Zero BFFB), a USB WiFi or Bluetooth adapter, or an RTL-SDR / HackRF to RF Sentinel for more range and more detections. No root.">
+<link rel="canonical" href="https://cis-c0.github.io/RFSentinel/hardware.html">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#050507">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="RF Sentinel">
+<meta property="og:title" content="External hardware for RF Sentinel: ESP32, USB WiFi, USB Bluetooth, RTL-SDR">
+<meta property="og:description" content="Add an ESP32 board (OUI-Spy, GhostESP, Marauder, Flipper Zero BFFB), a USB WiFi or Bluetooth adapter, or an RTL-SDR / HackRF to RF Sentinel for more range and more detections. No root.">
+<meta property="og:url" content="https://cis-c0.github.io/RFSentinel/hardware.html">
+<meta property="og:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="RF Sentinel - BLE and WiFi police scanner for Android">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="External hardware for RF Sentinel: ESP32, USB WiFi, USB Bluetooth, RTL-SDR">
+<meta name="twitter:description" content="Add an ESP32 board (OUI-Spy, GhostESP, Marauder, Flipper Zero BFFB), a USB WiFi or Bluetooth adapter, or an RTL-SDR / HackRF to RF Sentinel for more range and more detections. No root.">
+<meta name="twitter:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="assets/style.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "External hardware", "item": "https://cis-c0.github.io/RFSentinel/hardware.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Which ESP32 board should I buy?", "acceptedAnswer": {"@type": "Answer", "text": "Any board the firmware supports: XIAO ESP32-S3, ESP32-S3 DevKitC, LilyGO T-Dongle-S3 and others are targets of OUI-Spy. An external antenna connector (u.FL / IPEX) is worth having for range."}}, {"@type": "Question", "name": "How do I flash OUI-Spy?", "acceptedAnswer": {"@type": "Answer", "text": "Follow the firmware's own README (PlatformIO or its flash script). RF Sentinel doesn't flash boards."}}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="favicon.svg" alt="" width="28" height="28">RF<span>_</span>SENTINEL</a>
+    <nav class="nav" aria-label="Main"><a href="./">Home</a><a href="how-it-works.html">How it works</a><a href="police-detector.html">Guides</a><a href="install.html">Install</a><a href="android-auto.html">Android Auto</a><a href="hardware.html" aria-current="page">Hardware</a><a href="qa.html">Q&amp;A</a></nav>
+    <div class="social">
+      <a class="icon-btn discord" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span class="lbl">Discord</span></a>
+      <a class="icon-btn github" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg><span class="lbl">GitHub</span></a>
+    </div>
+  </div>
+</header>
+<main id="main" class="wrap">
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / hardware</p>
+  <h1>External hardware</h1>
+  <p class="lead">Optional add-ons that hear further than a phone and see things Android hides: ESP32 boards, USB WiFi and Bluetooth adapters, and RTL-SDR / HackRF radios. Plug them in with a USB OTG cable while scanning, no root. What they hear merges into RF Sentinel's own list with a badge (<b>ESP32</b>, <b>USB WIFI</b>, <b>USB BT</b>). Settings &rarr; External hardware has the switches and an adapter log to export.</p>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/CIS-C0/RFSentinel/releases/latest" data-apk><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Download APK <span data-version></span></a>
+    <a class="btn discord" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg>ESP32 builds on Discord</a>
+  </div>
+</div>
+
+<h2 id="esp32">ESP32 boards</h2>
+<h3 id="firmware">Supported firmware</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Firmware</th><th>Link</th><th>What RF Sentinel gets</th></tr></thead>
+<tbody>
+<tr><td><a href="https://github.com/colonelpanichacks/oui-spy-unified-blue" rel="noopener">OUI-Spy</a> (recommended)</td><td>USB OTG</td><td>Flock-You, Detector and Sky Spy detections as they happen: Flock cameras, the board's watchlist matches, Remote ID drones with position</td></tr>
+<tr><td><a href="https://github.com/lukeswitz/oui-spy-unified-blue" rel="noopener">OUI-SPY App-Controlled</a></td><td>Bluetooth</td><td>Flock-BLE, Flock-WiFi, Sky Spy, Detector and (optional) Wardrive survey engines</td></tr>
+<tr><td><a href="https://github.com/GhostESP-Revival/GhostESP" rel="noopener">GhostESP</a></td><td>USB OTG</td><td>The WiFi networks it scans, about every 10 s (no Bluetooth over USB)</td></tr>
+<tr><td><a href="https://github.com/justcallmekoko/ESP32Marauder" rel="noopener">ESP32 Marauder</a></td><td>USB OTG, or through a Flipper Zero</td><td>WiFi networks and client devices from its passive beacon and probe sniffers, batched every 2 s; on ESP32-C5 boards (Marauder v8, BFFB v2, LilyGo T-Dongle C5, C5 DevKit) both 2.4 and 5 GHz</td></tr>
+<tr><td><a href="https://github.com/pit711/V2X2MAP" rel="noopener">V2X2MAP</a> (ESP32-C5, Europe)</td><td>USB OTG</td><td>European car-to-car radio (ITS-G5, 5.9 GHz): emergency vehicles with their light bar and siren state at the position they broadcast, and their "emergency vehicle approaching" warnings. RF Sentinel only listens to the board's stream; nothing is sent to it. Not in North America, which uses C-V2X</td></tr>
+</tbody></table></div>
+
+<h3 id="usb">USB</h3>
+<p>Plug the board into the phone with a USB OTG cable while scanning: Android offers to open RF Sentinel for it, and with <b>Always</b> ticked it never asks again. Native-USB boards (ESP32-S2 / S3 / C3 / C5 / C6) and boards with CP210x or CH340 USB bridges work. RF Sentinel only asks OUI-Spy for its version and live table, only asks GhostESP to scan and list networks, and only runs Marauder's passive <code>sniffbeacon</code> / <code>sniffprobe</code> sniffers (no attack commands, no settings changes). Settings shows the board's status.</p>
+
+<h3 id="marauder">ESP32 Marauder, ESP32-C5 and Flipper Zero</h3>
+<p><b>Dual-band:</b> Marauder on an ESP32-C5 (Marauder v8, BFFB v2, LilyGo T-Dongle C5, C5 DevKit) hears 5 GHz networks that the phone's throttled WiFi scan misses, which helps catch vehicle routers on a pass. Keep <b>Channel Hop</b> on in Marauder's settings; RF Sentinel says so if the board stays on one channel.</p>
+<p><b>Flipper Zero (e.g. with the BFFB board):</b> plug the Flipper into the phone and open <b>GPIO → USB-UART Bridge</b> on the Flipper; RF Sentinel then talks to the board's Marauder through it. A BFFB v2 can also be plugged in by its own USB-C port. The original BFFB uses a 2.4 GHz-only ESP32.</p>
+
+<h3 id="ble">Bluetooth (OUI-SPY App-Controlled)</h3>
+<ol>
+<li>Power the board and start scanning in RF Sentinel.</li>
+<li><b>Settings → Pair OUI-SPY board</b> → pick <code>OUI-SPY-xxxx</code>.</li>
+<li>Pair only there, not in Android's Bluetooth settings: the board keeps no pairing keys, so a phone-side bond breaks the link. The app tells you to tap <b>Forget</b> if it finds one.</li>
+</ol>
+<p>While scanning, RF Sentinel switches on the board's Flock-BLE, Flock-WiFi, Sky Spy and Detector engines and switches them off when scanning stops. By default it also runs the Wardrive survey engine so the board relays <b>every</b> WiFi network and Bluetooth device; those go through RF Sentinel's own watchlist, presets and rules. In that mode the board sends standard WiFi probe requests, so turn off <b>OUI-SPY: relay every network and Bluetooth device</b> to keep it purely listening. <b>Settings → OUI-SPY engines</b> chooses which detection engines run (turn the two Flock engines off where there are no Flock cameras). With <b>Phone Bluetooth scan with OUI-SPY</b> off, the phone's own Bluetooth scan pauses while the board is live and the board does the Bluetooth scanning (it hears farther); the phone's scan comes back if the board drops out. Keep relaying on with it, or only the board's engine matches come in. The board's UniPwn, PCAP and Foxhunter engines are never used.</p>
+<p>The status line under <i>Scanning</i> shows <code>connecting…</code> / <code>live · N reports</code>; the <b>ESP32</b> filter chip lists only what the board reported.</p>
+
+<h2 id="usb-wifi">USB WiFi adapters</h2>
+<p>RF Sentinel drives the adapter itself in <b>receive-only monitor mode</b> and hops the channels: no Android scan limit, longer range, and <b>client devices</b> (laptops, phones, cameras connected to a network) that a phone's WiFi scan can't see. It also lists the WiFi names nearby devices ask for (Menu &rarr; Requested networks). Allow USB access on the prompt; single-antenna dongles are handled automatically.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Chip</th><th>WiFi</th><th>Bluetooth</th><th>Adapters</th></tr></thead>
+<tbody>
+<tr><td>RTL8811AU / RTL8821AU</td><td>2.4 GHz, 5 GHz experimental</td><td>8821AU</td><td>ALFA AWUS036ACS</td></tr>
+<tr><td>RTL8812AU</td><td>2.4 + 5 GHz, experimental</td><td>-</td><td>ALFA AWUS036ACH, TP-Link Archer T4U, Netgear A6200v2</td></tr>
+<tr><td>RTL8812BU / RTL8822BU</td><td>2.4 + 5 GHz</td><td>8822BU</td><td>TP-Link Archer T3U, ASUS USB-AC53 / AC58, Wise Tiger AC1200</td></tr>
+<tr><td>RTL8814AU</td><td>2.4 + 5 GHz</td><td>-</td><td>ALFA AWUS1900, TP-Link Archer T9UH, ASUS USB-AC68</td></tr>
+<tr><td>MT7612U</td><td>2.4 + 5 GHz</td><td>-</td><td>ALFA AWUS036ACM, Netgear A6210, ASUS USB-AC55</td></tr>
+<tr><td>MT7921AU (WiFi 6E)</td><td>2.4 + 5 + 6 GHz</td><td>Yes, long range</td><td>ALFA AWUS036AXML / AXM, Comfast CF-952AX, Netgear A8000</td></tr>
+<tr><td>RTL8187</td><td>2.4 GHz</td><td>-</td><td>ALFA AWUS036H, Netgear WG111v2</td></tr>
+<tr><td>RT3070</td><td>2.4 GHz</td><td>-</td><td>ALFA AWUS036NH / NEH</td></tr>
+<tr><td>AR9271</td><td>2.4 GHz, experimental</td><td>-</td><td>ALFA AWUS036NHA, TP-Link TL-WN722N v1</td></tr>
+</tbody></table></div>
+<p>Recognised but not supported yet: RTL8811CU / 8821CU / 8812CU, RT5370, MT7610U, AR7010.</p>
+
+<h2 id="usb-bluetooth">USB Bluetooth</h2>
+<p>The Bluetooth part of a combo adapter (MT7921AU, RTL8821AU, RTL8822BU), or a plain USB Bluetooth dongle, works as a second Bluetooth LE scanner next to the phone's own, listening only, with LE Coded long range where the chip has it. Turn it off in Settings &rarr; External hardware &rarr; Scan Bluetooth with a USB adapter to leave a combo adapter to WiFi only.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Bluetooth chip</th><th>Dongles</th></tr></thead>
+<tbody>
+<tr><td>Any standard controller</td><td>CSR8510 (TP-Link UB400), Broadcom BCM20702 (ASUS USB-BT400)</td></tr>
+<tr><td>RTL8761B / RTL8761C</td><td>TP-Link UB500, ASUS USB-BT500, UGREEN CM390</td></tr>
+<tr><td>RTL8723BU / RTL8821CU</td><td>Edimax EW-7611ULB</td></tr>
+</tbody></table></div>
+
+<h2 id="sdr">RTL-SDR and HackRF One</h2>
+<p>An RTL-SDR dongle (R820T / R820T2 / R860 tuner, e.g. RTL-SDR Blog V3 or V4) or a HackRF One (receive only: its transmitter stays off) adds:</p>
+<ul>
+<li><b>Two-way radio transmitting nearby:</b> sweeps the public-safety radio bands and measures only how much energy each channel carries; nothing is demodulated or decoded.</li>
+<li><b>TETRA handsets</b> (Europe and elsewhere): spots their burst rhythm on 380-385 MHz.</li>
+<li><b>ADS-B aircraft</b> (Settings &rarr; RTL-SDR radio): decodes aircraft on 1090 MHz with no internet, for the police-aircraft check.</li>
+<li>A live <b>radio waterfall</b> (Tools).</li>
+</ul>
+
+<h2 id="faq-esp">Questions</h2>
+<details class="faq" id="q-esp-board">
+<summary>Which ESP32 board should I buy?</summary>
+<div><p>Any board the firmware supports: XIAO ESP32-S3, ESP32-S3 DevKitC, LilyGO T-Dongle-S3 and others are targets of OUI-Spy. An external antenna connector (u.FL / IPEX) is worth having for range.</p></div>
+</details>
+<details class="faq" id="q-esp-flash">
+<summary>How do I flash OUI-Spy?</summary>
+<div><p>Follow the firmware's own README (PlatformIO or its flash script). RF Sentinel doesn't flash boards.</p></div>
+</details>
+<section class="community" aria-label="Community">
+  <a class="dc" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span><strong>Join the Discord</strong>Help, ideas, new signatures, field captures and ESP32 builds.</span></a>
+  <a class="gh" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg><span><strong>CIS-C0/RFSentinel on GitHub</strong>Source code, releases, issues. A star helps others find it.</span></a>
+</section>
+</main>
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <p class="foot-title">RF Sentinel</p>
+        <ul>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/releases/latest">Download the APK</a></li>
+          <li><a href="install.html">Install &amp; update</a></li>
+          <li><a href="how-it-works.html">How detection works</a></li>
+          <li><a href="qa.html">Q&amp;A</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="foot-title">Guides</p>
+        <ul><li><a href="what-is-rf-sentinel.html">What is RF Sentinel?</a></li><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="alternatives.html">Compared with other tools</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li></ul>
+      </div>
+      <div>
+        <p class="foot-title">Community</p>
+        <ul>
+          <li><a href="https://discord.gg/NDTjn8HMGq" rel="noopener">Discord server</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel" rel="noopener">GitHub repository</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/issues" rel="noopener">Issues &amp; device reports</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/blob/main/docs/SIGNATURES.md" rel="noopener">Signature reference</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="legal">RF Sentinel is free software under the GNU GPL v3.0. Copyright © 2026 CIS-C0.
+    Receive-only: it transmits nothing, and a detection is a signature match, not proof of who is present. Check your local laws.
+    Not affiliated with any company or product named on this site; names are used only to describe compatibility and detection.
+    No cookies, no analytics, no trackers on this site.</p>
+  </div>
+</footer>
+<script>
+// A link to a question (qa.html#detect-flock) opens its answer.
+(function () {
+  function openHash() {
+    var el = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (el && el.tagName === "DETAILS") { el.open = true; el.scrollIntoView(); }
+  }
+  openHash();
+  window.addEventListener("hashchange", openHash);
+})();
+// Latest release: version label and a direct link to the signed APK. Falls back to the releases page.
+(function () {
+  var els = document.querySelectorAll("[data-apk]");
+  if (!els.length || !window.fetch) return;
+  fetch("https://api.github.com/repos/CIS-C0/RFSentinel/releases/latest")
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (rel) {
+      if (!rel) return;
+      var apk = (rel.assets || []).filter(function (a) { return /-release\.apk$/.test(a.name); })[0];
+      els.forEach(function (el) {
+        if (apk) el.href = apk.browser_download_url;
+        var v = el.querySelector("[data-version]");
+        if (v) v.textContent = rel.tag_name;
+      });
+    }).catch(function () {});
+})();
+</script>
+</body>
+</html>

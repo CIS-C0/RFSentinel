@@ -1,0 +1,84 @@
+<!--META {"title": "External hardware for RF Sentinel: ESP32, USB WiFi, USB Bluetooth, RTL-SDR", "description": "Add an ESP32 board (OUI-Spy, GhostESP, Marauder, Flipper Zero BFFB), a USB WiFi or Bluetooth adapter, or an RTL-SDR / HackRF to RF Sentinel for more range and more detections. No root.", "nav": "hardware", "crumb": "External hardware"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / hardware</p>
+  <h1>External hardware</h1>
+  <p class="lead">Optional add-ons that hear further than a phone and see things Android hides: ESP32 boards, USB WiFi and Bluetooth adapters, and RTL-SDR / HackRF radios. Plug them in with a USB OTG cable while scanning, no root. What they hear merges into RF Sentinel's own list with a badge (<b>ESP32</b>, <b>USB WIFI</b>, <b>USB BT</b>). Settings &rarr; External hardware has the switches and an adapter log to export.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn discord" href="{{DISCORD}}" rel="noopener">{{DISCORD_SVG}}ESP32 builds on Discord</a>
+  </div>
+</div>
+
+<h2 id="esp32">ESP32 boards</h2>
+<h3 id="firmware">Supported firmware</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Firmware</th><th>Link</th><th>What RF Sentinel gets</th></tr></thead>
+<tbody>
+<tr><td><a href="https://github.com/colonelpanichacks/oui-spy-unified-blue" rel="noopener">OUI-Spy</a> (recommended)</td><td>USB OTG</td><td>Flock-You, Detector and Sky Spy detections as they happen: Flock cameras, the board's watchlist matches, Remote ID drones with position</td></tr>
+<tr><td><a href="https://github.com/lukeswitz/oui-spy-unified-blue" rel="noopener">OUI-SPY App-Controlled</a></td><td>Bluetooth</td><td>Flock-BLE, Flock-WiFi, Sky Spy, Detector and (optional) Wardrive survey engines</td></tr>
+<tr><td><a href="https://github.com/GhostESP-Revival/GhostESP" rel="noopener">GhostESP</a></td><td>USB OTG</td><td>The WiFi networks it scans, about every 10 s (no Bluetooth over USB)</td></tr>
+<tr><td><a href="https://github.com/justcallmekoko/ESP32Marauder" rel="noopener">ESP32 Marauder</a></td><td>USB OTG, or through a Flipper Zero</td><td>WiFi networks and client devices from its passive beacon and probe sniffers, batched every 2 s; on ESP32-C5 boards (Marauder v8, BFFB v2, LilyGo T-Dongle C5, C5 DevKit) both 2.4 and 5 GHz</td></tr>
+<tr><td><a href="https://github.com/pit711/V2X2MAP" rel="noopener">V2X2MAP</a> (ESP32-C5, Europe)</td><td>USB OTG</td><td>European car-to-car radio (ITS-G5, 5.9 GHz): emergency vehicles with their light bar and siren state at the position they broadcast, and their "emergency vehicle approaching" warnings. RF Sentinel only listens to the board's stream; nothing is sent to it. Not in North America, which uses C-V2X</td></tr>
+</tbody></table></div>
+
+<h3 id="usb">USB</h3>
+<p>Plug the board into the phone with a USB OTG cable while scanning: Android offers to open RF Sentinel for it, and with <b>Always</b> ticked it never asks again. Native-USB boards (ESP32-S2 / S3 / C3 / C5 / C6) and boards with CP210x or CH340 USB bridges work. RF Sentinel only asks OUI-Spy for its version and live table, only asks GhostESP to scan and list networks, and only runs Marauder's passive <code>sniffbeacon</code> / <code>sniffprobe</code> sniffers (no attack commands, no settings changes). Settings shows the board's status.</p>
+
+<h3 id="marauder">ESP32 Marauder, ESP32-C5 and Flipper Zero</h3>
+<p><b>Dual-band:</b> Marauder on an ESP32-C5 (Marauder v8, BFFB v2, LilyGo T-Dongle C5, C5 DevKit) hears 5 GHz networks that the phone's throttled WiFi scan misses, which helps catch vehicle routers on a pass. Keep <b>Channel Hop</b> on in Marauder's settings; RF Sentinel says so if the board stays on one channel.</p>
+<p><b>Flipper Zero (e.g. with the BFFB board):</b> plug the Flipper into the phone and open <b>GPIO → USB-UART Bridge</b> on the Flipper; RF Sentinel then talks to the board's Marauder through it. A BFFB v2 can also be plugged in by its own USB-C port. The original BFFB uses a 2.4 GHz-only ESP32.</p>
+
+<h3 id="ble">Bluetooth (OUI-SPY App-Controlled)</h3>
+<ol>
+<li>Power the board and start scanning in RF Sentinel.</li>
+<li><b>Settings → Pair OUI-SPY board</b> → pick <code>OUI-SPY-xxxx</code>.</li>
+<li>Pair only there, not in Android's Bluetooth settings: the board keeps no pairing keys, so a phone-side bond breaks the link. The app tells you to tap <b>Forget</b> if it finds one.</li>
+</ol>
+<p>While scanning, RF Sentinel switches on the board's Flock-BLE, Flock-WiFi, Sky Spy and Detector engines and switches them off when scanning stops. By default it also runs the Wardrive survey engine so the board relays <b>every</b> WiFi network and Bluetooth device; those go through RF Sentinel's own watchlist, presets and rules. In that mode the board sends standard WiFi probe requests, so turn off <b>OUI-SPY: relay every network and Bluetooth device</b> to keep it purely listening. <b>Settings → OUI-SPY engines</b> chooses which detection engines run (turn the two Flock engines off where there are no Flock cameras). With <b>Phone Bluetooth scan with OUI-SPY</b> off, the phone's own Bluetooth scan pauses while the board is live and the board does the Bluetooth scanning (it hears farther); the phone's scan comes back if the board drops out. Keep relaying on with it, or only the board's engine matches come in. The board's UniPwn, PCAP and Foxhunter engines are never used.</p>
+<p>The status line under <i>Scanning</i> shows <code>connecting…</code> / <code>live · N reports</code>; the <b>ESP32</b> filter chip lists only what the board reported.</p>
+
+<h2 id="usb-wifi">USB WiFi adapters</h2>
+<p>RF Sentinel drives the adapter itself in <b>receive-only monitor mode</b> and hops the channels: no Android scan limit, longer range, and <b>client devices</b> (laptops, phones, cameras connected to a network) that a phone's WiFi scan can't see. It also lists the WiFi names nearby devices ask for (Menu &rarr; Requested networks). Allow USB access on the prompt; single-antenna dongles are handled automatically.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Chip</th><th>WiFi</th><th>Bluetooth</th><th>Adapters</th></tr></thead>
+<tbody>
+<tr><td>RTL8811AU / RTL8821AU</td><td>2.4 GHz, 5 GHz experimental</td><td>8821AU</td><td>ALFA AWUS036ACS</td></tr>
+<tr><td>RTL8812AU</td><td>2.4 + 5 GHz, experimental</td><td>-</td><td>ALFA AWUS036ACH, TP-Link Archer T4U, Netgear A6200v2</td></tr>
+<tr><td>RTL8812BU / RTL8822BU</td><td>2.4 + 5 GHz</td><td>8822BU</td><td>TP-Link Archer T3U, ASUS USB-AC53 / AC58, Wise Tiger AC1200</td></tr>
+<tr><td>RTL8814AU</td><td>2.4 + 5 GHz</td><td>-</td><td>ALFA AWUS1900, TP-Link Archer T9UH, ASUS USB-AC68</td></tr>
+<tr><td>MT7612U</td><td>2.4 + 5 GHz</td><td>-</td><td>ALFA AWUS036ACM, Netgear A6210, ASUS USB-AC55</td></tr>
+<tr><td>MT7921AU (WiFi 6E)</td><td>2.4 + 5 + 6 GHz</td><td>Yes, long range</td><td>ALFA AWUS036AXML / AXM, Comfast CF-952AX, Netgear A8000</td></tr>
+<tr><td>RTL8187</td><td>2.4 GHz</td><td>-</td><td>ALFA AWUS036H, Netgear WG111v2</td></tr>
+<tr><td>RT3070</td><td>2.4 GHz</td><td>-</td><td>ALFA AWUS036NH / NEH</td></tr>
+<tr><td>AR9271</td><td>2.4 GHz, experimental</td><td>-</td><td>ALFA AWUS036NHA, TP-Link TL-WN722N v1</td></tr>
+</tbody></table></div>
+<p>Recognised but not supported yet: RTL8811CU / 8821CU / 8812CU, RT5370, MT7610U, AR7010.</p>
+
+<h2 id="usb-bluetooth">USB Bluetooth</h2>
+<p>The Bluetooth part of a combo adapter (MT7921AU, RTL8821AU, RTL8822BU), or a plain USB Bluetooth dongle, works as a second Bluetooth LE scanner next to the phone's own, listening only, with LE Coded long range where the chip has it. Turn it off in Settings &rarr; External hardware &rarr; Scan Bluetooth with a USB adapter to leave a combo adapter to WiFi only.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Bluetooth chip</th><th>Dongles</th></tr></thead>
+<tbody>
+<tr><td>Any standard controller</td><td>CSR8510 (TP-Link UB400), Broadcom BCM20702 (ASUS USB-BT400)</td></tr>
+<tr><td>RTL8761B / RTL8761C</td><td>TP-Link UB500, ASUS USB-BT500, UGREEN CM390</td></tr>
+<tr><td>RTL8723BU / RTL8821CU</td><td>Edimax EW-7611ULB</td></tr>
+</tbody></table></div>
+
+<h2 id="sdr">RTL-SDR and HackRF One</h2>
+<p>An RTL-SDR dongle (R820T / R820T2 / R860 tuner, e.g. RTL-SDR Blog V3 or V4) or a HackRF One (receive only: its transmitter stays off) adds:</p>
+<ul>
+<li><b>Two-way radio transmitting nearby:</b> sweeps the public-safety radio bands and measures only how much energy each channel carries; nothing is demodulated or decoded.</li>
+<li><b>TETRA handsets</b> (Europe and elsewhere): spots their burst rhythm on 380-385 MHz.</li>
+<li><b>ADS-B aircraft</b> (Settings &rarr; RTL-SDR radio): decodes aircraft on 1090 MHz with no internet, for the police-aircraft check.</li>
+<li>A live <b>radio waterfall</b> (Tools).</li>
+</ul>
+
+<h2 id="faq-esp">Questions</h2>
+<details class="faq" id="q-esp-board">
+<summary>Which ESP32 board should I buy?</summary>
+<div><p>Any board the firmware supports: XIAO ESP32-S3, ESP32-S3 DevKitC, LilyGO T-Dongle-S3 and others are targets of OUI-Spy. An external antenna connector (u.FL / IPEX) is worth having for range.</p></div>
+</details>
+<details class="faq" id="q-esp-flash">
+<summary>How do I flash OUI-Spy?</summary>
+<div><p>Follow the firmware's own README (PlatformIO or its flash script). RF Sentinel doesn't flash boards.</p></div>
+</details>

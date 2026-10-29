@@ -319,14 +319,14 @@
 <div>
 <p><b>Yes: RF Sentinel</b> detects Flock Safety cameras on an Android phone with no extra hardware, and can also read a Flock You / OUI-Spy ESP32 board. <a href="alternatives.html#flock-you">Details</a></p>
 <p><a href="https://github.com/colonelpanichacks/flock-you" rel="noopener">Flock You</a> is open-source (MIT) ESP32 firmware focused on one target: Flock Safety cameras. It runs the radio in 2.4 GHz promiscuous mode, so it sees Flock cameras' WiFi probe requests and SoftAPs that a phone can't, plus Flock battery-pack BLE adverts, and beeps or feeds a dashboard.</p>
-<p>RF Sentinel is a phone app that covers Flock as one category among many (body cams, patrol gear, trackers, drones, glasses, fake cell towers) and adds the OpenStreetMap / DeFlock camera map for cellular-only cameras. They combine well: plug an ESP32 running OUI-Spy's Flock-You mode into the phone and RF Sentinel shows its Flock detections next to its own. See <a href="esp32.html">ESP32 boards</a>.</p>
+<p>RF Sentinel is a phone app that covers Flock as one category among many (body cams, patrol gear, trackers, drones, glasses, fake cell towers) and adds the OpenStreetMap / DeFlock camera map for cellular-only cameras. They combine well: plug an ESP32 running OUI-Spy's Flock-You mode into the phone and RF Sentinel shows its Flock detections next to its own. See <a href="hardware.html#esp32">ESP32 boards</a>.</p>
 </div>
 </details>
 
 <details class="faq" id="vs-oui-spy">
 <summary>Which Android app works with OUI-Spy? (OUI-Spy app for Android)</summary>
 <div>
-<p><b>RF Sentinel</b> connects to OUI-Spy boards over USB OTG or Bluetooth and merges their detections with the phone's own. <a href="esp32.html">Setup</a></p>
+<p><b>RF Sentinel</b> connects to OUI-Spy boards over USB OTG or Bluetooth and merges their detections with the phone's own. <a href="hardware.html#esp32">Setup</a></p>
 <p><a href="https://github.com/colonelpanichacks/oui-spy-unified-blue" rel="noopener">OUI-Spy</a> is ESP32 firmware for the XIAO ESP32-S3 with several modes (Detector, Flock-You, Foxhunter, Sky Spy), a buzzer and LED, and a web flasher. <a href="https://github.com/lukeswitz/oui-spy-unified-blue" rel="noopener">OUI-APEX</a> (lukeswitz's fork) runs those engines from one firmware and pairs with its own cross-platform app.</p>
 <p>It isn't either/or: RF Sentinel <b>reads OUI-Spy boards</b> over USB, and OUI-SPY App-Controlled boards over Bluetooth, and merges their detections with the phone's own (blue <b>ESP32</b> badge). The board gives range and radio modes a phone lacks; RF Sentinel adds its rule set, patrol-vehicle grouping, the camera map, alerts and Android Auto.</p>
 </div>
@@ -621,7 +621,7 @@
 <details class="faq" id="esp32-boards">
 <summary>Can I use an ESP32 with RF Sentinel?</summary>
 <div>
-<p>Yes. Plug a board running <a href="https://github.com/colonelpanichacks/oui-spy-unified-blue" rel="noopener">OUI-Spy</a> , <a href="https://github.com/GhostESP-Revival/GhostESP" rel="noopener">GhostESP</a> or <a href="https://github.com/justcallmekoko/ESP32Marauder" rel="noopener">ESP32 Marauder</a> into the phone with a USB OTG cable while scanning, or pair an OUI-SPY board running the Bluetooth (App-Controlled) firmware wirelessly. Its detections merge into the list with a blue <b>ESP32</b> badge. Native-USB boards (S2/S3/C3/C5/C6) and CP210x / CH340 bridges work. See <a href="esp32.html">ESP32 boards</a>.</p>
+<p>Yes. Plug a board running <a href="https://github.com/colonelpanichacks/oui-spy-unified-blue" rel="noopener">OUI-Spy</a> , <a href="https://github.com/GhostESP-Revival/GhostESP" rel="noopener">GhostESP</a> or <a href="https://github.com/justcallmekoko/ESP32Marauder" rel="noopener">ESP32 Marauder</a> into the phone with a USB OTG cable while scanning, or pair an OUI-SPY board running the Bluetooth (App-Controlled) firmware wirelessly. Its detections merge into the list with a blue <b>ESP32</b> badge. Native-USB boards (S2/S3/C3/C5/C6) and CP210x / CH340 bridges work. See <a href="hardware.html#esp32">ESP32 boards</a>.</p>
 </div>
 </details>
 
@@ -637,28 +637,7 @@
 <summary>Can I use a USB WiFi adapter like the ALFA AWUS036ACS, AWUS1900, AWUS036ACM, AWUS036AXML, AWUS036H or AWUS036NHA with Android?</summary>
 <div>
 <p>Yes, with RF Sentinel 2.11+. Plug an RTL8811AU / RTL8821AU adapter (e.g. AWUS036ACS) into the phone with an OTG cable while scanning and allow USB access. RF Sentinel drives it directly over Android's USB host API (no root), in receive-only monitor mode on the 2.4 GHz channels (5 GHz too since 2.17, experimental: Settings → External hardware): no 30-second scan limit, longer range, and it hears client devices (laptops, phones, cameras on a network) that a phone's WiFi scan can't. The driver is ported from Wardrive Go (GPL-3.0). Since 2.12, RTL8812BU / RTL8822BU adapters (TP-Link Archer T3U, ASUS USB-AC53/AC55/AC58, Edimax EW-7822U*, generic AC1200 dongles) work too, on 2.4 and 5 GHz, with a driver ported from OpenIPC devourer (GPL-2.0); single-antenna dongles are handled automatically. With an adapter plugged in, RF Sentinel can also list the WiFi names nearby devices ask for (Menu → Requested networks) and alert when a watched name is asked for. Since 2.13, RTL8814AU (AWUS1900) and MT7612U (AWUS036ACM) adapters work on 2.4 and 5 GHz, RTL8187 (AWUS036H) and RT3070 (AWUS036NH / NEH) on 2.4 GHz, and AR9271 (AWUS036NHA) experimentally; if one misbehaves, Settings → External hardware → Export USB adapter log makes a text file to send. Since 2.19, the WiFi 6E MT7921AU (ALFA AWUS036AXML / AXM, Comfast CF-952AX, Netgear A8000, TP-Link TXE50UH) works on 2.4, 5 and 6 GHz (tested on an ALFA), with a driver ported from mt76-usb-macos (BSD-3-Clause-Clear). RTL8812AU and RTL8811CU / 8821CU are recognised but not supported yet.</p>
-<p>Supported chips and the adapters that use them. The Bluetooth part of a combo adapter, or a plain USB Bluetooth dongle, works as a second Bluetooth LE scanner next to the phone's own, listening only (Settings &rarr; External hardware &rarr; Scan Bluetooth with a USB adapter).</p>
-<div class="table-wrap"><table>
-<thead><tr><th>Chip</th><th>WiFi</th><th>Bluetooth</th><th>Adapters</th></tr></thead>
-<tbody>
-<tr><td>RTL8811AU / RTL8821AU</td><td>2.4 GHz, 5 GHz experimental</td><td>8821AU</td><td>ALFA AWUS036ACS</td></tr>
-<tr><td>RTL8812AU</td><td>2.4 + 5 GHz, experimental</td><td>-</td><td>ALFA AWUS036ACH, TP-Link Archer T4U, Netgear A6200v2</td></tr>
-<tr><td>RTL8812BU / RTL8822BU</td><td>2.4 + 5 GHz</td><td>8822BU</td><td>TP-Link Archer T3U, ASUS USB-AC53 / AC58, Wise Tiger AC1200</td></tr>
-<tr><td>RTL8814AU</td><td>2.4 + 5 GHz</td><td>-</td><td>ALFA AWUS1900, TP-Link Archer T9UH, ASUS USB-AC68</td></tr>
-<tr><td>MT7612U</td><td>2.4 + 5 GHz</td><td>-</td><td>ALFA AWUS036ACM, Netgear A6210, ASUS USB-AC55</td></tr>
-<tr><td>MT7921AU (WiFi 6E)</td><td>2.4 + 5 + 6 GHz</td><td>Yes, long range</td><td>ALFA AWUS036AXML / AXM, Comfast CF-952AX, Netgear A8000</td></tr>
-<tr><td>RTL8187</td><td>2.4 GHz</td><td>-</td><td>ALFA AWUS036H, Netgear WG111v2</td></tr>
-<tr><td>RT3070</td><td>2.4 GHz</td><td>-</td><td>ALFA AWUS036NH / NEH</td></tr>
-<tr><td>AR9271</td><td>2.4 GHz, experimental</td><td>-</td><td>ALFA AWUS036NHA, TP-Link TL-WN722N v1</td></tr>
-</tbody></table></div>
-<p>Recognised but not supported yet: RTL8811CU / 8821CU / 8812CU, RT5370, MT7610U, AR7010.</p>
-<div class="table-wrap"><table>
-<thead><tr><th>Bluetooth chip</th><th>Dongles</th></tr></thead>
-<tbody>
-<tr><td>Any standard controller</td><td>CSR8510 (TP-Link UB400), Broadcom BCM20702 (ASUS USB-BT400)</td></tr>
-<tr><td>RTL8761B / RTL8761C</td><td>TP-Link UB500, ASUS USB-BT500, UGREEN CM390</td></tr>
-<tr><td>RTL8723BU / RTL8821CU</td><td>Edimax EW-7611ULB</td></tr>
-</tbody></table></div>
+<p>Supported chips and adapters: <a href="hardware.html#usb-wifi">External hardware</a>.</p>
 </div>
 </details>
 
@@ -686,7 +665,7 @@
 <details class="faq" id="marauder">
 <summary>Can I use ESP32 Marauder or an ESP32-C5 board for 5 GHz WiFi on Android?</summary>
 <div>
-<p>Yes, with RF Sentinel 2.11.1+. Plug a board running <a href="https://github.com/justcallmekoko/ESP32Marauder" rel="noopener">ESP32 Marauder</a> into the phone with a USB OTG cable while scanning. RF Sentinel runs only its passive beacon and probe sniffers and adds the networks and client devices to the list. On ESP32-C5 boards (Marauder v8, BFFB v2, LilyGo T-Dongle C5, C5 DevKit) that includes 5 GHz. Keep Channel Hop on in Marauder's settings. See <a href="esp32.html#marauder">ESP32 boards</a>.</p>
+<p>Yes, with RF Sentinel 2.11.1+. Plug a board running <a href="https://github.com/justcallmekoko/ESP32Marauder" rel="noopener">ESP32 Marauder</a> into the phone with a USB OTG cable while scanning. RF Sentinel runs only its passive beacon and probe sniffers and adds the networks and client devices to the list. On ESP32-C5 boards (Marauder v8, BFFB v2, LilyGo T-Dongle C5, C5 DevKit) that includes 5 GHz. Keep Channel Hop on in Marauder's settings. See <a href="hardware.html#marauder">ESP32 boards</a>.</p>
 </div>
 </details>
 </section>

@@ -37,7 +37,7 @@ NAV = [
     ("guides", "police-detector.html", "Guides"),
     ("install", "install.html", "Install"),
     ("android-auto", "android-auto.html", "Android Auto"),
-    ("esp32", "esp32.html", "ESP32"),
+    ("hardware", "hardware.html", "Hardware"),
     ("qa", "qa.html", "Q&amp;A"),
 ]
 
