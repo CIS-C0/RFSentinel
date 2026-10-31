@@ -223,9 +223,12 @@ object SdrRadio {
             return false
         }
         sweepWatch = null; p25Hunt = null; p25Lock = null
+        var tuned = false
         while (!halted && !sdr.lost && !gone(d.deviceName)) {
-            if (tuneHz != null) { runTuned(sdr, d.deviceName); continue }
-            val m = next()
+            if (tuneHz != null) { runTuned(sdr, d.deviceName); tuned = true; continue }
+            // Back from the waterfall: the scan it interrupted gets its turn again, not the next one.
+            val m = mode?.takeIf { tuned && it in modes } ?: next()
+            tuned = false
             if (m == null) {
                 mode = null
                 status = "$deviceLabel · idle: no scan ticked in Settings › RTL-SDR radio"

@@ -703,7 +703,8 @@ class MainActivity : AppCompatActivity() {
         adapter.visual = com.rfsentinel.app.ui.VisualMode.on(this, com.rfsentinel.app.ui.VisualMode.Screen.DEVICE_LIST)
         // The banner and radar alert only for flagged devices still in range.
         val flagged = all.filter { com.rfsentinel.app.ui.LiveWindow.alerting(it, now) }
-        flaggedCount = flagged.size
+        // The status's count is the Flagged chip's (the banner and radar still alert only for those in range).
+        flaggedCount = all.count { com.rfsentinel.app.ui.DeviceFilter.FLAGGED.matches(it) }
         updateBanner(flagged, threshold)
         updateStatus()
 
