@@ -714,11 +714,9 @@ class MainActivity : AppCompatActivity() {
         val live = DeviceRegistry.snapshot(now).filter {
             com.rfsentinel.app.ui.LiveWindow.keep(it, now, bleMs, wifiMs, externalMs) && !(hideTrusted && WhitelistCache.contains(it.mac))
         }
-        // Rows swiped left ([hideRow]), while their mute lasts: a device stays listed as an ordinary one (no flag, banner
-        // or radar alert); one that leaves the live list is flagged again when heard again. Waze, aircraft, radio: see their rows.
-        val liveMacs = live.mapTo(HashSet()) { it.mac }
-        hiddenRows.retainAll { (it in liveMacs || listOf(WAZE_ROW, AIRCRAFT_ROW, RADIO_ROW).any(it::startsWith)) && com.rfsentinel.app.data.AlertMutes.isMuted(this, it) }
-        val all = if (hiddenRows.isEmpty()) live else live.map { if (it.mac in hiddenRows) it.copy(hits = emptyList(), following = false) else it }
+        if (!ScanForegroundService.isRunning) unhideAll() // stopped from the notification, tile or car too
+        // Devices swiped left ([hideRow]) are listed as ordinary ones (no flag, banner or radar alert). Waze, aircraft, radio: see their rows.
+        val all = if (hiddenRows.isEmpty()) live else live.map { if (hidden(it.mac, now)) it.copy(hits = emptyList(), following = false) else it }
         val threshold = Prefs.alertThreshold(this)
         binding.wazeSwipe.isEnabled = com.rfsentinel.app.ui.WazeUi.on(this) && panes.listShown
         deviceCount = all.size
@@ -864,7 +862,7 @@ class MainActivity : AppCompatActivity() {
         if (!ScanForegroundService.isRunning) return emptyList()
         val alertM = Prefs.wazeAlertM(this).toDouble()
         return com.rfsentinel.app.online.WazePolice.forList(com.rfsentinel.app.online.WazePolice.latest, alertM,
-            Prefs.wazeAheadOnly(this), Prefs.wazeHideOffWay(this)).filter { WAZE_ROW + it.report.id !in hiddenRows }
+            Prefs.wazeAheadOnly(this), Prefs.wazeHideOffWay(this)).filter { !hidden(WAZE_ROW + it.report.id, now) }
     }
 
     /**
@@ -917,7 +915,7 @@ class MainActivity : AppCompatActivity() {
             .map { r ->
                 val live = now - r.lastSeen <= RADIO_LIVE_MS
                 // Dismissed (swiped left): listed, but quiet.
-                val urgent = live && r.confidence >= threshold && RADIO_ROW + r.freqHz !in hiddenRows
+                val urgent = live && r.confidence >= threshold && !hidden(RADIO_ROW + r.freqHz, now)
                 val ago = (now - r.lastSeen) / 1000
                 val trend = when (r.trend) {
                     com.rfsentinel.app.sdr.RadioLog.Trend.CLOSER -> "getting closer ↑"
@@ -962,7 +960,7 @@ class MainActivity : AppCompatActivity() {
         return com.rfsentinel.app.sdr.RadioLog.current(now)
             .filter { now - it.lastSeen <= RADIO_RADAR_MS }
             .map { r ->
-                val alert = now - r.lastSeen <= RADIO_LIVE_MS && r.confidence >= threshold && RADIO_ROW + r.freqHz !in hiddenRows
+                val alert = now - r.lastSeen <= RADIO_LIVE_MS && r.confidence >= threshold && !hidden(RADIO_ROW + r.freqHz, now)
                 // Signal above the noise as a stand-in RSSI: 40 dB lands in Near, 30 dB in Nearby (as the alert wording).
                 RadarView.Blip(RADIO_ROW + r.freqHz, (-115 + r.snrDb * 3 / 2).coerceIn(-100, -30), color, alert,
                     if (alert) "${r.mhz} MHz" + (r.name?.let { " $it" } ?: "") else null)
@@ -972,7 +970,7 @@ class MainActivity : AppCompatActivity() {
     /** The aircraft heard right now (RTL-SDR ADS-B and the online feeds). */
     private fun currentAircraft(now: Long): List<com.rfsentinel.app.online.PoliceAircraft.Seen> = when {
         !ScanForegroundService.isRunning -> emptyList()
-        else -> com.rfsentinel.app.online.PoliceAircraft.all(now).filter { AIRCRAFT_ROW + it.plane.hex !in hiddenRows }
+        else -> com.rfsentinel.app.online.PoliceAircraft.all(now).filter { !hidden(AIRCRAFT_ROW + it.plane.hex, now) }
     }
 
     /**
@@ -1076,20 +1074,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Rows swiped left, while their mute lasts (no alerts from them meanwhile): a device or a radio transmission is listed
-     * as an ordinary one, a Waze report or an aircraft leaves the list.
+     * Rows swiped left, with the mute each had before (null: none). Muted meanwhile (no alerts), a device or a radio
+     * transmission is listed as an ordinary one, a Waze report or an aircraft leaves the list; until the mute ends,
+     * or the scan stops ([unhideAll]).
      */
-    private val hiddenRows = HashSet<String>()
+    private val hiddenRows = HashMap<String, Long?>()
+
+    private fun hidden(key: String, now: Long) = key in hiddenRows && com.rfsentinel.app.data.AlertMutes.isMuted(this, key, now)
+
+    /** Scan stopped: every hidden row back as it was, its mute too. */
+    private fun unhideAll() {
+        if (hiddenRows.isEmpty()) return
+        hiddenRows.forEach { (key, was) -> restoreMute(key, was) }
+        hiddenRows.clear()
+    }
 
     private fun hidesWhole(row: DeviceRow) = row.mac.startsWith(WAZE_ROW) || row.mac.startsWith(AIRCRAFT_ROW)
 
     private fun hideRow(row: DeviceRow) {
         val mutes = com.rfsentinel.app.data.AlertMutes
         val was = mutes.mutedUntil(this, row.mac)
-        if (was == null) mutes.mute(this, row.mac, System.currentTimeMillis() + mutes.TAP_MS)
-        hiddenRows += row.mac
+        val until = System.currentTimeMillis() + mutes.TAP_MS
+        if (was == null || was < until) mutes.mute(this, row.mac, until)
+        hiddenRows[row.mac] = was
         com.rfsentinel.app.util.Undo.show(this, if (hidesWhole(row)) "${row.title} hidden" else "${row.title} no longer flagged") {
-            hiddenRows -= row.mac; restoreMute(row.mac, was); render()
+            // Not when the scan stop already put it back.
+            if (hiddenRows.containsKey(row.mac)) { hiddenRows.remove(row.mac); restoreMute(row.mac, was) }
+            render()
         }
         render()
     }
@@ -1274,6 +1285,7 @@ class MainActivity : AppCompatActivity() {
     private fun stopScanning() {
         Prefs.setStartedByCar(this, false) // a manual choice: leaving the car must not override it
         ScanForegroundService.stop(this)
+        unhideAll()
         binding.root.postDelayed({ updateStatus() }, 300)
     }
 
