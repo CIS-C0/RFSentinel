@@ -179,6 +179,13 @@ object Prefs {
     fun setSnoozeMinutes(context: Context, minutes: Int) = setInt(context, "snooze_minutes", minutes)
     val SNOOZE_CHOICES = listOf(5, 10, 15, 30, 60)
 
+    /** What a swipe on a flagged row of the main list does, one of [SWIPE_ACTIONS]: right mutes and left hides by default. */
+    fun swipeAction(context: Context, right: Boolean): String =
+        (sp(context).getString(if (right) "swipe_right" else "swipe_left", null) ?: if (right) "mute" else "hide").takeIf { it in SWIPE_ACTIONS } ?: "none"
+    fun setSwipeAction(context: Context, right: Boolean, action: String) =
+        sp(context).edit { putString(if (right) "swipe_right" else "swipe_left", action) }
+    val SWIPE_ACTIONS = listOf("mute", "hide", "none")
+
     /** Muted, or snoozed for a while: no alert sound or voice. */
     fun alertsSilenced(context: Context, now: Long = System.currentTimeMillis()): Boolean =
         alertsMuted(context) || now < alertsSnoozedUntil(context)

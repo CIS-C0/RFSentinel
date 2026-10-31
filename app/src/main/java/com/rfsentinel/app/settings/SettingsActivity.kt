@@ -1527,32 +1527,52 @@ class SettingsActivity : AppCompatActivity() {
             v === binding.vibrateSwitch || (v as? android.view.ViewGroup)?.indexOfChild(binding.vibrateSwitch)?.let { it >= 0 } == true
         } ?: return
         val choices = Prefs.SNOOZE_CHOICES
+        val row = choiceRow("Snooze length", choices.map { "$it min" }, choices.indexOf(Prefs.snoozeMinutes(this))) {
+            Prefs.setSnoozeMinutes(this, choices[it])
+        }
+        section.addView(infoRow(row, "How long a snooze silences the alert sound and voice, like a radar detector's mute: the " +
+            "speaker button at the top of the main screen (tap it), Mute on an alert notification, and the car's snooze. " +
+            "Alerts still show on screen and in the list while snoozed. Long-press the speaker button for other lengths or " +
+            "to mute until you turn the sound back on.", "Snooze length"), at + 1)
+        // Under it: what a swipe on a flagged row of the main list does, each side.
+        val actions = Prefs.SWIPE_ACTIONS
+        for ((i, right) in listOf(true, false).withIndex()) {
+            val label = if (right) "Swipe right on an alert" else "Swipe left on an alert"
+            val swipe = choiceRow(label, listOf("Mute / unmute", "Hide", "None"), actions.indexOf(Prefs.swipeAction(this, right))) {
+                Prefs.setSwipeAction(this, right, actions[it])
+            }
+            section.addView(infoRow(swipe, "What swiping a flagged row of the main list does. Both sides can do the same thing.\n\n" +
+                "Mute / unmute: no alerts from it for 30 min, as its mute button; swiped again, alerts are back on.\n\n" +
+                "Hide: a flagged device or radio transmission stays listed as an ordinary one, a Waze report or an aircraft " +
+                "leaves the list. No alerts from it for 30 min or until the scan stops, then it comes back as it was. " +
+                "Undo at the bottom puts it back at once.\n\n" +
+                "None: that swipe does nothing. Aircraft and radio rows have no mute: only Hide works on them.", label), at + 2 + i)
+        }
+    }
+
+    /** A setting's label with a drop-down of [items] on its right (Snooze length, the swipes); [onPick] gets the index. */
+    private fun choiceRow(label: String, items: List<String>, selected: Int, onPick: (Int) -> Unit): View {
         val row = android.widget.LinearLayout(this).apply {
             orientation = android.widget.LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER_VERTICAL
             minimumHeight = (48 * resources.displayMetrics.density).toInt()
         }
         row.addView(android.widget.TextView(this).apply {
-            text = "Snooze length"
+            text = label
             setTextAppearance(android.R.style.TextAppearance_Material_Body1)
         }, android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         row.addView(androidx.appcompat.widget.AppCompatSpinner(this).apply {
-            adapter = android.widget.ArrayAdapter(this@SettingsActivity, android.R.layout.simple_spinner_item, choices.map { "$it min" }).also {
+            adapter = android.widget.ArrayAdapter(this@SettingsActivity, android.R.layout.simple_spinner_item, items).also {
                 it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             }
-            setSelection(choices.indexOf(Prefs.snoozeMinutes(this@SettingsActivity)).coerceAtLeast(0))
-            contentDescription = "Snooze length"
+            setSelection(selected.coerceAtLeast(0))
+            contentDescription = label
             onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    Prefs.setSnoozeMinutes(this@SettingsActivity, choices[position])
-                }
+                override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) = onPick(position)
                 override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
             }
         })
-        section.addView(infoRow(row, "How long a snooze silences the alert sound and voice, like a radar detector's mute: the " +
-            "speaker button at the top of the main screen (tap it), Mute on an alert notification, and the car's snooze. " +
-            "Alerts still show on screen and in the list while snoozed. Long-press the speaker button for other lengths or " +
-            "to mute until you turn the sound back on.", "Snooze length"), at + 1)
+        return row
     }
 
     /** Map > Re-center after, under Auto-recenter: how long after your last touch the map goes back to you. */

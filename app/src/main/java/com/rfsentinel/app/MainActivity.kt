@@ -1105,7 +1105,19 @@ class MainActivity : AppCompatActivity() {
         render()
     }
 
-    /** Swipe a flagged row: right mutes it (as its button does), left dismisses or hides it ([hideRow]). Each with Undo. */
+    /** What swiping [r] right or left does (Settings › Alerts), or null for nothing: aircraft and radio rows have no mute. */
+    private fun swipeAction(r: DeviceRow, right: Boolean): String? {
+        val noMute = r.mac.startsWith(AIRCRAFT_ROW) || r.mac.startsWith(RADIO_ROW)
+        return Prefs.swipeAction(this, right).takeIf {
+            when (it) {
+                "mute" -> r.canMute && !noMute
+                "hide" -> r.canMute || noMute
+                else -> false
+            }
+        }
+    }
+
+    /** Swipe a flagged row: mute it (as its button does) or dismiss / hide it ([hideRow], with Undo), as set for each side. */
     private fun attachRowSwipes() {
         val dp = resources.displayMetrics.density
         val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
@@ -1118,11 +1130,7 @@ class MainActivity : AppCompatActivity() {
             private fun row(vh: androidx.recyclerview.widget.RecyclerView.ViewHolder) = adapter.currentList.getOrNull(vh.bindingAdapterPosition)
             override fun getSwipeDirs(rv: androidx.recyclerview.widget.RecyclerView, vh: androidx.recyclerview.widget.RecyclerView.ViewHolder): Int {
                 val r = row(vh) ?: return 0
-                return when {
-                    r.mac.startsWith(AIRCRAFT_ROW) || r.mac.startsWith(RADIO_ROW) -> swipeLeft // no mute button on these rows: hide or dismiss only
-                    r.canMute -> swipeLeft or swipeRight
-                    else -> 0
-                }
+                return (if (swipeAction(r, true) != null) swipeRight else 0) or (if (swipeAction(r, false) != null) swipeLeft else 0)
             }
             override fun onMove(rv: androidx.recyclerview.widget.RecyclerView, a: androidx.recyclerview.widget.RecyclerView.ViewHolder,
                                 b: androidx.recyclerview.widget.RecyclerView.ViewHolder) = false
@@ -1132,19 +1140,23 @@ class MainActivity : AppCompatActivity() {
                 helper.attachToRecyclerView(null); helper.attachToRecyclerView(binding.recyclerView)
                 val r = row(vh) ?: return
                 adapter.notifyItemChanged(vh.bindingAdapterPosition) // a hidden row then leaves with the next list
-                if (direction == swipeRight) toggleMute(r, false) else hideRow(r)
+                when (swipeAction(r, direction == swipeRight)) {
+                    "mute" -> toggleMute(r, false)
+                    "hide" -> hideRow(r)
+                }
             }
             override fun onChildDraw(c: android.graphics.Canvas, rv: androidx.recyclerview.widget.RecyclerView, vh: androidx.recyclerview.widget.RecyclerView.ViewHolder,
                                      dX: Float, dY: Float, state: Int, active: Boolean) {
                 val v = vh.itemView
                 if (dX != 0f) {
                     val right = dX > 0
-                    paint.color = if (right) accent else com.rfsentinel.app.ui.ThemeManager.ink(this@MainActivity, WHITELIST_COLOR)
+                    val r = row(vh)
+                    val mute = r != null && swipeAction(r, right) == "mute"
+                    paint.color = if (mute) accent else com.rfsentinel.app.ui.ThemeManager.ink(this@MainActivity, WHITELIST_COLOR)
                     if (right) c.drawRect(v.left.toFloat(), v.top.toFloat(), v.left + dX, v.bottom.toFloat(), paint)
                     else c.drawRect(v.right + dX, v.top.toFloat(), v.right.toFloat(), v.bottom.toFloat(), paint)
-                    paint.color = if (right) onAccent else android.graphics.Color.WHITE
-                    val r = row(vh)
-                    val label = if (!right) (if (r != null && hidesWhole(r)) "Hide" else "Dismiss") else if (r?.muted == true) "Unmute" else "Mute"
+                    paint.color = if (mute) onAccent else android.graphics.Color.WHITE
+                    val label = if (mute) (if (r?.muted == true) "Unmute" else "Mute") else if (r != null && hidesWhole(r)) "Hide" else "Dismiss"
                     val y = (v.top + v.bottom) / 2f - (paint.descent() + paint.ascent()) / 2
                     if (right) c.drawText(label, v.left + 20 * dp, y, paint)
                     else c.drawText(label, v.right - 20 * dp - paint.measureText(label), y, paint)
