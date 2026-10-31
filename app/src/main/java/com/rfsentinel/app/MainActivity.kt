@@ -1100,15 +1100,19 @@ class MainActivity : AppCompatActivity() {
         }
         val (accent, onAccent) = com.rfsentinel.app.ui.ChipStyle.accent(this)
         val swipeLeft = androidx.recyclerview.widget.ItemTouchHelper.LEFT; val swipeRight = androidx.recyclerview.widget.ItemTouchHelper.RIGHT
-        androidx.recyclerview.widget.ItemTouchHelper(object : androidx.recyclerview.widget.ItemTouchHelper.SimpleCallback(0, swipeLeft or swipeRight) {
+        lateinit var helper: androidx.recyclerview.widget.ItemTouchHelper
+        helper = androidx.recyclerview.widget.ItemTouchHelper(object : androidx.recyclerview.widget.ItemTouchHelper.SimpleCallback(0, swipeLeft or swipeRight) {
             private fun row(vh: androidx.recyclerview.widget.RecyclerView.ViewHolder) = adapter.currentList.getOrNull(vh.bindingAdapterPosition)
             override fun getSwipeDirs(rv: androidx.recyclerview.widget.RecyclerView, vh: androidx.recyclerview.widget.RecyclerView.ViewHolder) =
                 if (row(vh)?.canMute == true) super.getSwipeDirs(rv, vh) else 0
             override fun onMove(rv: androidx.recyclerview.widget.RecyclerView, a: androidx.recyclerview.widget.RecyclerView.ViewHolder,
                                 b: androidx.recyclerview.widget.RecyclerView.ViewHolder) = false
             override fun onSwiped(vh: androidx.recyclerview.widget.RecyclerView.ViewHolder, direction: Int) {
+                // The list reuses this row's view (no change animations), so the helper would keep it swiped off for good,
+                // its swipe paint left in the row's place: re-attaching drops the swipe and puts the row back.
+                helper.attachToRecyclerView(null); helper.attachToRecyclerView(binding.recyclerView)
                 val r = row(vh) ?: return
-                adapter.notifyItemChanged(vh.bindingAdapterPosition) // slides back; a hidden row then leaves with the next list
+                adapter.notifyItemChanged(vh.bindingAdapterPosition) // a hidden row then leaves with the next list
                 if (direction == swipeRight) toggleMute(r, false) else hideRow(r)
             }
             override fun onChildDraw(c: android.graphics.Canvas, rv: androidx.recyclerview.widget.RecyclerView, vh: androidx.recyclerview.widget.RecyclerView.ViewHolder,
@@ -1127,7 +1131,8 @@ class MainActivity : AppCompatActivity() {
                 }
                 super.onChildDraw(c, rv, vh, dX, dY, state, active)
             }
-        }).attachToRecyclerView(binding.recyclerView)
+        })
+        helper.attachToRecyclerView(binding.recyclerView)
     }
 
     private fun toRow(s: DeviceRegistry.Snapshot, now: Long, threshold: Int): DeviceRow {
