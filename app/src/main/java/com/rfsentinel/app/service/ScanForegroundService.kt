@@ -1509,7 +1509,8 @@ class ScanForegroundService : Service() {
                 )
             )
         }
-        if (!alert) return
+        // Dismissed from the list (swiped left): logged, no alert.
+        if (!alert || com.rfsentinel.app.data.AlertMutes.isMuted(this, key, now)) return
         val off = alertsOff(hit.category)
         NotificationHelper.sendMapAlert(this, key, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java,
             banner = AlertKind.BANNER !in off)
@@ -1571,8 +1572,9 @@ class ScanForegroundService : Service() {
                 )
             )
         }
+        // An aircraft or Waze report hidden from the list (swiped left): logged, no alert.
         if (alert.level != com.rfsentinel.app.online.WazePolice.Level.LOG &&
-            hit.confidence >= Prefs.alertThreshold(this)) {
+            hit.confidence >= Prefs.alertThreshold(this) && !com.rfsentinel.app.data.AlertMutes.isMuted(this, alert.key, now)) {
             val off = alertsOff(hit.category)
             NotificationHelper.sendMapAlert(this, alert.key, hit, lat = alert.lat, lon = alert.lon, online = alert.key,
                 banner = AlertKind.BANNER !in off)

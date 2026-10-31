@@ -715,9 +715,9 @@ class MainActivity : AppCompatActivity() {
             com.rfsentinel.app.ui.LiveWindow.keep(it, now, bleMs, wifiMs, externalMs) && !(hideTrusted && WhitelistCache.contains(it.mac))
         }
         // Rows swiped left ([hideRow]), while their mute lasts: a device stays listed as an ordinary one (no flag, banner
-        // or radar alert); one that leaves the live list is flagged again when heard again. Waze and aircraft: see current*.
+        // or radar alert); one that leaves the live list is flagged again when heard again. Waze, aircraft, radio: see their rows.
         val liveMacs = live.mapTo(HashSet()) { it.mac }
-        hiddenRows.retainAll { (it in liveMacs || it.startsWith(WAZE_ROW) || it.startsWith(AIRCRAFT_ROW)) && com.rfsentinel.app.data.AlertMutes.isMuted(this, it) }
+        hiddenRows.retainAll { (it in liveMacs || listOf(WAZE_ROW, AIRCRAFT_ROW, RADIO_ROW).any(it::startsWith)) && com.rfsentinel.app.data.AlertMutes.isMuted(this, it) }
         val all = if (hiddenRows.isEmpty()) live else live.map { if (it.mac in hiddenRows) it.copy(hits = emptyList(), following = false) else it }
         val threshold = Prefs.alertThreshold(this)
         binding.wazeSwipe.isEnabled = com.rfsentinel.app.ui.WazeUi.on(this) && panes.listShown
@@ -916,7 +916,8 @@ class MainActivity : AppCompatActivity() {
             .filter { r -> query.isBlank() || listOfNotNull(r.mhz, r.name, r.bandLabel).any { it.contains(query.trim(), ignoreCase = true) } }
             .map { r ->
                 val live = now - r.lastSeen <= RADIO_LIVE_MS
-                val urgent = live && r.confidence >= threshold
+                // Dismissed (swiped left): listed, but quiet.
+                val urgent = live && r.confidence >= threshold && RADIO_ROW + r.freqHz !in hiddenRows
                 val ago = (now - r.lastSeen) / 1000
                 val trend = when (r.trend) {
                     com.rfsentinel.app.sdr.RadioLog.Trend.CLOSER -> "getting closer ↑"
@@ -961,7 +962,7 @@ class MainActivity : AppCompatActivity() {
         return com.rfsentinel.app.sdr.RadioLog.current(now)
             .filter { now - it.lastSeen <= RADIO_RADAR_MS }
             .map { r ->
-                val alert = now - r.lastSeen <= RADIO_LIVE_MS && r.confidence >= threshold
+                val alert = now - r.lastSeen <= RADIO_LIVE_MS && r.confidence >= threshold && RADIO_ROW + r.freqHz !in hiddenRows
                 // Signal above the noise as a stand-in RSSI: 40 dB lands in Near, 30 dB in Nearby (as the alert wording).
                 RadarView.Blip(RADIO_ROW + r.freqHz, (-115 + r.snrDb * 3 / 2).coerceIn(-100, -30), color, alert,
                     if (alert) "${r.mhz} MHz" + (r.name?.let { " $it" } ?: "") else null)
@@ -1083,8 +1084,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Rows swiped left, while their mute lasts (the mute also times the hiding of aircraft, whose alerts don't read it):
-     * a device is listed as an ordinary one, a Waze report or an aircraft leaves the list.
+     * Rows swiped left, while their mute lasts (no alerts from them meanwhile): a device or a radio transmission is listed
+     * as an ordinary one, a Waze report or an aircraft leaves the list.
      */
     private val hiddenRows = HashSet<String>()
 
@@ -1115,7 +1116,7 @@ class MainActivity : AppCompatActivity() {
             override fun getSwipeDirs(rv: androidx.recyclerview.widget.RecyclerView, vh: androidx.recyclerview.widget.RecyclerView.ViewHolder): Int {
                 val r = row(vh) ?: return 0
                 return when {
-                    r.mac.startsWith(AIRCRAFT_ROW) -> swipeLeft // hide only: aircraft alerts have no mute
+                    r.mac.startsWith(AIRCRAFT_ROW) || r.mac.startsWith(RADIO_ROW) -> swipeLeft // no mute button on these rows: hide or dismiss only
                     r.canMute -> swipeLeft or swipeRight
                     else -> 0
                 }
