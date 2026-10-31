@@ -272,6 +272,20 @@
                     android:text="No devices heard yet.\nTap a device for full details.\nLong-press for quick actions (watchlist, whitelist, favorite)."
                     android:textColor="?android:attr/textColorSecondary" />
 
+                <!-- Not scanning: start right here (tinted like Start in code). -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/emptyStartButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:minHeight="48dp"
+                    android:paddingStart="24dp"
+                    android:paddingEnd="24dp"
+                    android:text="Start scanning"
+                    app:icon="@drawable/ic_car_play"
+                    app:iconGravity="textStart"
+                    android:visibility="gone" />
+
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/showAllButton"
                     style="?attr/materialButtonOutlinedStyle"

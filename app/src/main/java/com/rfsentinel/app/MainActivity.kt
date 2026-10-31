@@ -156,6 +156,7 @@ class MainActivity : AppCompatActivity() {
         )
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
+        attachRowSwipes()
         (binding.statusText.parent as android.view.ViewGroup).let { p ->
             p.addView(statusPanel.root, p.indexOfChild(binding.statusText) + 1)
         }
@@ -191,6 +192,12 @@ class MainActivity : AppCompatActivity() {
         binding.startStopButton.setOnClickListener {
             if (ScanForegroundService.isRunning) stopScanning() else requestPermissionsAndStart()
         }
+        com.rfsentinel.app.ui.ChipStyle.accent(this).let { (accent, onAccent) ->
+            binding.emptyStartButton.backgroundTintList = android.content.res.ColorStateList.valueOf(accent)
+            binding.emptyStartButton.setTextColor(onAccent)
+            binding.emptyStartButton.iconTint = android.content.res.ColorStateList.valueOf(onAccent)
+        }
+        binding.emptyStartButton.setOnClickListener { requestPermissionsAndStart() }
         styleViewToggle()
         // Any mix of list, radar and live map: one fills the screen, more share it.
         for ((pane, id) in paneButtons) if (pane in panes.panes) binding.viewToggle.check(id)
@@ -514,8 +521,18 @@ class MainActivity : AppCompatActivity() {
             return
         }
         val locationOff = running && !locationOn() && !demoMode
-        if (locationOff) binding.statusText.setOnClickListener { openLocationSettings() }
-        else { binding.statusText.setOnClickListener(null); binding.statusText.isClickable = false }
+        val hardware = listOf(
+            com.rfsentinel.app.esp.OuiSpyBle.status, com.rfsentinel.app.esp.EspBoards.status, com.rfsentinel.app.usb.UsbWifi.status,
+            com.rfsentinel.app.usb.UsbBluetooth.status, com.rfsentinel.app.sdr.SdrRadio.status,
+            com.rfsentinel.app.sdr.RadioReference.status.takeIf { com.rfsentinel.app.util.Prefs.radioReferenceOn(this) }.orEmpty(),
+            com.rfsentinel.app.link.PhoneLink.status, com.rfsentinel.app.link.MeshNode.status
+        ).filter { it.isNotBlank() }
+        when {
+            locationOff -> binding.statusText.setOnClickListener { openLocationSettings() }
+            // Two or more hardware lines fold into one: tap to see them all, tap again to fold.
+            running && (bluetoothOn() || demoMode) && hardware.size > 1 -> binding.statusText.setOnClickListener { hardwareOpen = !hardwareOpen; updateStatus() }
+            else -> { binding.statusText.setOnClickListener(null); binding.statusText.isClickable = false }
+        }
         val line: CharSequence = when {
             !running -> "Idle - tap Start to listen for nearby devices"
             locationOff -> "⚠ $LOCATION_OFF"
@@ -529,19 +546,19 @@ class MainActivity : AppCompatActivity() {
                     ?.takeIf { System.currentTimeMillis() - it.first < 10 * 60_000L }
                     ?.let { " · ${it.second} scan restarted " +
                         java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(it.first)) } ?: "") +
-                com.rfsentinel.app.esp.OuiSpyBle.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
-                com.rfsentinel.app.esp.EspBoards.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
-                com.rfsentinel.app.usb.UsbWifi.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
-                com.rfsentinel.app.usb.UsbBluetooth.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
-                com.rfsentinel.app.sdr.SdrRadio.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
-                com.rfsentinel.app.sdr.RadioReference.status.takeIf { it.isNotBlank() && com.rfsentinel.app.util.Prefs.radioReferenceOn(this) }
-                    ?.let { "\n$it" }.orEmpty() +
-                com.rfsentinel.app.link.PhoneLink.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
-                com.rfsentinel.app.link.MeshNode.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty()
+                when {
+                    hardware.isEmpty() -> ""
+                    hardware.size == 1 || hardwareOpen -> hardware.joinToString("") { "\n$it" } + if (hardware.size > 1) "  ▴" else ""
+                    // Folded: what is plugged in, by name ("RTL-SDR · USB WiFi (MT7612U)").
+                    else -> "\n" + hardware.joinToString(" · ") { it.substringBefore(" · ").substringBefore(": ") } + "  ▾"
+                }
         }
         val gps = gpsInTitleBar(if (running && !locationOff) com.rfsentinel.app.ui.GpsDot.text(this, demoMode) else null)
         binding.statusText.text = if (gps != null) android.text.SpannableStringBuilder(gps).append(" · ").append(line) else line
     }
+
+    /** The text style's hardware lines, unfolded (tap the status). */
+    private var hardwareOpen = false
 
     /**
      * The GPS dot goes in the title bar under the app's name, so it takes no row of its own. A styled header hides
@@ -606,7 +623,10 @@ class MainActivity : AppCompatActivity() {
      * view instead of just off screen. Scrolled down, the rows you are reading stay put, and a
      * "New alert" pill shows instead; tap it (or scroll up) to see it.
      */
-    private fun submitRows(rows: List<DeviceRow>) {
+    private fun submitRows(listed: List<DeviceRow>) {
+        // A hidden row comes back once its mute ends, or when it has left the list and is heard again.
+        hiddenRows.retainAll(listed.mapTo(HashSet()) { it.mac })
+        val rows = listed.filter { !(it.mac in hiddenRows && it.muted) }
         val rv = binding.recyclerView
         val atTop = !rv.canScrollVertically(-1)
         val alerts = rows.filter { it.highlight != null || it.flashing }.map { it.mac }.toSet()
@@ -721,6 +741,8 @@ class MainActivity : AppCompatActivity() {
             val label = if (f == com.rfsentinel.app.ui.DeviceFilter.ALL || n > 0) "${f.label} $n" else f.label
             if (chip.text != label) chip.text = label
             styleFilterChip(chip, visualChips, if (f == com.rfsentinel.app.ui.DeviceFilter.FLAGGED && n > 0) 0xFFD0503C.toInt() else null)
+            // Only the filters with something in them (and All, Flagged, the one picked): no row of empty chips to scroll past.
+            chip.visibility = if (n > 0 || f == com.rfsentinel.app.ui.DeviceFilter.ALL || f == com.rfsentinel.app.ui.DeviceFilter.FLAGGED || f == filter) View.VISIBLE else View.GONE
         }
         // Sort by / Group by from the ⋮ menu (alerts stay on top); the default is alerts, then closest.
         val sections = com.rfsentinel.app.ui.DeviceOrder.arrange(
@@ -798,8 +820,10 @@ class MainActivity : AppCompatActivity() {
         // A filter that hides everything heard: one tap back to the full list.
         binding.showAllButton.visibility =
             if (filter != com.rfsentinel.app.ui.DeviceFilter.ALL && all.isNotEmpty()) View.VISIBLE else View.GONE
+        // Not scanning: the Start button right under the note, where the eyes are.
+        binding.emptyStartButton.visibility = if (all.isEmpty() && !ScanForegroundService.isRunning) View.VISIBLE else View.GONE
         binding.emptyText.text = when {
-            all.isEmpty() && !ScanForegroundService.isRunning -> "Not scanning.\nTap Start to begin."
+            all.isEmpty() && !ScanForegroundService.isRunning -> "Not scanning."
             all.isEmpty() -> "Listening... no devices heard yet."
             filter == com.rfsentinel.app.ui.DeviceFilter.WAZE ->
                 "No Waze reports in range.\nTurn on Waze police reports in Settings and keep scanning."
@@ -1031,19 +1055,79 @@ class MainActivity : AppCompatActivity() {
         return com.rfsentinel.app.ui.DeviceRows.matchColor(this, best.category, best.tier)
     }
 
-    /** A flagged row's mute button: no alerts from it for a while ([forever]: until unmuted); tapped while muted, unmutes. */
+    /**
+     * A flagged row's mute (its button, or a swipe right): no alerts from it for a while ([forever]: until unmuted);
+     * done while muted, unmutes. Undo puts back what it was.
+     */
     private fun toggleMute(row: DeviceRow, forever: Boolean) {
         val mutes = com.rfsentinel.app.data.AlertMutes
         val name = row.title
-        if (mutes.isMuted(this, row.mac) && !forever) {
+        val was = mutes.mutedUntil(this, row.mac)
+        val message = if (was != null && !forever) {
             mutes.unmute(this, row.mac)
-            android.widget.Toast.makeText(this, "Alerts back on for $name", android.widget.Toast.LENGTH_SHORT).show()
+            "Alerts back on for $name"
         } else {
             mutes.mute(this, row.mac, if (forever) mutes.FOREVER else System.currentTimeMillis() + mutes.TAP_MS)
-            android.widget.Toast.makeText(this, if (forever) "$name muted until you unmute it (tap the button again)"
-                else "$name muted for ${mutes.TAP_MS / 60_000} min (hold the button to mute it until you unmute it)", android.widget.Toast.LENGTH_LONG).show()
+            if (forever) "$name muted until you unmute it" else "$name muted for ${mutes.TAP_MS / 60_000} min · hold its button to mute it for good"
         }
+        com.rfsentinel.app.util.Undo.show(this, message) { restoreMute(row.mac, was); render() }
         render()
+    }
+
+    /** Puts a row's mute back as it was ([until] null: not muted). */
+    private fun restoreMute(mac: String, until: Long?) {
+        val mutes = com.rfsentinel.app.data.AlertMutes
+        if (until == null) mutes.unmute(this, mac) else mutes.mute(this, mac, until)
+    }
+
+    /** Rows swiped left: muted and off the list while the mute lasts, or until they leave the list. */
+    private val hiddenRows = HashSet<String>()
+
+    private fun hideRow(row: DeviceRow) {
+        val mutes = com.rfsentinel.app.data.AlertMutes
+        val was = mutes.mutedUntil(this, row.mac)
+        if (was == null) mutes.mute(this, row.mac, System.currentTimeMillis() + mutes.TAP_MS)
+        hiddenRows += row.mac
+        com.rfsentinel.app.util.Undo.show(this, "${row.title} hidden and muted") { hiddenRows -= row.mac; restoreMute(row.mac, was); render() }
+        render()
+    }
+
+    /** Swipe a flagged row: right mutes it (as its button does), left hides it ([hideRow]). Each with Undo. */
+    private fun attachRowSwipes() {
+        val dp = resources.displayMetrics.density
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = 16 * resources.displayMetrics.scaledDensity; typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        val (accent, onAccent) = com.rfsentinel.app.ui.ChipStyle.accent(this)
+        val swipeLeft = androidx.recyclerview.widget.ItemTouchHelper.LEFT; val swipeRight = androidx.recyclerview.widget.ItemTouchHelper.RIGHT
+        androidx.recyclerview.widget.ItemTouchHelper(object : androidx.recyclerview.widget.ItemTouchHelper.SimpleCallback(0, swipeLeft or swipeRight) {
+            private fun row(vh: androidx.recyclerview.widget.RecyclerView.ViewHolder) = adapter.currentList.getOrNull(vh.bindingAdapterPosition)
+            override fun getSwipeDirs(rv: androidx.recyclerview.widget.RecyclerView, vh: androidx.recyclerview.widget.RecyclerView.ViewHolder) =
+                if (row(vh)?.canMute == true) super.getSwipeDirs(rv, vh) else 0
+            override fun onMove(rv: androidx.recyclerview.widget.RecyclerView, a: androidx.recyclerview.widget.RecyclerView.ViewHolder,
+                                b: androidx.recyclerview.widget.RecyclerView.ViewHolder) = false
+            override fun onSwiped(vh: androidx.recyclerview.widget.RecyclerView.ViewHolder, direction: Int) {
+                val r = row(vh) ?: return
+                adapter.notifyItemChanged(vh.bindingAdapterPosition) // slides back; a hidden row then leaves with the next list
+                if (direction == swipeRight) toggleMute(r, false) else hideRow(r)
+            }
+            override fun onChildDraw(c: android.graphics.Canvas, rv: androidx.recyclerview.widget.RecyclerView, vh: androidx.recyclerview.widget.RecyclerView.ViewHolder,
+                                     dX: Float, dY: Float, state: Int, active: Boolean) {
+                val v = vh.itemView
+                if (dX != 0f) {
+                    val right = dX > 0
+                    paint.color = if (right) accent else com.rfsentinel.app.ui.ThemeManager.ink(this@MainActivity, WHITELIST_COLOR)
+                    if (right) c.drawRect(v.left.toFloat(), v.top.toFloat(), v.left + dX, v.bottom.toFloat(), paint)
+                    else c.drawRect(v.right + dX, v.top.toFloat(), v.right.toFloat(), v.bottom.toFloat(), paint)
+                    paint.color = if (right) onAccent else android.graphics.Color.WHITE
+                    val label = if (!right) "Hide" else if (row(vh)?.muted == true) "Unmute" else "Mute"
+                    val y = (v.top + v.bottom) / 2f - (paint.descent() + paint.ascent()) / 2
+                    if (right) c.drawText(label, v.left + 20 * dp, y, paint)
+                    else c.drawText(label, v.right - 20 * dp - paint.measureText(label), y, paint)
+                }
+                super.onChildDraw(c, rv, vh, dX, dY, state, active)
+            }
+        }).attachToRecyclerView(binding.recyclerView)
     }
 
     private fun toRow(s: DeviceRegistry.Snapshot, now: Long, threshold: Int): DeviceRow {
