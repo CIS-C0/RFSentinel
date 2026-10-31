@@ -3,10 +3,6 @@ package com.rfsentinel.app.ui
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.PixelFormat
-import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
-import android.hardware.SensorManager
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Build
@@ -69,18 +65,11 @@ object LiveRead {
 
     // ---- Sweep (main thread): compass heading + each new signal reading while locating ----
     private val sweep = Sweep()
+    /** The way the phone faces (true north, flat or upright), shared with the radar. */
+    private var compass: Compass? = null
     /** Compass degrees the phone faces, null without a compass or before its first reading. */
-    @Volatile private var heading: Float? = null
+    private val heading get() = compass?.degrees
     private var sweepFed = 0L
-    private val compass = object : SensorEventListener {
-        private val m = FloatArray(9); private val o = FloatArray(3)
-        override fun onSensorChanged(e: SensorEvent) {
-            SensorManager.getRotationMatrixFromVector(m, e.values)
-            SensorManager.getOrientation(m, o)
-            heading = ((Math.toDegrees(o[0].toDouble()) + 360) % 360).toFloat()
-        }
-        override fun onAccuracyChanged(s: Sensor?, a: Int) {}
-    }
 
     // ---- Pinpoint (the scan's pipeline thread) ----
     private var pinMac: String? = null
@@ -98,9 +87,10 @@ object LiveRead {
         locating = mac
         followed = null
         tone = runCatching { ToneGenerator(AudioManager.STREAM_MUSIC, 80) }.getOrNull()
-        sweep.clear(); sweepFed = 0L; heading = null
-        (context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager)?.let { sm ->
-            sm.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)?.let { sm.registerListener(compass, it, SensorManager.SENSOR_DELAY_UI) }
+        sweep.clear(); sweepFed = 0L
+        compass = Compass(context).also { c ->
+            com.rfsentinel.app.service.ScanForegroundService.lastFix?.let { c.setLocation(it.latitude, it.longitude, it.altitude) }
+            c.start()
         }
         main.post(beep)
         tick()
@@ -112,8 +102,7 @@ object LiveRead {
         val was = locating != null
         locating = null; followed = null
         tone?.release(); tone = null
-        (appContext?.getSystemService(Context.SENSOR_SERVICE) as? SensorManager)?.unregisterListener(compass)
-        heading = null
+        compass?.stop(); compass = null
         if (was) tick()
     }
 

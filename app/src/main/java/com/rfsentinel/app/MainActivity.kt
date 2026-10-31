@@ -179,9 +179,22 @@ class MainActivity : AppCompatActivity() {
         // Rows rebind every second (RSSI / "seen Xs ago"); the default change
         // crossfade would make the whole list flicker and fight the match flash.
         (binding.recyclerView.itemAnimator as? SimpleItemAnimator)?.supportsChangeAnimations = false
-        binding.radarView.onBlipClick = {
-            if (it.startsWith(RADIO_ROW)) startActivity(Intent(this, com.rfsentinel.app.ui.DetectionLogActivity::class.java))
-            else DeviceActions.openDetails(this, it)
+        binding.radarView.onBlipClick = { b ->
+            val at = if (b.bearing != null) DeviceRegistry.get(b.mac)?.let { s -> s.broadcast?.let { it.lat to it.lon } ?: s.located?.let { it.lat to it.lon } } else null
+            when {
+                b.mac.startsWith(RADIO_ROW) -> startActivity(Intent(this, com.rfsentinel.app.ui.DetectionLogActivity::class.java))
+                // A located alert: its details, or where it is on the map.
+                at != null -> com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle(b.label ?: b.mac)
+                    .setItems(arrayOf("Show details", "Show on map")) { _, which ->
+                        if (which == 0) DeviceActions.openDetails(this, b.mac)
+                        else startActivity(Intent(this, com.rfsentinel.app.ui.MapActivity::class.java)
+                            .putExtra(com.rfsentinel.app.ui.MapActivity.EXTRA_CENTER_LAT, at.first)
+                            .putExtra(com.rfsentinel.app.ui.MapActivity.EXTRA_CENTER_LON, at.second))
+                    }
+                    .show()
+                else -> DeviceActions.openDetails(this, b.mac)
+            }
         }
         // The app closed while the map was starting last time: switch it to OpenGL, or leave it off the main screen (and say so).
         val mapRecovery = com.rfsentinel.app.ui.MapSafety.recover(this)
@@ -768,16 +781,20 @@ class MainActivity : AppCompatActivity() {
             val radio = radioBlips(now, threshold)
             radioBlips = radio.size
             val fix = if (demoMode) com.rfsentinel.app.ui.DemoData.fakeLocation else ScanForegroundService.lastFix
-            // Heading-up while moving (the GPS course is steady from walking speed up), north-up otherwise.
-            binding.radarView.heading = fix?.takeIf { it.hasBearing() && it.speed >= 1.5f }?.bearing
+            // Heading-up from the compass (and the GPS course while driving), north-up without either.
+            binding.radarView.setFix(fix)
+            binding.radarView.pinpointOff = !Prefs.pinpointFlagged(this)
             binding.radarView.setBlips(visible.take(200).map { s ->
                 val alert = com.rfsentinel.app.ui.LiveWindow.alerting(s, now)
+                val at = if (alert && fix != null) knownPosition(s, fix.latitude, fix.longitude) else null
                 RadarView.Blip(
                     s.mac, s.rssi,
                     if (alert) colorFor(s) else binding.radarView.ordinaryColor(),
                     alert,
                     if (alert) s.best?.label else null,
-                    if (alert && fix != null) blipBearing(s, fix.latitude, fix.longitude) else null
+                    at?.let { com.rfsentinel.app.alpr.KnownCameras.bearingTo(fix!!.latitude, fix.longitude, it.first, it.second).toFloat() },
+                    at?.let { DeviceRegistry.metersBetween(fix!!.latitude, fix.longitude, it.first, it.second).toFloat() },
+                    now - s.lastSeen
                 )
             } + radio)
         }
@@ -939,20 +956,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
+     * Where an alerting device is, for its direction on the radar: its own broadcast, or a located estimate
+     * you are outside of (inside its circle every direction fits). Null otherwise.
+     */
+    private fun knownPosition(s: DeviceRegistry.Snapshot, lat: Double, lon: Double): Pair<Double, Double>? =
+        s.broadcast?.let { it.lat to it.lon }
+            ?: s.located?.takeIf { DeviceRegistry.metersBetween(lat, lon, it.lat, it.lon) > it.radiusM }?.let { it.lat to it.lon }
+
+    /**
      * RTL-SDR / HackRF transmissions of the last minute on the radar, under the All and Radio filters: closer to the
      * centre the stronger the signal. One on the air right now at or above the alert threshold pulses, with its frequency.
      */
-    /**
-     * Compass bearing from you to an alerting device whose position is known: its own broadcast, or a
-     * located estimate you are outside of (inside its circle every direction fits). Null otherwise.
-     */
-    private fun blipBearing(s: DeviceRegistry.Snapshot, lat: Double, lon: Double): Float? {
-        val at = s.broadcast?.let { it.lat to it.lon }
-            ?: s.located?.takeIf { DeviceRegistry.metersBetween(lat, lon, it.lat, it.lon) > it.radiusM }?.let { it.lat to it.lon }
-            ?: return null
-        return com.rfsentinel.app.alpr.KnownCameras.bearingTo(lat, lon, at.first, at.second).toFloat()
-    }
-
     private fun radioBlips(now: Long, threshold: Int): List<RadarView.Blip> {
         if ((filter != com.rfsentinel.app.ui.DeviceFilter.ALL && filter != com.rfsentinel.app.ui.DeviceFilter.RADIO) ||
             !ScanForegroundService.isRunning) return emptyList()
@@ -963,7 +977,7 @@ class MainActivity : AppCompatActivity() {
                 val alert = now - r.lastSeen <= RADIO_LIVE_MS && r.confidence >= threshold && !hidden(RADIO_ROW + r.freqHz, now)
                 // Signal above the noise as a stand-in RSSI: 40 dB lands in Near, 30 dB in Nearby (as the alert wording).
                 RadarView.Blip(RADIO_ROW + r.freqHz, (-115 + r.snrDb * 3 / 2).coerceIn(-100, -30), color, alert,
-                    if (alert) "${r.mhz} MHz" + (r.name?.let { " $it" } ?: "") else null)
+                    if (alert) "${r.mhz} MHz" + (r.name?.let { " $it" } ?: "") else null, ageMs = now - r.lastSeen)
             }
     }
 
