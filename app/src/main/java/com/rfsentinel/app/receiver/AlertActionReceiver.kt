@@ -20,9 +20,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
- * The buttons on an alert shown on the car screen: "Mute N min" silences alert
- * sound and voice for the snooze length set under Alerts; "Ignore" stops alerting about that device
- * (a rotating tracker until its address changes, anything else via the
+ * The buttons on an alert: "Mute N min" (car) / "Snooze all N min" (phone) silences alert sound and voice for the
+ * snooze length set under Alerts; "Mute this 30 min" (phone) mutes that one device, like its row's mute button; "Ignore"
+ * (car) stops alerting about that device (a rotating tracker until its address changes, anything else via the
  * whitelist - undo from the device's details).
  */
 class AlertActionReceiver : BroadcastReceiver() {
@@ -31,6 +31,7 @@ class AlertActionReceiver : BroadcastReceiver() {
         val app = context.applicationContext
         when (intent.action) {
             ACTION_SNOOZE -> snooze(app)
+            ACTION_MUTE -> intent.getStringExtra(EXTRA_MAC)?.let { com.rfsentinel.app.data.AlertMutes.mute(app, it, System.currentTimeMillis() + com.rfsentinel.app.data.AlertMutes.TAP_MS) } ?: return
             ACTION_IGNORE -> {
                 val mac = intent.getStringExtra(EXTRA_MAC) ?: return
                 val pending = goAsync()
@@ -47,6 +48,7 @@ class AlertActionReceiver : BroadcastReceiver() {
     companion object {
         const val ACTION_SNOOZE = "com.rfsentinel.app.action.SNOOZE_ALERTS"
         const val ACTION_IGNORE = "com.rfsentinel.app.action.IGNORE_DEVICE"
+        const val ACTION_MUTE = "com.rfsentinel.app.action.MUTE_DEVICE"
         private const val EXTRA_MAC = "mac"
         private const val EXTRA_NOTIFICATION = "notification"
 
@@ -62,6 +64,13 @@ class AlertActionReceiver : BroadcastReceiver() {
         fun ignoreIntent(context: Context, mac: String, notificationId: Int): PendingIntent = PendingIntent.getBroadcast(
             context, mac.hashCode(),
             Intent(context, AlertActionReceiver::class.java).setAction(ACTION_IGNORE)
+                .putExtra(EXTRA_MAC, mac).putExtra(EXTRA_NOTIFICATION, notificationId),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        fun muteIntent(context: Context, mac: String, notificationId: Int): PendingIntent = PendingIntent.getBroadcast(
+            context, mac.hashCode() + 1,
+            Intent(context, AlertActionReceiver::class.java).setAction(ACTION_MUTE)
                 .putExtra(EXTRA_MAC, mac).putExtra(EXTRA_NOTIFICATION, notificationId),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )

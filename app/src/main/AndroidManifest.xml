@@ -218,7 +218,7 @@
             </intent-filter>
         </receiver>
 
-        <!-- "Mute 30 min" / "Ignore" buttons on alerts shown on the car screen. -->
+        <!-- Alert buttons: snooze / mute this on the phone, "Mute N min" / "Ignore" on the car screen. -->
         <receiver
             android:name=".receiver.AlertActionReceiver"
             android:exported="false" />

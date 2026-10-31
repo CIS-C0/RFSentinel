@@ -633,7 +633,7 @@ class SettingsActivity : AppCompatActivity() {
                 "and no Android Bluetooth pairing."),
         Section("radio", binding.headerRadio, binding.sectionRadio,
             "An RTL-SDR dongle or a HackRF on USB notices two-way radios transmitting nearby, from signal strength only - nothing is " +
-                "decoded or recorded. Needs the Police radio category on (What to detect).\n\n" +
+                "decoded or recorded. Needs Two-way radio on (What to detect).\n\n" +
                 "Sensitivity: how far above the noise a burst must be to count. Lower hears farther radios, and more false alarms.\n\n" +
                 "Bands: the built-in North American public-safety bands, your own bands (one per line, \"380-400 TETRA\"), " +
                 "ranges never to report (\"462-469 business band\"), and frequencies to watch (\"154.4300 County fire\"), " +
@@ -1286,12 +1286,14 @@ class SettingsActivity : AppCompatActivity() {
             "P25: alerts when a call starts on one of them, and names them on the P25 talkgroups screen. One per line: the " +
             "talkgroup number, with an optional name.") { Prefs.setP25Talkgroups(this, it) }
         val talkgroupViews = listOf(box.getChildAt(box.childCount - 2), box.getChildAt(box.childCount - 1))
+        var sweepViews = emptyList<View>() // the sweep's own settings, below
         showSdrOptions = {
             val ticked = listOf(sweepBox, adsbBox, p25Box).count { it.isChecked }
-            turnViews.forEach { it.visibility = if (ticked > 1) View.VISIBLE else View.GONE }
-            talkgroupViews.forEach { it.visibility = if (p25Box.isChecked) View.VISIBLE else View.GONE }
+            turnViews.forEach { it.shownIf(ticked > 1) }
+            talkgroupViews.forEach { it.shownIf(p25Box.isChecked) }
+            sweepViews.forEach { it.shownIf(sweepBox.isChecked) }
         }
-        showSdrOptions()
+        val sweepFrom = box.childCount
         slider(com.rfsentinel.app.sdr.RadioWatch.MIN_SNR_SETTING, com.rfsentinel.app.sdr.RadioWatch.MAX_SNR_SETTING, Prefs.radioMinSnr(this),
             { "Sensitivity: $it dB above the noise" }) {
             Prefs.setRadioMinSnr(this, it)
@@ -1328,6 +1330,8 @@ class SettingsActivity : AppCompatActivity() {
             Prefs.setRadioTrendDb(this, it)
         }
         slider(1, 50, Prefs.radioMatchKhz(this), { "A hit takes a frequency's name within ± $it kHz" }) { Prefs.setRadioMatchKhz(this, it) }
+        sweepViews = (sweepFrom until box.childCount).map(box::getChildAt)
+        showSdrOptions()
 
         label("Frequency names")
         freqListText = label("", small = true)

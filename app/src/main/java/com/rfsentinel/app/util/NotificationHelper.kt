@@ -208,6 +208,8 @@ object NotificationHelper {
             .setSilent(true)
             .setContentIntent(open)
             .setVisibility(if (discreet) NotificationCompat.VISIBILITY_SECRET else NotificationCompat.VISIBILITY_PRIVATE)
+            .addAction(0, "Snooze all ${Prefs.snoozeMinutes(context)} min",
+                com.rfsentinel.app.receiver.AlertActionReceiver.snoozeIntent(context, ALERT_NOTIFICATION_ID_BASE + key.hashCode()))
             .extend(
                 CarAppExtender.Builder()
                     .setContentTitle(if (discreet) "RF Sentinel" else hit.label)
@@ -337,6 +339,11 @@ object NotificationHelper {
             .setContentIntent(detail)
             .setVisibility(if (discreet) NotificationCompat.VISIBILITY_SECRET else NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(publicVersion)
+            // From the notification shade, without opening the app (the car has its own buttons below).
+            .addAction(0, "Snooze all ${Prefs.snoozeMinutes(context)} min",
+                com.rfsentinel.app.receiver.AlertActionReceiver.snoozeIntent(context, ALERT_NOTIFICATION_ID_BASE + mac.hashCode()))
+            .addAction(0, "Mute this ${com.rfsentinel.app.data.AlertMutes.TAP_MS / 60_000} min",
+                com.rfsentinel.app.receiver.AlertActionReceiver.muteIntent(context, mac, ALERT_NOTIFICATION_ID_BASE + mac.hashCode()))
             // Android Auto: show as a heads-up on the car screen; tapping it opens
             // this device in the car app. (The tone/voice come from AlertPlayer.)
             .extend(

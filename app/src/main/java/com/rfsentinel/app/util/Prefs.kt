@@ -573,16 +573,18 @@ object Prefs {
     /** A hit matches a named frequency within ± this many kHz. */
     fun radioMatchKhz(context: Context): Int = int(context, "radio_match_khz", 7).coerceIn(1, 50)
     fun setRadioMatchKhz(context: Context, v: Int) = setInt(context, "radio_match_khz", v.coerceIn(1, 50))
-    /** The RTL-SDR as an ADS-B aircraft receiver on 1090 MHz instead of the radio sweep (off by default). */
+    /** The RTL-SDR as an ADS-B aircraft receiver on 1090 MHz (off by default). */
     fun sdrAdsb(context: Context): Boolean = bool(context, "sdr_adsb", false)
-    fun setSdrAdsb(context: Context, v: Boolean) = setBool(context, "sdr_adsb", v)
+    fun setSdrAdsb(context: Context, v: Boolean) { keepSdrSweep(context); setBool(context, "sdr_adsb", v) }
     /** The SDR's radio-activity sweep: on by default, unless ADS-B or P25 was switched on when they replaced it. */
     fun sdrSweep(context: Context): Boolean = bool(context, "sdr_sweep", !sdrAdsb(context) && !bool(context, "sdr_p25", false))
     fun setSdrSweep(context: Context, v: Boolean) = setBool(context, "sdr_sweep", v)
     /** The SDR follows a P25 control channel: on by default where P25 is used (the United States or Canada region picked). */
     fun sdrP25(context: Context): Boolean = bool(context, "sdr_p25",
         com.rfsentinel.app.oui.OuiWatchlist.getEnabledPresets(context).any { it == "us" || it == "canada" })
-    fun setSdrP25(context: Context, v: Boolean) = setBool(context, "sdr_p25", v)
+    fun setSdrP25(context: Context, v: Boolean) { keepSdrSweep(context); setBool(context, "sdr_p25", v) }
+    /** The sweep's default follows the ADS-B and P25 settings: store it before they change, or ticking one would untick it. */
+    private fun keepSdrSweep(context: Context) { if (!sp(context).contains("sdr_sweep")) setSdrSweep(context, sdrSweep(context)) }
     /** P25 talkgroups to alert on, "1234 Name" a line ([com.rfsentinel.app.sdr.P25Log.watched]). */
     fun p25Talkgroups(context: Context) = str(context, "p25_talkgroups")
     fun setP25Talkgroups(context: Context, v: String) = setStr(context, "p25_talkgroups", v)

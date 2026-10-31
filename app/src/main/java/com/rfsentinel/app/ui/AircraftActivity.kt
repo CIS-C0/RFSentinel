@@ -183,7 +183,7 @@ class AircraftActivity : AppCompatActivity() {
         val empty = when {
             rows.isNotEmpty() -> null
             !ScanForegroundService.isRunning && !demo -> "Not scanning.\nAircraft come from an RTL-SDR on USB (ADS-B) or the online feeds, while scanning."
-            else -> "No aircraft heard yet.\nThey come from an RTL-SDR on USB set to ADS-B, or from the online feeds when that's on in Settings."
+            else -> "No aircraft heard yet.\nThey come from an RTL-SDR on USB (tick ADS-B aircraft receiver in Settings › RTL-SDR radio), or from the online feeds when that's on in Settings."
         }
         visual.root.visibility = if (visualOn && empty == null) View.VISIBLE else View.GONE
         binding.recyclerView.visibility = if (!visualOn && empty == null) View.VISIBLE else View.GONE

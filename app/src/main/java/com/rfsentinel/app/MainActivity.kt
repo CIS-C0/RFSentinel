@@ -798,16 +798,16 @@ class MainActivity : AppCompatActivity() {
         binding.showAllButton.visibility =
             if (filter != com.rfsentinel.app.ui.DeviceFilter.ALL && all.isNotEmpty()) View.VISIBLE else View.GONE
         binding.emptyText.text = when {
-            all.isEmpty() && !ScanForegroundService.isRunning -> "Not scanning.\nTap Start scanning to begin."
+            all.isEmpty() && !ScanForegroundService.isRunning -> "Not scanning.\nTap Start to begin."
             all.isEmpty() -> "Listening... no devices heard yet."
             filter == com.rfsentinel.app.ui.DeviceFilter.WAZE ->
                 "No Waze reports in range.\nTurn on Waze police reports in Settings and keep scanning."
             filter == com.rfsentinel.app.ui.DeviceFilter.RADIO ->
-                "No radio transmissions heard in the last 5 minutes.\nNeeds an RTL-SDR on USB and the Police radio category on in Settings."
+                "No radio transmissions heard in the last 5 minutes.\nNeeds an RTL-SDR on USB, Two-way radio on in Settings › What to detect, and Radio activity sweep ticked in Settings › RTL-SDR radio."
             filter == com.rfsentinel.app.ui.DeviceFilter.AIRCRAFT ->
-                "No aircraft yet.\nThey come from an RTL-SDR on USB set to ADS-B, or from the online feeds when that's on in Settings."
+                "No aircraft yet.\nThey come from an RTL-SDR on USB (tick ADS-B aircraft receiver in Settings › RTL-SDR radio), or from the online feeds when that's on in Settings."
             filter == com.rfsentinel.app.ui.DeviceFilter.CELLS ->
-                "No cell towers yet - they're read every 15 s while scanning\n(needs the Fake cell tower category on in Settings)."
+                "No cell towers yet - they're read every 15 s while scanning\n(needs Fake cell tower signs on in Settings › What to detect)."
             else -> "No devices match this filter."
         }
     }
