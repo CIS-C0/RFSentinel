@@ -73,6 +73,8 @@ class ScanForegroundService : Service() {
         private const val RADAR_QUIET_MS = 2_500L
         private const val OWNER_CHECK_MS = 30_000L
         private const val RADAR_HOLD_MS = 120_000L
+        /** A watched talkgroup's call: the user asked for it, like a watched frequency. */
+        private const val P25_CONFIDENCE = 70
         /** "GPS connected" again only after the fix was lost this long. */
         private const val GPS_RECONNECT_MS = 120_000L
         /** The latest position's time and accuracy, for the GPS dot (null: none while scanning). */
@@ -306,6 +308,11 @@ class ScanForegroundService : Service() {
         super.onCreate()
         NotificationHelper.createChannels(this)
         OuiWatchlist.load(this)
+        serviceScope.launch {
+            val today = java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+            runCatching { com.rfsentinel.app.detect.FixedRouter.load(AppDatabase.getInstance(this@ScanForegroundService)
+                .knownDeviceDao().familiarRouters(com.rfsentinel.app.detect.FixedRouter.MIN_SESSIONS, today)) }
+        }
 
         pipelineThread = HandlerThread("rf-pipeline").apply { start() }
         pipeline = Handler(pipelineThread.looper)
@@ -388,13 +395,19 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.usb.UsbBluetooth.start(this) { list -> pipeline.post { list.forEach(::processUsbBt) } }
         com.rfsentinel.app.usb.DeauthWatch.onAttack = { a -> pipeline.post { onDeauth(a) } }
         com.rfsentinel.app.usb.KarmaWatch.onAttack = { a -> pipeline.post { onKarma(a) } }
-        // An RTL-SDR dongle: strong two-way radio transmissions nearby (signal strength only),
-        // or aircraft on 1090 MHz when it's set up as an ADS-B receiver.
-        val sdrAdsb = Prefs.sdrAdsb(this) && Prefs.categoryEnabled(this, Category.AIRCRAFT)
-        com.rfsentinel.app.sdr.SdrRadio.adsb = sdrAdsb
+        // What the SDR does (Settings > RTL-SDR radio): any mix, in turns.
+        val radioOn = Prefs.categoryEnabled(this, Category.RADIO)
+        val sdrModes = listOfNotNull(
+            com.rfsentinel.app.sdr.SdrRadio.Mode.SWEEP.takeIf { radioOn && Prefs.sdrSweep(this) },
+            com.rfsentinel.app.sdr.SdrRadio.Mode.ADSB.takeIf { Prefs.sdrAdsb(this) && Prefs.categoryEnabled(this, Category.AIRCRAFT) },
+            com.rfsentinel.app.sdr.SdrRadio.Mode.P25.takeIf { radioOn && Prefs.sdrP25(this) }
+        ).toSet()
+        com.rfsentinel.app.sdr.SdrRadio.modes = sdrModes
+        com.rfsentinel.app.sdr.SdrRadio.turnMs = Prefs.sdrTurnS(this) * 1000L
+        com.rfsentinel.app.sdr.SdrRadio.onP25Call = { tg -> pipeline.post { onP25Call(tg) } }
         com.rfsentinel.app.sdr.SdrRadio.location = { (lastLocation ?: lastFix)?.let { it.latitude to it.longitude } }
         com.rfsentinel.app.sdr.SdrRadio.onAircraft = { planes, unlocated -> onlineWatch.localAircraft(planes, unlocated) }
-        if (sdrAdsb || Prefs.categoryEnabled(this, Category.RADIO)) {
+        if (sdrModes.isNotEmpty() || radioOn) {
             // Settings > RTL-SDR radio: bands, excluded ranges, watched frequencies, sensitivity (re-read on every refresh).
             com.rfsentinel.app.sdr.SdrRadio.config = com.rfsentinel.app.sdr.RadioSettings.config(this)
             com.rfsentinel.app.sdr.FreqNames.load(this)
@@ -475,6 +488,7 @@ class ScanForegroundService : Service() {
      */
     private fun noteLocating(mac: String) {
         val now = System.currentTimeMillis()
+        if (Prefs.pinpointAlertsOnly(this) && now - (lastAlerted[mac] ?: 0L) > LOCATING_HOLD_MS) return
         val was = now < locatingUntil
         locatingUntil = now + LOCATING_HOLD_MS
         // Called for every packet of a flagged device: only the switch-on does the setting / permission checks.
@@ -734,7 +748,7 @@ class ScanForegroundService : Service() {
                 this, mac, trackerHit.label, a.rssi, now, DeviceRegistry.linkedFrom(mac))
         ) return
         if (WhitelistCache.contains(mac)) return
-        noteLocating(mac)
+        if (!com.rfsentinel.app.detect.FixedRouter.quiet(mac, c.hits, Prefs.alertThreshold(this))) noteLocating(mac)
 
         maybeLog(a, best, c.vendor, loc, now)
         maybeAlert(a, best, c.hits, now, via)
@@ -1068,6 +1082,8 @@ class ScanForegroundService : Service() {
         // Someone else's tracker nearby is normal; trackers only alert when they follow you.
         if (best.category == Category.TRACKER) return
         if (best.listOnly || best.confidence < Prefs.alertThreshold(this)) return
+        // A shop's router you pass every day: listed and logged, no alert.
+        if (com.rfsentinel.app.detect.FixedRouter.quiet(a.mac, hits, Prefs.alertThreshold(this))) return
         // Acknowledged from the list: listed and logged, no alert.
         if (com.rfsentinel.app.data.AlertMutes.isMuted(this, a.mac, now)) return
         val window = Prefs.dedupeWindowMs(this)
@@ -1469,31 +1485,51 @@ class ScanForegroundService : Service() {
         } + (via?.let { " · via $it" } ?: "")
         val hit = Hit(Category.RADIO, label, e.confidence, if (cell) cellDetail else detail,
             if (e.tdma) "SDR signal strength and TETRA burst timing (no decoding)" else "SDR signal strength (no decoding)")
+        // Spoken: the frequency (and its name) when that's on, else the short phrase.
+        val spoken = when {
+            cell -> "Cellular transmitter nearby"
+            Prefs.radioSpeakFreq(this) -> (if (e.tdma) "TETRA radio " else "Radio ") + spokenMhz(e.freqHz) + (name?.let { ", $it" } ?: "")
+            e.tdma -> "TETRA radio nearby"
+            else -> "Radio transmitting nearby"
+        } + (via?.let { ", via $it" } ?: "")
+        radioDetection(hit, "RADIO " + e.mhz + " MHz", e.snrDb, detail, now, "radio:" + e.freqHz, spoken, e.confidence >= threshold)
+    }
+
+    /** A radio [hit] into the detection history (tagged with where you are), and alerted when [alert]. */
+    private fun radioDetection(hit: Hit, mac: String, rssi: Int, evidence: String, now: Long, key: String, spoken: String, alert: Boolean) {
         val loc = lastLocation
         val tag = Prefs.gpsTaggingEnabled(this)
         serviceScope.launch {
             AppDatabase.getInstance(this@ScanForegroundService).detectionDao().insert(
                 DetectionEntity(
-                    mac = "RADIO " + e.mhz + " MHz", label = hit.label, source = "SDR", rssi = e.snrDb,
+                    mac = mac, label = hit.label, source = "SDR", rssi = rssi,
                     timestamp = now,
                     latitude = if (tag) loc?.latitude else null, longitude = if (tag) loc?.longitude else null,
-                    category = Category.RADIO.name, confidence = e.confidence, evidence = detail
+                    category = hit.category.name, confidence = hit.confidence, evidence = evidence
                 )
             )
         }
-        if (e.confidence >= threshold) {
-            val off = alertsOff(hit.category)
-            NotificationHelper.sendMapAlert(this, "radio:" + e.freqHz, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java,
-                banner = AlertKind.BANNER !in off)
-            // Spoken: the frequency (and its name) when that's on, else the short phrase.
-            val spoken = when {
-                cell -> "Cellular transmitter nearby"
-                Prefs.radioSpeakFreq(this) -> (if (e.tdma) "TETRA radio " else "Radio ") + spokenMhz(e.freqHz) + (name?.let { ", $it" } ?: "")
-                e.tdma -> "TETRA radio nearby"
-                else -> "Radio transmitting nearby"
-            } + (via?.let { ", via $it" } ?: "")
-            AlertPlayer.play(this, hit.tier, spoken, off = off)
-        }
+        if (!alert) return
+        val off = alertsOff(hit.category)
+        NotificationHelper.sendMapAlert(this, key, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java,
+            banner = AlertKind.BANNER !in off)
+        AlertPlayer.play(this, hit.tier, spoken, off = off)
+    }
+
+    /** A call started on a P25 talkgroup: reported when it is one you watch (Settings > RTL-SDR radio). */
+    private fun onP25Call(tg: Int) {
+        if (!Prefs.categoryEnabled(this, Category.RADIO)) return
+        val name = com.rfsentinel.app.sdr.P25Log.watched(Prefs.p25Talkgroups(this))[tg] ?: return
+        val row = com.rfsentinel.app.sdr.SdrRadio.p25Log.rows().firstOrNull { it.tg == tg }
+        val called = name.ifEmpty { "talkgroup $tg" }
+        val detail = "A call started on P25 talkgroup $tg${if (name.isNotEmpty()) " ($name)" else ""}, one you watch. " +
+            (row?.lastSource?.let { "Radio $it keyed up. " } ?: "") +
+            (if (row?.emergency == true) "Marked as an emergency call. " else "") +
+            (if (row?.encrypted == true) "Encrypted. " else "") +
+            "Heard on the site's control channel: the radios may be anywhere the site covers, not necessarily near you."
+        val hit = Hit(Category.RADIO, "Talkgroup active: $called", P25_CONFIDENCE, detail, "P25 control channel (signalling only, no voice)")
+        radioDetection(hit, "P25 TG $tg", 0, detail, System.currentTimeMillis(), "p25:$tg", "Talkgroup $called active",
+            P25_CONFIDENCE >= Prefs.alertThreshold(this))
     }
 
     /** "154.43" for 154.430 MHz: three decimals, trailing zeros dropped, read well by the voice. */
@@ -1503,7 +1539,10 @@ class ScanForegroundService : Service() {
     /** Police aircraft (ADS-B) and Waze reports: internet sources, both off by default. */
     private val onlineWatchLazy = lazy {
         com.rfsentinel.app.online.OnlineWatch(this, serviceScope, { lastLocation ?: lastFix },
-            onCallout = { text -> pipeline.post { AlertPlayer.callout(this, text) } }) { alert ->
+            onCallout = { text -> pipeline.post {
+                // Waze "getting closer" call-outs follow the category's Voice chip too.
+                if (AlertKind.VOICE !in alertsOff(Category.POLICE_REPORT)) AlertPlayer.callout(this, text)
+            } }) { alert ->
             pipeline.post { onOnlineHit(alert) }
         }
     }

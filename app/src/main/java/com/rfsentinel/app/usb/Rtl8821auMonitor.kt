@@ -103,7 +103,7 @@ object Rtl8821auMonitor {
             w16(conn, Rtl8821auTables.REG_RXFLTMAP0, Rtl8821auTables.RXFLTMAP_ALL)
             w16(conn, Rtl8821auTables.REG_RXFLTMAP1, Rtl8821auTables.RXFLTMAP_ALL)
             w16(conn, Rtl8821auTables.REG_RXFLTMAP2, Rtl8821auTables.RXFLTMAP_ALL)
-            HOP = if (scan5g) HOP_24 + HOP_5 else HOP_24
+            HOP = UsbWifi.hops(if (scan5g) HOP_24 + HOP_5 else HOP_24)
             if (scan5g) UsbWifi.log("RTL8821AU: 5 GHz hopping on (experimental): ${HOP.joinToString()}")
             channelTune(conn, HOP[0])
             UsbWifi.log("RTL8821AU: RCR=0x%08x BB(0x800)=0x%08x — monitor live ch ${HOP[0]}".format(

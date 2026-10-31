@@ -3,6 +3,10 @@ package com.rfsentinel.app.ui
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.PixelFormat
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Build
@@ -33,10 +37,13 @@ object LiveRead {
 
     enum class Mode(val label: String) { LOCATE("LOCATING"), PINPOINT("PINPOINTING") }
 
-    /** [rssi] and [distanceM] are null while it isn't heard; [trend] 1 getting closer, -1 moving away, 0 steady. */
+    /**
+     * [rssi] and [distanceM] are null while it isn't heard; [trend] 1 getting closer, -1 moving away, 0 steady.
+     * [sweep]: the on-foot sweep's hint while locating on a phone with a compass.
+     */
     data class Read(
         val mode: Mode, val mac: String, val title: String, val tag: String?, val color: Int,
-        val rssi: Int?, val distanceM: Double?, val trend: Int
+        val rssi: Int?, val distanceM: Double?, val trend: Int, val sweep: String? = null
     )
 
     private const val TICK_MS = 1_000L
@@ -44,6 +51,8 @@ object LiveRead {
     private const val HEARD_MS = 10_000L
     /** A pinpointed device unheard this long gives way to another flagged one. */
     private const val PINPOINT_SWITCH_MS = 15_000L
+    /** The pinpointing card hides after this on one device (pinpointing goes on), so a parked one doesn't keep it up. */
+    private const val PINPOINT_CARD_MS = 60_000L
     private const val NO_FLAG_COLOR = 0xFF9AA5AD.toInt()
 
     private val main = Handler(Looper.getMainLooper())
@@ -58,9 +67,26 @@ object LiveRead {
     private var tone: ToneGenerator? = null
     private var appContext: Context? = null
 
+    // ---- Sweep (main thread): compass heading + each new signal reading while locating ----
+    private val sweep = Sweep()
+    /** Compass degrees the phone faces, null without a compass or before its first reading. */
+    @Volatile private var heading: Float? = null
+    private var sweepFed = 0L
+    private val compass = object : SensorEventListener {
+        private val m = FloatArray(9); private val o = FloatArray(3)
+        override fun onSensorChanged(e: SensorEvent) {
+            SensorManager.getRotationMatrixFromVector(m, e.values)
+            SensorManager.getOrientation(m, o)
+            heading = ((Math.toDegrees(o[0].toDouble()) + 360) % 360).toFloat()
+        }
+        override fun onAccuracyChanged(s: Sensor?, a: Int) {}
+    }
+
     // ---- Pinpoint (the scan's pipeline thread) ----
     private var pinMac: String? = null
     private var pinHeard = 0L
+    /** When [pinMac] became the one read. */
+    @Volatile private var pinSince = 0L
     @Volatile private var pinUntil = 0L
     /** The pinpointed device whose card was dismissed (it comes back for another device or the next pinpointing). */
     @Volatile private var dismissedPin: String? = null
@@ -72,6 +98,10 @@ object LiveRead {
         locating = mac
         followed = null
         tone = runCatching { ToneGenerator(AudioManager.STREAM_MUSIC, 80) }.getOrNull()
+        sweep.clear(); sweepFed = 0L; heading = null
+        (context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager)?.let { sm ->
+            sm.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)?.let { sm.registerListener(compass, it, SensorManager.SENSOR_DELAY_UI) }
+        }
         main.post(beep)
         tick()
     }
@@ -82,6 +112,8 @@ object LiveRead {
         val was = locating != null
         locating = null; followed = null
         tone?.release(); tone = null
+        (appContext?.getSystemService(Context.SENSOR_SERVICE) as? SensorManager)?.unregisterListener(compass)
+        heading = null
         if (was) tick()
     }
 
@@ -97,6 +129,8 @@ object LiveRead {
             }
             // Out of range (gone from the list): Locate ends, as on the device screen.
             val s = DeviceRegistry.get(liveMac) ?: DeviceRegistry.get(mac) ?: run { stopLocate(); return }
+            // Each new reading, with the way the phone faces now (a slow turn barely moves between the two).
+            heading?.let { h -> if (s.lastSeen != sweepFed) { sweepFed = s.lastSeen; sweep.add(s.lastSeen, h, s.rssi) } }
             if (!AlertPlayer.locateTick(ctx)) tone?.startTone(ToneGenerator.TONE_PROP_BEEP, 60)
             // Faster as the signal gets stronger (same curve as the radar beeps).
             main.postDelayed(this, Beeper.tickIntervalMs(s.rssi))
@@ -111,7 +145,10 @@ object LiveRead {
     fun pinpoint(mac: String, now: Long, until: Long) {
         val cur = pinMac
         if (now > pinUntil) dismissedPin = null // a new round of pinpointing
-        if (cur == null || cur == mac || now > pinUntil || now - pinHeard > PINPOINT_SWITCH_MS) { pinMac = mac; pinHeard = now }
+        if (cur == null || cur == mac || now > pinUntil || now - pinHeard > PINPOINT_SWITCH_MS) {
+            if (cur != mac || now > pinUntil) pinSince = now
+            pinMac = mac; pinHeard = now
+        }
         val starting = now > pinUntil
         pinUntil = until
         if (starting) main.post { tick() }
@@ -133,9 +170,9 @@ object LiveRead {
 
     /** What to show now, or null for no card. */
     fun current(now: Long = System.currentTimeMillis()): Read? {
-        locating?.let { m -> return read(Mode.LOCATE, m, now) }
+        locating?.let { m -> return read(Mode.LOCATE, m, now).copy(sweep = sweepText(now)) }
         val p = synchronized(this) { pinMac } ?: return null
-        if (now > pinUntil || p == dismissedPin) return null
+        if (now > pinUntil || p == dismissedPin || now - pinSince > PINPOINT_CARD_MS) return null
         return read(Mode.PINPOINT, p, now)
     }
 
@@ -153,6 +190,19 @@ object LiveRead {
             distanceM = s?.distanceM?.takeIf { heard && it > 0 },
             trend = if (heard) trend(s!!) else 0
         )
+    }
+
+    /** The sweep's hint while locating: how to turn, then the direction. Null without a compass. Main thread. */
+    fun sweepText(now: Long = System.currentTimeMillis()): String? {
+        val h = heading ?: return null
+        val dir = sweep.direction(now) ?: return "Sweep: phone flat in front of you, turn slowly " +
+            "(${sweep.covered(now) * 360 / Sweep.SECTORS}° of 360°)"
+        val turn = Sweep.turn(h, dir)
+        return "Strongest facing ${Sweep.compassPoint(dir)} · " + when {
+            kotlin.math.abs(turn) <= 20 -> "ahead"
+            turn > 0 -> "turn right $turn°"
+            else -> "turn left ${-turn}°"
+        }
     }
 
     /** 1 getting closer, -1 moving away, 0 steady: the newest reading against the few before it. */
@@ -210,6 +260,8 @@ internal class LiveReadCard(private val b: ViewLiveReadBinding) {
             r.distanceM?.let { DeviceIntel.formatDistance(it) + " (rough)" },
             when (r.trend) { 1 -> "▲ closer"; -1 -> "▼ farther"; else -> null }
         ).joinToString(" · ")
+        b.liveSweep.text = r.sweep
+        b.liveSweep.visibility = if (r.sweep == null) View.GONE else View.VISIBLE
         val level = VisualMode.dbmLevel(r.rssi)
         b.liveBar.set(level, VisualMode.heat(level))
         b.liveClose.contentDescription = if (r.mode == LiveRead.Mode.LOCATE) "Stop locating" else "Hide the live read"
@@ -251,7 +303,7 @@ internal class LiveReadOverlay(
         if (b == null) {
             val nb = ViewLiveReadBinding.inflate(LayoutInflater.from(ContextThemeWrapper(context, R.style.Theme_RFSentinel)))
             // A little smaller than on the full map: it sits beside another app.
-            nb.liveTitle.textSize = 14f; nb.liveDetail.textSize = 12f
+            nb.liveTitle.textSize = 14f; nb.liveDetail.textSize = 12f; nb.liveSweep.textSize = 12f
             nb.root.elevation = 6f * context.resources.displayMetrics.density
             val type = if (Build.VERSION.SDK_INT >= 26) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                 else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE

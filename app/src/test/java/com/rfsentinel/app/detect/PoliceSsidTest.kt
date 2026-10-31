@@ -25,8 +25,17 @@ class PoliceSsidTest {
     }
 
     @Test
+    fun emergencyNamesMatchAsWholeWords() {
+        for (name in listOf("SHERIFF-12", "Medic 7", "PD_Unit4", "K9-12", "Engine12 FD"))
+            assertTrue(name, SignatureEngine.policeVehicleSsid(name)!!.confidence < 50) // weak alone
+        // A familiar router named for an agency still alerts: the name match isn't a router-only match.
+        assertTrue(!FixedRouter.routerOnly(listOf(SignatureEngine.policeVehicleSsid("SHERIFF-12")!!)))
+    }
+
+    @Test
     fun ordinaryNetworksDont() {
-        for (name in listOf("NETGEAR42-5G", "Home-5G", "papillon", "Axon", "IBR900", "MBR1400-3e2", "5g", "1-5g"))
+        for (name in listOf("NETGEAR42-5G", "Home-5G", "papillon", "Axon", "IBR900", "MBR1400-3e2", "5g", "1-5g",
+                "Firefly", "Spdnet", "Remedics", "Patrolla"))
             assertNull(name, SignatureEngine.policeVehicleSsid(name))
     }
 }

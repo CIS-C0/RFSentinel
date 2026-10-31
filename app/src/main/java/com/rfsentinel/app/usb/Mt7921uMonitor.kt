@@ -54,8 +54,9 @@ object Mt7921uMonitor {
      */
     internal fun roundPlan(round: Int, active6: Set<Int>): List<Pair<Int, Int>> {
         val six = HOP.filter { it.first == 2 }
-        return HOP.filter { it.first != 2 } +
-            six.filterIndexed { i, (_, ch) -> i % SIX_GHZ_EVERY == round % SIX_GHZ_EVERY || ch in active6 }
+        return (HOP.filter { it.first != 2 } +
+            six.filterIndexed { i, (_, ch) -> i % SIX_GHZ_EVERY == round % SIX_GHZ_EVERY || ch in active6 })
+            .filter { UsbWifi.inBand(it.first != 0) }.ifEmpty { HOP }
     }
     private const val RX_ANTENNAS = 0x3
     private const val SWITCH_TIMEOUT_MS = 500L
@@ -580,7 +581,7 @@ object Mt7921uMonitor {
 
     private class RxState {
         var hopAt = 0L; var lastEmit = 0L; var lastRxAt = 0L; var lastCheck = 0L; var hopIdx = 0
-        var round = 0; var plan: List<Pair<Int, Int>> = HOP
+        var round = 0; var plan: List<Pair<Int, Int>> = HOP.filter { UsbWifi.inBand(it.first != 0) }
         /** 6 GHz channel number -> when a frame was last heard on it. */
         val heard6 = HashMap<Int, Long>()
         /** The channel held for the antenna check instead of hopping. */

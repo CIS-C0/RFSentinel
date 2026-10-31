@@ -232,7 +232,8 @@ class DeviceDetailActivity : AppCompatActivity() {
             binding.gauge.set(live.rssi, live.bestRssi, trendDir)
             binding.rssiDetail.text = (if (visual) "${ProximityUtil.band(live.rssi)}\n" else "dBm · ${ProximityUtil.band(live.rssi)} $trend\n") +
                 "${DeviceIntel.formatDistance(live.distanceM)} (rough) · best ${live.bestRssi} dBm" +
-                (if (liveMac != mac) "\nNow heard as $liveMac" else "")
+                (if (liveMac != mac) "\nNow heard as $liveMac" else "") +
+                (if (locatingThis()) LiveRead.sweepText()?.let { "\n$it" }.orEmpty() else "")
             binding.graph.setSamples(live.history)
             binding.locateButton.isEnabled = true
             binding.locateButton.text = if (locatingThis()) "Stop" else "Locate"
@@ -570,7 +571,7 @@ class DeviceDetailActivity : AppCompatActivity() {
     private fun startLocate() {
         LiveRead.startLocate(this, mac)
         binding.locateButton.text = "Stop"
-        Toast.makeText(this, "Walk around: beeps speed up as the signal gets stronger. It keeps going on the map", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Walk around: beeps speed up as the signal gets stronger. Or stand still, phone flat, and turn slowly for its direction", Toast.LENGTH_LONG).show()
     }
 
     private fun stopLocate() {

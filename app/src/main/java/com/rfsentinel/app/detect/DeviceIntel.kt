@@ -671,6 +671,8 @@ object DeviceIntel {
             .trim().trimEnd(',', '.').ifEmpty { v }
 
     fun security(caps: String): String = when {
+        // Android's own scan always has at least "[ESS]": blank is a USB monitor-mode sighting, which reads no security.
+        caps.isBlank() -> "Unknown (not read in monitor mode)"
         caps.contains("SAE") -> "WPA3"
         caps.contains("WPA2") || caps.contains("RSN") -> "WPA2"
         caps.contains("WPA") -> "WPA"

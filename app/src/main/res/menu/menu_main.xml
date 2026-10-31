@@ -19,6 +19,8 @@
         app:showAsAction="always" />
     <item android:id="@+id/action_waze_now" android:title="Check Waze now" app:showAsAction="never" />
     <item android:id="@+id/action_waze_status" android:title="Waze status" app:showAsAction="never" />
+    <item android:id="@+id/action_watchlist" android:title="Watchlist" app:showAsAction="never" />
+    <item android:id="@+id/action_whitelist" android:title="Whitelist" app:showAsAction="never" />
     <!-- Everything the app remembers, in one place. -->
     <item android:id="@+id/action_history_menu" android:title="History" app:showAsAction="never">
         <menu>

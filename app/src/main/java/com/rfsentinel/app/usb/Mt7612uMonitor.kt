@@ -27,12 +27,13 @@ object Mt7612uMonitor {
     @Volatile private var stop = false
 
     private val frames = MonitorFrames()
-    private val HOP = intArrayOf(
+    private val ALL_HOP = intArrayOf(
         1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
         36, 40, 44, 48, 52, 56, 60, 64,
         100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144,
         149, 153, 157, 161, 165
     )
+    private var HOP = ALL_HOP
     private const val DWELL_MS = 125L
     private val FRESH_MS get() = (HOP.size * DWELL_MS * 9 / 5).coerceAtLeast(3000L)
     private const val REPORT_MS = 10_000L
@@ -127,6 +128,7 @@ object Mt7612uMonitor {
     fun run(ctx: Context, device: UsbDevice, chipName: String, onStatus: (String) -> Unit,
             onFrame: (List<MonitorSighting>) -> Unit) {
         if (running) return
+        HOP = UsbWifi.hops(ALL_HOP)
         running = true; stop = false; frames.clear(); lastCalMs.clear(); mcuLogged = 0; ctlErrors = 0; mcuAsked = 0; mcuAnswered = 0; uncalibrated = false
         val mgr = ctx.getSystemService(Context.USB_SERVICE) as UsbManager
         val c = mgr.openDevice(device) ?: run { onStatus("$chipName: couldn't reopen adapter"); running = false; return }

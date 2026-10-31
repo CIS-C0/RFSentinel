@@ -250,7 +250,7 @@ object Voice {
     /** English voices, best first: installed (offline) before network, then by quality, US/GB first. */
     private fun englishVoices(engine: TextToSpeech): List<android.speech.tts.Voice> =
         runCatching { engine.voices.orEmpty() }.getOrDefault(emptySet())
-            .filter { it.locale.language == "en" && !it.features.orEmpty().contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED) }
+            .filter { runCatching { it.locale.isO3Language }.getOrNull() == "eng" && !it.features.orEmpty().contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED) }
             .sortedWith(
                 compareBy<android.speech.tts.Voice> { it.isNetworkConnectionRequired }
                     .thenByDescending { it.quality }

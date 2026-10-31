@@ -63,6 +63,16 @@
             android:textColor="#B0BAC1"
             android:textSize="13sp" />
 
+        <TextView
+            android:id="@+id/liveSweep"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#B0BAC1"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
         <com.rfsentinel.app.ui.LevelBarView
             android:id="@+id/liveBar"
             android:layout_width="match_parent"

@@ -298,6 +298,8 @@ class WazeWatch(
 
             val first = id !in seen
             if (first) seen[id] = now
+            // Dismissed from the list (its mute button): no alert, no call-outs.
+            if (com.rfsentinel.app.data.AlertMutes.isMuted(context, "waze:$id", now)) continue
             val eligible = s.hit.confidence >= threshold
             if (first || (eligible && id !in alerted)) {
                 if (eligible) alerted += id
@@ -323,7 +325,8 @@ class WazeWatch(
         heldSince.keys.retainAll(known.keys)
 
         // The threat headline: the strongest report that counts and is allowed to be loud enough to matter.
-        val headline = shown.filter { counts(it) && it.level != WazePolice.Level.LOG }.maxByOrNull { it.hit.confidence }
+        val headline = shown.filter { counts(it) && it.level != WazePolice.Level.LOG &&
+            !com.rfsentinel.app.data.AlertMutes.isMuted(context, "waze:${it.report.id}", now) }.maxByOrNull { it.hit.confidence }
         AmbientThreats.waze = headline?.let { now to AmbientThreats.Threat(it.hit.confidence, it.hit.label, Category.POLICE_REPORT) }
         AmbientThreats.wazeTtlMs = 20_000L // refreshed every second while the checks run
 

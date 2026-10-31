@@ -49,6 +49,13 @@
     <!-- Optional floating threat bubble over other apps (the user grants it in Settings). -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
+    <!-- Android 11+ hides other apps: without this, speech engines other than the built-in one can't be found (GrapheneOS, a Play Store Google TTS). -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
     <application
         android:name=".RFSentinelApp"
         android:allowBackup="true"
@@ -105,6 +112,7 @@
         <activity android:name=".ui.WifiAnalyzerActivity" android:exported="false" />
         <activity android:name=".ui.AntennaCheckActivity" android:exported="false" />
         <activity android:name=".ui.AircraftActivity" android:exported="false" />
+        <activity android:name=".ui.P25Activity" android:exported="false" />
         <activity android:name=".ui.WaterfallActivity" android:exported="false"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize" />
         <activity

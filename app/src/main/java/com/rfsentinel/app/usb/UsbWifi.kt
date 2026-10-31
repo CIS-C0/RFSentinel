@@ -160,6 +160,13 @@ object UsbWifi {
     @Volatile var status: String = ""
         private set
 
+    /** Settings > WiFi bands, read as a session starts. */
+    @Volatile var band = com.rfsentinel.app.util.Prefs.WifiBand.ALL
+    /** True when a channel of the 5 / 6 GHz bands ([high]) or of 2.4 GHz is in the chosen band. */
+    fun inBand(high: Boolean) = band == com.rfsentinel.app.util.Prefs.WifiBand.ALL || (band == com.rfsentinel.app.util.Prefs.WifiBand.HIGH) == high
+    /** [all]'s channels in the chosen band (2.4 GHz is 1-14); all of them when none are (a 2.4 GHz-only adapter on 5 GHz). */
+    fun hops(all: IntArray): IntArray = all.filter { inBand(it > 14) }.toIntArray().takeIf { it.isNotEmpty() } ?: all
+
     /** The adapter waiting for its chip firmware (FOSS build, not downloaded yet), for [FirmwarePrompt]; null when none. */
     @Volatile var firmwareNeeded: Chip? = null
         private set
@@ -364,6 +371,7 @@ object UsbWifi {
                 // A quick stop and start: each driver refuses to start while its last session is still stopping.
                 previous?.join(3_000)
                 if (previous?.isAlive == true) { status = "USB WiFi (${chip.name}): the last session is still stopping - unplug and replug the adapter"; return@runCatching }
+                band = com.rfsentinel.app.util.Prefs.wifiBand(context)
                 val onStatus: (String) -> Unit = { s -> status = s }
                 val onFrames: (List<MonitorSighting>) -> Unit = { list -> onSightings?.invoke(list) }
                 when (chip.driver) {

@@ -44,12 +44,12 @@ object AlertPlayer {
         .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
         .build()
-    private val carSpeechAttributes = AudioAttributes.Builder()
+    /**
+     * Speech too, on the phone as in the car: a notification usage is muted by Do Not Disturb, which
+     * the phone's driving mode turns on when it joins the car's Bluetooth - silent voice, even the test.
+     */
+    private val speechAttributes = AudioAttributes.Builder()
         .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-        .build()
-    private val phoneSpeechAttributes = AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
         .build()
 
@@ -95,7 +95,7 @@ object AlertPlayer {
         }
         if (willSpeak) {
             val app = context.applicationContext
-            val attrs = if (inCar) carSpeechAttributes else phoneSpeechAttributes
+            val attrs = speechAttributes
             val priority = when {
                 following -> VoiceQueue.FOLLOWING
                 tier == Tier.STRONG -> VoiceQueue.STRONG
@@ -195,7 +195,7 @@ object AlertPlayer {
     /** A spoken navigation instruction (no beep, no vibration); silent when alerts are muted. */
     fun announce(context: Context, text: String) {
         if (Prefs.alertsSilenced(context)) return
-        Voice.say(context.applicationContext, text, VoiceQueue.STRONG, if (CarState.connected) carSpeechAttributes else phoneSpeechAttributes)
+        Voice.say(context.applicationContext, text, VoiceQueue.STRONG, speechAttributes)
     }
 
     /**
@@ -205,7 +205,7 @@ object AlertPlayer {
      */
     fun navigate(context: Context, text: String, urgent: Boolean) {
         if (!Prefs.navVoice(context)) return
-        Voice.sayNav(context.applicationContext, text, urgent, carSpeechAttributes)
+        Voice.sayNav(context.applicationContext, text, urgent, speechAttributes)
     }
 
     /**
@@ -215,13 +215,13 @@ object AlertPlayer {
     fun callout(context: Context, text: String) {
         val inCar = CarState.connected
         if (Prefs.alertsSilenced(context) || !(Prefs.voiceEnabled(context) || (inCar && Prefs.carVoice(context)))) return
-        Voice.say(context.applicationContext, text, VoiceQueue.STRONG, if (inCar) carSpeechAttributes else phoneSpeechAttributes)
+        Voice.say(context.applicationContext, text, VoiceQueue.STRONG, speechAttributes)
     }
 
     /** The Settings "Test voice" button: speaks right away with the chosen voice and speed. */
     fun testVoice(context: Context, short: Boolean = Prefs.shortVoice(context)) {
         Voice.test(context.applicationContext, if (short) "Body cam" else "RF Sentinel voice alerts. Axon body camera nearby.",
-            if (CarState.connected) carSpeechAttributes else phoneSpeechAttributes)
+            speechAttributes)
     }
 
     /**
@@ -242,7 +242,7 @@ object AlertPlayer {
         val am = context.getSystemService(AudioManager::class.java) ?: return
         focusRequest?.let { am.abandonAudioFocusRequest(it) }
         val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
-            .setAudioAttributes(carSpeechAttributes)
+            .setAudioAttributes(speechAttributes)
             .build()
         focusRequest = req
         am.requestAudioFocus(req)

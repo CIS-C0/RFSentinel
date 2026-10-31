@@ -31,7 +31,7 @@ object Rtl8812auMonitor {
     private val HOP_24 = intArrayOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
     /** UNII-1 and UNII-3, like the RTL8814AU driver (where most 5 GHz networks are). */
     private val HOP_5 = intArrayOf(36, 40, 44, 48, 149, 153, 157, 161, 165)
-    private val HOP = HOP_24 + HOP_5
+    private var HOP = HOP_24 + HOP_5
     /** The board type the efuse says (which antenna switch and LNA lines the baseband drives); 0 when it can't be read. */
     private var rfe = 0
     /** The chip's revision: 0 = A, 1 = B, 2 = C... */
@@ -64,6 +64,7 @@ object Rtl8812auMonitor {
     fun run(ctx: Context, device: UsbDevice, onStatus: (String) -> Unit,
             onFrame: (List<MonitorSighting>) -> Unit) {
         if (running) return
+        HOP = UsbWifi.hops(HOP_24 + HOP_5)
         running = true; stop = false; frames.clear(); rfShadow.forEach { it.clear() }
         val mgr = ctx.getSystemService(Context.USB_SERVICE) as UsbManager
         val conn = mgr.openDevice(device) ?: run { onStatus("RTL8812AU: couldn't reopen adapter"); running = false; return }

@@ -890,6 +890,7 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.rotationLabel, "Normal follows the phone's auto-rotate.\n\nAuto-rotate, upside down too: also turns upside down, which phones like the Pixel never do on their own.\n\nAlways upside down: the USB-C port at the top, for an antenna or adapter plugged in.")
         info(binding.bannerLabel, "A picture across the header of the styled themes (a logo or artwork you own). Your custom themes have their own banner, set in the theme maker.")
         info(binding.hideTrustedSwitch, "Devices on your whitelist are left off the list and radar.")
+        info(binding.wifiBandLabel, "Which WiFi networks and devices are listed. On a USB WiFi adapter it also sets the channels it hops: 5 and 6 GHz only gives those channels more listening time (police in-car networks are usually on 5 GHz). Adapters that only do 2.4 GHz keep scanning 2.4 GHz.\n\nThe phone's own WiFi scan always covers every band; the others are only left out of the list. A USB adapter picks up a change when it next starts.")
         info(binding.scanModeLabel, "Maximum finds devices fastest and uses the most battery. Battery saver notices them later.")
         info(binding.intervalLabel, "How often WiFi is scanned. Android allows an app 4 scans in 2 minutes unless WiFi scan throttling is turned off in Developer options.")
         withUnit(binding.intervalInput, "s")
@@ -897,7 +898,9 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.carAutoSwitch, "Starts scanning when the phone connects to your car's Bluetooth or Android Auto, and stops when you leave.")
         info(binding.carRecordSwitch, "Records a GPS trace when the phone connects to your car's Bluetooth or Android Auto, and saves it when you leave. Starts scanning too if it isn't running. A trace you started yourself is never stopped.")
         info(binding.presetLabel, PRESETS_INFO)
-        info(binding.thresholdLabel, "Weak: every match, more false alarms.\n\nProbable: recommended.\n\nStrong only: the fewest alerts.")
+        info(binding.thresholdLabel, "Weak: every match, more false alarms.\n\nProbable: recommended.\n\nStrong only: the fewest alerts.\n\n" +
+            "Probable and Strong only don't alert on a vehicle router (Cradlepoint, Sierra Wireless) you hear day after day, " +
+            "like one in a shop, unless something else backs it. Weak alerts on all of them.")
         binding.thresholdMedium.text = tagged("Probable", "recommended")
         info(binding.radarBeepSwitch, "Beeps faster as a flagged device gets closer, like a radar detector.")
         info(binding.detectorSoundSwitch, "Alerts use radar-detector tones (Ka, K and X) and say \"GPS connected\" when the first GPS fix comes in.")
@@ -933,6 +936,7 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.rtl5gSwitch, "For RTL8811AU / RTL8821AU adapters such as the ALFA AWUS036ACS. Experimental.")
         info(binding.usbLightSwitch, "For RTL8811AU / RTL8821AU adapters such as the ALFA AWUS036ACS: the light blinks with received traffic.")
         info(binding.pinpointSwitch, "Works out where a flagged device is from many readings as you move (GPS runs precise every second while one is in range).")
+        info(binding.pinpointAlertsSwitch, "Pinpoints and shows the live read card only for devices that alerted you, not for every flagged device (a shop's router you pass daily).")
         info(binding.liveExportSwitch, "Keeps a live copy of matches, devices and radio hits in a folder other apps can read.")
         info(binding.retentionLabel, "How long device history is kept. 0 keeps it forever.")
         withUnit(binding.retentionInput, "days")
@@ -1253,9 +1257,41 @@ class SettingsActivity : AppCompatActivity() {
             setOnCheckedChangeListener { _, v -> save(v) }
         }.also { box.addView(if (info == null) it else infoRow(it, info)) }
 
-        switch("ADS-B aircraft receiver", Prefs.sdrAdsb(this),
-            "Listens on 1090 MHz for aircraft instead of sweeping the radio bands. Police aircraft are found without internet. " +
-            "Needs Police aircraft turned on. A 1090 MHz antenna helps; the stock one hears out to about 50 km.") { Prefs.setSdrAdsb(this, it) }
+        // What the SDR does: any mix; with more than one ticked it takes turns.
+        var showSdrOptions: () -> Unit = {}
+        info(label("Scan with the SDR"), "Tick what the RTL-SDR or HackRF does while scanning. One SDR hears one thing at a time: " +
+            "with more than one ticked it takes turns, and each scan hears nothing while another has its turn. " +
+            "Tick only one to give it all the time.", "Scan with the SDR")
+        fun scan(t: String, on: Boolean, details: String, save: (Boolean) -> Unit) = android.widget.CheckBox(this).apply {
+            text = t; isChecked = on
+            setOnCheckedChangeListener { _, v -> save(v); showSdrOptions() }
+        }.also { box.addView(infoRow(it, details)) }
+        val sweepBox = scan("Radio activity sweep", Prefs.sdrSweep(this),
+            "Sweeps the radio bands below for strong two-way radio transmissions nearby: signal strength only, nothing decoded. " +
+            "Needs Two-way radio turned on.") { Prefs.setSdrSweep(this, it) }
+        val adsbBox = scan("ADS-B aircraft receiver", Prefs.sdrAdsb(this),
+            "Listens on 1090 MHz for aircraft: police aircraft are found without internet. Needs Police aircraft turned on. " +
+            "A 1090 MHz antenna helps; the stock one hears out to about 50 km.") { Prefs.setSdrAdsb(this, it) }
+        val p25Box = scan("P25 control channel", Prefs.sdrP25(this),
+            "Experimental. Finds the P25 trunked-radio control channel here (700 / 800 MHz, used in the United States and Canada) and " +
+            "follows it: which talkgroups get a channel, and when (Tools › P25 talkgroups). Signalling only: voice is never decoded. " +
+            "Needs Two-way radio turned on. On by default when your region is the United States or Canada. Receiving radio " +
+            "signalling is legal in many places but not all, and some forbid it in a vehicle or passing on what you hear: " +
+            "check the law where you are.") { Prefs.setSdrP25(this, it) }
+        slider(30, 300, Prefs.sdrTurnS(this), { "Time for each scan: $it s" }) { Prefs.setSdrTurnS(this, it) }
+        info(box.getChildAt(box.childCount - 2), "With more than one scan ticked, the SDR spends this long on each in turn. Longer misses less " +
+            "within a scan; shorter comes back to each sooner.", "Time for each scan")
+        val turnViews = listOf(box.getChildAt(box.childCount - 2), box.getChildAt(box.childCount - 1))
+        lines("Watch these talkgroups", "1234 Sheriff dispatch\n2001", Prefs.p25Talkgroups(this),
+            "P25: alerts when a call starts on one of them, and names them on the P25 talkgroups screen. One per line: the " +
+            "talkgroup number, with an optional name.") { Prefs.setP25Talkgroups(this, it) }
+        val talkgroupViews = listOf(box.getChildAt(box.childCount - 2), box.getChildAt(box.childCount - 1))
+        showSdrOptions = {
+            val ticked = listOf(sweepBox, adsbBox, p25Box).count { it.isChecked }
+            turnViews.forEach { it.visibility = if (ticked > 1) View.VISIBLE else View.GONE }
+            talkgroupViews.forEach { it.visibility = if (p25Box.isChecked) View.VISIBLE else View.GONE }
+        }
+        showSdrOptions()
         slider(com.rfsentinel.app.sdr.RadioWatch.MIN_SNR_SETTING, com.rfsentinel.app.sdr.RadioWatch.MAX_SNR_SETTING, Prefs.radioMinSnr(this),
             { "Sensitivity: $it dB above the noise" }) {
             Prefs.setRadioMinSnr(this, it)
@@ -1799,6 +1835,7 @@ class SettingsActivity : AppCompatActivity() {
         }
         var off = Prefs.categoryAlertsOff(this, c)
         com.rfsentinel.app.data.AlertKind.entries.forEach { kind ->
+            if (kind == com.rfsentinel.app.data.AlertKind.BEEP && !Prefs.hasRadarTicks(c)) return@forEach
             chips.addView(com.rfsentinel.app.ui.FitChip(this).apply {
                 text = kind.label; isCheckable = true
                 com.rfsentinel.app.ui.ChipStyle.apply(this)
@@ -2248,6 +2285,11 @@ class SettingsActivity : AppCompatActivity() {
         // Scanning
         binding.bleSwitch.isChecked = Prefs.bleEnabled(this)
         binding.wifiSwitch.isChecked = Prefs.wifiEnabled(this)
+        binding.wifiBandGroup.check(when (Prefs.wifiBand(this)) {
+            Prefs.WifiBand.LOW -> R.id.wifiBandLow
+            Prefs.WifiBand.HIGH -> R.id.wifiBandHigh
+            Prefs.WifiBand.ALL -> R.id.wifiBandAll
+        })
         binding.scanModeGroup.check(
             when (Prefs.bleScanMode(this)) {
                 ScanSettings.SCAN_MODE_BALANCED -> R.id.scanModeBalanced
@@ -2440,6 +2482,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.followMetersInput.setText(Prefs.followMinMeters(this).toString())
         binding.gpsSwitch.isChecked = Prefs.gpsTaggingEnabled(this)
         binding.pinpointSwitch.isChecked = Prefs.pinpointFlagged(this)
+        binding.pinpointAlertsSwitch.isChecked = Prefs.pinpointAlertsOnly(this)
         binding.autoRecordSwitch.isChecked = Prefs.autoRecordTrace(this)
         binding.ouiSpyRelaySwitch.isChecked = Prefs.ouiSpyRelayAll(this)
         binding.ouiSpyPhoneBleSwitch.isChecked = Prefs.ouiSpyPhoneBle(this)
@@ -2650,6 +2693,11 @@ class SettingsActivity : AppCompatActivity() {
     private fun save() {
         Prefs.setBleEnabled(this, binding.bleSwitch.isChecked)
         Prefs.setWifiEnabled(this, binding.wifiSwitch.isChecked)
+        Prefs.setWifiBand(this, when (binding.wifiBandGroup.checkedRadioButtonId) {
+            R.id.wifiBandLow -> Prefs.WifiBand.LOW
+            R.id.wifiBandHigh -> Prefs.WifiBand.HIGH
+            else -> Prefs.WifiBand.ALL
+        })
         Prefs.setBleScanMode(
             this,
             when (binding.scanModeGroup.checkedRadioButtonId) {
@@ -2713,6 +2761,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setFollowMinMeters(this, (binding.followMetersInput.text.toString().toIntOrNull() ?: 800).coerceIn(100, 50_000))
         Prefs.setGpsTaggingEnabled(this, binding.gpsSwitch.isChecked)
         Prefs.setPinpointFlagged(this, binding.pinpointSwitch.isChecked)
+        Prefs.setPinpointAlertsOnly(this, binding.pinpointAlertsSwitch.isChecked)
         Prefs.setAutoRecordTrace(this, binding.autoRecordSwitch.isChecked)
         Prefs.setOuiSpyRelayAll(this, binding.ouiSpyRelaySwitch.isChecked)
         Prefs.setOuiSpyPhoneBle(this, binding.ouiSpyPhoneBleSwitch.isChecked)

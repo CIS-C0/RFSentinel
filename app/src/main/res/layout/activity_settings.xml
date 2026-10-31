@@ -115,6 +115,18 @@
                 android:layout_height="wrap_content"
                 android:text="WiFi scanning" />
 
+            <TextView android:id="@+id/wifiBandLabel" style="@style/SettingsLabel" android:text="WiFi bands" />
+
+            <RadioGroup
+                android:id="@+id/wifiBandGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <RadioButton android:id="@+id/wifiBandAll" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="All bands" />
+                <RadioButton android:id="@+id/wifiBandLow" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="2.4 GHz only" />
+                <RadioButton android:id="@+id/wifiBandHigh" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="5 and 6 GHz only" />
+            </RadioGroup>
+
             <TextView android:id="@+id/scanModeLabel" style="@style/SettingsLabel" android:text="Bluetooth scan intensity" />
 
             <RadioGroup
@@ -834,6 +846,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Pinpoint flagged devices on the map" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/pinpointAlertsSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Pinpoint alerts only" />
         </LinearLayout>
 
         <!-- ================= Data ================= -->

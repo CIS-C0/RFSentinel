@@ -267,6 +267,7 @@ class DetectionTest {
     fun wifiSecurityAndChannels() {
         assertEquals("WPA3", DeviceIntel.security("[RSN-SAE-CCMP][ESS]"))
         assertEquals("Open (no password)", DeviceIntel.security("[ESS]"))
+        assertEquals("Unknown (not read in monitor mode)", DeviceIntel.security(""))
         assertEquals(6, DeviceIntel.channelOf(2437))
         assertEquals(36, DeviceIntel.channelOf(5180))
         assertFalse(DeviceIntel.distanceMeters(ble()).isNaN())

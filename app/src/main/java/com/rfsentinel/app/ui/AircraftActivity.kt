@@ -153,7 +153,7 @@ class AircraftActivity : AppCompatActivity() {
             sources.text = if (demo) "Demo aircraft" else "RTL-SDR: $mine · online feeds: $online" +
                 if (list.any { it.distanceKm == null }) " · ${list.count { it.distanceKm == null }} not placed (no position yet)" else ""
             // The RTL-SDR's receiver: messages decoded per second over the last minute.
-            val adsb = SdrRadio.status.contains("ADS-B")
+            val adsb = SdrRadio.mode == SdrRadio.Mode.ADSB
             rateCard.visibility = if (adsb) View.VISIBLE else View.GONE
             if (adsb) {
                 val n = SdrRadio.adsbMessages

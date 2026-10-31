@@ -210,9 +210,11 @@ class MainActivity : AppCompatActivity() {
                 menu.add(0, 5, 4, "Antenna check")
                 menu.add(0, 6, 5, "Aircraft")
                 menu.add(0, 7, 6, "Radio waterfall")
+                menu.add(0, 8, 7, "P25 talkgroups")
                 setOnMenuItemClickListener { item ->
                     when (item.itemId) {
                         7 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.WaterfallActivity::class.java))
+                        8 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.P25Activity::class.java))
                         6 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.AircraftActivity::class.java)
                             .putExtra("demo", demoMode))
                         5 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.AntennaCheckActivity::class.java)
@@ -496,7 +498,11 @@ class MainActivity : AppCompatActivity() {
                 },
                 com.rfsentinel.app.sdr.SdrRadio.status.takeIf { it.isNotBlank() }?.let {
                     com.rfsentinel.app.ui.StatusPanel.Hardware(it,
-                        if (it.contains("ADS-B")) ({ com.rfsentinel.app.sdr.SdrRadio.adsbMessages }) else null, " msg/s")
+                        when (com.rfsentinel.app.sdr.SdrRadio.mode) {
+                            com.rfsentinel.app.sdr.SdrRadio.Mode.ADSB -> ({ com.rfsentinel.app.sdr.SdrRadio.adsbMessages })
+                            com.rfsentinel.app.sdr.SdrRadio.Mode.P25 -> ({ com.rfsentinel.app.sdr.SdrRadio.p25Messages })
+                            else -> null
+                        }, " msg/s")
                 },
                 com.rfsentinel.app.sdr.RadioReference.status.takeIf { it.isNotBlank() && com.rfsentinel.app.util.Prefs.radioReferenceOn(this) }
                     ?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) },
@@ -504,7 +510,7 @@ class MainActivity : AppCompatActivity() {
                 com.rfsentinel.app.link.MeshNode.status.takeIf { it.isNotBlank() }?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) }
             )
             statusPanel.update(running, warning, hardware, if (locationOff) ::openLocationSettings else null,
-                if (running && !locationOff) com.rfsentinel.app.ui.GpsDot.text(this, demoMode) else null)
+                gpsInTitleBar(if (running && !locationOff) com.rfsentinel.app.ui.GpsDot.text(this, demoMode) else null))
             return
         }
         val locationOff = running && !locationOn() && !demoMode
@@ -533,8 +539,19 @@ class MainActivity : AppCompatActivity() {
                 com.rfsentinel.app.link.PhoneLink.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty() +
                 com.rfsentinel.app.link.MeshNode.status.takeIf { it.isNotBlank() }?.let { "\n$it" }.orEmpty()
         }
-        binding.statusText.text = if (running && !locationOff)
-            android.text.SpannableStringBuilder(com.rfsentinel.app.ui.GpsDot.text(this, demoMode)).append(" · ").append(line) else line
+        val gps = gpsInTitleBar(if (running && !locationOff) com.rfsentinel.app.ui.GpsDot.text(this, demoMode) else null)
+        binding.statusText.text = if (gps != null) android.text.SpannableStringBuilder(gps).append(" · ").append(line) else line
+    }
+
+    /**
+     * The GPS dot goes in the title bar under the app's name, so it takes no row of its own. A styled header hides
+     * that title: then it's returned, for the status.
+     */
+    private fun gpsInTitleBar(line: CharSequence?): CharSequence? {
+        val bar = supportActionBar
+        val titled = bar != null && bar.displayOptions and androidx.appcompat.app.ActionBar.DISPLAY_SHOW_TITLE != 0
+        bar?.subtitle = if (titled) line else null
+        return if (titled) null else line
     }
 
     /**
@@ -727,13 +744,17 @@ class MainActivity : AppCompatActivity() {
         if (panes.radarShown) {
             val radio = radioBlips(now, threshold)
             radioBlips = radio.size
+            val fix = if (demoMode) com.rfsentinel.app.ui.DemoData.fakeLocation else ScanForegroundService.lastFix
+            // Heading-up while moving (the GPS course is steady from walking speed up), north-up otherwise.
+            binding.radarView.heading = fix?.takeIf { it.hasBearing() && it.speed >= 1.5f }?.bearing
             binding.radarView.setBlips(visible.take(200).map { s ->
                 val alert = com.rfsentinel.app.ui.LiveWindow.alerting(s, now)
                 RadarView.Blip(
                     s.mac, s.rssi,
                     if (alert) colorFor(s) else binding.radarView.ordinaryColor(),
                     alert,
-                    if (alert) s.best?.label else null
+                    if (alert) s.best?.label else null,
+                    if (alert && fix != null) blipBearing(s, fix.latitude, fix.longitude) else null
                 )
             } + radio)
         }
@@ -747,8 +768,12 @@ class MainActivity : AppCompatActivity() {
             val (urgent, quiet) = waze.partition { it.flashing }
             val (radioLive, radioOld) = radio.partition { it.flashing }
             val (airUrgent, airQuiet) = air.partition { it.flashing }
+            // Alerting devices from your own watchlist entries go above all of them.
+            fun mine(s: DeviceRegistry.Snapshot) = com.rfsentinel.app.ui.LiveWindow.alerting(s, now) &&
+                s.hits.any { it.source == com.rfsentinel.app.oui.OuiEntry.YOURS }
             if (com.rfsentinel.app.ui.DeviceOrder.group(this) == com.rfsentinel.app.ui.DeviceOrder.Group.NONE) {
-                submitRows(airUrgent + radioLive + urgent + sections.flatMap { it.items }.map { toRow(it, now, threshold) } +
+                val (yours, devices) = sections.flatMap { it.items }.partition(::mine)
+                submitRows(yours.map { toRow(it, now, threshold) } + airUrgent + radioLive + urgent + devices.map { toRow(it, now, threshold) } +
                     airQuiet + radioOld + cells + quiet)
             } else {
                 // Grouped: everything the list shows has a group, not only Bluetooth and WiFi devices. What's
@@ -756,9 +781,10 @@ class MainActivity : AppCompatActivity() {
                 fun block(key: String, label: String, rows: List<DeviceRow>) =
                     if (rows.isEmpty()) emptyList() else listOf(DeviceRow.header(key, "$label · ${rows.size}")) + rows
                 val alerts = com.rfsentinel.app.ui.DeviceOrder.ALERTS
+                val (yours, flagged) = sections.filter { it.header == alerts }.flatMap { it.items }.partition(::mine)
                 submitRows(
-                    block(alerts, alerts, airUrgent + radioLive + urgent +
-                        sections.filter { it.header == alerts }.flatMap { it.items }.map { toRow(it, now, threshold) }) +
+                    block(alerts, alerts, yours.map { toRow(it, now, threshold) } + airUrgent + radioLive + urgent +
+                        flagged.map { toRow(it, now, threshold) }) +
                         sections.filter { it.header != alerts }.flatMap { sec -> block(sec.header.orEmpty(), sec.header.orEmpty(), sec.items.map { toRow(it, now, threshold) }) } +
                         block("x:aircraft", "Aircraft", airQuiet) + block("x:radio", "Radio transmissions", radioOld) +
                         block("x:waze", "Waze reports", quiet) + block("x:cells", "Cell towers", cells)
@@ -828,8 +854,9 @@ class MainActivity : AppCompatActivity() {
             .filter { query.isBlank() || it.hit.label.contains(query.trim(), ignoreCase = true) }
             .map { w ->
                 val off = aheadOnly && !w.onMyWay // behind you, another street, off your route
+                val muted = com.rfsentinel.app.data.AlertMutes.isMuted(this, WAZE_ROW + w.report.id, now)
                 val urgent = w.level != com.rfsentinel.app.online.WazePolice.Level.LOG &&
-                    w.hit.confidence >= threshold && !off
+                    w.hit.confidence >= threshold && !off && !muted
                 val ago = w.report.publishedMs?.let { "${((now - it) / 60_000).coerceAtLeast(0)} min ago" } ?: "just now"
                 DeviceRow(
                     mac = WAZE_ROW + w.report.id,
@@ -842,7 +869,9 @@ class MainActivity : AppCompatActivity() {
                     highlight = if (urgent) w.report.type.color else null,
                     flashing = urgent,
                     bold = urgent,
-                    confidence = w.hit.confidence
+                    confidence = w.hit.confidence,
+                    canMute = true,
+                    muted = muted
                 )
             }
     }
@@ -887,6 +916,17 @@ class MainActivity : AppCompatActivity() {
      * RTL-SDR / HackRF transmissions of the last minute on the radar, under the All and Radio filters: closer to the
      * centre the stronger the signal. One on the air right now at or above the alert threshold pulses, with its frequency.
      */
+    /**
+     * Compass bearing from you to an alerting device whose position is known: its own broadcast, or a
+     * located estimate you are outside of (inside its circle every direction fits). Null otherwise.
+     */
+    private fun blipBearing(s: DeviceRegistry.Snapshot, lat: Double, lon: Double): Float? {
+        val at = s.broadcast?.let { it.lat to it.lon }
+            ?: s.located?.takeIf { DeviceRegistry.metersBetween(lat, lon, it.lat, it.lon) > it.radiusM }?.let { it.lat to it.lon }
+            ?: return null
+        return com.rfsentinel.app.alpr.KnownCameras.bearingTo(lat, lon, at.first, at.second).toFloat()
+    }
+
     private fun radioBlips(now: Long, threshold: Int): List<RadarView.Blip> {
         if ((filter != com.rfsentinel.app.ui.DeviceFilter.ALL && filter != com.rfsentinel.app.ui.DeviceFilter.RADIO) ||
             !ScanForegroundService.isRunning) return emptyList()
@@ -1309,6 +1349,8 @@ class MainActivity : AppCompatActivity() {
             R.id.action_device_history -> { startActivity(Intent(this, com.rfsentinel.app.ui.DeviceHistoryActivity::class.java)); true }
             R.id.action_match_log -> { startActivity(Intent(this, DetectionLogActivity::class.java)); true }
             R.id.action_settings -> { startActivity(Intent(this, SettingsActivity::class.java)); true }
+            R.id.action_watchlist -> { startActivity(Intent(this, com.rfsentinel.app.ouilist.OuiListActivity::class.java)); true }
+            R.id.action_whitelist -> { startActivity(Intent(this, com.rfsentinel.app.whitelist.WhitelistActivity::class.java)); true }
             R.id.action_probes -> { startActivity(Intent(this, com.rfsentinel.app.probes.ProbeListActivity::class.java)); true }
             R.id.action_export -> { Exporter.showExportMenu(this); true }
             R.id.action_traces -> { startActivity(Intent(this, com.rfsentinel.app.ui.TripsActivity::class.java)); true }

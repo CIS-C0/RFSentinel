@@ -56,6 +56,11 @@ interface KnownDeviceDao {
     @Query("UPDATE known_devices SET favorite = :favorite WHERE mac = :mac")
     suspend fun setFavorite(mac: String, favorite: Boolean)
 
+    /** Router makers' devices heard in [minSessions] sessions or more, the first before [before] ([com.rfsentinel.app.detect.FixedRouter]). */
+    @Query("""SELECT mac FROM known_devices WHERE sessions >= :minSessions AND firstSeen < :before AND
+        (vendor LIKE '%cradlepoint%' OR vendor LIKE '%sierra wireless%' OR vendor LIKE '%peplink%' OR vendor LIKE '%inseego%')""")
+    suspend fun familiarRouters(minSessions: Int, before: Long): List<String>
+
     @Query("SELECT mac FROM known_devices WHERE favorite = 1")
     suspend fun favorites(): List<String>
 

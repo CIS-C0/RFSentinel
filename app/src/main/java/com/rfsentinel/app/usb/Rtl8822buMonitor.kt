@@ -143,7 +143,7 @@ object Rtl8822buMonitor {
 
     private class RxState(val label: String) {
         var total = 0L; var bufs = 0L; var lastLog = 0L; var hopAt = 0L; var lastEmit = 0L; var digAt = 0L
-        var cycle = 0; var hopIdx = 0; var plan = hopCycle(0)
+        var cycle = 0; var hopIdx = 0; var plan = UsbWifi.hops(hopCycle(0))
         /** Register accesses that failed in a row; the adapter is gone or wedged past a limit. */
         var ioFailures = 0
         /** A channel held by a debug command instead of hopping (0 = hopping). */
@@ -193,7 +193,7 @@ object Rtl8822buMonitor {
         if (lock != null && st.parked == lock) AntennaCheck.holding = lock
         if (st.parked == 0 && now - st.hopAt > DWELL_MS) {
             st.hopIdx++
-            if (st.hopIdx >= st.plan.size) { st.cycle++; st.plan = hopCycle(st.cycle); st.hopIdx = 0 }
+            if (st.hopIdx >= st.plan.size) { st.cycle++; st.plan = UsbWifi.hops(hopCycle(st.cycle)); st.hopIdx = 0 }
             chipIo(st) { chip.tune(st.channel) }
             val (aps, clients) = frames.live(now, REPORT_MS)
             val band = if (st.channel > 14) "5 GHz" else "2.4 GHz"

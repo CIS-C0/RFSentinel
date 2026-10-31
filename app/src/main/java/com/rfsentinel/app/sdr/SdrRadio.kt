@@ -16,8 +16,9 @@ import com.rfsentinel.app.usb.UsbWifi
  * transmissions nearby. Only signal strength per channel is measured. Its log goes into
  * the USB adapter log (Settings → Export USB WiFi adapter log).
  *
- * Or, with [adsb] on, it stays on 1090 MHz as an ADS-B receiver ([ModeS], [AdsbTracker]):
- * aircraft heard directly, no internet needed, handed to [onAircraft] every few seconds.
+ * Or an ADS-B receiver on 1090 MHz ([ModeS], [AdsbTracker]): aircraft heard directly, no internet
+ * needed, handed to [onAircraft] every few seconds. Or it finds and follows a P25 trunked-radio
+ * control channel ([P25Hunt]). Any mix of the three ([modes]): it takes turns of [turnMs].
  *
  * The radio waterfall screen ([SdrWaterfall]) gets a row per sweep, or, zoomed in with [tuneHz],
  * holds one frequency for a fast live view (the sweep and ADS-B pause meanwhile).
@@ -35,6 +36,7 @@ object SdrRadio {
     private const val ADSB_PUSH_MS = 2_000L
     private const val TUNED_READS = 4          // ~16 ms of samples per waterfall row
     private const val TUNED_ROW_MS = 40L       // at most ~25 rows a second
+    private const val P25_RETRY_MS = 30_000L   // no control channel found: look again after this
 
     @Volatile var status: String = ""; private set
     /** ADS-B messages decoded since the app started, for the main screen's messages-per-second line. */
@@ -55,8 +57,33 @@ object SdrRadio {
     private val UNPLUGGED get() = "$deviceLabel unplugged"
     /** For the reading thread: stop now (scan stopped, unplugged, or a newer thread took over). */
     private val halted get() = stop || Thread.currentThread() !== worker
-    /** Receive ADS-B on 1090 MHz instead of sweeping the radio bands; switches at the next sweep. */
-    @Volatile var adsb = false
+    enum class Mode(val label: String) { SWEEP("radio sweep"), ADSB("ADS-B"), P25("P25") }
+    /** What the SDR does (Settings > RTL-SDR radio); with more than one it takes turns of [turnMs]. */
+    @Volatile var modes: Set<Mode> = setOf(Mode.SWEEP)
+    @Volatile var turnMs = 60_000L
+    /** The scan whose turn it is now; null when none is ticked. */
+    @Volatile var mode: Mode? = null; private set
+    @Volatile private var turnEnd = 0L
+    /** [m] keeps the SDR: its turn, still ticked, and the waterfall not zoomed in. */
+    private fun keeps(m: Mode) = mode == m && m in modes && tuneHz == null && (modes.size == 1 || System.currentTimeMillis() < turnEnd)
+    /** The scan after the current one, round the ticked ones. */
+    private fun next(): Mode? = Mode.entries.filter { it in modes }.let { l -> l.firstOrNull { it.ordinal > (mode?.ordinal ?: -1) } ?: l.firstOrNull() }
+    /** " · ADS-B in 40 s" while taking turns, for the status line. */
+    private fun turnNote(): String {
+        if (modes.size < 2) return ""
+        val left = ((turnEnd - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
+        return " · ${next()?.label} in $left s"
+    }
+    /** P25: the control channel to go back to on its next turn, and the system the talkgroup list is for. */
+    private var p25Hunt: P25Hunt? = null
+    private var p25Lock: P25Hunt.Lock? = null
+    private var p25Nac: Int? = null
+    /** Control-channel messages decoded since the app started. */
+    @Volatile var p25Messages = 0L; private set
+    /** Talkgroups and calls heard on the current control channel (the P25 screen). */
+    val p25Log = P25Log()
+    /** A call started on this talkgroup (the service alerts on watched ones). */
+    @Volatile var onP25Call: ((Int) -> Unit)? = null
     /**
      * The waterfall screen zoomed in: hold this frequency instead of sweeping (or receiving ADS-B),
      * until set back to null. Picked up within a chunk.
@@ -195,11 +222,22 @@ object SdrRadio {
                 else "RTL-SDR: this tuner isn't supported yet (R820T / R820T2 / R860 / R828D only)"
             return false
         }
-        sweepWatch = null
-        while (!halted && !sdr.lost && !gone(d.deviceName)) when {
-            tuneHz != null -> runTuned(sdr, d.deviceName)
-            adsb -> runAdsb(sdr, d.deviceName)
-            else -> runSweep(sdr, d.deviceName)
+        sweepWatch = null; p25Hunt = null; p25Lock = null
+        while (!halted && !sdr.lost && !gone(d.deviceName)) {
+            if (tuneHz != null) { runTuned(sdr, d.deviceName); continue }
+            val m = next()
+            if (m == null) {
+                mode = null
+                status = "$deviceLabel · idle: no scan ticked in Settings › RTL-SDR radio"
+                Thread.sleep(500); continue
+            }
+            if (modes.size > 1) UsbWifi.log("$deviceLabel: turn: ${m.label} for ${turnMs / 1000} s")
+            mode = m; turnEnd = System.currentTimeMillis() + turnMs
+            when (m) {
+                Mode.SWEEP -> runSweep(sdr, d.deviceName)
+                Mode.ADSB -> runAdsb(sdr, d.deviceName)
+                Mode.P25 -> runP25(sdr, d.deviceName)
+            }
         }
         if (sdr.lost) UsbWifi.log("$deviceLabel: the dongle stopped answering (unplugged?)")
         val away = sdr.lost || gone(d.deviceName)
@@ -214,12 +252,12 @@ object SdrRadio {
             UsbWifi.log("$deviceLabel: the tuner didn't lock on 1090 MHz")
             status = "$deviceLabel · ADS-B: the tuner didn't lock on 1090 MHz"
             var waited = 0
-            while (!halted && adsb && waited < 50) { Thread.sleep(100); waited++ }
+            while (!halted && keeps(Mode.ADSB) && waited < 50) { Thread.sleep(100); waited++ }
             return
         }
         sdr.resetBuffer()
         UsbWifi.log("$deviceLabel: ADS-B receiver on 1090 MHz, ${sdr.sampleRate} S/s, gain ${ADSB_GAIN_TENTHS_DB / 10.0} dB")
-        status = "$deviceLabel · ADS-B · listening on 1090 MHz…"
+        status = "$deviceLabel · ADS-B · listening on 1090 MHz…" + turnNote()
         // One read is ~33 ms of samples; Android before 9 caps a transfer at 16 KB.
         val xfer = if (android.os.Build.VERSION.SDK_INT >= 28) 131_072 else XFER
         val buf = ByteArray(xfer)
@@ -230,7 +268,7 @@ object SdrRadio {
         val frames = ArrayList<ModeS.Frame>()
         var lastPush = 0L; var lastLog = System.currentTimeMillis(); var fails = 0; var messages = 0L; var logged = 0L
         var lastCheck = System.currentTimeMillis()
-        while (!halted && !sdr.lost && adsb && tuneHz == null) {
+        while (!halted && !sdr.lost && keeps(Mode.ADSB)) {
             val n = sdr.read(buf)
             // Every couple of seconds: still plugged in? (Reads alone can fail quietly for a long time.)
             if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
@@ -260,7 +298,7 @@ object SdrRadio {
                 val located = tracker.located(now)
                 val unlocated = tracker.unlocated(now)
                 onAircraft?.invoke(located, unlocated)
-                if (!halted) status = "$deviceLabel · ADS-B · ${located.size + unlocated.size} aircraft heard, ${located.size} with a position"
+                if (!halted) status = "$deviceLabel · ADS-B · ${located.size + unlocated.size} aircraft heard, ${located.size} with a position" + turnNote()
             }
             if (now - lastLog >= 60_000) {
                 UsbWifi.log("$deviceLabel: ADS-B ${messages - logged} messages in ${(now - lastLog) / 1000} s, " +
@@ -268,7 +306,8 @@ object SdrRadio {
                 lastLog = now; logged = messages
             }
         }
-        onAircraft?.invoke(emptyList(), emptyList())
+        // Only its turn ended: the aircraft stay listed until they go stale, and come back on the next turn.
+        if (Mode.ADSB !in modes) onAircraft?.invoke(emptyList(), emptyList())
         UsbWifi.log("$deviceLabel: ADS-B receiver stopped after $messages messages")
     }
 
@@ -292,11 +331,11 @@ object SdrRadio {
         var lastCheck = System.currentTimeMillis()
         // The waterfall's row for this sweep, while it is on screen.
         var row = ArrayList<SdrWaterfall.Segment>()
-        while (!halted && !sdr.lost && !adsb && tuneHz == null) {
+        while (!halted && !sdr.lost && keeps(Mode.SWEEP)) {
             // Settings changed: the new bands / targets / sensitivity from this sweep on.
             if (config != cfg) { cfg = config; plan = RadioWatch.plan(cfg); watch.config = cfg; logPlan() }
             for (center in plan) {
-                if (halted || sdr.lost || adsb || tuneHz != null) break
+                if (halted || sdr.lost || !keeps(Mode.SWEEP)) break
                 if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
                 if (!sdr.tune(center)) { unlocked++; continue }
                 repeat(sdr.settleReads) { sdr.read(buf) }
@@ -330,7 +369,7 @@ object SdrRadio {
                     onEvent?.invoke(e)
                 }
             }
-            if (tuneHz != null || adsb) break // cut short: not a whole sweep
+            if (!keeps(Mode.SWEEP)) break // cut short: not a whole sweep
             watch.sweepDone()
             val now = System.currentTimeMillis()
             if (row.isNotEmpty()) {
@@ -339,8 +378,8 @@ object SdrRadio {
             }
             sweepMs = now - sweepStart; sweepStart = now
             if (gone(name)) break
-            if (!halted) status = if (watch.sweeps < 6) "$deviceLabel · learning the radio bands here…"
-                     else "$deviceLabel · live · sweep ${sweepMs / 100 / 10.0} s · $events transmissions nearby so far"
+            if (!halted) status = (if (watch.sweeps < 6) "$deviceLabel · learning the radio bands here…"
+                     else "$deviceLabel · live · sweep ${sweepMs / 100 / 10.0} s · $events transmissions nearby so far") + turnNote()
             if (now - lastLog > (if (watch.sweeps < 20) 10_000 else 60_000)) {
                 lastLog = now
                 UsbWifi.log("$deviceLabel: sweep ${watch.sweeps} in $sweepMs ms, ${watch.learnedChannels} channels, ${watch.busyChannels} always busy, " +
@@ -348,6 +387,50 @@ object SdrRadio {
             }
         }
         UsbWifi.log("$deviceLabel: radio sweep stopped after ${watch.sweeps} sweeps")
+    }
+
+    /** Finds a P25 control channel and follows it; looks again when it goes quiet or none was found. */
+    private fun runP25(sdr: SdrDevice, name: String) {
+        sdr.setGain(GAIN_TENTHS_DB)
+        sdr.resetBuffer()
+        val hunt = p25Hunt ?: P25Hunt(sdr) { UsbWifi.log("$deviceLabel: $it") }.also { p25Hunt = it }
+        var lastCheck = System.currentTimeMillis(); var away = false
+        val stop = {
+            val now = System.currentTimeMillis()
+            if (now - lastCheck >= 2_000L) { lastCheck = now; away = gone(name) }
+            halted || sdr.lost || away || !keeps(Mode.P25)
+        }
+        UsbWifi.log("$deviceLabel: P25 control channel receiver, gain ${GAIN_TENTHS_DB / 10.0} dB")
+        while (!stop()) {
+            // Its last turn's control channel first: no new search when it is still there.
+            val known = p25Lock
+            if (known == null) status = "$deviceLabel · P25 · looking for a control channel…" + turnNote()
+            val lock = known ?: hunt.hunt(stop)
+            if (lock == null) {
+                if (stop()) break
+                UsbWifi.log("$deviceLabel: P25 - no control channel decoded (${hunt.tried} channels tried), looking again in ${P25_RETRY_MS / 1000} s")
+                status = "$deviceLabel · P25 · no control channel heard here · looking again shortly" + turnNote()
+                val until = System.currentTimeMillis() + P25_RETRY_MS
+                while (!stop() && System.currentTimeMillis() < until) Thread.sleep(200)
+                continue
+            }
+            // Frequency and network code stay off the log: together they name the local system.
+            UsbWifi.log(if (known != null) "$deviceLabel: P25 back on the control channel" else "$deviceLabel: P25 control channel found after ${hunt.tried} tries")
+            p25Lock = lock
+            if (lock.nac != p25Nac) { p25Log.clear(System.currentTimeMillis()); p25Nac = lock.nac } // another system: a new list
+            val where = "%.3f MHz · NAC %03X".format(java.util.Locale.US, lock.hz / 1e6, lock.nac)
+            status = "$deviceLabel · P25 · control channel $where" + turnNote()
+            var messages = 0; var lastStatus = 0L
+            val lost = hunt.listen(lock, stop) {
+                messages++; p25Messages++
+                val now = System.currentTimeMillis()
+                for (tg in p25Log.add(it, now)) onP25Call?.invoke(tg)
+                if (now - lastStatus >= 2_000L && !halted) { lastStatus = now; status = "$deviceLabel · P25 · control channel $where · $messages messages" + turnNote() }
+            }
+            if (lost) p25Lock = null
+            UsbWifi.log("$deviceLabel: P25 ${if (lost) "control channel went quiet" else "turn over or stopped"} after $messages messages (${hunt.blocks} blocks in all), " +
+                p25Log.rows().let { r -> "${r.size} talkgroups / private calls, ${r.sumOf { it.calls }} calls" })
+        }
     }
 
     /** Holds [tuneHz] for the waterfall screen: a row of the ~2 MHz around it every few tens of ms. */

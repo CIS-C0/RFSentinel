@@ -48,12 +48,21 @@ object Prefs {
 
     /** The ways a category doesn't alert you (Settings › What to detect): banner, sound, voice, vibration, radar beep. */
     fun categoryAlertsOff(context: Context, category: Category): Set<com.rfsentinel.app.data.AlertKind> =
-        com.rfsentinel.app.data.AlertKind.parse(sp(context).getString("cat_alerts_off_" + category.name, null))
+        com.rfsentinel.app.data.AlertKind.parse(sp(context).getString("cat_alerts_off_" + category.name, null)).let {
+            // Saved before these had no Beep chip: Beep off meant "stop the beeping", which is their alert sound.
+            if (!hasRadarTicks(category) && com.rfsentinel.app.data.AlertKind.BEEP in it)
+                it - com.rfsentinel.app.data.AlertKind.BEEP + com.rfsentinel.app.data.AlertKind.SOUND else it
+        }
 
     fun setCategoryAlertsOff(context: Context, category: Category, off: Set<com.rfsentinel.app.data.AlertKind>) = sp(context).edit {
         val key = "cat_alerts_off_" + category.name
-        com.rfsentinel.app.data.AlertKind.format(off)?.let { putString(key, it) } ?: remove(key)
+        val kept = if (hasRadarTicks(category)) off else off - com.rfsentinel.app.data.AlertKind.BEEP
+        com.rfsentinel.app.data.AlertKind.format(kept)?.let { putString(key, it) } ?: remove(key)
     }
+
+    /** Radar beeps tick for devices heard nearby; these alerts aren't one (online reports, GPS, cell network). */
+    fun hasRadarTicks(category: Category) =
+        category !in setOf(Category.AIRCRAFT, Category.POLICE_REPORT, Category.GNSS, Category.CELL_ANOMALY)
 
     // ---- Alerts ---------------------------------------------------------------
 
@@ -200,6 +209,9 @@ object Prefs {
     /** Pinpoint flagged devices from many readings as you move (GPS runs precise every second while one is in range). */
     fun pinpointFlagged(context: Context): Boolean = bool(context, "pinpoint_flagged", true)
     fun setPinpointFlagged(context: Context, value: Boolean) = setBool(context, "pinpoint_flagged", value)
+    /** Pinpoint (and show the live read card for) only devices that alerted, not every flagged one. */
+    fun pinpointAlertsOnly(context: Context): Boolean = bool(context, "pinpoint_alerts_only", false)
+    fun setPinpointAlertsOnly(context: Context, value: Boolean) = setBool(context, "pinpoint_alerts_only", value)
 
     /**
      * How the app turns: NORMAL follows auto-rotate (never upside down on phones like the Pixel), ALL_WAYS
@@ -412,6 +424,12 @@ object Prefs {
     }
     /** Have the OUI-SPY board relay every network and Bluetooth device it hears (its Wardrive engine). */
     /** Whether the screen stays on while an RF Sentinel screen is open. */
+    /** WiFi bands scanned (Settings > Scanning): the phone's results and the USB adapters' channel hopping. */
+    enum class WifiBand { ALL, LOW, HIGH }
+    fun wifiBand(context: Context): WifiBand =
+        runCatching { WifiBand.valueOf(sp(context).getString("wifi_band", null)!!) }.getOrDefault(WifiBand.ALL)
+    fun setWifiBand(context: Context, band: WifiBand) = sp(context).edit { putString("wifi_band", band.name) }
+
     enum class ScreenMode { ALWAYS_ON, ON_WHILE_CHARGING, NORMAL }
     fun screenMode(context: Context): ScreenMode =
         runCatching { ScreenMode.valueOf(sp(context).getString("screen_mode", null)!!) }.getOrDefault(ScreenMode.ON_WHILE_CHARGING)
@@ -558,6 +576,19 @@ object Prefs {
     /** The RTL-SDR as an ADS-B aircraft receiver on 1090 MHz instead of the radio sweep (off by default). */
     fun sdrAdsb(context: Context): Boolean = bool(context, "sdr_adsb", false)
     fun setSdrAdsb(context: Context, v: Boolean) = setBool(context, "sdr_adsb", v)
+    /** The SDR's radio-activity sweep: on by default, unless ADS-B or P25 was switched on when they replaced it. */
+    fun sdrSweep(context: Context): Boolean = bool(context, "sdr_sweep", !sdrAdsb(context) && !bool(context, "sdr_p25", false))
+    fun setSdrSweep(context: Context, v: Boolean) = setBool(context, "sdr_sweep", v)
+    /** The SDR follows a P25 control channel: on by default where P25 is used (the United States or Canada region picked). */
+    fun sdrP25(context: Context): Boolean = bool(context, "sdr_p25",
+        com.rfsentinel.app.oui.OuiWatchlist.getEnabledPresets(context).any { it == "us" || it == "canada" })
+    fun setSdrP25(context: Context, v: Boolean) = setBool(context, "sdr_p25", v)
+    /** P25 talkgroups to alert on, "1234 Name" a line ([com.rfsentinel.app.sdr.P25Log.watched]). */
+    fun p25Talkgroups(context: Context) = str(context, "p25_talkgroups")
+    fun setP25Talkgroups(context: Context, v: String) = setStr(context, "p25_talkgroups", v)
+    /** Seconds the SDR gives each ticked scan in turn, 30-300: a first P25 search takes up to about 15 s. */
+    fun sdrTurnS(context: Context): Int = int(context, "sdr_turn_s", 60).coerceIn(30, 300)
+    fun setSdrTurnS(context: Context, v: Int) = setInt(context, "sdr_turn_s", v.coerceIn(30, 300))
 
     /** Name hits from RadioReference (needs the user's own Premium login and developer key; off by default). */
     fun radioReferenceOn(context: Context): Boolean = bool(context, "radio_reference_on", false)

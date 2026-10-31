@@ -19,15 +19,21 @@ import kotlin.math.sin
  * Radar-style view of nearby devices. Distance from the centre = signal
  * strength (a stronger signal plots closer). The ANGLE is a stable position
  * derived from the address so blips don't jump around - a single phone
- * antenna cannot measure direction, and the view says so.
+ * antenna cannot measure direction, and the view says so. An alert whose
+ * position is known ([Blip.bearing]) plots in its real direction instead,
+ * with a line from you.
  */
 class RadarView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null
 ) : View(context, attrs) {
 
-    data class Blip(val mac: String, val rssi: Int, val color: Int, val flagged: Boolean, val label: String?)
+    /** [bearing]: compass degrees from you to the device, when its position is known. */
+    data class Blip(val mac: String, val rssi: Int, val color: Int, val flagged: Boolean, val label: String?,
+                    val bearing: Float? = null)
 
     var onBlipClick: ((String) -> Unit)? = null
+    /** Your course in compass degrees for heading-up; null is north-up. */
+    var heading: Float? = null
 
     private var blips: List<Blip> = emptyList()
     private var sweep = 0f
@@ -84,10 +90,13 @@ class RadarView @JvmOverloads constructor(
         return ((h and 0x7fffffff) % 3600) / 3600.0 * 2 * Math.PI
     }
 
+    /** Screen angle (0 = right, clockwise) of a compass bearing, with up = [heading] or north. */
+    private fun screenAngle(bearing: Float) = Math.toRadians((bearing - (heading ?: 0f) - 90f).toDouble())
+
     private fun position(b: Blip): Pair<Float, Float> {
         val (cx, cy) = center()
         val r = radius() * rssiToFraction(b.rssi)
-        val a = angleOf(b.mac)
+        val a = b.bearing?.let { screenAngle(it) } ?: angleOf(b.mac)
         return Pair(cx + (r * cos(a)).toFloat(), cy + (r * sin(a)).toFloat())
     }
 
@@ -115,11 +124,22 @@ class RadarView @JvmOverloads constructor(
         canvas.drawCircle(cx, cy, rad, sweepPaint)
         canvas.restore()
 
+        val directional = blips.any { it.bearing != null }
+        if (directional) {
+            val n = screenAngle(0f)
+            canvas.drawText("N", cx + ((rad - 10 * density) * cos(n)).toFloat() - 4 * density,
+                cy + ((rad - 10 * density) * sin(n)).toFloat() + 4 * density, labelPaint.apply { color = scopeText })
+        }
+
         val t = (System.currentTimeMillis() % 1000L) / 1000f
         // Ordinary devices first so flagged ones draw on top.
         for (b in blips.sortedBy { it.flagged }) {
             val (x, y) = position(b)
             blipPaint.color = b.color
+            if (b.bearing != null) {
+                pulsePaint.color = alpha(b.color, 0x99)
+                canvas.drawLine(cx, cy, x, y, pulsePaint)
+            }
             if (b.flagged) {
                 pulsePaint.color = (b.color and 0x00FFFFFF) or (((1f - t) * 200).toInt() shl 24)
                 canvas.drawCircle(x, y, (7 + 14 * t) * density, pulsePaint)
@@ -135,7 +155,8 @@ class RadarView @JvmOverloads constructor(
         canvas.drawCircle(cx, cy, 5 * density, youPaint)
 
         canvas.drawText(
-            "Closer to centre = stronger signal · angle is not direction",
+            if (directional) "Closer = stronger signal · lines point to located alerts"
+            else "Closer to centre = stronger signal · angle is not direction",
             8 * density, height - 8 * density, textPaint
         )
 
