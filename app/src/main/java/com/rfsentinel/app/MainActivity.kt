@@ -623,10 +623,7 @@ class MainActivity : AppCompatActivity() {
      * view instead of just off screen. Scrolled down, the rows you are reading stay put, and a
      * "New alert" pill shows instead; tap it (or scroll up) to see it.
      */
-    private fun submitRows(listed: List<DeviceRow>) {
-        // A hidden row comes back once its mute ends, or when it has left the list and is heard again.
-        hiddenRows.retainAll(listed.mapTo(HashSet()) { it.mac })
-        val rows = listed.filter { !(it.mac in hiddenRows && it.muted) }
+    private fun submitRows(rows: List<DeviceRow>) {
         val rv = binding.recyclerView
         val atTop = !rv.canScrollVertically(-1)
         val alerts = rows.filter { it.highlight != null || it.flashing }.map { it.mac }.toSet()
@@ -714,9 +711,14 @@ class MainActivity : AppCompatActivity() {
         val externalMs = Prefs.liveExternalSec(this) * 1000L
         // Settings > Scanning: trusted (whitelisted) devices can be left out of the list and radar.
         val hideTrusted = Prefs.hideWhitelisted(this)
-        val all = DeviceRegistry.snapshot(now).filter {
+        val live = DeviceRegistry.snapshot(now).filter {
             com.rfsentinel.app.ui.LiveWindow.keep(it, now, bleMs, wifiMs, externalMs) && !(hideTrusted && WhitelistCache.contains(it.mac))
         }
+        // Rows swiped away ([hideRow]) are left out everywhere (list, radar, banner, counts) while their mute lasts;
+        // one that leaves the live list comes back when it is heard again.
+        val liveMacs = live.mapTo(HashSet()) { it.mac }
+        hiddenRows.retainAll { it in liveMacs && com.rfsentinel.app.data.AlertMutes.isMuted(this, it) }
+        val all = if (hiddenRows.isEmpty()) live else live.filter { it.mac !in hiddenRows }
         val threshold = Prefs.alertThreshold(this)
         binding.wazeSwipe.isEnabled = com.rfsentinel.app.ui.WazeUi.on(this) && panes.listShown
         deviceCount = all.size
@@ -1080,7 +1082,7 @@ class MainActivity : AppCompatActivity() {
         if (until == null) mutes.unmute(this, mac) else mutes.mute(this, mac, until)
     }
 
-    /** Rows swiped left: muted and off the list while the mute lasts, or until they leave the list. */
+    /** Rows swiped left: muted and off the screen (list, radar, banner) while the mute lasts, or until they leave the live list. */
     private val hiddenRows = HashSet<String>()
 
     private fun hideRow(row: DeviceRow) {
