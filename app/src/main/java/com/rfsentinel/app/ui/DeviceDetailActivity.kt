@@ -568,13 +568,23 @@ class DeviceDetailActivity : AppCompatActivity() {
         if (locatingThis()) stopLocate() else startLocate()
     }
 
+    private var sweepGuide: SweepGuide? = null
+
     private fun startLocate() {
         LiveRead.startLocate(this, mac)
         binding.locateButton.text = "Stop"
-        Toast.makeText(this, "Walk around: beeps speed up as the signal gets stronger. Or stand still, phone flat, and turn slowly for its direction", Toast.LENGTH_LONG).show()
+        // With a compass: the chest sweep guide, for its direction. Without one only the beeps can lead you.
+        if (Compass(this).available) sweepGuide = SweepGuide(this).also { it.show() }
+        else Toast.makeText(this, "Walk around: beeps speed up as the signal gets stronger", Toast.LENGTH_LONG).show()
+    }
+
+    override fun onDestroy() {
+        sweepGuide?.dismiss()
+        super.onDestroy()
     }
 
     private fun stopLocate() {
+        sweepGuide?.dismiss(); sweepGuide = null
         if (locatingThis()) LiveRead.stopLocate()
         if (::binding.isInitialized) binding.locateButton.text = "Locate"
     }
