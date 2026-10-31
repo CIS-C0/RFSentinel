@@ -92,6 +92,7 @@ class ScanForegroundService : Service() {
         const val ACTION_REFRESH_LOCATION = "com.rfsentinel.app.action.REFRESH_LOCATION"
         /** Re-applies Sentinel Link (joined, left, sharing switched) to a running scan. */
         const val ACTION_REFRESH_LINK = "com.rfsentinel.app.action.REFRESH_LINK"
+        const val ACTION_RESCAN = "com.rfsentinel.app.action.RESCAN"
 
         /** Android downgrades an unfiltered BLE scan to opportunistic after ~30 min; restart before. */
         private const val BLE_RESTART_INTERVAL_MS = 25 * 60 * 1000L
@@ -184,6 +185,12 @@ class ScanForegroundService : Service() {
 
         fun stop(context: Context) {
             context.stopService(Intent(context, ScanForegroundService::class.java))
+        }
+
+        /** The list's pull-down: a running scan scans WiFi and checks the cells right now (never starts a scan). */
+        fun rescan(context: Context) {
+            if (!isRunning) return
+            runCatching { context.startService(Intent(context, ScanForegroundService::class.java).setAction(ACTION_RESCAN)) }
         }
 
         /** Sentinel Link changed: a running scan starts or stops linking (never starts a scan). */
@@ -346,6 +353,13 @@ class ScanForegroundService : Service() {
             // A settings refresh must never start a scan by itself.
             if (!isRunning) { stopSelf(); return START_NOT_STICKY }
             updateLocationUpdates()
+            return START_STICKY
+        }
+        if (intent?.action == ACTION_RESCAN) {
+            if (!isRunning) { stopSelf(); return START_NOT_STICKY }
+            // Bluetooth and the external boards report all the time; WiFi and the cells are polled.
+            if (wifiPollJob?.isActive == true) wifiEngine.requestScan()
+            if (cellJob?.isActive == true) startCellChecks()
             return START_STICKY
         }
         if (intent?.action == ACTION_REFRESH_LINK) {
@@ -1723,7 +1737,8 @@ class ScanForegroundService : Service() {
             while (isActive) {
                 val ctx = this@ScanForegroundService
                 val now = System.currentTimeMillis()
-                val target = if (!Prefs.radarBeep(ctx)) null else lastAlerted.entries
+                // Silent while Locate beeps, so the two never play over each other.
+                val target = if (!Prefs.radarBeep(ctx) || com.rfsentinel.app.ui.LiveRead.locating != null) null else lastAlerted.entries
                     .filter { now - it.value in RADAR_QUIET_MS..RADAR_HOLD_MS && !WhitelistCache.contains(it.key) &&
                         !com.rfsentinel.app.data.AlertMutes.isMuted(ctx, it.key, now) }
                     .mapNotNull { DeviceRegistry.get(it.key) }

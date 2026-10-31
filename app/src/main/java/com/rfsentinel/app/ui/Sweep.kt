@@ -1,14 +1,26 @@
 package com.rfsentinel.app.ui
 
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.hypot
 import kotlin.math.roundToInt
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
- * On-foot direction finding while Locate runs: hold the phone flat in front of you and turn slowly. Your body
- * blocks the signal from behind, so the device is heard strongest when you face it. Readings go into
- * [SECTORS] compass sectors; once most of a turn is covered, the strongest sector is the direction.
- * Pure (unit-tested): the compass and signal readings come from [LiveRead].
+ * On-foot direction finding while Locate runs: hold the phone against your chest and turn slowly on the spot.
+ * Your body blocks the signal from behind, so over one full turn the signal rises once (facing the device) and
+ * falls once (your back to it). Readings go into [SECTORS] compass sectors; [estimate] fits that one rise and fall
+ * and gives the direction with a confidence. Pure (unit-tested): the heading (gyro + magnetometer, [Compass]) and
+ * signal readings come from [LiveRead].
  */
 class Sweep {
+
+    /**
+     * [bearing]: compass degrees the device most likely is; [confidence] 0..1 (how much of the turn is covered and
+     * how well one rise and fall explains the readings); [frontBackDb]: how much stronger facing it than turned away.
+     */
+    data class Estimate(val bearing: Float, val confidence: Float, val frontBackDb: Float)
 
     private class Reading(val time: Long, val heading: Float, val rssi: Int)
     private val readings = ArrayDeque<Reading>()
@@ -22,36 +34,62 @@ class Sweep {
     fun clear() = readings.clear()
 
     /** Sectors with a reading in the last [WINDOW_MS] (out of [SECTORS]). */
-    fun covered(now: Long) = strongest(now).count { it != null }
+    fun covered(now: Long) = sectors(now).count { it != null }
 
-    /** Compass degrees of the strongest sector's centre, or null until a turn is covered and one sector stands out. */
-    fun direction(now: Long): Float? {
-        val best = strongest(now)
-        val heard = best.filterNotNull()
-        if (heard.size < MIN_SECTORS) return null
-        val peak = heard.max()
-        if (peak - heard.sorted()[heard.size / 2] < MIN_LEAD_DB) return null
-        return best.indexOf(peak) * SECTOR_DEG + SECTOR_DEG / 2
-    }
-
-    private fun strongest(now: Long): Array<Int?> {
-        val best = arrayOfNulls<Int>(SECTORS)
+    /** The average signal (dBm) heard facing each sector, null where you haven't faced yet. Sector i is centred on [centre]. */
+    fun sectors(now: Long): Array<Float?> {
+        val sum = FloatArray(SECTORS)
+        val n = IntArray(SECTORS)
         for (r in readings) if (now - r.time <= WINDOW_MS) {
             val i = (r.heading / SECTOR_DEG).toInt().coerceIn(0, SECTORS - 1)
-            best[i] = maxOf(best[i] ?: Int.MIN_VALUE, r.rssi)
+            sum[i] += r.rssi; n[i]++
         }
-        return best
+        return Array(SECTORS) { if (n[it] == 0) null else sum[it] / n[it] }
+    }
+
+    /**
+     * Fits one rise and fall over the turn (the first harmonic of the signal against the heading): its peak is the
+     * direction. Null until [MIN_SECTORS] are covered.
+     */
+    fun estimate(now: Long): Estimate? {
+        val m = sectors(now)
+        val k = m.indices.filter { m[it] != null }
+        if (k.size < MIN_SECTORS) return null
+        val mean = k.sumOf { m[it]!!.toDouble() } / k.size
+        var a = 0.0; var b = 0.0
+        for (i in k) {
+            val t = Math.toRadians(centre(i).toDouble())
+            val d = m[i]!! - mean
+            a += d * cos(t); b += d * sin(t)
+        }
+        a *= 2.0 / k.size; b *= 2.0 / k.size
+        val amp = hypot(a, b)
+        val peak = atan2(b, a)
+        // What the one rise and fall leaves unexplained: fading and reflections.
+        val rest = sqrt(k.sumOf { i ->
+            val r = m[i]!! - mean - amp * cos(Math.toRadians(centre(i).toDouble()) - peak); r * r
+        } / k.size)
+        val confidence = k.size.toFloat() / SECTORS * (amp / (amp + rest + NOISE_DB)).toFloat()
+        return Estimate(((Math.toDegrees(peak) % 360 + 360) % 360).toFloat(), confidence.coerceIn(0f, 1f), (2 * amp).toFloat())
     }
 
     companion object {
         const val SECTORS = 12
         const val SECTOR_DEG = 360f / SECTORS
-        /** A turn covers this many sectors (240°) before a direction is given. */
-        const val MIN_SECTORS = 8
-        /** The strongest sector must beat the typical one by this much, else the body shadow didn't show. */
-        const val MIN_LEAD_DB = 4
+        /** A turn covers this many sectors (300°) before a direction is given. */
+        const val MIN_SECTORS = 10
         /** Readings older than this drop out, so walking somewhere new starts a fresh sweep. */
-        const val WINDOW_MS = 30_000L
+        const val WINDOW_MS = 45_000L
+        /** Locked once this sure, and the body shadow shows by at least [LOCK_MIN_DB]. */
+        const val LOCK_CONFIDENCE = 0.6f
+        const val LOCK_MIN_DB = 4f
+        /** Signal readings jump about this much on their own; keeps a tiny wave on a quiet signal from looking sure. */
+        private const val NOISE_DB = 0.5
+
+        fun centre(sector: Int) = sector * SECTOR_DEG + SECTOR_DEG / 2
+
+        /** Good enough to lock on and keep. */
+        fun locks(e: Estimate) = e.confidence >= LOCK_CONFIDENCE && e.frontBackDb >= LOCK_MIN_DB
 
         private val POINTS = arrayOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
         fun compassPoint(deg: Float) = POINTS[(((deg % 360f + 360f) % 360f) / 45f).roundToInt() % 8]

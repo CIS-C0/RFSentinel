@@ -115,18 +115,6 @@
                 android:layout_height="wrap_content"
                 android:text="WiFi scanning" />
 
-            <TextView android:id="@+id/wifiBandLabel" style="@style/SettingsLabel" android:text="WiFi bands" />
-
-            <RadioGroup
-                android:id="@+id/wifiBandGroup"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-
-                <RadioButton android:id="@+id/wifiBandAll" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="All bands" />
-                <RadioButton android:id="@+id/wifiBandLow" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="2.4 GHz only" />
-                <RadioButton android:id="@+id/wifiBandHigh" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="5 and 6 GHz only" />
-            </RadioGroup>
-
             <TextView android:id="@+id/scanModeLabel" style="@style/SettingsLabel" android:text="Bluetooth scan intensity" />
 
             <RadioGroup
@@ -250,6 +238,20 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Alert sound" />
+
+            <TextView android:id="@+id/alertVolumeLabel" style="@style/SettingsLabel" android:text="Alert volume" />
+
+            <RadioGroup
+                android:id="@+id/alertVolumeGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <RadioButton android:id="@+id/alertVolumeNav" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Navigation" />
+                <RadioButton android:id="@+id/alertVolumeMedia" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Media" />
+                <RadioButton android:id="@+id/alertVolumeAlarm" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Alarm" />
+                <RadioButton android:id="@+id/alertVolumeNotification" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Notification" />
+                <RadioButton android:id="@+id/alertVolumeRing" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Ringtone" />
+            </RadioGroup>
 
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/vibrateSwitch"
@@ -471,6 +473,45 @@
         <!-- ================= Navigation ================= -->
         <TextView android:id="@+id/headerNav" style="@style/SettingsHeader" android:text="Navigation" />
         <LinearLayout android:id="@+id/sectionNav" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+
+        <!-- ================= Radar ================= -->
+        <TextView android:id="@+id/headerRadar" style="@style/SettingsHeader" android:text="Radar" />
+        <LinearLayout android:id="@+id/sectionRadar" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+
+            <TextView android:id="@+id/radarTopLabel" style="@style/SettingsLabel" android:text="Top of the radar" />
+
+            <RadioGroup
+                android:id="@+id/radarTopGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <RadioButton android:id="@+id/radarTopFacing" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="The way you face" />
+                <RadioButton android:id="@+id/radarTopNorth" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="North" />
+            </RadioGroup>
+
+            <TextView android:id="@+id/radarDotsLabel" style="@style/SettingsLabel" android:text="Dots without a direction" />
+
+            <RadioGroup
+                android:id="@+id/radarDotsGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <RadioButton android:id="@+id/radarDotsFixed" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Stay in place" />
+                <RadioButton android:id="@+id/radarDotsNorth" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Turn with north" />
+            </RadioGroup>
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/radarNamesSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Names beside alerts" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/radarSweepSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Sweep line" />
+        </LinearLayout>
 
         <!-- ================= Known cameras ================= -->
         <TextView android:id="@+id/headerMap" style="@style/SettingsHeader" android:text="Map" />
@@ -790,6 +831,18 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Phone Bluetooth scan with OUI-SPY" />
+
+            <TextView android:id="@+id/wifiBandLabel" style="@style/SettingsLabel" android:text="USB WiFi bands" />
+
+            <RadioGroup
+                android:id="@+id/wifiBandGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <RadioButton android:id="@+id/wifiBandAll" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="All bands" />
+                <RadioButton android:id="@+id/wifiBandLow" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="2.4 GHz only" />
+                <RadioButton android:id="@+id/wifiBandHigh" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="5 and 6 GHz only" />
+            </RadioGroup>
 
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/rtl5gSwitch"

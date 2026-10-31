@@ -40,6 +40,12 @@ class RadarView @JvmOverloads constructor(
     /** Pinpoint is off in Settings: located alerts can't show, and the footer says how to turn it on. */
     var pinpointOff = false
 
+    // Settings › Radar, read again with each [setBlips].
+    private var northUp = false
+    private var spinDots = false
+    private var names = true
+    private var sweepLine = true
+
     /** Drawing order (ordinary first, flagged on top) with each blip's label lines, built once per [setBlips]. */
     private class Item(val b: Blip, val title: String?, val detail: String?)
     private var items: List<Item> = emptyList()
@@ -112,6 +118,10 @@ class RadarView @JvmOverloads constructor(
     fun ordinaryColor() = ordinaryColor
 
     fun setBlips(list: List<Blip>) {
+        northUp = com.rfsentinel.app.util.Prefs.radarNorthUp(context)
+        spinDots = com.rfsentinel.app.util.Prefs.radarSpinDots(context)
+        names = com.rfsentinel.app.util.Prefs.radarNames(context)
+        sweepLine = com.rfsentinel.app.util.Prefs.radarSweepLine(context)
         items = list.sortedBy { it.flagged }.map { b ->
             val title = b.label?.take(22)
             Item(b, title, if (b.flagged && b.distanceM != null && b.bearing != null)
@@ -157,7 +167,9 @@ class RadarView @JvmOverloads constructor(
         val cx = cx(); val cy = cy(); val rad = radius()
         for ((i, it) in items.withIndex()) {
             val r = rad * rssiToFraction(it.b.rssi)
-            val a = it.b.bearing?.let { screenAngle(it) } ?: angleOf(it.b.mac)
+            // A made-up angle: still on screen, or turned with north as if it were a bearing (same place facing north).
+            val a = it.b.bearing?.let { screenAngle(it) }
+                ?: if (spinDots) screenAngle(Math.toDegrees(angleOf(it.b.mac)).toFloat() + 90f) else angleOf(it.b.mac)
             xs[i] = cx + (r * cos(a)).toFloat()
             ys[i] = cy + (r * sin(a)).toFloat()
         }
@@ -176,7 +188,7 @@ class RadarView @JvmOverloads constructor(
         if (rad <= 0) return
         val now = System.currentTimeMillis()
         fusion.compass(compass.degrees)
-        heading = fusion.heading(now)
+        heading = if (northUp) null else fusion.heading(now)
 
         // Signal bands: Near (>= -60), Nearby (>= -80), Far.
         val near = rad * rssiToFraction(-60)
@@ -190,11 +202,12 @@ class RadarView @JvmOverloads constructor(
         canvas.drawText("Nearby", cx + 8 * density, cy - nearby + 12 * density, textPaint)
         canvas.drawText("Far", cx + 8 * density, cy - rad + 12 * density, textPaint)
 
-        // Sweep.
-        canvas.save()
-        canvas.rotate(sweep, cx, cy)
-        canvas.drawCircle(cx, cy, rad, sweepPaint)
-        canvas.restore()
+        if (sweepLine) {
+            canvas.save()
+            canvas.rotate(sweep, cx, cy)
+            canvas.drawCircle(cx, cy, rad, sweepPaint)
+            canvas.restore()
+        }
 
         // North on the outer ring (it turns with the heading), and which way the radar is turned.
         val n = screenAngle(0f)
@@ -223,7 +236,7 @@ class RadarView @JvmOverloads constructor(
             }
         }
         canvas.drawCircle(cx, cy, 5 * density, youPaint)
-        drawLabels(canvas)
+        if (names) drawLabels(canvas)
 
         val footer = footer(width - 16 * density, now)
         canvas.drawText(footer, 8 * density, height - 8 * density, textPaint)

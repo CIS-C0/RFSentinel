@@ -241,9 +241,9 @@
             android:layout_height="0dp"
             android:layout_weight="1">
 
-            <!-- Pull down to check Waze right now (only while Waze reports are on). -->
+            <!-- Pull down to scan WiFi, check the cells and Waze right now (MainActivity.refreshAll). -->
             <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-                android:id="@+id/wazeSwipe"
+                android:id="@+id/refreshSwipe"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent">
 

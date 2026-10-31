@@ -27,13 +27,21 @@ import com.rfsentinel.app.detect.Tier
 object AlertPlayer {
 
     /**
-     * Phone beeps use the navigation-guidance usage too: it follows the media
-     * volume (like Locate), which is usually up while driving, and dips music.
+     * Phone sounds and voice play on the volume chosen in Settings › Alerts ([Prefs.AlertVolume]). The default,
+     * navigation guidance, follows the media volume on most phones (usually up while driving) and dips music.
      */
-    private val phoneToneAttributes = AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+    private fun phoneAttributes(context: Context, contentType: Int): AudioAttributes = AudioAttributes.Builder()
+        .setUsage(Prefs.alertVolume(context).usage)
+        .setContentType(contentType)
         .build()
+
+    /** Alert beeps and ticks: the car's speakers in the car, else the chosen phone volume. */
+    private fun toneAttributes(context: Context, inCar: Boolean = CarState.connected) =
+        if (inCar) carToneAttributes else phoneAttributes(context, AudioAttributes.CONTENT_TYPE_SONIFICATION)
+
+    /** Alert speech: navigation guidance in the car, else the chosen phone volume. */
+    private fun alertSpeech(context: Context) =
+        if (CarState.connected) speechAttributes else phoneAttributes(context, AudioAttributes.CONTENT_TYPE_SPEECH)
 
     /**
      * On Android Auto, alerts use the navigation-guidance usage: the car plays
@@ -69,7 +77,7 @@ object AlertPlayer {
             // Our own beeps (1 weak, 2 probable, 3 strong, long-short-long following) at
             // media volume, like Locate: the notification chime was too soft and too quiet.
             val beeps = when (tier) { Tier.STRONG -> 3; Tier.MEDIUM -> 2; else -> 1 }
-            val attrs = if (inCar) carToneAttributes else phoneToneAttributes
+            val attrs = toneAttributes(context, inCar)
             beepMs = if (detector) {
                 val chosen = Prefs.detectorEffect(context)
                 val clip = SoundClips.Clip.effect(when {
@@ -95,7 +103,7 @@ object AlertPlayer {
         }
         if (willSpeak) {
             val app = context.applicationContext
-            val attrs = speechAttributes
+            val attrs = alertSpeech(context)
             val priority = when {
                 following -> VoiceQueue.FOLLOWING
                 tier == Tier.STRONG -> VoiceQueue.STRONG
@@ -118,7 +126,7 @@ object AlertPlayer {
         if (Prefs.alertsSilenced(context) || !Prefs.soundEnabled(context) || !(inCar || ringerAllowsSound(context))) return
         // Never over an alert sound that is still playing.
         if (System.currentTimeMillis() < alertSoundUntil) return
-        val attrs = if (inCar) carToneAttributes else phoneToneAttributes
+        val attrs = toneAttributes(context, inCar)
         if (Prefs.detectorSound(context)) detectorTick(context, attrs) else Beeper.play(attrs, listOf(70 to 0))
     }
 
@@ -132,9 +140,10 @@ object AlertPlayer {
     fun previewEffect(context: Context, effect: Int) {
         main.removeCallbacks(retryPreview)
         val clip = SoundClips.Clip.effect(effect.takeIf { it != 0 } ?: 1)
-        if (SoundClips.playPreview(context, phoneToneAttributes, clip)) return
+        val attrs = toneAttributes(context, false)
+        if (SoundClips.playPreview(context, attrs, clip)) return
         // First use: the clips are still loading.
-        retryPreview = Runnable { SoundClips.playPreview(context, phoneToneAttributes, clip) }
+        retryPreview = Runnable { SoundClips.playPreview(context, attrs, clip) }
         main.postDelayed(retryPreview, 250L)
     }
 
@@ -151,7 +160,7 @@ object AlertPlayer {
     fun testIntro(context: Context, onDone: () -> Unit): Boolean {
         stopPreview(false)
         if (SoundClips.introPlaying()) { SoundClips.stopIntro(); return false }
-        SoundClips.playIntro(context, phoneToneAttributes) { main.post(onDone) }
+        SoundClips.playIntro(context, toneAttributes(context, false)) { main.post(onDone) }
         return true
     }
 
@@ -159,16 +168,15 @@ object AlertPlayer {
     @Volatile private var alertSoundUntil = 0L
 
     /** Loads the recorded sounds so the first alert can use them. */
-    fun preload(context: Context) = SoundClips.preload(context, phoneToneAttributes)
+    fun preload(context: Context) = SoundClips.preload(context, toneAttributes(context))
 
     /**
-     * One Locate tick (the device screen's proximity beeps) in the radar-detector sound style.
-     * Started by the user, so it plays whatever the alert settings; false when the style is off.
+     * One Locate tick (the device screen's proximity beeps): a pulse in the radar-detector sound style, else a
+     * short beep. Started by the user, so it plays whatever the alert settings, on the chosen phone volume.
      */
-    fun locateTick(context: Context): Boolean {
-        if (!Prefs.detectorSound(context)) return false
-        detectorTick(context, phoneToneAttributes)
-        return true
+    fun locateTick(context: Context) {
+        val attrs = toneAttributes(context, false)
+        if (Prefs.detectorSound(context)) detectorTick(context, attrs) else Beeper.play(attrs, listOf(60 to 0))
     }
 
     /**
@@ -181,7 +189,7 @@ object AlertPlayer {
         // The power-on sweep only with the detector sound style and its start beep on (off by default).
         if (!intro && !(Prefs.detectorSound(context) && Prefs.startupSweep(context))) return
         if (Prefs.alertsSilenced(context) || !Prefs.soundEnabled(context) || !(inCar || ringerAllowsSound(context))) return
-        val attrs = if (inCar) carToneAttributes else phoneToneAttributes
+        val attrs = toneAttributes(context, inCar)
         if (intro) SoundClips.playIntro(context, attrs) else Beeper.playTones(attrs, Beeper.detectorStartup)
     }
 
@@ -195,7 +203,7 @@ object AlertPlayer {
     /** A spoken navigation instruction (no beep, no vibration); silent when alerts are muted. */
     fun announce(context: Context, text: String) {
         if (Prefs.alertsSilenced(context)) return
-        Voice.say(context.applicationContext, text, VoiceQueue.STRONG, speechAttributes)
+        Voice.say(context.applicationContext, text, VoiceQueue.STRONG, alertSpeech(context))
     }
 
     /**
@@ -215,13 +223,13 @@ object AlertPlayer {
     fun callout(context: Context, text: String) {
         val inCar = CarState.connected
         if (Prefs.alertsSilenced(context) || !(Prefs.voiceEnabled(context) || (inCar && Prefs.carVoice(context)))) return
-        Voice.say(context.applicationContext, text, VoiceQueue.STRONG, speechAttributes)
+        Voice.say(context.applicationContext, text, VoiceQueue.STRONG, alertSpeech(context))
     }
 
     /** The Settings "Test voice" button: speaks right away with the chosen voice and speed. */
     fun testVoice(context: Context, short: Boolean = Prefs.shortVoice(context)) {
         Voice.test(context.applicationContext, if (short) "Body cam" else "RF Sentinel voice alerts. Axon body camera nearby.",
-            speechAttributes)
+            alertSpeech(context))
     }
 
     /**

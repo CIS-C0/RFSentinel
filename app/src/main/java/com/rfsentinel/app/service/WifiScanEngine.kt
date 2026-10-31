@@ -36,9 +36,8 @@ class WifiScanEngine(
             // current position and could fake a device following you.
             try {
                 val nowUs = SystemClock.elapsedRealtime() * 1000
-                val band = com.rfsentinel.app.util.Prefs.wifiBand(context)
-                val fresh = wifiManager.scanResults.filter { nowUs - it.timestamp <= MAX_RESULT_AGE_US &&
-                    (band == com.rfsentinel.app.util.Prefs.WifiBand.ALL || (band == com.rfsentinel.app.util.Prefs.WifiBand.HIGH) == (it.frequency > 3000)) }
+                // Every band, always: the WiFi bands setting is for external adapters only.
+                val fresh = wifiManager.scanResults.filter { nowUs - it.timestamp <= MAX_RESULT_AGE_US }
                 if (fresh.isNotEmpty()) onResults(fresh)
             } catch (e: SecurityException) {
                 // Missing location permission - caller should have requested it already.

@@ -551,6 +551,14 @@ class SettingsActivity : AppCompatActivity() {
                 "Not included: live traffic (the arrival time starts from the route's usual driving time and then follows how you really " +
                 "drive), speed limits and offline routes.\n\n" +
                 "Home, Work, starred and recent places are kept on this phone only."),
+        Section("radar", binding.headerRadar, binding.sectionRadar,
+            "The radar on the main screen: closer to the centre = stronger signal.\n\n" +
+                "Top of the radar: the way you face (it turns with the phone, from the compass, set right by the GPS while you " +
+                "drive) or north.\n\n" +
+                "Dots without a direction: a phone can't tell which way a signal comes from, so most dots sit at a made-up " +
+                "angle. They can stay put on screen, or turn with north like the dots whose direction is known.\n\n" +
+                "Directions on the radar: alerts that broadcast their position or were pinpointed, and the device you " +
+                "locate once a turn with the phone on your chest has found its side."),
         Section("map", binding.headerMap, binding.sectionMap,
             "What the map shows.\n\n" +
                 "Plate, speed and red-light cameras: from OpenStreetMap (Known cameras has the downloads, warnings and CCTV).\n\n" +
@@ -890,7 +898,7 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.rotationLabel, "Normal follows the phone's auto-rotate.\n\nAuto-rotate, upside down too: also turns upside down, which phones like the Pixel never do on their own.\n\nAlways upside down: the USB-C port at the top, for an antenna or adapter plugged in.")
         info(binding.bannerLabel, "A picture across the header of the styled themes (a logo or artwork you own). Your custom themes have their own banner, set in the theme maker.")
         info(binding.hideTrustedSwitch, "Devices on your whitelist are left off the list and radar.")
-        info(binding.wifiBandLabel, "Which WiFi networks and devices are listed. On a USB WiFi adapter it also sets the channels it hops: 5 and 6 GHz only gives those channels more listening time (police in-car networks are usually on 5 GHz). Adapters that only do 2.4 GHz keep scanning 2.4 GHz.\n\nThe phone's own WiFi scan always covers every band; the others are only left out of the list. A USB adapter picks up a change when it next starts.")
+        info(binding.wifiBandLabel, "The channels a USB WiFi adapter hops. 5 and 6 GHz only gives those channels more listening time (police in-car networks are usually on 5 GHz). Adapters that only do 2.4 GHz keep scanning 2.4 GHz.\n\nThe phone's own WiFi always shows every band. An adapter picks up a change when it next starts.")
         info(binding.scanModeLabel, "Maximum finds devices fastest and uses the most battery. Battery saver notices them later.")
         info(binding.intervalLabel, "How often WiFi is scanned. Android allows an app 4 scans in 2 minutes unless WiFi scan throttling is turned off in Developer options.")
         withUnit(binding.intervalInput, "s")
@@ -902,6 +910,12 @@ class SettingsActivity : AppCompatActivity() {
             "Probable and Strong only don't alert on a vehicle router (Cradlepoint, Sierra Wireless) you hear day after day, " +
             "like one in a shop, unless something else backs it. Weak alerts on all of them.")
         binding.thresholdMedium.text = tagged("Probable", "recommended")
+        info(binding.alertVolumeLabel, "Which volume the alert sounds, Locate beeps and the alert voice follow on the phone. " +
+            "Navigation is the volume Maps' directions use (on most phones the media volume), and music dips under it. " +
+            "Alarm is often the loudest.\n\nSilent, vibrate and Do Not Disturb still mute alerts. In the car they always " +
+            "play through the car's speakers.")
+        info(binding.radarTopLabel, "The way you face: the radar turns with the phone, like a compass, so N moves. North: N stays at the top.")
+        info(binding.radarDotsLabel, "Most dots have no real direction (one antenna can't tell). Stay in place keeps them still; turn with north moves them with the compass.")
         info(binding.radarBeepSwitch, "Beeps faster as a flagged device gets closer, like a radar detector.")
         info(binding.detectorSoundSwitch, "Alerts use radar-detector tones (Ka, K and X) and say \"GPS connected\" when the first GPS fix comes in.")
         info(binding.gpsVoiceSwitch, "With the radar-detector sound: says \"GPS connected\" when the GPS locks, and again when it comes back after losing the fix.")
@@ -956,6 +970,10 @@ class SettingsActivity : AppCompatActivity() {
      * Shows or hides a setting for the app's own reasons (a switch turned off, nothing to say...). It
      * also takes the setting off the search's list, so clearing the search leaves it the way this set it.
      */
+    /** Radio buttons listed in the order of the choices they stand for. */
+    private fun android.widget.RadioGroup.checkIndex(i: Int) = check(getChildAt(i).id)
+    private val android.widget.RadioGroup.checkedIndex get() = indexOfChild(findViewById(checkedRadioButtonId))
+
     private fun View.shownIf(on: Boolean) {
         setTag(R.id.search_hidden, null)
         visibility = if (on) View.VISIBLE else View.GONE
@@ -2411,6 +2429,16 @@ class SettingsActivity : AppCompatActivity() {
             }
         )
         binding.soundSwitch.isChecked = Prefs.soundEnabled(this)
+        binding.alertVolumeGroup.checkIndex(Prefs.alertVolume(this).ordinal)
+        // Each choice plays the alert sound at that volume.
+        binding.alertVolumeGroup.setOnCheckedChangeListener { g, _ ->
+            Prefs.setAlertVolume(this, Prefs.AlertVolume.entries[g.checkedIndex.coerceAtLeast(0)])
+            com.rfsentinel.app.util.AlertPlayer.previewEffect(this, Prefs.detectorEffect(this))
+        }
+        binding.radarTopGroup.checkIndex(if (Prefs.radarNorthUp(this)) 1 else 0)
+        binding.radarDotsGroup.checkIndex(if (Prefs.radarSpinDots(this)) 1 else 0)
+        binding.radarNamesSwitch.isChecked = Prefs.radarNames(this)
+        binding.radarSweepSwitch.isChecked = Prefs.radarSweepLine(this)
         binding.vibrateSwitch.isChecked = Prefs.vibrateEnabled(this)
         setupSnoozeLength()
         binding.radarBeepSwitch.isChecked = Prefs.radarBeep(this)
@@ -2764,6 +2792,10 @@ class SettingsActivity : AppCompatActivity() {
             }
         )
         Prefs.setSoundEnabled(this, binding.soundSwitch.isChecked)
+        Prefs.setRadarNorthUp(this, binding.radarTopGroup.checkedIndex == 1)
+        Prefs.setRadarSpinDots(this, binding.radarDotsGroup.checkedIndex == 1)
+        Prefs.setRadarNames(this, binding.radarNamesSwitch.isChecked)
+        Prefs.setRadarSweepLine(this, binding.radarSweepSwitch.isChecked)
         Prefs.setRadarBeep(this, binding.radarBeepSwitch.isChecked)
         Prefs.setDetectorSound(this, binding.detectorSoundSwitch.isChecked)
         Prefs.setStartupSweep(this, binding.startupSweepSwitch.isChecked)

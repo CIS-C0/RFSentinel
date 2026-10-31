@@ -169,13 +169,8 @@ class MainActivity : AppCompatActivity() {
                 if (!rv.canScrollVertically(-1)) showNewAlertPill(false)
             }
         })
-        binding.wazeSwipe.setColorSchemeColors(com.rfsentinel.app.ui.ChipStyle.accent(this).first)
-        binding.wazeSwipe.setOnRefreshListener {
-            if (com.rfsentinel.app.ui.WazeUi.checkNow(this)) {
-                refreshAskedAt = System.currentTimeMillis()
-                binding.wazeSwipe.postDelayed({ binding.wazeSwipe.isRefreshing = false }, 12_000) // never spin for ever
-            } else binding.wazeSwipe.isRefreshing = false
-        }
+        binding.refreshSwipe.setColorSchemeColors(com.rfsentinel.app.ui.ChipStyle.accent(this).first)
+        binding.refreshSwipe.setOnRefreshListener { refreshAll() }
         // Rows rebind every second (RSSI / "seen Xs ago"); the default change
         // crossfade would make the whole list flicker and fight the match flash.
         (binding.recyclerView.itemAnimator as? SimpleItemAnimator)?.supportsChangeAnimations = false
@@ -700,7 +695,7 @@ class MainActivity : AppCompatActivity() {
                     runOnUiThread {
                         if (!lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return@runOnUiThread
                         // The answer to a pull-down check ends the spinner.
-                        if (binding.wazeSwipe.isRefreshing && com.rfsentinel.app.online.WazePolice.latestAt >= refreshAskedAt) binding.wazeSwipe.isRefreshing = false
+                        if (binding.refreshSwipe.isRefreshing && com.rfsentinel.app.online.WazePolice.latestAt >= refreshAskedAt) binding.refreshSwipe.isRefreshing = false
                         render()
                     }
                 }
@@ -731,7 +726,7 @@ class MainActivity : AppCompatActivity() {
         // Devices swiped left ([hideRow]) are listed as ordinary ones (no flag, banner or radar alert). Waze, aircraft, radio: see their rows.
         val all = if (hiddenRows.isEmpty()) live else live.map { if (hidden(it.mac, now)) it.copy(hits = emptyList(), following = false) else it }
         val threshold = Prefs.alertThreshold(this)
-        binding.wazeSwipe.isEnabled = com.rfsentinel.app.ui.WazeUi.on(this) && panes.listShown
+        binding.refreshSwipe.isEnabled = panes.listShown
         deviceCount = all.size
         adapter.visual = com.rfsentinel.app.ui.VisualMode.on(this, com.rfsentinel.app.ui.VisualMode.Screen.DEVICE_LIST)
         // The banner and radar alert only for flagged devices still in range.
@@ -787,12 +782,14 @@ class MainActivity : AppCompatActivity() {
             binding.radarView.setBlips(visible.take(200).map { s ->
                 val alert = com.rfsentinel.app.ui.LiveWindow.alerting(s, now)
                 val at = if (alert && fix != null) knownPosition(s, fix.latitude, fix.longitude) else null
+                // The device being located, once a chest sweep found its side.
+                val swept = if (at == null) com.rfsentinel.app.ui.LiveRead.sweptBearing(s.mac) else null
                 RadarView.Blip(
                     s.mac, s.rssi,
                     if (alert) colorFor(s) else binding.radarView.ordinaryColor(),
                     alert,
                     if (alert) s.best?.label else null,
-                    at?.let { com.rfsentinel.app.alpr.KnownCameras.bearingTo(fix!!.latitude, fix.longitude, it.first, it.second).toFloat() },
+                    at?.let { com.rfsentinel.app.alpr.KnownCameras.bearingTo(fix!!.latitude, fix.longitude, it.first, it.second).toFloat() } ?: swept,
                     at?.let { DeviceRegistry.metersBetween(fix!!.latitude, fix.longitude, it.first, it.second).toFloat() },
                     now - s.lastSeen
                 )
@@ -870,6 +867,26 @@ class MainActivity : AppCompatActivity() {
     private var shownCells = 0
     /** When the list was last pulled down to check Waze. */
     private var refreshAskedAt = 0L
+
+    /**
+     * The list's pull-down: WiFi scan, cell check and Waze check (when on) all at once, then the list redraws.
+     * The spinner stops when Waze answers, else after a WiFi scan's time.
+     */
+    private fun refreshAll() {
+        val swipe = binding.refreshSwipe
+        if (!ScanForegroundService.isRunning) {
+            android.widget.Toast.makeText(this, "Start scanning first", android.widget.Toast.LENGTH_SHORT).show()
+            swipe.isRefreshing = false
+            return
+        }
+        ScanForegroundService.rescan(this)
+        refreshAskedAt = System.currentTimeMillis()
+        val waze = com.rfsentinel.app.online.WazePolice
+        val wazeAsked = com.rfsentinel.app.ui.WazeUi.on(this) && waze.running && !Prefs.wazePaused(this) &&
+            waze.requestCheckNow(com.rfsentinel.app.online.WazeTiming.minGapS(Prefs.wazeBackend(this) == Prefs.WAZE_DIRECT)) == null
+        swipe.postDelayed({ swipe.isRefreshing = false; render() }, if (wazeAsked) 12_000L else 4_000L) // never spin for ever
+        render()
+    }
 
     /**
      * The Waze reports inside the alert range (Settings > Waze), kept live by the checker: distance, direction

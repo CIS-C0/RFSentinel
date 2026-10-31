@@ -69,6 +69,18 @@ object Prefs {
     fun soundEnabled(context: Context): Boolean = bool(context, "sound_enabled", true)
     fun setSoundEnabled(context: Context, value: Boolean) = setBool(context, "sound_enabled", value)
 
+    /** Which phone volume alert sounds, Locate beeps and the alert voice follow. In the car they always use the car's speakers. */
+    enum class AlertVolume(val usage: Int) {
+        NAVIGATION(android.media.AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE),
+        MEDIA(android.media.AudioAttributes.USAGE_MEDIA),
+        ALARM(android.media.AudioAttributes.USAGE_ALARM),
+        NOTIFICATION(android.media.AudioAttributes.USAGE_NOTIFICATION),
+        RING(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+    }
+    fun alertVolume(context: Context): AlertVolume =
+        runCatching { AlertVolume.valueOf(sp(context).getString("alert_volume", null)!!) }.getOrDefault(AlertVolume.NAVIGATION)
+    fun setAlertVolume(context: Context, v: AlertVolume) = sp(context).edit { putString("alert_volume", v.name) }
+
     fun vibrateEnabled(context: Context): Boolean = bool(context, "vibrate_enabled", true)
     fun setVibrateEnabled(context: Context, value: Boolean) = setBool(context, "vibrate_enabled", value)
 
@@ -429,14 +441,13 @@ object Prefs {
     fun setOuiSpyBoard(context: Context, address: String?) = sp(context).edit {
         if (address == null) remove("ouispy_board") else putString("ouispy_board", address)
     }
-    /** Have the OUI-SPY board relay every network and Bluetooth device it hears (its Wardrive engine). */
-    /** Whether the screen stays on while an RF Sentinel screen is open. */
-    /** WiFi bands scanned (Settings > Scanning): the phone's results and the USB adapters' channel hopping. */
+    /** The channels USB WiFi adapters hop (Settings › External hardware). The phone's own WiFi always lists every band. */
     enum class WifiBand { ALL, LOW, HIGH }
     fun wifiBand(context: Context): WifiBand =
         runCatching { WifiBand.valueOf(sp(context).getString("wifi_band", null)!!) }.getOrDefault(WifiBand.ALL)
     fun setWifiBand(context: Context, band: WifiBand) = sp(context).edit { putString("wifi_band", band.name) }
 
+    /** Whether the screen stays on while an RF Sentinel screen is open. */
     enum class ScreenMode { ALWAYS_ON, ON_WHILE_CHARGING, NORMAL }
     fun screenMode(context: Context): ScreenMode =
         runCatching { ScreenMode.valueOf(sp(context).getString("screen_mode", null)!!) }.getOrDefault(ScreenMode.ON_WHILE_CHARGING)
@@ -444,6 +455,7 @@ object Prefs {
     /** When the US & Canada plate readers were last downloaded from DeFlock (0 = never). */
     fun deflockUpdated(context: Context): Long = sp(context).getLong("deflock_updated", 0L)
     fun setDeflockUpdated(context: Context, time: Long) = sp(context).edit { putLong("deflock_updated", time) }
+    /** Have the OUI-SPY board relay every network and Bluetooth device it hears (its Wardrive engine). */
     fun ouiSpyRelayAll(context: Context): Boolean = bool(context, "ouispy_relay_all", true)
     fun setOuiSpyRelayAll(context: Context, value: Boolean) = setBool(context, "ouispy_relay_all", value)
     /** The OUI-SPY detection engines to switch on (all by default; Flock off where there are no Flock cameras). */
@@ -646,6 +658,17 @@ object Prefs {
 
     fun onboardingDone(context: Context): Boolean = bool(context, "setup_wizard_done", false)
     fun setOnboardingDone(context: Context) = setBool(context, "setup_wizard_done", true)
+
+    /** Settings › Radar: north at the top instead of the way you face. */
+    fun radarNorthUp(context: Context): Boolean = bool(context, "radar_north_up", false)
+    fun setRadarNorthUp(context: Context, value: Boolean) = setBool(context, "radar_north_up", value)
+    /** Settings › Radar: dots without a known direction turn with north instead of staying put on screen. */
+    fun radarSpinDots(context: Context): Boolean = bool(context, "radar_spin_dots", false)
+    fun setRadarSpinDots(context: Context, value: Boolean) = setBool(context, "radar_spin_dots", value)
+    fun radarNames(context: Context): Boolean = bool(context, "radar_names", true)
+    fun setRadarNames(context: Context, value: Boolean) = setBool(context, "radar_names", value)
+    fun radarSweepLine(context: Context): Boolean = bool(context, "radar_sweep_line", true)
+    fun setRadarSweepLine(context: Context, value: Boolean) = setBool(context, "radar_sweep_line", value)
 
     fun radarView(context: Context): Boolean = bool(context, "radar_view", false)
     fun setRadarView(context: Context, value: Boolean) = setBool(context, "radar_view", value)
