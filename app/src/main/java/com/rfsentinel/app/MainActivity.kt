@@ -1060,20 +1060,12 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * A flagged row's mute (its button, or a swipe right): no alerts from it for a while ([forever]: until unmuted);
-     * done while muted, unmutes. Undo puts back what it was.
+     * done while muted, unmutes. No popup: the row's mute button shows the state.
      */
     private fun toggleMute(row: DeviceRow, forever: Boolean) {
         val mutes = com.rfsentinel.app.data.AlertMutes
-        val name = row.title
-        val was = mutes.mutedUntil(this, row.mac)
-        val message = if (was != null && !forever) {
-            mutes.unmute(this, row.mac)
-            "Alerts back on for $name"
-        } else {
-            mutes.mute(this, row.mac, if (forever) mutes.FOREVER else System.currentTimeMillis() + mutes.TAP_MS)
-            if (forever) "$name muted until you unmute it" else "$name muted for ${mutes.TAP_MS / 60_000} min · hold its button to mute it for good"
-        }
-        com.rfsentinel.app.util.Undo.show(this, message) { restoreMute(row.mac, was); render() }
+        if (mutes.isMuted(this, row.mac) && !forever) mutes.unmute(this, row.mac)
+        else mutes.mute(this, row.mac, if (forever) mutes.FOREVER else System.currentTimeMillis() + mutes.TAP_MS)
         render()
     }
 
