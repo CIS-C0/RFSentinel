@@ -714,11 +714,11 @@ class MainActivity : AppCompatActivity() {
         val live = DeviceRegistry.snapshot(now).filter {
             com.rfsentinel.app.ui.LiveWindow.keep(it, now, bleMs, wifiMs, externalMs) && !(hideTrusted && WhitelistCache.contains(it.mac))
         }
-        // Rows swiped away ([hideRow]) are left out everywhere (list, radar, banner, counts) while their mute lasts;
-        // one that leaves the live list comes back when it is heard again.
+        // Rows swiped left ([hideRow]), while their mute lasts: a device stays listed as an ordinary one (no flag, banner
+        // or radar alert); one that leaves the live list is flagged again when heard again. Waze and aircraft: see current*.
         val liveMacs = live.mapTo(HashSet()) { it.mac }
-        hiddenRows.retainAll { it in liveMacs && com.rfsentinel.app.data.AlertMutes.isMuted(this, it) }
-        val all = if (hiddenRows.isEmpty()) live else live.filter { it.mac !in hiddenRows }
+        hiddenRows.retainAll { (it in liveMacs || it.startsWith(WAZE_ROW) || it.startsWith(AIRCRAFT_ROW)) && com.rfsentinel.app.data.AlertMutes.isMuted(this, it) }
+        val all = if (hiddenRows.isEmpty()) live else live.map { if (it.mac in hiddenRows) it.copy(hits = emptyList(), following = false) else it }
         val threshold = Prefs.alertThreshold(this)
         binding.wazeSwipe.isEnabled = com.rfsentinel.app.ui.WazeUi.on(this) && panes.listShown
         deviceCount = all.size
@@ -864,7 +864,7 @@ class MainActivity : AppCompatActivity() {
         if (!ScanForegroundService.isRunning) return emptyList()
         val alertM = Prefs.wazeAlertM(this).toDouble()
         return com.rfsentinel.app.online.WazePolice.forList(com.rfsentinel.app.online.WazePolice.latest, alertM,
-            Prefs.wazeAheadOnly(this), Prefs.wazeHideOffWay(this))
+            Prefs.wazeAheadOnly(this), Prefs.wazeHideOffWay(this)).filter { WAZE_ROW + it.report.id !in hiddenRows }
     }
 
     /**
@@ -971,7 +971,7 @@ class MainActivity : AppCompatActivity() {
     /** The aircraft heard right now (RTL-SDR ADS-B and the online feeds). */
     private fun currentAircraft(now: Long): List<com.rfsentinel.app.online.PoliceAircraft.Seen> = when {
         !ScanForegroundService.isRunning -> emptyList()
-        else -> com.rfsentinel.app.online.PoliceAircraft.all(now)
+        else -> com.rfsentinel.app.online.PoliceAircraft.all(now).filter { AIRCRAFT_ROW + it.plane.hex !in hiddenRows }
     }
 
     /**
@@ -1082,19 +1082,26 @@ class MainActivity : AppCompatActivity() {
         if (until == null) mutes.unmute(this, mac) else mutes.mute(this, mac, until)
     }
 
-    /** Rows swiped left: muted and off the screen (list, radar, banner) while the mute lasts, or until they leave the live list. */
+    /**
+     * Rows swiped left, while their mute lasts (the mute also times the hiding of aircraft, whose alerts don't read it):
+     * a device is listed as an ordinary one, a Waze report or an aircraft leaves the list.
+     */
     private val hiddenRows = HashSet<String>()
+
+    private fun hidesWhole(row: DeviceRow) = row.mac.startsWith(WAZE_ROW) || row.mac.startsWith(AIRCRAFT_ROW)
 
     private fun hideRow(row: DeviceRow) {
         val mutes = com.rfsentinel.app.data.AlertMutes
         val was = mutes.mutedUntil(this, row.mac)
         if (was == null) mutes.mute(this, row.mac, System.currentTimeMillis() + mutes.TAP_MS)
         hiddenRows += row.mac
-        com.rfsentinel.app.util.Undo.show(this, "${row.title} hidden and muted") { hiddenRows -= row.mac; restoreMute(row.mac, was); render() }
+        com.rfsentinel.app.util.Undo.show(this, if (hidesWhole(row)) "${row.title} hidden" else "${row.title} no longer flagged") {
+            hiddenRows -= row.mac; restoreMute(row.mac, was); render()
+        }
         render()
     }
 
-    /** Swipe a flagged row: right mutes it (as its button does), left hides it ([hideRow]). Each with Undo. */
+    /** Swipe a flagged row: right mutes it (as its button does), left dismisses or hides it ([hideRow]). Each with Undo. */
     private fun attachRowSwipes() {
         val dp = resources.displayMetrics.density
         val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
@@ -1105,8 +1112,14 @@ class MainActivity : AppCompatActivity() {
         lateinit var helper: androidx.recyclerview.widget.ItemTouchHelper
         helper = androidx.recyclerview.widget.ItemTouchHelper(object : androidx.recyclerview.widget.ItemTouchHelper.SimpleCallback(0, swipeLeft or swipeRight) {
             private fun row(vh: androidx.recyclerview.widget.RecyclerView.ViewHolder) = adapter.currentList.getOrNull(vh.bindingAdapterPosition)
-            override fun getSwipeDirs(rv: androidx.recyclerview.widget.RecyclerView, vh: androidx.recyclerview.widget.RecyclerView.ViewHolder) =
-                if (row(vh)?.canMute == true) super.getSwipeDirs(rv, vh) else 0
+            override fun getSwipeDirs(rv: androidx.recyclerview.widget.RecyclerView, vh: androidx.recyclerview.widget.RecyclerView.ViewHolder): Int {
+                val r = row(vh) ?: return 0
+                return when {
+                    r.mac.startsWith(AIRCRAFT_ROW) -> swipeLeft // hide only: aircraft alerts have no mute
+                    r.canMute -> swipeLeft or swipeRight
+                    else -> 0
+                }
+            }
             override fun onMove(rv: androidx.recyclerview.widget.RecyclerView, a: androidx.recyclerview.widget.RecyclerView.ViewHolder,
                                 b: androidx.recyclerview.widget.RecyclerView.ViewHolder) = false
             override fun onSwiped(vh: androidx.recyclerview.widget.RecyclerView.ViewHolder, direction: Int) {
@@ -1126,7 +1139,8 @@ class MainActivity : AppCompatActivity() {
                     if (right) c.drawRect(v.left.toFloat(), v.top.toFloat(), v.left + dX, v.bottom.toFloat(), paint)
                     else c.drawRect(v.right + dX, v.top.toFloat(), v.right.toFloat(), v.bottom.toFloat(), paint)
                     paint.color = if (right) onAccent else android.graphics.Color.WHITE
-                    val label = if (!right) "Hide" else if (row(vh)?.muted == true) "Unmute" else "Mute"
+                    val r = row(vh)
+                    val label = if (!right) (if (r != null && hidesWhole(r)) "Hide" else "Dismiss") else if (r?.muted == true) "Unmute" else "Mute"
                     val y = (v.top + v.bottom) / 2f - (paint.descent() + paint.ascent()) / 2
                     if (right) c.drawText(label, v.left + 20 * dp, y, paint)
                     else c.drawText(label, v.right - 20 * dp - paint.measureText(label), y, paint)
