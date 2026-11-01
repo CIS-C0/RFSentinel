@@ -35,6 +35,10 @@ object Prefs {
     fun bleScanMode(context: Context): Int = int(context, "ble_scan_mode", ScanSettings.SCAN_MODE_LOW_LATENCY)
     fun setBleScanMode(context: Context, value: Int) = setInt(context, "ble_scan_mode", value)
 
+    /** The Google Play Services for AR notice was accepted (Locate's camera view, full build). */
+    fun arNoticeSeen(context: Context): Boolean = bool(context, "ar_notice_seen", false)
+    fun setArNoticeSeen(context: Context) = setBool(context, "ar_notice_seen", true)
+
     fun autoStartOnBoot(context: Context): Boolean = bool(context, "auto_start_boot", false)
     fun setAutoStartOnBoot(context: Context, value: Boolean) = setBool(context, "auto_start_boot", value)
 
