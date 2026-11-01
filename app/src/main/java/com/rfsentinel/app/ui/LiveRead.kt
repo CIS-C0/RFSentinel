@@ -41,7 +41,8 @@ object LiveRead {
     )
 
     private const val TICK_MS = 1_000L
-    private const val SAMPLE_MS = 200L
+    /** Quick enough to catch nearly every packet of a fast-advertising device during a brisk turn. */
+    private const val SAMPLE_MS = 50L
     /** Walked this far since the lock: the direction is old, sweep again. */
     const val SWEEP_STALE_M = 25f
     /** Heard within this: its signal is live. */
@@ -164,7 +165,7 @@ object LiveRead {
     }
 
     /**
-     * Five times a second: each new raw signal reading with the way the phone faced when it was heard. Locks the
+     * Twenty times a second: each new raw signal reading with the way the phone faced when it was heard. Locks the
      * direction once the turn makes it clear and it holds, with a short buzz.
      */
     private val sample = object : Runnable {

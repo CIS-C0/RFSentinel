@@ -68,7 +68,7 @@ class RadarView @JvmOverloads constructor(
     private var tracking = false
 
     /**
-     * Five times a second while on screen: each alert's new raw reading with the way you faced when it was heard,
+     * Twenty times a second while on screen: each alert's new raw reading with the way you faced when it was heard,
      * so [RadarTrack] finds its side as you turn and keeps it placed as you walk ([Motion] tracks your steps).
      */
     private val sampler = object : Runnable {
@@ -345,7 +345,7 @@ class RadarView @JvmOverloads constructor(
     override fun performClick(): Boolean = super.performClick()
 
     private companion object {
-        const val SAMPLE_MS = 200L
+        const val SAMPLE_MS = 50L
         /** Faster than a brisk walk (m/s): driving. */
         const val WALK_MS = 3f
     }

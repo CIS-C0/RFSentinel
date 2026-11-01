@@ -44,14 +44,25 @@ class SweepTest {
     }
 
     @Test
+    fun quickTurnWithAPacketEvery40DegreesStillLocks() {
+        val s = Sweep()
+        // One turn in about 4 s: a packet only every 40°, so a few sectors are skipped.
+        for (h in 0 until 360 step 40) s.add(1_000L + h * 10, h.toFloat(), (-75 + 5 * cos(Math.toRadians(h - 200.0))).toInt())
+        assertEquals(12, s.covered(5_000L))
+        val e = s.estimate(5_000L)!!
+        assertEquals(200f, e.bearing, 15f)
+        assertTrue(e.toString(), Sweep.locks(e))
+    }
+
+    @Test
     fun locksOnlyOnceItHolds() {
         val s = Sweep()
         for (h in 0 until 360 step 5) s.add(1_000L + h * 50, h.toFloat(), (-75 + 5 * cos(Math.toRadians(h - 120.0))).toInt())
         assertNull(s.settled(19_000L)) // just became clear
         s.add(19_500L, 120f, -70)
         assertNull(s.settled(19_500L))
-        s.add(21_000L, 125f, -70)
-        assertEquals(120f, s.settled(21_000L)!!.bearing, 15f)
+        s.add(20_500L, 125f, -70)
+        assertEquals(120f, s.settled(20_500L)!!.bearing, 15f)
     }
 
     @Test

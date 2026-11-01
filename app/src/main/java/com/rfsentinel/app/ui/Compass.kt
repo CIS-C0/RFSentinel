@@ -37,7 +37,8 @@ class Compass(context: Context) : SensorEventListener {
 
     fun start() {
         if (running || sensor == null) return
-        running = sm?.registerListener(this, sensor, SensorManager.SENSOR_DELAY_UI) == true
+        // Game rate: the heading keeps up with a brisk turn (a sweep pairs it with each packet).
+        running = sm?.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME) == true
     }
 
     fun stop() {

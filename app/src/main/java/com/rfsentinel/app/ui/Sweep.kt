@@ -34,8 +34,15 @@ class Sweep {
 
     fun clear() { readings.clear(); candidate = null }
 
-    /** Sectors with a reading in the last [WINDOW_MS] (out of [SECTORS]). */
-    fun covered(now: Long) = sectors(now).count { it != null }
+    /**
+     * Sectors of the turn covered in the last [WINDOW_MS] (out of [SECTORS]): those with a reading, and a single
+     * one skipped between two with readings (a quicker turn passes a sector between two packets).
+     */
+    fun covered(now: Long) = covered(sectors(now))
+
+    private fun covered(m: Array<Float?>) = m.indices.count { i ->
+        m[i] != null || (m[(i + SECTORS - 1) % SECTORS] != null && m[(i + 1) % SECTORS] != null)
+    }
 
     /**
      * The median signal (dBm) heard facing each sector, null where you haven't faced yet. Sector i is centred on
@@ -48,21 +55,23 @@ class Sweep {
     }
 
     /**
-     * Fits one rise and fall over the turn (the first harmonic of the signal against the heading): its peak is the
-     * direction. Null until [MIN_SECTORS] are covered.
+     * Fits one rise and fall over the turn (the first harmonic of the signal against the heading, least squares
+     * over the sectors heard, so skipped ones don't tilt it): its peak is the direction. Null until [MIN_SECTORS]
+     * are covered, [MIN_HEARD] of them heard.
      */
     fun estimate(now: Long): Estimate? {
         val m = sectors(now)
         val k = m.indices.filter { m[it] != null }
-        if (k.size < MIN_SECTORS) return null
-        val mean = k.sumOf { m[it]!!.toDouble() } / k.size
-        var a = 0.0; var b = 0.0
+        val covered = covered(m)
+        if (covered < MIN_SECTORS || k.size < MIN_HEARD) return null
+        // Normal equations for m = c + a cos t + b sin t.
+        val n = Array(3) { DoubleArray(4) }
         for (i in k) {
             val t = Math.toRadians(centre(i).toDouble())
-            val d = m[i]!! - mean
-            a += d * cos(t); b += d * sin(t)
+            val f = doubleArrayOf(1.0, cos(t), sin(t))
+            for (r in 0..2) { for (c in 0..2) n[r][c] += f[r] * f[c]; n[r][3] += f[r] * m[i]!! }
         }
-        a *= 2.0 / k.size; b *= 2.0 / k.size
+        val (mean, a, b) = solve3(n) ?: return null
         val amp = hypot(a, b)
         val peak = atan2(b, a)
         // What the one rise and fall leaves unexplained: fading and reflections.
@@ -75,8 +84,22 @@ class Sweep {
         val weakest = k.minOf { m[it]!! }
         val behind = k.filter { abs(turn(bearing + 180f, centre(it))) <= NULL_SLACK_DEG }.minOfOrNull { m[it]!! }
         val nullFactor = if (behind != null && behind <= weakest + NULL_TOLERANCE_DB) 1f else 0.5f
-        val confidence = k.size.toFloat() / SECTORS * (amp / (amp + rest + NOISE_DB)).toFloat() * nullFactor
+        val confidence = covered.toFloat() / SECTORS * (amp / (amp + rest + NOISE_DB)).toFloat() * nullFactor
         return Estimate(bearing, confidence.coerceIn(0f, 1f), (2 * amp).toFloat())
+    }
+
+    /** Gaussian elimination of a 3 x 3 system (augmented); null when singular. */
+    private fun solve3(n: Array<DoubleArray>): DoubleArray? {
+        for (c in 0..2) {
+            val p = (c..2).maxBy { abs(n[it][c]) }
+            if (abs(n[p][c]) < 1e-9) return null
+            n[c] = n[p].also { n[p] = n[c] }
+            for (r in 0..2) if (r != c) {
+                val f = n[r][c] / n[c][c]
+                for (j in c..3) n[r][j] -= f * n[c][j]
+            }
+        }
+        return DoubleArray(3) { n[it][3] / n[it][it] }
     }
 
     private var candidate: Estimate? = null
@@ -98,6 +121,8 @@ class Sweep {
         const val SECTOR_DEG = 360f / SECTORS
         /** A turn covers this many sectors (300°) before a direction is given. */
         const val MIN_SECTORS = 10
+        /** Sectors with their own reading among those: the rest bridged single gaps. */
+        const val MIN_HEARD = 7
         /** Readings older than this drop out, so walking somewhere new starts a fresh sweep. */
         const val WINDOW_MS = 45_000L
         /** Locked once this sure, and the body shadow shows by at least [LOCK_MIN_DB]. */
@@ -109,7 +134,7 @@ class Sweep {
         private const val NULL_SLACK_DEG = 60f
         private const val NULL_TOLERANCE_DB = 1f
         const val SETTLE_DEG = 20f
-        const val SETTLE_MS = 1_500L
+        const val SETTLE_MS = 1_000L
 
         fun centre(sector: Int) = sector * SECTOR_DEG + SECTOR_DEG / 2
 
