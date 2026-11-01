@@ -2,9 +2,9 @@ package com.rfsentinel.app.ui
 
 import android.app.Activity
 
-/** The FOSS build has no ARCore (Google's): Locate is the chest sweep only. */
+/** The FOSS build: Locate is the chest sweep only, no extra view. */
 internal object ArSupport {
-    fun available(activity: Activity) = false
+    fun button(activity: Activity): String? = null
 
     fun open(activity: Activity) {}
 }

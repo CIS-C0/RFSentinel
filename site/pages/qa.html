@@ -424,7 +424,7 @@
 <details class="faq" id="apk-safe">
 <summary>Is the APK safe?</summary>
 <div>
-<p>The full source is public, every release is signed with the same release key (Android refuses an update signed with a different key), and you can build it yourself with <code>./gradlew assembleDebug</code>. The app requests no contacts, storage, camera or microphone permissions. Play Protect may warn about any app installed outside Google Play; that warning is about the install source, not a scan result.</p>
+<p>The full source is public, every release is signed with the same release key (Android refuses an update signed with a different key), and you can build it yourself with <code>./gradlew assembleDebug</code>. The app requests no contacts, storage or microphone permissions; the normal build asks for the camera only when you open Locate's camera view (which runs on Google Play Services for AR), and the <code>-foss.apk</code> has no camera permission at all. Play Protect may warn about any app installed outside Google Play; that warning is about the install source, not a scan result.</p>
 </div>
 </details>
 
@@ -543,7 +543,7 @@
 <details class="faq" id="distance-direction">
 <summary>Can it tell the distance or direction of a device?</summary>
 <div>
-<p>Distance is estimated from RSSI and is often off by 2-3×. The radar view places stronger signals closer to the centre, but the angle is not a direction: a phone can't measure angle of arrival. To find a device, use <b>Locate</b> mode and walk: it beeps faster as the signal grows.</p>
+<p>Distance is estimated from RSSI and is often off by 2-3×. The radar view places stronger signals closer to the centre. A phone can't measure angle of arrival from one reading, so flagged devices get a direction from your turns: turn round slowly with the phone in front of you, and your body blocks the signal from behind. Two turns in different places cross into a position that stays put as you walk. To find a device, use <b>Locate</b>: its chest sweep locks a direction with an arrow (the normal build can also do it through the camera, which tracks the phone's own movement), and it beeps faster as the signal grows. Reflections can still point it the wrong way, so sweep again somewhere else to cross-check.</p>
 </div>
 </details>
 

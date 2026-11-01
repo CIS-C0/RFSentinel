@@ -246,6 +246,7 @@ Everything the app does, grouped by area.
 - **Record frames to .pcap** for Wireshark (Settings → External hardware): every frame a USB WiFi adapter or V2X board hears, with its channel and signal
 - The ALFA AWUS036ACS's light blinks with received traffic (Settings → External hardware switches it off, for the adapters whose light the app can control)
 - RTL-SDR and HackRF transmissions show on the **radar** too, for a minute after they were last heard
+- **P25 control channel** (experimental, RTL-SDR): finds the trunked-radio control channel and lists which talkgroups get a channel and when (Tools → P25 talkgroups), with alerts for talkgroups you watch. Signalling only, voice is never decoded. With more than one SDR scan ticked (radio sweep, ADS-B, P25) the dongle takes turns
 - **More from every frame:** WPS maker / model / device name, a **probe fingerprint** that survives MAC randomization (watchable: "every device of this type"), and the real name of **hidden networks** when a device joins them
 
 </details>
@@ -260,6 +261,12 @@ Everything the app does, grouped by area.
 - **List time** (Settings → Scanning): how long a device stays on the list and radar after it was last heard, down to 5 s (WiFi only when scan throttling is off), with its own slider for devices heard only by external hardware
 - **Location is off** warning: Android gives apps no Bluetooth or WiFi results while Location is off, so the main screen says so and opens the setting when tapped
 - Device details: evidence, identity, decoded data, signal graph, **Locate** mode, history, raw advertisement
+- **Locate's chest sweep:** a guide shows how to hold the phone (upright on your chest), fills a ring with the
+  signal heard each way as you turn, then locks the direction with an arrow that turns as you turn; the radar
+  shows it too. The normal build adds **Use camera**: the same sweep with the camera, which tracks where the
+  phone is to the centimetre (ARCore), so walking toward the device keeps its direction and gives its distance
+- **Snooze all / Mute this** buttons on alert notifications, and an **alert volume** choice (navigation,
+  media, alarm, notification or ringtone) under Alerts
 - Setup wizard (theme, region, alerts and voice, bubble, car start, camera warnings, cell alerts, camera radius, screen, permissions); Settings save themselves
 - **Check for updates** (menu ⋮): compares with the latest GitHub release, when you tap it. On first start the app asks once whether it may also check when it opens (at most every 6 hours); your answer is kept and can be changed in Settings
 - **Screen rotation** (Settings → General): normal, auto-rotate **including upside down**, or always upside down with the USB-C port at the top for an antenna or adapter - even on phones like the Pixel that never auto-rotate upside down
@@ -349,7 +356,16 @@ A threat banner, the live list of everything in range, and the radar and map vie
   three to see them together (stacked, side by side in landscape), with a handle
   between each to resize. The Map view is the full map with every button; its
   ⛶ button opens it on its own screen. On the radar, closer to the centre means
-  a stronger signal; the angle is not a direction (a phone can't measure one).
+  a stronger signal. A phone can't measure a direction from one reading, so
+  alerts get a direction from your turns: turn round slowly with the phone in
+  front of you and your body blocks the signal from behind, so it rises and falls
+  once. Two turns in different places cross into a position, which then stays
+  put as you walk (steps, compass and GPS). **Settings → Radar**: heading-up or
+  north-up, what dots without a direction do, names beside alerts, the sweep line.
+- **Swipe a flagged row:** right mutes or unmutes it, left dismisses its flag (it
+  stays listed as an ordinary device; Waze reports and aircraft are hidden), with
+  Undo. Choose what each way does in Settings → Alerts. Hidden rows come back when
+  the scan stops.
 - **Scrolled to the top**, the list stays there as alerts arrive; scrolled down,
   a *New alert* pill takes you up.
 - **Filters and search:** All, Flagged, Trackers, Drones, Favorites, New,
@@ -738,8 +754,19 @@ power stay off. RF Sentinel
 sweeps the North American public-safety radio bands - the 700 and 800 MHz bands
 where police, fire and EMS radios (not towers) transmit, and the shared VHF / UHF
 land-mobile bands - and measures only **how much energy each 12.5 kHz channel
-carries**. Nothing is demodulated, decoded, recorded or decrypted: it can't know
-what was said or who said it.
+carries**. The sweep demodulates, decodes, records and decrypts nothing: it can't
+know what was said or who said it.
+
+**P25 control channel** (experimental, Settings → *RTL-SDR radio*, on by default in
+the United States and Canada): P25 trunked systems (700 / 800 MHz) announce on a
+control channel which talkgroup gets which voice channel. RF Sentinel finds that
+channel and reads only those announcements: **Tools → P25 talkgroups** lists the
+talkgroups with their calls, last channel and radio, and emergency / encrypted flags,
+and *Watch these talkgroups* alerts when a call starts on one. Voice is never
+decoded, and the frequency and network code stay out of the logs. Receiving radio
+signalling is legal in many places but not all: check the law where you are. With
+more than one SDR scan ticked (radio sweep, ADS-B, P25), the dongle takes turns of
+the length you set.
 
 <details>
 <summary><b>How a nearby transmitter is told apart, settings and requested networks</b></summary>
@@ -930,7 +957,10 @@ Your own themes sit under the built-in ones: **Create a custom theme**, long-pre
 - **Data leaves the phone only when you export or share it.**
 - **Optional permissions:** *Nearby devices → connect* only to list your paired
   Bluetooth devices when you pick your car; *Display over other apps* only for
-  the floating bubble. No contacts, storage, camera or microphone access.
+  the floating bubble; *Camera* only in the normal build's Locate camera view,
+  asked the first time you open it (the picture stays on the phone and nothing
+  from it is saved). No contacts, storage or microphone access. The `-foss.apk`
+  has no camera access at all.
 
 <details>
 <summary><b>Network use: which servers see what</b></summary>
@@ -949,6 +979,11 @@ Your own themes sit under the built-in ones: **Create a custom theme**, long-pre
   search, long-press the map or start a route; they see the search, your start and
   destination, and your IP address.
   Map data © OpenStreetMap contributors (ODbL), © OpenMapTiles, © Mapbox when chosen.
+- **Locate's camera view** (normal build only, not in the `-foss.apk`) runs on Google
+  Play Services for AR (ARCore), which is provided by Google and governed by the
+  Google Privacy Policy; Google says it collects usage data. It is only started when
+  you open the camera view, after a notice saying so, and if it isn't installed the
+  Play Store offers it. RF Sentinel uses none of ARCore's cloud features.
 - **Two optional online sources, off by default:** *Police / government
   aircraft* sends a position rounded to about 1 km to the community ADS-B
   feeds adsb.fi / adsb.lol every minute while scanning. *Waze reports* use
@@ -976,8 +1011,10 @@ Your own themes sit under the built-in ones: **Create a custom theme**, long-pre
   the default 30-second interval respects that.
 - **WiFi only sees access points.** Client devices, such as in-car laptops, are
   invisible without monitor mode.
-- **Signal strength is not distance.** Estimates are often off by 2-3×, and the
-  radar angle is not a direction.
+- **Signal strength is not distance.** Estimates are often off by 2-3×. A
+  direction only comes from turning round with the phone (your body's shadow),
+  and it is rough: reflections indoors and between buildings can point it the
+  wrong way, so sweep again somewhere else to cross-check.
 - **Bluetooth needs the phone screen on.** With the screen off, Android pauses
   app Bluetooth scanning, and on some phones (Pixel tested) nothing gets through
   until the screen comes back on. WiFi, the fake-cell checks, known-camera

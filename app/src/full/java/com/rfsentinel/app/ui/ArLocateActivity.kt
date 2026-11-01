@@ -224,7 +224,7 @@ class ArLocateActivity : AppCompatActivity(), GLSurfaceView.Renderer {
             val tracking = sh?.tracking == true
             if (sh != null && !tracking) frame.reset()
             val here = if (tracking) frame.place(sh!!.x, sh.z, sh.arHeading, LiveRead.heading.takeIf { sh.level && st.upright }, Motion.position) else null
-            here?.let { Motion.ar(it.x, it.y) }
+            here?.let { Motion.placed(it.x, it.y) }
             val heading = sh?.takeIf { tracking }?.let { frame.heading(it.arHeading) } ?: st.heading
 
             val r = LiveRead.current()

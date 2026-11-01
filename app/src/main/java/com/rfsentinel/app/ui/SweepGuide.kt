@@ -92,8 +92,9 @@ class SweepGuide(private val activity: Activity) {
         d.getButton(AlertDialog.BUTTON_NEGATIVE).text = if (s == Step.SWEEP) "Cancel" else "Not now"
         d.getButton(AlertDialog.BUTTON_NEGATIVE).visibility = if (s == Step.LOCKED) View.GONE else View.VISIBLE
         d.getButton(AlertDialog.BUTTON_NEUTRAL).apply {
-            text = if (s == Step.HOW) "Use camera" else "Sweep again"
-            visibility = if (s == Step.LOCKED || (s == Step.HOW && ArSupport.available(activity))) View.VISIBLE else View.GONE
+            val extra = ArSupport.button(activity)
+            text = if (s == Step.HOW) extra.orEmpty() else "Sweep again"
+            visibility = if (s == Step.LOCKED || (s == Step.HOW && extra != null)) View.VISIBLE else View.GONE
         }
         main.removeCallbacks(update)
         update.run()
@@ -137,7 +138,7 @@ class SweepGuide(private val activity: Activity) {
         }
     }
 
-    /** The picture: the demo, the filling ring, or the arrow (also Locate's camera view). Redraws every frame while shown. */
+    /** The picture: the demo, the filling ring, or the arrow (shared with the full build's extra view). Redraws every frame while shown. */
     class SweepView(context: Context) : View(context) {
         var step = 0
         private val d = resources.displayMetrics.density

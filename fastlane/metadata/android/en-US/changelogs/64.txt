@@ -1,0 +1,6 @@
+• Radar: turn round slowly and flagged devices get a direction; two turns cross into a position that stays put as you walk.
+• Locate: a chest sweep guide locks the direction with an arrow.
+• P25 control channel (experimental, RTL-SDR): which talkgroups get a channel; voice never decoded. SDR scans take turns.
+• Swipe flagged rows to mute or dismiss them.
+• Snooze and mute buttons on alert notifications, alert volume choice.
+• Fixed routers you pass daily stay quiet.

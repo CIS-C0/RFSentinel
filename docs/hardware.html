@@ -108,6 +108,7 @@
 <p>An RTL-SDR dongle (R820T / R820T2 / R860 tuner, e.g. RTL-SDR Blog V3 or V4) or a HackRF One (receive only: its transmitter stays off) adds:</p>
 <ul>
 <li><b>Two-way radio transmitting nearby:</b> sweeps the public-safety radio bands and measures only how much energy each channel carries; nothing is demodulated or decoded.</li>
+<li><b>P25 control channel</b> (experimental): finds a P25 trunked system's control channel (700 / 800 MHz) and lists which talkgroups get a channel and when (Tools › P25 talkgroups), with alerts for talkgroups you watch. Signalling only: voice is never decoded. Receiving radio signalling is legal in many places but not all: check the law where you are. With more than one SDR scan ticked, the dongle takes turns.</li>
 <li><b>TETRA handsets</b> (Europe and elsewhere): spots their burst rhythm on 380-385 MHz.</li>
 <li><b>ADS-B aircraft</b> (Settings &rarr; RTL-SDR radio): decodes aircraft on 1090 MHz with no internet, for the police-aircraft check.</li>
 <li>A live <b>radio waterfall</b> (Tools).</li>
