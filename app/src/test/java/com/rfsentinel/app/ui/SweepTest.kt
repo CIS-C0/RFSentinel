@@ -55,6 +55,26 @@ class SweepTest {
     }
 
     @Test
+    fun facingAwayWithNothingHeardCountsAsTheShadow() {
+        val s = Sweep()
+        // Heard every 200 ms facing 0..270°, nothing at all with your back to it (300..360°).
+        for (h in 0 until 270 step 3) { s.add(1_000L + h * 20, h.toFloat(), (-70 + 6 * cos(Math.toRadians(h - 120.0))).toInt()) }
+        assertNull(s.sectors(7_000L)[10])
+        for (t in 0..40) s.face(7_000L + t * 50, 315f) // 2 s facing 315° with nothing heard
+        val weak = s.sectors(9_000L)[10]!!
+        assertTrue("$weak", weak <= s.sectors(9_000L).filterNotNull().min())
+    }
+
+    @Test
+    fun standingStillKeepsTheOtherSides() {
+        val s = Sweep()
+        for (h in 0 until 360 step 10) s.add(1_000L + h * 10, h.toFloat(), -70)
+        // A minute facing one way, heard all along: the rest of the turn stays.
+        for (t in 0 until 300) s.add(5_000L + t * 200, 180f, -75)
+        assertEquals(12, s.covered(65_000L))
+    }
+
+    @Test
     fun locksOnlyOnceItHolds() {
         val s = Sweep()
         for (h in 0 until 360 step 5) s.add(1_000L + h * 50, h.toFloat(), (-75 + 5 * cos(Math.toRadians(h - 120.0))).toInt())

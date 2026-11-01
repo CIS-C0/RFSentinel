@@ -26,13 +26,32 @@ class Sweep {
     private class Reading(val time: Long, val heading: Float, val rssi: Int)
     private val readings = ArrayDeque<Reading>()
 
+    /** How long you faced each sector since a reading was last heard there. */
+    private val silent = LongArray(SECTORS)
+    private var facedAt = 0L
+    private var facedSector = -1
+
     /** A new signal reading [rssi] heard while facing [heading] (compass degrees). */
     fun add(now: Long, heading: Float, rssi: Int) {
-        readings.addLast(Reading(now, (heading % 360f + 360f) % 360f, rssi))
+        val h = (heading % 360f + 360f) % 360f
+        val i = sector(h)
+        readings.addLast(Reading(now, h, rssi))
+        silent[i] = 0L
+        // Each sector keeps its newest few: standing still facing one way doesn't push the others out.
+        if (readings.count { sector(it.heading) == i } > PER_SECTOR) readings.removeAt(readings.indexOfFirst { sector(it.heading) == i })
         while (readings.isNotEmpty() && now - readings.first().time > WINDOW_MS) readings.removeFirst()
     }
 
-    fun clear() { readings.clear(); candidate = null }
+    /** The way you face now, often (between readings too): facing a way long with nothing heard is your body's shadow. */
+    fun face(now: Long, heading: Float) {
+        val i = sector((heading % 360f + 360f) % 360f)
+        if (i == facedSector && facedAt > 0) silent[i] += now - facedAt
+        facedSector = i; facedAt = now
+    }
+
+    fun clear() { readings.clear(); candidate = null; silent.fill(0L); facedAt = 0L; facedSector = -1 }
+
+    private fun sector(heading: Float) = (heading / SECTOR_DEG).toInt().coerceIn(0, SECTORS - 1)
 
     /**
      * Sectors of the turn covered in the last [WINDOW_MS] (out of [SECTORS]): those with a reading, and a single
@@ -45,12 +64,27 @@ class Sweep {
     }
 
     /**
-     * The median signal (dBm) heard facing each sector, null where you haven't faced yet. Sector i is centred on
-     * [centre]. The median, not the mean: one deep multipath fade or one lucky packet doesn't swing a sector.
+     * The signal (dBm) facing each sector, null where you haven't faced yet. Sector i is centred on [centre]. The
+     * median heard there (one deep multipath fade or one lucky packet doesn't swing it); a sector faced
+     * [SILENT_MS] with nothing heard counts as [SILENT_DB] under the weakest heard: your back is to it.
      */
     fun sectors(now: Long): Array<Float?> {
+        val m = heard(now)
+        val weakest = m.filterNotNull().minOrNull() ?: return m
+        val quiet = silentMs()
+        return Array(SECTORS) { i -> m[i] ?: if (silent[i] >= quiet) weakest - SILENT_DB else null }
+    }
+
+    /** Silence counts after [SILENT_MS], or twice the device's usual gap between packets if it sends slowly. */
+    private fun silentMs(): Long {
+        if (readings.size < 3) return SILENT_MS
+        val gaps = readings.zipWithNext { a, b -> b.time - a.time }.sorted()
+        return maxOf(SILENT_MS, 2 * gaps[gaps.size / 2])
+    }
+
+    private fun heard(now: Long): Array<Float?> {
         val by = Array(SECTORS) { ArrayList<Int>() }
-        for (r in readings) if (now - r.time <= WINDOW_MS) by[(r.heading / SECTOR_DEG).toInt().coerceIn(0, SECTORS - 1)] += r.rssi
+        for (r in readings) if (now - r.time <= WINDOW_MS) by[sector(r.heading)] += r.rssi
         return Array(SECTORS) { i -> by[i].takeIf { it.isNotEmpty() }?.sorted()?.let { (it[(it.size - 1) / 2] + it[it.size / 2]) / 2f } }
     }
 
@@ -63,13 +97,16 @@ class Sweep {
         val m = sectors(now)
         val k = m.indices.filter { m[it] != null }
         val covered = covered(m)
-        if (covered < MIN_SECTORS || k.size < MIN_HEARD) return null
-        // Normal equations for m = c + a cos t + b sin t.
+        if (covered < MIN_SECTORS || heard(now).count { it != null } < MIN_HEARD) return null
+        // Normal equations for m = c + a cos t + b sin t, the stronger side weighing more: facing the device the
+        // signal is clean, behind you it's lost packets and reflections.
+        val lo = k.minOf { m[it]!! }; val span = (k.maxOf { m[it]!! } - lo).coerceAtLeast(1f)
         val n = Array(3) { DoubleArray(4) }
         for (i in k) {
             val t = Math.toRadians(centre(i).toDouble())
             val f = doubleArrayOf(1.0, cos(t), sin(t))
-            for (r in 0..2) { for (c in 0..2) n[r][c] += f[r] * f[c]; n[r][3] += f[r] * m[i]!! }
+            val w = 1.0 + FRONT_WEIGHT * (m[i]!! - lo) / span
+            for (r in 0..2) { for (c in 0..2) n[r][c] += w * f[r] * f[c]; n[r][3] += w * f[r] * m[i]!! }
         }
         val (mean, a, b) = solve3(n) ?: return null
         val amp = hypot(a, b)
@@ -83,7 +120,7 @@ class Sweep {
         // reflection or a fade, so the rise and fall it fitted is less sure.
         val weakest = k.minOf { m[it]!! }
         val behind = k.filter { abs(turn(bearing + 180f, centre(it))) <= NULL_SLACK_DEG }.minOfOrNull { m[it]!! }
-        val nullFactor = if (behind != null && behind <= weakest + NULL_TOLERANCE_DB) 1f else 0.5f
+        val nullFactor = if (behind != null && behind <= weakest + NULL_TOLERANCE_DB) 1f else 0.75f
         val confidence = covered.toFloat() / SECTORS * (amp / (amp + rest + NOISE_DB)).toFloat() * nullFactor
         return Estimate(bearing, confidence.coerceIn(0f, 1f), (2 * amp).toFloat())
     }
@@ -123,8 +160,14 @@ class Sweep {
         const val MIN_SECTORS = 10
         /** Sectors with their own reading among those: the rest bridged single gaps. */
         const val MIN_HEARD = 7
-        /** Readings older than this drop out, so walking somewhere new starts a fresh sweep. */
-        const val WINDOW_MS = 45_000L
+        /** Readings older than this drop out (walking somewhere new clears the sweep too: [LiveRead], [RadarTrack]). */
+        const val WINDOW_MS = 120_000L
+        private const val PER_SECTOR = 6
+        /** Faced this long with nothing heard (at least; see [silentMs]): the shadow, this much under the weakest heard. */
+        const val SILENT_MS = 1_500L
+        private const val SILENT_DB = 3f
+        /** The strongest sector weighs this much more than the weakest in the fit. */
+        private const val FRONT_WEIGHT = 2.0
         /** Locked once this sure, and the body shadow shows by at least [LOCK_MIN_DB]. */
         const val LOCK_CONFIDENCE = 0.6f
         const val LOCK_MIN_DB = 4f

@@ -110,7 +110,11 @@ class SweepGuide(private val activity: Activity) {
                 }
                 Step.SWEEP -> {
                     label.text = "2 · Sweeping"
-                    title.text = if (st.covered >= Sweep.MIN_SECTORS) "Once more round, a little slower" else "Keep turning"
+                    title.text = when {
+                        !st.upright -> "Hold it upright on your chest"
+                        st.covered >= Sweep.MIN_SECTORS -> "Once more round, a little slower"
+                        else -> "Keep turning"
+                    }
                     val rssi = LiveRead.current()?.rssi
                     detail.text = (rssi?.let { "$it dBm · " } ?: "Not heard right now · ") +
                         "the ring fills with the signal heard each way, warmer = stronger" +

@@ -41,6 +41,8 @@ object RadarTrack {
         val readings = ArrayDeque<Reading>()
         var radio = Radio(-59.0, 2.5)
         var fed = 0L
+        /** Where this sweep's readings started: walking off starts it over. */
+        var sweepFrom: Motion.Pos? = null
         var spot: Motion.Pos? = null
         var solvedAt = 0L
         var dirty = false
@@ -79,14 +81,24 @@ object RadarTrack {
         t.dirty = true
     }
 
+    /** The way you face now, for [mac]'s sweep (often, between readings too). */
+    fun face(mac: String, now: Long, heading: Float) {
+        val t = tracks[mac] ?: return
+        val pos = Motion.position
+        val from = t.sweepFrom
+        if (pos != null && from != null && hypot(pos.x - from.x, pos.y - from.y) > SWEEP_MOVE_M) { t.sweep.clear(); t.sweepFrom = null }
+        t.sweep.face(now, heading)
+    }
+
     /** The radar's reading of an alert: kept, and run through its own sweep for a line. */
     fun feed(mac: String, time: Long, heading: Float, a: Advert) {
         if (!reading(mac, time, heading, a)) return
         val t = tracks[mac] ?: return
         t.sweep.add(time, heading, a.rssi)
+        if (t.sweepFrom == null) t.sweepFrom = Motion.position
         val e = t.sweep.settled(time) ?: return
         // The next turn gives a new, independent line.
-        t.sweep.clear()
+        t.sweep.clear(); t.sweepFrom = null
         line(mac, e.bearing, e.confidence, time)
     }
 
@@ -180,6 +192,8 @@ object RadarTrack {
     private const val SOLVE_MS = 2_000L
     /** A turn within this of an earlier one is the same spot. */
     private const val SAME_SPOT_M = 8.0
+    /** Walked this far mid-turn: that sweep starts over. */
+    private const val SWEEP_MOVE_M = 5.0
     private const val CELL_M = 3.0
     /** How far off a settled line usually is, and how much it counts against a reading. */
     private const val SIGMA_DEG = 20.0

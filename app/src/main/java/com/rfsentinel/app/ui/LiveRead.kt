@@ -45,6 +45,8 @@ object LiveRead {
     private const val SAMPLE_MS = 50L
     /** Walked this far since the lock: the direction is old, sweep again. */
     const val SWEEP_STALE_M = 25f
+    /** Walked this far before it locked: the sweep starts over where you are. */
+    private const val SWEEP_MOVE_M = 5.0
     /** Heard within this: its signal is live. */
     private const val HEARD_MS = 10_000L
     /** A pinpointed device unheard this long gives way to another flagged one. */
@@ -73,13 +75,15 @@ object LiveRead {
     private var sweepFed = 0L
     private var tickAt = 0L
     private var tickHeading: Float? = null
+    /** Where this sweep's readings started: walking off starts it over. */
+    private var sweepFrom: Motion.Pos? = null
     /** The direction the sweep locked on (kept until Sweep again or Locate stops), and where you stood then. */
     private var lock: Sweep.Estimate? = null
     private var lockedAt: android.location.Location? = null
 
     /** The sweep as the Locate guide draws it. [moved]: metres walked since it locked. */
     class SweepState(val heading: Float?, val sectors: Array<Float?>, val covered: Int,
-                     val estimate: Sweep.Estimate?, val locked: Sweep.Estimate?, val moved: Float?)
+                     val estimate: Sweep.Estimate?, val locked: Sweep.Estimate?, val moved: Float?, val upright: Boolean)
 
     // ---- Pinpoint (the scan's pipeline thread) ----
     private var pinMac: String? = null
@@ -96,7 +100,7 @@ object LiveRead {
         appContext = context.applicationContext
         locating = mac
         followed = null
-        sweep.clear(); sweepFed = 0L; lock = null; lockedAt = null
+        sweep.clear(); sweepFed = 0L; lock = null; lockedAt = null; sweepFrom = null
         compass = Compass(context).also { c ->
             com.rfsentinel.app.service.ScanForegroundService.lastFix?.let { c.setLocation(it.latitude, it.longitude, it.altitude) }
             c.start()
@@ -109,7 +113,7 @@ object LiveRead {
 
     /** Forgets the sweep and its lock, for a fresh turn (somewhere new, or a lock that looks wrong). Main thread. */
     fun sweepAgain() {
-        sweep.clear(); sweepFed = 0L; lock = null; lockedAt = null
+        sweep.clear(); sweepFed = 0L; lock = null; lockedAt = null; sweepFrom = null
         tick()
     }
 
@@ -120,7 +124,7 @@ object LiveRead {
         // Placed (it stays put as you walk): no need to sweep again.
         val moved = if (RadarTrack.place(mac, now) != null) null
             else lockedAt?.let { a -> com.rfsentinel.app.service.ScanForegroundService.lastFix?.distanceTo(a) }
-        return SweepState(heading, sweep.sectors(now), sweep.covered(now), sweep.estimate(now), held(now), moved)
+        return SweepState(heading, sweep.sectors(now), sweep.covered(now), sweep.estimate(now), held(now), moved, compass?.upright == true)
     }
 
     /** The lock, turned to where the device is from where you stand now once [RadarTrack] placed it. */
@@ -176,11 +180,20 @@ object LiveRead {
             val now = System.currentTimeMillis()
             val t0 = tickAt; val h0 = tickHeading ?: h
             tickAt = now; tickHeading = h
+            // Only on your chest: held flat it isn't the sweep the guide shows.
+            if (compass?.upright != true) return
+            val pos = Motion.position
+            val from = sweepFrom
+            if (lock == null && pos != null && from != null && kotlin.math.hypot(pos.x - from.x, pos.y - from.y) > SWEEP_MOVE_M) {
+                sweep.clear(); sweepFrom = null
+            }
+            sweep.face(now, h)
             val (seen, a) = DeviceRegistry.lastHeard(followed ?: mac) ?: return
             if (seen == sweepFed) return
             sweepFed = seen
             val facing = Sweep.headingAt(seen, t0, h0, now, h)
             sweep.add(seen, facing, a.rssi)
+            if (sweepFrom == null) sweepFrom = pos
             RadarTrack.reading(mac, seen, facing, a)
             if (lock != null) return
             val e = sweep.settled(seen) ?: return
@@ -251,7 +264,8 @@ object LiveRead {
     /** The sweep's hint while locating: how to turn, then the locked direction. Null without a compass. Main thread. */
     fun sweepText(now: Long = System.currentTimeMillis()): String? {
         val h = heading ?: return null
-        val l = held(now) ?: return "Phone on your chest, turn slowly: ${sweep.covered(now) * 360 / Sweep.SECTORS}° of 360°"
+        val l = held(now) ?: return if (compass?.upright != true) "Hold the phone upright on your chest"
+            else "Phone on your chest, turn round: ${sweep.covered(now) * 360 / Sweep.SECTORS}° of 360°"
         val moved = sweepState(now)?.moved?.takeIf { it > SWEEP_STALE_M }
         val far = locating?.let { RadarTrack.place(it, now) }?.let { " · ~" + DeviceIntel.formatDistance(it.distanceM.toDouble()) }.orEmpty()
         return "${Sweep.compassPoint(l.bearing)}$far · ${turnText(Sweep.turn(h, l.bearing))} · " +

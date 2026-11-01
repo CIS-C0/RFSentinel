@@ -82,6 +82,7 @@ class RadarView @JvmOverloads constructor(
             // In a car its metal, not your body, shapes the signal.
             if (fix != null && fix.hasSpeed() && fix.speed > WALK_MS) return
             for (it in items) if (it.b.flagged) {
+                RadarTrack.face(it.b.mac, now, h)
                 val (seen, a) = DeviceRegistry.lastHeard(it.b.mac) ?: continue
                 RadarTrack.feed(it.b.mac, seen, Sweep.headingAt(seen, t0, h0, now, h), a)
             }

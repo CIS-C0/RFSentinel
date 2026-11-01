@@ -23,7 +23,9 @@ class Compass(context: Context) : SensorEventListener {
     private val m = FloatArray(9)
     private val r = FloatArray(9)
     private val o = FloatArray(3)
-    private var upright = false
+    /** Held upright (screen facing you, as on your chest), not flat. */
+    var upright = false
+        private set
     private var declination = 0f
     private var running = false
 
