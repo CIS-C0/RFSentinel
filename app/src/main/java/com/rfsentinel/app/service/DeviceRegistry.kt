@@ -452,6 +452,9 @@ object DeviceRegistry {
     /** Full snapshot (history, path, raw advert) for the detail screen. */
     fun get(mac: String): Snapshot? = tracks[mac]?.let { t -> synchronized(t) { snap(t, full = true) } }
 
+    /** When [mac] was last heard and its raw signal then: unsmoothed, so a direction sweep isn't seconds behind. */
+    fun lastHeard(mac: String): Pair<Long, Int>? = tracks[mac]?.let { t -> synchronized(t) { t.lastSeen to (t.advert?.rssi ?: t.rssi) } }
+
     /** Devices heard since [since] with their summary, for persisting to known_devices. */
     fun summaries(since: Long): List<Snapshot> =
         tracks.values.filter { it.lastSeen >= since }.map { t -> synchronized(t) { snap(t, full = false) } }

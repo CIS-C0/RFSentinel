@@ -13,6 +13,7 @@ import android.view.View
 import com.google.android.material.color.MaterialColors
 import com.rfsentinel.app.R
 import com.rfsentinel.app.detect.DeviceIntel
+import com.rfsentinel.app.service.DeviceRegistry
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.min
@@ -60,6 +61,30 @@ class RadarView @JvmOverloads constructor(
     private val compass = Compass(context)
     private val fusion = HeadingFusion()
     private var fixTime = 0L
+    private var lastFix: Location? = null
+    private var tickAt = 0L
+    private var tickHeading: Float? = null
+
+    /**
+     * Five times a second while on screen: each alert's new raw reading with the way you faced when it was heard,
+     * so [RadarTrack] finds its side as you turn and crosses the lines as you walk.
+     */
+    private val sampler = object : Runnable {
+        override fun run() {
+            postDelayed(this, SAMPLE_MS)
+            val h = compass.degrees ?: return
+            val now = System.currentTimeMillis()
+            val t0 = tickAt; val h0 = tickHeading ?: h
+            tickAt = now; tickHeading = h
+            val fix = lastFix
+            // In a car its metal, not your body, shapes the signal.
+            if (fix != null && fix.hasSpeed() && fix.speed > WALK_MS) return
+            for (it in items) if (it.b.flagged) {
+                val (seen, rssi) = DeviceRegistry.lastHeard(it.b.mac) ?: continue
+                RadarTrack.feed(it.b.mac, seen, Sweep.headingAt(seen, t0, h0, now, h), rssi, fix?.latitude, fix?.longitude)
+            }
+        }
+    }
     /** Compass degrees at the top, null for north-up. */
     private var heading: Float? = null
 
@@ -107,11 +132,13 @@ class RadarView @JvmOverloads constructor(
     // The compass runs only while the radar is on screen.
     override fun onVisibilityAggregated(isVisible: Boolean) {
         super.onVisibilityAggregated(isVisible)
-        if (isVisible) compass.start() else compass.stop()
+        removeCallbacks(sampler)
+        if (isVisible) { compass.start(); post(sampler) } else compass.stop()
     }
 
     override fun onDetachedFromWindow() {
         compass.stop()
+        removeCallbacks(sampler)
         super.onDetachedFromWindow()
     }
 
@@ -141,6 +168,7 @@ class RadarView @JvmOverloads constructor(
     fun setFix(fix: Location?) {
         if (fix == null || fix.time == fixTime) return
         fixTime = fix.time
+        lastFix = fix
         compass.setLocation(fix.latitude, fix.longitude, fix.altitude)
         val course = fix.bearing.takeIf { fix.hasBearing() && (!fix.hasBearingAccuracy() || fix.bearingAccuracyDegrees <= 30f) }
         fusion.fix(System.currentTimeMillis(), course, if (fix.hasSpeed()) fix.speed else 0f)
@@ -280,6 +308,7 @@ class RadarView @JvmOverloads constructor(
             directional && heading != null && compass.unreliable && !fusion.gpsSet(now) ->
                 pick("Compass needs calibrating: wave the phone in a figure 8", "Calibrate: wave phone in a figure 8")
             pinpointOff && unplaced -> pick("Pinpoint is off: Settings › Location shows where alerts are", "Pinpoint off: Settings › Location")
+            unplaced && compass.degrees != null -> pick("Turn around slowly, phone in front of you, to place alerts", "Turn around slowly to place alerts")
             directional -> pick("Closer = stronger signal · lines point to located alerts", "Lines point to located alerts")
             else -> pick("Closer to centre = stronger signal · angle is not direction", "Closer = stronger · angle isn't direction")
         }
@@ -309,4 +338,10 @@ class RadarView @JvmOverloads constructor(
     }
 
     override fun performClick(): Boolean = super.performClick()
+
+    private companion object {
+        const val SAMPLE_MS = 200L
+        /** Faster than a brisk walk (m/s): driving. */
+        const val WALK_MS = 3f
+    }
 }

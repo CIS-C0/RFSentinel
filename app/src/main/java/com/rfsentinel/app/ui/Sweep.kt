@@ -1,5 +1,6 @@
 package com.rfsentinel.app.ui
 
+import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
@@ -31,20 +32,19 @@ class Sweep {
         while (readings.isNotEmpty() && now - readings.first().time > WINDOW_MS) readings.removeFirst()
     }
 
-    fun clear() = readings.clear()
+    fun clear() { readings.clear(); candidate = null }
 
     /** Sectors with a reading in the last [WINDOW_MS] (out of [SECTORS]). */
     fun covered(now: Long) = sectors(now).count { it != null }
 
-    /** The average signal (dBm) heard facing each sector, null where you haven't faced yet. Sector i is centred on [centre]. */
+    /**
+     * The median signal (dBm) heard facing each sector, null where you haven't faced yet. Sector i is centred on
+     * [centre]. The median, not the mean: one deep multipath fade or one lucky packet doesn't swing a sector.
+     */
     fun sectors(now: Long): Array<Float?> {
-        val sum = FloatArray(SECTORS)
-        val n = IntArray(SECTORS)
-        for (r in readings) if (now - r.time <= WINDOW_MS) {
-            val i = (r.heading / SECTOR_DEG).toInt().coerceIn(0, SECTORS - 1)
-            sum[i] += r.rssi; n[i]++
-        }
-        return Array(SECTORS) { if (n[it] == 0) null else sum[it] / n[it] }
+        val by = Array(SECTORS) { ArrayList<Int>() }
+        for (r in readings) if (now - r.time <= WINDOW_MS) by[(r.heading / SECTOR_DEG).toInt().coerceIn(0, SECTORS - 1)] += r.rssi
+        return Array(SECTORS) { i -> by[i].takeIf { it.isNotEmpty() }?.sorted()?.let { (it[(it.size - 1) / 2] + it[it.size / 2]) / 2f } }
     }
 
     /**
@@ -69,8 +69,28 @@ class Sweep {
         val rest = sqrt(k.sumOf { i ->
             val r = m[i]!! - mean - amp * cos(Math.toRadians(centre(i).toDouble()) - peak); r * r
         } / k.size)
-        val confidence = k.size.toFloat() / SECTORS * (amp / (amp + rest + NOISE_DB)).toFloat()
-        return Estimate(((Math.toDegrees(peak) % 360 + 360) % 360).toFloat(), confidence.coerceIn(0f, 1f), (2 * amp).toFloat())
+        val bearing = ((Math.toDegrees(peak) % 360 + 360) % 360).toFloat()
+        // Body fade (as fox hunters use it): the sharp null is behind you. The weakest reading anywhere else is a
+        // reflection or a fade, so the rise and fall it fitted is less sure.
+        val weakest = k.minOf { m[it]!! }
+        val behind = k.filter { abs(turn(bearing + 180f, centre(it))) <= NULL_SLACK_DEG }.minOfOrNull { m[it]!! }
+        val nullFactor = if (behind != null && behind <= weakest + NULL_TOLERANCE_DB) 1f else 0.5f
+        val confidence = k.size.toFloat() / SECTORS * (amp / (amp + rest + NOISE_DB)).toFloat() * nullFactor
+        return Estimate(bearing, confidence.coerceIn(0f, 1f), (2 * amp).toFloat())
+    }
+
+    private var candidate: Estimate? = null
+    private var candidateAt = 0L
+
+    /**
+     * An estimate good enough to keep: it [locks] and has stayed within [SETTLE_DEG] for [SETTLE_MS] of new
+     * readings (one lucky reading at the end of a turn can't lock a wrong side). Null until then.
+     */
+    fun settled(now: Long): Estimate? {
+        val e = estimate(now)?.takeIf { locks(it) } ?: run { candidate = null; return null }
+        val c = candidate
+        if (c == null || abs(turn(c.bearing, e.bearing)) > SETTLE_DEG) { candidate = e; candidateAt = now; return null }
+        return if (now - candidateAt >= SETTLE_MS) e else null
     }
 
     companion object {
@@ -85,6 +105,11 @@ class Sweep {
         const val LOCK_MIN_DB = 4f
         /** Signal readings jump about this much on their own; keeps a tiny wave on a quiet signal from looking sure. */
         private const val NOISE_DB = 0.5
+        /** The null counts as behind you within this of the opposite side, and within this many dB of the weakest. */
+        private const val NULL_SLACK_DEG = 60f
+        private const val NULL_TOLERANCE_DB = 1f
+        const val SETTLE_DEG = 20f
+        const val SETTLE_MS = 1_500L
 
         fun centre(sector: Int) = sector * SECTOR_DEG + SECTOR_DEG / 2
 
@@ -93,6 +118,16 @@ class Sweep {
 
         private val POINTS = arrayOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")
         fun compassPoint(deg: Float) = POINTS[(((deg % 360f + 360f) % 360f) / 45f).roundToInt() % 8]
+
+        /**
+         * The way you faced at [t], between two compass reads ([t0], [h0]) and ([t1], [h1]): a reading is picked up
+         * to a sampling tick after it was heard, and a turn moves on meanwhile.
+         */
+        fun headingAt(t: Long, t0: Long, h0: Float, t1: Long, h1: Float): Float {
+            if (t1 <= t0) return h1
+            val f = ((t - t0).toFloat() / (t1 - t0)).coerceIn(0f, 1f)
+            return h0 + (((h1 - h0) % 360f + 540f) % 360f - 180f) * f
+        }
 
         /** Degrees to turn from [heading] to face [target]: positive right, negative left (-180..180). */
         fun turn(heading: Float, target: Float): Int = (((target - heading) % 360f + 540f) % 360f - 180f).roundToInt()

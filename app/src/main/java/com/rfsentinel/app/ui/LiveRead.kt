@@ -70,6 +70,8 @@ object LiveRead {
     /** Compass degrees the phone faces, null without a compass or before its first reading. */
     val heading get() = compass?.degrees
     private var sweepFed = 0L
+    private var tickAt = 0L
+    private var tickHeading: Float? = null
     /** The direction the sweep locked on (kept until Sweep again or Locate stops), and where you stood then. */
     private var lock: Sweep.Estimate? = null
     private var lockedAt: android.location.Location? = null
@@ -152,20 +154,23 @@ object LiveRead {
     }
 
     /**
-     * Five times a second: each new signal reading with the way the phone faces now (a slow turn barely moves
-     * between the two). Locks the direction once the turn makes it clear, with a short buzz.
+     * Five times a second: each new raw signal reading with the way the phone faced when it was heard. Locks the
+     * direction once the turn makes it clear and it holds, with a short buzz.
      */
     private val sample = object : Runnable {
         override fun run() {
             val mac = locating ?: return
             main.postDelayed(this, SAMPLE_MS)
             val h = heading ?: return
-            val s = DeviceRegistry.get(followed ?: mac) ?: return
-            if (s.lastSeen == sweepFed) return
-            sweepFed = s.lastSeen
-            sweep.add(s.lastSeen, h, s.rssi)
+            val now = System.currentTimeMillis()
+            val t0 = tickAt; val h0 = tickHeading ?: h
+            tickAt = now; tickHeading = h
+            val (seen, rssi) = DeviceRegistry.lastHeard(followed ?: mac) ?: return
+            if (seen == sweepFed) return
+            sweepFed = seen
+            sweep.add(seen, Sweep.headingAt(seen, t0, h0, now, h), rssi)
             if (lock != null) return
-            val e = sweep.estimate(s.lastSeen)?.takeIf { Sweep.locks(it) } ?: return
+            val e = sweep.settled(seen) ?: return
             lock = e
             lockedAt = com.rfsentinel.app.service.ScanForegroundService.lastFix
             appContext?.let { AlertPlayer.vibrate(it, longArrayOf(0, 60, 90, 60)) }
@@ -193,6 +198,7 @@ object LiveRead {
     /** The scan stopped: no Locate, no pinpointing. */
     fun reset() = main.post {
         stopLocate()
+        RadarTrack.clear()
         synchronized(this) { pinMac = null; pinUntil = 0L; dismissedPin = null }
         tick()
     }

@@ -44,6 +44,24 @@ class SweepTest {
     }
 
     @Test
+    fun locksOnlyOnceItHolds() {
+        val s = Sweep()
+        for (h in 0 until 360 step 5) s.add(1_000L + h * 50, h.toFloat(), (-75 + 5 * cos(Math.toRadians(h - 120.0))).toInt())
+        assertNull(s.settled(19_000L)) // just became clear
+        s.add(19_500L, 120f, -70)
+        assertNull(s.settled(19_500L))
+        s.add(21_000L, 125f, -70)
+        assertEquals(120f, s.settled(21_000L)!!.bearing, 15f)
+    }
+
+    @Test
+    fun headingAtWhenHeardGoesTheShortWay() {
+        assertEquals(360f, Sweep.headingAt(5L, 0L, 350f, 10L, 10f), 0.01f)
+        assertEquals(15f, Sweep.headingAt(50L, 0L, 10f, 100L, 20f), 0.01f)
+        assertEquals(20f, Sweep.headingAt(500L, 0L, 10f, 100L, 20f), 0.01f)
+    }
+
+    @Test
     fun turnIsShortestWay() {
         assertEquals(30, Sweep.turn(10f, 40f))
         assertEquals(-20, Sweep.turn(10f, 350f))
