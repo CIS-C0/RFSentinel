@@ -444,14 +444,13 @@ object SignatureEngine {
                 "Police cars, but also ambulances, buses, utility fleets and traffic-signal cabinets", "Cradlepoint default SSID (product label); $IEEE")
         // Weak alone; on a vehicle router it backs the router match, so a familiar one still alerts (FixedRouter).
         ssid.lowercase().split(NON_ALNUM).any { w -> w in EMERGENCY_WORDS || w.split(LETTER_DIGIT).any { it in EMERGENCY_WORDS } } -> Hit(Category.PUBLIC_SAFETY,
-            "Police / fire / EMS network name", 45, "WiFi network \"$ssid\" names an emergency service. Stronger on a " +
+            "Police network name", 45, "WiFi network \"$ssid\" names a police service. Stronger on a " +
                 "Cradlepoint or Sierra Wireless router", "Network-name keywords, after Wardrive Go's emergency-router filter")
         else -> null
     }
 
-    /** Words an agency puts in its vehicles' network names, matched as whole words ("SHERIFF-12", "Medic 7"). */
-    private val EMERGENCY_WORDS = setOf("police", "pd", "sheriff", "trooper", "patrol", "k9", "mdt", "fire", "fd",
-        "ems", "medic", "ambulance", "rescue", "dispatch")
+    /** Words police put in their vehicles' network names, matched as whole words ("SHERIFF-12", "PD_Unit4"). Police only: fire / EMS and words they share (MDT, dispatch) left out on purpose. */
+    private val EMERGENCY_WORDS = setOf("police", "pd", "sheriff", "trooper", "patrol", "k9")
     private val NON_ALNUM = Regex("[^a-z0-9]+")
     private val LETTER_DIGIT = Regex("(?<=[a-z])(?=[0-9])|(?<=[0-9])(?=[a-z])")
 

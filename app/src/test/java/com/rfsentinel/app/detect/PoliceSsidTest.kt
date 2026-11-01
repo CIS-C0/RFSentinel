@@ -26,8 +26,11 @@ class PoliceSsidTest {
 
     @Test
     fun emergencyNamesMatchAsWholeWords() {
-        for (name in listOf("SHERIFF-12", "Medic 7", "PD_Unit4", "K9-12", "Engine12 FD"))
+        for (name in listOf("SHERIFF-12", "PD_Unit4", "K9-12", "Patrol 7"))
             assertTrue(name, SignatureEngine.policeVehicleSsid(name)!!.confidence < 50) // weak alone
+        // Fire and EMS vehicles, and words they share with police, aren't flagged.
+        for (name in listOf("Medic 7", "Engine12 FD", "FIRE-3", "EMS_Unit2", "Ambulance 4", "Rescue1", "MDT-4", "Dispatch 2"))
+            assertNull(name, SignatureEngine.policeVehicleSsid(name))
         // A familiar router named for an agency still alerts: the name match isn't a router-only match.
         assertTrue(!FixedRouter.routerOnly(listOf(SignatureEngine.policeVehicleSsid("SHERIFF-12")!!)))
     }
