@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Locate's camera view (full build): asked the first time you open it. The picture stays on the phone. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.ar" android:required="false" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <application>
+        <!-- Optional: the app runs without ARCore; the camera view offers to install it. -->
+        <meta-data android:name="com.google.ar.core" android:value="optional" />
+        <activity
+            android:name=".ui.ArLocateActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+    </application>
+</manifest>

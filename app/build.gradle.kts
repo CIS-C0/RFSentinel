@@ -153,6 +153,8 @@ dependencies {
     implementation("org.maplibre.gl:android-sdk-vulkan-opengl:13.6.1")
     // Optional Mapbox map (Settings > Map > Map provider), full build only; needs MAPBOX_ACCESS_TOKEN in local.properties.
     if (!fossOnly) "fullImplementation"("com.mapbox.maps:android-ndk27:11.32.0")
+    // Locate's camera view (ARCore: where the phone is, to the centimetre, while it looks around), full build only.
+    if (!fossOnly) "fullImplementation"("com.google.ar:core:1.57.0")
 
     // Android Auto (Car App Library, template-based UI; "projected" = phone-driven Android Auto)
     implementation("androidx.car.app:app:1.7.0")

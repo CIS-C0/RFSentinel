@@ -33,6 +33,8 @@ object Motion : SensorEventListener {
     private var stale = false
     private var staleSince = 0L
     private var fixTime = 0L
+    /** When Locate's camera view last placed you ([ar]): its tracking beats steps and GPS while it lasts. */
+    private var arAt = 0L
 
     /** Where you are now; null while waiting for a GPS fix to place you again after a pause. */
     val position: Pos? get() = if (users == 0 || stale) null else Pos(fusion.x, fusion.y)
@@ -53,6 +55,13 @@ object Motion : SensorEventListener {
         compass?.stop(); compass = null
     }
 
+    /** Locate's camera view tracks you at [x], [y] (this frame's metres). Main thread. */
+    fun ar(x: Double, y: Double) {
+        if (users == 0 || stale) return
+        fusion.set(x, y)
+        arAt = System.currentTimeMillis()
+    }
+
     private fun newFrame() { generation++; fusion.reset(); stale = false }
 
     override fun onSensorChanged(e: SensorEvent) {
@@ -60,14 +69,14 @@ object Motion : SensorEventListener {
         ScanForegroundService.lastFix?.takeIf { it.time != fixTime }?.let { f ->
             fixTime = f.time
             compass?.setLocation(f.latitude, f.longitude, f.altitude)
-            if (f.hasAccuracy() && f.accuracy <= MAX_ACCURACY_M && now - f.time < FIX_FRESH_MS) {
+            if (f.hasAccuracy() && f.accuracy <= MAX_ACCURACY_M && now - f.time < FIX_FRESH_MS && now - arAt > AR_HOLD_MS) {
                 fusion.gps(f.latitude, f.longitude, f.accuracy.toDouble(), snap = stale)
                 stale = false
             }
         }
         if (stale && now - staleSince > STALE_MS) newFrame()
         val v = e.values
-        if (!steps.add(e.timestamp / 1_000_000, sqrt((v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).toDouble()))) return
+        if (!steps.add(e.timestamp / 1_000_000, sqrt((v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).toDouble())) || now - arAt <= AR_HOLD_MS) return
         compass?.degrees?.let { fusion.step(it) }
     }
 
@@ -89,6 +98,9 @@ object Motion : SensorEventListener {
         val anchored get() = !lat0.isNaN()
 
         fun reset() { x = 0.0; y = 0.0; variance = 0.0; lat0 = Double.NaN; lon0 = Double.NaN; lastHeading = null }
+
+        /** Placed by the AR camera: centimetres, so little doubt for the next GPS fix to pull on. */
+        fun set(x: Double, y: Double) { this.x = x; this.y = y; variance = AR_VARIANCE }
 
         /** One step while facing [heading]. Shuffling round on the spot (a sweep) is steps too, but barely moves you. */
         fun step(heading: Float) {
@@ -146,6 +158,9 @@ object Motion : SensorEventListener {
     /** Doubt each step adds (m²): length and heading errors. */
     private const val STEP_VARIANCE = 0.25
     private const val MIN_ACCURACY_M = 3.0
+    /** The camera view lost tracking this long: steps and GPS take over again. */
+    private const val AR_HOLD_MS = 1_000L
+    private const val AR_VARIANCE = 0.01
     private const val MAX_ACCURACY_M = 50f
     private const val FIX_FRESH_MS = 5_000L
     /** Resumed and no fix this long: start over. */
