@@ -100,6 +100,7 @@ object LiveRead {
             com.rfsentinel.app.service.ScanForegroundService.lastFix?.let { c.setLocation(it.latitude, it.longitude, it.altitude) }
             c.start()
         }
+        Motion.start(context)
         main.post(beep)
         main.post(sample)
         tick()
@@ -114,15 +115,24 @@ object LiveRead {
     /** What the Locate guide shows, null when not locating. Main thread. */
     fun sweepState(now: Long = System.currentTimeMillis()): SweepState? {
         if (locating == null) return null
-        val moved = lockedAt?.let { a -> com.rfsentinel.app.service.ScanForegroundService.lastFix?.distanceTo(a) }
-        return SweepState(heading, sweep.sectors(now), sweep.covered(now), sweep.estimate(now), lock, moved)
+        val mac = locating ?: return null
+        // Placed (it stays put as you walk): no need to sweep again.
+        val moved = if (RadarTrack.place(mac, now) != null) null
+            else lockedAt?.let { a -> com.rfsentinel.app.service.ScanForegroundService.lastFix?.distanceTo(a) }
+        return SweepState(heading, sweep.sectors(now), sweep.covered(now), sweep.estimate(now), held(now), moved)
+    }
+
+    /** The lock, turned to where the device is from where you stand now once [RadarTrack] placed it. */
+    private fun held(now: Long): Sweep.Estimate? {
+        val l = lock ?: return null
+        val mac = locating ?: return l
+        return RadarTrack.place(mac, now)?.let { l.copy(bearing = it.bearing) } ?: l
     }
 
     /** The locked direction (compass degrees) of [mac] while it is being located, for the radar. Main thread. */
     fun sweptBearing(mac: String): Float? {
-        val l = lock ?: return null
         val m = locating ?: return null
-        return l.bearing.takeIf { mac == m || mac == followed }
+        return held(System.currentTimeMillis())?.bearing?.takeIf { mac == m || mac == followed }
     }
 
     /** Main thread. */
@@ -132,7 +142,7 @@ object LiveRead {
         val was = locating != null
         locating = null; followed = null
         compass?.stop(); compass = null
-        if (was) tick()
+        if (was) { Motion.stop(); tick() }
     }
 
     private val beep = object : Runnable {
@@ -165,14 +175,17 @@ object LiveRead {
             val now = System.currentTimeMillis()
             val t0 = tickAt; val h0 = tickHeading ?: h
             tickAt = now; tickHeading = h
-            val (seen, rssi) = DeviceRegistry.lastHeard(followed ?: mac) ?: return
+            val (seen, a) = DeviceRegistry.lastHeard(followed ?: mac) ?: return
             if (seen == sweepFed) return
             sweepFed = seen
-            sweep.add(seen, Sweep.headingAt(seen, t0, h0, now, h), rssi)
+            val facing = Sweep.headingAt(seen, t0, h0, now, h)
+            sweep.add(seen, facing, a.rssi)
+            RadarTrack.reading(mac, seen, facing, a)
             if (lock != null) return
             val e = sweep.settled(seen) ?: return
             lock = e
             lockedAt = com.rfsentinel.app.service.ScanForegroundService.lastFix
+            RadarTrack.line(mac, e.bearing, e.confidence, seen)
             appContext?.let { AlertPlayer.vibrate(it, longArrayOf(0, 60, 90, 60)) }
             tick()
         }
@@ -237,9 +250,10 @@ object LiveRead {
     /** The sweep's hint while locating: how to turn, then the locked direction. Null without a compass. Main thread. */
     fun sweepText(now: Long = System.currentTimeMillis()): String? {
         val h = heading ?: return null
-        val l = lock ?: return "Phone on your chest, turn slowly: ${sweep.covered(now) * 360 / Sweep.SECTORS}° of 360°"
+        val l = held(now) ?: return "Phone on your chest, turn slowly: ${sweep.covered(now) * 360 / Sweep.SECTORS}° of 360°"
         val moved = sweepState(now)?.moved?.takeIf { it > SWEEP_STALE_M }
-        return "${Sweep.compassPoint(l.bearing)} · ${turnText(Sweep.turn(h, l.bearing))} · " +
+        val far = locating?.let { RadarTrack.place(it, now) }?.let { " · ~" + DeviceIntel.formatDistance(it.distanceM.toDouble()) }.orEmpty()
+        return "${Sweep.compassPoint(l.bearing)}$far · ${turnText(Sweep.turn(h, l.bearing))} · " +
             if (moved != null) "you moved, sweep again" else "${(l.confidence * 100).toInt()}% sure"
     }
 

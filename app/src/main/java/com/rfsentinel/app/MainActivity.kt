@@ -782,19 +782,17 @@ class MainActivity : AppCompatActivity() {
             binding.radarView.setBlips(visible.take(200).map { s ->
                 val alert = com.rfsentinel.app.ui.LiveWindow.alerting(s, now)
                 val at = if (alert && fix != null) knownPosition(s, fix.latitude, fix.longitude) else null
-                // Placed by your turns on the radar (crossed into a spot once you turned at two places), or the
-                // device being located once a chest sweep found its side.
-                val tracked = if (alert && at == null) com.rfsentinel.app.ui.RadarTrack.place(s.mac, fix?.latitude, fix?.longitude, now) else null
-                val crossed = tracked?.takeIf { it.distanceM != null }
-                val swept = if (at == null) com.rfsentinel.app.ui.LiveRead.sweptBearing(s.mac) else null
+                // Placed by your turns and kept placed as you walk, or the device being located once its sweep locked.
+                val tracked = if (alert && at == null) com.rfsentinel.app.ui.RadarTrack.place(s.mac, now) else null
+                val swept = if (at == null && tracked == null) com.rfsentinel.app.ui.LiveRead.sweptBearing(s.mac) else null
                 RadarView.Blip(
                     s.mac, s.rssi,
                     if (alert) colorFor(s) else binding.radarView.ordinaryColor(),
                     alert,
                     if (alert) s.best?.label else null,
                     at?.let { com.rfsentinel.app.alpr.KnownCameras.bearingTo(fix!!.latitude, fix.longitude, it.first, it.second).toFloat() }
-                        ?: crossed?.bearing ?: swept ?: tracked?.bearing,
-                    at?.let { DeviceRegistry.metersBetween(fix!!.latitude, fix.longitude, it.first, it.second).toFloat() } ?: crossed?.distanceM,
+                        ?: tracked?.bearing ?: swept,
+                    at?.let { DeviceRegistry.metersBetween(fix!!.latitude, fix.longitude, it.first, it.second).toFloat() } ?: tracked?.distanceM,
                     now - s.lastSeen
                 )
             } + radio)

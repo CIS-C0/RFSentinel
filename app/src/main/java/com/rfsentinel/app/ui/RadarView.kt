@@ -64,10 +64,12 @@ class RadarView @JvmOverloads constructor(
     private var lastFix: Location? = null
     private var tickAt = 0L
     private var tickHeading: Float? = null
+    /** The sampler and [Motion] run (counted once per radar). */
+    private var tracking = false
 
     /**
      * Five times a second while on screen: each alert's new raw reading with the way you faced when it was heard,
-     * so [RadarTrack] finds its side as you turn and crosses the lines as you walk.
+     * so [RadarTrack] finds its side as you turn and keeps it placed as you walk ([Motion] tracks your steps).
      */
     private val sampler = object : Runnable {
         override fun run() {
@@ -80,8 +82,8 @@ class RadarView @JvmOverloads constructor(
             // In a car its metal, not your body, shapes the signal.
             if (fix != null && fix.hasSpeed() && fix.speed > WALK_MS) return
             for (it in items) if (it.b.flagged) {
-                val (seen, rssi) = DeviceRegistry.lastHeard(it.b.mac) ?: continue
-                RadarTrack.feed(it.b.mac, seen, Sweep.headingAt(seen, t0, h0, now, h), rssi, fix?.latitude, fix?.longitude)
+                val (seen, a) = DeviceRegistry.lastHeard(it.b.mac) ?: continue
+                RadarTrack.feed(it.b.mac, seen, Sweep.headingAt(seen, t0, h0, now, h), a)
             }
         }
     }
@@ -132,13 +134,16 @@ class RadarView @JvmOverloads constructor(
     // The compass runs only while the radar is on screen.
     override fun onVisibilityAggregated(isVisible: Boolean) {
         super.onVisibilityAggregated(isVisible)
+        if (isVisible == tracking) { if (isVisible) compass.start(); return }
+        tracking = isVisible
         removeCallbacks(sampler)
-        if (isVisible) { compass.start(); post(sampler) } else compass.stop()
+        if (isVisible) { compass.start(); Motion.start(context); post(sampler) } else { compass.stop(); Motion.stop() }
     }
 
     override fun onDetachedFromWindow() {
         compass.stop()
         removeCallbacks(sampler)
+        if (tracking) { tracking = false; Motion.stop() }
         super.onDetachedFromWindow()
     }
 

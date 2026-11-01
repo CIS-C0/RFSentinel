@@ -725,14 +725,17 @@ object DeviceIntel {
      * Walls, bodies and antenna orientation easily cause 2-3x errors.
      */
     fun distanceMeters(a: Advert, rssi: Double = a.rssi.toDouble()): Double {
-        if (a.isWifi) {
-            val f = a.wifi?.frequencyMhz?.takeIf { it > 0 } ?: 2437
-            val exp = (20.0 - rssi - 20 * log10(f.toDouble()) + 27.55) / 20.0
-            return 10.0.pow(exp).coerceIn(0.5, 500.0)
-        }
-        val measuredAt1m = a.txPower?.let { it - 41 } ?: -59
-        return 10.0.pow((measuredAt1m - rssi) / 25.0).coerceIn(0.1, 300.0)
+        val d = 10.0.pow((powerAt1m(a) - rssi) / (10 * pathLossExponent(a)))
+        return if (a.isWifi) d.coerceIn(0.5, 500.0) else d.coerceIn(0.1, 300.0)
     }
+
+    /** The signal (dBm) expected 1 m away: a WiFi radio's free-space loss at its frequency, BLE's advertised power. */
+    fun powerAt1m(a: Advert): Double =
+        if (a.isWifi) 20.0 - 20 * log10((a.wifi?.frequencyMhz?.takeIf { it > 0 } ?: 2437).toDouble()) + 27.55
+        else (a.txPower?.let { it - 41 } ?: -59).toDouble()
+
+    /** How fast the signal falls with distance (10 n dB per tenfold). */
+    fun pathLossExponent(a: Advert) = if (a.isWifi) 2.0 else 2.5
 
     /** Device distances in feet (and miles past 1000 ft): the app's units ([com.rfsentinel.app.util.Units]). */
     var imperial: Boolean

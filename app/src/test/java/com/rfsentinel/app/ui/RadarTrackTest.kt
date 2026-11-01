@@ -1,34 +1,48 @@
 package com.rfsentinel.app.ui
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.cos
+import kotlin.math.hypot
+import kotlin.math.log10
+import kotlin.math.sin
 
 class RadarTrackTest {
 
-    // Metres east / north of a neutral origin (0, 0) to lat/lon.
-    private fun line(east: Double, north: Double, bearing: Float) =
-        RadarTrack.Line(north / 110_540.0, east / 111_320.0, bearing, 1f, 0L)
+    private val ble = RadarTrack.Radio(-59.0, 2.5)
 
-    @Test
-    fun twoTurnsCrossAtTheDevice() {
-        // Device 50 m east and 50 m north: seen NE from the start, NW from 100 m further east.
-        val (lat, lon) = RadarTrack.cross(listOf(line(0.0, 0.0, 45f), line(100.0, 0.0, 315f)))!!
-        assertEquals(50.0, lat * 110_540.0, 1.0)
-        assertEquals(50.0, lon * 111_320.0, 1.0)
-        // A third, slightly off line still lands close.
-        val (lat3, lon3) = RadarTrack.cross(listOf(line(0.0, 0.0, 45f), line(100.0, 0.0, 315f), line(50.0, 0.0, 5f)))!!
-        assertEquals(50.0, lat3 * 110_540.0, 5.0)
-        assertEquals(50.0, lon3 * 111_320.0, 5.0)
+    /** What a phone at x/y facing [heading] hears from a device at dx/dy: path loss plus the body's shadow. */
+    private fun heard(x: Double, y: Double, heading: Float, dx: Double, dy: Double, time: Long): RadarTrack.Reading {
+        val d = hypot(dx - x, dy - y).coerceAtLeast(1.0)
+        val r = Math.toRadians(heading.toDouble())
+        val facing = ((dx - x) * sin(r) + (dy - y) * cos(r)) / d
+        return RadarTrack.Reading(x, y, heading, (-59 - 25 * log10(d) - 8 * (1 - facing) / 2).toInt(), time)
     }
 
     @Test
-    fun noCrossingWhenParallelBehindOrAlone() {
-        assertNull(RadarTrack.cross(listOf(line(0.0, 0.0, 45f))))
-        assertNull(RadarTrack.cross(listOf(line(0.0, 0.0, 45f), line(100.0, 0.0, 50f)))) // nearly parallel
-        assertNull(RadarTrack.cross(listOf(line(0.0, 0.0, 45f), line(100.0, 0.0, 135f)))) // behind the second spot
-        assertNull(RadarTrack.cross(listOf(RadarTrack.Line(null, null, 45f, 1f, 0L), line(100.0, 0.0, 315f))))
-        assertNotNull(RadarTrack.cross(listOf(line(0.0, 0.0, 45f), line(100.0, 0.0, 315f))))
+    fun twoTurnsCrossAtTheDevice() {
+        // Device 50 m east and 50 m north: NE from the start, NW from 100 m further east.
+        val p = RadarTrack.solve(listOf(RadarTrack.Line(0.0, 0.0, 45f, 1f, 0L), RadarTrack.Line(100.0, 0.0, 315f, 1f, 0L)), emptyList(), ble)!!
+        assertEquals(50.0, p.x, 2.0)
+        assertEquals(50.0, p.y, 2.0)
+    }
+
+    @Test
+    fun oneTurnThenWalkingGivesTheRange() {
+        // Turned at the start and found it east; then walked 60 m north past it. Device 40 m east.
+        val readings = (0..60 step 2).map { heard(0.0, it - 30.0, 0f, 40.0, 0.0, it * 1_000L) }
+        val p = RadarTrack.solve(listOf(RadarTrack.Line(0.0, -30.0, 53f, 1f, 0L)), readings, ble)!!
+        assertTrue("$p", hypot(p.x - 40.0, p.y) < 10.0)
+    }
+
+    @Test
+    fun oneTurnAloneStaysOnItsLine() {
+        val readings = listOf(heard(0.0, 0.0, 90f, 20.0, 0.0, 0L))
+        val p = RadarTrack.solve(listOf(RadarTrack.Line(0.0, 0.0, 90f, 1f, 0L)), readings, ble)!!
+        assertTrue("${p.x}", p.x > 3)
+        assertEquals(0.0, p.y, p.x * 0.2)
+        assertNull(RadarTrack.solve(emptyList(), readings, ble))
     }
 }
