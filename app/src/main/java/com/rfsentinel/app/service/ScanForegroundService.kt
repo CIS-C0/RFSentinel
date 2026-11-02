@@ -75,6 +75,11 @@ class ScanForegroundService : Service() {
         private const val RADAR_HOLD_MS = 120_000L
         /** A watched talkgroup's call: the user asked for it, like a watched frequency. */
         private const val P25_CONFIDENCE = 70
+        /** A talkgroup much busier than usual: probable, not certain (an event, a shift change, a drill). */
+        private const val P25_UNUSUAL_CONFIDENCE = 55
+        private const val P25_UNUSUAL_CHECK_MS = 5 * 60_000L
+        /** One unusual-activity alert per talkgroup this often. */
+        private const val P25_UNUSUAL_AGAIN_MS = 2 * 60 * 60_000L
         /** "GPS connected" again only after the fix was lost this long. */
         private const val GPS_RECONNECT_MS = 120_000L
         /** The latest position's time and accuracy, for the GPS dot (null: none while scanning). */
@@ -1537,6 +1542,7 @@ class ScanForegroundService : Service() {
     /** A call started on a P25 talkgroup: reported when it is one you watch (Settings > RTL-SDR radio). */
     private fun onP25Call(tg: Int) {
         if (!Prefs.categoryEnabled(this, Category.RADIO)) return
+        checkP25Unusual()
         val name = com.rfsentinel.app.sdr.P25Log.watched(Prefs.p25Talkgroups(this))[tg] ?: return
         val row = com.rfsentinel.app.sdr.SdrRadio.p25Log.rows().firstOrNull { it.tg == tg }
         val called = name.ifEmpty { "talkgroup $tg" }
@@ -1548,6 +1554,35 @@ class ScanForegroundService : Service() {
         val hit = Hit(Category.RADIO, "Talkgroup active: $called", P25_CONFIDENCE, detail, "P25 control channel (signalling only, no voice)")
         radioDetection(hit, "P25 TG $tg", 0, detail, System.currentTimeMillis(), "p25:$tg", "Talkgroup $called active",
             P25_CONFIDENCE >= Prefs.alertThreshold(this, Category.RADIO))
+    }
+
+    private var p25UnusualAt = 0L
+    private val p25UnusualAlerted = HashMap<Int, Long>()
+
+    /** Every few minutes while calls come in: talkgroups much busier than usual for the hour (Settings › RTL-SDR radio). */
+    private fun checkP25Unusual() {
+        val now = System.currentTimeMillis()
+        if (!Prefs.p25Unusual(this) || Prefs.p25LogDays(this) == 0 || now - p25UnusualAt < P25_UNUSUAL_CHECK_MS) return
+        p25UnusualAt = now
+        serviceScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val found = com.rfsentinel.app.sdr.P25History.unusual(com.rfsentinel.app.sdr.P25History.read(this@ScanForegroundService), now)
+            if (found.isNotEmpty()) pipeline.post { found.forEach { onP25Unusual(it, now) } }
+        }
+    }
+
+    private fun onP25Unusual(u: com.rfsentinel.app.sdr.P25History.Unusual, now: Long) {
+        if (now - (p25UnusualAlerted[u.tg] ?: 0L) < P25_UNUSUAL_AGAIN_MS) return
+        p25UnusualAlerted[u.tg] = now
+        val name = com.rfsentinel.app.sdr.P25Log.watched(Prefs.p25Talkgroups(this))[u.tg]?.ifEmpty { null }
+        val called = name ?: "talkgroup ${u.tg}"
+        val detail = "P25 talkgroup ${u.tg}${name?.let { " ($it)" }.orEmpty()}: ${u.recent} calls in the last hour" +
+            (if (u.new) ", never heard before in ${u.days} days of log. "
+            else String.format(java.util.Locale.US, ", against %.1f on average at this hour over the last %d days. ", u.usual, u.days)) +
+            "Busier than usual can mean an incident, an event or a planned operation. Heard on the site's control channel: " +
+            "the radios may be anywhere the site covers."
+        val hit = Hit(Category.RADIO, "Unusual activity: $called", P25_UNUSUAL_CONFIDENCE, detail, "P25 call log (signalling only, no voice)")
+        radioDetection(hit, "P25 TG ${u.tg}", 0, detail, now, "p25u:${u.tg}", "Unusual activity on $called",
+            P25_UNUSUAL_CONFIDENCE >= Prefs.alertThreshold(this, Category.RADIO))
     }
 
     /** "154.43" for 154.430 MHz: three decimals, trailing zeros dropped, read well by the voice. */

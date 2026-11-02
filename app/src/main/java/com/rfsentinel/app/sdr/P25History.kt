@@ -24,8 +24,17 @@ object P25History {
         val busiestHour get() = byHour.indices.maxByOrNull { byHour[it] }?.takeIf { byHour[it] > 0 }
     }
 
+    /** A talkgroup much busier than usual: [recent] calls in the last hour against [usual], its average for that same
+     *  hour over the [days] before. [new]: never heard before in the kept log. */
+    data class Unusual(val tg: Int, val recent: Int, val usual: Double, val days: Int, val new: Boolean)
+
     const val HEADER = "time,talkgroup,private_to,radio,channel,frequency_hz,emergency,encrypted,site"
     private const val DAY_MS = 24 * 60 * 60_000L
+    private const val HOUR_MS = 60 * 60_000L
+    /** Days of log needed before anything counts as unusual. */
+    const val BASELINE_DAYS = 3
+    /** Calls in the last hour below this are never unusual, however quiet the talkgroup usually is. */
+    private const val MIN_RECENT = 5
     private const val PRUNE_EVERY_MS = 60 * 60_000L
 
     private val io = Executors.newSingleThreadExecutor()
@@ -69,6 +78,24 @@ object P25History {
         if (f.size < 9) return null
         return Call(f[0].toLongOrNull() ?: return null, f[1].toIntOrNull(), f[2].toIntOrNull(), f[3].toIntOrNull(),
             f[4].toIntOrNull(), f[5].toLongOrNull(), f[6] == "1", f[7] == "1", f[8].ifEmpty { null })
+    }
+
+    /**
+     * Talkgroups at least 3 times (plus 3 calls) busier in the last hour than in the same hour of the previous days.
+     * Nothing until the log covers [BASELINE_DAYS] days. Private calls are left out.
+     */
+    fun unusual(calls: List<Call>, now: Long): List<Unusual> {
+        val oldest = calls.minOfOrNull { it.time } ?: return emptyList()
+        val days = ((now - oldest) / DAY_MS).toInt()
+        if (days < BASELINE_DAYS) return emptyList()
+        return calls.filter { it.tg != null }.groupBy { it.tg!! }.mapNotNull { (tg, list) ->
+            val recent = list.count { now - it.time in 0 until HOUR_MS }
+            if (recent < MIN_RECENT) return@mapNotNull null
+            val before = (1..days).sumOf { d -> list.count { now - d * DAY_MS - it.time in 0 until HOUR_MS } }
+            val usual = before.toDouble() / days
+            if (recent < 3 * usual + 3) null
+            else Unusual(tg, recent, usual, days, list.none { now - it.time >= HOUR_MS })
+        }.sortedByDescending { it.recent }
     }
 
     /** Talkgroups (and private calls) by most recent call, counted over the last day, week and everything kept. */

@@ -651,6 +651,9 @@ object Prefs {
     /** How many days the P25 call log is kept on the phone (0: not kept). */
     fun p25LogDays(context: Context): Int = int(context, "p25_log_days", 14).coerceIn(0, 60)
     fun setP25LogDays(context: Context, days: Int) = setInt(context, "p25_log_days", days.coerceIn(0, 60))
+    /** Alert when a talkgroup is much busier than usual for the hour ([com.rfsentinel.app.sdr.P25History.unusual]). Off by default. */
+    fun p25Unusual(context: Context): Boolean = bool(context, "p25_unusual", false)
+    fun setP25Unusual(context: Context, v: Boolean) = setBool(context, "p25_unusual", v)
     /** Seconds the SDR gives each ticked scan in turn, 30-300: a first P25 search takes up to about 15 s. */
     fun sdrTurnS(context: Context): Int = int(context, "sdr_turn_s", 60).coerceIn(30, 300)
     fun setSdrTurnS(context: Context, v: Int) = setInt(context, "sdr_turn_s", v.coerceIn(30, 300))

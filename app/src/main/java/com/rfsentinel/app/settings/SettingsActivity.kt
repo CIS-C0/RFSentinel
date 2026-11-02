@@ -1386,7 +1386,11 @@ class SettingsActivity : AppCompatActivity() {
         info(box.getChildAt(box.childCount - 2), "Every call the control channel grants (time, talkgroup, radio, channel) is kept on the " +
             "phone this long, for P25 talkgroups › History and Export: no internet or talkgroup list needed. About 1 MB per busy day. " +
             "0 keeps nothing and deletes the log.", "Keep the P25 call log")
-        val talkgroupViews = (box.childCount - 4 until box.childCount).map { box.getChildAt(it) }
+        scan("Alert on unusual talkgroup activity", Prefs.p25Unusual(this),
+            "Compares each talkgroup's calls in the last hour with the same hour on the days before, from the call log. Alerts when " +
+            "one is at least three times busier than usual, or busy for the first time. Starts after the log has " +
+            "${com.rfsentinel.app.sdr.P25History.BASELINE_DAYS} days in it, and needs the call log kept.") { Prefs.setP25Unusual(this, it) }
+        val talkgroupViews = (box.childCount - 5 until box.childCount).map { box.getChildAt(it) }
         var sweepViews = emptyList<View>() // the sweep's own settings, below
         showSdrOptions = {
             val ticked = listOf(sweepBox, adsbBox, p25Box).count { it.isChecked }
