@@ -902,6 +902,12 @@
                 android:text="Record a trace whenever scanning starts" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/traceEveryPingSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Log every sighting in traces" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/gpsSwitch"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -1018,6 +1024,14 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:text="Whitelist" />
+
+            <Button
+                android:id="@+id/ignoredSsidsButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Ignored network names" />
 
             <Button
                 android:id="@+id/checkUpdateButton"

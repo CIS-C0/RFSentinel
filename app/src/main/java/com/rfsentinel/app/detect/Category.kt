@@ -15,6 +15,8 @@ enum class Category(
     ALPR("License-plate / traffic enforcement camera", "ALPR", 0xFFB3261E.toInt(), true),
     AUDIO_SENSOR("Audio / gunshot sensor (Flock Raven, ShotSpotter)", "AUDIO", 0xFF9C2A6B.toInt(), true),
     PUBLIC_SAFETY("Public-safety vendor gear (Motorola, i-PRO...)", "PUBLIC SAFETY", 0xFFB26A00.toInt(), true),
+    /** Zebra / Brother mobile printers: in-car e-ticket printers, but also couriers and field techs. Follows Public safety until set. */
+    MOBILE_PRINTER("Mobile printers (Zebra, Brother RuggedJet / PocketJet e-ticket printers)", "PRINTER", 0xFF455A64.toInt(), true),
     DRONE("Drone (Remote ID / drone maker)", "DRONE", 0xFF1F5FBF.toInt(), true),
     TRACKER("Item tracker away from its owner", "TRACKER", 0xFF6A3FB5.toInt(), true),
     GLASSES("Smart / recording glasses", "GLASSES", 0xFF00796B.toInt(), true),

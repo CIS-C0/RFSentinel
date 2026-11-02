@@ -743,6 +743,7 @@ class MainActivity : AppCompatActivity() {
                 com.rfsentinel.app.ui.DeviceFilter.CELLS -> liveCellCount(now)
                 com.rfsentinel.app.ui.DeviceFilter.WAZE -> currentWaze(now).size
                 com.rfsentinel.app.ui.DeviceFilter.AIRCRAFT -> currentAircraft(now).size
+                com.rfsentinel.app.ui.DeviceFilter.FLAGGED -> all.count { f.matches(it) } + currentAircraft(now).count { it.hit != null }
                 com.rfsentinel.app.ui.DeviceFilter.RADIO -> if (ScanForegroundService.isRunning) com.rfsentinel.app.sdr.RadioLog.current(now).size else 0
                 else -> all.count { f.matches(it) }
             }
@@ -773,7 +774,7 @@ class MainActivity : AppCompatActivity() {
         panes.update(flagged.maxByOrNull { it.best?.confidence ?: 0 }?.let { colorFor(it) })
         var radioBlips = 0
         if (panes.radarShown) {
-            val radio = radioBlips(now, threshold)
+            val radio = radioBlips(now, Prefs.alertThreshold(this, Category.RADIO))
             radioBlips = radio.size
             val fix = if (demoMode) com.rfsentinel.app.ui.DemoData.fakeLocation else ScanForegroundService.lastFix
             // Heading-up from the compass (and the GPS course while driving), north-up without either.
@@ -799,9 +800,9 @@ class MainActivity : AppCompatActivity() {
         }
         if (panes.listShown) {
             val cells = cellRows(now)
-            val waze = wazeRows(now, threshold)
-            val radio = radioRows(now, threshold)
-            val air = aircraftRows(now, threshold)
+            val waze = wazeRows(now, Prefs.alertThreshold(this, Category.POLICE_REPORT))
+            val radio = radioRows(now, Prefs.alertThreshold(this, Category.RADIO))
+            val air = aircraftRows(now, Prefs.alertThreshold(this, Category.AIRCRAFT))
             // Waze reports, radios on the air and aircraft that meet the alert threshold flash at the very top;
             // the rest follow the devices.
             val (urgent, quiet) = waze.partition { it.flashing }
@@ -1007,12 +1008,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Aircraft as rows: under All only the law-enforcement ones (so airliners don't fill the list), under
+     * Aircraft as rows: under All and Flagged only the law-enforcement ones (so airliners don't fill the list), under
      * Aircraft every one, police first, then nearest. A police one at or above the alert threshold is
      * tinted, flashes and is pinned to the top. Tap: the aircraft on the map.
      */
     private fun aircraftRows(now: Long, threshold: Int): List<DeviceRow> {
-        if (filter != com.rfsentinel.app.ui.DeviceFilter.ALL && filter != com.rfsentinel.app.ui.DeviceFilter.AIRCRAFT) return emptyList()
+        if (filter != com.rfsentinel.app.ui.DeviceFilter.ALL && filter != com.rfsentinel.app.ui.DeviceFilter.AIRCRAFT &&
+            filter != com.rfsentinel.app.ui.DeviceFilter.FLAGGED) return emptyList()
         val all = filter == com.rfsentinel.app.ui.DeviceFilter.AIRCRAFT
         val me = (if (demoMode) com.rfsentinel.app.ui.DemoData.fakeLocation else ScanForegroundService.lastFix)?.let { it.latitude to it.longitude }
         val color = com.rfsentinel.app.ui.ThemeManager.ink(this, Category.AIRCRAFT.colorArgb)
@@ -1145,6 +1147,8 @@ class MainActivity : AppCompatActivity() {
             when (it) {
                 "mute" -> r.canMute && !noMute
                 "hide" -> r.canMute || noMute
+                // A device heard now (not an aircraft, radio or Waze row).
+                "whitelist", "watchlist" -> r.canMute && DeviceRegistry.get(r.mac) != null
                 else -> false
             }
         }
@@ -1176,6 +1180,13 @@ class MainActivity : AppCompatActivity() {
                 when (swipeAction(r, direction == swipeRight)) {
                     "mute" -> toggleMute(r, false)
                     "hide" -> hideRow(r)
+                    "whitelist" -> DeviceRegistry.get(r.mac).let { s ->
+                        com.rfsentinel.app.ui.DeviceActions.whitelist(this@MainActivity, r.mac, s?.best?.label ?: s?.name ?: r.title,
+                            com.rfsentinel.app.ui.DeviceActions.ssidOf(s))
+                    }
+                    "watchlist" -> DeviceRegistry.get(r.mac).let { s ->
+                        com.rfsentinel.app.ui.DeviceActions.addToWatchlist(this@MainActivity, r.mac, s?.name, s?.advert?.isWifi == true)
+                    }
                 }
             }
             override fun onChildDraw(c: android.graphics.Canvas, rv: androidx.recyclerview.widget.RecyclerView, vh: androidx.recyclerview.widget.RecyclerView.ViewHolder,
@@ -1184,12 +1195,19 @@ class MainActivity : AppCompatActivity() {
                 if (dX != 0f) {
                     val right = dX > 0
                     val r = row(vh)
-                    val mute = r != null && swipeAction(r, right) == "mute"
+                    val action = r?.let { swipeAction(it, right) }
+                    val mute = action == "mute" || action == "watchlist"
                     paint.color = if (mute) accent else com.rfsentinel.app.ui.ThemeManager.ink(this@MainActivity, WHITELIST_COLOR)
                     if (right) c.drawRect(v.left.toFloat(), v.top.toFloat(), v.left + dX, v.bottom.toFloat(), paint)
                     else c.drawRect(v.right + dX, v.top.toFloat(), v.right.toFloat(), v.bottom.toFloat(), paint)
                     paint.color = if (mute) onAccent else android.graphics.Color.WHITE
-                    val label = if (mute) (if (r?.muted == true) "Unmute" else "Mute") else if (r != null && hidesWhole(r)) "Hide" else "Dismiss"
+                    val label = when {
+                        action == "whitelist" -> "Whitelist"
+                        action == "watchlist" -> "Watchlist"
+                        mute -> if (r?.muted == true) "Unmute" else "Mute"
+                        r != null && hidesWhole(r) -> "Hide"
+                        else -> "Dismiss"
+                    }
                     val y = (v.top + v.bottom) / 2f - (paint.descent() + paint.ascent()) / 2
                     if (right) c.drawText(label, v.left + 20 * dp, y, paint)
                     else c.drawText(label, v.right - 20 * dp - paint.measureText(label), y, paint)
@@ -1244,7 +1262,7 @@ class MainActivity : AppCompatActivity() {
             highlight = if (alert) colorFor(s) else null,
             // Flashes only while still in range (like the beeps); a gone device keeps a steady tint.
             flashing = alert && !muted && com.rfsentinel.app.ui.LiveWindow.inRange(s, now) &&
-                (s.following || (best!!.confidence >= threshold && best.category != Category.TRACKER)),
+                (s.following || (best!!.confidence >= Prefs.alertThreshold(this, best.category) && best.category != Category.TRACKER)),
             bold = alert,
             heardByEsp = com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac, now),
             heardByUsb = com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac, now),
@@ -1284,7 +1302,7 @@ class MainActivity : AppCompatActivity() {
             following != null -> 0xFFB3261E.toInt() to "⚠ ${following.best!!.label} may be following you"
             top == null -> 0xFF2E7D32.toInt() to "✓ All clear - no flagged equipment nearby"
             top.best!!.tier == Tier.STRONG -> 0xFFB3261E.toInt() to "⚠ Strong match nearby: ${top.best!!.label}"
-            top.best!!.confidence >= threshold -> 0xFFC8431A.toInt() to "Probable match nearby: ${top.best!!.label}"
+            top.best!!.confidence >= Prefs.alertThreshold(this, top.best!!.category) -> 0xFFC8431A.toInt() to "Probable match nearby: ${top.best!!.label}"
             else -> WEAK_COLOR to "Weak match only (verify): ${top.best!!.label}"
         }
         banner.text = if (flagged.size > 1 && following == null) "$text  (+${flagged.size - 1} more)" else text

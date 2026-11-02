@@ -762,7 +762,7 @@ class ScanForegroundService : Service() {
                 this, mac, trackerHit.label, a.rssi, now, DeviceRegistry.linkedFrom(mac))
         ) return
         if (WhitelistCache.contains(mac)) return
-        if (!com.rfsentinel.app.detect.FixedRouter.quiet(mac, c.hits, Prefs.alertThreshold(this))) noteLocating(mac)
+        if (!com.rfsentinel.app.detect.FixedRouter.quiet(mac, c.hits, Prefs.alertThreshold(this, best.category))) noteLocating(mac)
 
         maybeLog(a, best, c.vendor, loc, now)
         maybeAlert(a, best, c.hits, now, via)
@@ -1037,7 +1037,10 @@ class ScanForegroundService : Service() {
         val vendor = macVendor ?: companyVendors.firstOrNull()
         // Per-packet rules, the watchlist, matches carried over from a rotated address and the
         // patrol-vehicle cluster, then fused into one calibrated score.
-        val raw = SignatureEngine.classify(a) +
+        // A network whose name has one of your ignored words (Settings › Ignored network names): listed, never flagged.
+        val ignored = a.source == Advert.Source.WIFI && a.wifi?.client != true &&
+            a.name?.let { n -> Prefs.ignoredSsidAll(this).any { n.contains(it, ignoreCase = true) } } == true
+        val raw = if (ignored) emptyList() else SignatureEngine.classify(a) +
             OuiWatchlist.hits(a.mac, a.name, listOfNotNull(macVendor) + companyVendors) +
             OuiWatchlist.advertHits(a) +
             DeviceRegistry.inheritedHits(a.mac) +
@@ -1095,9 +1098,9 @@ class ScanForegroundService : Service() {
     private fun maybeAlert(a: Advert, best: Hit, hits: List<Hit>, now: Long, via: String? = null) {
         // Someone else's tracker nearby is normal; trackers only alert when they follow you.
         if (best.category == Category.TRACKER) return
-        if (best.listOnly || best.confidence < Prefs.alertThreshold(this)) return
+        if (best.listOnly || best.confidence < Prefs.alertThreshold(this, best.category)) return
         // A shop's router you pass every day: listed and logged, no alert.
-        if (com.rfsentinel.app.detect.FixedRouter.quiet(a.mac, hits, Prefs.alertThreshold(this))) return
+        if (com.rfsentinel.app.detect.FixedRouter.quiet(a.mac, hits, Prefs.alertThreshold(this, best.category))) return
         // Acknowledged from the list: listed and logged, no alert.
         if (com.rfsentinel.app.data.AlertMutes.isMuted(this, a.mac, now)) return
         val window = Prefs.dedupeWindowMs(this)
@@ -1463,7 +1466,7 @@ class ScanForegroundService : Service() {
         if (named == null && com.rfsentinel.app.sdr.RadioReference.ready(this)) (lastLocation ?: lastFix)?.let { l ->
             serviceScope.launch { com.rfsentinel.app.sdr.RadioReference.refreshAround(this@ScanForegroundService, l.latitude, l.longitude) }
         }
-        val threshold = Prefs.alertThreshold(this)
+        val threshold = Prefs.alertThreshold(this, Category.RADIO)
         val trend = com.rfsentinel.app.sdr.RadioLog.observe(e, name, Prefs.radioTrendDb(this), now)
         val cell = e.band.kind == com.rfsentinel.app.sdr.RadioWatch.Kind.CELLULAR_UPLINK
         if (trend != null && e.confidence >= threshold && via == null) {
@@ -1544,7 +1547,7 @@ class ScanForegroundService : Service() {
             "Heard on the site's control channel: the radios may be anywhere the site covers, not necessarily near you."
         val hit = Hit(Category.RADIO, "Talkgroup active: $called", P25_CONFIDENCE, detail, "P25 control channel (signalling only, no voice)")
         radioDetection(hit, "P25 TG $tg", 0, detail, System.currentTimeMillis(), "p25:$tg", "Talkgroup $called active",
-            P25_CONFIDENCE >= Prefs.alertThreshold(this))
+            P25_CONFIDENCE >= Prefs.alertThreshold(this, Category.RADIO))
     }
 
     /** "154.43" for 154.430 MHz: three decimals, trailing zeros dropped, read well by the voice. */
@@ -1588,7 +1591,9 @@ class ScanForegroundService : Service() {
         }
         // An aircraft or Waze report hidden from the list (swiped left): logged, no alert.
         if (alert.level != com.rfsentinel.app.online.WazePolice.Level.LOG &&
-            hit.confidence >= Prefs.alertThreshold(this) && !com.rfsentinel.app.data.AlertMutes.isMuted(this, alert.key, now)) {
+            // A circling aircraft you asked to hear about (Settings) alerts below the threshold: it's never strong.
+            (hit.confidence >= Prefs.alertThreshold(this, hit.category) || hit.label == com.rfsentinel.app.online.PoliceAircraft.CIRCLING) &&
+            !com.rfsentinel.app.data.AlertMutes.isMuted(this, alert.key, now)) {
             val off = alertsOff(hit.category)
             NotificationHelper.sendMapAlert(this, alert.key, hit, lat = alert.lat, lon = alert.lon, online = alert.key,
                 banner = AlertKind.BANNER !in off)
@@ -1627,7 +1632,7 @@ class ScanForegroundService : Service() {
                 )
             )
         }
-        if (a.confidence >= Prefs.alertThreshold(this)) {
+        if (a.confidence >= Prefs.alertThreshold(this, hit.category)) {
             val off = alertsOff(hit.category)
             NotificationHelper.sendMapAlert(this, "gnss:" + a.key, hit, com.rfsentinel.app.ui.GnssActivity::class.java, banner = AlertKind.BANNER !in off)
             AlertPlayer.play(this, hit.tier, a.title, off = off)
@@ -1693,7 +1698,7 @@ class ScanForegroundService : Service() {
                 )
             )
         }
-        if (hit.confidence >= Prefs.alertThreshold(this)) {
+        if (hit.confidence >= Prefs.alertThreshold(this, hit.category)) {
             val off = alertsOff(hit.category)
             NotificationHelper.sendMapAlert(this, key, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java, banner = AlertKind.BANNER !in off)
             AlertPlayer.play(this, hit.tier, spoken, off = off)
@@ -1718,7 +1723,7 @@ class ScanForegroundService : Service() {
                 )
             )
         }
-        if (a.confidence >= Prefs.alertThreshold(this)) {
+        if (a.confidence >= Prefs.alertThreshold(this, hit.category)) {
             val off = alertsOff(hit.category)
             NotificationHelper.sendMapAlert(this, "cell:" + a.key, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java, banner = AlertKind.BANNER !in off)
             AlertPlayer.play(this, hit.tier, "Cell network warning", off = off)
@@ -1774,12 +1779,12 @@ class ScanForegroundService : Service() {
                     val devices = DeviceRegistry.snapshot()
                     // Only devices still in range: the bubble clears as soon as a threat is gone.
                     val flagged = devices.filter { com.rfsentinel.app.ui.LiveWindow.alerting(it) }
-                    val threshold = Prefs.alertThreshold(ctx)
                     val top = flagged.maxOfOrNull { it.best!!.confidence } ?: 0
+                    val probable = flagged.any { it.best!!.confidence >= Prefs.alertThreshold(ctx, it.best!!.category) }
                     val cellWarning = CellMonitor.lastAnomaly?.takeIf { System.currentTimeMillis() - it.first < 15 * 60_000L }
                     val level = when {
                         flagged.any { it.following } || top >= 80 -> com.rfsentinel.app.ui.ThreatBubble.Level.DANGER
-                        top >= threshold || cellWarning != null -> com.rfsentinel.app.ui.ThreatBubble.Level.PROBABLE
+                        probable || cellWarning != null -> com.rfsentinel.app.ui.ThreatBubble.Level.PROBABLE
                         flagged.isNotEmpty() -> com.rfsentinel.app.ui.ThreatBubble.Level.WEAK
                         else -> com.rfsentinel.app.ui.ThreatBubble.Level.CLEAR
                     }

@@ -24,6 +24,8 @@ class P25Log {
     private var messages = 0L
     private var registrations = 0
     private var since = 0L
+    /** Calls started since [takeCalls], for the kept call log ([P25History]). */
+    private val started = ArrayList<P25History.Call>()
 
     /** A new control channel: forget the last site. */
     @Synchronized fun clear(now: Long) {
@@ -55,6 +57,8 @@ class P25Log {
         if (source != null) { g.lastSource = source; g.radios += source }
         g.emergency = g.emergency || emergency
         g.encrypted = encrypted || (g.encrypted && source == null) // an update doesn't say: keep the last grant's
+        if (new) started += P25History.Call(now, tg, target, source, channel, channels.hz(channel), emergency, g.encrypted,
+            site?.let { s -> listOfNotNull("%03X".format(s.sysId), s.rfss?.toString(), s.site?.toString()).joinToString("-") })
         return if (new) tg else null
     }
 
@@ -65,6 +69,9 @@ class P25Log {
     }.filter { it.calls > 0 || it.radios > 0 }.sortedByDescending { it.lastAt }
 
     @Synchronized fun summary() = Summary(site, messages, registrations, since)
+
+    /** The calls started since the last time this was asked, oldest first. */
+    @Synchronized fun takeCalls(): List<P25History.Call> = started.toList().also { started.clear() }
 
     companion object {
         /** A grant or update for a talkgroup heard within this long is the same call going on. */

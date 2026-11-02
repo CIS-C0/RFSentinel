@@ -49,6 +49,22 @@ data class TripPointEntity(
     val speedMs: Float? = null
 )
 
+/** One time a device was heard during a trace, where your phone was then (Settings › Log every sighting in traces). */
+@Entity(
+    tableName = "trip_pings",
+    foreignKeys = [ForeignKey(entity = TripEntity::class, parentColumns = ["id"], childColumns = ["tripId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("tripId")]
+)
+data class TripPingEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val tripId: Long,
+    val mac: String,
+    val time: Long,
+    val rssi: Int,
+    val lat: Double,
+    val lon: Double
+)
+
 /**
  * A device heard during a trip. Its position is where YOUR phone was when the
  * device's signal was strongest - an approximation of where it was, not a fix.
@@ -112,6 +128,12 @@ interface TripDao {
 
     @Query("SELECT * FROM trip_points WHERE tripId = :tripId ORDER BY time")
     suspend fun points(tripId: Long): List<TripPointEntity>
+
+    @Insert
+    suspend fun insertPings(pings: List<TripPingEntity>)
+
+    @Query("SELECT * FROM trip_pings WHERE tripId = :tripId ORDER BY time")
+    suspend fun pings(tripId: Long): List<TripPingEntity>
 
     @Upsert
     suspend fun upsertDevices(devices: List<TripDeviceEntity>)

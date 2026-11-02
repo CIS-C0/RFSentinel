@@ -428,6 +428,7 @@ object SdrRadio {
                 messages++; p25Messages++
                 val now = System.currentTimeMillis()
                 for (tg in p25Log.add(it, now)) onP25Call?.invoke(tg)
+                appContext?.let { c -> P25History.append(c, p25Log.takeCalls()) }
                 if (now - lastStatus >= 2_000L && !halted) { lastStatus = now; status = "$deviceLabel · P25 · control channel $where · $messages messages" + turnNote() }
             }
             if (lost) p25Lock = null

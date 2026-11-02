@@ -1480,11 +1480,13 @@ class MapFragment : Fragment() {
             trip = t
             val points = dao.points(id).map { it.lat to it.lon }
             val devices = dao.devices(id)
+            val pings = dao.pings(id)
             if (!alive) return@launch
             val r = rf
             r?.safe("trip") {
                 r.drawTrace(points, RfMap.PAST_TRACE_COLOR)
                 r.drawPins(devices.filter { it.lat != null && filter.matches(it) }.map { it.toPin() })
+                r.drawPings(pings)
             }
             val placed = devices.filter { it.lat != null }
             for ((f, chip) in filterChips) {

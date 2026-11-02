@@ -42,6 +42,16 @@ object PoliceAircraft {
         RegexOption.IGNORE_CASE
     )
 
+    /** Government owners (agencies, states, counties, cities, the Crown): not proof of police, but a public-service flight. */
+    private val GOV_OWNER = Regex(
+        "GOVERNMENT|DEPARTMENT OF|DEPT OF|MINISTRY|STATE OF|COMMONWEALTH OF|PROVINCE OF|COUNTY OF|CITY OF|" +
+            "HIS MAJESTY|HER MAJESTY|NATIONAL GUARD|COAST GUARD",
+        RegexOption.IGNORE_CASE
+    )
+
+    /** The label of an unlisted aircraft circling overhead ([classify]). */
+    const val CIRCLING = "Aircraft circling overhead"
+
     @Volatile private var registry: Map<String, Entry>? = null
 
     fun load(context: Context): Map<String, Entry> = registry ?: synchronized(this) {
@@ -107,9 +117,15 @@ object PoliceAircraft {
                     if (circling) " It is circling." else "",
                 "ADS-B owner / operator (adsb.fi)")
         }
+        p.owner?.takeIf { GOV_OWNER.containsMatchIn(it) }?.let { owner ->
+            return Hit(Category.AIRCRAFT, "Government aircraft overhead: ${titleCase(owner)}", if (circling) 85 else 80,
+                "${p.registration ?: p.hex.uppercase()} (${p.type ?: "aircraft"}), operated by ${titleCase(owner)}. $where" +
+                    (if (circling) " It is circling." else "") + " A government owner isn't always police - verify.",
+                "ADS-B owner / operator (adsb.fi)")
+        }
         if (circling) {
             val low = (p.altitudeFt ?: 0) in 1..3_000
-            return Hit(Category.AIRCRAFT, "Aircraft circling overhead", if (low) 55 else 45,
+            return Hit(Category.AIRCRAFT, CIRCLING, if (low) 55 else 45,
                 "${p.registration ?: p.callsign ?: p.hex.uppercase()} (${p.type ?: "aircraft"}) keeps circling over the same area. $where " +
                     "Police and surveillance flights orbit like this, but so do news, training and survey flights - verify.",
                 "$via track (loiter detection)")
@@ -136,9 +152,13 @@ object PoliceAircraft {
     /** Closer than this (ground distance) a strong match alerts; farther, or weaker, it's only logged and listed. */
     const val ALERT_M = 5_000.0
 
-    /** Whether a hit alerts (sound, voice, notification): a strong match within [ALERT_M]; otherwise it's only logged. */
-    fun alerts(hit: Hit, distanceM: Double?): Boolean =
-        hit.confidence >= com.rfsentinel.app.detect.Tier.STRONG.min && distanceM != null && distanceM <= ALERT_M
+    /**
+     * Whether a hit alerts (sound, voice, notification): a strong match (police, government) within [ALERT_M], or with
+     * [circlingOn] (Settings) any aircraft circling within it; otherwise it's only logged.
+     */
+    fun alerts(hit: Hit, distanceM: Double?, circlingOn: Boolean = false): Boolean =
+        distanceM != null && distanceM <= ALERT_M &&
+            (hit.confidence >= com.rfsentinel.app.detect.Tier.STRONG.min || (circlingOn && hit.label == CIRCLING))
 
     const val VIA_ONLINE = "ADS-B (adsb.fi / adsb.lol)"
     const val VIA_LOCAL = "ADS-B heard by your RTL-SDR"

@@ -27,6 +27,9 @@ class FlockNoiseTest {
         assertTrue(FlockNoise.filter(listOf(liteon, fsName), null, flockRegion = false).isEmpty())
         assertEquals(listOf(penguin), FlockNoise.filter(listOf(liteon, fsName, penguin), "Penguin-1234567890", false))
         assertEquals(1, FlockNoise.filter(listOf(fsName), "FS-ABC123", flockRegion = true).size)
+        val shape = Hit(Category.ALPR, "Possible Flock camera (probe shape)", 35, "", "")
+        assertTrue(FlockNoise.filter(listOf(shape), null, flockRegion = false).isEmpty())
+        assertEquals(1, FlockNoise.filter(listOf(shape), null, flockRegion = true).size)
     }
 
     @Test

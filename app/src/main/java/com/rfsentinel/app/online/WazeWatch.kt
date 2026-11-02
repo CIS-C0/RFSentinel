@@ -248,7 +248,7 @@ class WazeWatch(
         val viewM = maxOf(Prefs.wazeViewKm(context) * 1000.0, alertM) // never narrower than the alert range
         val aheadOnly = Prefs.wazeAheadOnly(context)
         val approachOn = Prefs.wazeApproach(context)
-        val threshold = Prefs.alertThreshold(context)
+        val threshold = Prefs.alertThreshold(context, com.rfsentinel.app.detect.Category.POLICE_REPORT)
         val levels = WazePolice.Type.entries.associateWith { Prefs.wazeLevel(context, it) }
 
         val shown = ArrayList<WazePolice.Shown>(known.size)

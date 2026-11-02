@@ -65,7 +65,7 @@ class IdentificationTest {
 
     @Test
     fun rolesComeFromHitsVendorsAndNames() {
-        assertEquals("mobile printer", PatrolCluster.roleOf(listOf(hit(Category.PUBLIC_SAFETY, "Zebra mobile printer", 50)), "Texas Instruments", null))
+        assertEquals("mobile printer", PatrolCluster.roleOf(listOf(hit(Category.MOBILE_PRINTER, "Zebra mobile printer", 50)), "Texas Instruments", null))
         assertEquals("two-way radio", PatrolCluster.roleOf(emptyList(), "Motorola Solutions Inc.", null))
         assertEquals("body camera", PatrolCluster.roleOf(listOf(hit(Category.BODY_CAM, "Axon body camera", 90)), null, null))
         assertEquals("mobile printer", PatrolCluster.roleOf(emptyList(), null, "RJ-4250WB_1234"))

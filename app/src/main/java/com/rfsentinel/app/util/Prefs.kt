@@ -41,7 +41,8 @@ object Prefs {
     // ---- Detection ------------------------------------------------------------
 
     fun categoryEnabled(context: Context, category: Category): Boolean =
-        bool(context, "cat_" + category.name, category.defaultEnabled)
+        bool(context, "cat_" + category.name,
+            if (category == Category.MOBILE_PRINTER) categoryEnabled(context, Category.PUBLIC_SAFETY) else category.defaultEnabled)
 
     fun setCategoryEnabled(context: Context, category: Category, value: Boolean) =
         setBool(context, "cat_" + category.name, value)
@@ -196,7 +197,7 @@ object Prefs {
         (sp(context).getString(if (right) "swipe_right" else "swipe_left", null) ?: if (right) "mute" else "hide").takeIf { it in SWIPE_ACTIONS } ?: "none"
     fun setSwipeAction(context: Context, right: Boolean, action: String) =
         sp(context).edit { putString(if (right) "swipe_right" else "swipe_left", action) }
-    val SWIPE_ACTIONS = listOf("mute", "hide", "none")
+    val SWIPE_ACTIONS = listOf("mute", "hide", "none", "whitelist", "watchlist")
 
     /** Muted, or snoozed for a while: no alert sound or voice. */
     fun alertsSilenced(context: Context, now: Long = System.currentTimeMillis()): Boolean =
@@ -209,6 +210,14 @@ object Prefs {
     /** Minimum confidence (0-100) that sounds an alert; weaker matches are only highlighted. */
     fun alertThreshold(context: Context): Int = int(context, "alert_threshold", 50)
     fun setAlertThreshold(context: Context, value: Int) = setInt(context, "alert_threshold", value)
+    /** [category]'s own threshold (What to detect › its ▾), or null to follow [alertThreshold]. */
+    fun categoryThreshold(context: Context, category: Category): Int? =
+        int(context, "cat_threshold_" + category.name, -1).takeIf { it >= 0 }
+    fun setCategoryThreshold(context: Context, category: Category, value: Int?) = sp(context).edit {
+        if (value == null) remove("cat_threshold_" + category.name) else putInt("cat_threshold_" + category.name, value)
+    }
+    /** The threshold that sounds an alert for [category]: its own if set, else the Alerts setting. */
+    fun alertThreshold(context: Context, category: Category): Int = categoryThreshold(context, category) ?: alertThreshold(context)
 
     /** Hide what was detected on the lock screen and in the status notification. */
     fun discreetMode(context: Context): Boolean = bool(context, "discreet_mode", false)
@@ -284,6 +293,32 @@ object Prefs {
     /** Police aircraft from the online ADS-B feeds; off leaves only the RTL-SDR's own receiver (on by default). */
     fun aircraftOnline(context: Context): Boolean = bool(context, "aircraft_online", true)
     fun setAircraftOnline(context: Context, v: Boolean) = setBool(context, "aircraft_online", v)
+
+    /** Traces keep every sighting of a device where you were, not only where it was strongest (off by default: much more data). */
+    fun traceEveryPing(context: Context): Boolean = bool(context, "trace_every_ping", false)
+    fun setTraceEveryPing(context: Context, v: Boolean) = setBool(context, "trace_every_ping", v)
+
+    /** Words that make a WiFi network never flagged when its name contains one ("Rogers", "Bell"): carriers' home routers. */
+    fun ignoredSsidWords(context: Context): List<String> =
+        sp(context).getString("ignored_ssid_words", "").orEmpty().split(',', '\n').map { it.trim() }.filter { it.isNotEmpty() }
+    fun setIgnoredSsidWords(context: Context, words: List<String>) =
+        sp(context).edit { putString("ignored_ssid_words", words.joinToString("\n")) }
+
+    /** Ready-made Ignored network names: the words popular telecoms put in their routers' default names. Off until picked. */
+    val ISP_PRESETS = linkedMapOf(
+        "Canada" to listOf("Bell", "Rogers", "Telus", "Videotron", "Helix", "Shaw", "Cogeco", "Fido", "Virgin", "Koodo",
+            "Eastlink", "Freedom", "SaskTel", "Distributel", "TekSavvy", "Ebox", "Xplore"),
+        "United States" to listOf("Xfinity", "ATT", "Spectrum", "Verizon", "Fios", "CenturyLink", "Frontier", "Cox",
+            "Optimum", "Windstream", "TMobile", "T-Mobile", "Mediacom", "Sparklight", "GFiber"))
+    fun ignoredSsidPresets(context: Context): Set<String> = sp(context).getStringSet("ignored_ssid_presets", emptySet()).orEmpty()
+    fun setIgnoredSsidPresets(context: Context, v: Set<String>) = sp(context).edit { putStringSet("ignored_ssid_presets", v) }
+    /** Your words plus the picked presets' ([ISP_PRESETS]). */
+    fun ignoredSsidAll(context: Context): List<String> =
+        (ignoredSsidWords(context) + ignoredSsidPresets(context).flatMap { ISP_PRESETS[it].orEmpty() }).distinct()
+
+    /** Alert (sound, voice) for any aircraft circling close, not only police and government ones (off by default). */
+    fun aircraftCircling(context: Context): Boolean = bool(context, "aircraft_circling", false)
+    fun setAircraftCircling(context: Context, v: Boolean) = setBool(context, "aircraft_circling", v)
 
     fun aircraftRadiusKm(context: Context): Int = int(context, "aircraft_radius_km", 30).coerceIn(10, 50)
     fun setAircraftRadiusKm(context: Context, km: Int) = setInt(context, "aircraft_radius_km", km.coerceIn(10, 50))
@@ -613,6 +648,9 @@ object Prefs {
     /** P25 talkgroups to alert on, "1234 Name" a line ([com.rfsentinel.app.sdr.P25Log.watched]). */
     fun p25Talkgroups(context: Context) = str(context, "p25_talkgroups")
     fun setP25Talkgroups(context: Context, v: String) = setStr(context, "p25_talkgroups", v)
+    /** How many days the P25 call log is kept on the phone (0: not kept). */
+    fun p25LogDays(context: Context): Int = int(context, "p25_log_days", 14).coerceIn(0, 60)
+    fun setP25LogDays(context: Context, days: Int) = setInt(context, "p25_log_days", days.coerceIn(0, 60))
     /** Seconds the SDR gives each ticked scan in turn, 30-300: a first P25 search takes up to about 15 s. */
     fun sdrTurnS(context: Context): Int = int(context, "sdr_turn_s", 60).coerceIn(30, 300)
     fun setSdrTurnS(context: Context, v: Int) = setInt(context, "sdr_turn_s", v.coerceIn(30, 300))

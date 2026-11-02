@@ -50,6 +50,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         private const val DEVICES = "rf-devices"; private const val DOTS = "rf-device-dots"; private const val LABELS = "rf-device-labels"
         private const val WAZE = "rf-waze"; private const val DRONE_OPS = "rf-drone-ops"; private const val DRONES = "rf-drones"
         private const val AIRCRAFT = "rf-aircraft"
+        private const val PINGS = "rf-pings"
         private const val WIGLE = "rf-wigle"; private const val WIGLE_COLOR = "#8E24AA"
         private const val ASKED = "rf-asked"; private const val ASKED_COLOR = "#00897B"
         private const val NAV_ROUTES = "rf-nav-routes"; private const val NAV_PLACES = "rf-nav-places"
@@ -150,7 +151,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
 
     /** Every layer, as map style JSON (the same on both engines). */
     private fun addLayers(dark: Boolean) {
-        listOf(NAV_ROUTES, NAV_PLACES, PRECISION, CONES, CAM_CONES, TRACE, DRONE_LINES, TOWERS, CCTV, CAMERAS, DEVICES, WIGLE, ASKED, WAZE, DRONE_OPS, DRONES, AIRCRAFT)
+        listOf(NAV_ROUTES, NAV_PLACES, PRECISION, CONES, CAM_CONES, TRACE, DRONE_LINES, TOWERS, CCTV, CAMERAS, PINGS, DEVICES, WIGLE, ASKED, WAZE, DRONE_OPS, DRONES, AIRCRAFT)
             .forEach { map.addSource(it) }
         fun get(k: String) = a("get", k)
         val color = a("to-color", get("color"))
@@ -201,6 +202,8 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
             // Plate, speed and red-light cameras; the ones whose alerts you turned off, faded.
             layer(CAMERAS, "symbol", minzoom = CAMERAS_MIN_ZOOM, layout = o("icon-image" to get("icon"), *overlap),
                 paint = o("icon-opacity" to get("opacity"))),
+            // A saved trace's every sighting of each device (Settings › Log every sighting in traces): small, under the devices.
+            layer(PINGS, "circle", paint = o("circle-color" to color, "circle-radius" to 3.0, "circle-opacity" to 0.8)),
             // Devices: flagged ones bigger and on top, in the same colours as the list.
             layer(DOTS, "circle", DEVICES, layout = o("circle-sort-key" to a("case", flagged, 1.0, 0.0)),
                 paint = o("circle-color" to color, "circle-radius" to a("case", flagged, 8.0, 5.0),
@@ -267,6 +270,14 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         })
         set(PRECISION, shown.filter { it.radiusM != null }.map { p ->
             GeoJson.feature(GeoJson.polygon(MapGeo.circle(p.lat, p.lon, p.radiusM!!)), "color" to hex(p.color))
+        })
+    }
+
+    /** Every sighting of the drawn devices in a saved trace, in each device's colour (draw after [drawPins]). */
+    fun drawPings(pings: List<com.rfsentinel.app.data.TripPingEntity>) {
+        if (!ready()) return
+        set(PINGS, pings.mapNotNull { p ->
+            pins[p.mac]?.let { GeoJson.feature(GeoJson.point(p.lat, p.lon), "mac" to p.mac, "color" to hex(it.color)) }
         })
     }
 
@@ -523,7 +534,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         val r = 22f * activity.resources.displayMetrics.density
         val box = RectF(x - r, y - r, x + r, y + r)
         val asked = listOf(AIRCRAFT to "hex", WAZE to "id", DRONES to "mac", DRONE_OPS to "mac", DOTS to "mac",
-            CAMERAS to "id", CCTV to "id", TOWERS to "id", WIGLE to "id", ASKED to "id")
+            CAMERAS to "id", CCTV to "id", TOWERS to "id", WIGLE to "id", ASKED to "id", PINGS to "mac")
         map.query(box, asked) { found ->
             if (activity.isFinishing || activity.isDestroyed) return@query
             safe("tap") { showTapped(found, me) }
@@ -546,7 +557,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         (drone + op).firstNotNullOfOrNull { drones[it] }?.let { s ->
             MapDialogs.showDrone(activity, s.mac, MapDialogs.droneDetails(s, s.remoteId!!)); return
         }
-        val here = dots.distinct().mapNotNull { pins[it] }
+        val here = (dots + found[10]).distinct().mapNotNull { pins[it] }
         if (here.isNotEmpty()) { MapDialogs.showPins(activity, here); return }
         cams.firstNotNullOfOrNull { cameras[it] }?.let { c -> MapDialogs.showKnownCamera(activity, c) { maybeRedrawStatic(force = true) }; return }
         cctv.firstNotNullOfOrNull { cctvs[it] }?.let { MapDialogs.showCctv(activity, it); return }

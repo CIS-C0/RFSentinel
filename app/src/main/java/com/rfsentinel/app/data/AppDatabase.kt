@@ -10,9 +10,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 @Database(
     entities = [
         DetectionEntity::class, WhitelistEntity::class, KnownDeviceEntity::class,
-        TripEntity::class, TripPointEntity::class, TripDeviceEntity::class, DeviceDetailsEntity::class
+        TripEntity::class, TripPointEntity::class, TripDeviceEntity::class, DeviceDetailsEntity::class,
+        TripPingEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -107,13 +108,23 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v2.33: every sighting of a device during a trace, where you were (optional). */
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS trip_pings (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, tripId INTEGER NOT NULL, " +
+                    "mac TEXT NOT NULL, time INTEGER NOT NULL, rssi INTEGER NOT NULL, lat REAL NOT NULL, lon REAL NOT NULL, " +
+                    "FOREIGN KEY(tripId) REFERENCES trips(id) ON UPDATE NO ACTION ON DELETE CASCADE)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_trip_pings_tripId ON trip_pings (tripId)")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "rfsentinel.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8).build().also { INSTANCE = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9).build().also { INSTANCE = it }
             }
         }
     }

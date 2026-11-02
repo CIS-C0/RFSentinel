@@ -67,7 +67,7 @@ class DetectionTest {
     @Test
     fun printerVehicleAndScreeningMakersAreWeakClues() {
         val zebra = best(ble(mfg = mapOf(0x01F1 to bytes(1))))
-        assertEquals(Category.PUBLIC_SAFETY, zebra?.category)
+        assertEquals(Category.MOBILE_PRINTER, zebra?.category)
         assertEquals(25, zebra?.confidence)
         // The Zebra printer UUID rule takes over when both are present.
         assertEquals(30, best(ble(mfg = mapOf(0x01F1 to bytes(1)), uuids = listOf(Advert.uuid16(0xFE79))))?.confidence)
@@ -93,7 +93,7 @@ class DetectionTest {
     @Test
     fun zebraPrinterNeedsSerialNameToBeProbable() {
         val fleet = best(ble(name = "XXRBJ000000001", uuids = listOf(Advert.uuid16(0xFE79))))
-        assertEquals(Category.PUBLIC_SAFETY, fleet?.category)
+        assertEquals(Category.MOBILE_PRINTER, fleet?.category)
         assertEquals(Tier.MEDIUM, fleet?.tier)
         val renamed = best(ble(name = "Warehouse 3", uuids = listOf(Advert.uuid16(0xFE79))))
         assertEquals(Tier.WEAK, renamed?.tier)

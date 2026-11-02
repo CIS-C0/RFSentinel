@@ -157,7 +157,7 @@
     "source": "IEEE MA-L (Texas Instruments); seen on Zebra ZQ-series mobile printers. Very weak: TI chips are in countless products - listed so these devices are highlighted, not alerted",
     "confidence": "candidate",
     "score": 20,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "name:RJ-4230B",
@@ -165,7 +165,7 @@
     "source": "Brother Mobile Solutions public-safety/eCitation material. Brother's default Bluetooth name starts with the model - verify",
     "confidence": "candidate",
     "score": 40,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "name:RJ-4250WB",
@@ -173,7 +173,7 @@
     "source": "Brother RuggedJet 4200 public-safety datasheet (e-citations, accident reports, parking). Default name starts with the model - verify",
     "confidence": "candidate",
     "score": 40,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "name:RJ-4040",
@@ -181,7 +181,7 @@
     "source": "Brother eCitation material; older RuggedJet model still in fleets. Name form - verify",
     "confidence": "candidate",
     "score": 35,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "name:PJ-763",
@@ -189,7 +189,7 @@
     "source": "Brother: PocketJet is the most common 8.5-inch in-car citation/report printer. Name form - verify",
     "confidence": "candidate",
     "score": 35,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "name:PJ-883",
@@ -197,7 +197,7 @@
     "source": "Brother PocketJet 8 (Patrol PC in-car mount). Name form - verify",
     "confidence": "candidate",
     "score": 35,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "00:30:44",

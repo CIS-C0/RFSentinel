@@ -249,29 +249,29 @@ object SignatureEngine {
         // ---- Mobile ticket printers (e-citations) ---------------------------
         ZEBRA_UUIDS.firstOrNull { it in allShorts }?.let { u ->
             hits += if (ZEBRA_SERIAL.matches(name)) {
-                Hit(Category.PUBLIC_SAFETY, "Zebra mobile printer (e-ticket printer in patrol cars)", 50,
+                Hit(Category.MOBILE_PRINTER, "Zebra mobile printer (e-ticket printer in patrol cars)", 50,
                     String.format("Service UUID 0x%04X (Zebra)", u) +
                         " and a factory serial-number name \"$name\" - an unrenamed " +
                         "fleet printer. Also used by parking officers, couriers and field technicians",
                     "$SIG; Zebra Link-OS BLE app note (default friendly name = serial); field capture")
             } else {
-                Hit(Category.PUBLIC_SAFETY, "Zebra printer", 30,
+                Hit(Category.MOBILE_PRINTER, "Zebra printer", 30,
                     String.format("Service UUID 0x%04X (Zebra Technologies)", u) +
                         " - common in warehouses, stores and deliveries", SIG)
             }
         }
 
         if (CID_ZEBRA in a.manufacturerData && ZEBRA_UUIDS.none { it in allShorts }) {
-            hits += Hit(Category.PUBLIC_SAFETY, "Zebra device (mobile printer or handheld)", 25,
+            hits += Hit(Category.MOBILE_PRINTER, "Zebra device (mobile printer or handheld)", 25,
                 "Zebra Technologies company ID 0x01F1 - mobile printers (incl. e-ticket printers) but also " +
                     "store scanners and handhelds", SIG)
         }
         if (CID_BROTHER in a.manufacturerData) {
             // RuggedJet (RJ-) and PocketJet (PJ-) are the mobile models, named after the model by default.
-            hits += if (BROTHER_MOBILE.containsMatchIn(name)) Hit(Category.PUBLIC_SAFETY, "Brother mobile printer (RuggedJet / PocketJet)", 35,
+            hits += if (BROTHER_MOBILE.containsMatchIn(name)) Hit(Category.MOBILE_PRINTER, "Brother mobile printer (RuggedJet / PocketJet)", 35,
                 "Brother Industries company ID 0x0755 and a mobile-printer model name \"$name\" - in-car printers for " +
                     "tickets and reports, but also utility, delivery and field-service vans", SIG)
-            else Hit(Category.PUBLIC_SAFETY, "Brother printer", 20,
+            else Hit(Category.MOBILE_PRINTER, "Brother printer", 20,
                 "Brother Industries company ID 0x0755 - RuggedJet / PocketJet in-car printers, but mostly " +
                     "home and office printers", SIG)
         }

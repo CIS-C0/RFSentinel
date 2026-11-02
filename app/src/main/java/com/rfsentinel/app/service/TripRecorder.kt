@@ -5,6 +5,7 @@ import android.location.Location
 import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.TripDeviceEntity
 import com.rfsentinel.app.data.TripEntity
+import com.rfsentinel.app.data.TripPingEntity
 import com.rfsentinel.app.data.TripPointEntity
 import com.rfsentinel.app.detect.Hit
 import java.text.SimpleDateFormat
@@ -33,6 +34,8 @@ object TripRecorder {
      */
     private const val DEVICES_IN_MEMORY = 2_000
     private const val DEVICE_IDLE_MS = 10 * 60_000L
+    /** Every-sighting mode: at most one sighting per device this often (a scan hears a device several times a second). */
+    private const val PING_INTERVAL_MS = 3_000L
 
     data class LivePoint(val time: Long, val lat: Double, val lon: Double)
 
@@ -47,6 +50,10 @@ object TripRecorder {
 
     private val points = mutableListOf<LivePoint>()          // whole trace (for the live map)
     private val pendingPoints = mutableListOf<TripPointEntity>()
+    /** Every-sighting mode ([com.rfsentinel.app.util.Prefs.traceEveryPing]), read when the trip starts. */
+    @Volatile private var everyPing = false
+    private val pendingPings = mutableListOf<TripPingEntity>()
+    private val lastPing = ConcurrentHashMap<String, Long>()
     private val devices = ConcurrentHashMap<String, TripDeviceEntity>()
     private val dirty = ConcurrentHashMap.newKeySet<String>()
     /** Devices let go from memory (all written), and which of them are flagged, for the totals. */
@@ -75,6 +82,8 @@ object TripRecorder {
         val id = dao.insertTrip(TripEntity(name = label, startTime = now))
         synchronized(this) {
             tripDao = dao
+            everyPing = com.rfsentinel.app.util.Prefs.traceEveryPing(context)
+            pendingPings.clear(); lastPing.clear()
             points.clear(); pendingPoints.clear()
             devices.clear(); dirty.clear(); evicted.clear(); evictedFlagged.clear()
             distanceM = 0.0
@@ -89,6 +98,7 @@ object TripRecorder {
         val id: Long,
         val points: List<TripPointEntity>,
         val devices: List<TripDeviceEntity>,
+        val pings: List<TripPingEntity>,
         val distanceM: Double,
         val totalPoints: Int,
         val deviceCount: Int,
@@ -104,12 +114,12 @@ object TripRecorder {
         val id = activeTripId ?: return null
         val changed = takeDirty()
         Final(
-            id, pendingPoints.toList(), changed, distanceM, points.size,
+            id, pendingPoints.toList(), changed, pendingPings.toList(), distanceM, points.size,
             deviceCount(), flaggedCount()
         ).also {
             // Drop the live trace too: the process often outlives the scan (and a swiped-away
             // app), and the live map would keep drawing the old route.
-            points.clear(); pendingPoints.clear()
+            points.clear(); pendingPoints.clear(); pendingPings.clear(); lastPing.clear()
             devices.clear(); dirty.clear(); evicted.clear(); evictedFlagged.clear()
             distanceM = 0.0
             activeTripId = null
@@ -121,6 +131,7 @@ object TripRecorder {
         val dao = AppDatabase.getInstance(context).tripDao()
         if (f.points.isNotEmpty()) dao.insertPoints(f.points)
         if (f.devices.isNotEmpty()) f.devices.chunked(300).forEach { dao.upsertDevices(it) }
+        if (f.pings.isNotEmpty()) f.pings.chunked(500).forEach { dao.insertPings(it) }
         dao.updateStats(f.id, System.currentTimeMillis(), f.distanceM, f.totalPoints, f.deviceCount, f.flaggedCount)
         // An empty trip (no GPS fix at all) isn't worth keeping.
         val trip = dao.get(f.id)
@@ -192,6 +203,12 @@ object TripRecorder {
             )
         }
         dirty += mac
+        if (everyPing && loc != null && now - (lastPing[mac] ?: 0L) >= PING_INTERVAL_MS) {
+            lastPing[mac] = now
+            synchronized(this) {
+                if (activeTripId == id) pendingPings += TripPingEntity(tripId = id, mac = mac, time = now, rssi = rssi, lat = loc.latitude, lon = loc.longitude)
+            }
+        }
     }
 
     /** A device let go from memory earlier, read back from the database (null when it is new). */
@@ -225,18 +242,21 @@ object TripRecorder {
         val id: Long
         val newPoints: List<TripPointEntity>
         val changed: List<TripDeviceEntity>
+        val newPings: List<TripPingEntity>
         val totalPoints: Int
         val distance: Double
         synchronized(this) {
             id = activeTripId ?: return@withLock
             newPoints = pendingPoints.toList(); pendingPoints.clear()
             changed = takeDirty()
+            newPings = pendingPings.toList(); pendingPings.clear()
             totalPoints = points.size
             distance = distanceM
         }
         val dao = AppDatabase.getInstance(context).tripDao()
         if (newPoints.isNotEmpty()) dao.insertPoints(newPoints)
         if (changed.isNotEmpty()) changed.chunked(300).forEach { dao.upsertDevices(it) }
+        if (newPings.isNotEmpty()) newPings.chunked(500).forEach { dao.insertPings(it) }
         // Stopped while writing: the trip's final totals come from persist (which waits for this), not from here.
         if (activeTripId != id) return@withLock
         evictIdle(System.currentTimeMillis())

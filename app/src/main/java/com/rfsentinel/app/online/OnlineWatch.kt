@@ -93,9 +93,9 @@ class OnlineWatch(
                 val hit = PoliceAircraft.classify(p, registry, circling, distanceM)
                 seen += PoliceAircraft.Seen(p, hit)
                 if (hit == null) continue
-                val loud = PoliceAircraft.alerts(hit, distanceM)
+                val loud = PoliceAircraft.alerts(hit, distanceM, Prefs.aircraftCircling(context))
                 if (loud && (best == null || hit.confidence > best!!.confidence)) best = hit
-                reportAircraft(hit, p.hex, p.lat, p.lon, loud, now)
+                reportAircraft(hit, p.hex, p.lat, p.lon, loud, now, said(hit, distanceM, me, p))
             }
             loiter.prune(now)
             lastAircraftHit.entries.removeAll { now - it.value > AIRCRAFT_REPEAT_MS }
@@ -126,9 +126,9 @@ class OnlineWatch(
                 val hit = PoliceAircraft.classify(p, registry, circling, distanceM, PoliceAircraft.VIA_LOCAL)
                 seen += PoliceAircraft.Seen(p, hit)
                 if (hit == null) continue
-                val loud = PoliceAircraft.alerts(hit, distanceM)
+                val loud = PoliceAircraft.alerts(hit, distanceM, Prefs.aircraftCircling(context))
                 if (loud && (best == null || hit.confidence > best!!.confidence)) best = hit
-                reportAircraft(hit, p.hex, p.lat, p.lon, loud, now)
+                reportAircraft(hit, p.hex, p.lat, p.lon, loud, now, said(hit, distanceM, me, p))
             }
             // No position: logged where you are, which is where it was heard; its distance is unknown, so no alert.
             if (me != null) for (hex in unlocated) PoliceAircraft.heardNearby(hex, registry)?.let {
@@ -149,14 +149,19 @@ class OnlineWatch(
      * Logs an aircraft hit once per aircraft per 20 minutes; [loud] (strong and close, [PoliceAircraft.alerts]) also
      * alerts, once more when one that was only logged comes close. Called with [loiter] held.
      */
-    private fun reportAircraft(hit: Hit, hex: String, lat: Double, lon: Double, loud: Boolean, now: Long) {
+    /** What an aircraft alert says: kind, distance and direction (short voice: the kind only). */
+    private fun said(hit: Hit, distanceM: Double?, me: Location?, p: PoliceAircraft.Plane): String? =
+        if (com.rfsentinel.app.util.Spoken.short(context)) null else com.rfsentinel.app.util.Spoken.aircraft(
+            hit, distanceM, me?.let { com.rfsentinel.app.ui.AircraftActivity.bearing(it.latitude, it.longitude, p.lat, p.lon) })
+
+    private fun reportAircraft(hit: Hit, hex: String, lat: Double, lon: Double, loud: Boolean, now: Long, spoken: String? = null) {
         val key = if (loud) "$hex!" else hex
         if (now - (lastAircraftHit[key] ?: 0L) < AIRCRAFT_REPEAT_MS) return
         // Logged already while it was far: the alert needn't log it again.
         val loggedRecently = loud && now - (lastAircraftHit[hex] ?: 0L) < AIRCRAFT_REPEAT_MS
         lastAircraftHit[key] = now
         lastAircraftHit[hex] = now
-        onAlert(Alert(hit, lat, lon, "air:$hex", level = if (loud) WazePolice.Level.LOUD else WazePolice.Level.LOG, log = !loggedRecently))
+        onAlert(Alert(hit, lat, lon, "air:$hex", spoken, level = if (loud) WazePolice.Level.LOUD else WazePolice.Level.LOG, log = !loggedRecently))
     }
 
     private fun clock(t: Long) = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(t))

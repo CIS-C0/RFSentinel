@@ -163,6 +163,45 @@ class SettingsActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun editIgnoredSsids() {
+        val pad = (20 * resources.displayMetrics.density).toInt()
+        val input = android.widget.EditText(this).apply {
+            setText(Prefs.ignoredSsidWords(this@SettingsActivity).joinToString("\n"))
+            hint = "One word per line, e.g. Rogers"
+            minLines = 3; maxLines = 10; gravity = android.view.Gravity.TOP
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+        }
+        val picked = Prefs.ignoredSsidPresets(this)
+        val presets = Prefs.ISP_PRESETS.map { (region, words) ->
+            region to com.google.android.material.checkbox.MaterialCheckBox(this).apply {
+                text = "$region telecoms\n" + words.joinToString(", ")
+                isChecked = region in picked
+            }
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Ignored network names")
+            .setMessage("WiFi networks whose name contains one of these words are never flagged.")
+            .setView(android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                setPadding(pad, 0, pad, 0)
+                presets.forEach { addView(it.second) }
+                addView(input)
+            })
+            .setPositiveButton("Save") { _, _ ->
+                Prefs.setIgnoredSsidPresets(this, presets.filter { it.second.isChecked }.map { it.first }.toSet())
+                Prefs.setIgnoredSsidWords(this, input.text.split(',', '\n').map { it.trim() }.filter { it.isNotEmpty() }.distinct())
+                updateIgnoredSsidsButton()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun updateIgnoredSsidsButton() {
+        val n = Prefs.ignoredSsidAll(this).size
+        binding.ignoredSsidsButton.text = if (n == 0) "Ignored network names" else "Ignored network names · $n"
+    }
+
     private fun updateMusicButton() {
         val app = Prefs.carMusicApp(this)
         binding.carMusicButton.text = app?.let { "Music app: " + com.rfsentinel.app.receiver.CarMusic.label(this, it) } ?: "Choose music app"
@@ -521,6 +560,8 @@ class SettingsActivity : AppCompatActivity() {
                 "• Call out again: speaks at 1 km, 500 m and 200 m as a report gets closer (voice alerts on, or in the car).\n" +
                 "• Each kind of report has its own level: sound and voice, notification only, or silent (list and map only).\n" +
                 "• Pull the list down, or use the menu, to check right now. Waze status shows what is sent, and when.\n\n" +
+                "Mobile printers: Zebra and Brother RuggedJet / PocketJet printers, the e-ticket printers in patrol cars, " +
+                "but also used by couriers, parking officers and field technicians. Until you set it, it follows Public safety.\n\n" +
                 "Card skimmers: the Bluetooth modules built into gas-pump and ATM skimmers (HC-05 / HC-06 style names). " +
                 "Hacking tools (off by default): Flipper Zero, Pwnagotchi, WiFi Pineapple, deauthers, evil twin WiFi " +
                 "networks (one network name, two makers, one open) and Bluetooth pairing-pop-up spam floods.\n\n" +
@@ -978,6 +1019,9 @@ class SettingsActivity : AppCompatActivity() {
             "Bluetooth scans.")
         info(binding.rtl5gSwitch, "For RTL8811AU / RTL8821AU adapters such as the ALFA AWUS036ACS. Experimental.")
         info(binding.usbLightSwitch, "For RTL8811AU / RTL8821AU adapters such as the ALFA AWUS036ACS: the light blinks with received traffic.")
+        info(binding.traceEveryPingSwitch, "A trace normally places each device once, where its signal was strongest. On: it also " +
+            "keeps every time it was heard (up to one every 3 s) with your position then, drawn as small dots on the trace map. " +
+            "Uses much more storage on long drives; takes effect from the next trace.")
         info(binding.pinpointSwitch, "Works out where a flagged device is from many readings as you move (GPS runs precise every second while one is in range).")
         info(binding.pinpointAlertsSwitch, "Pinpoints and shows the live read card only for devices that alerted you, not for every flagged device (a shop's router you pass daily).")
         info(binding.liveExportSwitch, "Keeps a live copy of matches, devices and radio hits in a folder other apps can read.")
@@ -986,6 +1030,10 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.exportAllButton, "CSV, JSON, KML, GPX or GeoJSON.")
         info(binding.forgetHistoryButton, "New / returning status, detect counts and the remembered cell towers start over. Favorites are kept.")
         info(binding.openWhitelistButton, "Trusted devices: never flagged, and hidden from the list when you choose.")
+        info(binding.ignoredSsidsButton, "WiFi networks whose name contains one of these words are never flagged, " +
+            "for example carriers' home routers (Rogers, Bell) that look like vehicle routers. Matches part of a name, any case.\n\n" +
+            "Tick Canada or United States telecoms to add their usual router names in one go (off by default). " +
+            "Carrier hotspots in patrol cars can carry these names too, so they won't be flagged either.")
     }
 
     // ---- Search ----------------------------------------------------------------------------
@@ -1332,7 +1380,13 @@ class SettingsActivity : AppCompatActivity() {
         lines("Watch these talkgroups", "1234 Sheriff dispatch\n2001", Prefs.p25Talkgroups(this),
             "P25: alerts when a call starts on one of them, and names them on the P25 talkgroups screen. One per line: the " +
             "talkgroup number, with an optional name.") { Prefs.setP25Talkgroups(this, it) }
-        val talkgroupViews = listOf(box.getChildAt(box.childCount - 2), box.getChildAt(box.childCount - 1))
+        slider(0, 60, Prefs.p25LogDays(this), { if (it == 0) "Keep the P25 call log: off" else "Keep the P25 call log: $it days" }) {
+            Prefs.setP25LogDays(this, it)
+        }
+        info(box.getChildAt(box.childCount - 2), "Every call the control channel grants (time, talkgroup, radio, channel) is kept on the " +
+            "phone this long, for P25 talkgroups › History and Export: no internet or talkgroup list needed. About 1 MB per busy day. " +
+            "0 keeps nothing and deletes the log.", "Keep the P25 call log")
+        val talkgroupViews = (box.childCount - 4 until box.childCount).map { box.getChildAt(it) }
         var sweepViews = emptyList<View>() // the sweep's own settings, below
         showSdrOptions = {
             val ticked = listOf(sweepBox, adsbBox, p25Box).count { it.isChecked }
@@ -1585,7 +1639,7 @@ class SettingsActivity : AppCompatActivity() {
         val actions = Prefs.SWIPE_ACTIONS
         for ((i, right) in listOf(true, false).withIndex()) {
             val label = if (right) "Swipe right on an alert" else "Swipe left on an alert"
-            val swipe = choiceRow(label, listOf("Mute / unmute", "Hide", "None"), actions.indexOf(Prefs.swipeAction(this, right))) {
+            val swipe = choiceRow(label, listOf("Mute / unmute", "Hide", "None", "Whitelist", "Watchlist"), actions.indexOf(Prefs.swipeAction(this, right))) {
                 Prefs.setSwipeAction(this, right, actions[it])
             }
             section.addView(infoRow(swipe, "What swiping a flagged row of the main list does. Both sides can do the same thing.\n\n" +
@@ -1593,6 +1647,8 @@ class SettingsActivity : AppCompatActivity() {
                 "Hide: a flagged device or radio transmission stays listed as an ordinary one, a Waze report or an aircraft " +
                 "leaves the list. No alerts from it for 30 min or until the scan stops, then it comes back as it was. " +
                 "Undo at the bottom puts it back at once.\n\n" +
+                "Whitelist / Watchlist: asks to add the device to your whitelist (never flagged) or watchlist, as on its page. " +
+                "Devices only.\n\n" +
                 "None: that swipe does nothing. Aircraft and radio rows have no mute: only Hide works on them.", label), at + 2 + i)
         }
     }
@@ -1896,6 +1952,14 @@ class SettingsActivity : AppCompatActivity() {
             orientation = android.widget.LinearLayout.VERTICAL
             setPadding((24 * dp).toInt(), 0, 0, (4 * dp).toInt())
         }
+        val own = Prefs.categoryThreshold(this, c)
+        val level = choiceRow("Alert from", listOf("Alerts setting", "Weak", "Probable", "Strong only"),
+            when { own == null -> 0; own < 50 -> 1; own < 80 -> 2; else -> 3 }) {
+            Prefs.setCategoryThreshold(this, c, listOf(null, 0, 50, 80)[it])
+        }
+        box.addView(level)
+        info(level, "How sure a match must be before this category alerts you. \"Alerts setting\" follows Settings › Alerts; " +
+            "pick Weak, Probable or Strong only to set this category on its own. Weaker matches are still listed.", "Alert from")
         box.addView(android.widget.TextView(this).apply {
             text = "Alerts you with"
             setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, resources.getDimension(R.dimen.text_caption))
@@ -1958,6 +2022,11 @@ class SettingsActivity : AppCompatActivity() {
             setOnCheckedChangeListener { _, v -> Prefs.setAircraftOnline(this@SettingsActivity, v) }
         }, "Asks adsb.fi / adsb.lol every minute for aircraft near a position rounded to about 1 km. Turn off to use only " +
             "the aircraft your RTL-SDR hears itself (Settings › RTL-SDR radio › ADS-B aircraft receiver): nothing leaves the phone."))
+        box.addView(detectRow(SwitchMaterial(this).apply {
+            text = "Alert for circling aircraft"; isChecked = Prefs.aircraftCircling(this@SettingsActivity)
+            setOnCheckedChangeListener { _, v -> Prefs.setAircraftCircling(this@SettingsActivity, v) }
+        }, "Police and government aircraft within 5 km always alert. Turn this on to also hear about any other aircraft " +
+            "circling within 5 km (news, training, survey and unlisted police flights orbit too). Off: they're only listed and logged."))
         val radiusText = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
         fun showRadius(km: Int) { radiusText.text = "Look for aircraft within ${com.rfsentinel.app.util.Units.km(km)}" }
         val km = Prefs.aircraftRadiusKm(this)
@@ -2573,6 +2642,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.pinpointSwitch.isChecked = Prefs.pinpointFlagged(this)
         binding.pinpointAlertsSwitch.isChecked = Prefs.pinpointAlertsOnly(this)
         binding.autoRecordSwitch.isChecked = Prefs.autoRecordTrace(this)
+        binding.traceEveryPingSwitch.isChecked = Prefs.traceEveryPing(this)
         binding.ouiSpyRelaySwitch.isChecked = Prefs.ouiSpyRelayAll(this)
         binding.ouiSpyPhoneBleSwitch.isChecked = Prefs.ouiSpyPhoneBle(this)
         binding.screenModeGroup.check(when (Prefs.screenMode(this)) {
@@ -2662,6 +2732,8 @@ class SettingsActivity : AppCompatActivity() {
         // Lists, tools & about (moved here from the main screen's menu).
         binding.openWatchlistButton.setOnClickListener { startActivity(Intent(this, com.rfsentinel.app.ouilist.OuiListActivity::class.java)) }
         binding.openWhitelistButton.setOnClickListener { startActivity(Intent(this, com.rfsentinel.app.whitelist.WhitelistActivity::class.java)) }
+        binding.ignoredSsidsButton.setOnClickListener { editIgnoredSsids() }
+        updateIgnoredSsidsButton()
         binding.checkUpdateButton.setOnClickListener { com.rfsentinel.app.util.UpdateChecker.check(this) }
         binding.aboutButton.setOnClickListener { com.rfsentinel.app.ui.AboutDialog.show(this) }
         binding.exportCrashLogButton.setOnClickListener { com.rfsentinel.app.util.CrashLog.share(this) }
@@ -2857,6 +2929,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setPinpointFlagged(this, binding.pinpointSwitch.isChecked)
         Prefs.setPinpointAlertsOnly(this, binding.pinpointAlertsSwitch.isChecked)
         Prefs.setAutoRecordTrace(this, binding.autoRecordSwitch.isChecked)
+        Prefs.setTraceEveryPing(this, binding.traceEveryPingSwitch.isChecked)
         Prefs.setOuiSpyRelayAll(this, binding.ouiSpyRelaySwitch.isChecked)
         Prefs.setOuiSpyPhoneBle(this, binding.ouiSpyPhoneBleSwitch.isChecked)
         Prefs.setScreenMode(this, when (binding.screenModeGroup.checkedRadioButtonId) {

@@ -149,6 +149,7 @@ class DetectionLogActivity : AppCompatActivity() {
             Category.ALPR -> "Plate cameras"
             Category.AUDIO_SENSOR -> "Audio sensors"
             Category.PUBLIC_SAFETY -> "Public safety"
+            Category.MOBILE_PRINTER -> "Printers"
             Category.DRONE -> "Drones"
             Category.TRACKER -> "Trackers"
             Category.GLASSES -> "Glasses"

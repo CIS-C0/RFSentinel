@@ -40,6 +40,15 @@ object Spoken {
         return if (km == Math.floor(km)) "${km.toLong()} kilometer${if (km == 1.0) "" else "s"}" else "$km kilometers"
     }
 
+    /** An aircraft alert said aloud: "Police aircraft overhead", or "Police aircraft, 2 kilometers northeast". */
+    fun aircraft(hit: Hit, distanceM: Double?, bearingDeg: Double?): String {
+        val word = shortWord(hit)
+        if (distanceM == null) return word
+        if (distanceM < 500) return "$word overhead"
+        val dir = bearingDeg?.let { " " + arrayOf("north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest")[((it + 22.5) / 45).toInt().mod(8)] }.orEmpty()
+        return "$word, ${distanceWords(distanceM)}$dir"
+    }
+
     /** Where a report is, said aloud; empty when the heading is unknown. */
     fun sideWords(side: com.rfsentinel.app.online.WazePolice.Side?): String = when (side) {
         com.rfsentinel.app.online.WazePolice.Side.AHEAD -> "ahead"
@@ -70,6 +79,7 @@ object Spoken {
         Category.ALPR -> "Plate camera"
         Category.AUDIO_SENSOR -> "Audio sensor"
         Category.PUBLIC_SAFETY -> if (hit.label.contains("police vehicle", ignoreCase = true)) "Police car" else "Police gear"
+        Category.MOBILE_PRINTER -> "Mobile printer"
         Category.DRONE -> "Drone"
         Category.TRACKER -> "Tracker"
         Category.GLASSES -> "Camera glasses"
@@ -77,7 +87,12 @@ object Spoken {
         Category.CELL_ANOMALY -> "Cell warning"
         Category.RADIO -> "Radio nearby"
         Category.GNSS -> "GPS warning"
-        Category.AIRCRAFT -> if (hit.label.startsWith("Police")) "Police aircraft" else "Aircraft circling"
+        Category.AIRCRAFT -> when {
+            hit.label.startsWith("Police") -> "Police aircraft"
+            hit.label.startsWith("Government") -> "Government aircraft"
+            hit.label.startsWith("Military") -> "Military aircraft"
+            else -> "Aircraft circling"
+        }
         Category.POLICE_REPORT -> "Waze " + (com.rfsentinel.app.online.WazePolice.Type.entries
             .firstOrNull { hit.label.startsWith(it.singular) }?.singular?.lowercase() ?: "report")
         Category.SKIMMER -> "Card skimmer"

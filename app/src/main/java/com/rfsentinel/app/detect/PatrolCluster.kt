@@ -80,7 +80,7 @@ object PatrolCluster {
         val hits = allHits.filter { it.source != SOURCE }
         hits.firstOrNull { it.category == Category.BODY_CAM }?.let { return "body camera" }
         hits.firstOrNull { it.category == Category.ALPR }?.let { return "plate reader" }
-        val text = listOfNotNull(vendor) + hits.filter { it.category == Category.PUBLIC_SAFETY }.map { it.label }
+        val text = listOfNotNull(vendor) + hits.filter { it.category == Category.PUBLIC_SAFETY || it.category == Category.MOBILE_PRINTER }.map { it.label }
         text.forEach { t -> ROLE_BY_VENDOR.firstOrNull { it.first.containsMatchIn(t) }?.let { return it.second } }
         if (name != null) ROLE_BY_NAME.firstOrNull { it.first.containsMatchIn(name) }?.let { return it.second }
         return null
