@@ -370,6 +370,19 @@ class SettingsActivity : AppCompatActivity() {
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Share .pcap recording"))
     }
 
+    /** RTL-SDR radio › Record P25 voice calls: the kept .wav files, to send. */
+    private fun shareP25Recordings() {
+        val files = com.rfsentinel.app.sdr.P25Record.files(this)
+        if (files.isEmpty()) { Toast.makeText(this, "No P25 calls recorded yet", Toast.LENGTH_SHORT).show(); return }
+        val uris = ArrayList(files.mapNotNull {
+            runCatching { androidx.core.content.FileProvider.getUriForFile(this, "$packageName.fileprovider", it) }.getOrNull()
+        })
+        startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND_MULTIPLE).setType("audio/wav")
+            .putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+            .putExtra(Intent.EXTRA_SUBJECT, "RF Sentinel P25 recordings (${files.size})")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Share P25 recordings"))
+    }
+
     /** The recording's size and frame count, refreshed every second while it runs. */
     private fun updatePcap() {
         if (isFinishing || isDestroyed) return
@@ -1432,7 +1445,18 @@ class SettingsActivity : AppCompatActivity() {
             "once every few seconds; the control channel misses a few messages each time. Uses the radio sweep's sensitivity.") {
             Prefs.setP25Inputs(this, it)
         }
-        val talkgroupViews = (box.childCount - 6 until box.childCount).map { box.getChildAt(it) }
+        scan("Record P25 voice calls", Prefs.p25Record(this),
+            "For building P25 voice: when a clear (not encrypted) call starts, the SDR leaves the control channel for " +
+            "${com.rfsentinel.app.sdr.P25Record.SECONDS} s and saves that call's radio signal to a file, about 1 MB each. Nothing " +
+            "is decoded or played. At most one call every 20 s; the last ${com.rfsentinel.app.sdr.P25Record.KEEP} are kept. " +
+            "Share them with the button below. Recording radio calls is not allowed everywhere: check the law where you are.") {
+            Prefs.setP25Record(this, it)
+        }
+        box.addView(com.google.android.material.button.MaterialButton(this, null, android.R.attr.borderlessButtonStyle).apply {
+            text = "Share P25 recordings"
+            setOnClickListener { shareP25Recordings() }
+        })
+        val talkgroupViews = (box.childCount - 8 until box.childCount).map { box.getChildAt(it) }
         var sweepViews = emptyList<View>() // the sweep's own settings, below
         showSdrOptions = {
             val ticked = listOf(sweepBox, adsbBox, p25Box).count { it.isChecked }

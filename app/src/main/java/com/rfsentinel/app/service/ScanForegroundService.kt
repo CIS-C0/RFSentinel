@@ -425,6 +425,7 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.sdr.SdrRadio.turnMs = Prefs.sdrTurnS(this) * 1000L
         com.rfsentinel.app.sdr.SdrRadio.onP25Call = { tg -> pipeline.post { onP25Call(tg) } }
         com.rfsentinel.app.sdr.SdrRadio.p25Inputs = Prefs.p25Inputs(this)
+        com.rfsentinel.app.sdr.SdrRadio.p25Record = Prefs.p25Record(this)
         com.rfsentinel.app.sdr.SdrRadio.onP25Input = { call, hz, snr -> pipeline.post { onP25Input(call, hz, snr) } }
         com.rfsentinel.app.sdr.SdrRadio.location = { (lastLocation ?: lastFix)?.let { it.latitude to it.longitude } }
         com.rfsentinel.app.sdr.SdrRadio.onAircraft = { planes, unlocated -> onlineWatch.localAircraft(planes, unlocated) }

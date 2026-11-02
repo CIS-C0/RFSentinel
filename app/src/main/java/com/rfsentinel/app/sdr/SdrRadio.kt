@@ -41,6 +41,7 @@ object SdrRadio {
     private const val INPUT_GAP_MS = 5_000L    // at most one input check this often: each costs ~0.2 s of control channel
     private const val INPUT_READS = 16         // ~70 ms of the input
     private const val INPUT_OFFSET_HZ = 250_000L // the input this far above the tuned centre, clear of the DC spike
+    private const val RECORD_GAP_MS = 20_000L  // at most one call recording this often: each costs P25Record.SECONDS of control channel
 
     @Volatile var status: String = ""; private set
     /** ADS-B messages decoded since the app started, for the main screen's messages-per-second line. */
@@ -92,6 +93,8 @@ object SdrRadio {
     @Volatile var p25Inputs = false
     /** A call's radio heard on the input: [snrDb] above the noise, so close to you (the call, its input frequency). */
     @Volatile var onP25Input: ((P25History.Call, Long, Int) -> Unit)? = null
+    /** Settings › RTL-SDR radio: save the radio signal of clear calls ([P25Record]). */
+    @Volatile var p25Record = false
     /**
      * The waterfall screen zoomed in: hold this frequency instead of sweeping (or receiving ADS-B),
      * until set back to null. Picked up within a chunk.
@@ -439,8 +442,11 @@ object SdrRadio {
             status = "$deviceLabel · P25 · control channel $where" + turnNote()
             var messages = 0; var lastStatus = 0L
             var pending: Pair<P25History.Call, Long>? = null; var lastInput = 0L; var inputs = 0; var heard = 0
+            var toRecord: P25History.Call? = null; var lastRecord = 0L; var recorded = 0
             // A call's input: once it's on the air, tune there for a moment and measure it (the control channel comes back after).
+            // A call to record goes first: its voice channel, for a few seconds.
             val detour = detour@{
+                toRecord?.let { call -> toRecord = null; if (recordCall(sdr, call)) recorded++; return@detour true }
                 val (call, hz) = pending ?: return@detour false
                 if (System.currentTimeMillis() - call.time < INPUT_DELAY_MS) return@detour false
                 pending = null
@@ -460,13 +466,39 @@ object SdrRadio {
                         p25Log.inputHz(c.channel!!)?.let { hz -> pending = c to hz; lastInput = now }
                     }
                 }
+                if (p25Record && toRecord == null && now - lastRecord >= RECORD_GAP_MS) {
+                    calls.lastOrNull { !it.encrypted && it.hz != null }?.let { toRecord = it; lastRecord = now }
+                }
                 if (now - lastStatus >= 2_000L && !halted) { lastStatus = now; status = "$deviceLabel · P25 · control channel $where · $messages messages" + turnNote() }
             }
             if (lost) p25Lock = null
             UsbWifi.log("$deviceLabel: P25 ${if (lost) "control channel went quiet" else "turn over or stopped"} after $messages messages (${hunt.blocks} blocks in all), " +
                 p25Log.rows().let { r -> "${r.size} talkgroups / private calls, ${r.sumOf { it.calls }} calls" } +
-                (if (inputs > 0) ", $inputs input checks, $heard radios heard nearby" else ""))
+                (if (inputs > 0) ", $inputs input checks, $heard radios heard nearby" else "") +
+                (if (recorded > 0) ", $recorded calls recorded" else ""))
         }
+    }
+
+    /** Records [P25Record.SECONDS] of [call]'s voice channel to a file; false when nothing was saved. Frequency kept off the log. */
+    private fun recordCall(sdr: SdrDevice, call: P25History.Call): Boolean {
+        val ctx = appContext ?: return false
+        val hz = call.hz ?: return false
+        if (!sdr.tune(hz - INPUT_OFFSET_HZ)) return false
+        sdr.resetBuffer()
+        val buf = ByteArray(XFER)
+        repeat(sdr.settleReads) { sdr.read(buf) }
+        val rec = P25Record.Baseband(INPUT_OFFSET_HZ, sdr.sampleRate)
+        var fails = 0
+        while (rec.samples < P25Record.SECONDS * P25Record.RATE && !halted && fails < STALL_CHUNKS) {
+            val n = sdr.read(buf)
+            if (n <= 0) { fails++; continue }
+            rec.feed(buf, n / 2)
+        }
+        if (rec.samples < P25Record.RATE) return false
+        val wav = rec.wav()
+        runCatching { P25Record.save(ctx, call, wav) }.onFailure { UsbWifi.log("$deviceLabel: P25 recording not saved - ${UsbWifi.describe(it)}"); return false }
+        UsbWifi.log("$deviceLabel: P25 call recorded (%.1f s, %d KB)".format(java.util.Locale.US, rec.samples.toDouble() / P25Record.RATE, wav.size / 1024))
+        return true
     }
 
     /** A call's input level in dB above the noise, or null when the tuner didn't get there. Frequency kept off the log. */
