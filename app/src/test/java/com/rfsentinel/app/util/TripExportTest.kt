@@ -3,6 +3,7 @@ package com.rfsentinel.app.util
 import com.google.gson.JsonParser
 import com.rfsentinel.app.data.TripDeviceEntity
 import com.rfsentinel.app.data.TripEntity
+import com.rfsentinel.app.data.TripPingEntity
 import com.rfsentinel.app.data.TripPointEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -40,6 +41,23 @@ class TripExportTest {
 
         val flaggedOnly = parseXml(TripExport.gpx(trip, points, devices, onlyFlagged = true))
         assertEquals(1, flaggedOnly.getElementsByTagName("wpt").length)
+    }
+
+    @Test
+    fun sightingsAreExportedForTheChosenDevices() {
+        val pings = listOf(
+            TripPingEntity(tripId = 1, mac = "00:25:DF:00:00:01", time = 1_011_000L, rssi = -70, lat = 10.504, lon = -20.566),
+            TripPingEntity(tripId = 1, mac = "00:25:DF:00:00:01", time = 1_015_000L, rssi = -62, lat = 10.505, lon = -20.565),
+            TripPingEntity(tripId = 1, mac = "C0:00:00:00:00:02", time = 1_041_000L, rssi = -81, lat = 10.515, lon = -20.555)
+        )
+        assertEquals(2 + 3, parseXml(TripExport.gpx(trip, points, devices, onlyFlagged = false, pings)).getElementsByTagName("wpt").length)
+        assertEquals(1 + 2, parseXml(TripExport.gpx(trip, points, devices, onlyFlagged = true, pings)).getElementsByTagName("wpt").length)
+        assertEquals(3 + 3, parseXml(TripExport.kml(trip, points, devices, onlyFlagged = false, pings)).getElementsByTagName("Placemark").length)
+        val features = JsonParser.parseString(TripExport.geoJson(trip, points, devices, onlyFlagged = false, pings)).asJsonObject["features"].asJsonArray
+        assertEquals(3, features.count { it.asJsonObject["properties"].asJsonObject["kind"].asString == "sighting" })
+        val csv = TripExport.sightingsCsv(pings, devices).trim().lines()
+        assertEquals(4, csv.size)
+        assertTrue(csv[1].contains("Axon body camera") && csv[1].endsWith("-70,10.5040000,-20.5660000"))
     }
 
     @Test

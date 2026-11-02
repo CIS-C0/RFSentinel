@@ -215,18 +215,19 @@ object Exporter {
     /** Export one recorded trace: pick a format, then whether to include every device. */
     /** [snapshot]: a saved device list ([com.rfsentinel.app.data.Snapshots]) - no route, just the devices. */
     fun showTripExport(activity: AppCompatActivity, tripId: Long, snapshot: Boolean = false) {
-        val formats = listOf("gpx", "kml", "geojson", "csv")
-        val labels = arrayOf(
+        val formats = listOf("gpx", "kml", "geojson", "csv") + if (snapshot) emptyList() else listOf("sightings")
+        val labels = listOfNotNull(
             if (snapshot) "GPX - device waypoints (GPS / map apps)" else "GPX - track + device waypoints (GPS / map apps)",
             "KML - Google Earth / My Maps",
             "GeoJSON - web maps, QGIS",
-            if (snapshot) "CSV - devices in this snapshot (spreadsheet)" else "CSV - devices heard on this trace (spreadsheet)"
-        )
+            if (snapshot) "CSV - devices in this snapshot (spreadsheet)" else "CSV - devices heard on this trace (spreadsheet)",
+            if (snapshot) null else "CSV - every sighting with its position (spreadsheet)"
+        ).toTypedArray()
         MaterialAlertDialogBuilder(activity)
             .setTitle(if (snapshot) "Export snapshot" else "Export trace")
             .setItems(labels) { _, which ->
                 val format = formats[which]
-                if (format == "csv") {
+                if (format == "csv" || format == "sightings") {
                     exportTrip(activity, tripId, format, onlyFlagged = false)
                 } else {
                     MaterialAlertDialogBuilder(activity)
@@ -251,20 +252,27 @@ object Exporter {
             val trip = dao.get(tripId) ?: run { toast(activity, "Trace not found"); return@launchExport }
             val points = dao.points(tripId)
             val devices = dao.devices(tripId)
-            if (points.isEmpty() && devices.none { it.lat != null } && format != "csv") {
+            val pings = dao.pings(tripId)
+            if (format == "sightings" && pings.isEmpty()) {
+                toast(activity, "No sightings logged on this trace. Turn on Log every sighting in traces before recording.")
+                return@launchExport
+            }
+            if (points.isEmpty() && devices.none { it.lat != null } && format != "csv" && format != "sightings") {
                 toast(activity, if (trip.snapshot) "No device in this snapshot has a position" else "This trace has no GPS points yet")
                 return@launchExport
             }
             val (text, mime, ext) = withContext(Dispatchers.Default) {
                 when (format) {
-                    "gpx" -> Triple(TripExport.gpx(trip, points, devices, onlyFlagged), "application/gpx+xml", "gpx")
-                    "kml" -> Triple(TripExport.kml(trip, points, devices, onlyFlagged), "application/vnd.google-earth.kml+xml", "kml")
-                    "geojson" -> Triple(TripExport.geoJson(trip, points, devices, onlyFlagged), "application/geo+json", "geojson")
+                    "gpx" -> Triple(TripExport.gpx(trip, points, devices, onlyFlagged, pings), "application/gpx+xml", "gpx")
+                    "kml" -> Triple(TripExport.kml(trip, points, devices, onlyFlagged, pings), "application/vnd.google-earth.kml+xml", "kml")
+                    "geojson" -> Triple(TripExport.geoJson(trip, points, devices, onlyFlagged, pings), "application/geo+json", "geojson")
+                    "sightings" -> Triple(TripExport.sightingsCsv(pings, devices), "text/csv", "csv")
                     else -> Triple(TripExport.devicesCsv(devices), "text/csv", "csv")
                 }
             }
             val safeName = trip.name.replace(Regex("[^A-Za-z0-9_-]+"), "_").trim('_').take(40)
-            share(activity, "rf_sentinel_trace_${safeName}.$ext", text, mime, "Export trace")
+            val kind = if (format == "sightings") "sightings" else "trace"
+            share(activity, "rf_sentinel_${kind}_${safeName}.$ext", text, mime, "Export trace")
         }
     }
 

@@ -5,6 +5,7 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.rfsentinel.app.data.TripDeviceEntity
 import com.rfsentinel.app.data.TripEntity
+import com.rfsentinel.app.data.TripPingEntity
 import com.rfsentinel.app.data.TripPointEntity
 import com.rfsentinel.app.detect.DeviceIntel
 import java.text.SimpleDateFormat
@@ -14,7 +15,8 @@ import java.util.TimeZone
 
 /**
  * Exports a recorded trace: your GPS track plus the devices heard along it
- * (placed where their signal was strongest). Pure Kotlin, unit-tested.
+ * (placed where their signal was strongest), and every logged sighting when "Log every sighting in traces" was on.
+ * Pure Kotlin, unit-tested.
  */
 object TripExport {
 
@@ -33,8 +35,18 @@ object TripExport {
         d.probedList.takeIf { it.isNotEmpty() }?.let { append(" - asked for: ").append(it.joinToString(", ")) }
     }
 
-    /** GPX 1.1: one track segment + a waypoint per positioned device. */
-    fun gpx(trip: TripEntity, points: List<TripPointEntity>, devices: List<TripDeviceEntity>, onlyFlagged: Boolean): String {
+    /** The sightings of the exported devices (only the flagged ones' with [onlyFlagged]), each with its device's label. */
+    private fun sightings(pings: List<TripPingEntity>, devices: List<TripDeviceEntity>, onlyFlagged: Boolean): List<Pair<TripPingEntity, String>> {
+        val byMac = devices.associateBy { it.mac }
+        return pings.mapNotNull { p ->
+            val d = byMac[p.mac]
+            if (onlyFlagged && d?.flagged != true) null else p to (d?.label ?: p.mac)
+        }
+    }
+
+    /** GPX 1.1: one track segment + a waypoint per positioned device, and one per sighting (type SIGHTING). */
+    fun gpx(trip: TripEntity, points: List<TripPointEntity>, devices: List<TripDeviceEntity>, onlyFlagged: Boolean,
+            pings: List<TripPingEntity> = emptyList()): String {
         val sb = StringBuilder()
         sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
         sb.append("<gpx version=\"1.1\" creator=\"RF Sentinel\" xmlns=\"http://www.topografix.com/GPX/1/1\">\n")
@@ -47,6 +59,11 @@ object TripExport {
             sb.append("    <type>").append(x(d.category ?: "DEVICE")).append("</type>\n")
             sb.append("  </wpt>\n")
         }
+        sightings(pings, devices, onlyFlagged).forEach { (p, label) ->
+            sb.append(String.format(Locale.US, "  <wpt lat=\"%.7f\" lon=\"%.7f\"><time>%s</time>", p.lat, p.lon, iso(p.time)))
+                .append("<name>").append(x(label)).append("</name><desc>").append(x("${p.mac} - ${p.rssi} dBm")).append("</desc>")
+                .append("<type>SIGHTING</type></wpt>\n")
+        }
         sb.append("  <trk><name>").append(x(trip.name)).append("</name><trkseg>\n")
         points.forEach { p ->
             sb.append(String.format(Locale.US, "    <trkpt lat=\"%.7f\" lon=\"%.7f\"><time>%s</time></trkpt>\n", p.lat, p.lon, iso(p.time)))
@@ -56,13 +73,15 @@ object TripExport {
     }
 
     /** KML: the trace as a line, devices as placemarks (flagged in red, others grey). */
-    fun kml(trip: TripEntity, points: List<TripPointEntity>, devices: List<TripDeviceEntity>, onlyFlagged: Boolean): String {
+    fun kml(trip: TripEntity, points: List<TripPointEntity>, devices: List<TripDeviceEntity>, onlyFlagged: Boolean,
+            pings: List<TripPingEntity> = emptyList()): String {
         val sb = StringBuilder()
         sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<kml xmlns=\"http://www.opengis.net/kml/2.2\">\n<Document>\n")
         sb.append("  <name>").append(x(trip.name)).append("</name>\n")
         sb.append("  <Style id=\"trace\"><LineStyle><color>ff2d62e0</color><width>4</width></LineStyle></Style>\n")
         sb.append("  <Style id=\"flagged\"><IconStyle><color>ff1a26b3</color></IconStyle></Style>\n")
         sb.append("  <Style id=\"device\"><IconStyle><color>ff9e9e9e</color><scale>0.6</scale></IconStyle></Style>\n")
+        sb.append("  <Style id=\"sighting\"><IconStyle><scale>0.3</scale></IconStyle></Style>\n")
         if (points.size >= 2) {
             sb.append("  <Placemark><name>Trace</name><styleUrl>#trace</styleUrl><LineString><tessellate>1</tessellate><coordinates>\n")
             points.forEach { p -> sb.append(String.format(Locale.US, "    %.7f,%.7f,0\n", p.lon, p.lat)) }
@@ -74,12 +93,23 @@ object TripExport {
                 .append("<description>").append(x(describe(d) + " - " + local(d.firstSeen))).append("</description>")
                 .append(String.format(Locale.US, "<Point><coordinates>%.7f,%.7f,0</coordinates></Point></Placemark>\n", d.lon, d.lat))
         }
+        val seen = sightings(pings, devices, onlyFlagged)
+        if (seen.isNotEmpty()) {
+            sb.append("  <Folder><name>Every sighting</name>\n")
+            seen.forEach { (p, label) ->
+                sb.append("    <Placemark><name>").append(x(label)).append("</name><styleUrl>#sighting</styleUrl>")
+                    .append("<description>").append(x("${p.mac} - ${p.rssi} dBm - ${local(p.time)}")).append("</description>")
+                    .append(String.format(Locale.US, "<Point><coordinates>%.7f,%.7f,0</coordinates></Point></Placemark>\n", p.lon, p.lat))
+            }
+            sb.append("  </Folder>\n")
+        }
         sb.append("</Document>\n</kml>\n")
         return sb.toString()
     }
 
     /** GeoJSON FeatureCollection (RFC 7946): LineString trace + Point devices. */
-    fun geoJson(trip: TripEntity, points: List<TripPointEntity>, devices: List<TripDeviceEntity>, onlyFlagged: Boolean): String {
+    fun geoJson(trip: TripEntity, points: List<TripPointEntity>, devices: List<TripDeviceEntity>, onlyFlagged: Boolean,
+                pings: List<TripPingEntity> = emptyList()): String {
         val features = JsonArray()
         if (points.isNotEmpty()) {
             features.add(JsonObject().apply {
@@ -115,11 +145,34 @@ object TripExport {
                 })
             })
         }
+        sightings(pings, devices, onlyFlagged).forEach { (p, label) ->
+            features.add(JsonObject().apply {
+                addProperty("type", "Feature")
+                add("geometry", JsonObject().apply {
+                    addProperty("type", "Point")
+                    add("coordinates", JsonArray().apply { add(p.lon); add(p.lat) })
+                })
+                add("properties", JsonObject().apply {
+                    addProperty("kind", "sighting"); addProperty("mac", p.mac); addProperty("label", label)
+                    addProperty("rssi", p.rssi); addProperty("time", iso(p.time))
+                })
+            })
+        }
         val root = JsonObject().apply {
             addProperty("type", "FeatureCollection")
             add("features", features)
         }
         return GsonBuilder().setPrettyPrinting().serializeNulls().create().toJson(root)
+    }
+
+    /** Spreadsheet of every logged sighting: when, which device, how strong, and where you were. */
+    fun sightingsCsv(pings: List<TripPingEntity>, devices: List<TripDeviceEntity>): String {
+        val sb = StringBuilder("time,mac,label,rssi,latitude,longitude\n")
+        sightings(pings, devices, onlyFlagged = false).forEach { (p, label) ->
+            sb.append(local(p.time)).append(',').append(p.mac).append(',').append(q(label)).append(',').append(p.rssi).append(',')
+                .append(String.format(Locale.US, "%.7f,%.7f", p.lat, p.lon)).append('\n')
+        }
+        return sb.toString()
     }
 
     /** Spreadsheet of every device heard on the trip. */
