@@ -89,7 +89,10 @@ class CarBluetoothReceiver : BroadcastReceiver() {
         val address = device?.address ?: return
         if (address !in Prefs.carDevices(context)) return
         when (intent.action) {
-            BluetoothDevice.ACTION_ACL_CONNECTED -> CarAutoStart.onCarConnected(context, "car Bluetooth connected")
+            BluetoothDevice.ACTION_ACL_CONNECTED -> {
+                CarAutoStart.onCarConnected(context, "car Bluetooth connected")
+                if (Prefs.carMusic(context)) Prefs.carMusicApp(context)?.let { CarMusic.play(context, it, goAsync()) }
+            }
             BluetoothDevice.ACTION_ACL_DISCONNECTED -> CarAutoStart.onCarDisconnected(context, "car Bluetooth disconnected")
         }
     }

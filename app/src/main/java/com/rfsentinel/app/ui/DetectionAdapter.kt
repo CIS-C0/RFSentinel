@@ -14,7 +14,8 @@ import java.util.Date
 import java.util.Locale
 
 class DetectionAdapter(
-    private val onClick: (DetectionEntity) -> Unit
+    private val onClick: (DetectionEntity) -> Unit,
+    private val onLongClick: ((DetectionEntity) -> Unit)? = null
 ) : RecyclerView.Adapter<DetectionAdapter.VH>() {
 
     private var items: List<DetectionEntity> = emptyList()
@@ -65,6 +66,7 @@ class DetectionAdapter(
         if (item.latitude != null) parts += String.format(Locale.US, "📍 %.4f, %.4f", item.latitude, item.longitude)
         holder.binding.metaText.text = parts.joinToString(" · ")
         holder.itemView.setOnClickListener { onClick(item) }
+        holder.itemView.setOnLongClickListener(onLongClick?.let { f -> android.view.View.OnLongClickListener { f(item); true } })
     }
 
     override fun getItemCount() = items.size

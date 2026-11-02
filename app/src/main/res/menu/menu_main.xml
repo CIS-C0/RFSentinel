@@ -26,6 +26,7 @@
         <menu>
             <item android:id="@+id/action_device_history" android:title="Device history" />
             <item android:id="@+id/action_match_log" android:title="Match history" />
+            <item android:id="@+id/action_false_alerts" android:title="False alerts" />
             <item android:id="@+id/action_traces" android:title="Recorded traces" />
             <item android:id="@+id/action_snapshots" android:title="Snapshots" />
             <item android:id="@+id/action_history" android:title="History map &amp; timeline" />

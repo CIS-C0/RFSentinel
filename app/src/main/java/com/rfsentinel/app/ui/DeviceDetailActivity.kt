@@ -113,6 +113,10 @@ class DeviceDetailActivity : AppCompatActivity() {
                 refresh()
             }
         }
+        binding.actionFalseAlert.setOnClickListener {
+            if (com.rfsentinel.app.data.FalseAlerts.contains(this, mac)) DeviceActions.unmarkFalseAlert(this, mac) { refresh() }
+            else DeviceActions.markFalseAlert(this, mac) { refresh() }
+        }
         binding.actionRename.setOnClickListener { rename() }
         binding.actionNote.setOnClickListener { editNote() }
         binding.noteText.setOnClickListener { editNote() }
@@ -267,6 +271,9 @@ class DeviceDetailActivity : AppCompatActivity() {
             else -> "Whitelist"
         }
         binding.actionFavorite.text = if (Favorites.contains(mac)) "★ Favorite" else "☆ Favorite"
+        val falseAlert = com.rfsentinel.app.data.FalseAlerts.contains(this, mac)
+        binding.actionFalseAlert.text = if (falseAlert) "Not a false alert" else "False alert"
+        binding.actionFalseAlert.visibility = if (falseAlert || s?.best != null || pastMatches.isNotEmpty()) View.VISIBLE else View.GONE
         binding.actionNote.text = if (known?.note.isNullOrBlank()) "Add note" else "Edit note"
 
         // Sections: rebuilt only when their content changes (keeps scroll & selection stable).

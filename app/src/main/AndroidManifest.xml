@@ -54,6 +54,13 @@
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
+        <!-- Music apps for Settings > Autostart > Play music in the car (receiver.CarMusic). -->
+        <intent>
+            <action android:name="android.media.browse.MediaBrowserService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MEDIA_BUTTON" />
+        </intent>
     </queries>
 
     <application

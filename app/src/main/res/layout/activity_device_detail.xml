@@ -172,6 +172,12 @@
                 android:text="Add note" />
 
             <com.google.android.material.chip.Chip
+                android:id="@+id/actionFalseAlert"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="False alert" />
+
+            <com.google.android.material.chip.Chip
                 android:id="@+id/actionLearn"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

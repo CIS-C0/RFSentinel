@@ -141,6 +141,34 @@ class SettingsActivity : AppCompatActivity() {
             .show()
     }
 
+    /** Lists the phone's music apps (those with a media service or Play button receiver) to start in the car. */
+    private fun chooseMusicApp() {
+        val apps = com.rfsentinel.app.receiver.CarMusic.apps(this)
+        if (apps.isEmpty()) {
+            Toast.makeText(this, "No music app found on this phone", Toast.LENGTH_LONG).show()
+            binding.carMusicSwitch.isChecked = Prefs.carMusicApp(this) != null && binding.carMusicSwitch.isChecked
+            return
+        }
+        val current = apps.indexOfFirst { it.first == Prefs.carMusicApp(this) }
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Music app to play in the car")
+            .setSingleChoiceItems(apps.map { it.second }.toTypedArray(), current) { d, i ->
+                Prefs.setCarMusicApp(this, apps[i].first)
+                binding.carMusicSwitch.isChecked = true
+                if (Prefs.carDevices(this).isEmpty()) chooseCarDevices()
+                updateMusicButton()
+                d.dismiss()
+            }
+            .setNegativeButton("Cancel") { _, _ -> if (Prefs.carMusicApp(this) == null) binding.carMusicSwitch.isChecked = false }
+            .show()
+    }
+
+    private fun updateMusicButton() {
+        val app = Prefs.carMusicApp(this)
+        binding.carMusicButton.text = app?.let { "Music app: " + com.rfsentinel.app.receiver.CarMusic.label(this, it) } ?: "Choose music app"
+        binding.carMusicButton.shownIf(binding.carMusicSwitch.isChecked)
+    }
+
     @android.annotation.SuppressLint("MissingPermission")
     private fun updateCarDevicesText() {
         val chosen = Prefs.carDevices(this)
@@ -905,6 +933,7 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.batteryButton, "Opens Android's battery settings: set RF Sentinel to Unrestricted so scanning keeps going with the screen off.")
         info(binding.carAutoSwitch, "Starts scanning when the phone connects to your car's Bluetooth or Android Auto, and stops when you leave.")
         info(binding.carRecordSwitch, "Records a GPS trace when the phone connects to your car's Bluetooth or Android Auto, and saves it when you leave. Starts scanning too if it isn't running. A trace you started yourself is never stopped.")
+        info(binding.carMusicSwitch, "When the phone connects to your car's Bluetooth, starts the music app you choose and presses Play, even if the app isn't open. Android doesn't let an app open another app's screen in the background, so its screen stays closed.")
         info(binding.presetLabel, PRESETS_INFO)
         info(binding.thresholdLabel, "Weak: every match, more false alarms.\n\nProbable: recommended.\n\nStrong only: the fewest alerts.\n\n" +
             "Probable and Strong only don't alert on a vehicle router (Cradlepoint, Sierra Wireless) you hear day after day, " +
@@ -2375,6 +2404,14 @@ class SettingsActivity : AppCompatActivity() {
         }
         binding.carDevicesButton.setOnClickListener { chooseCarDevices() }
         updateCarDevicesText()
+        binding.carMusicSwitch.isChecked = Prefs.carMusic(this)
+        binding.carMusicSwitch.setOnCheckedChangeListener { _, on ->
+            if (on && Prefs.carMusicApp(this) == null) chooseMusicApp()
+            else if (on && Prefs.carDevices(this).isEmpty()) chooseCarDevices()
+            updateMusicButton()
+        }
+        binding.carMusicButton.setOnClickListener { chooseMusicApp() }
+        updateMusicButton()
         binding.batteryButton.setOnClickListener {
             runCatching { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
                 .onFailure { Toast.makeText(this, "Open Android Settings > Apps > RF Sentinel > Battery", Toast.LENGTH_LONG).show() }
@@ -2763,6 +2800,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setAutoStartOnBoot(this, binding.bootSwitch.isChecked)
         Prefs.setCarAutoStart(this, binding.carAutoSwitch.isChecked)
         Prefs.setCarAutoRecord(this, binding.carRecordSwitch.isChecked)
+        Prefs.setCarMusic(this, binding.carMusicSwitch.isChecked)
 
         categorySwitches.forEach { (c, sw) -> Prefs.setCategoryEnabled(this, c, sw.isChecked) }
         airTagSwitch?.let { Prefs.setExcludeAirTags(this, it.isChecked) }

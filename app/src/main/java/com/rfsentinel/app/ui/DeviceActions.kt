@@ -93,6 +93,8 @@ object DeviceActions {
                 toast(activity, if (favorite) "Removed from favorites" else "Added to favorites")
             }
         }
+        if (com.rfsentinel.app.data.FalseAlerts.contains(activity, mac)) items += "Remove from false alerts" to { unmarkFalseAlert(activity, mac) }
+        else if (snap?.best != null) items += "False alert..." to { markFalseAlert(activity, mac) }
         items += "I saw it: learn this device..." to { learn(activity, mac) }
         if (snap?.advert != null && snap.best == null) {
             items += "Report unknown device..." to { reportUnknown(activity, mac) }
@@ -107,6 +109,44 @@ object DeviceActions {
             .setTitle(snap?.best?.label ?: snap?.name ?: mac)
             .setItems(items.map { it.first }.toTypedArray()) { _, which -> items[which].second() }
             .show()
+    }
+
+    /** Logs the device's alert as false (History > False alerts) and mutes it, with an optional note. */
+    fun markFalseAlert(activity: AppCompatActivity, mac: String, done: () -> Unit = {}) {
+        val d = activity.resources.displayMetrics.density
+        val note = EditText(activity).apply { hint = "What is it really? (optional)"; setSingleLine(false) }
+        val box = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            val p = (20 * d).toInt()
+            setPadding(p, (8 * d).toInt(), p, 0)
+            addView(TextView(activity).apply { text = "Saved in History > False alerts to look at or export later. Its alerts are muted until you take it off that list." })
+            addView(note)
+        }
+        MaterialAlertDialogBuilder(activity)
+            .setTitle("False alert")
+            .setView(box)
+            .setPositiveButton("Save") { _, _ ->
+                activity.lifecycleScope.launch {
+                    val entry = com.rfsentinel.app.data.FalseAlerts.mark(activity, mac, note.text.toString())
+                    if (entry == null) { toast(activity, "Nothing flagged on this device to log"); return@launch }
+                    com.rfsentinel.app.util.Undo.show(activity, "Logged as a false alert and muted") {
+                        com.rfsentinel.app.data.FalseAlerts.remove(activity, mac); done()
+                    }
+                    done()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    /** Takes the device off the false alerts and unmutes it. */
+    fun unmarkFalseAlert(activity: AppCompatActivity, mac: String, done: () -> Unit = {}) {
+        val entry = com.rfsentinel.app.data.FalseAlerts.all(activity).firstOrNull { it.match.mac == mac } ?: return
+        com.rfsentinel.app.data.FalseAlerts.remove(activity, mac)
+        com.rfsentinel.app.util.Undo.show(activity, "Removed from false alerts, alerts back on") {
+            com.rfsentinel.app.data.FalseAlerts.add(activity, entry); done()
+        }
+        done()
     }
 
     /**

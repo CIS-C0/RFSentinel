@@ -56,6 +56,20 @@ object Exporter {
     /** Shortcut straight to the device history's formats (CSV / JSON): what Import history reads back. */
     fun showHistoryExport(activity: AppCompatActivity) = chooseFormat(activity, Scope.HISTORY)
 
+    /** The false alerts you marked (History > False alerts), in the match log's formats. */
+    fun showFalseAlertExport(activity: AppCompatActivity) {
+        val formats = Scope.MATCHES.formats
+        MaterialAlertDialogBuilder(activity)
+            .setTitle("Export false alerts")
+            .setItems(formats.map { FORMAT_LABELS.getValue(it) }.toTypedArray()) { _, which ->
+                exportLog(activity, formats[which], "false_alerts", "No false alerts logged yet") {
+                    com.rfsentinel.app.data.FalseAlerts.rows(activity)
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     /** Shortcut straight to the watchlist file (it has one format). */
     fun showWatchlistExport(activity: AppCompatActivity) = exportWatchlist(activity)
 
@@ -254,14 +268,15 @@ object Exporter {
         }
     }
 
-    fun exportLog(activity: AppCompatActivity, format: String) {
+    fun exportLog(activity: AppCompatActivity, format: String, name: String = "matches", none: String = "No matches logged yet",
+                  load: suspend () -> List<DetectionEntity> = { AppDatabase.getInstance(activity).detectionDao().allForExport() }) {
         launchExport(activity) {
-            val rows = AppDatabase.getInstance(activity).detectionDao().allForExport()
+            val rows = load()
             val usable = if (format == "csv" || format == "json") rows else rows.filter { it.latitude != null && it.longitude != null }
             if (usable.isEmpty()) {
                 toast(
                     activity,
-                    if (format == "csv" || format == "json") "No matches logged yet"
+                    if (format == "csv" || format == "json") none
                     else "No GPS-tagged matches yet - turn on GPS tagging in Settings"
                 )
                 return@launchExport
@@ -278,7 +293,7 @@ object Exporter {
                 "json" -> "application/json"
                 else -> "text/csv"
             }
-            share(activity, "rf_sentinel_matches_${stamp()}.$format", text, mime, "Export match log")
+            share(activity, "rf_sentinel_${name}_${stamp()}.$format", text, mime, "Export ${name.replace('_', ' ')}")
         }
     }
 

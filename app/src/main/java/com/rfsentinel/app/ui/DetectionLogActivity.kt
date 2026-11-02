@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.chip.Chip
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.data.AppDatabase
+import com.rfsentinel.app.data.FalseAlerts
 import com.rfsentinel.app.data.KnownDeviceDao
 import com.rfsentinel.app.databinding.ActivityLogBinding
 import com.rfsentinel.app.detect.Category
@@ -24,6 +25,7 @@ import java.util.Calendar
 /**
  * History of logged matches (the rows the exports contain). Search by address, label, maker, name or
  * evidence, and narrow to today or one kind of equipment. Tap one for device details.
+ * With [EXTRA_FALSE_ALERTS]: the alerts you marked as false instead ([FalseAlerts]); long-press one to take it off.
  */
 class DetectionLogActivity : AppCompatActivity() {
     private lateinit var binding: ActivityLogBinding
@@ -33,16 +35,24 @@ class DetectionLogActivity : AppCompatActivity() {
     private var today = false
     private var category: String? = null
     private var searchJob: Job? = null
+    private val falseAlerts by lazy { intent.getBooleanExtra(EXTRA_FALSE_ALERTS, false) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityLogBinding.inflate(layoutInflater)
         setContentView(binding.root)
         binding.root.applySystemBarInsets()
-        title = "Match history"
+        title = if (falseAlerts) "False alerts" else "Match history"
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        adapter = DetectionAdapter(onClick = { DeviceActions.openDetection(this, it) })
+        adapter = DetectionAdapter(onClick = { DeviceActions.openDetection(this, it) },
+            onLongClick = if (!falseAlerts) null else { d ->
+                MaterialAlertDialogBuilder(this).setTitle(d.label)
+                    .setItems(arrayOf("Show details", "Remove from false alerts (alerts back on)")) { _, which ->
+                        if (which == 0) DeviceActions.openDetection(this, d)
+                        else DeviceActions.unmarkFalseAlert(this, d.mac) { buildChips(); search(now = true) }
+                    }.show()
+            })
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
         binding.searchInput.doAfterTextChanged { search(now = false) }
@@ -52,7 +62,8 @@ class DetectionLogActivity : AppCompatActivity() {
 
     /** All, Today, then one chip per kind of equipment in the log. */
     private fun buildChips() = lifecycleScope.launch {
-        val present = AppDatabase.getInstance(this@DetectionLogActivity).detectionDao().categories().toSet()
+        val present = if (falseAlerts) FalseAlerts.rows(this@DetectionLogActivity).map { it.category }.toSet()
+            else AppDatabase.getInstance(this@DetectionLogActivity).detectionDao().categories().toSet()
         binding.filterChips.removeAllViews()
         if (category != null && category !in present) category = null
         fun add(label: String, checked: Boolean, pick: () -> Unit) {
@@ -76,16 +87,26 @@ class DetectionLogActivity : AppCompatActivity() {
             val q = binding.searchInput.text?.toString()?.trim().orEmpty()
             val since = if (today) startOfToday() else 0L
             val filtered = q.isNotEmpty() || today || category != null
+            if (falseAlerts) {
+                val list = FalseAlerts.rows(this@DetectionLogActivity).filter { r ->
+                    r.timestamp >= since && (category == null || r.category == category) && (q.isEmpty() ||
+                        listOf(r.mac, r.label, r.vendor, r.deviceName, r.evidence).any { it?.contains(q, ignoreCase = true) == true })
+                }
+                show(list, filtered, "No false alerts logged yet. Mark one from a device's page or by long-pressing it in the list.")
+                return@launch
+            }
             AppDatabase.getInstance(this@DetectionLogActivity).detectionDao()
                 .search(q, KnownDeviceDao.like(q), KnownDeviceDao.likeHex(q), category, since)
-                .collect { list ->
-                    adapter.submitList(list)
-                    binding.emptyText.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
-                    binding.emptyText.text = if (filtered) "Nothing matches." else "No watchlist matches logged yet."
-                    val more = if (list.size >= 1000) "+" else ""
-                    supportActionBar?.subtitle = "${list.size}$more ${if (filtered) "found" else "logged"}"
-                }
+                .collect { list -> show(list, filtered, "No watchlist matches logged yet.") }
         }
+    }
+
+    private fun show(list: List<com.rfsentinel.app.data.DetectionEntity>, filtered: Boolean, empty: String) {
+        adapter.submitList(list)
+        binding.emptyText.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+        binding.emptyText.text = if (filtered) "Nothing matches." else empty
+        val more = if (list.size >= 1000) "+" else ""
+        supportActionBar?.subtitle = "${list.size}$more ${if (filtered) "found" else "logged"}"
     }
 
     private fun startOfToday() = Calendar.getInstance().apply {
@@ -94,12 +115,12 @@ class DetectionLogActivity : AppCompatActivity() {
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menu.add(0, 1, 0, "Export...")
-        menu.add(0, 2, 1, "Clear match history")
+        if (!falseAlerts) menu.add(0, 2, 1, "Clear match history")
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
-        1 -> { Exporter.showExportMenu(this); true }
+        1 -> { if (falseAlerts) Exporter.showFalseAlertExport(this) else Exporter.showExportMenu(this); true }
         2 -> {
             MaterialAlertDialogBuilder(this)
                 .setTitle("Clear match history?")
@@ -119,9 +140,11 @@ class DetectionLogActivity : AppCompatActivity() {
         else -> super.onOptionsItemSelected(item)
     }
 
-    private companion object {
+    companion object {
+        const val EXTRA_FALSE_ALERTS = "false_alerts"
+
         /** Short chip names for the categories. */
-        fun chipLabel(c: Category) = when (c) {
+        private fun chipLabel(c: Category) = when (c) {
             Category.BODY_CAM -> "Body cams"
             Category.ALPR -> "Plate cameras"
             Category.AUDIO_SENSOR -> "Audio sensors"

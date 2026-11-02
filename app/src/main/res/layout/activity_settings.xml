@@ -180,6 +180,12 @@
                 android:layout_height="wrap_content"
                 android:text="Record a trace in the car" />
 
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/carMusicSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Play music in the car" />
+
             <TextView
                 android:id="@+id/carDevicesText"
                 style="@style/SettingsLabel"
@@ -192,6 +198,13 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Choose your car's Bluetooth" />
+
+            <Button
+                android:id="@+id/carMusicButton"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Choose music app" />
         </LinearLayout>
 
         <!-- ================= What to detect ================= -->

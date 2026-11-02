@@ -1504,6 +1504,7 @@ class MainActivity : AppCompatActivity() {
             R.id.action_waze_status -> { com.rfsentinel.app.ui.WazeUi.openStatus(this); true }
             R.id.action_device_history -> { startActivity(Intent(this, com.rfsentinel.app.ui.DeviceHistoryActivity::class.java)); true }
             R.id.action_match_log -> { startActivity(Intent(this, DetectionLogActivity::class.java)); true }
+            R.id.action_false_alerts -> { startActivity(Intent(this, DetectionLogActivity::class.java).putExtra(DetectionLogActivity.EXTRA_FALSE_ALERTS, true)); true }
             R.id.action_settings -> { startActivity(Intent(this, SettingsActivity::class.java)); true }
             R.id.action_watchlist -> { startActivity(Intent(this, com.rfsentinel.app.ouilist.OuiListActivity::class.java)); true }
             R.id.action_whitelist -> { startActivity(Intent(this, com.rfsentinel.app.whitelist.WhitelistActivity::class.java)); true }

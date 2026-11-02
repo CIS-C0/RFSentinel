@@ -514,6 +514,12 @@ object Prefs {
     /** Record a trace while in the car (chosen Bluetooth devices, or Android Auto). */
     fun carAutoRecord(context: Context): Boolean = bool(context, "car_auto_record", false)
     fun setCarAutoRecord(context: Context, value: Boolean) = setBool(context, "car_auto_record", value)
+    /** Start the chosen music app playing when the phone connects to the car's Bluetooth ([carMusicApp]). */
+    fun carMusic(context: Context): Boolean = bool(context, "car_music", false)
+    fun setCarMusic(context: Context, value: Boolean) = setBool(context, "car_music", value)
+    /** The music app's package name, or null before one is chosen. */
+    fun carMusicApp(context: Context): String? = sp(context).getString("car_music_app", null)
+    fun setCarMusicApp(context: Context, value: String?) = sp(context).edit { putString("car_music_app", value) }
     /** True while the trace being recorded was started by the car (so leaving the car saves it). */
     fun recordingByCar(context: Context): Boolean = bool(context, "recording_by_car", false)
     fun setRecordingByCar(context: Context, value: Boolean) = setBool(context, "recording_by_car", value)
