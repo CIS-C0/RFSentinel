@@ -1051,7 +1051,7 @@ class ScanForegroundService : Service() {
             OuiWatchlist.hits(a.mac, a.name, listOfNotNull(macVendor) + companyVendors) +
             OuiWatchlist.advertHits(a) +
             DeviceRegistry.inheritedHits(a.mac) +
-            listOfNotNull(DeviceRegistry.clusterHit(a.mac, now)) +
+            listOfNotNull(DeviceRegistry.clusterHit(a.mac, now), com.rfsentinel.app.sdr.P25Link.hitFor(a.mac)) +
             espHits[a.mac]?.takeIf { now - it.first < ESP_HIT_TTL_MS }?.second.orEmpty() +
             probeHits[a.mac]?.takeIf { now - it.first < ESP_HIT_TTL_MS }?.second.orEmpty() +
             extra
@@ -1562,6 +1562,11 @@ class ScanForegroundService : Service() {
     private fun onP25Input(call: com.rfsentinel.app.sdr.P25History.Call, hz: Long, snr: Int) {
         if (!Prefs.categoryEnabled(this, Category.RADIO)) return
         val now = System.currentTimeMillis()
+        // The devices around right now (not your whitelisted ones): one that's here each time this radio is may ride with it.
+        call.source?.let { radio ->
+            com.rfsentinel.app.sdr.P25Link.heard(radio, DeviceRegistry.snapshot(now)
+                .filter { com.rfsentinel.app.ui.LiveWindow.inRange(it, now) && !WhitelistCache.contains(it.mac) }.map { it.mac }, now)
+        }
         val min = Prefs.radioMinSnr(this)
         val confidence = if (snr >= min + 10) 75 else 60
         val name = call.tg?.let { com.rfsentinel.app.sdr.P25Log.watched(Prefs.p25Talkgroups(this))[it]?.ifEmpty { null } }
