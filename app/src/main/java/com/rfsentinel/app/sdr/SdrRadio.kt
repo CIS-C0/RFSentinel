@@ -107,7 +107,7 @@ object SdrRadio {
     @Volatile var onAircraft: ((List<com.rfsentinel.app.online.PoliceAircraft.Plane>, List<String>) -> Unit)? = null
 
     fun isSdr(d: UsbDevice) = RtlSdr.isRtlSdr(d.vendorId, d.productId) || HackRf.isHackRf(d.vendorId, d.productId)
-    private fun labelOf(d: UsbDevice) = if (HackRf.isHackRf(d.vendorId, d.productId)) "HackRF" else "RTL-SDR"
+    fun labelOf(d: UsbDevice) = if (HackRf.isHackRf(d.vendorId, d.productId)) "HackRF" else "RTL-SDR"
 
     @Synchronized
     fun start(context: Context, events: (RadioWatch.Event) -> Unit) {
@@ -181,7 +181,13 @@ object SdrRadio {
             UsbWifi.log("$deviceLabel: $name is gone - starting over")
             halt("")
         }
-        val d = runCatching { mgr.deviceList.values.firstOrNull { isSdr(it) } }.getOrNull() ?: return
+        val all = runCatching { mgr.deviceList.values.toList() }.getOrDefault(emptyList())
+        val d = com.rfsentinel.app.usb.UsbPick.pick(context, com.rfsentinel.app.usb.UsbPick.Kind.SDR, all) ?: run {
+            com.rfsentinel.app.usb.UsbPick.waitingFor(context, com.rfsentinel.app.usb.UsbPick.Kind.SDR, all)?.let {
+                status = "SDR: waiting for $it, picked in Settings"
+            }
+            return
+        }
         deviceLabel = labelOf(d)
         if (!mgr.hasPermission(d)) {
             UsbWifi.log("%04x:%04x ($deviceLabel) plugged in - asking for USB access".format(d.vendorId, d.productId))

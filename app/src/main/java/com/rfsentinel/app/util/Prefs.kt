@@ -682,6 +682,14 @@ object Prefs {
     /** Scan Bluetooth with a USB adapter's Bluetooth part (dongle or combo adapter). */
     fun usbBluetooth(context: Context): Boolean = bool(context, "usb_bluetooth", true)
     fun setUsbBluetooth(context: Context, value: Boolean) = setBool(context, "usb_bluetooth", value)
+    /** The USB ID of the adapter picked for [kind] ("wifi", "bt", "sdr"), null for Auto ([com.rfsentinel.app.usb.UsbPick]). */
+    fun usbPick(context: Context, kind: String): String? = sp(context).getString("usb_pick_$kind", null)
+    /** Its name, shown while it's unplugged. */
+    fun usbPickName(context: Context, kind: String): String? = sp(context).getString("usb_pick_name_$kind", null)
+    fun setUsbPick(context: Context, kind: String, id: String?, name: String?) = sp(context).edit {
+        if (id == null) { remove("usb_pick_$kind"); remove("usb_pick_name_$kind") }
+        else { putString("usb_pick_$kind", id); putString("usb_pick_name_$kind", name) }
+    }
     fun setRtl8821au5g(context: Context, value: Boolean) = setBool(context, "rtl8821au_5g", value)
 
     /** Hide trusted (whitelisted) devices from the live list and radar (off by default). */

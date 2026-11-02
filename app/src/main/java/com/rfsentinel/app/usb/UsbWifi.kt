@@ -331,8 +331,9 @@ object UsbWifi {
         if (runningDevice != null) return
         val mgr = context.getSystemService(UsbManager::class.java) ?: return
         val all = runCatching { mgr.deviceList.values.toList() }.getOrDefault(emptyList())
-        val d = all.firstOrNull { chipOf(it) != null }
+        val d = UsbPick.pick(context, UsbPick.Kind.WIFI, all)
         if (d == null) {
+            UsbPick.waitingFor(context, UsbPick.Kind.WIFI, all)?.let { status = "USB WiFi: waiting for $it, picked in Settings"; return }
             val known = all.firstOrNull { knownOnly(it) != null }
             val newStatus = known?.let { "USB WiFi adapter (${knownOnly(it)}) found - this chip isn't supported yet" }.orEmpty()
             if (known != null && newStatus != status) log("%04x:%04x (%s) plugged in: not supported yet".format(known.vendorId, known.productId, knownOnly(known)))

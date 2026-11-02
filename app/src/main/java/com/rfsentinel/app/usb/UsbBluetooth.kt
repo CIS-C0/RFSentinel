@@ -131,6 +131,12 @@ object UsbBluetooth {
     /** Tries again (firmware just downloaded, or the setting turned back on). */
     fun retry(context: Context) { if (receiver != null) connect(context.applicationContext) }
 
+    /** Settings › External hardware: another adapter was picked; switches to it now while scanning. */
+    fun pickChanged(context: Context) {
+        if (runningDevice != null) stopAdapter("")
+        retry(context)
+    }
+
     /** Settings › External hardware: the switch was flipped while scanning. */
     fun settingChanged(context: Context) {
         if (com.rfsentinel.app.util.Prefs.usbBluetooth(context)) retry(context)
@@ -148,10 +154,14 @@ object UsbBluetooth {
         val mgr = context.getSystemService(UsbManager::class.java) ?: return
         val all = runCatching { mgr.deviceList.values.toList() }.getOrDefault(emptyList())
         // Not RTL-SDR / HackRF sticks, which have no Bluetooth interface anyway.
-        val d = all.firstOrNull { btInterface(it) != null } ?: run { if (firmwareNeeded == null) status = ""; return }
+        val d = UsbPick.pick(context, UsbPick.Kind.BT, all) ?: run {
+            status = UsbPick.waitingFor(context, UsbPick.Kind.BT, all)?.let { "USB Bluetooth: waiting for $it, picked in Settings" }
+                ?: if (firmwareNeeded == null) "" else status
+            return
+        }
         if (!mgr.hasPermission(d)) {
-            // The WiFi side of a combo adapter asks for access itself: one prompt, not two.
-            if (!ask || UsbWifi.chipOf(d) != null) { status = "USB Bluetooth found - allow USB access on the prompt"; return }
+            // The WiFi side of a combo adapter asks for access itself, when it uses that adapter: one prompt, not two.
+            if (!ask || UsbPick.chosen(context, UsbPick.Kind.WIFI, all)?.deviceName == d.deviceName) { status = "USB Bluetooth found - allow USB access on the prompt"; return }
             UsbWifi.log("BT: %04x:%04x plugged in - asking for USB access".format(d.vendorId, d.productId))
             val pi = PendingIntent.getBroadcast(context, 2, Intent(ACTION_PERMISSION).setPackage(context.packageName),
                 PendingIntent.FLAG_MUTABLE)

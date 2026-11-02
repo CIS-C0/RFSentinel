@@ -20,6 +20,7 @@ import com.rfsentinel.app.databinding.ActivitySettingsBinding
 import com.rfsentinel.app.detect.Category
 import com.rfsentinel.app.oui.OuiWatchlist
 import com.rfsentinel.app.service.ScanForegroundService
+import com.rfsentinel.app.usb.UsbPick
 import com.rfsentinel.app.util.Prefs
 import com.rfsentinel.app.util.applySystemBarInsets
 import kotlinx.coroutines.launch
@@ -397,6 +398,41 @@ class SettingsActivity : AppCompatActivity() {
                 "$n Sentinel${if (n == 1) "" else "s"} in the group · links while scanning"
             }
         }
+    }
+
+    /** External hardware: the drop-downs picking which adapter each driver uses ([com.rfsentinel.app.usb.UsbPick]). */
+    private val usbPickRows = ArrayList<View>()
+
+    /** Rebuilt on every return to Settings, so they list what's plugged in now. */
+    private fun updateUsbPickers() {
+        usbPickRows.forEach { (it.parent as? android.view.ViewGroup)?.removeView(it) }
+        usbPickRows.clear()
+        val all = runCatching { getSystemService(android.hardware.usb.UsbManager::class.java)?.deviceList?.values?.toList() }
+            .getOrNull().orEmpty()
+        fun add(kind: UsbPick.Kind, under: View, label: String, about: String) {
+            val saved = Prefs.usbPick(this, kind.key)
+            val ids = mutableListOf<String?>(null)
+            val names = mutableListOf("Auto")
+            UsbPick.candidates(kind, all).distinctBy { UsbPick.id(it) }.forEach { ids += UsbPick.id(it); names += UsbPick.label(it) }
+            if (saved != null && saved !in ids) { ids += saved; names += "${Prefs.usbPickName(this, kind.key) ?: saved} · unplugged" }
+            val row = choiceRow(label, names, ids.indexOf(saved)) { i ->
+                if (ids[i] == Prefs.usbPick(this, kind.key)) return@choiceRow
+                Prefs.setUsbPick(this, kind.key, ids[i], names[i].removeSuffix(" · unplugged"))
+                if (kind == UsbPick.Kind.BT) com.rfsentinel.app.usb.UsbBluetooth.pickChanged(this)
+            }
+            val parent = under.parent as android.view.ViewGroup
+            val at = parent.indexOfChild(under) + 1
+            parent.addView(row, at)
+            info(row, "$about Only one runs at a time. Two of the same model can't be told apart: the first one found is used.", label)
+            usbPickRows += parent.getChildAt(at)
+        }
+        add(UsbPick.Kind.WIFI, binding.usbWifiText, "WiFi adapter", "Which USB WiFi adapter to use when more than one is " +
+            "plugged in. Auto takes the first one found. A new pick starts the next time scanning starts.")
+        add(UsbPick.Kind.BT, binding.usbBtText, "Bluetooth adapter", "Which USB Bluetooth adapter to use when more than one is " +
+            "plugged in. A combo WiFi + Bluetooth adapter (like the ALFA AWUS036AXML) only has the small antenna inside its " +
+            "case for Bluetooth, so Auto takes a Bluetooth-only dongle first. A new pick takes over right away while scanning.")
+        add(UsbPick.Kind.SDR, binding.sdrStatusText, "SDR", "Which RTL-SDR or HackRF to use when more than one is plugged in. " +
+            "Auto takes the first one found. A new pick starts the next time scanning starts.")
     }
 
     private fun updateEspStatus() {
@@ -2787,6 +2823,7 @@ class SettingsActivity : AppCompatActivity() {
         // Back from the theme maker: its themes may have changed.
         if (loaded) buildThemeList()
         updatePcap()
+        updateUsbPickers()
         // The user may be coming back from Developer options.
         updateWifiThrottleHint()
         showNote(aircraftStatusText, com.rfsentinel.app.online.OnlineWatch.aircraftStatus)
