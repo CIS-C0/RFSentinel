@@ -15,9 +15,10 @@ import kotlin.math.sqrt
  * sliced and handed to [onFrame] (status symbols still in: the frame decoder takes them out).
  * A slow frequency loop keeps the channel centred while the dongle's crystal drifts.
  *
- * Signalling only: it never demodulates voice. Pure (no Android): unit-tested on a synthetic signal.
+ * [frameDibits] longer than the default takes in a whole voice frame ([P25Voice]). Pure (no Android): unit-tested on
+ * a synthetic signal.
  */
-class P25Demod(offsetHz: Double, private val onFrame: (IntArray) -> Unit) {
+class P25Demod(offsetHz: Double, private val frameDibits: Int = FRAME_DIBITS, private val onFrame: (IntArray) -> Unit) {
 
     /** Where the channel is, from the tuned centre; the frequency loop moves it while it tracks. */
     var offsetHz = offsetHz; private set
@@ -44,8 +45,8 @@ class P25Demod(offsetHz: Double, private val onFrame: (IntArray) -> Unit) {
     private val box = DoubleArray(SPS); private var boxAt = 0; private var boxSum = 0.0
     private val hist = DoubleArray(HIST); private var n = 0L
 
-    private class Collect(val start: Long, val dc: Double, val level: Double) {
-        val dibits = IntArray(FRAME_DIBITS); var got = 0
+    private class Collect(val start: Long, val dc: Double, val level: Double, size: Int) {
+        val dibits = IntArray(size); var got = 0
     }
     private val collecting = ArrayList<Collect>()
     private var lastSync = Long.MIN_VALUE / 2
@@ -70,6 +71,9 @@ class P25Demod(offsetHz: Double, private val onFrame: (IntArray) -> Unit) {
             }
         }
     }
+
+    /** One sample of the channel already mixed down and at [CHANNEL_RATE], as [P25Record] saves it. */
+    fun feedChannel(r: Double, i: Double) = channelSample(r, i)
 
     private fun channelSample(r: Double, i: Double) {
         firR[firAt] = r; firI[firAt] = i
@@ -104,7 +108,7 @@ class P25Demod(offsetHz: Double, private val onFrame: (IntArray) -> Unit) {
                 val c = it.next()
                 if ((n - c.start) % SPS != 0L) continue
                 c.dibits[c.got++] = slice((v - c.dc) / c.level)
-                if (c.got == FRAME_DIBITS) { it.remove(); onFrame(c.dibits) }
+                if (c.got == c.dibits.size) { it.remove(); onFrame(c.dibits) }
             }
         }
         // Sync search: the last 24 symbols against the pattern, normalized.
@@ -136,10 +140,10 @@ class P25Demod(offsetHz: Double, private val onFrame: (IntArray) -> Unit) {
         val level = (hi - lo) / 2
         if (level <= 0) return
         syncs++
-        val c = Collect(end, (hi + lo) / 2, level)
+        val c = Collect(end, (hi + lo) / 2, level, frameDibits)
         // Samples already past since the sync's end: catch up those dibits from the history.
         var t = end + SPS
-        while (t <= n && c.got < FRAME_DIBITS) { c.dibits[c.got++] = slice((at((n - t).toInt()) - c.dc) / c.level); t += SPS }
+        while (t <= n && c.got < frameDibits) { c.dibits[c.got++] = slice((at((n - t).toInt()) - c.dc) / c.level); t += SPS }
         collecting += c
     }
 
