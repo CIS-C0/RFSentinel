@@ -1390,7 +1390,13 @@ class SettingsActivity : AppCompatActivity() {
             "Compares each talkgroup's calls in the last hour with the same hour on the days before, from the call log. Alerts when " +
             "one is at least three times busier than usual, or busy for the first time. Starts after the log has " +
             "${com.rfsentinel.app.sdr.P25History.BASELINE_DAYS} days in it, and needs the call log kept.") { Prefs.setP25Unusual(this, it) }
-        val talkgroupViews = (box.childCount - 5 until box.childCount).map { box.getChildAt(it) }
+        scan("Listen for radios keying up nearby", Prefs.p25Inputs(this),
+            "When a call starts, the SDR leaves the control channel for a fraction of a second and listens where that call's radio " +
+            "transmits. A strong signal there means the radio talking is close to you, not just somewhere the site covers. At most " +
+            "once every few seconds; the control channel misses a few messages each time. Uses the radio sweep's sensitivity.") {
+            Prefs.setP25Inputs(this, it)
+        }
+        val talkgroupViews = (box.childCount - 6 until box.childCount).map { box.getChildAt(it) }
         var sweepViews = emptyList<View>() // the sweep's own settings, below
         showSdrOptions = {
             val ticked = listOf(sweepBox, adsbBox, p25Box).count { it.isChecked }

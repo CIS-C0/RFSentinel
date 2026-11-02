@@ -117,9 +117,10 @@ class P25Hunt(private val sdr: SdrDevice, private val log: (String) -> Unit = {}
 
     /**
      * Stays on [lock], handing each message to [onMsg]: false when [stop] said so, true when the channel
-     * went quiet for [LOST_S] (hunt again). Logs what it decoded every [LOG_S].
+     * went quiet for [LOST_S] (hunt again). Logs what it decoded every [LOG_S]. [detour] true: it tuned away for a
+     * moment (an input check), so the control channel is tuned again.
      */
-    fun listen(lock: Lock, stop: () -> Boolean, onMsg: (P25Tsbk.Msg) -> Unit): Boolean {
+    fun listen(lock: Lock, stop: () -> Boolean, detour: () -> Boolean = { false }, onMsg: (P25Tsbk.Msg) -> Unit): Boolean {
         sdr.setSampleRate(P25Demod.SAMPLE_RATE)
         if (!sdr.tune(lock.hz - OFFSET_HZ)) { log("P25 listen: the tuner didn't lock"); return true }
         sdr.resetBuffer()
@@ -141,6 +142,13 @@ class P25Hunt(private val sdr: SdrDevice, private val log: (String) -> Unit = {}
             st = Stats(); kinds.clear()
         }
         while (!stop()) {
+            if (detour()) {
+                if (!sdr.tune(lock.hz - OFFSET_HZ)) { log("P25 listen: the tuner didn't lock after an input check"); return true }
+                sdr.resetBuffer()
+                repeat(sdr.settleReads) { sdr.read(buf) }
+                lastGood = samples // the time away doesn't count as the channel going quiet
+                continue
+            }
             val n = sdr.read(buf)
             if (n <= 0) { st.stalls++; if (++fails % STALL_READS == 0) sdr.resetBuffer(); continue }
             fails = 0

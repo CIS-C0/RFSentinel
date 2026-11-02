@@ -37,6 +37,10 @@ object SdrRadio {
     private const val TUNED_READS = 4          // ~16 ms of samples per waterfall row
     private const val TUNED_ROW_MS = 40L       // at most ~25 rows a second
     private const val P25_RETRY_MS = 30_000L   // no control channel found: look again after this
+    private const val INPUT_DELAY_MS = 400L    // after a grant: the radio is on the air by then
+    private const val INPUT_GAP_MS = 5_000L    // at most one input check this often: each costs ~0.2 s of control channel
+    private const val INPUT_READS = 16         // ~70 ms of the input
+    private const val INPUT_OFFSET_HZ = 250_000L // the input this far above the tuned centre, clear of the DC spike
 
     @Volatile var status: String = ""; private set
     /** ADS-B messages decoded since the app started, for the main screen's messages-per-second line. */
@@ -84,6 +88,10 @@ object SdrRadio {
     val p25Log = P25Log()
     /** A call started on this talkgroup (the service alerts on watched ones). */
     @Volatile var onP25Call: ((Int) -> Unit)? = null
+    /** Settings › RTL-SDR radio: after a call starts, briefly listen where its radio transmits (the site's input). */
+    @Volatile var p25Inputs = false
+    /** A call's radio heard on the input: [snrDb] above the noise, so close to you (the call, its input frequency). */
+    @Volatile var onP25Input: ((P25History.Call, Long, Int) -> Unit)? = null
     /**
      * The waterfall screen zoomed in: hold this frequency instead of sweeping (or receiving ADS-B),
      * until set back to null. Picked up within a chunk.
@@ -424,17 +432,52 @@ object SdrRadio {
             val where = "%.3f MHz · NAC %03X".format(java.util.Locale.US, lock.hz / 1e6, lock.nac)
             status = "$deviceLabel · P25 · control channel $where" + turnNote()
             var messages = 0; var lastStatus = 0L
-            val lost = hunt.listen(lock, stop) {
+            var pending: Pair<P25History.Call, Long>? = null; var lastInput = 0L; var inputs = 0; var heard = 0
+            // A call's input: once it's on the air, tune there for a moment and measure it (the control channel comes back after).
+            val detour = detour@{
+                val (call, hz) = pending ?: return@detour false
+                if (System.currentTimeMillis() - call.time < INPUT_DELAY_MS) return@detour false
+                pending = null
+                val snr = measureInput(sdr, hz) ?: return@detour true
+                inputs++
+                if (snr >= RadioWatch.activeDb(config.minSnrDb)) { heard++; onP25Input?.invoke(call, hz, snr) }
+                true
+            }
+            val lost = hunt.listen(lock, stop, detour) {
                 messages++; p25Messages++
                 val now = System.currentTimeMillis()
                 for (tg in p25Log.add(it, now)) onP25Call?.invoke(tg)
-                appContext?.let { c -> P25History.append(c, p25Log.takeCalls()) }
+                val calls = p25Log.takeCalls()
+                appContext?.let { c -> P25History.append(c, calls) }
+                if (p25Inputs && pending == null && now - lastInput >= INPUT_GAP_MS) {
+                    calls.lastOrNull { it.source != null && it.channel != null }?.let { c ->
+                        p25Log.inputHz(c.channel!!)?.let { hz -> pending = c to hz; lastInput = now }
+                    }
+                }
                 if (now - lastStatus >= 2_000L && !halted) { lastStatus = now; status = "$deviceLabel · P25 · control channel $where · $messages messages" + turnNote() }
             }
             if (lost) p25Lock = null
             UsbWifi.log("$deviceLabel: P25 ${if (lost) "control channel went quiet" else "turn over or stopped"} after $messages messages (${hunt.blocks} blocks in all), " +
-                p25Log.rows().let { r -> "${r.size} talkgroups / private calls, ${r.sumOf { it.calls }} calls" })
+                p25Log.rows().let { r -> "${r.size} talkgroups / private calls, ${r.sumOf { it.calls }} calls" } +
+                (if (inputs > 0) ", $inputs input checks, $heard radios heard nearby" else ""))
         }
+    }
+
+    /** A call's input level in dB above the noise, or null when the tuner didn't get there. Frequency kept off the log. */
+    private fun measureInput(sdr: SdrDevice, hz: Long): Int? {
+        if (!sdr.tune(hz - INPUT_OFFSET_HZ)) return null
+        sdr.resetBuffer()
+        val buf = ByteArray(XFER)
+        repeat(sdr.settleReads) { sdr.read(buf) }
+        val iq = ByteArray(XFER * INPUT_READS)
+        var got = 0
+        for (i in 0 until INPUT_READS) {
+            val n = sdr.read(buf)
+            if (n <= 0) break
+            System.arraycopy(buf, 0, iq, got, n); got += n
+        }
+        if (got < 2 * 1024) return null
+        return RadioWatch.channelSnrDb(RadioWatch.powerSpectrum(iq, got / 2), sdr.sampleRate, INPUT_OFFSET_HZ)
     }
 
     /** Holds [tuneHz] for the waterfall screen: a row of the ~2 MHz around it every few tens of ms. */

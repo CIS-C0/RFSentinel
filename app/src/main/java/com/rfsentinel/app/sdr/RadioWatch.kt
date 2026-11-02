@@ -336,6 +336,16 @@ class RadioWatch {
 
         private fun median(a: FloatArray): Float { a.sort(); return if (a.isEmpty()) 0f else a[a.size / 2] }
 
+        /** dB above the noise (the spectrum's median) of the strongest bin within [widthHz] around [offsetHz] from the centre. */
+        fun channelSnrDb(psd: FloatArray, sampleRate: Int, offsetHz: Long, widthHz: Long = STEP_HZ): Int {
+            val binHz = sampleRate.toDouble() / psd.size
+            val mid = psd.size / 2 + (offsetHz / binHz).roundToInt()
+            val half = maxOf(1, (widthHz / 2 / binHz).roundToInt())
+            val peak = (mid - half..mid + half).filter { it in psd.indices }.maxOfOrNull { psd[it] } ?: return 0
+            val noise = psd.sorted()[psd.size / 2]
+            return (peak - noise).roundToInt()
+        }
+
         /**
          * Averaged power spectrum in dB of [count] unsigned 8-bit I/Q pairs from [iq], in
          * [n]-point Hann-windowed FFTs, FFT-shifted so DC sits at index n/2.

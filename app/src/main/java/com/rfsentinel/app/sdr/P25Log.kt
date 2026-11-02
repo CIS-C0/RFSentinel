@@ -70,6 +70,9 @@ class P25Log {
 
     @Synchronized fun summary() = Summary(site, messages, registrations, since)
 
+    /** Where the radios transmit on [channel], or null while unknown. */
+    @Synchronized fun inputHz(channel: Int): Long? = channels.inputHz(channel)
+
     /** The calls started since the last time this was asked, oldest first. */
     @Synchronized fun takeCalls(): List<P25History.Call> = started.toList().also { started.clear() }
 

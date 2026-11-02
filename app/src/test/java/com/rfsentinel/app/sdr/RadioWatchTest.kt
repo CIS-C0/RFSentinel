@@ -111,6 +111,15 @@ class RadioWatchTest {
         assertEquals(n / 2 + (tone / binHz).roundToInt(), peak)
     }
 
+    @Test
+    fun channelSnrIsTheChannelAboveTheNoise() {
+        // A P25 input check: a radio 30 dB up on the channel 250 kHz above the centre, nothing 400 kHz up.
+        val psd = FloatArray(n) { -100f }
+        psd[n / 2 + (250_000 / binHz).roundToInt() + 1] = -70f
+        assertEquals(30, RadioWatch.channelSnrDb(psd, rate, 250_000L))
+        assertEquals(0, RadioWatch.channelSnrDb(psd, rate, 400_000L))
+    }
+
     // ---- Settings > RTL-SDR radio ----
 
     @Test

@@ -40,6 +40,20 @@ class P25TsbkTest {
     }
 
     @Test
+    fun channelTableGivesTheRadiosInput() {
+        // 800 MHz: radios 45 MHz below (sign clear, 180 × 250 kHz). 700 MHz TDMA: 30 MHz above (sign set, 2400 × 12.5 kHz).
+        val low = P25Tsbk.parse(tsbk(0x3D, (1L shl 60) or (180L shl 42) or (50L shl 32) or (851_006_250L / 5))) as P25Tsbk.Iden
+        assertEquals(-45_000_000L, low.txOffsetHz)
+        val high = P25Tsbk.parse(tsbk(0x33, (2L shl 60) or (3L shl 56) or (((1L shl 13) or 2400L) shl 42) or (100L shl 32) or
+            (769_006_250L / 5))) as P25Tsbk.Iden
+        assertEquals(30_000_000L, high.txOffsetHz)
+        val ch = P25Tsbk.Channels().apply { learn(low); learn(high) }
+        assertEquals(851_006_250L + 10 * 6_250 - 45_000_000L, ch.inputHz(0x100A))
+        assertEquals(769_006_250L + 2 * 12_500 + 30_000_000L, ch.inputHz(0x2005))
+        assertNull(P25Tsbk.Channels().apply { learn(P25Tsbk.Iden(1, 851_006_250L, 6_250, 1)) }.inputHz(0x100A)) // no offset given
+    }
+
+    @Test
     fun siteBroadcasts() {
         // WACN 0xBEE00, system 0x3A1, control channel 0x1040.
         assertEquals(P25Tsbk.Site(0xBEE00, 0x3A1, null, null, 0x1040),

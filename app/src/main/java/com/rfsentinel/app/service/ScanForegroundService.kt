@@ -424,6 +424,8 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.sdr.SdrRadio.modes = sdrModes
         com.rfsentinel.app.sdr.SdrRadio.turnMs = Prefs.sdrTurnS(this) * 1000L
         com.rfsentinel.app.sdr.SdrRadio.onP25Call = { tg -> pipeline.post { onP25Call(tg) } }
+        com.rfsentinel.app.sdr.SdrRadio.p25Inputs = Prefs.p25Inputs(this)
+        com.rfsentinel.app.sdr.SdrRadio.onP25Input = { call, hz, snr -> pipeline.post { onP25Input(call, hz, snr) } }
         com.rfsentinel.app.sdr.SdrRadio.location = { (lastLocation ?: lastFix)?.let { it.latitude to it.longitude } }
         com.rfsentinel.app.sdr.SdrRadio.onAircraft = { planes, unlocated -> onlineWatch.localAircraft(planes, unlocated) }
         if (sdrModes.isNotEmpty() || radioOn) {
@@ -1554,6 +1556,25 @@ class ScanForegroundService : Service() {
         val hit = Hit(Category.RADIO, "Talkgroup active: $called", P25_CONFIDENCE, detail, "P25 control channel (signalling only, no voice)")
         radioDetection(hit, "P25 TG $tg", 0, detail, System.currentTimeMillis(), "p25:$tg", "Talkgroup $called active",
             P25_CONFIDENCE >= Prefs.alertThreshold(this, Category.RADIO))
+    }
+
+    /** A call's radio heard strongly on the site's input: it is keying up close to you. */
+    private fun onP25Input(call: com.rfsentinel.app.sdr.P25History.Call, hz: Long, snr: Int) {
+        if (!Prefs.categoryEnabled(this, Category.RADIO)) return
+        val now = System.currentTimeMillis()
+        val min = Prefs.radioMinSnr(this)
+        val confidence = if (snr >= min + 10) 75 else 60
+        val name = call.tg?.let { com.rfsentinel.app.sdr.P25Log.watched(Prefs.p25Talkgroups(this))[it]?.ifEmpty { null } }
+        val called = name ?: call.tg?.let { "talkgroup $it" } ?: "a private call"
+        val near = when { snr >= 40 -> "very close"; snr >= 30 -> "close"; else -> "nearby" }
+        val mhz = "%.4f".format(java.util.Locale.US, hz / 1e6)
+        val detail = "Radio ${call.source} keyed up on $called and was heard on the site's input ($mhz MHz), $snr dB above the " +
+            "noise - $near. On the input only radios transmit, so this one is near you, not just somewhere the site covers." +
+            (if (call.emergency) " Marked as an emergency call." else "") + (if (call.encrypted) " Encrypted." else "")
+        val hit = Hit(Category.RADIO, "P25 radio keyed up $near: $called", confidence, detail,
+            "P25 control channel grant + SDR signal strength on the input (no voice)")
+        radioDetection(hit, "P25 radio ${call.source}", snr, detail, now, "p25in:${call.tg ?: call.target}",
+            "Radio keyed up $near, $called", confidence >= Prefs.alertThreshold(this, Category.RADIO))
     }
 
     private var p25UnusualAt = 0L

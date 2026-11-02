@@ -654,6 +654,9 @@ object Prefs {
     /** Alert when a talkgroup is much busier than usual for the hour ([com.rfsentinel.app.sdr.P25History.unusual]). Off by default. */
     fun p25Unusual(context: Context): Boolean = bool(context, "p25_unusual", false)
     fun setP25Unusual(context: Context, v: Boolean) = setBool(context, "p25_unusual", v)
+    /** After a call starts, listen for a moment where its radio transmits: strong there, the radio is near you. Off by default. */
+    fun p25Inputs(context: Context): Boolean = bool(context, "p25_inputs", false)
+    fun setP25Inputs(context: Context, v: Boolean) = setBool(context, "p25_inputs", v)
     /** Seconds the SDR gives each ticked scan in turn, 30-300: a first P25 search takes up to about 15 s. */
     fun sdrTurnS(context: Context): Int = int(context, "sdr_turn_s", 60).coerceIn(30, 300)
     fun setSdrTurnS(context: Context, v: Int) = setInt(context, "sdr_turn_s", v.coerceIn(30, 300))
