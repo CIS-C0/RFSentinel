@@ -1446,7 +1446,7 @@ class SettingsActivity : AppCompatActivity() {
             })
         }
 
-        info(label("Network SDR"), "Uses an RTL-SDR on another device over WiFi, such as an ESP32 board or a computer running " +
+        info(box.label("Network SDR"), "Uses an RTL-SDR on another device over WiFi, such as an ESP32 board or a computer running " +
             "rtl_tcp. Enter its address and port; the port is ${com.rfsentinel.app.sdr.RtlTcp.DEFAULT_PORT} if left out. A plugged-in " +
             "USB SDR is used first. Streaming takes about 5 MB/s of WiFi.", "Network SDR")
         box.addView(android.widget.EditText(this).apply {
