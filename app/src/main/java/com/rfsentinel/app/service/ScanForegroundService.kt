@@ -74,7 +74,9 @@ class ScanForegroundService : Service() {
         private const val OWNER_CHECK_MS = 30_000L
         private const val RADAR_HOLD_MS = 120_000L
         /** A watched talkgroup's call: the user asked for it, like a watched frequency. */
-        private const val P25_CONFIDENCE = 70
+        const val P25_CONFIDENCE = 70
+        /** A talkgroup's radio heard on the site's input, [snr] dB above the noise ([min]: the radio threshold): near you. */
+        fun p25InputConfidence(snr: Int, min: Int) = if (snr >= min + 10) 75 else 60
         /** A talkgroup much busier than usual: probable, not certain (an event, a shift change, a drill). */
         private const val P25_UNUSUAL_CONFIDENCE = 55
         private const val P25_UNUSUAL_CHECK_MS = 5 * 60_000L
@@ -1563,7 +1565,7 @@ class ScanForegroundService : Service() {
                 .filter { com.rfsentinel.app.ui.LiveWindow.inRange(it, now) && !WhitelistCache.contains(it.mac) }.map { it.mac }, now)
         }
         val min = Prefs.radioMinSnr(this)
-        val confidence = if (snr >= min + 10) 75 else 60
+        val confidence = p25InputConfidence(snr, min)
         val name = call.tg?.let { com.rfsentinel.app.sdr.P25Log.watched(Prefs.p25Talkgroups(this))[it]?.ifEmpty { null } }
         val called = name ?: call.tg?.let { "talkgroup $it" } ?: "a private call"
         val near = when { snr >= 40 -> "very close"; snr >= 30 -> "close"; else -> "nearby" }

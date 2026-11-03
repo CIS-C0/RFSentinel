@@ -1293,7 +1293,7 @@ class MapFragment : Fragment() {
             return
         }
         // The main screen's order; the choice is shared with it (a trace starts on it, then keeps its own).
-        val options = if (tripId == null) DeviceFilter.MAIN_ORDER.filter { it != DeviceFilter.RADIO } else DeviceFilter.SAVED_ORDER
+        val options = if (tripId == null) DeviceFilter.MAIN_ORDER.filter { it != DeviceFilter.RADIO && it != DeviceFilter.TALKGROUPS } else DeviceFilter.SAVED_ORDER
         filter = DeviceFilter.parse(Prefs.mapFilter(act)).takeIf { it in options } ?: DeviceFilter.ALL
         val group = binding.mapFilterChips
         for (f in options) {
@@ -1343,7 +1343,7 @@ class MapFragment : Fragment() {
                 DeviceFilter.CELLS -> rf?.towerCount ?: 0
                 DeviceFilter.WAZE -> com.rfsentinel.app.online.WazePolice.latest.size
                 DeviceFilter.AIRCRAFT -> com.rfsentinel.app.online.PoliceAircraft.all().size
-                DeviceFilter.RADIO -> 0
+                DeviceFilter.RADIO, DeviceFilter.TALKGROUPS -> 0
                 else -> placed.count { f.matches(it) }
             }
             chip.text = if (f == DeviceFilter.ALL || n > 0) "${f.label} $n" else f.label

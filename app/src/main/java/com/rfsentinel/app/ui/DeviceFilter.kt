@@ -26,6 +26,8 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
     CELLS("Cells", liveOnly = true),
     /** RTL-SDR radio hits: not devices, listed from the radio log (list only). */
     RADIO("Radio", liveOnly = true),
+    /** P25 talkgroups watched or heard close by on the site's input: not devices, from the P25 log (list only). */
+    TALKGROUPS("Talkgroups", liveOnly = true),
     /** Waze reports: not devices, drawn on the map from the Waze poll (map only). */
     WAZE("Waze", liveOnly = true),
     /** Aircraft from the RTL-SDR's ADS-B receiver and the online feeds: not devices (list and map). */
@@ -90,7 +92,7 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
             TRACKER_TYPE.containsMatchIn(s.type))
         DRONES -> s.hits.any { it.category == Category.DRONE } || s.remoteId || s.type.startsWith("Drone")
         NEW -> s.isNew
-        CELLS, WAZE, RADIO, AIRCRAFT -> false
+        CELLS, WAZE, RADIO, TALKGROUPS, AIRCRAFT -> false
         EXTERNAL -> com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac) || com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac) ||
             com.rfsentinel.app.esp.HeardBy.usbBt.recent(s.mac)
         SENTINELS -> com.rfsentinel.app.esp.HeardBy.peer.recent(s.mac)
@@ -168,7 +170,7 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
          * The main screen's chip order: the counts worth a glance first (flagged, then what's heard on each
          * radio), so they fit without scrolling; the narrower filters after them.
          */
-        val MAIN_ORDER = listOf(ALL, FLAGGED, BLE, WIFI, CELLS, TRACKERS, DRONES, AIRCRAFT, RADIO, WAZE, EXTERNAL, SENTINELS, FAVORITES, NEW) + KINDS + OTHER
+        val MAIN_ORDER = listOf(ALL, FLAGGED, BLE, WIFI, CELLS, TRACKERS, DRONES, AIRCRAFT, RADIO, TALKGROUPS, WAZE, EXTERNAL, SENTINELS, FAVORITES, NEW) + KINDS + OTHER
 
         /** The chips of a saved snapshot or trace: the main screen's, less those that only mean something live. */
         val SAVED_ORDER = MAIN_ORDER.filterNot { it.liveOnly }

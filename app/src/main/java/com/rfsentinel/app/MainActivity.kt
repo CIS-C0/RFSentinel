@@ -45,6 +45,10 @@ class MainActivity : AppCompatActivity() {
         private const val WAZE_ROW = "waze:"
         private const val RADIO_ROW = "radio:"
         private const val AIRCRAFT_ROW = "air:"
+        private const val TG_ROW = "tg:"
+        /** Talkgroup rows: listed this long after their last call; NEAR while their radio was on the input this recently. */
+        private const val TG_LIST_MS = 5 * 60_000L
+        private const val TG_NEAR_MS = 2 * 60_000L
         // The speaker's long-press menu: after the snooze lengths (their indexes).
         private const val MUTE_ITEM = 1000
         private const val SOUND_ITEM = 1001
@@ -136,6 +140,7 @@ class MainActivity : AppCompatActivity() {
             onClick = {
                 if (it.mac.startsWith(CELL_ROW)) startActivity(Intent(this, com.rfsentinel.app.ui.CellTowersActivity::class.java))
                 else if (it.mac.startsWith(RADIO_ROW)) startActivity(Intent(this, com.rfsentinel.app.ui.DetectionLogActivity::class.java))
+                else if (it.mac.startsWith(TG_ROW)) startActivity(Intent(this, com.rfsentinel.app.ui.P25Activity::class.java))
                 else if (it.mac.startsWith(AIRCRAFT_ROW)) {
                     val hex = it.mac.removePrefix(AIRCRAFT_ROW)
                     currentAircraft(System.currentTimeMillis()).firstOrNull { a -> a.plane.hex == hex }?.let { a ->
@@ -151,7 +156,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 else DeviceActions.openDetails(this, it.mac)
             },
-            onLongPress = { if (listOf(CELL_ROW, WAZE_ROW, RADIO_ROW, AIRCRAFT_ROW).none { p -> it.mac.startsWith(p) }) DeviceActions.showQuickActions(this, it.mac) },
+            onLongPress = { if (listOf(CELL_ROW, WAZE_ROW, RADIO_ROW, TG_ROW, AIRCRAFT_ROW).none { p -> it.mac.startsWith(p) }) DeviceActions.showQuickActions(this, it.mac) },
             onMute = { row, forever -> toggleMute(row, forever) }
         )
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
@@ -745,6 +750,7 @@ class MainActivity : AppCompatActivity() {
                 com.rfsentinel.app.ui.DeviceFilter.AIRCRAFT -> currentAircraft(now).size
                 com.rfsentinel.app.ui.DeviceFilter.FLAGGED -> all.count { f.matches(it) } + currentAircraft(now).count { it.hit != null }
                 com.rfsentinel.app.ui.DeviceFilter.RADIO -> if (ScanForegroundService.isRunning) com.rfsentinel.app.sdr.RadioLog.current(now).size else 0
+                com.rfsentinel.app.ui.DeviceFilter.TALKGROUPS -> currentTalkgroups(now).size
                 else -> all.count { f.matches(it) }
             }
             val label = if (f == com.rfsentinel.app.ui.DeviceFilter.ALL || n > 0) "${f.label} $n" else f.label
@@ -802,19 +808,21 @@ class MainActivity : AppCompatActivity() {
             val cells = cellRows(now)
             val waze = wazeRows(now, Prefs.alertThreshold(this, Category.POLICE_REPORT))
             val radio = radioRows(now, Prefs.alertThreshold(this, Category.RADIO))
+            val talkgroups = talkgroupRows(now, Prefs.alertThreshold(this, Category.RADIO))
             val air = aircraftRows(now, Prefs.alertThreshold(this, Category.AIRCRAFT))
             // Waze reports, radios on the air and aircraft that meet the alert threshold flash at the very top;
             // the rest follow the devices.
             val (urgent, quiet) = waze.partition { it.flashing }
             val (radioLive, radioOld) = radio.partition { it.flashing }
+            val (tgLive, tgOld) = talkgroups.partition { it.flashing }
             val (airUrgent, airQuiet) = air.partition { it.flashing }
             // Alerting devices from your own watchlist entries go above all of them.
             fun mine(s: DeviceRegistry.Snapshot) = com.rfsentinel.app.ui.LiveWindow.alerting(s, now) &&
                 s.hits.any { it.source == com.rfsentinel.app.oui.OuiEntry.YOURS }
             if (com.rfsentinel.app.ui.DeviceOrder.group(this) == com.rfsentinel.app.ui.DeviceOrder.Group.NONE) {
                 val (yours, devices) = sections.flatMap { it.items }.partition(::mine)
-                submitRows(yours.map { toRow(it, now, threshold) } + airUrgent + radioLive + urgent + devices.map { toRow(it, now, threshold) } +
-                    airQuiet + radioOld + cells + quiet)
+                submitRows(yours.map { toRow(it, now, threshold) } + airUrgent + tgLive + radioLive + urgent + devices.map { toRow(it, now, threshold) } +
+                    airQuiet + tgOld + radioOld + cells + quiet)
             } else {
                 // Grouped: everything the list shows has a group, not only Bluetooth and WiFi devices. What's
                 // urgent (Waze, radio, aircraft) joins the flagged devices in Alerts, at the top.
@@ -823,14 +831,15 @@ class MainActivity : AppCompatActivity() {
                 val alerts = com.rfsentinel.app.ui.DeviceOrder.ALERTS
                 val (yours, flagged) = sections.filter { it.header == alerts }.flatMap { it.items }.partition(::mine)
                 submitRows(
-                    block(alerts, alerts, yours.map { toRow(it, now, threshold) } + airUrgent + radioLive + urgent +
+                    block(alerts, alerts, yours.map { toRow(it, now, threshold) } + airUrgent + tgLive + radioLive + urgent +
                         flagged.map { toRow(it, now, threshold) }) +
                         sections.filter { it.header != alerts }.flatMap { sec -> block(sec.header.orEmpty(), sec.header.orEmpty(), sec.items.map { toRow(it, now, threshold) }) } +
-                        block("x:aircraft", "Aircraft", airQuiet) + block("x:radio", "Radio transmissions", radioOld) +
+                        block("x:aircraft", "Aircraft", airQuiet) + block("x:talkgroups", "Talkgroups", tgOld) +
+                        block("x:radio", "Radio transmissions", radioOld) +
                         block("x:waze", "Waze reports", quiet) + block("x:cells", "Cell towers", cells)
                 )
             }
-            shownCells = cells.size + waze.size + radio.size + air.size
+            shownCells = cells.size + waze.size + radio.size + talkgroups.size + air.size
         }
         binding.emptyState.visibility = if (visible.isEmpty() && (!panes.listShown || shownCells == 0) &&
             (!panes.radarShown || radioBlips == 0)) View.VISIBLE else View.GONE
@@ -846,6 +855,8 @@ class MainActivity : AppCompatActivity() {
                 "No Waze reports in range.\nTurn on Waze police reports in Settings and keep scanning."
             filter == com.rfsentinel.app.ui.DeviceFilter.RADIO ->
                 "No radio transmissions heard in the last 5 minutes.\nNeeds an RTL-SDR on USB, Two-way radio on in Settings › What to detect, and Radio activity sweep ticked in Settings › RTL-SDR radio."
+            filter == com.rfsentinel.app.ui.DeviceFilter.TALKGROUPS ->
+                "No talkgroups in the last 5 minutes.\nLists the ones in Watch these talkgroups (Settings › RTL-SDR radio) and any whose radio keyed up close to you, with P25 control channel ticked there."
             filter == com.rfsentinel.app.ui.DeviceFilter.AIRCRAFT ->
                 "No aircraft yet.\nThey come from an RTL-SDR on USB (tick ADS-B aircraft receiver in Settings › RTL-SDR radio), or from the online feeds when that's on in Settings."
             filter == com.rfsentinel.app.ui.DeviceFilter.CELLS ->
@@ -973,6 +984,53 @@ class MainActivity : AppCompatActivity() {
                     confidence = r.confidence
                 )
             }
+    }
+
+    /** P25 talkgroups (and private calls) of the last few minutes that you watch, or whose radio was heard close by on the site's input. */
+    private fun currentTalkgroups(now: Long): List<com.rfsentinel.app.sdr.P25Log.Row> =
+        if (!ScanForegroundService.isRunning) emptyList()
+        else com.rfsentinel.app.sdr.SdrRadio.p25Log.rows().filter {
+            now - it.lastAt <= TG_LIST_MS && (it.tg in com.rfsentinel.app.sdr.SdrRadio.p25Watched || now - it.inputAt <= TG_LIST_MS)
+        }
+
+    /**
+     * The Talkgroups filter's rows (under All, only the NEAR ones): a talkgroup whose radio keyed up on the input in the
+     * last 2 minutes gets the NEAR box and, at or above the alert threshold, is tinted, flashes and is pinned to the top.
+     */
+    private fun talkgroupRows(now: Long, threshold: Int): List<DeviceRow> {
+        if (filter != com.rfsentinel.app.ui.DeviceFilter.ALL && filter != com.rfsentinel.app.ui.DeviceFilter.TALKGROUPS) return emptyList()
+        val sdr = com.rfsentinel.app.sdr.SdrRadio
+        val color = com.rfsentinel.app.ui.ThemeManager.ink(this, Category.RADIO.colorArgb)
+        val min = Prefs.radioMinSnr(this)
+        val playing = sdr.p25Playing
+        return currentTalkgroups(now).mapNotNull { r ->
+            val near = now - r.inputAt <= TG_NEAR_MS
+            if (filter == com.rfsentinel.app.ui.DeviceFilter.ALL && !near) return@mapNotNull null
+            val title = com.rfsentinel.app.ui.P25Activity.title(r) + (sdr.p25Watched[r.tg]?.ifEmpty { null }?.let { " · $it" } ?: "")
+            if (query.isNotBlank() && !title.contains(query.trim(), ignoreCase = true)) return@mapNotNull null
+            val key = TG_ROW + (r.tg ?: "r${r.target}")
+            val confidence = if (near) ScanForegroundService.p25InputConfidence(r.inputSnr, min) else ScanForegroundService.P25_CONFIDENCE
+            // Dismissed (swiped left): listed, but quiet.
+            val urgent = near && confidence >= threshold && !hidden(key, now)
+            val ago = (now - r.lastAt) / 1000
+            DeviceRow(
+                mac = key,
+                title = title,
+                subtitle = listOfNotNull(r.lastSource?.let { "Radio $it keyed up" }, "${r.calls} call" + (if (r.calls == 1) "" else "s"),
+                    "EMERGENCY".takeIf { r.emergency }, "encrypted".takeIf { r.encrypted }).joinToString(" · "),
+                meta = if (ago < 3) "Call going on" else "Last call ${ago}s ago",
+                tag = (if (near) "P25 NEAR" else "P25") + " · $confidence%",
+                tagColor = color,
+                highlight = if (urgent) color else null,
+                flashing = urgent,
+                bold = now - r.lastAt <= RADIO_LIVE_MS,
+                confidence = confidence,
+                badges = listOfNotNull(
+                    ("NEAR ${r.inputSnr} dB" to com.rfsentinel.app.ui.NEAR_BADGE).takeIf { near },
+                    ("PLAYING" to com.rfsentinel.app.ui.PEER_BADGE).takeIf { playing != null && playing.tg == r.tg && playing.target == r.target },
+                    ("HELD" to com.rfsentinel.app.ui.PEER_BADGE).takeIf { r.tg != null && r.tg == sdr.p25Hold })
+            )
+        }
     }
 
     /**
@@ -1142,7 +1200,7 @@ class MainActivity : AppCompatActivity() {
 
     /** What swiping [r] right or left does (Settings › Alerts), or null for nothing: aircraft and radio rows have no mute. */
     private fun swipeAction(r: DeviceRow, right: Boolean): String? {
-        val noMute = r.mac.startsWith(AIRCRAFT_ROW) || r.mac.startsWith(RADIO_ROW)
+        val noMute = r.mac.startsWith(AIRCRAFT_ROW) || r.mac.startsWith(RADIO_ROW) || r.mac.startsWith(TG_ROW)
         return Prefs.swipeAction(this, right).takeIf {
             when (it) {
                 "mute" -> r.canMute && !noMute

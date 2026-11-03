@@ -41,6 +41,18 @@ class P25LogTest {
     }
 
     @Test
+    fun inputCatchMarksItsCall() {
+        val log = P25Log()
+        log.add(P25Tsbk.Grant(0x1002, 2301, null, 1001, false, false), 1_000)
+        log.add(P25Tsbk.Grant(0x1003, null, 77, 1001, false, false), 1_000)
+        log.heardInput(2301, null, 38, 2_000)
+        log.heardInput(null, 77, 25, 3_000)
+        val rows = log.rows().associateBy { it.tg to it.target }
+        assertEquals(2_000L to 38, rows.getValue(2301 to null).let { it.inputAt to it.inputSnr })
+        assertEquals(3_000L to 25, rows.getValue(null to 77).let { it.inputAt to it.inputSnr })
+    }
+
+    @Test
     fun watchedTalkgroups() {
         val w = P25Log.watched("1234 Sheriff dispatch\n2001\n  9 - Fire\nnot a number\n70000 too big\n123456 too long")
         assertEquals("Sheriff dispatch", w[1234]); assertEquals("", w[2001]); assertEquals("Fire", w[9])

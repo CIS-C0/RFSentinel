@@ -43,7 +43,9 @@ data class DeviceRow(
     val header: Boolean = false,
     /** A flagged device: its row has the mute button ([com.rfsentinel.app.data.AlertMutes]). */
     val canMute: Boolean = false,
-    val muted: Boolean = false
+    val muted: Boolean = false,
+    /** More boxes after the heard-by ones, label and colour ("NEAR 38 dB" on a talkgroup row). */
+    val badges: List<Pair<String, Int>> = emptyList()
 ) {
     companion object {
         /** Keyed by the group ([key]), not its label: the count changing must not swap the row (it flickered). */
@@ -54,11 +56,12 @@ data class DeviceRow(
 private const val ESP_BADGE = 0xFF1E88E5.toInt()
 private const val PHONE_BADGE = 0xFF2E7D32.toInt()
 private const val USB_BADGE = 0xFF6A1B9A.toInt()
-private const val PEER_BADGE = 0xFF00838F.toInt()
+internal const val PEER_BADGE = 0xFF00838F.toInt()
+internal const val NEAR_BADGE = 0xFFD0503C.toInt()
 
 /** The meta line, followed by small coloured "ESP32" / "INTERNAL" / "VIA <Sentinel>" badges. */
 private fun metaWithBadges(row: DeviceRow): CharSequence {
-    if (!row.heardByEsp && !row.heardByUsb && !row.heardByUsbBt && !row.heardByPhone && row.heardByPeer == null) return row.meta
+    if (!row.heardByEsp && !row.heardByUsb && !row.heardByUsbBt && !row.heardByPhone && row.heardByPeer == null && row.badges.isEmpty()) return row.meta
     val sb = android.text.SpannableStringBuilder(row.meta)
     fun badge(label: String, color: Int) {
         sb.append("  ")
@@ -74,6 +77,7 @@ private fun metaWithBadges(row: DeviceRow): CharSequence {
     if (row.heardByUsbBt) badge("USB BT", USB_BADGE)
     if (row.heardByPhone) badge("INTERNAL", PHONE_BADGE)
     row.heardByPeer?.let { badge("VIA " + it.uppercase(), PEER_BADGE) }
+    row.badges.forEach { (label, color) -> badge(label, color) }
     return sb
 }
 

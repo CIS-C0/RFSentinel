@@ -30,7 +30,7 @@ internal object MapPins {
             val pos = s.place ?: return@mapNotNull null
             val flagged = DeviceColors.isFlagged(s)
             val located = s.located?.takeIf { flagged && s.broadcast == null }
-            if (!filter.matches(s) || filter == DeviceFilter.RADIO) return@mapNotNull null
+            if (!filter.matches(s) || filter == DeviceFilter.RADIO || filter == DeviceFilter.TALKGROUPS) return@mapNotNull null
             val best = s.best
             MapPin(
                 s.mac, pos.lat, pos.lon,

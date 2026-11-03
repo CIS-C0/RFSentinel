@@ -10,13 +10,15 @@ class P25Log {
 
     /** One talkgroup ([tg]) or, with [tg] null, private calls to radio [target]. */
     data class Row(val tg: Int?, val target: Int?, val calls: Int, val lastAt: Long, val lastChannel: Int?,
-                   val lastHz: Long?, val lastSource: Int?, val radios: Int, val emergency: Boolean, val encrypted: Boolean)
+                   val lastHz: Long?, val lastSource: Int?, val radios: Int, val emergency: Boolean, val encrypted: Boolean,
+                   /** The last time one of its radios was heard on the site's input (close to you), and how strong; 0 never. */
+                   val inputAt: Long = 0L, val inputSnr: Int = 0)
 
     /** The site and how much was heard there, for the screen's header. */
     data class Summary(val site: P25Tsbk.Site?, val messages: Long, val registrations: Int, val since: Long)
 
     private class Group { var calls = 0; var lastAt = 0L; var lastChannel: Int? = null; var lastSource: Int? = null
-        val radios = HashSet<Int>(); var emergency = false; var encrypted = false }
+        val radios = HashSet<Int>(); var emergency = false; var encrypted = false; var inputAt = 0L; var inputSnr = 0 }
 
     private val groups = HashMap<Pair<Int?, Int?>, Group>()
     private val channels = P25Tsbk.Channels()
@@ -62,10 +64,15 @@ class P25Log {
         return if (new) tg else null
     }
 
+    /** A radio on [tg]'s call (or the private call to [target]) heard on the site's input, [snr] dB above the noise. */
+    @Synchronized fun heardInput(tg: Int?, target: Int?, snr: Int, now: Long) {
+        group(tg, target).apply { inputAt = now; inputSnr = snr }
+    }
+
     /** Most recent first. */
     @Synchronized fun rows(): List<Row> = groups.map { (k, g) ->
         Row(k.first, k.second, g.calls, g.lastAt, g.lastChannel, g.lastChannel?.let(channels::hz), g.lastSource,
-            g.radios.size, g.emergency, g.encrypted)
+            g.radios.size, g.emergency, g.encrypted, g.inputAt, g.inputSnr)
     }.filter { it.calls > 0 || it.radios > 0 }.sortedByDescending { it.lastAt }
 
     @Synchronized fun summary() = Summary(site, messages, registrations, since)

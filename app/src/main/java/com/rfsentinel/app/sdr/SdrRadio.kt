@@ -520,7 +520,9 @@ object SdrRadio {
                 pending = null
                 val snr = measureInput(sdr, hz) ?: return@detour true
                 inputs++
-                if (snr >= RadioWatch.activeDb(config.minSnrDb)) { heard++; onP25Input?.invoke(call, hz, snr) }
+                if (snr >= RadioWatch.activeDb(config.minSnrDb)) {
+                    heard++; p25Log.heardInput(call.tg, call.target, snr, System.currentTimeMillis()); onP25Input?.invoke(call, hz, snr)
+                }
                 true
             }
             val lost = hunt.listen(lock, stop, detour) {
