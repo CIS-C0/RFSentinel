@@ -306,12 +306,16 @@ class ProbeListActivity : AppCompatActivity() {
         val df = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
         val dp = resources.displayMetrics.density
         val text = buildString {
-            if (g.likelySame) append("These random addresses have the same rare probe fingerprint and asked for a network " +
-                "name in common, so they are likely one device changing its address.\n\n")
+            if (g.likelySame) append(if (g.devices.mapNotNull { it.wpsUuid }.let { u -> u.size == g.devices.size && u.distinct().size == 1 })
+                "These addresses send the same WPS UUID, so they are one device changing its address.\n\n"
+                else "These addresses send the same WPS UUID, or have the same rare probe fingerprint and asked for a " +
+                    "network name in common, so they are likely one device changing its address.\n\n")
             g.devices.forEach { d ->
                 append(d.mac).append("  ").append(maker(d.mac)).append('\n')
                 d.wpsName?.let { append("  Name: $it\n") }
                 d.wpsProduct?.let { append("  Model: $it\n") }
+                d.wpsUuid?.let { append("  WPS UUID: $it\n") }
+                d.traits?.let { append("  Probe details: $it\n") }
                 d.fingerprint?.let { fp ->
                     val n = ProbeLog.sharing(this@ProbeListActivity, fp)
                     append("  Probe fingerprint: $fp" + if (n > 1) " (shared by $n addresses)\n" else "\n")

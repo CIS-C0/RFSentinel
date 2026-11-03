@@ -27,8 +27,10 @@ class MonitorFrames {
         var wildcard = false; var flockIe = false
         /** How steadily it sends wildcard probes ([com.rfsentinel.app.detect.ProbeBehaviour]). */
         var probeRate: com.rfsentinel.app.detect.ProbeBehaviour.Counter? = null
-        /** An access point's latest beacon elements (refreshed every [IES_REFRESH_MS]) and its "protected" capability bit. */
+        /** An access point's latest beacon elements and its "protected" capability bit; [iesAt]: when they, or a client's [traits], were read. */
         var ies: List<Pair<Int, ByteArray>>? = null; var iesAt = 0L; var privacy = false
+        /** What a client's probe requests say about it in words ([ProbeIntel.traits]), refreshed every [IES_REFRESH_MS]. */
+        var traits: String? = null
         /** When its WiFi started, from the beacon clock (TSF, microseconds since the radio came up). */
         var upSince: Long? = null
         /** Data-frame bytes it sent while heard. */
@@ -130,6 +132,9 @@ class MonitorFrames {
                     if (ies.flockIe) s.flockIe = true
                     ProbeIntel.fingerprint(b, d + 24, body)?.let { s.fingerprint = it }
                     ProbeIntel.skeletonHash(b, d + 24, body)?.let { s.skeleton = it }
+                    if (s.traits == null || now - s.iesAt > IES_REFRESH_MS) {
+                        ProbeIntel.traits(elements(b, d + 24, body))?.let { s.traits = it }; s.iesAt = now
+                    }
                     ies.ssid?.takeIf { validSsid(it) }?.let { name ->
                         s.probed.remove(name); s.probed.add(name)
                         if (s.probed.size > MAX_PROBED) s.probed.remove(s.probed.first())
@@ -202,6 +207,7 @@ class MonitorFrames {
                 probedSsids = s.probed.toList(),
                 wps = s.wps,
                 fingerprint = s.fingerprint,
+                probeTraits = s.traits,
                 probeSkeleton = s.skeleton,
                 hiddenNetwork = s.hidden,
                 wildcardProbe = s.wildcard,

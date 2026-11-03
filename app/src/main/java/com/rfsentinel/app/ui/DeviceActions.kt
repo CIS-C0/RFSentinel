@@ -178,6 +178,12 @@ object DeviceActions {
         val fp = com.rfsentinel.app.usb.ProbeIntel.of(mac)?.fingerprint
         // FlipDeFlock's coarser probe shape: also survives random addresses, but many phones share one.
         val shape = com.rfsentinel.app.usb.ProbeIntel.of(mac)?.skeleton?.let { com.rfsentinel.app.usb.ProbeIntel.shapeKey(it) }
+        // Its WPS UUID: one exact device, the same under every random address it uses.
+        val uuid = com.rfsentinel.app.usb.ProbeIntel.of(mac)?.wps?.uuid?.let { com.rfsentinel.app.usb.ProbeIntel.uuidKey(it) }
+        if (uuid != null) {
+            b.scopeUuid.visibility = View.VISIBLE
+            b.scopeUuid.text = "This exact device, under any address (WPS UUID ${uuid.removePrefix("uuid-")})"
+        }
         if (shape != null) {
             b.scopeShape.visibility = View.VISIBLE
             b.scopeShape.text = "Every device whose probe requests are built the same way (${shape.removePrefix("shape-")}; " +
@@ -211,11 +217,13 @@ object DeviceActions {
                 val wholePrefix = b.scopePrefix.isChecked
                 val byFingerprint = fp != null && b.scopeFingerprint.isChecked
                 val byShape = shape != null && b.scopeShape.isChecked
+                val byUuid = uuid != null && b.scopeUuid.isChecked
                 val start = b.startsInput.text.toString().trim()
                 val byStart = named.isNotEmpty() && b.scopeStarts.isChecked
                 if (byStart && start.isEmpty()) { toast(activity, "Not added: enter the start of the name"); return@setPositiveButton }
                 val key = when {
                     byStart -> OuiEntry.STARTS + start
+                    byUuid -> OuiEntry.FINGERPRINT + uuid
                     byShape -> OuiEntry.FINGERPRINT + shape; byFingerprint -> OuiEntry.FINGERPRINT + fp
                     wholePrefix -> MacUtil.prefix(mac, digits); else -> mac
                 }
@@ -224,6 +232,7 @@ object DeviceActions {
                 val label = typed.ifEmpty {
                     when {
                         byStart -> (if (wifi) "SSID starts with " else "Name starts with ") + start
+                        byUuid -> "Device WPS UUID ${uuid!!.removePrefix("uuid-")}"
                         byShape -> "Probe shape ${shape!!.removePrefix("shape-")}"; byFingerprint -> "Device type $fp"
                         wholePrefix -> "Custom prefix $key"; else -> "Custom device $mac"
                     }
@@ -271,6 +280,9 @@ object DeviceActions {
             val shared = DeviceRegistry.sharingFingerprint(fp)
             options += Option(OuiEntry.ADVERT + key, "Its Bluetooth advert pattern ($key)", LEARNED_SCORE,
                 if (shared >= MAX_SHARED) "$shared devices nearby send the same pattern" else null)
+        }
+        com.rfsentinel.app.usb.ProbeIntel.of(mac)?.wps?.uuid?.let { u ->
+            options += Option(OuiEntry.FINGERPRINT + com.rfsentinel.app.usb.ProbeIntel.uuidKey(u), "Its WPS UUID ($u)", LEARNED_SCORE, null)
         }
         com.rfsentinel.app.usb.ProbeIntel.of(mac)?.fingerprint?.let { fp ->
             val shared = com.rfsentinel.app.usb.ProbeIntel.sharing(fp)

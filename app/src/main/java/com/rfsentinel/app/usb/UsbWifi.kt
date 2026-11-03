@@ -27,6 +27,8 @@ data class MonitorSighting(
     val wps: ProbeIntel.Wps? = null,
     /** How it builds its probe requests: marks a device model / OS ([ProbeIntel.fingerprint]). */
     val fingerprint: String? = null,
+    /** What its probe requests say about it in words ([ProbeIntel.traits]). */
+    val probeTraits: String? = null,
     /** FlipDeFlock's probe skeleton hash ([ProbeIntel.skeletonHash]). */
     val probeSkeleton: Long? = null,
     /** An access point hiding its name; [ssid] is then the name revealed by a device joining or asking for it. */

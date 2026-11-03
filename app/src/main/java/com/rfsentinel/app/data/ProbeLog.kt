@@ -32,13 +32,13 @@ object ProbeLog {
     @Synchronized
     fun record(context: Context, mac: String, ssids: Collection<String>, rssi: Int, now: Long = System.currentTimeMillis(),
                force: Boolean = false, wps: com.rfsentinel.app.usb.ProbeIntel.Wps? = null, fingerprint: String? = null,
-               at: Pair<Double, Double>? = null) {
+               at: Pair<Double, Double>? = null, traits: String? = null) {
         if (ssids.isEmpty() && wps == null && fingerprint == null) return
         if (!(force || com.rfsentinel.app.util.Prefs.recordProbes(context))) return
         ensureLoaded(context)
         ssids.forEach { book.record(it, mac, rssi, now, at) }
         if (at != null && onMap?.let { m -> ssids.any { it.equals(m, ignoreCase = true) } } == true) version++
-        if (!book.recordDevice(mac, ssids, rssi, now, wps?.deviceName, wps?.product, fingerprint)) return
+        if (!book.recordDevice(mac, ssids, rssi, now, wps?.deviceName, wps?.product, fingerprint, wps?.uuid, traits)) return
         dirty = true
         if (now - lastSave > SAVE_EVERY_MS) save(context, now)
     }
@@ -156,12 +156,16 @@ class ProbeBook(private val maxNetworks: Int = 1000, private val maxDevices: Int
         /** Maker, model and number from its WPS block. */
         var wpsProduct: String? = null,
         /** How it builds its probe requests ([com.rfsentinel.app.usb.ProbeIntel.fingerprint]). */
-        var fingerprint: String? = null
+        var fingerprint: String? = null,
+        /** Its WPS UUID: the same on every address of one device ([com.rfsentinel.app.usb.ProbeIntel.Wps.uuid]). */
+        var wpsUuid: String? = null,
+        /** What its probe requests say about it in words ([com.rfsentinel.app.usb.ProbeIntel.traits]). */
+        var traits: String? = null
     )
 
     /**
-     * Devices shown together: one address, or random addresses with the same rare probe fingerprint that
-     * asked for a network name in common ([likelySame]).
+     * Devices shown together: one address, or addresses with the same WPS UUID, or random addresses with
+     * the same rare probe fingerprint that asked for a network name in common ([likelySame]).
      */
     data class Group(val devices: List<Device>, val likelySame: Boolean) {
         val lastSeen get() = devices.maxOf { it.lastSeen }
@@ -213,7 +217,8 @@ class ProbeBook(private val maxNetworks: Int = 1000, private val maxDevices: Int
      * kept; returns false when nothing was noted.
      */
     fun recordDevice(mac: String, ssids: Collection<String>, rssi: Int, now: Long,
-                     wpsName: String? = null, wpsProduct: String? = null, fingerprint: String? = null): Boolean {
+                     wpsName: String? = null, wpsProduct: String? = null, fingerprint: String? = null,
+                     wpsUuid: String? = null, traits: String? = null): Boolean {
         val m = mac.uppercase()
         val d = probers[m] ?: run {
             if (ssids.isEmpty()) return false
@@ -227,6 +232,8 @@ class ProbeBook(private val maxNetworks: Int = 1000, private val maxDevices: Int
         wpsName?.let { d.wpsName = it }
         wpsProduct?.let { d.wpsProduct = it }
         fingerprint?.let { d.fingerprint = it }
+        wpsUuid?.let { d.wpsUuid = it }
+        traits?.let { d.traits = it }
         if (probers.size > maxProbers) {
             probers.values.sortedBy { it.lastSeen }.take(probers.size - maxProbers).forEach { probers.remove(it.mac) }
         }
@@ -242,7 +249,7 @@ class ProbeBook(private val maxNetworks: Int = 1000, private val maxDevices: Int
     /**
      * The devices as groups, newest first: random addresses ([isRandom]) with the same fingerprint, shared
      * by at most [rareMax] addresses, that asked for at least one name in common are likely one device
-     * changing its address. Fixed addresses always stand alone.
+     * changing its address. Addresses sending the same WPS UUID are one device for certain, whatever they asked for.
      */
     fun groups(isRandom: (String) -> Boolean, rareMax: Int = 20): List<Group> {
         val list = devices()
@@ -258,6 +265,8 @@ class ProbeBook(private val maxNetworks: Int = 1000, private val maxDevices: Int
                     if (list[same[y]].ssids.any { it.lowercase() in asked }) parent[root(same[y])] = root(same[x])
                 }
             }
+        list.indices.filter { list[it].wpsUuid != null }.groupBy { list[it].wpsUuid }.values
+            .forEach { same -> same.drop(1).forEach { parent[root(it)] = root(same[0]) } }
         return list.indices.groupBy { root(it) }.values
             .map { idx -> Group(idx.map { list[it] }, likelySame = idx.size > 1) }
             .sortedByDescending { it.lastSeen }

@@ -822,16 +822,17 @@ class ScanForegroundService : Service() {
      */
     private fun noteProbes(mac: String, ssids: List<String>, rssi: Int, now: Long,
                            wps: com.rfsentinel.app.usb.ProbeIntel.Wps? = null, fingerprint: String? = null, hidden: Boolean = false,
-                           skeleton: Long? = null) {
-        com.rfsentinel.app.usb.ProbeIntel.note(mac, wps, fingerprint, ssids, hidden, skeleton)
+                           skeleton: Long? = null, traits: String? = null) {
+        com.rfsentinel.app.usb.ProbeIntel.note(mac, wps, fingerprint, ssids, hidden, skeleton, traits)
         // Kept in the requested-networks list when that's on, and always while a trace records.
         // Where it was asked for: this phone's position, when the fix is fresh and good enough to place devices.
         val at = lastFix?.takeIf { usableForPlacing(it) }
             ?.let { it.latitude to it.longitude }
         com.rfsentinel.app.data.ProbeLog.record(this, mac, ssids, rssi, now, force = TripRecorder.isRecording,
-            wps = wps, fingerprint = fingerprint, at = at)
+            wps = wps, fingerprint = fingerprint, at = at, traits = traits)
         val hits = OuiWatchlist.probeHits(ssids) + OuiWatchlist.fingerprintHits(fingerprint) + OuiWatchlist.wpsHits(wps) +
-            OuiWatchlist.fingerprintHits(skeleton?.let { com.rfsentinel.app.usb.ProbeIntel.shapeKey(it) })
+            OuiWatchlist.fingerprintHits(skeleton?.let { com.rfsentinel.app.usb.ProbeIntel.shapeKey(it) }) +
+            OuiWatchlist.fingerprintHits(wps?.uuid?.let { com.rfsentinel.app.usb.ProbeIntel.uuidKey(it) })
         if (hits.isEmpty()) return
         val before = probeHits[mac]
         probeHits[mac] = now to hits
@@ -843,7 +844,7 @@ class ScanForegroundService : Service() {
         val now = System.currentTimeMillis()
         val mac = com.rfsentinel.app.util.MacUtil.normalize(m.mac)
         com.rfsentinel.app.esp.HeardBy.usb.mark(mac, now)
-        noteProbes(mac, m.probedSsids, m.rssi, now, m.wps, m.fingerprint, m.hiddenNetwork, m.probeSkeleton)
+        noteProbes(mac, m.probedSsids, m.rssi, now, m.wps, m.fingerprint, m.hiddenNetwork, m.probeSkeleton, m.probeTraits)
         val a = Advert(
             // A client has no network name; its WPS device name or model says what it is.
             mac = mac, source = Advert.Source.WIFI, rssi = m.rssi, name = m.ssid ?: m.wps?.label,

@@ -265,12 +265,14 @@ object DeviceRegistry {
      * Address-rotation linking: if exactly one device with the same advert
      * fingerprint went silent shortly before this new address appeared, treat
      * them as the same device and carry its matches over. Two or more
-     * candidates (e.g. several identical earbuds) means no link.
+     * candidates (e.g. several identical earbuds) means no link. A random WiFi
+     * address uses the WPS UUID its probe requests send (USB adapter) instead.
      */
     private fun linkRotatedAddress(t: Track, a: Advert, now: Long) {
-        val fp = AdvertFingerprint.of(a) ?: return
+        val uuid = if (a.isWifi && com.rfsentinel.app.util.MacUtil.isRandomized(a.mac)) com.rfsentinel.app.usb.ProbeIntel.of(a.mac)?.wps?.uuid else null
+        val fp = AdvertFingerprint.of(a) ?: uuid?.let { "uuid:$it" } ?: return
         synchronized(t) { t.fingerprint = fp }
-        if (!AdvertFingerprint.mayRotate(a)) return
+        if (!AdvertFingerprint.mayRotate(a) && uuid == null) return
         val candidates = tracks.values.filter { o ->
             o !== t && synchronized(o) {
                 o.fingerprint == fp && o.lastSeen <= now - ROTATION_SILENCE_MS && now - o.lastSeen <= ROTATION_WINDOW_MS
@@ -281,8 +283,9 @@ object DeviceRegistry {
             (prev.hits.ifEmpty { prev.inherited }).map { h ->
                 h.copy(
                     confidence = (h.confidence - 5).coerceAtLeast(0),
-                    evidence = "Same device as ${prev.mac} before its address rotated (identical advert " +
-                        "fingerprint, ${(now - prev.lastSeen) / 1000} s gap). Original evidence: ${h.evidence}"
+                    evidence = "Same device as ${prev.mac} before its address rotated (identical " +
+                        (if (uuid != null) "WPS UUID" else "advert fingerprint") +
+                        ", ${(now - prev.lastSeen) / 1000} s gap). Original evidence: ${h.evidence}"
                 )
             } to (prev.name to prev.role)
         }

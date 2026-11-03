@@ -108,8 +108,15 @@ object DeviceSections {
                 ?: "It hides its name - shown once a device joins or asks for it (USB WiFi adapter)")
             r.wps?.deviceName?.let { id += "Device name (WPS)" to it }
             r.wps?.product?.let { id += "Maker / model (WPS)" to it }
+            r.wps?.uuid?.let { u ->
+                id += "WPS UUID" to u + if (OuiWatchlist.isFingerprintWatched(com.rfsentinel.app.usb.ProbeIntel.uuidKey(u))) " · on your watchlist" else
+                    " (same on every address this device uses - Watchlist can watch it)"
+            }
+            r.traits?.let { id += "Probe details" to it }
             r.fingerprint?.let { fp ->
-                id += "Probe fingerprint" to fp + if (OuiWatchlist.isFingerprintWatched(fp)) " · on your watchlist" else
+                val n = com.rfsentinel.app.usb.ProbeIntel.sharing(fp)
+                id += "Probe fingerprint" to fp + (if (n > 1) " · shared by $n addresses this session" else "") +
+                    if (OuiWatchlist.isFingerprintWatched(fp)) " · on your watchlist" else
                     " (same for every device of this model / OS - Watchlist can watch it)"
             }
             r.skeleton?.let { sk ->

@@ -14,7 +14,12 @@ import java.util.zip.CRC32
  */
 object ProbeIntel {
 
-    data class Wps(val manufacturer: String?, val model: String?, val modelNumber: String?, val deviceName: String?) {
+    /**
+     * [uuid]: its UUID-E (32 hex digits). Many WPS stacks derive it once for the device, so it stays the same on
+     * every random address the device uses: one exact device, not just a model.
+     */
+    data class Wps(val manufacturer: String?, val model: String?, val modelNumber: String?, val deviceName: String?,
+                   val uuid: String? = null) {
         /** "Maker Model Number", or null when the block named nothing. */
         val product: String? get() = listOfNotNull(manufacturer, model, modelNumber).distinct().joinToString(" ").ifBlank { null }
         /** The best single name for the device list. */
@@ -26,6 +31,7 @@ object ProbeIntel {
     /** Parses a WPS vendor element's body (after the 00:50:F2:04 header): big-endian type / length attributes. */
     fun parseWps(b: ByteArray, from: Int, end: Int): Wps? {
         var manufacturer: String? = null; var model: String? = null; var number: String? = null; var name: String? = null
+        var uuid: String? = null
         var i = from
         while (i + 4 <= end) {
             val type = ((b[i].toInt() and 0xff) shl 8) or (b[i + 1].toInt() and 0xff)
@@ -37,11 +43,12 @@ object ProbeIntel {
                 0x1023 -> model = v()
                 0x1024 -> number = v()
                 0x1011 -> name = v()
+                0x1047 -> if (len == 16) uuid = hex(b, i + 4, 16).takeUnless { u -> u.all { it == '0' } || u.all { it == 'f' } }
             }
             i += 4 + len
         }
-        if (manufacturer == null && model == null && number == null && name == null) return null
-        return Wps(manufacturer, model, number, name)
+        if (manufacturer == null && model == null && number == null && name == null && uuid == null) return null
+        return Wps(manufacturer, model, number, name, uuid)
     }
 
     private fun text(b: ByteArray, at: Int, len: Int): String? {
@@ -105,6 +112,34 @@ object ProbeIntel {
     /** How a watched probe shape is written in the watchlist (after "fp:"), next to 8-digit fingerprints. */
     fun shapeKey(shape: Long) = "shape-%08x".format(shape)
 
+    /** How a watched WPS UUID (one exact device, whatever its address) is written in the watchlist, after "fp:". */
+    fun uuidKey(uuid: String) = "uuid-$uuid"
+
+    /**
+     * What a probe request's elements say about the device in words, e.g. "WiFi 6 · 2x2 · Apple tags ·
+     * Broadcom chipset · 802.11v · MBO": what the 8-digit fingerprint stands for. Null with too little to say.
+     */
+    fun traits(ies: List<Pair<Int, ByteArray>>): String? {
+        if (ies.none { it.first != 0 && it.first != 1 && it.first != 3 && it.first != 50 }) return null
+        val info = com.rfsentinel.app.detect.WifiFingerprint.parse(ies)
+        val ext = ies.firstOrNull { it.first == 127 }?.second
+        // Extended capabilities: bit 19 BSS transition (802.11v), bit 31 interworking (Passpoint).
+        fun bit(n: Int) = ext != null && n / 8 < ext.size && (ext[n / 8].toInt() shr (n % 8)) and 1 == 1
+        // Wi-Fi Alliance 50:6F:9A type 0x16: MBO / OCE (Agile Multiband).
+        val mbo = ies.any { (id, d) -> id == 221 && d.size >= 4 && (d[0].toInt() and 0xff) == 0x50 && (d[1].toInt() and 0xff) == 0x6F &&
+            (d[2].toInt() and 0xff) == 0x9A && d[3].toInt() == 0x16 }
+        fun names(v: List<String>) = v.map { com.rfsentinel.app.detect.DeviceIntel.shortVendor(it) }.distinct().joinToString("/").ifEmpty { null }
+        return listOfNotNull(
+            MonitorFrames.standard(ies).substringBefore(" ("),
+            info.streams?.let { "${it}x$it" },
+            names(info.equipmentVendors)?.let { "$it tags" },
+            names(info.chipsetVendors)?.let { "$it chipset" },
+            "802.11v".takeIf { bit(19) },
+            "Passpoint".takeIf { bit(31) },
+            "MBO".takeIf { mbo }
+        ).joinToString(" · ")
+    }
+
     /** [end] without the 4-byte checksum some drivers keep on a frame starting at [d]. */
     fun withoutFcs(b: ByteArray, d: Int, end: Int): Int {
         if (end - d < 28) return end
@@ -117,16 +152,19 @@ object ProbeIntel {
 
     /** What external hardware learned about a device this scan, for its detail screen. */
     data class Record(val wps: Wps?, val fingerprint: String?, val probed: List<String>, val hidden: Boolean = false,
-                      val skeleton: Long? = null)
+                      val skeleton: Long? = null, val traits: String? = null)
 
     private val byMac = ConcurrentHashMap<String, Record>()
 
-    fun note(mac: String, wps: Wps?, fingerprint: String?, probed: List<String>, hidden: Boolean = false, skeleton: Long? = null) {
-        if (wps == null && fingerprint == null && probed.isEmpty() && !hidden && skeleton == null) return
+    fun note(mac: String, wps: Wps?, fingerprint: String?, probed: List<String>, hidden: Boolean = false, skeleton: Long? = null,
+             traits: String? = null) {
+        if (wps == null && fingerprint == null && probed.isEmpty() && !hidden && skeleton == null && traits == null) return
         val key = mac.uppercase()
         val old = byMac[key]
-        byMac[key] = Record(wps ?: old?.wps, fingerprint ?: old?.fingerprint, probed.ifEmpty { old?.probed.orEmpty() },
-            hidden || old?.hidden == true, skeleton ?: old?.skeleton)
+        // A later WPS block without its UUID keeps the one already heard.
+        val w = wps?.let { if (it.uuid == null && old?.wps?.uuid != null) it.copy(uuid = old.wps.uuid) else it }
+        byMac[key] = Record(w ?: old?.wps, fingerprint ?: old?.fingerprint, probed.ifEmpty { old?.probed.orEmpty() },
+            hidden || old?.hidden == true, skeleton ?: old?.skeleton, traits ?: old?.traits)
         if (byMac.size > 5000) byMac.keys.take(500).forEach { byMac.remove(it) }
     }
 
