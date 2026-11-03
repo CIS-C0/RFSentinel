@@ -244,7 +244,8 @@ class SentinelLinkActivity : AppCompatActivity() {
                 "of the group sets the same broker. Packets are encrypted with the group's key before they leave the phone, " +
                 "on a topic made from it: the broker only sees encrypted bytes, your IP address and when you send. " +
                 "mqtts:// connects with TLS (port 8883 unless you give one); mqtt:// doesn't, so the username and password " +
-                "go unencrypted - use it only on a network you trust. Uses mobile data: a few small packets a minute."
+                "go unencrypted - use it only on a network you trust. A broker with its own self-signed certificate: turn " +
+                "Check the certificate off. Uses mobile data: a few small packets a minute."
         }
         val switch = SwitchMaterial(this).apply {
             text = "Use an MQTT broker"
@@ -282,12 +283,22 @@ class SentinelLinkActivity : AppCompatActivity() {
         val views = field("Broker", "mqtts://broker.example.com:8883", LinkStore.mqttBroker(ctx), false) { LinkStore.setMqttBroker(ctx, it) } +
             field("Username", "Optional", LinkStore.mqttUser(ctx), false) { LinkStore.setMqttUser(ctx, it) } +
             field("Password", "Optional", LinkStore.mqttPassword(ctx).orEmpty(), true) { LinkStore.setMqttPassword(ctx, it) }
+        val checkCert = SwitchMaterial(this).apply {
+            text = "Check the certificate"
+            isChecked = LinkStore.mqttCheckCert(ctx)
+            setOnCheckedChangeListener { _, on ->
+                LinkStore.setMqttCheckCert(ctx, on)
+                ScanForegroundService.refreshLink(ctx)
+                refresh()
+            }
+            setPadding(0, pad(8), 0, 0)
+        }
         mqttStatus = TextView(this).apply { textSize = 14f; setPadding(0, pad(8), 0, 0) }
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             addView(header); addView(about); addView(switch)
             views.forEach { addView(it) }
-            addView(mqttStatus)
+            addView(checkCert); addView(mqttStatus)
             setPadding(0, 0, 0, pad(12))
         }
     }

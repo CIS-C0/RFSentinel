@@ -942,7 +942,7 @@ class ScanForegroundService : Service() {
             mqttLastName = 0L
             pipeline.postDelayed(mqttFlush, MQTT_TICK_MS)
         }
-        relay.start(broker, link.mqttUser(this), link.mqttPassword(this), key) { com.rfsentinel.app.link.PhoneLink.meshIn(it, viaNet = true) }
+        relay.start(broker, link.mqttUser(this), link.mqttPassword(this), link.mqttCheckCert(this), key) { com.rfsentinel.app.link.PhoneLink.meshIn(it, viaNet = true) }
     }
 
     private fun stopMqtt() {

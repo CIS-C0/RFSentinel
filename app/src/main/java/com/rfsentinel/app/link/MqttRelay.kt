@@ -13,8 +13,10 @@ import java.net.Socket
 import java.net.URI
 import java.util.concurrent.CopyOnWriteArrayList
 import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.SSLSocketFactory
+import javax.net.ssl.X509TrustManager
 
 /**
  * Sentinel Link over the internet: the same sealed packets as the Meshtastic node ([MeshCodec], AES-GCM with a key
@@ -61,7 +63,7 @@ object MqttRelay {
     private fun changed() = main.post { listeners.forEach { it() } }
     private fun setStatus(s: String) { if (s != status) { status = s; changed() } }
 
-    private data class Config(val broker: Broker, val user: String?, val password: String?, val topic: String)
+    private data class Config(val broker: Broker, val user: String?, val password: String?, val topic: String, val checkCert: Boolean)
 
     private var config: Config? = null
     private var thread: Thread? = null
@@ -72,8 +74,8 @@ object MqttRelay {
 
     /** Connects (again, when anything changed); [packets] gets the group's payloads, on the relay's thread. */
     @Synchronized
-    fun start(broker: Broker, user: String?, password: String?, groupKey: ByteArray, packets: (ByteArray) -> Unit) {
-        val c = Config(broker, user?.takeIf { it.isNotBlank() }, password?.takeIf { it.isNotEmpty() }, topic(groupKey))
+    fun start(broker: Broker, user: String?, password: String?, checkCert: Boolean, groupKey: ByteArray, packets: (ByteArray) -> Unit) {
+        val c = Config(broker, user?.takeIf { it.isNotBlank() }, password?.takeIf { it.isNotEmpty() }, topic(groupKey), checkCert)
         if (c == config && thread?.isAlive == true) return
         stop()
         config = c
@@ -122,7 +124,7 @@ object MqttRelay {
         while (current(c) && !Thread.currentThread().isInterrupted) {
             try {
                 setStatus("Connecting to ${c.broker.host}…")
-                val s = open(c.broker)
+                val s = open(c.broker, c.checkCert)
                 socket = s
                 s.soTimeout = DEAD_MS.toInt()
                 val input = DataInputStream(BufferedInputStream(s.getInputStream()))
@@ -164,14 +166,31 @@ object MqttRelay {
 
     private class Refused(message: String) : IOException(message)
 
-    private fun open(b: Broker): Socket {
+    /**
+     * Any certificate, for a broker with its own (self-signed) one, when the user turns the check off: the packets are
+     * sealed with the group key either way, only the broker's login could be read by someone in the middle.
+     */
+    private val anyCert by lazy { anyCertFactory() }
+
+    @android.annotation.SuppressLint("CustomX509TrustManager", "TrustAllX509TrustManager")
+    private fun anyCertFactory(): SSLSocketFactory =
+        SSLContext.getInstance("TLS").apply {
+            init(null, arrayOf(object : X509TrustManager {
+                override fun checkClientTrusted(chain: Array<java.security.cert.X509Certificate>, authType: String) = Unit
+                override fun checkServerTrusted(chain: Array<java.security.cert.X509Certificate>, authType: String) = Unit
+                override fun getAcceptedIssuers() = emptyArray<java.security.cert.X509Certificate>()
+            }), null)
+        }.socketFactory
+
+    private fun open(b: Broker, checkCert: Boolean): Socket {
         val plain = Socket().apply { connect(InetSocketAddress(b.host, b.port), CONNECT_TIMEOUT_MS) }
         if (!b.tls) return plain
-        val s = (SSLSocketFactory.getDefault() as SSLSocketFactory).createSocket(plain, b.host, b.port, true) as SSLSocket
+        val factory = if (checkCert) SSLSocketFactory.getDefault() as SSLSocketFactory else anyCert
+        val s = factory.createSocket(plain, b.host, b.port, true) as SSLSocket
         s.soTimeout = CONNECT_TIMEOUT_MS
         s.startHandshake()
         // An SSLSocket checks the certificate chain but not that it's for this host: done here.
-        if (!HttpsURLConnection.getDefaultHostnameVerifier().verify(b.host, s.session)) {
+        if (checkCert && !HttpsURLConnection.getDefaultHostnameVerifier().verify(b.host, s.session)) {
             s.close()
             throw IOException("the certificate isn't for ${b.host}")
         }

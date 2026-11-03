@@ -133,6 +133,9 @@ object LinkStore {
     /** Kept encrypted ([SecureStore]), out of backups. */
     fun mqttPassword(c: Context): String? = SecureStore.get(c, "mqtt_password")
     fun setMqttPassword(c: Context, password: String) = SecureStore.put(c, "mqtt_password", password)
+    /** mqtts:// only takes a certificate a public authority signed (on) or any, like a self-signed one (off). */
+    fun mqttCheckCert(c: Context) = sp(c).getBoolean("mqtt_check_cert", true)
+    fun setMqttCheckCert(c: Context, on: Boolean) = sp(c).edit { putBoolean("mqtt_check_cert", on) }
 
     private var meshNext = -1L
     private var meshReserved = 0L
