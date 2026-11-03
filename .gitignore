@@ -20,3 +20,6 @@ releases/*.apk
 
 # Private working notes (not for the public repo)
 HANDOFF.md
+
+# graphify knowledge graph (local only)
+graphify-out/
