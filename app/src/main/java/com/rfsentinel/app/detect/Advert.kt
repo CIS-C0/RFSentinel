@@ -49,7 +49,13 @@ class Advert(
         /** FlipDeFlock's probe skeleton hash of a client's probe requests (USB adapter). */
         val probeSkeleton: Long? = null,
         /** Its latest run of wildcard probes (USB adapter): how steadily it probes ([ProbeBehaviour]). */
-        val probeRun: ProbeBehaviour.Run? = null
+        val probeRun: ProbeBehaviour.Run? = null,
+        /** The access point a client talks to (USB adapter). */
+        val bssid: String? = null,
+        /** When an access point's WiFi came up, from its beacon clock (USB adapter). */
+        val upSince: Long? = null,
+        /** Data bytes it sent while the USB adapter heard it. */
+        val dataBytes: Long = 0
     )
 
     val isBle get() = source == Source.BLE

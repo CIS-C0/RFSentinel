@@ -26,7 +26,11 @@ object WifiFingerprint {
         val deviceKind: String? = null,
         val ciscoApName: String? = null,
         /** IEEE registrants of vendor-specific IE OUIs (chipset / equipment makers). */
-        val ieVendors: List<String> = emptyList()
+        val ieVendors: List<String> = emptyList(),
+        /** Spatial streams its radio receives (2 = 2x2 MIMO). */
+        val streams: Int? = null,
+        /** The country its WiFi is set for (Country element). */
+        val country: String? = null
     ) {
         /** e.g. "NETGEAR R7000" or "TP-Link Archer AX55", null when WPS said nothing useful. */
         val model: String?
@@ -72,7 +76,15 @@ object WifiFingerprint {
             .distinct()
             .mapNotNull { oui -> VendorDb.macVendor(oui.chunked(2).joinToString(":") + ":00:00:00") }
             .distinct()
-        return info.copy(ieVendors = owners)
+        // VHT MCS map: 2 bits a stream, 3 = not supported; else HT's per-stream MCS masks (bytes 3-6).
+        val vht = ies.firstOrNull { it.first == 191 && it.second.size >= 6 }?.second?.let { d ->
+            val map = Bytes.u8(d, 4) or (Bytes.u8(d, 5) shl 8)
+            (0 until 8).count { (map shr (2 * it)) and 3 != 3 }
+        }
+        val ht = ies.firstOrNull { it.first == 45 && it.second.size >= 7 }?.second?.let { d -> (3..6).count { d[it].toInt() != 0 } }
+        val country = ies.firstOrNull { it.first == 7 && it.second.size >= 2 }?.second
+            ?.let { String(it, 0, 2, Charsets.US_ASCII) }?.takeIf { c -> c.all { it in 'A'..'Z' } }
+        return info.copy(ieVendors = owners, streams = (vht ?: ht)?.takeIf { it in 1..8 }, country = country)
     }
 
     private fun isWps(d: ByteArray) = d.size >= 4 && d[0] == WPS_OUI[0] && d[1] == WPS_OUI[1] && d[2] == WPS_OUI[2] && d[3] == 0x04.toByte()

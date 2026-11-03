@@ -169,7 +169,7 @@ object HackerWatch {
     /**
      * Same network name from two different makers' hardware that disagree on security (one
      * open, one protected): one of them isn't what it claims to be. Mesh nodes and dual-band
-     * boxes share a maker and are never flagged. Phone scans only (they report security).
+     * boxes share a maker and are never flagged. Only sightings that read the security (phone scan, USB adapter).
      */
     @Synchronized
     fun evilTwin(a: Advert): Hit? {

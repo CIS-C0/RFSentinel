@@ -46,6 +46,8 @@ object DeviceRegistry {
     /** Weight of each new RSSI reading (0..1): 0.3 settles in about a second of adverts. */
     private const val RSSI_SMOOTHING = 0.3
     private const val SMOOTH_RESET_MS = 10_000L
+    /** A client heard talking to a network within this long still counts as connected to it. */
+    private const val CONNECTED_MS = 5 * 60_000L
     private const val ROTATION_WINDOW_MS = 30_000L
     /** Pinpointing: readings kept per flagged device, their spacing, and how often the fit is redone. */
     private const val LOCATE_MAX = 400
@@ -137,6 +139,13 @@ object DeviceRegistry {
         var locatedAt = 0L
         var readingsSinceFit = 0
         var broadcast: GeoSample? = null
+        // From a USB WiFi adapter, kept apart from [advert] so the phone's own scan doesn't wipe them:
+        /** When its WiFi came up (beacon clock). */
+        var upSince: Long? = null
+        /** The access point this client talks to. */
+        var joined: String? = null
+        /** Data it sent while the adapter heard it. */
+        var dataBytes = 0L
     }
 
     private val tracks = ConcurrentHashMap<String, Track>()
@@ -177,6 +186,11 @@ object DeviceRegistry {
             t.hits = mergeHits(t, hits, now)
             remoteId?.let { t.remoteId = it }
             broadcast?.let { t.broadcast = it }
+            a.wifi?.let { w ->
+                w.upSince?.let { t.upSince = it }
+                w.bssid?.let { t.joined = it }
+                if (w.dataBytes > 0) t.dataBytes = w.dataBytes
+            }
             // Smooth for the displayed signal, distance and radar; a jump after a pause is taken as is.
             t.smoothRssi = if (t.smoothRssi.isNaN() || now - t.lastSeen > SMOOTH_RESET_MS) a.rssi.toDouble()
                 else t.smoothRssi + RSSI_SMOOTHING * (a.rssi - t.smoothRssi)
@@ -474,7 +488,7 @@ object DeviceRegistry {
             listOfNotNull(
                 t.linkedFrom?.let { "Previous address" to "$it (address rotated, same advert fingerprint)" },
                 t.role?.let { "Patrol-kit role" to it }
-            ) + if (full && Advert.Source.WIFI in t.sources) sameApFacts(t) else emptyList(),
+            ) + if (full && Advert.Source.WIFI in t.sources) sameApFacts(t) + usbWifiFacts(t) else emptyList(),
         hits = t.hits,
         rssi = t.rssi,
         bestRssi = t.bestRssi,
@@ -506,6 +520,40 @@ object DeviceRegistry {
             // Read without locking [o]: this runs under [t]'s lock, and the sibling facts lock the other way round.
             else o.identity.type.takeIf { !o.name.isNullOrEmpty() && o.advert?.isWifi == true && DeviceIntel.isRouter(it) }
         }?.let { DeviceIntel.hiddenOnType(it) }
+    }
+
+    /**
+     * What a USB adapter in monitor mode heard: how long the router's WiFi had been on, which network a
+     * device talks to and which devices talk to a network, and how much data. Saved with the page (History).
+     */
+    private fun usbWifiFacts(t: Track): List<Pair<String, String>> {
+        val out = mutableListOf<Pair<String, String>>()
+        t.upSince?.let {
+            val at = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT).format(java.util.Date(it))
+            out += "WiFi on for" to "${upFor(t.lastSeen - it)} when last heard, since $at (beacon clock: usually since power-on)"
+        }
+        t.joined?.let { ap ->
+            out += "Connected to" to (tracks[ap]?.name?.let { "\"$it\" ($ap)" } ?: ap)
+        }
+        // Read without locking the others, like [hiddenRouterType]: this runs under [t]'s lock.
+        val clients = tracks.values.filter { o -> o !== t && o.joined == t.mac && t.lastSeen - o.lastSeen < CONNECTED_MS }
+        if (clients.isNotEmpty()) out += "Devices connected" to "${clients.size}: " + clients.take(8).joinToString("; ") { o ->
+            o.identity.type + (o.vendor?.let { " - ${DeviceIntel.shortVendor(it)}" } ?: "") + " (${o.mac})"
+        } + if (clients.size > 8) "; +${clients.size - 8} more" else ""
+        if (t.dataBytes > 0) out += "Data heard by USB adapter" to when {
+            t.dataBytes < 1_000_000 -> "${(t.dataBytes + 999) / 1000} KB"
+            else -> String.format(java.util.Locale.US, "%.1f MB", t.dataBytes / 1e6)
+        }
+        return out
+    }
+
+    private fun upFor(ms: Long): String {
+        val min = (ms / 60_000).coerceAtLeast(0)
+        return when {
+            min < 60 -> "$min min"
+            min < 48 * 60 -> "${min / 60} h ${min % 60} min"
+            else -> "${min / 1440} days"
+        }
     }
 
     /**

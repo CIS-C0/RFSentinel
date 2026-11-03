@@ -27,6 +27,12 @@ class MonitorFrames {
         var wildcard = false; var flockIe = false
         /** How steadily it sends wildcard probes ([com.rfsentinel.app.detect.ProbeBehaviour]). */
         var probeRate: com.rfsentinel.app.detect.ProbeBehaviour.Counter? = null
+        /** An access point's latest beacon elements (refreshed every [IES_REFRESH_MS]) and its "protected" capability bit. */
+        var ies: List<Pair<Int, ByteArray>>? = null; var iesAt = 0L; var privacy = false
+        /** When its WiFi started, from the beacon clock (TSF, microseconds since the radio came up). */
+        var upSince: Long? = null
+        /** Data-frame bytes it sent while heard. */
+        var dataBytes = 0L
         // Per-window counters for driver diagnostics (debug builds).
         var winHits = 0; var winMeasured = 0; var winMax = -128; var winSum = 0L
         var winOfdm = 0; var winA = -128; var winB = -128
@@ -59,10 +65,12 @@ class MonitorFrames {
         val a1 = d + 4; val a2 = d + 10; val a3 = d + 16
         val check = AntennaCheck.listening
         if (check) AntennaCheck.frame(b, a2, rssi, pathA, pathB, now)
-        fun touch(at: Int, ap: Boolean, ch: Int = channel): Sighting? {
+        // [sent]: the device transmitted this frame, so its signal is this device's (not so for the receiver of a router's frame).
+        fun touch(at: Int, ap: Boolean, ch: Int = channel, sent: Boolean = true): Sighting? {
             if (!isReal(b, at)) return null
             val m = mac(b, at)
             val s = sightings.getOrPut(m) { Sighting(m, ap) }
+            val rssi = rssi.takeIf { sent }
             // Strongest reading of the last couple of seconds, so a device that drove off fades.
             if (rssi != null && (!s.measured || rssi > s.rssi || now - s.rssiAt > RSSI_WINDOW_MS)) {
                 s.rssi = rssi; s.rssiAt = now; s.measured = true
@@ -70,7 +78,7 @@ class MonitorFrames {
             s.channel = ch; s.lastSeen = now
             s.winHits++
             if (rssi != null) { s.winMeasured++; s.winSum += rssi; if (rssi > s.winMax) s.winMax = rssi }
-            if (pathA != null || pathB != null) {
+            if (sent && (pathA != null || pathB != null)) {
                 s.winOfdm++
                 pathA?.let { if (it > s.winA) s.winA = it }; pathB?.let { if (it > s.winB) s.winB = it }
             }
@@ -94,6 +102,13 @@ class MonitorFrames {
                         else if (it.ssid == null) it.ssid = name
                         if (it.ssid == null) pendingNames.remove(it.mac)?.let { n -> it.ssid = n }
                         ies.wps?.let { w -> it.wps = w }
+                        // Fixed fields: the 8-byte beacon clock (microseconds since its WiFi came up), interval, capability info.
+                        val tsf = (0 until 8).fold(0L) { acc, k -> acc or (u8(d + 24 + k).toLong() shl (8 * k)) }
+                        if (tsf in 1 until MAX_TSF_US) it.upSince = now - tsf / 1000
+                        if (it.ies == null || now - it.iesAt > IES_REFRESH_MS) {
+                            it.ies = elements(b, d + 36, ProbeIntel.withoutFcs(b, d, end)); it.iesAt = now
+                            it.privacy = (u8(d + 34) and 0x10) != 0
+                        }
                         if (check) AntennaCheck.heardAp(it.mac, it.ssid, it.channel, rssi, now)
                     }
                     // One transmitter answering under many network names: a Karma / PineAP fake access point.
@@ -127,10 +142,15 @@ class MonitorFrames {
                     if (captureClients) touch(a2, ap = false)?.let { it.bssid = mac(b, a3) }
                 }
             }
-            2 -> if (captureClients) when {
-                toDs == 1 && fromDs == 0 -> touch(a2, ap = false)?.let { it.bssid = mac(b, a1) }
-                toDs == 0 && fromDs == 1 -> touch(a1, ap = false)?.let { it.bssid = mac(b, a2) }
-                else -> touch(a2, ap = false)
+            2 -> {
+                val size = end - d
+                if (captureClients) when {
+                    toDs == 1 && fromDs == 0 -> touch(a2, ap = false)?.let { it.bssid = mac(b, a1); it.dataBytes += size }
+                    toDs == 0 && fromDs == 1 -> touch(a1, ap = false, sent = false)?.let { it.bssid = mac(b, a2) }
+                    else -> touch(a2, ap = false)
+                }
+                // Sent by the router to one of its devices.
+                if (toDs == 0 && fromDs == 1) sightings[mac(b, a2)]?.let { it.dataBytes += size }
             }
         }
     }
@@ -186,7 +206,12 @@ class MonitorFrames {
                 hiddenNetwork = s.hidden,
                 wildcardProbe = s.wildcard,
                 flockProbeIe = s.flockIe,
-                probeRun = s.probeRate?.run()
+                probeRun = s.probeRate?.run(),
+                infoElements = s.ies.orEmpty(),
+                capabilities = s.ies?.let { capabilities(it, s.privacy) } ?: "",
+                standard = s.ies?.let { standard(it) },
+                upSince = s.upSince,
+                dataBytes = s.dataBytes
             )
         }
         sightings.entries.removeAll { now - it.value.lastSeen > pruneMs }
@@ -260,6 +285,63 @@ class MonitorFrames {
         fun validSsid(s: String) = s.isNotEmpty() && s.length <= 32 && s.none { it < ' ' || it == '�' }
 
         private const val MAX_PROBED = 16
+        private const val IES_REFRESH_MS = 10_000L
+        /** A beacon clock past 5 years is junk (a corrupt frame), not uptime. */
+        private const val MAX_TSF_US = 5L * 365 * 86_400 * 1_000_000
+
+        /** The elements of a frame body as (id, payload), like Android's scan results; an extension element (255) keeps its extension ID as first byte. */
+        internal fun elements(b: ByteArray, from: Int, end: Int): List<Pair<Int, ByteArray>> {
+            val out = ArrayList<Pair<Int, ByteArray>>()
+            var i = from
+            while (i + 2 <= end) {
+                val len = b[i + 1].toInt() and 0xff
+                if (i + 2 + len > end) break
+                out += (b[i].toInt() and 0xff) to b.copyOfRange(i + 2, i + 2 + len)
+                i += 2 + len
+            }
+            return out
+        }
+
+        /** Android's scan-result security text ("[RSN-PSK][ESS]") from the RSN / WPA elements, so a USB sighting reads like the phone's own. */
+        internal fun capabilities(ies: List<Pair<Int, ByteArray>>, privacy: Boolean): String {
+            val rsn = ies.firstOrNull { it.first == 48 }?.second
+            val wpa = ies.firstOrNull { (id, d) -> id == 221 && d.size >= 4 && d[0].toInt() == 0 && d[1].toInt() == 0x50 &&
+                (d[2].toInt() and 0xff) == 0xF2 && d[3].toInt() == 1 }?.second
+            val parts = listOfNotNull(wpa?.let { "[WPA-${akms(it, 4) ?: "?"}]" }, rsn?.let { "[RSN-${akms(it, 0) ?: "?"}]" })
+            return when {
+                parts.isNotEmpty() -> parts.joinToString("") + "[ESS]"
+                privacy -> "[WEP][ESS]"
+                else -> "[ESS]"
+            }
+        }
+
+        // Key management suites (IEEE 802.11 table 9-151; the WPA element uses 1 and 2 the same way).
+        private val AKM = mapOf(1 to "EAP", 3 to "EAP", 5 to "EAP", 11 to "EAP", 12 to "EAP", 13 to "EAP",
+            2 to "PSK", 4 to "PSK", 6 to "PSK", 8 to "SAE", 9 to "SAE", 24 to "SAE", 25 to "SAE", 18 to "OWE")
+
+        /** "PSK", "PSK+SAE", "EAP"... from an RSN body at [start]: version, group cipher, pairwise ciphers, then the key management list. */
+        private fun akms(d: ByteArray, start: Int): String? {
+            fun u16(i: Int) = (d[i].toInt() and 0xff) or ((d[i + 1].toInt() and 0xff) shl 8)
+            var i = start + 6
+            if (i + 2 > d.size) return null
+            i += 2 + 4 * u16(i)
+            if (i + 2 > d.size) return null
+            val n = u16(i); i += 2
+            return (0 until n).mapNotNull { k -> d.getOrNull(i + 4 * k + 3)?.let { AKM[it.toInt() and 0xff] } }
+                .distinct().joinToString("+").ifEmpty { null }
+        }
+
+        /** The WiFi generation its beacon announces, in the phone scan's words. */
+        internal fun standard(ies: List<Pair<Int, ByteArray>>): String {
+            fun ext(id: Int) = ies.any { it.first == 255 && it.second.isNotEmpty() && (it.second[0].toInt() and 0xff) == id }
+            return when {
+                ext(108) -> "WiFi 7 (802.11be)"
+                ext(35) -> "WiFi 6 (802.11ax)"
+                ies.any { it.first == 191 } -> "WiFi 5 (802.11ac)"
+                ies.any { it.first == 45 } -> "WiFi 4 (802.11n)"
+                else -> "Legacy (802.11a/b/g)"
+            }
+        }
 
         /** Centre frequency of a 20 MHz WiFi channel, 0 when unknown; a 6 GHz channel comes as its MHz already. */
         fun frequencyOf(ch: Int): Int = when (ch) {

@@ -848,9 +848,11 @@ class ScanForegroundService : Service() {
             // A client has no network name; its WPS device name or model says what it is.
             mac = mac, source = Advert.Source.WIFI, rssi = m.rssi, name = m.ssid ?: m.wps?.label,
             addressType = com.rfsentinel.app.detect.AddressType.ofWifi(mac),
-            wifi = Advert.WifiInfo(m.frequencyMhz, "", null, emptyList(), client = !m.isAccessPoint,
+            wifi = Advert.WifiInfo(m.frequencyMhz, m.capabilities, m.standard, m.infoElements, client = !m.isAccessPoint,
                 wildcardProbe = m.wildcardProbe, flockProbeIe = m.flockProbeIe, probeSkeleton = m.probeSkeleton,
-                probeRun = m.probeRun),
+                probeRun = m.probeRun,
+                bssid = m.bssid?.takeIf { !m.isAccessPoint }?.let { com.rfsentinel.app.util.MacUtil.normalize(it) }?.takeIf { it != mac },
+                upSince = m.upSince, dataBytes = m.dataBytes),
             timestamp = now
         )
         linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_USB, a, probed = m.probedSsids, fingerprint = m.fingerprint, hidden = m.hiddenNetwork))

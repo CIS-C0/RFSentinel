@@ -36,7 +36,15 @@ data class MonitorSighting(
     /** Its probe requests carried the Wi-Fi Alliance element Flock cameras send ([MonitorFrames.Ies.flockIe]). */
     val flockProbeIe: Boolean = false,
     /** Its latest run of wildcard probes: how steadily it probes ([com.rfsentinel.app.detect.ProbeBehaviour]). */
-    val probeRun: com.rfsentinel.app.detect.ProbeBehaviour.Run? = null
+    val probeRun: com.rfsentinel.app.detect.ProbeBehaviour.Run? = null,
+    /** An access point's beacon elements, security text and WiFi generation, read like the phone's own scan. */
+    val infoElements: List<Pair<Int, ByteArray>> = emptyList(),
+    val capabilities: String = "",
+    val standard: String? = null,
+    /** When its WiFi came up, from the beacon clock. */
+    val upSince: Long? = null,
+    /** Data bytes it sent while heard. */
+    val dataBytes: Long = 0
 )
 
 /**

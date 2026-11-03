@@ -523,6 +523,8 @@ object DeviceIntel {
         ap.deviceName?.let { facts += "AP device name (WPS)" to it }
         ap.deviceKind?.let { facts += "Device kind (WPS)" to it }
         ap.ciscoApName?.let { facts += "Cisco AP name" to it }
+        ap.streams?.let { facts += "Antenna streams" to "${it}x$it" }
+        ap.country?.let { facts += "Country set in router" to it }
         if (ap.equipmentVendors.isNotEmpty()) facts += "Equipment maker (vendor IEs)" to ap.equipmentVendors.joinToString { shortVendor(it) }
         if (ap.chipsetVendors.isNotEmpty()) facts += "WiFi chipset (vendor IEs)" to ap.chipsetVendors.joinToString { shortVendor(it) }
 
