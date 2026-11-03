@@ -1404,6 +1404,24 @@ class SettingsActivity : AppCompatActivity() {
             setOnCheckedChangeListener { _, v -> save(v) }
         }.also { box.addView(if (info == null) it else infoRow(it, info)) }
 
+        info(label("Network SDR"), "Uses an RTL-SDR on another device over WiFi, such as an ESP32 board or a computer running " +
+            "rtl_tcp. Enter its address and port; the port is ${com.rfsentinel.app.sdr.RtlTcp.DEFAULT_PORT} if left out. A plugged-in " +
+            "USB SDR is used first. Streaming takes about 5 MB/s of WiFi.", "Network SDR")
+        box.addView(android.widget.EditText(this).apply {
+            setText(Prefs.networkSdr(this@SettingsActivity)); hint = "192.168.4.1:1234"
+            isSingleLine = true
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    Prefs.setNetworkSdr(this@SettingsActivity, s?.toString().orEmpty().trim())
+                    com.rfsentinel.app.sdr.SdrRadio.networkChanged()
+                }
+            })
+        })
+
         // What the SDR does: any mix; with more than one ticked it takes turns.
         var showSdrOptions: () -> Unit = {}
         info(label("Scan with the SDR"), "Tick what the RTL-SDR or HackRF does while scanning. One SDR hears one thing at a time: " +

@@ -28,6 +28,8 @@ object SdrRadio {
     private const val ACTION_PERMISSION = "com.rfsentinel.app.SDR_PERMISSION"
     private const val SAMPLE_RATE = 2_048_000
     private const val GAIN_TENTHS_DB = 297
+    private const val NET = "net:"             // runningDevice of a network SDR
+    private const val NET_RETRY_MS = 10_000L
     private const val XFER = 16_384           // bytes per USB read (8192 samples)
     private const val READS_PER_CHUNK = 8     // ~32 ms of samples per tuned chunk
     private const val TETRA_READS = 16        // ~64 ms: more than one TETRA frame, so a radio's slot is always in it
@@ -178,8 +180,8 @@ object SdrRadio {
     /** "RTL-SDR unplugged" stays a little, then leaves the hardware status (unless it came back). */
     private fun clearUnpluggedSoon() = main.postDelayed({ if (status == UNPLUGGED) status = "" }, 15_000L)
 
-    /** Whether the dongle [name] is no longer plugged in (no unplug notice needed). */
-    private fun gone(name: String): Boolean =
+    /** Whether the dongle [name] is no longer plugged in (no unplug notice needed). A network SDR never is: its socket says when it's lost. */
+    private fun gone(name: String): Boolean = !name.startsWith(NET) &&
         runCatching { usb?.deviceList?.values?.none { it.deviceName == name } }.getOrNull() == true
 
     private fun deviceOf(intent: Intent): UsbDevice? =
@@ -191,15 +193,25 @@ object SdrRadio {
     private fun connect(context: Context, ask: Boolean = true) {
         val mgr = context.getSystemService(UsbManager::class.java) ?: return
         usb = mgr
-        runningDevice?.let { name ->
-            if (!gone(name)) return
-            // Unplugged without the system saying so: let that one go so the dongle can start again.
-            UsbWifi.log("$deviceLabel: $name is gone - starting over")
-            halt("")
-        }
         val all = runCatching { mgr.deviceList.values.toList() }.getOrDefault(emptyList())
-        val d = com.rfsentinel.app.usb.UsbPick.pick(context, com.rfsentinel.app.usb.UsbPick.Kind.SDR, all) ?: run {
-            com.rfsentinel.app.usb.UsbPick.waitingFor(context, com.rfsentinel.app.usb.UsbPick.Kind.SDR, all)?.let {
+        val d = com.rfsentinel.app.usb.UsbPick.pick(context, com.rfsentinel.app.usb.UsbPick.Kind.SDR, all)
+        runningDevice?.let { name ->
+            if (name.startsWith(NET)) {
+                if (d == null) return
+                // A plugged-in SDR takes over from the network one.
+                UsbWifi.log("$deviceLabel: a USB SDR is plugged in - using it instead")
+                halt("")
+            } else {
+                if (!gone(name)) return
+                // Unplugged without the system saying so: let that one go so the dongle can start again.
+                UsbWifi.log("$deviceLabel: $name is gone - starting over")
+                halt("")
+            }
+        }
+        if (d == null) {
+            val net = RtlTcp.parse(com.rfsentinel.app.util.Prefs.networkSdr(context))
+            if (net != null) connectNet(net.first, net.second)
+            else com.rfsentinel.app.usb.UsbPick.waitingFor(context, com.rfsentinel.app.usb.UsbPick.Kind.SDR, all)?.let {
                 status = "SDR: waiting for $it, picked in Settings"
             }
             return
@@ -214,25 +226,52 @@ object SdrRadio {
             return
         }
         val conn = mgr.openDevice(d) ?: run { status = "$deviceLabel: couldn't open it"; return }
-        runningDevice = d.deviceName
+        launch(d.deviceName, "%04x:%04x".format(d.vendorId, d.productId), { conn.close() }) {
+            if (HackRf.isHackRf(d.vendorId, d.productId)) HackRf(conn, d, UsbWifi::log) else RtlSdr(conn, d, UsbWifi::log)
+        }
+    }
+
+    /** Settings › Network SDR: an rtl_tcp server, used while no USB SDR is plugged in. */
+    private fun connectNet(host: String, port: Int) {
+        deviceLabel = "Network SDR · $host"
+        launch("$NET$host:$port", "$host:$port", {}) { RtlTcp(host, port, UsbWifi::log) }
+    }
+
+    /** Settings › Network SDR changed: a moment after the typing stops, drop the old server and try the new one. */
+    fun networkChanged() {
+        main.removeCallbacks(reconnectNet)
+        main.postDelayed(reconnectNet, 2_000L)
+    }
+    private val reconnectNet = Runnable {
+        synchronized(this) {
+            if (runningDevice?.startsWith(NET) == true) halt("")
+            if (receiver != null) appContext?.let { connect(it) }
+        }
+    }
+
+    /** Reads [name] on a new thread made by [open]; [release] frees it once the thread is done. */
+    private fun launch(name: String, intro: String, release: () -> Unit, open: () -> SdrDevice) {
+        runningDevice = name
         stop = false
         status = "$deviceLabel · starting…"
+        val net = name.startsWith(NET)
         val t = Thread({
-            val sdr: SdrDevice = if (HackRf.isHackRf(d.vendorId, d.productId)) HackRf(conn, d, UsbWifi::log) else RtlSdr(conn, d, UsbWifi::log)
-            val result = runCatching { run(sdr, d) }
+            val sdr = open()
+            val result = runCatching { run(sdr, name, intro) }
             val failure = result.exceptionOrNull()
-            runCatching { conn.close() }
+            if (net) sdr.close()
+            runCatching { release() }
             synchronized(this) {
                 if (worker !== Thread.currentThread()) return@synchronized
                 worker = null
                 runningDevice = null
                 // Never leave the last "live" line behind: unplugged, failed, or just stopped answering.
-                if (gone(d.deviceName) || result.getOrNull() == true) {
-                    UsbWifi.log("$deviceLabel: unplugged or not answering")
-                    status = UNPLUGGED
-                    clearUnpluggedSoon()
-                    // Plugged back in already (it gets a new name), or it was only stuck: try again shortly.
-                    appContext?.let { main.postDelayed({ if (receiver != null) connect(it) }, 3_000L) }
+                if (gone(name) || result.getOrNull() == true) {
+                    UsbWifi.log("$deviceLabel: ${if (net) "can't reach it" else "unplugged or not answering"}")
+                    status = if (net) "$deviceLabel: can't connect, retrying" else UNPLUGGED
+                    if (!net) clearUnpluggedSoon()
+                    // Plugged back in (it gets a new name), only stuck, or the network server may be back: try again shortly.
+                    appContext?.let { main.postDelayed({ if (receiver != null) connect(it) }, if (net) NET_RETRY_MS else 3_000L) }
                 } else if (failure != null) {
                     UsbWifi.log("$deviceLabel stopped: ${UsbWifi.describe(failure)}")
                     status = "$deviceLabel error: ${failure.message}"
@@ -244,18 +283,18 @@ object SdrRadio {
     }
 
     /** Reads until stopped; true when it ended because the dongle went away (unplugged or not answering). */
-    private fun run(sdr: SdrDevice, d: UsbDevice): Boolean {
-        UsbWifi.log("=== $deviceLabel radio activity watch (%04x:%04x) ===".format(d.vendorId, d.productId))
+    private fun run(sdr: SdrDevice, name: String, intro: String): Boolean {
+        UsbWifi.log("=== $deviceLabel radio activity watch ($intro) ===")
         if (!sdr.open()) {
-            if (sdr.lost || gone(d.deviceName)) return true
+            if (sdr.lost || gone(name)) return true
             status = if (sdr is HackRf) "HackRF: couldn't start it (see the USB log)"
                 else "RTL-SDR: this tuner isn't supported yet (R820T / R820T2 / R860 / R828D only)"
             return false
         }
         sweepWatch = null; p25Hunt = null; p25Lock = null
         var tuned = false
-        while (!halted && !sdr.lost && !gone(d.deviceName)) {
-            if (tuneHz != null) { runTuned(sdr, d.deviceName); tuned = true; continue }
+        while (!halted && !sdr.lost && !gone(name)) {
+            if (tuneHz != null) { runTuned(sdr, name); tuned = true; continue }
             // Back from the waterfall: the scan it interrupted gets its turn again, not the next one.
             val m = mode?.takeIf { tuned && it in modes } ?: next()
             tuned = false
@@ -267,13 +306,13 @@ object SdrRadio {
             if (modes.size > 1) UsbWifi.log("$deviceLabel: turn: ${m.label} for ${turnMs / 1000} s")
             mode = m; turnEnd = System.currentTimeMillis() + turnMs
             when (m) {
-                Mode.SWEEP -> runSweep(sdr, d.deviceName)
-                Mode.ADSB -> runAdsb(sdr, d.deviceName)
-                Mode.P25 -> runP25(sdr, d.deviceName)
+                Mode.SWEEP -> runSweep(sdr, name)
+                Mode.ADSB -> runAdsb(sdr, name)
+                Mode.P25 -> runP25(sdr, name)
             }
         }
         if (sdr.lost) UsbWifi.log("$deviceLabel: the dongle stopped answering (unplugged?)")
-        val away = sdr.lost || gone(d.deviceName)
+        val away = sdr.lost || gone(name)
         if (!away) sdr.close()
         return away && !halted
     }

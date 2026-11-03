@@ -618,6 +618,9 @@ object Prefs {
     private val TETRA_REGIONS = setOf("AT", "BE", "BG", "CH", "CY", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GB", "GR", "HR",
         "HU", "IE", "IS", "IT", "LI", "LT", "LU", "LV", "MT", "NL", "NO", "PL", "PT", "RO", "SE", "SI", "SK")
     fun setRadioBandsOff(context: Context, v: Set<String>) = sp(context).edit { putStringSet("radio_bands_off", v) }
+    /** Settings › Network SDR: an rtl_tcp server as "host" or "host:port"; empty = off. */
+    fun networkSdr(context: Context) = str(context, "network_sdr")
+    fun setNetworkSdr(context: Context, v: String) = setStr(context, "network_sdr", v)
     /** The user's own bands, one "start-end MHz label" per line. */
     fun radioCustomBands(context: Context) = str(context, "radio_custom_bands")
     fun setRadioCustomBands(context: Context, v: String) = setStr(context, "radio_custom_bands", v)
