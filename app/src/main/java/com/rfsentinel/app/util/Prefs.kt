@@ -33,6 +33,17 @@ object Prefs {
 
     /** ScanSettings.SCAN_MODE_*; low latency catches the most but costs the most battery. */
     fun bleScanMode(context: Context): Int = int(context, "ble_scan_mode", ScanSettings.SCAN_MODE_LOW_LATENCY)
+    /** Times the phone's Bluetooth stopped during an extended (long-range) scan on this Android build. */
+    fun bleExtendedStrikes(context: Context, build: String = android.os.Build.FINGERPRINT): Int =
+        if (sp(context).getString("ble_ext_build", null) == build) int(context, "ble_ext_strikes", 0) else 0
+    /** One more of [bleExtendedStrikes]; returns how many now. */
+    fun addBleExtendedStrike(context: Context, build: String = android.os.Build.FINGERPRINT): Int =
+        (bleExtendedStrikes(context, build) + 1).also { n -> sp(context).edit { putString("ble_ext_build", build); putInt("ble_ext_strikes", n) } }
+    /** Its Bluetooth stopped twice during extended scans: ordinary scans only, until Android is updated. */
+    fun bleLegacyOnly(context: Context, build: String = android.os.Build.FINGERPRINT) = bleExtendedStrikes(context, build) >= 2
+    /** An extended scan is running; still set at the next start when the app was killed during one. */
+    fun bleExtendedRunning(context: Context): Boolean = bool(context, "ble_ext_running", false)
+    fun setBleExtendedRunning(context: Context, v: Boolean) = setBool(context, "ble_ext_running", v)
     fun setBleScanMode(context: Context, value: Int) = setInt(context, "ble_scan_mode", value)
 
     fun autoStartOnBoot(context: Context): Boolean = bool(context, "auto_start_boot", false)

@@ -50,12 +50,16 @@ object CrashLog {
         append(context, entry)
     }
 
-    private fun append(context: Context, entry: String) {
+    /** A line for the developer, without the "closed unexpectedly" prompt. */
+    fun note(context: Context, text: String) =
+        append(context, "==== ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", Locale.US).format(Date())} ====\n$text\n\n", prompt = false)
+
+    private fun append(context: Context, entry: String, prompt: Boolean = true) = synchronized(this) {
         val f = file(context)
         val old = if (f.exists()) f.readText() else ""
         f.writeText((old + entry).takeLast(MAX_BYTES))
         // commit(): the process is about to die.
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("unseen", true).commit()
+        if (prompt) context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("unseen", true).commit()
     }
 
     /**
@@ -75,6 +79,9 @@ object CrashLog {
         val noted = exits.filter { it.timestamp > since && noteworthy(it.reason, it.importance) }.sortedBy { it.timestamp }
         prefs.edit().putLong("exits_seen", maxOf(newest, seen)).apply()
         if (noted.isNotEmpty()) append(context, noted.joinToString("") { exitEntry(it) })
+        // Killed along with the phone's Bluetooth during an extended scan: counts against that scan.
+        if (Prefs.bleExtendedRunning(context) && noted.any { it.reason == ApplicationExitInfo.REASON_DEPENDENCY_DIED })
+            com.rfsentinel.app.service.BleScanEngine.strike(context, "the app was killed with a service it used")
     }
 
     /** Worth logging: not a normal end (closed, force-stopped, updated) nor a crash [install] already logged. */

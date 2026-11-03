@@ -11,6 +11,8 @@ import android.content.Context
 import android.os.ParcelUuid
 import android.util.Log
 import com.rfsentinel.app.detect.Advert
+import com.rfsentinel.app.util.CrashLog
+import com.rfsentinel.app.util.Prefs
 
 /**
  * Passive, receive-only BLE advertisement scanner. Uses only the standard
@@ -33,6 +35,9 @@ class BleScanEngine(
     /** Tracked separately: either scan can fail on its own, and both must always be stopped. */
     @Volatile private var scanning = false
     @Volatile private var filteredScanning = false
+    /** Scanning with the extended (long-range) settings now. */
+    @Volatile var extended = false
+        private set
 
     /** Last result from the unfiltered scan (the filtered one alone keeps alerts going but not the list). */
     @Volatile var lastUnfilteredAt = 0L
@@ -76,8 +81,9 @@ class BleScanEngine(
         if (!adapter.isEnabled) return
         scanner = adapter.bluetoothLeScanner ?: return
 
-        // Extended advertising (BT5) carries Remote ID message packs on newer drones.
-        val extended = runCatching { adapter.isLeExtendedAdvertisingSupported }.getOrDefault(false)
+        // Extended advertising (BT5) carries Remote ID message packs on newer drones. Not where it crashed
+        // the phone's Bluetooth before ([Prefs.bleLegacyOnly]).
+        extended = runCatching { adapter.isLeExtendedAdvertisingSupported }.getOrDefault(false) && !Prefs.bleLegacyOnly(context)
         // Deliver every advert immediately (no batching). For the filtered scan, aggressive
         // matching reports a device from a single, even faint, advert instead of waiting
         // for several strong ones - that's what extends screen-off detection range.
@@ -90,18 +96,20 @@ class BleScanEngine(
                 // Extended advertising (BT5) and LE Coded (long-range) PHY where the radio supports it.
                 if (extended) setLegacy(false).setPhy(ScanSettings.PHY_LE_ALL_SUPPORTED)
             }.build()
-
-        try {
-            scanner?.startScan(null, settings(scanMode), callback)
-            scanning = true
+        fun begin(): Boolean = try {
+            scanner?.startScan(null, settings(scanMode), callback); true
         } catch (e: SecurityException) {
             // BLUETOOTH_SCAN (API 31+) or location (API <= 30) not granted.
-            scanning = false
-            return
-        } catch (e: IllegalStateException) {
-            scanning = false
-            return
+            false
+        } catch (e: Exception) {
+            // Adapter turning off (IllegalStateException), or a Bluetooth stack that rejects the extended settings.
+            Log.w(TAG, "BLE scan failed to start (extended: $extended)", e); false
         }
+
+        scanning = begin()
+        if (!scanning && extended) { extended = false; scanning = begin() }
+        if (!scanning) return
+        Prefs.setBleExtendedRunning(context, extended)
         try {
             // Same intensity as the main scan: this is the only scan Android keeps running with
             // the screen off, so a lower duty cycle here is where passing devices get missed.
@@ -119,6 +127,7 @@ class BleScanEngine(
                 // Adapter already turned off (IllegalStateException) or permission revoked.
             }
         }
+        if (extended) { extended = false; Prefs.setBleExtendedRunning(context, false) }
         if (filteredScanning) {
             try { scanner?.stopScan(filteredCallback) } catch (e: Exception) {}
         }
@@ -165,5 +174,13 @@ class BleScanEngine(
 
     companion object {
         private const val TAG = "BleScanEngine"
+
+        /** The phone's Bluetooth stopped during an extended scan ([why]): the second time on this Android build, ordinary scans only. */
+        fun strike(context: Context, why: String) {
+            val n = Prefs.addBleExtendedStrike(context)
+            Log.w(TAG, "Extended scan strike $n: $why")
+            if (n == 2) CrashLog.note(context, "Bluetooth: $why during the extended (long-range) scan, twice. The phone's " +
+                "Bluetooth may not handle it: using the ordinary scan until Android is updated.")
+        }
     }
 }

@@ -103,6 +103,8 @@ class ScanForegroundService : Service() {
 
         /** Android downgrades an unfiltered BLE scan to opportunistic after ~30 min; restart before. */
         private const val BLE_RESTART_INTERVAL_MS = 25 * 60 * 1000L
+        /** Bluetooth back on this soon after it went off: Android restarting it after a crash, not you turning it off. */
+        private const val BT_RESTART_MS = 15_000L
         /** Watchdog: a scanner silent this long is restarted. */
         private const val BLE_SILENCE_MS = 2 * 60_000L
         /** After the screen comes on, the unfiltered BLE scan should be delivering again within this long. */
@@ -312,12 +314,23 @@ class ScanForegroundService : Service() {
     private val alprLastDistance = HashMap<String, Double>()
     private val alprLastAlert = HashMap<String, Long>()
 
+    /** When Bluetooth went off during an extended scan; 0 when it didn't. */
+    private var btDroppedAt = 0L
+
     /** Starts BLE scanning if the user turns Bluetooth on after the service started. */
     private val btStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)) {
-                BluetoothAdapter.STATE_ON -> if (Prefs.bleEnabled(context)) startBle()
-                BluetoothAdapter.STATE_TURNING_OFF, BluetoothAdapter.STATE_OFF -> stopBle() // its periodic restart too
+                BluetoothAdapter.STATE_ON -> {
+                    // Off and straight back on during an extended scan: Android restarting its crashed Bluetooth.
+                    if (System.currentTimeMillis() - btDroppedAt < BT_RESTART_MS) BleScanEngine.strike(context, "Bluetooth restarted")
+                    btDroppedAt = 0L
+                    if (Prefs.bleEnabled(context)) startBle()
+                }
+                BluetoothAdapter.STATE_TURNING_OFF, BluetoothAdapter.STATE_OFF -> {
+                    if (bleEngine.extended) btDroppedAt = System.currentTimeMillis()
+                    stopBle() // its periodic restart too
+                }
             }
         }
     }
