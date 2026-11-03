@@ -1458,7 +1458,7 @@ class SettingsActivity : AppCompatActivity() {
         })
         box.addView(infoRow(choiceRow("Listen to P25 voice", listOf("Off", "Watched talkgroups", "All clear calls"), Prefs.p25Listen(this)) {
             Prefs.setP25Listen(this, it)
-        }, "Plays clear (not encrypted) P25 calls as they happen, through the speaker, headphones or car like other audio. " +
+        }, "Experimental. Plays clear (not encrypted) P25 calls as they happen, through the speaker, headphones or car like other audio. " +
             "The SDR leaves the control channel for the call and misses its messages meanwhile: one call at a time, at most " +
             "2 minutes each. Watched talkgroups: only those in Watch these talkgroups. Mute on the P25 talkgroups screen pauses it. " +
             "Encrypted calls can't be played. Listening to radio calls is not allowed everywhere, and some places forbid it in " +
