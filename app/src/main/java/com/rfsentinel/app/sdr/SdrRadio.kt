@@ -74,12 +74,15 @@ object SdrRadio {
     /** The scan whose turn it is now; null when none is ticked. */
     @Volatile var mode: Mode? = null; private set
     @Volatile private var turnEnd = 0L
+    /** The scans that get turns: P25 alone while a talkgroup is held ([p25Hold]). */
+    private val active get() = if (p25Hold != null) setOf(Mode.P25) else modes
     /** [m] keeps the SDR: its turn, still ticked, and the waterfall not zoomed in. */
-    private fun keeps(m: Mode) = mode == m && m in modes && tuneHz == null && (modes.size == 1 || System.currentTimeMillis() < turnEnd)
+    private fun keeps(m: Mode) = mode == m && m in active && tuneHz == null && (active.size == 1 || System.currentTimeMillis() < turnEnd)
     /** The scan after the current one, round the ticked ones. */
-    private fun next(): Mode? = Mode.entries.filter { it in modes }.let { l -> l.firstOrNull { it.ordinal > (mode?.ordinal ?: -1) } ?: l.firstOrNull() }
-    /** " · ADS-B in 40 s" while taking turns, for the status line. */
+    private fun next(): Mode? = Mode.entries.filter { it in active }.let { l -> l.firstOrNull { it.ordinal > (mode?.ordinal ?: -1) } ?: l.firstOrNull() }
+    /** " · ADS-B in 40 s" while taking turns, or " · holding talkgroup 1234", for the status line. */
     private fun turnNote(): String {
+        p25Hold?.let { return " · holding talkgroup $it" }
         if (modes.size < 2) return ""
         val left = ((turnEnd - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
         return " · ${next()?.label} in $left s"
@@ -107,6 +110,16 @@ object SdrRadio {
     @Volatile var p25Watched: Set<Int> = emptySet()
     /** P25 talkgroups › Mute: no call is played, the SDR stays on the control channel. */
     @Volatile var p25Mute = false
+    /**
+     * P25 talkgroups › Hold: only this talkgroup's clear calls play (whatever Listen is set to, with no length limit),
+     * the SDR stays on P25 (no sweep or ADS-B turns), and recordings pause; the input check stays on for its calls.
+     * Until released (null) or scanning stops.
+     */
+    @Volatile var p25Hold: Int? = null
+        set(tg) {
+            field = tg
+            if (tg != null) onAircraft?.invoke(emptyList(), emptyList()) // no ADS-B while held
+        }
     /** The call playing now (the P25 screen marks it), or null. */
     @Volatile var p25Playing: P25History.Call? = null; private set
     private var speaker: android.media.AudioTrack? = null
@@ -167,6 +180,7 @@ object SdrRadio {
         halt("")
         onEvent = null
         tuneHz = null
+        p25Hold = null
     }
 
     @Synchronized
@@ -296,14 +310,14 @@ object SdrRadio {
         while (!halted && !sdr.lost && !gone(name)) {
             if (tuneHz != null) { runTuned(sdr, name); tuned = true; continue }
             // Back from the waterfall: the scan it interrupted gets its turn again, not the next one.
-            val m = mode?.takeIf { tuned && it in modes } ?: next()
+            val m = mode?.takeIf { tuned && it in active } ?: next()
             tuned = false
             if (m == null) {
                 mode = null
                 status = "$deviceLabel · idle: no scan ticked in Settings › RTL-SDR radio"
                 Thread.sleep(500); continue
             }
-            if (modes.size > 1) UsbWifi.log("$deviceLabel: turn: ${m.label} for ${turnMs / 1000} s")
+            if (active.size > 1) UsbWifi.log("$deviceLabel: turn: ${m.label} for ${turnMs / 1000} s")
             mode = m; turnEnd = System.currentTimeMillis() + turnMs
             when (m) {
                 Mode.SWEEP -> runSweep(sdr, name)
@@ -379,7 +393,7 @@ object SdrRadio {
             }
         }
         // Only its turn ended: the aircraft stay listed until they go stale, and come back on the next turn.
-        if (Mode.ADSB !in modes) onAircraft?.invoke(emptyList(), emptyList())
+        if (Mode.ADSB !in active) onAircraft?.invoke(emptyList(), emptyList())
         UsbWifi.log("$deviceLabel: ADS-B receiver stopped after $messages messages")
     }
 
@@ -515,16 +529,18 @@ object SdrRadio {
                 for (tg in p25Log.add(it, now)) onP25Call?.invoke(tg)
                 val calls = p25Log.takeCalls()
                 appContext?.let { c -> P25History.append(c, calls) }
+                val hold = p25Hold
                 if (p25Inputs && pending == null && now - lastInput >= INPUT_GAP_MS) {
-                    calls.lastOrNull { it.source != null && it.channel != null }?.let { c ->
+                    calls.lastOrNull { it.source != null && it.channel != null && (hold == null || it.tg == hold) }?.let { c ->
                         p25Log.inputHz(c.channel!!)?.let { hz -> pending = c to hz; lastInput = now }
                     }
                 }
                 val listen = p25Listen
-                if (listen != Listen.OFF && !p25Mute && toFollow == null) {
-                    calls.lastOrNull { !it.encrypted && it.hz != null && (listen == Listen.ALL || it.tg in p25Watched) }?.let { toFollow = it }
+                if ((listen != Listen.OFF || hold != null) && !p25Mute && toFollow == null) {
+                    calls.lastOrNull { !it.encrypted && it.hz != null && (if (hold != null) it.tg == hold else listen == Listen.ALL || it.tg in p25Watched) }
+                        ?.let { toFollow = it }
                 }
-                if (p25Record && toRecord == null && now - lastRecord >= RECORD_GAP_MS) {
+                if (p25Record && hold == null && toRecord == null && now - lastRecord >= RECORD_GAP_MS) {
                     calls.lastOrNull { !it.encrypted && it.hz != null && it !== toFollow }?.let { toRecord = it; lastRecord = now }
                 }
                 if (now - lastStatus >= 2_000L && !halted) { lastStatus = now; status = "$deviceLabel · P25 · control channel $where · $messages messages" + turnNote() }
@@ -540,7 +556,8 @@ object SdrRadio {
     }
 
     /**
-     * Plays [call] live from its voice channel until it ends, goes quiet, or listening stops ([FOLLOW_MAX_MS] at most);
+     * Plays [call] live from its voice channel until it ends, goes quiet, or listening stops ([FOLLOW_MAX_MS] at most,
+     * unless its talkgroup is held);
      * false when no voice was heard. Frequency kept off the log.
      */
     private fun followCall(sdr: SdrDevice, call: P25History.Call, stop: () -> Boolean): Boolean {
@@ -563,8 +580,10 @@ object SdrRadio {
         val start = System.currentTimeMillis()
         var fails = 0
         try {
-            while (!stop() && !p25Mute && p25Listen != Listen.OFF && !follow.ended && fails < STALL_CHUNKS &&
-                follow.quietS < (if (follow.frames == 0) FOLLOW_START_S else FOLLOW_QUIET_S) && System.currentTimeMillis() - start < FOLLOW_MAX_MS) {
+            while (!stop() && !p25Mute && !follow.ended && fails < STALL_CHUNKS &&
+                follow.quietS < (if (follow.frames == 0) FOLLOW_START_S else FOLLOW_QUIET_S)) {
+                val hold = p25Hold
+                if (if (hold != null) hold != call.tg else p25Listen == Listen.OFF || System.currentTimeMillis() - start >= FOLLOW_MAX_MS) break
                 val n = sdr.read(buf)
                 if (n <= 0) { fails++; continue }
                 fails = 0 // stalls in a row end it, not stalls over a long call

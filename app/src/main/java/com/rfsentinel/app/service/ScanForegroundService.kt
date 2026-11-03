@@ -1289,7 +1289,8 @@ class ScanForegroundService : Service() {
                 val devices = DeviceRegistry.snapshot()
                 val flagged = devices.count { d -> com.rfsentinel.app.ui.LiveWindow.alerting(d) }
                 val text = "${devices.size} device${if (devices.size == 1) "" else "s"} nearby" +
-                    if (flagged > 0) " · $flagged flagged" else ""
+                    (if (flagged > 0) " · $flagged flagged" else "") +
+                    (com.rfsentinel.app.sdr.SdrRadio.p25Hold?.let { " · holding P25 talkgroup $it" } ?: "")
                 NotificationHelper.updateServiceNotification(this@ScanForegroundService, text)
                 StatusWidget.updateAll(this@ScanForegroundService, devices.size, flagged)
                 runCatching { TripRecorder.flush(this@ScanForegroundService) }

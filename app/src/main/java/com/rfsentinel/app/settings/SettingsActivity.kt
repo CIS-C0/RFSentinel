@@ -1523,7 +1523,7 @@ class SettingsActivity : AppCompatActivity() {
             Prefs.setP25Listen(this, it)
         }, "Experimental. Plays clear (not encrypted) P25 calls as they happen, through the speaker, headphones or car like other audio. " +
             "The SDR leaves the control channel for the call and misses its messages meanwhile: one call at a time, at most " +
-            "2 minutes each. Watched talkgroups: only those in Watch these talkgroups. Mute on the P25 talkgroups screen pauses it. " +
+            "2 minutes each. Watched talkgroups: only those in Watch these talkgroups. Mute on the P25 talkgroups screen pauses it; Hold there (or tapping a talkgroup) plays only that talkgroup and keeps the SDR on P25 until Release. " +
             "Encrypted calls can't be played. Listening to radio calls is not allowed everywhere, and some places forbid it in " +
             "a vehicle: check the law where you are.", "Listen to P25 voice"))
         val talkgroupViews = (box.childCount - 9 until box.childCount).map { box.getChildAt(it) }
