@@ -13,6 +13,7 @@ The RF Sentinel website is served by **GitHub Pages** from the `docs/` folder of
 | `site/pages/*.html` | Page sources: a metadata comment + the page body (no `<head>`, header or footer) |
 | `tools/build_site.py` | Build script: shared template (head, nav, header, community tiles, footer, scripts), structured data, sitemap, link checker |
 | `docs/*.html` | Built pages (output, committed) |
+| `docs/assets/site.js` | Shared Q&A deep links and latest-release download links |
 | `docs/assets/style.css` | The only stylesheet (hand-written, edit directly) |
 | `docs/assets/fonts/` | Share Tech Mono, self-hosted (SIL OFL 1.1, `OFL.txt` must stay next to it) |
 | `docs/assets/og.png` | 1280×640 social preview image (link cards) |
@@ -133,9 +134,9 @@ Every question, on `qa.html` or any guide page, uses exactly this markup:
 
 ## Template changes
 
-Header, nav, Discord / GitHub buttons, the community tiles, footer, `<head>`
-tags and scripts are in `TEMPLATE` in `tools/build_site.py`. It's a Python
-`str.format` string: literal braces in it (the JS) are doubled `{{ }}`.
+Header, nav, Discord / GitHub buttons, the community tiles, footer and `<head>`
+tags are in `TEMPLATE` in `tools/build_site.py`. It's a Python `str.format`
+string. Shared browser behavior is in `docs/assets/site.js`.
 `BASE`, `REPO`, `RELEASES` and `DISCORD` are constants at the top.
 
 ## GitHub Pages configuration

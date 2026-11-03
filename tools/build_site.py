@@ -132,33 +132,7 @@ TEMPLATE = """<!doctype html>
     No cookies, no analytics, no trackers on this site.</p>
   </div>
 </footer>
-<script>
-// A link to a question (qa.html#detect-flock) opens its answer.
-(function () {{
-  function openHash() {{
-    var el = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
-    if (el && el.tagName === "DETAILS") {{ el.open = true; el.scrollIntoView(); }}
-  }}
-  openHash();
-  window.addEventListener("hashchange", openHash);
-}})();
-// Latest release: version label and a direct link to the signed APK. Falls back to the releases page.
-(function () {{
-  var els = document.querySelectorAll("[data-apk]");
-  if (!els.length || !window.fetch) return;
-  fetch("https://api.github.com/repos/CIS-C0/RFSentinel/releases/latest")
-    .then(function (r) {{ return r.ok ? r.json() : null; }})
-    .then(function (rel) {{
-      if (!rel) return;
-      var apk = (rel.assets || []).filter(function (a) {{ return /-release\\.apk$/.test(a.name); }})[0];
-      els.forEach(function (el) {{
-        if (apk) el.href = apk.browser_download_url;
-        var v = el.querySelector("[data-version]");
-        if (v) v.textContent = rel.tag_name;
-      }});
-    }}).catch(function () {{}});
-}})();
-</script>
+<script src="{rel}assets/site.js"></script>
 </body>
 </html>
 """
@@ -194,13 +168,12 @@ def app_version():
 
 
 def build():
-    pages = sorted(f for f in os.listdir(SRC) if f.endswith(".html"))
+    pages = {name: open(os.path.join(SRC, name), encoding="utf-8").read()
+             for name in sorted(os.listdir(SRC)) if name.endswith(".html")}
     today = datetime.date.today().isoformat()
     errors = []
     sitemap = []
-    names = {p for p in pages}
-    for name in pages:
-        raw = open(os.path.join(SRC, name), encoding="utf-8").read()
+    for name, raw in pages.items():
         m = re.match(r"\s*<!--META (\{.*?\}) -->\s*", raw, re.S)
         if not m:
             errors.append(f"{name}: missing META comment")
@@ -279,23 +252,6 @@ def build():
                 .replace("{{DISCORD}}", DISCORD).replace("{{DOWNLOAD_SVG}}", DOWNLOAD_SVG)
                 .replace("{{DISCORD_SVG}}", DISCORD_SVG).replace("{{GITHUB_SVG}}", GITHUB_SVG))
 
-        # Internal links must exist (pages, anchors on pages, or files in docs/).
-        ids_by_page = {}
-        for href in re.findall(r'(?:href|src)="([^"]+)"', body):
-            if href.startswith(("http", "mailto:", "{", "data:")):
-                continue
-            path, _, anchor = href.partition("#")
-            target = path or name
-            if target in ("", "./"):
-                target = "index.html"
-            if target.endswith(".html") and target in names:
-                if anchor:
-                    tbody = ids_by_page.setdefault(target, open(os.path.join(SRC, target), encoding="utf-8").read())
-                    if f'id="{anchor}"' not in tbody:
-                        errors.append(f"{name}: broken anchor {href}")
-            elif not os.path.exists(os.path.join(OUT, target)):
-                errors.append(f"{name}: broken link {href}")
-
         page = TEMPLATE.format(
             title=html.escape(meta["title"]), description=html.escape(meta["description"]),
             url=url, base=BASE, rel=rel, robots="noindex" if noindex else "index, follow, max-image-preview:large",
@@ -304,6 +260,22 @@ def build():
             discord=DISCORD, repo=REPO, releases=RELEASES,
             discord_svg=DISCORD_SVG, github_svg=GITHUB_SVG,
         )
+        # Internal links must exist (pages, anchors on pages, or files in docs/).
+        for href in re.findall(r'(?:href|src)="([^"]+)"', page):
+            if href.startswith(("http", "mailto:", "{", "data:")):
+                continue
+            path, _, anchor = href.partition("#")
+            target = path or name
+            if target in ("", "./"):
+                target = "index.html"
+            if target.endswith(".html") and target in pages:
+                if anchor:
+                    tbody = page if target == name else pages[target]
+                    if f'id="{anchor}"' not in tbody:
+                        errors.append(f"{name}: broken anchor {href}")
+            elif not os.path.exists(os.path.join(OUT, target)):
+                errors.append(f"{name}: broken link {href}")
+
         open(os.path.join(OUT, name), "w", encoding="utf-8", newline="\n").write(page)
         if not noindex:
             prio = "1.0" if slug == "index" else ("0.9" if slug == "qa" else "0.8")
