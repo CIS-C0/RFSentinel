@@ -255,8 +255,8 @@ class DeviceDetailActivity : AppCompatActivity() {
         }
 
         // Action labels
-        val custom = DeviceActions.watchEntry(mac)
-        binding.actionWatchlist.text = if (custom != null) "Remove from watchlist" else "Add to watchlist"
+        val watched = DeviceActions.watchEntries(mac, s?.name ?: known?.name).isNotEmpty()
+        binding.actionWatchlist.text = if (watched) "Watchlist..." else "Add to watchlist"
         radioHz?.let { hz ->
             // A radio transmission (RTL-SDR / HackRF): found with the waterfall, watched as a frequency.
             binding.locateButton.isEnabled = true // without an SDR it says what it needs
@@ -476,16 +476,8 @@ class DeviceDetailActivity : AppCompatActivity() {
     // ---- Actions --------------------------------------------------------------
 
     private fun onWatchlistAction() {
-        val custom = DeviceActions.watchEntry(mac)
-        if (custom != null) {
-            OuiWatchlist.removeCustomEntry(this, custom.prefix)
-            com.rfsentinel.app.util.Undo.show(this, "Removed ${custom.prefix} from the watchlist") {
-                OuiWatchlist.addCustomEntry(this, custom)
-            }
-        } else {
-            DeviceActions.addToWatchlist(this, mac, DeviceRegistry.get(mac)?.name ?: known?.name,
-                DeviceRegistry.get(mac)?.advert?.isWifi == true)
-        }
+        DeviceActions.watchlistMenu(this, mac, DeviceRegistry.get(mac)?.name ?: known?.name,
+            DeviceRegistry.get(mac)?.advert?.isWifi == true) { refresh() }
     }
 
     private fun share() {

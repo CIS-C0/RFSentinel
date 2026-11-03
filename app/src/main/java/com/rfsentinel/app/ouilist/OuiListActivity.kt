@@ -94,6 +94,8 @@ class OuiListActivity : AppCompatActivity() {
             }
         }
 
+        binding.comboButton.setOnClickListener { com.rfsentinel.app.ui.ComboRuleDialog.show(this) { refresh() } }
+
         refresh()
     }
 

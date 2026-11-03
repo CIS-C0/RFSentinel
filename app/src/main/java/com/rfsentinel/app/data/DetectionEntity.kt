@@ -23,5 +23,7 @@ data class DetectionEntity(
     val vendor: String? = null,
     val deviceName: String? = null,
     /** The radio side in words ("5 GHz · channel 36 · WPA2"), from v2.30 ([com.rfsentinel.app.detect.DeviceIntel.radioSummary]). */
-    val radio: String? = null
+    val radio: String? = null,
+    /** Which radio heard it ("USB WiFi", "ESP32", "Bluetooth", "via Pixel 7"), from v2.34 ([com.rfsentinel.app.esp.HeardBy.tag]). */
+    val heardBy: String? = null
 )

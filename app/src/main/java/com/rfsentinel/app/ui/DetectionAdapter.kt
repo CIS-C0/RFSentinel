@@ -60,7 +60,7 @@ class DetectionAdapter(
         val parts = mutableListOf<String>()
         category?.let { parts += it.shortTag }
         if (item.confidence > 0) parts += "${Tier.of(item.confidence).label} ${item.confidence}%"
-        parts += "${item.source} ${ProximityUtil.band(item.rssi)} ${item.rssi} dBm"
+        parts += "${item.heardBy ?: item.source} ${ProximityUtil.band(item.rssi)} ${item.rssi} dBm"
         item.radio?.let { parts += it }
         parts += fmt.format(Date(item.timestamp))
         if (item.latitude != null) parts += String.format(Locale.US, "📍 %.4f, %.4f", item.latitude, item.longitude)

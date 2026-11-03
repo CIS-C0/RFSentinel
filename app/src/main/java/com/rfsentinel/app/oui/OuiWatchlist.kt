@@ -41,6 +41,8 @@ object OuiWatchlist {
         val fingerprintRules: Map<String, OuiEntry>,
         /** Bluetooth advert-pattern rules keyed by [com.rfsentinel.app.detect.AdvertFingerprint.key]. */
         val advertRules: Map<String, OuiEntry>,
+        /** Rules of several conditions at once ([ComboRule]). */
+        val comboRules: List<Pair<ComboRule, OuiEntry>>,
         val all: List<OuiEntry>
     )
 
@@ -58,7 +60,7 @@ object OuiWatchlist {
         private set
 
     @Volatile
-    private var state = State(emptyMap(), emptyList(), emptyList(), emptyList(), emptyMap(), emptyMap(), emptyMap(), emptyList())
+    private var state = State(emptyMap(), emptyList(), emptyList(), emptyList(), emptyMap(), emptyMap(), emptyMap(), emptyList(), emptyList())
 
     /** Load order: regional presets after "global", so their labels win for shared prefixes. */
     val availablePresets = listOf("global", "canada", "us", "france", "uk", "portugal", "germany", "spain", "italy")
@@ -77,7 +79,7 @@ object OuiWatchlist {
         readCustom(context).forEach { byKey[it.prefix] = it }
         val all = byKey.values.toList()
         state = State(
-            byHex = all.filter { !it.isNameRule && !it.isStartsRule && !it.isVendorRule && !it.isProbeRule && !it.isFingerprintRule && !it.isAdvertRule }
+            byHex = all.filter { !it.isNameRule && !it.isStartsRule && !it.isVendorRule && !it.isProbeRule && !it.isFingerprintRule && !it.isAdvertRule && !it.isComboRule }
                 .associateBy { MacUtil.hex(it.prefix) },
             nameRules = all.filter { it.isNameRule && it.ruleText.isNotEmpty() },
             startsRules = all.filter { it.isStartsRule && it.ruleText.isNotEmpty() },
@@ -85,6 +87,7 @@ object OuiWatchlist {
             probeRules = all.filter { it.isProbeRule && it.ruleText.isNotEmpty() }.associateBy { it.ruleText.lowercase() },
             fingerprintRules = all.filter { it.isFingerprintRule && it.ruleText.isNotEmpty() }.associateBy { it.ruleText.lowercase() },
             advertRules = all.filter { it.isAdvertRule && it.ruleText.isNotEmpty() }.associateBy { it.ruleText.lowercase() },
+            comboRules = all.mapNotNull { e -> if (e.isComboRule) ComboRule.parse(e.prefix)?.let { it to e } else null },
             all = all
         )
         version++
@@ -122,6 +125,7 @@ object OuiWatchlist {
             k.startsWith(OuiEntry.PROBE, ignoreCase = true) -> OuiEntry.PROBE + k.substringAfter(':').trim()
             k.startsWith(OuiEntry.FINGERPRINT, ignoreCase = true) -> OuiEntry.FINGERPRINT + k.substringAfter(':').trim().lowercase()
             k.startsWith(OuiEntry.ADVERT, ignoreCase = true) -> OuiEntry.ADVERT + k.substringAfter(':').trim().lowercase()
+            k.startsWith(ComboRule.PREFIX, ignoreCase = true) -> ComboRule.parse(k)?.key ?: k
             else -> MacUtil.normalize(k)
         }
     }
@@ -187,6 +191,7 @@ object OuiWatchlist {
     /** Valid keys: address prefix (24 to 44 bits), full MAC, or a non-empty name:/starts:/vendor:/probe:/fp:/adv: rule. */
     fun isValidKey(prefix: String): Boolean {
         val k = prefix.trim()
+        if (k.startsWith(ComboRule.PREFIX, true)) return ComboRule.parse(k) != null
         if (k.startsWith(OuiEntry.NAME, true) || k.startsWith(OuiEntry.STARTS, true) || k.startsWith(OuiEntry.VENDOR, true) ||
             k.startsWith(OuiEntry.PROBE, true) || k.startsWith(OuiEntry.FINGERPRINT, true) || k.startsWith(OuiEntry.ADVERT, true)) {
             return k.substringAfter(':').isNotBlank()
@@ -249,6 +254,10 @@ object OuiWatchlist {
     }
 
     fun isAdvertWatched(key: String): Boolean = key.lowercase() in state.advertRules
+
+    /** Hits for your rules of several conditions ([ComboRule]) that all hold for a device. */
+    fun comboHits(f: ComboRule.Facts): List<Hit> =
+        state.comboRules.filter { it.first.matches(f) }.map { (rule, e) -> e.toHit("Matches every condition: ${rule.describe()}") }
 
     /** Watchlist name / maker rules against what a device's WPS block names. */
     fun wpsHits(wps: com.rfsentinel.app.usb.ProbeIntel.Wps?): List<Hit> =

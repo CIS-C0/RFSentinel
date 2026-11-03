@@ -1068,6 +1068,9 @@ class SettingsActivity : AppCompatActivity() {
             "a Bluetooth dongle, or a combo adapter with WiFi and Bluetooth (MT7921AU, Realtek). It only listens for " +
             "advertisements, never connects. On a combo adapter WiFi and Bluetooth share the antennas. Off: only the phone's " +
             "Bluetooth scans.")
+        info(binding.linkSaveSwitch, "On: what a linked Sentinel hears is saved in this phone's History too, where that " +
+            "Sentinel was, tagged \"via\" and its name. Off: it still shows live here, but only the Sentinel that heard it keeps it. " +
+            "Either way each phone keeps its own History: nothing is merged later.")
         info(binding.rtl5gSwitch, "For RTL8811AU / RTL8821AU adapters such as the ALFA AWUS036ACS. Experimental.")
         info(binding.usbLightSwitch, "For RTL8811AU / RTL8821AU adapters such as the ALFA AWUS036ACS: the light blinks with received traffic.")
         info(binding.traceEveryPingSwitch, "A trace normally places each device once, where its signal was strongest. On: it also " +
@@ -2717,6 +2720,8 @@ class SettingsActivity : AppCompatActivity() {
         binding.ouiSpyButton.setOnClickListener { pairOuiSpy() }
         binding.ouiSpyEnginesButton.setOnClickListener { chooseOuiSpyEngines() }
         binding.linkButton.setOnClickListener { startActivity(Intent(this, com.rfsentinel.app.ui.SentinelLinkActivity::class.java)) }
+        binding.linkSaveSwitch.isChecked = Prefs.saveLinked(this)
+        binding.linkSaveSwitch.setOnCheckedChangeListener { _, on -> Prefs.setSaveLinked(this, on) }
         binding.usbWifiLogButton.setOnClickListener { exportUsbWifiLog() }
         // FOSS build: an adapter waiting for its chip firmware asks to download it.
         binding.usbWifiText.setOnClickListener { com.rfsentinel.app.usb.FirmwarePrompt.show(this) { updateEspStatus() } }

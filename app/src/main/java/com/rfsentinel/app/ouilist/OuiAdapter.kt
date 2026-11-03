@@ -39,6 +39,7 @@ class OuiAdapter(
             item.isProbeRule -> "Asks for network \"${item.ruleText}\""
             item.isFingerprintRule -> "Probe fingerprint ${item.ruleText}"
             item.isAdvertRule -> "Bluetooth advert pattern ${item.ruleText}"
+            item.isComboRule -> com.rfsentinel.app.oui.ComboRule.parse(item.prefix)?.describe() ?: item.prefix
             else -> item.prefix
         }
         holder.binding.labelText.text = item.label

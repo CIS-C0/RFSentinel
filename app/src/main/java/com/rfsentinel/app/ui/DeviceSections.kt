@@ -79,12 +79,14 @@ object DeviceSections {
         if (s == null) pastMatches.firstOrNull { it.source == "BLE" || it.source == "WIFI" }?.let { m ->
             // The radio side as saved with its last match.
             id += "Radio" to (if (m.source == "BLE") "Bluetooth LE" else "WiFi") + (m.radio?.let { " · $it" } ?: "")
+            m.heardBy?.let { id += "Heard by" to it }
         }
         if (s != null) {
             id += "Address type" to s.addressType.label
             id += "Trackability" to s.addressType.trackability(known?.firstSeen, known?.lastSeen, known?.sessions ?: 0,
                 DeviceRegistry.linkedFrom(mac) != null)
             id += "Radio" to s.sources.joinToString(" + ") { if (it == Advert.Source.BLE) "Bluetooth LE" else "WiFi" }
+            id += "Heard by" to com.rfsentinel.app.esp.HeardBy.tag(mac, s.source)
         }
         a?.connectable?.let { id += "Connectable" to if (it) "Yes (accepts connections)" else "No (broadcast only)" }
         a?.phy?.let { id += "PHY" to it }

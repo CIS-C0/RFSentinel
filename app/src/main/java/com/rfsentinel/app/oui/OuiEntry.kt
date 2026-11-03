@@ -18,6 +18,7 @@ data class OuiEntry(
      *  - "fp:<8 hex>"          a device whose probe requests have this fingerprint (same model / OS)
      *  - "adv:<8 hex>"         a Bluetooth device whose adverts have this pattern ([com.rfsentinel.app.detect.AdvertFingerprint.key]),
      *                          whatever its address
+     *  - "all:<conditions>"    every one of several conditions at once ([ComboRule])
      */
     val prefix: String,
     val label: String,
@@ -42,6 +43,7 @@ data class OuiEntry(
     val isProbeRule get() = prefix.startsWith(PROBE, ignoreCase = true)
     val isFingerprintRule get() = prefix.startsWith(FINGERPRINT, ignoreCase = true)
     val isAdvertRule get() = prefix.startsWith(ADVERT, ignoreCase = true)
+    val isComboRule get() = prefix.startsWith(ComboRule.PREFIX, ignoreCase = true)
     val ruleText get() = prefix.substringAfter(':').trim()
 
     val effectiveScore: Int

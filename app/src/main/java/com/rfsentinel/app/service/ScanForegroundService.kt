@@ -775,7 +775,7 @@ class ScanForegroundService : Service() {
         if (WhitelistCache.contains(mac)) return
         if (!com.rfsentinel.app.detect.FixedRouter.quiet(mac, c.hits, Prefs.alertThreshold(this, best.category))) noteLocating(mac)
 
-        maybeLog(a, best, c.vendor, loc, now)
+        maybeLog(a, best, c.vendor, loc, now, via)
         maybeAlert(a, best, c.hits, now, via)
         // Following is about this phone: a device near another Sentinel isn't following it.
         if (via != null) return
@@ -1057,6 +1057,10 @@ class ScanForegroundService : Service() {
         val raw = if (ignored) emptyList() else SignatureEngine.classify(a) +
             OuiWatchlist.hits(a.mac, a.name, listOfNotNull(macVendor) + companyVendors) +
             OuiWatchlist.advertHits(a) +
+            OuiWatchlist.comboHits(com.rfsentinel.app.oui.ComboRule.Facts(a.name, listOfNotNull(macVendor) + companyVendors,
+                com.rfsentinel.app.oui.ComboRule.band(a.isBle, a.wifi?.frequencyMhz),
+                com.rfsentinel.app.usb.ProbeIntel.of(a.mac)?.let { p -> setOfNotNull(p.fingerprint, p.skeleton?.let { com.rfsentinel.app.usb.ProbeIntel.shapeKey(it) }) }.orEmpty(),
+                identity.type, a.rssi)) +
             DeviceRegistry.inheritedHits(a.mac) +
             listOfNotNull(DeviceRegistry.clusterHit(a.mac, now), com.rfsentinel.app.sdr.P25Link.hitFor(a.mac)) +
             espHits[a.mac]?.takeIf { now - it.first < ESP_HIT_TTL_MS }?.second.orEmpty() +
@@ -1076,7 +1080,8 @@ class ScanForegroundService : Service() {
         return Classified(now, hits, named, vendor)
     }
 
-    private fun maybeLog(a: Advert, best: Hit, vendor: String?, loc: Location?, now: Long) {
+    private fun maybeLog(a: Advert, best: Hit, vendor: String?, loc: Location?, now: Long, via: String? = null) {
+        if (via != null && !Prefs.saveLinked(this)) return
         val prevLogged = lastLogged[a.mac] ?: 0L
         if (now - prevLogged < LOG_THROTTLE_MS) return
         lastLogged[a.mac] = now
@@ -1096,7 +1101,8 @@ class ScanForegroundService : Service() {
                     evidence = best.evidence,
                     vendor = vendor,
                     deviceName = a.name,
-                    radio = com.rfsentinel.app.detect.DeviceIntel.radioSummary(a)
+                    radio = com.rfsentinel.app.detect.DeviceIntel.radioSummary(a),
+                    heardBy = via?.let { "via $it" } ?: com.rfsentinel.app.esp.HeardBy.own(a.mac, a.source)
                 )
             )
         }
@@ -1219,7 +1225,11 @@ class ScanForegroundService : Service() {
         lastHistoryFlush = now
         // Forget long-unsaved devices (rotating addresses): one heard again is just saved again.
         detailsSaved.values.removeIf { now - it.first > 2 * DETAILS_SAVE_MS }
-        val seen = DeviceRegistry.summaries(since)
+        // Settings › Sentinel Link: devices only a linked Sentinel heard are saved only when that's on.
+        val saveLinked = Prefs.saveLinked(this)
+        val seen = DeviceRegistry.summaries(since).filter {
+            saveLinked || !com.rfsentinel.app.esp.HeardBy.peer.recent(it.mac) || com.rfsentinel.app.esp.HeardBy.ownRecent(it.mac)
+        }
         if (seen.isEmpty()) return null
         // A page is saved when first heard, when its matches change, and otherwise every few minutes.
         val details = seen.mapNotNull { sum ->
@@ -1523,20 +1533,22 @@ class ScanForegroundService : Service() {
             e.tdma -> "TETRA radio nearby"
             else -> "Radio transmitting nearby"
         } + (via?.let { ", via $it" } ?: "")
-        radioDetection(hit, "RADIO " + e.mhz + " MHz", e.snrDb, detail, now, "radio:" + e.freqHz, spoken, e.confidence >= threshold)
+        radioDetection(hit, "RADIO " + e.mhz + " MHz", e.snrDb, detail, now, "radio:" + e.freqHz, spoken, e.confidence >= threshold, via)
     }
 
     /** A radio [hit] into the detection history (tagged with where you are), and alerted when [alert]. */
-    private fun radioDetection(hit: Hit, mac: String, rssi: Int, evidence: String, now: Long, key: String, spoken: String, alert: Boolean) {
+    private fun radioDetection(hit: Hit, mac: String, rssi: Int, evidence: String, now: Long, key: String, spoken: String, alert: Boolean,
+                               via: String? = null) {
         val loc = lastLocation
         val tag = Prefs.gpsTaggingEnabled(this)
-        serviceScope.launch {
+        if (via == null || Prefs.saveLinked(this)) serviceScope.launch {
             AppDatabase.getInstance(this@ScanForegroundService).detectionDao().insert(
                 DetectionEntity(
                     mac = mac, label = hit.label, source = "SDR", rssi = rssi,
                     timestamp = now,
                     latitude = if (tag) loc?.latitude else null, longitude = if (tag) loc?.longitude else null,
-                    category = hit.category.name, confidence = hit.confidence, evidence = evidence
+                    category = hit.category.name, confidence = hit.confidence, evidence = evidence,
+                    heardBy = via?.let { "via $it" }
                 )
             )
         }

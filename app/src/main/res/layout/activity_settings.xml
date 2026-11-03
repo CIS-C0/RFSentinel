@@ -885,6 +885,12 @@
                 style="@style/SettingsLabel"
                 android:paddingTop="6dp" />
 
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/linkSaveSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Save what linked Sentinels hear" />
+
             <Button
                 android:id="@+id/linkButton"
                 style="@style/Widget.MaterialComponents.Button.TextButton"

@@ -54,22 +54,48 @@ object DeviceActions {
     }
 
     /**
-     * Your own watchlist entry this device is on: its address, else its WPS UUID, probe fingerprint or probe shape.
-     * The device page's button label, its click and the long-press menu all use this, so they agree.
+     * Your own watchlist entries this device is on: its address, its WPS UUID, probe fingerprint or probe shape,
+     * and a name-start rule its [name] matches. The device page's button, its click and the long-press menu all
+     * use this, so they agree.
      */
-    fun watchEntry(mac: String): OuiEntry? {
+    fun watchEntries(mac: String, name: String?): List<OuiEntry> {
         val probe = com.rfsentinel.app.usb.ProbeIntel.of(mac)
-        return OuiWatchlist.customAddressEntry(mac) ?: listOfNotNull(
+        val named = name?.trimStart().orEmpty()
+        return listOfNotNull(OuiWatchlist.customAddressEntry(mac)) + listOfNotNull(
             probe?.wps?.uuid?.let { com.rfsentinel.app.usb.ProbeIntel.uuidKey(it) },
             probe?.fingerprint,
             probe?.skeleton?.let { com.rfsentinel.app.usb.ProbeIntel.shapeKey(it) }
-        ).firstNotNullOfOrNull { OuiWatchlist.customEntry(OuiEntry.FINGERPRINT + it) }
+        ).mapNotNull { OuiWatchlist.customEntry(OuiEntry.FINGERPRINT + it) } +
+            if (named.isEmpty()) emptyList() else OuiWatchlist.allEntries().filter {
+                it.isCustom && it.isStartsRule && named.startsWith(it.ruleText, ignoreCase = true)
+            }
+    }
+
+    /** Takes [entry] off the watchlist, with Undo. */
+    fun removeWatch(activity: AppCompatActivity, entry: OuiEntry) {
+        OuiWatchlist.removeCustomEntry(activity, entry.prefix)
+        com.rfsentinel.app.util.Undo.show(activity, "Removed ${entry.prefix} from the watchlist") {
+            OuiWatchlist.addCustomEntry(activity, entry)
+        }
+    }
+
+    /** A device already on the watchlist: take it off one of the ways it is on, or add another way. */
+    fun watchlistMenu(activity: AppCompatActivity, mac: String, name: String?, wifi: Boolean, done: () -> Unit = {}) {
+        val entries = watchEntries(mac, name)
+        if (entries.isEmpty()) { addToWatchlist(activity, mac, name, wifi); return }
+        val items = entries.map { "Remove: ${it.label} (${it.prefix})" } + "Add another way..."
+        MaterialAlertDialogBuilder(activity)
+            .setTitle("Watchlist")
+            .setItems(items.toTypedArray()) { _, which ->
+                if (which < entries.size) { removeWatch(activity, entries[which]); done() } else addToWatchlist(activity, mac, name, wifi)
+            }
+            .show()
     }
 
     /** Long-press menu. */
     fun showQuickActions(activity: AppCompatActivity, mac: String) {
         val snap = DeviceRegistry.get(mac)
-        val custom = watchEntry(mac)
+        val watched = watchEntries(mac, snap?.name)
         val whitelisted = WhitelistCache.inTable(mac)
         val ignoredTracker = com.rfsentinel.app.data.TrackerMutes.isMuted(mac)
         // Trackers that change their address can't be whitelisted: offer ignoring instead.
@@ -78,15 +104,9 @@ object DeviceActions {
         val favorite = Favorites.contains(mac)
         val items = mutableListOf<Pair<String, () -> Unit>>()
         items += "Show details" to { openDetails(activity, mac) }
-        if (custom != null) {
-            items += "Remove from watchlist (${custom.prefix})" to {
-                OuiWatchlist.removeCustomEntry(activity, custom.prefix)
-                com.rfsentinel.app.util.Undo.show(activity, "Removed from watchlist") {
-                    OuiWatchlist.addCustomEntry(activity, custom)
-                }
-            }
-        } else {
-            items += "Add to watchlist..." to { addToWatchlist(activity, mac, snap?.name, snap?.advert?.isWifi == true) }
+        watched.forEach { e -> items += "Remove from watchlist (${e.prefix})" to { removeWatch(activity, e) } }
+        items += (if (watched.isEmpty()) "Add to watchlist..." else "Add to watchlist another way...") to {
+            addToWatchlist(activity, mac, snap?.name, snap?.advert?.isWifi == true)
         }
         val trustedName = !whitelisted && TrustedNetworks.contains(mac)
         when {
@@ -222,6 +242,15 @@ object DeviceActions {
             b.startsInput.visibility = if (id == b.scopeStarts.id) View.VISIBLE else View.GONE
             if (id == b.scopeStarts.id) b.startsInput.requestFocus()
         }
+        // Ways it is already watched can't be added twice: greyed out, and the first free way is picked.
+        listOfNotNull(b.scopeDevice to mac, uuid?.let { b.scopeUuid to OuiEntry.FINGERPRINT + it },
+            shape?.let { b.scopeShape to OuiEntry.FINGERPRINT + it }, fp?.let { b.scopeFingerprint to OuiEntry.FINGERPRINT + it })
+            .filter { (_, key) -> OuiWatchlist.customEntry(key) != null }
+            .forEach { (button, _) -> button.isEnabled = false; button.isChecked = false; button.text = "${button.text}\nAlready on your watchlist" }
+        if (b.scopeGroup.checkedRadioButtonId == View.NO_ID) {
+            listOf(b.scopeUuid, b.scopeFingerprint, b.scopeShape, b.scopeStarts, b.scopePrefix)
+                .firstOrNull { it.isEnabled && it.visibility == View.VISIBLE }?.let { b.scopeGroup.check(it.id) }
+        }
         b.labelInput.setText(name ?: "")
         MaterialAlertDialogBuilder(activity)
             .setTitle("Add to watchlist")
@@ -240,6 +269,9 @@ object DeviceActions {
                     byShape -> OuiEntry.FINGERPRINT + shape; byFingerprint -> OuiEntry.FINGERPRINT + fp
                     wholePrefix -> MacUtil.prefix(mac, digits); else -> mac
                 }
+                if (b.scopeGroup.checkedRadioButtonId == View.NO_ID || OuiWatchlist.customEntry(key) != null) {
+                    toast(activity, "Already on your watchlist: $key"); return@setPositiveButton
+                }
                 // The label box holds the device's own full name: for a name prefix, say what is watched instead.
                 val typed = b.labelInput.text.toString().trim().takeUnless { byStart && it == named }.orEmpty()
                 val label = typed.ifEmpty {
@@ -254,7 +286,17 @@ object DeviceActions {
                 toast(activity, "Added $key to the watchlist")
             }
             .setNegativeButton("Cancel", null)
+            .setNeutralButton("Custom rule...") { _, _ -> ComboRuleDialog.show(activity, facts(mac), name) }
             .show()
+    }
+
+    /** This device's values for a custom rule ([ComboRuleDialog]). */
+    private fun facts(mac: String): com.rfsentinel.app.oui.ComboRule.Facts? {
+        val s = DeviceRegistry.get(mac) ?: return null
+        val probe = com.rfsentinel.app.usb.ProbeIntel.of(mac)
+        return com.rfsentinel.app.oui.ComboRule.Facts(s.name, listOfNotNull(s.vendor),
+            com.rfsentinel.app.oui.ComboRule.band(s.source == com.rfsentinel.app.detect.Advert.Source.BLE, s.advert?.wifi?.frequencyMhz),
+            setOfNotNull(probe?.fingerprint, probe?.skeleton?.let { com.rfsentinel.app.usb.ProbeIntel.shapeKey(it) }), s.deviceType, s.rssi)
     }
 
     /**

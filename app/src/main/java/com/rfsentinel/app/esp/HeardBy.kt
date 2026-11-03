@@ -67,4 +67,20 @@ object HeardBy {
     val phone = RecentMacs()
     /** Another Sentinel (Sentinel Link). */
     val peer = PeerMacs()
+
+    /** This phone or its own hardware heard [mac] recently. */
+    fun ownRecent(mac: String) = phone.recent(mac) || esp.recent(mac) || usb.recent(mac) || usbBt.recent(mac)
+
+    /** Which of this phone's own radios heard [mac]: a USB adapter, an ESP32 board, or the phone itself. */
+    fun own(mac: String, source: com.rfsentinel.app.detect.Advert.Source): String = when {
+        usb.recent(mac) -> "USB WiFi"
+        usbBt.recent(mac) -> "USB Bluetooth"
+        esp.recent(mac) -> "ESP32"
+        source == com.rfsentinel.app.detect.Advert.Source.WIFI -> "WiFi"
+        else -> "Bluetooth"
+    }
+
+    /** Which radio heard [mac]: one of this phone's own, else the linked Sentinel ("via Pixel 7"). The list, the car and History share it. */
+    fun tag(mac: String, source: com.rfsentinel.app.detect.Advert.Source): String =
+        peer.via(mac)?.takeIf { !ownRecent(mac) }?.let { "via $it" } ?: own(mac, source)
 }

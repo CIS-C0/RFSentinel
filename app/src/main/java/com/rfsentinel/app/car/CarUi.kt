@@ -95,15 +95,7 @@ object CarUi {
     }
 
     /** Which radio heard it: an ESP32 board, a USB WiFi or Bluetooth adapter, a linked Sentinel, or the phone (Bluetooth / WiFi). */
-    fun sourceTag(s: DeviceRegistry.Snapshot): String = when {
-        com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac) -> "USB WiFi"
-        com.rfsentinel.app.esp.HeardBy.usbBt.recent(s.mac) -> "USB Bluetooth"
-        com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac) -> "ESP32"
-        !com.rfsentinel.app.esp.HeardBy.phone.recent(s.mac) && com.rfsentinel.app.esp.HeardBy.peer.recent(s.mac) ->
-            "via " + com.rfsentinel.app.esp.HeardBy.peer.via(s.mac)
-        s.source == com.rfsentinel.app.detect.Advert.Source.WIFI -> "WiFi"
-        else -> "Bluetooth"
-    }
+    fun sourceTag(s: DeviceRegistry.Snapshot): String = com.rfsentinel.app.esp.HeardBy.tag(s.mac, s.source)
 
     /** Which radio heard it first (the line above can be cut off), then signal, distance and age. */
     fun signalLine(s: DeviceRegistry.Snapshot, now: Long = System.currentTimeMillis()): String =
