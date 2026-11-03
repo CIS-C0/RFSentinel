@@ -3,6 +3,7 @@ package com.rfsentinel.app.ui
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.rfsentinel.app.data.DetectionEntity
 import com.rfsentinel.app.databinding.ItemDetectionBinding
@@ -16,25 +17,14 @@ import java.util.Locale
 class DetectionAdapter(
     private val onClick: (DetectionEntity) -> Unit,
     private val onLongClick: ((DetectionEntity) -> Unit)? = null
-) : RecyclerView.Adapter<DetectionAdapter.VH>() {
+) : ListAdapter<DetectionEntity, DetectionAdapter.VH>(object : DiffUtil.ItemCallback<DetectionEntity>() {
+    override fun areItemsTheSame(a: DetectionEntity, b: DetectionEntity) =
+        if (a.id == 0L && b.id == 0L) a.mac == b.mac else a.id == b.id
+    override fun areContentsTheSame(a: DetectionEntity, b: DetectionEntity) = a == b
+}) {
 
-    private var items: List<DetectionEntity> = emptyList()
     /** "Oct 3, 2026, 10:21:05 AM": a numeric date like 10/3/26 is read as 10 March in much of the world. */
     private val fmt get() = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.MEDIUM)
-
-    fun submitList(newItems: List<DetectionEntity>) {
-        val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
-            override fun getOldListSize() = items.size
-            override fun getNewListSize() = newItems.size
-            override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int) =
-                items[oldItemPosition].id == newItems[newItemPosition].id
-
-            override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int) =
-                items[oldItemPosition] == newItems[newItemPosition]
-        })
-        items = newItems
-        diff.dispatchUpdatesTo(this)
-    }
 
     inner class VH(val binding: ItemDetectionBinding) : RecyclerView.ViewHolder(binding.root)
 
@@ -44,7 +34,7 @@ class DetectionAdapter(
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) {
-        val item = items[position]
+        val item = getItem(position)
         val category = Category.parse(item.category)
         holder.binding.labelText.text = item.label
         holder.binding.labelText.setTextColor(
@@ -68,6 +58,4 @@ class DetectionAdapter(
         holder.itemView.setOnClickListener { onClick(item) }
         holder.itemView.setOnLongClickListener(onLongClick?.let { f -> android.view.View.OnLongClickListener { f(item); true } })
     }
-
-    override fun getItemCount() = items.size
 }
