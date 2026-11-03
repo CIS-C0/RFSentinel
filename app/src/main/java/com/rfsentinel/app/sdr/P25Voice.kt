@@ -164,4 +164,13 @@ object P25Voice {
         while (k + 4 <= end) { demod.feedChannel(b.getShort(k).toDouble(), b.getShort(k + 2).toDouble()); k += 4 }
         return Decoded(frames, demod.syncs)
     }
+
+    /** A call's speech as a WAV (8 kHz mono, 20 ms per codeword); empty when any of it is encrypted. */
+    fun speechWav(frames: List<Frame>): ByteArray {
+        if (frames.isEmpty() || frames.any { it.encrypted }) return ByteArray(0)
+        val imbe = ImbeDecoder()
+        val b = java.nio.ByteBuffer.allocate(frames.sumOf { it.voice.size } * ImbeDecoder.N * 2).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        for (f in frames) for (v in f.voice) for (s in imbe.decode(v.bits, v.errors)) b.putShort(s)
+        return P25Record.header(b.capacity(), 1, ImbeDecoder.RATE) + b.array()
+    }
 }

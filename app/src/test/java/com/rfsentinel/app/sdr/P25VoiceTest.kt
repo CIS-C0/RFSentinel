@@ -104,5 +104,8 @@ class P25VoiceTest {
             assertArrayEquals(v2[i], out.frames[1].voice[i].bits)
         }
         assertEquals(P25Voice.ALGID_CLEAR, out.frames[1].algid)
+        // 18 codewords of 20 ms each, as 8 kHz mono.
+        assertEquals(44 + 18 * ImbeDecoder.N * 2, P25Voice.speechWav(out.frames).size)
+        assertEquals(0, P25Voice.speechWav(listOf(P25Voice.decode(ldu(P25Voice.DUID_LDU2, v1, algid = 0x84))!!)).size)
     }
 }

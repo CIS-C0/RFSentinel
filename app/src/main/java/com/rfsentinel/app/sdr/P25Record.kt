@@ -63,11 +63,12 @@ object P25Record {
         fun wav(): ByteArray = out.toByteArray().let { header(it.size) + it }
     }
 
-    /** A 44-byte PCM WAV header: 2 channels, 16 bits, [RATE]. */
-    internal fun header(dataBytes: Int): ByteArray {
+    /** A 44-byte PCM WAV header, 16 bits: by default 2 channels at [RATE]. */
+    internal fun header(dataBytes: Int, channels: Int = 2, rate: Int = RATE): ByteArray {
         val b = java.nio.ByteBuffer.allocate(44).order(java.nio.ByteOrder.LITTLE_ENDIAN)
         b.put("RIFF".toByteArray()).putInt(36 + dataBytes).put("WAVE".toByteArray())
-        b.put("fmt ".toByteArray()).putInt(16).putShort(1).putShort(2).putInt(RATE).putInt(RATE * 4).putShort(4).putShort(16)
+        b.put("fmt ".toByteArray()).putInt(16).putShort(1).putShort(channels.toShort()).putInt(rate)
+            .putInt(rate * 2 * channels).putShort((2 * channels).toShort()).putShort(16)
         b.put("data".toByteArray()).putInt(dataBytes)
         return b.array()
     }

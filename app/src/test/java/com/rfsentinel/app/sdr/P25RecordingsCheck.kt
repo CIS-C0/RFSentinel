@@ -14,7 +14,7 @@ class P25RecordingsCheck {
     fun decodeRecordedCalls() {
         val dir = System.getenv("P25_REC_DIR")?.let(::File)
         assumeTrue(dir?.isDirectory == true)
-        for (f in dir!!.listFiles { x -> x.name.endsWith(".wav") }.orEmpty().sortedBy { it.name }) {
+        for (f in dir!!.listFiles { x -> x.isFile && x.name.endsWith(".wav") }.orEmpty().sortedBy { it.name }) {
             val out = P25Voice.decodeRecording(f.readBytes())
             val words = out.frames.flatMap { it.voice }
             val errors = words.sumOf { it.errors }
@@ -22,6 +22,9 @@ class P25RecordingsCheck {
                 "${out.frames.count { it.nid.duid == P25Voice.DUID_LDU1 }} LDU1), ${words.size} codewords, " +
                 "%.2f bit errors each, algid ${out.frames.mapNotNull { it.algid }.distinct().joinToString { "%02X".format(it) }}"
                     .format(java.util.Locale.US, if (words.isEmpty()) 0.0 else errors.toDouble() / words.size))
+            // The speech, to listen to: next to the recordings, still outside the repository.
+            val speech = P25Voice.speechWav(out.frames)
+            if (speech.isNotEmpty()) File(dir, "speech").apply { mkdirs() }.resolve(f.name).writeBytes(speech)
         }
     }
 }
