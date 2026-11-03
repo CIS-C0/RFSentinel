@@ -528,6 +528,7 @@ object SdrRadio {
                 follow.quietS < (if (follow.frames == 0) FOLLOW_START_S else FOLLOW_QUIET_S) && System.currentTimeMillis() - start < FOLLOW_MAX_MS) {
                 val n = sdr.read(buf)
                 if (n <= 0) { fails++; continue }
+                fails = 0 // stalls in a row end it, not stalls over a long call
                 follow.feed(buf, n / 2)
             }
         } finally { p25Playing = null; out.stop() } // stop: what's buffered still plays
@@ -558,6 +559,7 @@ object SdrRadio {
         while (rec.samples < P25Record.SECONDS * P25Record.RATE && !halted && fails < STALL_CHUNKS) {
             val n = sdr.read(buf)
             if (n <= 0) { fails++; continue }
+            fails = 0
             rec.feed(buf, n / 2)
         }
         if (rec.samples < P25Record.RATE) return false

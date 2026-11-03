@@ -1080,7 +1080,8 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.forgetHistoryButton, "New / returning status, detect counts and the remembered cell towers start over. Favorites are kept.")
         info(binding.openWhitelistButton, "Trusted devices: never flagged, and hidden from the list when you choose.")
         info(binding.ignoredSsidsButton, "WiFi networks whose name contains one of these words are never flagged, " +
-            "for example carriers' home routers (Rogers, Bell) that look like vehicle routers. Matches part of a name, any case.\n\n" +
+            "for example carriers' home routers (Rogers, Bell) that look like vehicle routers. Matches where a word starts in the name (Rogers-5G, MyRogers), any case. " +
+            "A name that also says police (PD, Sheriff...) is still flagged.\n\n" +
             "Tick Canada or United States telecoms to add their usual router names in one go (off by default). " +
             "Carrier hotspots in patrol cars can carry these names too, so they won't be flagged either.")
     }

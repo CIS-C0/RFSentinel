@@ -41,6 +41,7 @@ object AboutDialog {
             &bull; Google Find Hub Network accessory spec; arXiv 2501.17452; AirGuard, SEEMOO / TU Darmstadt (Apache-2.0) (trackers)<br/>
             &bull; European V2X (ITS-G5) frame layout after V2X2MAP by Peter Holzhauser (MIT); CAM / DENM decoded per ETSI EN 302 637-2 / -3<br/>
             &bull; MT7921AU (WiFi 6E) USB driver after mt76-usb-macos by Network Weather and the Linux mt76 driver (MediaTek, Lorenzo Bianconi, Felix Fietkau; BSD-3-Clause-Clear); MediaTek firmware under its own licence<br/>
+            &bull; P25 voice (experimental): voice frame layout and IMBE vocoder ported from DSD (Copyright (C) 2010 DSD Author) and mbelib (Copyright (C) 2010 mbelib Author), ISC License (assets/licenses)<br/>
             &bull; Research by ryanohoro and GainSec (Flock); Alan Meekins' DEF CON 31 talk (Axon)<br/><br/>
 
             DedSec, fsociety and Night Vision theme font: Share Tech Mono &copy; Carrois Type Design, SIL Open Font

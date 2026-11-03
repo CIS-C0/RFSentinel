@@ -1050,7 +1050,7 @@ class ScanForegroundService : Service() {
         // patrol-vehicle cluster, then fused into one calibrated score.
         // A network whose name has one of your ignored words (Settings › Ignored network names): listed, never flagged.
         val ignored = a.source == Advert.Source.WIFI && a.wifi?.client != true &&
-            a.name?.let { n -> Prefs.ignoredSsidAll(this).any { n.contains(it, ignoreCase = true) } } == true
+            a.name?.let { SignatureEngine.ignoredSsid(it, Prefs.ignoredSsidAll(this)) } == true
         val raw = if (ignored) emptyList() else SignatureEngine.classify(a) +
             OuiWatchlist.hits(a.mac, a.name, listOfNotNull(macVendor) + companyVendors) +
             OuiWatchlist.advertHits(a) +

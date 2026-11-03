@@ -41,4 +41,17 @@ class PoliceSsidTest {
                 "Firefly", "Spdnet", "Remedics", "Patrolla"))
             assertNull(name, SignatureEngine.policeVehicleSsid(name))
     }
+
+    @Test
+    fun ignoredNamesMatchWhereAWordStartsAndNeverHidePolice() {
+        val words = listOf("ATT", "Rogers", "Virgin")
+        for (name in listOf("ATT4ia9c2", "Rogers-5G", "MyRogers", "rogers home", "Virgin Hub 7"))
+            assertTrue(name, SignatureEngine.ignoredSsid(name, words))
+        // Inside another word: not ignored, as a plain contains would.
+        for (name in listOf("SEATTLE-FLEET", "Seattle12", "Matt's iPhone", "PATTERSON"))
+            assertTrue(name, !SignatureEngine.ignoredSsid(name, words))
+        // A name that also says police stays flagged.
+        for (name in listOf("SEATTLE-PD", "ATT-PD-12", "Virginia State Police", "Rogers Sheriff 3"))
+            assertTrue(name, !SignatureEngine.ignoredSsid(name, words))
+    }
 }

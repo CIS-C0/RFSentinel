@@ -443,7 +443,7 @@ object SignatureEngine {
             "WiFi network \"$ssid\" is a Cradlepoint in-vehicle router's default name (model + last 3 address digits). " +
                 "Police cars, but also ambulances, buses, utility fleets and traffic-signal cabinets", "Cradlepoint default SSID (product label); $IEEE")
         // Weak alone; on a vehicle router it backs the router match, so a familiar one still alerts (FixedRouter).
-        ssid.lowercase().split(NON_ALNUM).any { w -> w in EMERGENCY_WORDS || w.split(LETTER_DIGIT).any { it in EMERGENCY_WORDS } } -> Hit(Category.PUBLIC_SAFETY,
+        namesPolice(ssid) -> Hit(Category.PUBLIC_SAFETY,
             "Police network name", 45, "WiFi network \"$ssid\" names a police service. Stronger on a " +
                 "Cradlepoint or Sierra Wireless router", "Network-name keywords, after Wardrive Go's emergency-router filter")
         else -> null
@@ -453,6 +453,25 @@ object SignatureEngine {
     private val EMERGENCY_WORDS = setOf("police", "pd", "sheriff", "trooper", "patrol", "k9")
     private val NON_ALNUM = Regex("[^a-z0-9]+")
     private val LETTER_DIGIT = Regex("(?<=[a-z])(?=[0-9])|(?<=[0-9])(?=[a-z])")
+
+    /** [ssid] names a police service as a whole word ("SHERIFF-12", "PD_Unit4"). */
+    internal fun namesPolice(ssid: String) =
+        ssid.lowercase().split(NON_ALNUM).any { w -> w in EMERGENCY_WORDS || w.split(LETTER_DIGIT).any { it in EMERGENCY_WORDS } }
+
+    /**
+     * Settings › Ignored network names: [ssid] has one of [words] where a word starts, any case ("Rogers-5G", "MyRogers";
+     * not "Seattle" for ATT). A name that also names the police is never ignored.
+     */
+    fun ignoredSsid(ssid: String, words: List<String>): Boolean = words.any { startsWord(ssid, it) } && !namesPolice(ssid)
+
+    private fun startsWord(name: String, word: String): Boolean {
+        var i = name.indexOf(word, ignoreCase = true)
+        while (i >= 0) {
+            if (i == 0 || !name[i - 1].isLetter() || (name[i - 1].isLowerCase() && name[i].isUpperCase())) return true
+            i = name.indexOf(word, i + 1, ignoreCase = true)
+        }
+        return false
+    }
 
     /** The network an Axon body camera or device opens while pairing ("AB3-...", "AXON-..."). */
     internal fun axonPairingSsid(ssid: String): Hit? {
