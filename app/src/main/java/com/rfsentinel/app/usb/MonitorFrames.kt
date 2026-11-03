@@ -193,6 +193,11 @@ class MonitorFrames {
         return batch
     }
 
+    fun emit(freshMs: Long, onFrame: (List<MonitorSighting>) -> Unit) {
+        val batch = drain(System.currentTimeMillis(), freshMs)
+        if (batch.isNotEmpty()) onFrame(batch)
+    }
+
     /**
      * Diagnostics: every device heard since the last call, strongest first, as
      * "mac ssid ch N frames max/avg dBm"; resets the window.
