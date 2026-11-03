@@ -428,7 +428,7 @@ class ScanForegroundService : Service() {
             com.rfsentinel.app.sdr.SdrRadio.Mode.P25.takeIf { radioOn && Prefs.sdrP25(this) }
         ).toSet()
         com.rfsentinel.app.sdr.SdrRadio.modes = sdrModes
-        com.rfsentinel.app.sdr.SdrRadio.turnMs = Prefs.sdrTurnS(this) * 1000L
+        com.rfsentinel.app.sdr.SdrRadio.turnMs = com.rfsentinel.app.sdr.SdrRadio.Mode.entries.associateWith { Prefs.sdrTurnS(this, it) * 1000L }
         com.rfsentinel.app.sdr.SdrRadio.onP25Call = { tg -> pipeline.post { onP25Call(tg) } }
         com.rfsentinel.app.sdr.SdrRadio.p25Inputs = Prefs.p25Inputs(this)
         com.rfsentinel.app.sdr.SdrRadio.p25Record = Prefs.p25Record(this)
@@ -1591,15 +1591,16 @@ class ScanForegroundService : Service() {
         radioDetection(hit, "RADIO " + e.mhz + " MHz", e.snrDb, now, "radio:" + e.freqHz, spoken, e.confidence >= threshold, via)
     }
 
-    /** A radio [hit] into the detection history (tagged with where you are), and alerted when [alert]. */
+    /** A radio [hit] into the detection history (tagged with where you are), and alerted when [alert]. [talkgroup]: a P25
+     *  alert, which also follows Settings › RTL-SDR radio › Talkgroup alerts. */
     private fun radioDetection(hit: Hit, mac: String, rssi: Int, now: Long, key: String, spoken: String, alert: Boolean,
-                               via: String? = null) {
+                               via: String? = null, talkgroup: Boolean = false) {
         val loc = lastLocation
         if (via == null || Prefs.saveLinked(this))
             logDetection(mac, "SDR", hit, now, loc?.latitude, loc?.longitude, rssi = rssi, heardBy = via?.let { "via $it" })
         // Dismissed from the list (swiped left): logged, no alert.
         if (!alert || com.rfsentinel.app.data.AlertMutes.isMuted(this, key, now)) return
-        val off = alertsOff(hit.category)
+        val off = alertsOff(hit.category) + (if (talkgroup) Prefs.p25AlertsOff(this) else emptySet())
         NotificationHelper.sendMapAlert(this, key, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java,
             banner = AlertKind.BANNER !in off)
         AlertPlayer.play(this, hit.tier, spoken, off = off)
@@ -1619,7 +1620,7 @@ class ScanForegroundService : Service() {
             "Heard on the site's control channel: the radios may be anywhere the site covers, not necessarily near you."
         val hit = Hit(Category.RADIO, "Talkgroup active: $called", P25_CONFIDENCE, detail, "P25 control channel (signalling only, no voice)")
         radioDetection(hit, "P25 TG $tg", 0, System.currentTimeMillis(), "p25:$tg", "Talkgroup $called active",
-            P25_CONFIDENCE >= Prefs.alertThreshold(this, Category.RADIO))
+            P25_CONFIDENCE >= Prefs.alertThreshold(this, Category.RADIO), talkgroup = true)
     }
 
     /** A call's radio heard strongly on the site's input: it is keying up close to you. */
@@ -1643,7 +1644,7 @@ class ScanForegroundService : Service() {
         val hit = Hit(Category.RADIO, "P25 radio keyed up $near: $called", confidence, detail,
             "P25 control channel grant + SDR signal strength on the input (no voice)")
         radioDetection(hit, "P25 radio ${call.source}", snr, now, "p25in:${call.tg ?: call.target}",
-            "Radio keyed up $near, $called", confidence >= Prefs.alertThreshold(this, Category.RADIO))
+            "Radio keyed up $near, $called", confidence >= Prefs.alertThreshold(this, Category.RADIO), talkgroup = true)
     }
 
     private var p25UnusualAt = 0L
@@ -1672,7 +1673,7 @@ class ScanForegroundService : Service() {
             "the radios may be anywhere the site covers."
         val hit = Hit(Category.RADIO, "Unusual activity: $called", P25_UNUSUAL_CONFIDENCE, detail, "P25 call log (signalling only, no voice)")
         radioDetection(hit, "P25 TG ${u.tg}", 0, now, "p25u:${u.tg}", "Unusual activity on $called",
-            P25_UNUSUAL_CONFIDENCE >= Prefs.alertThreshold(this, Category.RADIO))
+            P25_UNUSUAL_CONFIDENCE >= Prefs.alertThreshold(this, Category.RADIO), talkgroup = true)
     }
 
     /** "154.43" for 154.430 MHz: three decimals, trailing zeros dropped, read well by the voice. */

@@ -672,9 +672,17 @@ object Prefs {
     /** P25 talkgroups › Mute: listening paused. */
     fun p25Mute(context: Context): Boolean = bool(context, "p25_mute", false)
     fun setP25Mute(context: Context, v: Boolean) = setBool(context, "p25_mute", v)
-    /** Seconds the SDR gives each ticked scan in turn, 30-300: a first P25 search takes up to about 15 s. */
-    fun sdrTurnS(context: Context): Int = int(context, "sdr_turn_s", 60).coerceIn(30, 300)
-    fun setSdrTurnS(context: Context, v: Int) = setInt(context, "sdr_turn_s", v.coerceIn(30, 300))
+    /** Seconds the SDR gives [mode] in turn, 30-300 (a first P25 search takes up to about 15 s); defaults to the old shared time. */
+    fun sdrTurnS(context: Context, mode: com.rfsentinel.app.sdr.SdrRadio.Mode): Int =
+        int(context, "sdr_turn_s_" + mode.name, int(context, "sdr_turn_s", 60)).coerceIn(30, 300)
+    fun setSdrTurnS(context: Context, mode: com.rfsentinel.app.sdr.SdrRadio.Mode, v: Int) =
+        setInt(context, "sdr_turn_s_" + mode.name, v.coerceIn(30, 300))
+    /** The ways P25 talkgroup alerts don't alert you (Settings › RTL-SDR radio › Talkgroup alerts); none by default. */
+    fun p25AlertsOff(context: Context): Set<com.rfsentinel.app.data.AlertKind> =
+        com.rfsentinel.app.data.AlertKind.parse(sp(context).getString("p25_alerts_off", null))
+    fun setP25AlertsOff(context: Context, off: Set<com.rfsentinel.app.data.AlertKind>) = sp(context).edit {
+        com.rfsentinel.app.data.AlertKind.format(off)?.let { putString("p25_alerts_off", it) } ?: remove("p25_alerts_off")
+    }
 
     /** Name hits from RadioReference (needs the user's own Premium login and developer key; off by default). */
     fun radioReferenceOn(context: Context): Boolean = bool(context, "radio_reference_on", false)

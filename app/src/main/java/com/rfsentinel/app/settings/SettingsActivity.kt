@@ -1485,14 +1485,23 @@ class SettingsActivity : AppCompatActivity() {
             "Needs Two-way radio turned on. On by default when your region is the United States or Canada. Receiving radio " +
             "signalling is legal in many places but not all, and some forbid it in a vehicle or passing on what you hear: " +
             "check the law where you are.") { Prefs.setSdrP25(this, it) }
-        slider(30, 300, Prefs.sdrTurnS(this), { "Time for each scan: $it s" }) { Prefs.setSdrTurnS(this, it) }
-        info(box.getChildAt(box.childCount - 2), "With more than one scan ticked, the SDR spends this long on each in turn. Longer misses less " +
-            "within a scan; shorter comes back to each sooner.", "Time for each scan")
-        val turnViews = listOf(box.getChildAt(box.childCount - 2), box.getChildAt(box.childCount - 1))
+        // Each ticked scan's own turn length, shown while it shares the SDR.
+        val turnViews = listOf(sweepBox to com.rfsentinel.app.sdr.SdrRadio.Mode.SWEEP, adsbBox to com.rfsentinel.app.sdr.SdrRadio.Mode.ADSB,
+            p25Box to com.rfsentinel.app.sdr.SdrRadio.Mode.P25).map { (ticked, m) ->
+            slider(30, 300, Prefs.sdrTurnS(this, m), { "Time for ${m.label}: $it s" }) { Prefs.setSdrTurnS(this, m, it) }
+            info(box.getChildAt(box.childCount - 2), "With more than one scan ticked, the SDR gives ${m.label} this long before the next scan takes " +
+                "its turn. Longer misses less of it; shorter comes back to the other scans sooner.",
+                "Time for ${m.label}")
+            ticked to listOf(box.getChildAt(box.childCount - 2), box.getChildAt(box.childCount - 1))
+        }
         lines("Watch these talkgroups", "1234 Sheriff dispatch\n2001", Prefs.p25Talkgroups(this),
             "P25: alerts when a call starts on one of them, and names them on the P25 talkgroups screen. One per line: the " +
             "talkgroup number, with an optional name. 23* watches every talkgroup starting with 23 (2300, 2301, 2307...), and * every " +
             "talkgroup; a line with the exact number keeps its own name.") { Prefs.setP25Talkgroups(this, it) }
+        info(box.label("Talkgroup alerts"), "How P25 alerts reach you: a watched talkgroup's call starting, a radio keying up nearby and " +
+            "unusual talkgroup activity. Untick Voice or Sound so they don't talk or beep over P25 voice. Other radio alerts follow " +
+            "the Two-way radio category in What to detect.", "Talkgroup alerts")
+        box.addView(alertKindChips(Prefs.p25AlertsOff(this), false, "P25 talkgroups") { Prefs.setP25AlertsOff(this, it) })
         slider(0, 60, Prefs.p25LogDays(this), { if (it == 0) "Keep the P25 call log: off" else "Keep the P25 call log: $it days" }) {
             Prefs.setP25LogDays(this, it)
         }
@@ -1527,11 +1536,11 @@ class SettingsActivity : AppCompatActivity() {
             "2 minutes each. Watched talkgroups: only those in Watch these talkgroups. Mute on the P25 talkgroups screen pauses it; Hold there (or tapping a talkgroup) plays only that talkgroup and keeps the SDR on P25 until Release. " +
             "Encrypted calls can't be played. Listening to radio calls is not allowed everywhere, and some places forbid it in " +
             "a vehicle: check the law where you are.", "Listen to P25 voice"))
-        val talkgroupViews = (box.childCount - 9 until box.childCount).map { box.getChildAt(it) }
+        val talkgroupViews = (box.childCount - 11 until box.childCount).map { box.getChildAt(it) }
         var sweepViews = emptyList<View>() // the sweep's own settings, below
         showSdrOptions = {
             val ticked = listOf(sweepBox, adsbBox, p25Box).count { it.isChecked }
-            turnViews.forEach { it.shownIf(ticked > 1) }
+            turnViews.forEach { (scan, views) -> views.forEach { it.shownIf(ticked > 1 && scan.isChecked) } }
             talkgroupViews.forEach { it.shownIf(p25Box.isChecked) }
             sweepViews.forEach { it.shownIf(sweepBox.isChecked) }
         }
@@ -2086,27 +2095,33 @@ class SettingsActivity : AppCompatActivity() {
             setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, resources.getDimension(R.dimen.text_caption))
             setTextColor(com.google.android.material.color.MaterialColors.getColor(this, android.R.attr.textColorSecondary))
         })
-        val chips = com.google.android.material.chip.ChipGroup(this).apply {
-            chipSpacingHorizontal = (6 * dp).toInt(); chipSpacingVertical = 0
-        }
-        var off = Prefs.categoryAlertsOff(this, c)
-        com.rfsentinel.app.data.AlertKind.entries.forEach { kind ->
-            if (kind == com.rfsentinel.app.data.AlertKind.BEEP && !Prefs.hasRadarTicks(c)) return@forEach
-            chips.addView(com.rfsentinel.app.ui.FitChip(this).apply {
-                text = kind.label; isCheckable = true
-                com.rfsentinel.app.ui.ChipStyle.apply(this)
-                isChecked = kind !in off
-                contentDescription = "${kind.label} alerts for ${sw.contentDescription ?: sw.text}"
-                setOnClickListener {
-                    off = if (isChecked) off - kind else off + kind
-                    Prefs.setCategoryAlertsOff(this@SettingsActivity, c, off)
-                }
-            })
-        }
-        box.addView(chips)
+        box.addView(alertKindChips(Prefs.categoryAlertsOff(this, c), Prefs.hasRadarTicks(c), "${sw.contentDescription ?: sw.text}") {
+            Prefs.setCategoryAlertsOff(this, c, it)
+        })
         binding.categoryContainer.addView(box)
         folds[sw] = Fold(sw, fold).also { it.add(box) }
     }
+
+    /** A chip per way of alerting (Beep only with [beep]), ticked when it is on; [save] gets the ones turned off. */
+    private fun alertKindChips(off: Set<com.rfsentinel.app.data.AlertKind>, beep: Boolean, what: String,
+                               save: (Set<com.rfsentinel.app.data.AlertKind>) -> Unit) =
+        com.google.android.material.chip.ChipGroup(this).apply {
+            chipSpacingHorizontal = dp(6); chipSpacingVertical = 0
+            var now = off
+            com.rfsentinel.app.data.AlertKind.entries.forEach { kind ->
+                if (kind == com.rfsentinel.app.data.AlertKind.BEEP && !beep) return@forEach
+                addView(com.rfsentinel.app.ui.FitChip(this@SettingsActivity).apply {
+                    text = kind.label; isCheckable = true
+                    com.rfsentinel.app.ui.ChipStyle.apply(this)
+                    isChecked = kind !in now
+                    contentDescription = "${kind.label} alerts for $what"
+                    setOnClickListener {
+                        now = if (isChecked) now - kind else now + kind
+                        save(now)
+                    }
+                })
+            }
+        }
 
     private val folds = HashMap<SwitchMaterial, Fold>()
 

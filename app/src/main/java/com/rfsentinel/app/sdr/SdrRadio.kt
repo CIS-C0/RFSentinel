@@ -18,7 +18,7 @@ import com.rfsentinel.app.usb.UsbWifi
  *
  * Or an ADS-B receiver on 1090 MHz ([ModeS], [AdsbTracker]): aircraft heard directly, no internet
  * needed, handed to [onAircraft] every few seconds. Or it finds and follows a P25 trunked-radio
- * control channel ([P25Hunt]). Any mix of the three ([modes]): it takes turns of [turnMs].
+ * control channel ([P25Hunt]). Any mix of the three ([modes]): it takes turns, each of its own [turnMs].
  *
  * The radio waterfall screen ([SdrWaterfall]) gets a row per sweep, or, zoomed in with [tuneHz],
  * holds one frequency for a fast live view (the sweep and ADS-B pause meanwhile).
@@ -68,9 +68,10 @@ object SdrRadio {
     /** For the reading thread: stop now (scan stopped, unplugged, or a newer thread took over). */
     private val halted get() = stop || Thread.currentThread() !== worker
     enum class Mode(val label: String) { SWEEP("radio sweep"), ADSB("ADS-B"), P25("P25") }
-    /** What the SDR does (Settings > RTL-SDR radio); with more than one it takes turns of [turnMs]. */
+    /** What the SDR does (Settings > RTL-SDR radio); with more than one it takes turns ([turnMs]). */
     @Volatile var modes: Set<Mode> = setOf(Mode.SWEEP)
-    @Volatile var turnMs = 60_000L
+    /** How long each scan's turn lasts (Settings › RTL-SDR radio); 60 s when not set. */
+    @Volatile var turnMs: Map<Mode, Long> = emptyMap()
     /** The scan whose turn it is now; null when none is ticked. */
     @Volatile var mode: Mode? = null; private set
     @Volatile private var turnEnd = 0L
@@ -317,8 +318,9 @@ object SdrRadio {
                 status = "$deviceLabel · idle: no scan ticked in Settings › RTL-SDR radio"
                 Thread.sleep(500); continue
             }
-            if (active.size > 1) UsbWifi.log("$deviceLabel: turn: ${m.label} for ${turnMs / 1000} s")
-            mode = m; turnEnd = System.currentTimeMillis() + turnMs
+            val turn = turnMs[m] ?: 60_000L
+            if (active.size > 1) UsbWifi.log("$deviceLabel: turn: ${m.label} for ${turn / 1000} s")
+            mode = m; turnEnd = System.currentTimeMillis() + turn
             when (m) {
                 Mode.SWEEP -> runSweep(sdr, name)
                 Mode.ADSB -> runAdsb(sdr, name)
