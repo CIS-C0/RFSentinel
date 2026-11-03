@@ -34,7 +34,7 @@ class DeviceHistoryImportTest {
       "stray"
     ]"""
 
-    private fun run(text: String) = runBlocking { DeviceHistoryImport.importInto(db.knownDeviceDao(), text.byteInputStream()) }
+    private fun run(text: String) = runBlocking { DeviceHistoryImport.importInto(db, text.byteInputStream()) }
 
     @Test
     fun theJsonExportIsReadBackWithItsDetails() {

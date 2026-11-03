@@ -4,8 +4,11 @@ import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Index
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Upsert
 
 /**
@@ -52,6 +55,32 @@ interface KnownDeviceDao {
 
     @Upsert
     suspend fun upsertAll(rows: List<KnownDeviceEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIfMissing(row: KnownDeviceEntity)
+
+    /** Creates history for an unseen device without replacing a concurrent observation or user edit. */
+    suspend fun ensureRow(mac: String, name: String?, vendor: String?, type: String?) {
+        val now = System.currentTimeMillis()
+        insertIfMissing(KnownDeviceEntity(mac, now, now, 1, 1, name, vendor, type))
+    }
+
+    /** Merges observations without overwriting names, notes or favorites edited by the user. */
+    @Transaction
+    suspend fun recordSightings(rows: List<KnownDeviceEntity>, sessionStart: Long) {
+        val existing = getAll(rows.map { it.mac }).associateBy { it.mac }
+        upsertAll(rows.map { seen ->
+            val old = existing[seen.mac] ?: return@map seen
+            old.copy(
+                lastSeen = maxOf(old.lastSeen, seen.lastSeen),
+                sessions = old.sessions + if (old.lastSeen < sessionStart) 1 else 0,
+                detectCount = old.detectCount + 1,
+                name = seen.name ?: old.name,
+                vendor = seen.vendor ?: old.vendor,
+                deviceType = seen.deviceType
+            )
+        })
+    }
 
     @Query("UPDATE known_devices SET favorite = :favorite WHERE mac = :mac")
     suspend fun setFavorite(mac: String, favorite: Boolean)

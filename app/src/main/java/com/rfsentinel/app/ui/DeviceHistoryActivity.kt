@@ -134,9 +134,9 @@ class DeviceHistoryActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val result = runCatching {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    val dao = com.rfsentinel.app.data.AppDatabase.getInstance(this@DeviceHistoryActivity).knownDeviceDao()
+                    val db = AppDatabase.getInstance(this@DeviceHistoryActivity)
                     contentResolver.openInputStream(uri)!!.use { raw ->
-                        com.rfsentinel.app.util.DeviceHistoryImport.importInto(dao, com.rfsentinel.app.util.DeviceHistoryImport.Limited(raw)) { n ->
+                        com.rfsentinel.app.util.DeviceHistoryImport.importInto(db, com.rfsentinel.app.util.DeviceHistoryImport.Limited(raw)) { n ->
                             runOnUiThread { if (!isDestroyed) progress.text = "$n devices read..." }
                         }
                     }

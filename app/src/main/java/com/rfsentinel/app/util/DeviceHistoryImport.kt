@@ -1,8 +1,9 @@
 package com.rfsentinel.app.util
 
+import androidx.room.withTransaction
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonToken
-import com.rfsentinel.app.data.KnownDeviceDao
+import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.KnownDeviceEntity
 import java.io.BufferedReader
 import java.io.InputStream
@@ -19,7 +20,7 @@ import java.util.TimeZone
  * a star or note already there stays, and a name or vendor fills in only where there is none.
  *
  * Reading is streamed and rows are written in batches, so a history of a hundred thousand devices does not need to fit
- * in memory. Pure Kotlin apart from the DAO, so it is unit-tested.
+ * in memory. Parsing and merging are pure Kotlin.
  */
 object DeviceHistoryImport {
 
@@ -190,7 +191,8 @@ object DeviceHistoryImport {
     // ---- into the database -------------------------------------------------------------------------------
 
     /** Merges the file into the history; [onProgress] gets the rows handled so far. Throws [NotHistory] for another kind of file. */
-    suspend fun importInto(dao: KnownDeviceDao, input: InputStream, onProgress: (Int) -> Unit = {}): Result {
+    suspend fun importInto(db: AppDatabase, input: InputStream, onProgress: (Int) -> Unit = {}): Result {
+        val dao = db.knownDeviceDao()
         var added = 0; var updated = 0; var same = 0; var skipped = 0; var seen = 0
         val batch = ArrayList<KnownDeviceEntity>()
         suspend fun flush() {
@@ -198,18 +200,20 @@ object DeviceHistoryImport {
             // A file can list a device twice: the later rows merge into the earlier ones first.
             val byMac = LinkedHashMap<String, KnownDeviceEntity>()
             for (b in batch) byMac[b.mac] = merge(byMac[b.mac], b)
-            val have = dao.getAll(byMac.keys.toList()).associateBy { it.mac }
-            val write = ArrayList<KnownDeviceEntity>()
-            for ((mac, incoming) in byMac) {
-                val old = have[mac]
-                val merged = merge(old, incoming)
-                when {
-                    old == null -> { added++; write += merged }
-                    merged != old -> { updated++; write += merged }
-                    else -> same++
+            db.withTransaction {
+                val have = dao.getAll(byMac.keys.toList()).associateBy { it.mac }
+                val write = ArrayList<KnownDeviceEntity>()
+                for ((mac, incoming) in byMac) {
+                    val old = have[mac]
+                    val merged = merge(old, incoming)
+                    when {
+                        old == null -> { added++; write += merged }
+                        merged != old -> { updated++; write += merged }
+                        else -> same++
+                    }
                 }
+                if (write.isNotEmpty()) dao.upsertAll(write)
             }
-            if (write.isNotEmpty()) dao.upsertAll(write)
             batch.clear()
         }
         for (row in rows(input)) {
