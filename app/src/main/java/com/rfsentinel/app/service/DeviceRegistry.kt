@@ -449,8 +449,13 @@ object DeviceRegistry {
         }
     }
 
-    /** Full snapshot (history, path, raw advert) for the detail screen. */
-    fun get(mac: String): Snapshot? = tracks[mac]?.let { t -> synchronized(t) { snap(t, full = true) } }
+    fun get(mac: String): Snapshot? {
+        val t = tracks[mac] ?: return null
+        val snapshot = synchronized(t) { snap(t, full = true) }
+        // Gather sibling facts without holding another device's lock.
+        return if (Advert.Source.WIFI in snapshot.sources)
+            snapshot.copy(facts = snapshot.facts + sameApFacts(mac)) else snapshot
+    }
 
     /** When [mac] was last heard and that raw advert: unsmoothed, so a direction sweep isn't seconds behind. */
     fun lastHeard(mac: String): Pair<Long, Advert>? = tracks[mac]?.let { t -> synchronized(t) { t.advert?.let { t.lastSeen to it } } }
@@ -474,7 +479,7 @@ object DeviceRegistry {
             listOfNotNull(
                 t.linkedFrom?.let { "Previous address" to "$it (address rotated, same advert fingerprint)" },
                 t.role?.let { "Patrol-kit role" to it }
-            ) + if (full && Advert.Source.WIFI in t.sources) sameApFacts(t) else emptyList(),
+            ),
         hits = t.hits,
         rssi = t.rssi,
         bestRssi = t.bestRssi,
@@ -513,10 +518,13 @@ object DeviceRegistry {
      * [WifiFingerprint.sameAccessPoint]). For a hidden network this usually
      * reveals the visible network - and so the owner/router - it belongs to.
      */
-    private fun sameApFacts(t: Track): List<Pair<String, String>> {
-        val siblings = tracks.values.filter { o ->
-            o !== t && WifiFingerprint.sameAccessPoint(t.mac, o.mac) && synchronized(o) { Advert.Source.WIFI in o.sources }
-        }.map { o -> synchronized(o) { Triple(o.mac, o.name, o.identity.type) } }
+    private fun sameApFacts(mac: String): List<Pair<String, String>> {
+        val siblings = tracks.values.mapNotNull { o ->
+            if (o.mac == mac || !WifiFingerprint.sameAccessPoint(mac, o.mac)) return@mapNotNull null
+            synchronized(o) {
+                if (Advert.Source.WIFI in o.sources) Triple(o.mac, o.name, o.identity.type) else null
+            }
+        }
         if (siblings.isEmpty()) return emptyList()
         val out = mutableListOf<Pair<String, String>>()
         out += "Same access point as" to siblings.joinToString("; ") { (mac, ssid, _) ->
