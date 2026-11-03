@@ -1241,23 +1241,18 @@ class ScanForegroundService : Service() {
         val dao = AppDatabase.getInstance(this).knownDeviceDao()
         val sessionStart = batch.sessionStart
         batch.seen.chunked(400).forEach { chunk ->
-            val existing = dao.getAll(chunk.map { it.mac }).associateBy { it.mac }
-            dao.upsertAll(chunk.map { s ->
-                val e = existing[s.mac]
+            dao.recordSightings(chunk.map { s ->
                 KnownDeviceEntity(
                     mac = s.mac,
-                    firstSeen = e?.firstSeen ?: s.firstSeen,
+                    firstSeen = s.firstSeen,
                     lastSeen = s.lastSeen,
-                    sessions = (e?.sessions ?: 0) + if (e == null || e.lastSeen < sessionStart) 1 else 0,
-                    detectCount = (e?.detectCount ?: 0) + 1,
-                    name = s.name ?: e?.name,
-                    vendor = s.vendor ?: e?.vendor,
-                    deviceType = s.deviceType,
-                    favorite = e?.favorite ?: false,
-                    note = e?.note,
-                    alias = e?.alias
+                    sessions = 1,
+                    detectCount = 1,
+                    name = s.name,
+                    vendor = s.vendor,
+                    deviceType = s.deviceType
                 )
-            })
+            }, sessionStart)
         }
         batch.details.chunked(200).forEach { AppDatabase.getInstance(this).deviceDetailsDao().upsertAll(it) }
     }

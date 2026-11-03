@@ -2,6 +2,7 @@ package com.rfsentinel.app.data
 
 import android.content.Context
 import com.rfsentinel.app.detect.AdvertFingerprint
+import androidx.room.withTransaction
 
 /** Your own names for devices (known_devices.alias), kept in memory so the list and map needn't read the database per device. */
 object DeviceNames {
@@ -38,8 +39,12 @@ object DeviceNames {
      */
     suspend fun set(context: Context, mac: String, alias: String?, name: String?, vendor: String?, type: String?, fingerprint: String? = null) {
         val clean = alias?.trim()?.take(64)?.ifEmpty { null }
-        ensureRow(context, mac, name, vendor, type)
-        AppDatabase.getInstance(context).knownDeviceDao().setAlias(mac, clean)
+        val db = AppDatabase.getInstance(context)
+        db.withTransaction {
+            val dao = db.knownDeviceDao()
+            dao.ensureRow(mac, name, vendor, type)
+            dao.setAlias(mac, clean)
+        }
         names = if (clean != null) names + (mac to clean) else names - mac
         val kept = looks.filterValues { it != mac }
         looks = if (clean != null && fingerprint != null) kept + (AdvertFingerprint.hash(fingerprint) to mac) else kept
@@ -49,15 +54,11 @@ object DeviceNames {
 
     /** Saves your note on a device ([note] blank clears it). */
     suspend fun setNote(context: Context, mac: String, note: String?, name: String?, vendor: String?, type: String?) {
-        ensureRow(context, mac, name, vendor, type)
-        AppDatabase.getInstance(context).knownDeviceDao().setNote(mac, note?.trim()?.take(1000)?.ifEmpty { null })
-    }
-
-    private suspend fun ensureRow(context: Context, mac: String, name: String?, vendor: String?, type: String?) {
-        val dao = AppDatabase.getInstance(context).knownDeviceDao()
-        if (dao.get(mac) == null) {
-            val now = System.currentTimeMillis()
-            dao.upsertAll(listOf(KnownDeviceEntity(mac, now, now, 1, 1, name, vendor, type)))
+        val db = AppDatabase.getInstance(context)
+        db.withTransaction {
+            val dao = db.knownDeviceDao()
+            dao.ensureRow(mac, name, vendor, type)
+            dao.setNote(mac, note?.trim()?.take(1000)?.ifEmpty { null })
         }
     }
 }
