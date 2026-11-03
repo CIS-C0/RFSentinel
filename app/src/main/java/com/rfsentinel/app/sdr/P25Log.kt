@@ -80,13 +80,24 @@ class P25Log {
         /** A grant or update for a talkgroup heard within this long is the same call going on. */
         const val CALL_GAP_MS = 10_000L
 
-        private val LINE = Regex("""^\s*(\d{1,5})\b\s*[,;:\-]?\s*(.*)$""")
+        private val LINE = Regex("""^\s*(\d{1,5}\*?|\*)(?!\d)\s*[,;:\-]?\s*(.*)$""")
 
-        /** "1234 Sheriff dispatch" lines (Settings): talkgroup to name ("" when unnamed). */
-        fun watched(text: String): Map<Int, String> = text.lines().mapNotNull { line ->
-            val m = LINE.find(line) ?: return@mapNotNull null
-            val tg = m.groupValues[1].toInt().takeIf { it in 1..0xFFFF } ?: return@mapNotNull null
-            tg to m.groupValues[2].trim()
-        }.toMap()
+        /** "1234 Sheriff dispatch" lines (Settings), and "23*" (2300, 2301, 2307...) or "*" (every talkgroup) ones. */
+        fun watched(text: String): Watched {
+            val exact = HashMap<Int, String>(); val prefixes = ArrayList<Pair<String, String>>()
+            for (line in text.lines()) {
+                val m = LINE.find(line) ?: continue
+                val key = m.groupValues[1]; val name = m.groupValues[2].trim()
+                if (key.endsWith("*")) prefixes += key.dropLast(1) to name
+                else key.toInt().takeIf { it in 1..0xFFFF }?.let { exact[it] = name }
+            }
+            return Watched(exact, prefixes.sortedByDescending { it.first.length })
+        }
+    }
+
+    /** Watched talkgroups: a number's name ("" when unnamed), or null when not watched. Its exact line wins over a wildcard, a longer wildcard over a shorter. */
+    class Watched(private val exact: Map<Int, String> = emptyMap(), private val prefixes: List<Pair<String, String>> = emptyList()) {
+        operator fun get(tg: Int?): String? = tg?.let { exact[it] ?: it.toString().let { s -> prefixes.firstOrNull { (p, _) -> s.startsWith(p) }?.second } }
+        operator fun contains(tg: Int?) = get(tg) != null
     }
 }

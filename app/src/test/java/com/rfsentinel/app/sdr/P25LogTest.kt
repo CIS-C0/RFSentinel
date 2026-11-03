@@ -42,7 +42,20 @@ class P25LogTest {
 
     @Test
     fun watchedTalkgroups() {
-        assertEquals(mapOf(1234 to "Sheriff dispatch", 2001 to "", 9 to "Fire"),
-            P25Log.watched("1234 Sheriff dispatch\n2001\n  9 - Fire\nnot a number\n70000 too big"))
+        val w = P25Log.watched("1234 Sheriff dispatch\n2001\n  9 - Fire\nnot a number\n70000 too big\n123456 too long")
+        assertEquals("Sheriff dispatch", w[1234]); assertEquals("", w[2001]); assertEquals("Fire", w[9])
+        assertEquals(null, w[70000]); assertEquals(null, w[1235]); assertEquals(null, w[null])
+        assertEquals(false, 123456 in w)
+    }
+
+    @Test
+    fun wildcardTalkgroups() {
+        val w = P25Log.watched("23* Town A\n2301 Police\n230* Town A north")
+        assertEquals("Police", w[2301])        // the exact line wins
+        assertEquals("Town A north", w[2307])  // the longer wildcard wins
+        assertEquals("Town A", w[2350])
+        assertEquals(null, w[2400])
+        assertEquals("", P25Log.watched("*")[9999])
+        assertEquals(true, 1 in P25Log.watched("* all"))
     }
 }

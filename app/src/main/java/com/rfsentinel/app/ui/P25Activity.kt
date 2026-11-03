@@ -39,7 +39,7 @@ class P25Activity : AppCompatActivity() {
     /** History mode: the kept log per talkgroup, read every [HISTORY_MS] (null: showing the live control channel). */
     private var history: List<P25History.Summary>? = null
     private var historyAt = 0L
-    private var watched: Map<Int, String> = emptyMap()
+    private var watched = P25Log.Watched()
     private val header by lazy {
         TextView(this).apply {
             textSize = 12f; alpha = 0.8f

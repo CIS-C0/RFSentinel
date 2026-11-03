@@ -107,7 +107,7 @@ object SdrRadio {
     enum class Listen { OFF, WATCHED, ALL }
     @Volatile var p25Listen = Listen.OFF
     /** The watched talkgroups (Settings › Watch these talkgroups). */
-    @Volatile var p25Watched: Set<Int> = emptySet()
+    @Volatile var p25Watched = P25Log.Watched()
     /** P25 talkgroups › Mute: no call is played, the SDR stays on the control channel. */
     @Volatile var p25Mute = false
     /**

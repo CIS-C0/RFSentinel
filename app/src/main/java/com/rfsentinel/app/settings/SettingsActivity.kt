@@ -1491,7 +1491,8 @@ class SettingsActivity : AppCompatActivity() {
         val turnViews = listOf(box.getChildAt(box.childCount - 2), box.getChildAt(box.childCount - 1))
         lines("Watch these talkgroups", "1234 Sheriff dispatch\n2001", Prefs.p25Talkgroups(this),
             "P25: alerts when a call starts on one of them, and names them on the P25 talkgroups screen. One per line: the " +
-            "talkgroup number, with an optional name.") { Prefs.setP25Talkgroups(this, it) }
+            "talkgroup number, with an optional name. 23* watches every talkgroup starting with 23 (2300, 2301, 2307...), and * every " +
+            "talkgroup; a line with the exact number keeps its own name.") { Prefs.setP25Talkgroups(this, it) }
         slider(0, 60, Prefs.p25LogDays(this), { if (it == 0) "Keep the P25 call log: off" else "Keep the P25 call log: $it days" }) {
             Prefs.setP25LogDays(this, it)
         }
