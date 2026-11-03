@@ -21,9 +21,7 @@ object EspBoards {
 
     private const val ACTION_PERMISSION = "com.rfsentinel.app.ESP_USB_PERMISSION"
 
-    private class Running(val reader: EspReader, val thread: Thread)
-
-    private val running = HashMap<String, Running>()
+    private val running = HashMap<String, EspReader>()
     private var receiver: BroadcastReceiver? = null
     private val main by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
     private var onSightings: ((List<EspSighting>) -> Unit)? = null
@@ -109,14 +107,14 @@ object EspBoards {
                 runCatching { port.close() }
                 synchronized(this) { running.remove(d.deviceName) }
             }, "esp32-${d.deviceName}")
-            running[d.deviceName] = Running(reader, t)
+            running[d.deviceName] = reader
             t.start()
         }
     }
 
     @Synchronized
     private fun stopBoard(name: String) {
-        running.remove(name)?.reader?.stop()
+        running.remove(name)?.stop()
         if (running.isEmpty()) {
             setStatus("ESP32 disconnected")
             if (!OuiSpyBle.connected) HeardBy.esp.clear()

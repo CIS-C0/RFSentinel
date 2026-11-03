@@ -529,7 +529,7 @@ object Mt7612uMonitor {
                     st.lastRxAt = now
                 }
             }
-            if (now - st.lastEmit > 2000) { emit(onFrame); st.lastEmit = now }
+            if (now - st.lastEmit > 2000) { frames.emit(FRESH_MS, onFrame); st.lastEmit = now }
             val lock = AntennaCheck.lockIndex(HOP) // antenna check: hold the reference's channel
             if (lock >= 0 && lock == st.hopIdx) AntennaCheck.holding = HOP[lock]
             if (if (lock >= 0) lock != st.hopIdx else now - st.hopAt > DWELL_MS) {
@@ -542,13 +542,8 @@ object Mt7612uMonitor {
                 st.hopAt = System.currentTimeMillis() // the dwell starts once the retune is done
             }
         }
-        emit(onFrame)
+        frames.emit(FRESH_MS, onFrame)
         UsbWifi.log("MT7612U: RX loop stopped ($total B)")
-    }
-
-    private fun emit(onFrame: (List<MonitorSighting>) -> Unit) {
-        val batch = frames.drain(System.currentTimeMillis(), FRESH_MS)
-        if (batch.isNotEmpty()) onFrame(batch)
     }
 
     /** Where the 802.11 frame sits in a transfer and the radio's raw RSSI per chain (0 and 1, before calibration; null when absent). */

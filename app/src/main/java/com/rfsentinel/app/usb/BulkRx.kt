@@ -7,7 +7,7 @@ import java.nio.ByteBuffer
 import java.util.concurrent.TimeoutException
 
 /**
- * Bulk-IN receive loop for the RTL8187 and RT3070 drivers: keeps [count] transfers of
+ * Bulk-IN receive loop for monitor drivers: keeps [count] transfers of
  * [size] bytes in flight (async [UsbRequest]), or falls back to synchronous transfers
  * where the platform can't queue them. [onData] gets each completed transfer; [onTick]
  * runs at least every ~100 ms (channel hops, reports) until [stopped] says so.
@@ -16,13 +16,13 @@ import java.util.concurrent.TimeoutException
 internal object BulkRx {
 
     fun run(tag: String, conn: UsbDeviceConnection, ep: UsbEndpoint, count: Int, size: Int,
-            stopped: () -> Boolean, onData: (ByteArray, Int) -> Unit, onTick: (Long) -> Unit): Long {
+            stopped: () -> Boolean, onData: (ByteArray, Int) -> Unit, syncTimeoutMs: Int = 200, onTick: (Long) -> Unit): Long {
         val buffers = Array(count) { ByteBuffer.allocateDirect(size) }
         val reqs = ArrayList<UsbRequest>(count)
         var async = true
         for (i in 0 until count) {
             val r = UsbRequest()
-            if (!r.initialize(conn, ep)) { async = false; break }
+            if (!r.initialize(conn, ep)) { runCatching { r.close() }; async = false; break }
             r.clientData = i
             if (!r.queue(buffers[i])) { runCatching { r.close() }; async = false; break }
             reqs.add(r)
@@ -30,7 +30,7 @@ internal object BulkRx {
         if (!async) {
             UsbWifi.log("$tag: async RX unavailable (${reqs.size}/$count) - synchronous RX")
             reqs.forEach { runCatching { it.cancel() }; runCatching { it.close() } }
-            return runSync(conn, ep, size, stopped, onData, onTick)
+            return runSync(conn, ep, size, stopped, onData, onTick, syncTimeoutMs)
         }
         UsbWifi.log("$tag: async RX live - $count buffers in flight")
         val scratch = ByteArray(size)
@@ -49,10 +49,12 @@ internal object BulkRx {
                         if (!runCatching { req.queue(b) }.getOrDefault(false)) {
                             runCatching { req.close() }
                             val nr = UsbRequest()
-                            if (runCatching { nr.initialize(conn, ep) }.getOrDefault(false)) {
+                            val queued = runCatching {
+                                if (!nr.initialize(conn, ep)) return@runCatching false
                                 nr.clientData = idx
-                                if (runCatching { nr.queue(b) }.getOrDefault(false)) reqs[idx] = nr
-                            }
+                                nr.queue(b)
+                            }.getOrDefault(false)
+                            if (queued) reqs[idx] = nr else runCatching { nr.close() }
                         }
                         if (n in 1..size) { total += n; guard.data(); runCatching { onData(scratch, n) } } else guard.empty()
                     }
@@ -66,11 +68,11 @@ internal object BulkRx {
     }
 
     private fun runSync(conn: UsbDeviceConnection, ep: UsbEndpoint, size: Int, stopped: () -> Boolean,
-                        onData: (ByteArray, Int) -> Unit, onTick: (Long) -> Unit): Long {
+                        onData: (ByteArray, Int) -> Unit, onTick: (Long) -> Unit, timeoutMs: Int): Long {
         val buf = ByteArray(size)
         var total = 0L
         while (!stopped()) {
-            val n = conn.bulkTransfer(ep, buf, size, 200)
+            val n = conn.bulkTransfer(ep, buf, size, timeoutMs)
             if (n > 0) { total += n; runCatching { onData(buf, n) } }
             onTick(System.currentTimeMillis())
         }
@@ -174,8 +176,8 @@ internal object BulkRx {
         return ok
     }
 
-    /** The bulk-IN endpoint at [address], else the interface's first bulk-IN endpoint. */
-    fun inEndpoint(intf: android.hardware.usb.UsbInterface, address: Int): UsbEndpoint? {
+    /** The bulk-IN endpoint at [address], or the first bulk-IN endpoint if unspecified or absent. */
+    fun inEndpoint(intf: android.hardware.usb.UsbInterface, address: Int = -1): UsbEndpoint? {
         var first: UsbEndpoint? = null
         for (i in 0 until intf.endpointCount) {
             val ep = intf.getEndpoint(i)

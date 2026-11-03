@@ -14,14 +14,10 @@ package com.rfsentinel.app.usb
  */
 
 import android.content.Context
-import android.hardware.usb.UsbConstants
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbManager
-import android.hardware.usb.UsbRequest
-import java.nio.ByteBuffer
-import java.util.concurrent.TimeoutException
 
 object Rtl8812auMonitor {
     @Volatile var running = false; private set
@@ -68,15 +64,10 @@ object Rtl8812auMonitor {
         running = true; stop = false; frames.clear(); rfShadow.forEach { it.clear() }
         val mgr = ctx.getSystemService(Context.USB_SERVICE) as UsbManager
         val conn = mgr.openDevice(device) ?: run { onStatus("RTL8812AU: couldn't reopen adapter"); running = false; return }
-        var epRx: UsbEndpoint? = null
         try {
             val intf = device.getInterface(0)
             BulkRx.claim("RTL8812AU", conn, intf) { stop }
-            for (i in 0 until intf.endpointCount) {
-                val ep = intf.getEndpoint(i)
-                if (ep.type == UsbConstants.USB_ENDPOINT_XFER_BULK && ep.direction == UsbConstants.USB_DIR_IN) { epRx = ep; break }
-            }
-            val rx = epRx ?: run { UsbWifi.log("RTL8812AU: no bulk-IN endpoint"); onStatus("RTL8812AU: no RX endpoint"); return }
+            val rx = BulkRx.inEndpoint(intf) ?: run { UsbWifi.log("RTL8812AU: no bulk-IN endpoint"); onStatus("RTL8812AU: no RX endpoint"); return }
             UsbWifi.log("=== RTL8812AU bring-up (rtl8812au) ===")
             UsbWifi.log("RTL8812AU: RX EP=0x%02x".format(rx.address))
 
@@ -262,7 +253,7 @@ object Rtl8812auMonitor {
             UsbWifi.log("RTL8812AU: RX ${st.bufs} bufs / ${st.total} B ch ${HOP[st.hopIdx]} | ${aps + clients} live ($aps AP · $clients client, ${frames.tracked} tracked)")
             st.lastLog = now
         }
-        if (now - st.lastEmit > 2000) { emitSightings(onFrame); st.lastEmit = now }
+        if (now - st.lastEmit > 2000) { frames.emit(FRESH_MS, onFrame); st.lastEmit = now }
         val lock = AntennaCheck.lockIndex(HOP) // antenna check: hold the reference's channel
         if (lock >= 0 && lock == st.hopIdx) AntennaCheck.holding = HOP[lock]
         if (if (lock >= 0) lock != st.hopIdx else now - st.hopAt > DWELL_MS) {
@@ -276,72 +267,12 @@ object Rtl8812auMonitor {
 
     private fun rxLoop(conn: UsbDeviceConnection, epRx: UsbEndpoint,
                        onFrame: (List<MonitorSighting>) -> Unit, onStatus: (String) -> Unit) {
-        val nbuf = 24; val bufSz = 16384
-        val buffers = Array(nbuf) { ByteBuffer.allocateDirect(bufSz) }
-        val reqs = ArrayList<UsbRequest>(nbuf)
-        var initOk = true
-        for (i in 0 until nbuf) {
-            val r = UsbRequest()
-            if (!r.initialize(conn, epRx)) { initOk = false; break }
-            r.clientData = i; buffers[i].clear()
-            if (!r.queue(buffers[i])) { initOk = false; break }
-            reqs.add(r)
-        }
-        if (!initOk) {
-            UsbWifi.log("RTL8812AU: async RX unavailable (${reqs.size}/$nbuf) — synchronous RX")
-            reqs.forEach { runCatching { it.cancel() }; runCatching { it.close() } }
-            rxLoopSync(conn, epRx, onFrame, onStatus); return
-        }
-        UsbWifi.log("RTL8812AU: async RX live — $nbuf buffers in flight")
-        val scratch = ByteArray(bufSz)
         val st = RxState().apply { start() }
-        val guard = BulkRx.EmptyGuard("RTL8812AU")
-        try {
-            while (!stop) {
-                val req = try { conn.requestWait(100L) } catch (e: TimeoutException) { null }
-                val now = System.currentTimeMillis()
-                if (req != null) {
-                    val idx = req.clientData as? Int ?: -1
-                    if (idx in 0 until nbuf) {
-                        val b = buffers[idx]
-                        val n = b.position()
-                        val parseLen = if (n in 1..bufSz) {
-                            st.total += n; st.bufs++; guard.data()
-                            b.rewind(); b.get(scratch, 0, n); n
-                        } else { guard.empty(); 0 }
-
-                        b.clear()
-                        if (!runCatching { req.queue(b) }.getOrDefault(false)) {
-                            runCatching { req.close() }
-                            val nr = UsbRequest()
-                            if (runCatching { nr.initialize(conn, epRx) }.getOrDefault(false)) {
-                                nr.clientData = idx; b.clear()
-                                if (runCatching { nr.queue(b) }.getOrDefault(false)) reqs[idx] = nr
-                            }
-                        }
-                        if (parseLen > 0) runCatching { st.frames += parseRxBuf(scratch, parseLen, HOP[st.hopIdx]) }
-                    }
-                }
-                rxTick(conn, now, st, onFrame, onStatus)
-            }
-        } finally {
-            reqs.forEach { runCatching { it.cancel() }; runCatching { it.close() } }
-        }
-        emitSightings(onFrame)
-        UsbWifi.log("RTL8812AU: RX loop stopped (${st.total} B)")
-    }
-
-    private fun rxLoopSync(conn: UsbDeviceConnection, epRx: UsbEndpoint,
-                           onFrame: (List<MonitorSighting>) -> Unit, onStatus: (String) -> Unit) {
-        val buf = ByteArray(16384)
-        val st = RxState().apply { start() }
-        while (!stop) {
-            val n = conn.bulkTransfer(epRx, buf, buf.size, 500)
-            val now = System.currentTimeMillis()
-            if (n > 0) { st.total += n; st.bufs++; runCatching { st.frames += parseRxBuf(buf, n, HOP[st.hopIdx]) } }
-            rxTick(conn, now, st, onFrame, onStatus)
-        }
-        emitSightings(onFrame)
+        BulkRx.run("RTL8812AU", conn, epRx, 24, 16384, { stop }, { b, n ->
+            st.total += n; st.bufs++
+            st.frames += parseRxBuf(b, n, HOP[st.hopIdx])
+        }, syncTimeoutMs = 500) { now -> rxTick(conn, now, st, onFrame, onStatus) }
+        frames.emit(FRESH_MS, onFrame)
         UsbWifi.log("RTL8812AU: RX loop stopped (${st.total} B)")
     }
 
@@ -389,11 +320,6 @@ object Rtl8812auMonitor {
         } else {
             ((u8(di + 4) shr 1) and 0x7f) - 110
         }
-    }
-
-    private fun emitSightings(onFrame: (List<MonitorSighting>) -> Unit) {
-        val batch = frames.drain(System.currentTimeMillis(), FRESH_MS)
-        if (batch.isNotEmpty()) onFrame(batch)
     }
 
     private fun r(conn: UsbDeviceConnection, addr: Int, len: Int): ByteArray {

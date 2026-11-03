@@ -282,14 +282,14 @@ class EspReader(
     }
 
     /** Reads for up to [ms], stopping early once [done] is true for what was read. */
-    private fun readFor(buf: ByteArray, ms: Long, done: (String) -> Boolean = { false }): String {
+    private fun readFor(buf: ByteArray, ms: Long, done: ((String) -> Boolean)? = null): String {
         val sb = StringBuilder()
         val until = System.currentTimeMillis() + ms
         while (!stopped && System.currentTimeMillis() < until) {
             val n = port.read(buf, 300)
             if (n > 0) {
                 sb.append(text.decode(buf, n))
-                if (done(sb.toString())) break
+                if (done?.invoke(sb.toString()) == true) break
             }
         }
         return sb.toString()

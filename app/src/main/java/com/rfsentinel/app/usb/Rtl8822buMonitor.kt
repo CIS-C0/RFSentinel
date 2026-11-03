@@ -21,10 +21,7 @@ import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbManager
-import android.hardware.usb.UsbRequest
 import java.io.IOException
-import java.nio.ByteBuffer
-import java.util.concurrent.TimeoutException
 
 object Rtl8822buMonitor {
     @Volatile var running = false; private set
@@ -167,7 +164,7 @@ object Rtl8822buMonitor {
             UsbWifi.log("${st.label}: RX ${st.bufs} bufs / ${st.total} B ch ${st.channel} IGI 0x%02x FA ${chip.lastFa} | ${aps + clients} live ($aps AP · $clients client, ${frames.tracked} tracked)".format(chip.igi))
             st.lastLog = now
         }
-        if (now - st.lastEmit > 2000) { emit(onFrame); st.lastEmit = now }
+        if (now - st.lastEmit > 2000) { frames.emit(FRESH_MS, onFrame); st.lastEmit = now }
         if (!pathSense.decided && chip.rf2t2r) pathSense.verdict()?.let { path ->
             pathSense.decided = true
             val name = if (path == 1) "B" else "A"
@@ -233,66 +230,14 @@ object Rtl8822buMonitor {
 
     private fun rxLoop(conn: UsbDeviceConnection, epRx: UsbEndpoint, chip: Chip, label: String,
                        onFrame: (List<MonitorSighting>) -> Unit, onStatus: (String) -> Unit) {
-        // 16 KB buffers: the chip's RX aggregation is capped below that, so an aggregate
-        // never spans two transfers (and some Android USB hosts never complete larger reads).
-        val nbuf = 16; val bufSz = 16384
-        val buffers = Array(nbuf) { ByteBuffer.allocateDirect(bufSz) }
-        val reqs = ArrayList<UsbRequest>(nbuf)
-        for (i in 0 until nbuf) {
-            val r = UsbRequest()
-            if (!r.initialize(conn, epRx)) { runCatching { r.close() }; break }
-            r.clientData = i; buffers[i].clear()
-            if (!r.queue(buffers[i])) { runCatching { r.close() }; break }
-            reqs.add(r)
-        }
+        // Keep aggregation inside one 16 KB transfer for Android USB hosts.
         val st = RxState(label).apply { start() }
-        if (reqs.size < nbuf) {
-            UsbWifi.log("$label: async RX unavailable (${reqs.size}/$nbuf) — synchronous RX")
-            reqs.forEach { runCatching { it.cancel() }; runCatching { it.close() } }
-            val buf = ByteArray(bufSz)
-            while (!stop) {
-                val n = conn.bulkTransfer(epRx, buf, buf.size, 100)
-                if (n > 0) { st.total += n; st.bufs++; runCatching { parseRxBuf(buf, n, st.channel, chip.rf2t2r) } }
-                rxTick(chip, System.currentTimeMillis(), st, onFrame, onStatus)
-            }
-        } else {
-            UsbWifi.log("$label: async RX live — $nbuf buffers in flight")
-            val scratch = ByteArray(bufSz)
-            val guard = BulkRx.EmptyGuard(label)
-            try {
-                while (!stop) {
-                    val req = try { conn.requestWait(100L) } catch (e: TimeoutException) { null }
-                    if (req != null) {
-                        val idx = req.clientData as? Int ?: -1
-                        if (idx in 0 until nbuf) {
-                            val b = buffers[idx]
-                            val n = b.position()
-                            if (n in 1..bufSz) { st.total += n; st.bufs++; guard.data(); b.rewind(); b.get(scratch, 0, n) } else guard.empty()
-                            b.clear()
-                            if (!runCatching { req.queue(b) }.getOrDefault(false)) {
-                                runCatching { req.close() }
-                                val nr = UsbRequest()
-                                if (runCatching { nr.initialize(conn, epRx) }.getOrDefault(false)) {
-                                    nr.clientData = idx
-                                    if (runCatching { nr.queue(b) }.getOrDefault(false)) reqs[idx] = nr
-                                }
-                            }
-                            if (n in 1..bufSz) runCatching { parseRxBuf(scratch, n, st.channel, chip.rf2t2r) }
-                        }
-                    }
-                    rxTick(chip, System.currentTimeMillis(), st, onFrame, onStatus)
-                }
-            } finally {
-                reqs.forEach { runCatching { it.cancel() }; runCatching { it.close() } }
-            }
-        }
-        emit(onFrame)
+        BulkRx.run(label, conn, epRx, 16, 16384, { stop }, { b, n ->
+            st.total += n; st.bufs++
+            parseRxBuf(b, n, st.channel, chip.rf2t2r)
+        }, syncTimeoutMs = 100) { now -> rxTick(chip, now, st, onFrame, onStatus) }
+        frames.emit(FRESH_MS, onFrame)
         UsbWifi.log("$label: RX loop stopped (${st.total} B)")
-    }
-
-    private fun emit(onFrame: (List<MonitorSighting>) -> Unit) {
-        val batch = frames.drain(System.currentTimeMillis(), FRESH_MS)
-        if (batch.isNotEmpty()) onFrame(batch)
     }
 
     /** One RX descriptor of an aggregated bulk-IN buffer (88xx layout, 24 bytes). */

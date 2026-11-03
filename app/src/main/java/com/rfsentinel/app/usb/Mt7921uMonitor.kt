@@ -639,7 +639,7 @@ object Mt7921uMonitor {
                     st.lastRxAt = now
                 }
             }
-            if (now - st.lastEmit > 2000) { emit(onFrame); st.lastEmit = now }
+            if (now - st.lastEmit > 2000) { frames.emit(FRESH_MS, onFrame); st.lastEmit = now }
             // As the kernel does, a channel switch is only done once the firmware confirms it: the
             // dwell is counted from that answer, so slow switches don't eat the listening time.
             if (st.pendingSeq >= 0 && now - st.sentAt > SWITCH_TIMEOUT_MS) { st.unconfirmed++; st.pendingSeq = -1; st.hopAt = now }
@@ -664,13 +664,8 @@ object Mt7921uMonitor {
                 st.hopAt = now
             }
         }
-        emit(onFrame)
+        frames.emit(FRESH_MS, onFrame)
         UsbWifi.log("MT7921AU: RX loop stopped ($total B)")
-    }
-
-    private fun emit(onFrame: (List<MonitorSighting>) -> Unit) {
-        val batch = frames.drain(System.currentTimeMillis(), FRESH_MS)
-        if (batch.isNotEmpty()) onFrame(batch)
     }
 
     // ---- register access (mt76 usb.c: 32-bit address split over wValue / wIndex) ----

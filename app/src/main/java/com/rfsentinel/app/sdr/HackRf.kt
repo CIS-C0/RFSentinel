@@ -27,7 +27,6 @@ class HackRf(private val conn: UsbDeviceConnection, private val device: UsbDevic
     private var intf: UsbInterface? = null
     private var rx: UsbEndpoint? = null
     private var ctlFailRun = 0
-    private var centerHz = 0L
 
     override fun open(): Boolean {
         val i = (0 until device.interfaceCount).map { device.getInterface(it) }.firstOrNull { f ->
@@ -73,7 +72,7 @@ class HackRf(private val conn: UsbDeviceConnection, private val device: UsbDevic
         val p = ByteArray(8)
         le32(p, 0, (hz / 1_000_000).toInt()); le32(p, 4, (hz % 1_000_000).toInt())
         val ok = ctlOutData(SET_FREQ, 0, 0, p) == p.size
-        if (ok) centerHz = hz else tunerWriteFails++
+        if (!ok) tunerWriteFails++
         return ok
     }
 

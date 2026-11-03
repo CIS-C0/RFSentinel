@@ -41,7 +41,6 @@ object DeauthWatch {
 
     private class Net {
         val frames = ArrayDeque<Pair<Long, Boolean>>()
-        var channel = 0
         var lastReport = Long.MIN_VALUE / 2
     }
 
@@ -53,7 +52,6 @@ object DeauthWatch {
             if (nets.size > MAX_NETWORKS) nets.entries.removeAll { (_, n) -> n.frames.isEmpty() || now - n.frames.last().first > WINDOW_MS }
             val n = nets.getOrPut(bssid) { Net() }
             n.frames.addLast(now to broadcast)
-            n.channel = channel
             while (n.frames.isNotEmpty() && (now - n.frames.first().first > WINDOW_MS || n.frames.size > MAX_KEPT)) n.frames.removeFirst()
             if (now - n.lastReport < REPEAT_MS || !(burst(n, now) || stream(n, now))) return@synchronized null
             n.lastReport = now
