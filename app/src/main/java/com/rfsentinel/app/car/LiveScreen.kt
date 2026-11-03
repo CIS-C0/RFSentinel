@@ -1,10 +1,25 @@
 package com.rfsentinel.app.car
 
 import android.util.Log
+import android.location.Location
+import android.text.SpannableString
+import android.text.Spanned
+import androidx.annotation.DrawableRes
 import androidx.car.app.CarContext
 import androidx.car.app.Screen
 import androidx.car.app.model.Action
+import androidx.car.app.model.ActionStrip
+import androidx.car.app.model.CarColor
+import androidx.car.app.model.CarLocation
+import androidx.car.app.model.DistanceSpan
+import androidx.car.app.model.ItemList
+import androidx.car.app.model.ListTemplate
 import androidx.car.app.model.MessageTemplate
+import androidx.car.app.model.Metadata
+import androidx.car.app.model.Place
+import androidx.car.app.model.PlaceListMapTemplate
+import androidx.car.app.model.PlaceMarker
+import androidx.car.app.model.Row
 import androidx.car.app.model.Template
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -18,6 +33,61 @@ import kotlinx.coroutines.launch
  * with Back instead, and the error is logged.
  */
 abstract class SafeScreen(carContext: CarContext) : Screen(carContext) {
+
+    protected fun row(
+        title: CharSequence, vararg text: CharSequence, @DrawableRes icon: Int? = null,
+        color: Int? = null, browsable: Boolean = false, onClick: (() -> Unit)? = null
+    ): Row = Row.Builder().setTitle(title).apply {
+        text.forEach { addText(it) }
+        icon?.let { setImage(CarUi.icon(carContext, it, color)) }
+        if (browsable) setBrowsable(true)
+        onClick?.let { setOnClickListener { it() } }
+    }.build()
+
+    protected fun action(title: String? = null, @DrawableRes icon: Int? = null, onClick: () -> Unit): Action =
+        Action.Builder().apply {
+            title?.let { setTitle(it) }
+            icon?.let { setIcon(CarUi.icon(carContext, it)) }
+            setOnClickListener { onClick() }
+        }.build()
+
+    protected fun itemList(rows: List<Row>, noItems: String? = null): ItemList = ItemList.Builder().apply {
+        rows.forEach { addItem(it) }
+        noItems?.let { setNoItemsMessage(it) }
+    }.build()
+
+    @Suppress("DEPRECATION") // Older Android Auto hosts use these title/header APIs.
+    protected fun listTemplate(
+        title: String, rows: List<Row>, noItems: String? = null,
+        header: Action = Action.BACK, actions: ActionStrip? = null
+    ): ListTemplate = ListTemplate.Builder().setTitle(title).setHeaderAction(header)
+        .setSingleList(itemList(rows, noItems)).apply { actions?.let { setActionStrip(it) } }.build()
+
+    protected fun mapTemplate(
+        title: String, rows: List<Row>, action: Action, location: Location? = null, noItems: String? = null
+    ): PlaceListMapTemplate = PlaceListMapTemplate.Builder()
+        .setTitle(title).setHeaderAction(Action.BACK).setCurrentLocationEnabled(location != null)
+        .setActionStrip(ActionStrip.Builder().addAction(action).build())
+        .setItemList(itemList(rows, noItems)).apply {
+            location?.let { setAnchor(Place.Builder(CarLocation.create(it.latitude, it.longitude)).build()) }
+        }.build()
+
+    protected fun mapRow(
+        title: String, detail: String, lat: Double, lon: Double, distanceM: Double?,
+        color: CarColor, label: String?, onClick: (() -> Unit)? = null
+    ): Row {
+        val marker = PlaceMarker.Builder().setColor(color).apply { label?.let { setLabel(it) } }.build()
+        val place = Place.Builder(CarLocation.create(lat, lon)).setMarker(marker).build()
+        // The host formats the distance. Rows without one must be browsable.
+        val text = if (distanceM == null) detail else SpannableString("  · $detail").apply {
+            setSpan(DistanceSpan.create(NearbyMapScreen.distanceOf(distanceM)), 0, 1, Spanned.SPAN_INCLUSIVE_INCLUSIVE)
+        }
+        return Row.Builder().setTitle(title).addText(text).setMetadata(Metadata.Builder().setPlace(place).build())
+            .apply {
+                if (distanceM == null) setBrowsable(true)
+                onClick?.let { setOnClickListener { it() } }
+            }.build()
+    }
 
     /** Builds this screen's template (may throw; [onGetTemplate] catches it). */
     protected abstract fun buildTemplate(): Template

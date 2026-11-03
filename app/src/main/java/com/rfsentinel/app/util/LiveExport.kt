@@ -8,10 +8,7 @@ import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.service.DeviceRegistry
 import org.json.JSONArray
 import org.json.JSONObject
-import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
 
 /**
  * Settings > Data > Live export (off by default): while scanning, keeps three files up to date
@@ -78,8 +75,6 @@ object LiveExport {
         return uri
     }
 
-    private val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
-
     /** Devices where they were pinpointed, else at the spot they were heard strongest, plus "you are here" (pure; unit-tested). */
     fun geoJson(devices: List<DeviceRegistry.Snapshot>, here: Location?, now: Long): String {
         val features = JSONArray()
@@ -100,12 +95,12 @@ object LiveExport {
                     .put("category", best?.category?.name ?: JSONObject.NULL)
                     .put("confidence", best?.confidence ?: 0)
                     .put("rssi", s.rssi)
-                    .put("last_seen", iso.format(Date(s.lastSeen)))))
+                    .put("last_seen", ExportText.iso(s.lastSeen))))
         }
         if (here != null) features.put(JSONObject()
             .put("type", "Feature")
             .put("geometry", JSONObject().put("type", "Point").put("coordinates", JSONArray().put(here.longitude).put(here.latitude)))
-            .put("properties", JSONObject().put("name", "You (RF Sentinel)").put("updated", iso.format(Date(now)))))
+            .put("properties", JSONObject().put("name", "You (RF Sentinel)").put("updated", ExportText.iso(now))))
         return JSONObject().put("type", "FeatureCollection").put("features", features).toString()
     }
 }

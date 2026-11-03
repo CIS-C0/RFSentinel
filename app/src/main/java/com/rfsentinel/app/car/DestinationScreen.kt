@@ -3,8 +3,6 @@ package com.rfsentinel.app.car
 import androidx.car.app.CarContext
 import androidx.car.app.CarToast
 import androidx.car.app.model.Action
-import androidx.car.app.model.ItemList
-import androidx.car.app.model.Row
 import androidx.car.app.model.SearchTemplate
 import androidx.car.app.model.Template
 import androidx.lifecycle.lifecycleScope
@@ -30,33 +28,25 @@ class DestinationScreen(carContext: CarContext, private val map: LiveMapScreen) 
     private var typed = ""
 
     override fun buildTemplate(): Template {
-        val list = ItemList.Builder()
+        val rows = ArrayList<androidx.car.app.model.Row>()
         val shown = results ?: savedPlaces()
         val me = CarUi.currentLocation(carContext)
         // Some cars' keyboards don't send "submit": offer the search as a row too.
         if (typed.isNotBlank() && typed != query) {
-            list.addItem(Row.Builder()
-                .setTitle("Search \"${typed.trim()}\"")
-                .addText("in OpenStreetMap")
-                .setOnClickListener { search(typed) }
-                .build())
+            rows += row("Search \"${typed.trim()}\"", "in OpenStreetMap") { search(typed) }
         }
         // The car shows a few rows at a time (and the "Search" row above takes one): the best matches come first.
         val room = CarUi.listLimit(carContext) - if (typed.isNotBlank() && typed != query) 1 else 0
         shown.take(room.coerceAtLeast(1)).forEach { d ->
-            val row = Row.Builder().setTitle(d.name)
             // Short for a car screen (older saved entries may hold the full address).
             val where = d.address.split(", ").filter { it.isNotBlank() }.take(2).joinToString(", ").ifBlank { "OpenStreetMap" }
-            row.addText(
+            rows += row(d.name,
                 if (me != null) NearbyMapScreen.distanceText(DeviceRegistry.metersBetween(me.latitude, me.longitude, d.lat, d.lon)) + " · " + where
-                else where
-            )
-            row.setOnClickListener { go(d) }
-            list.addItem(row.build())
+                else where) { go(d) }
         }
-        if (shown.isEmpty() && !loading && (typed.isBlank() || typed == query)) {
-            list.setNoItemsMessage(if (results == null) "Search for an address or a place" else "Nothing found for \"$query\"")
-        }
+        val noItems = if (shown.isEmpty() && !loading && (typed.isBlank() || typed == query)) {
+            if (results == null) "Search for an address or a place" else "Nothing found for \"$query\""
+        } else null
         return SearchTemplate.Builder(object : SearchTemplate.SearchCallback {
             override fun onSearchSubmitted(searchText: String) = search(searchText)
             override fun onSearchTextChanged(searchText: String) {
@@ -71,7 +61,7 @@ class DestinationScreen(carContext: CarContext, private val map: LiveMapScreen) 
             .setSearchHint("Destination (searched in OpenStreetMap)")
             .setShowKeyboardByDefault(results == null && savedPlaces().isEmpty())
             .setLoading(loading)
-            .apply { if (!loading) setItemList(list.build()) }
+            .apply { if (!loading) setItemList(itemList(rows, noItems)) }
             .build()
     }
 

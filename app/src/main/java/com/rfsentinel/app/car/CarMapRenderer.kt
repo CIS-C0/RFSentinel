@@ -3,6 +3,7 @@ package com.rfsentinel.app.car
 import android.app.Presentation
 import android.graphics.Rect
 import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.os.Handler
@@ -159,15 +160,6 @@ class CarMapRenderer(private val carContext: CarContext, private val scope: Coro
 
     fun recenter() { setFollowing(true); centreOnCar(); redraw() }
 
-    /** Frames a whole route (e.g. when navigation starts); stops following. */
-    fun showWholeRoute() {
-        val m = map ?: return
-        val pts = route?.actualPoints ?: return
-        if (pts.size < 2) return
-        setFollowing(false)
-        m.zoomToBoundingBox(org.osmdroid.util.BoundingBox.fromGeoPoints(pts).increaseByScale(1.3f), false)
-    }
-
     private fun setFollowing(on: Boolean) {
         if (following != on) { following = on; onFollowingChanged?.invoke() }
     }
@@ -196,20 +188,10 @@ class CarMapRenderer(private val carContext: CarContext, private val scope: Coro
         syncRoute(m)
         me.items.clear()
         com.rfsentinel.app.nav.Navigator.destination?.let { d ->
-            me.add(Marker(m).apply {
-                position = GeoPoint(d.lat, d.lon)
-                icon = MapIcons.dot(dp, 0xFFD93025.toInt(), 20, 3f)
-                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                setInfoWindow(null)
-            })
+            me.add(marker(m, d.lat, d.lon, MapIcons.dot(dp, 0xFFD93025.toInt(), 20, 3f)))
         }
         CarUi.currentLocation(carContext)?.let { fix ->
-            me.add(Marker(m).apply {
-                position = GeoPoint(fix.latitude, fix.longitude)
-                icon = MapIcons.dot(dp, 0xFF1A73E8.toInt(), 22, 3f)
-                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                setInfoWindow(null)
-            })
+            me.add(marker(m, fix.latitude, fix.longitude, MapIcons.dot(dp, 0xFF1A73E8.toInt(), 22, 3f)))
         }
 
         // Devices: ordinary first so flagged ones are drawn on top.
@@ -231,12 +213,8 @@ class CarMapRenderer(private val carContext: CarContext, private val scope: Coro
             devicesKey = placed
             devices.items.clear()
             for (d in placed) {
-                devices.add(Marker(m).apply {
-                    position = GeoPoint(d.lat, d.lon)
-                    icon = dotIcons.getOrPut((d.color.toLong() shl 8) or d.sizeDp.toLong()) { MapIcons.dot(dp, d.color, d.sizeDp) }
-                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                    setInfoWindow(null)
-                })
+                val icon = dotIcons.getOrPut((d.color.toLong() shl 8) or d.sizeDp.toLong()) { MapIcons.dot(dp, d.color, d.sizeDp) }
+                devices.add(marker(m, d.lat, d.lon, icon))
             }
         }
 
@@ -249,12 +227,7 @@ class CarMapRenderer(private val carContext: CarContext, private val scope: Coro
             if (showTowers) com.rfsentinel.app.service.CellTowerStore.all(carContext).forEach { t ->
                 val lat = t.bestLat ?: return@forEach
                 val lon = t.bestLon ?: return@forEach
-                towers.add(Marker(m).apply {
-                    position = GeoPoint(lat, lon)
-                    icon = towerIcon
-                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                    setInfoWindow(null)
-                })
+                towers.add(marker(m, lat, lon, towerIcon))
             }
         }
 
@@ -271,13 +244,8 @@ class CarMapRenderer(private val carContext: CarContext, private val scope: Coro
                 camerasKey = cKey
                 cameras.items.clear()
                 inBox.forEach { c ->
-                    cameras.add(Marker(m).apply {
-                        position = GeoPoint(c.lat, c.lon)
-                        // Silenced cameras stay on the map, faded (like on the phone).
-                        icon = (if (c.osmId in ignoredIds) fadedCameraIcons else cameraIcons)[c.type]
-                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                        setInfoWindow(null)
-                    })
+                    // Silenced cameras stay on the map, faded (like on the phone).
+                    cameras.add(marker(m, c.lat, c.lon, (if (c.osmId in ignoredIds) fadedCameraIcons else cameraIcons)[c.type]))
                 }
             }
             // Fetch the cameras for wherever the driver moved the map.
@@ -291,6 +259,13 @@ class CarMapRenderer(private val carContext: CarContext, private val scope: Coro
             cameras.items.clear()
         }
         m.invalidate()
+    }
+
+    private fun marker(map: MapView, lat: Double, lon: Double, drawable: Drawable?): Marker = Marker(map).apply {
+        position = GeoPoint(lat, lon)
+        icon = drawable
+        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+        setInfoWindow(null)
     }
 
     private data class DeviceDot(val lat: Double, val lon: Double, val color: Int, val sizeDp: Int)

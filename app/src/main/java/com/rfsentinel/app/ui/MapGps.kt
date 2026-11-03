@@ -61,8 +61,6 @@ object MapGps {
         return if (precise != null && newest.time - precise.time <= PREFER_PRECISE_MS) precise else newest
     }
 
-    @Synchronized internal fun clearForTest() { recent.clear() }
-
     // ---- the shared GPS --------------------------------------------------------------------------
 
     private val listener = LocationListenerCompat { fix ->

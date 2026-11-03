@@ -11,19 +11,12 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.rfsentinel.app.databinding.ActivityLogBinding
 import com.rfsentinel.app.databinding.ItemDetectionBinding
 import com.rfsentinel.app.detect.GnssAnalyzer
 import com.rfsentinel.app.service.GnssWatch
 import com.rfsentinel.app.util.Permissions
-import com.rfsentinel.app.util.applySystemBarInsets
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /**
  * The satellites the phone hears, for every system (GPS, GLONASS, Galileo, BeiDou, QZSS,
@@ -68,19 +61,9 @@ class GnssActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityLogBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        binding.root.applySystemBarInsets()
-        title = "Satellites"
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        binding.recyclerView.layoutManager = LinearLayoutManager(this)
-        binding.recyclerView.adapter = adapter
+        binding = logScreen("Satellites", adapter)
         binding.root.addView(visual.root, 0)
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                while (true) { refresh(); delay(1_000) }
-            }
-        }
+        refreshWhileStarted(1_000) { refresh() }
     }
 
     @SuppressLint("MissingPermission")
@@ -127,23 +110,11 @@ class GnssActivity : AppCompatActivity() {
         val bars = SatBarsView(this@GnssActivity)
         var legendKey = ""
 
-        fun title(t: String) = TextView(this@GnssActivity).apply {
-            text = t; textSize = 12f; setTypeface(typeface, Typeface.BOLD); setTextColor(accent); letterSpacing = 0.08f
-        }
-
-        fun card(vararg views: View) = android.widget.LinearLayout(this@GnssActivity).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            background = VisualMode.card(this@GnssActivity)
-            val p = (12 * dp).toInt(); setPadding(p, p, p, p)
-            views.forEach { addView(it) }
-            layoutParams = android.widget.LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = (10 * dp).toInt() }
-        }
-
         init {
-            box.addView(card(title("CHECK"), verdict, verdictSub))
+            box.addView(visualCard(visualTitle("CHECK"), verdict, verdictSub))
             box.addView(tiles, android.widget.LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = (10 * dp).toInt() })
-            box.addView(card(title("SKY · NORTH UP"), sky, legend))
-            box.addView(card(title("SIGNAL PER SATELLITE · dB-Hz"), bars,
+            box.addView(visualCard(visualTitle("SKY · NORTH UP"), sky, legend))
+            box.addView(visualCard(visualTitle("SIGNAL PER SATELLITE · dB-Hz"), bars,
                 TextView(this@GnssActivity).apply { text = "Filled: used for your position. Outlined: heard only."; textSize = 12f; alpha = 0.7f }))
         }
 

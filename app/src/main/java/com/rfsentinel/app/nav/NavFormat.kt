@@ -81,16 +81,7 @@ object NavFormat {
     }
 
     /** The arrow for one lane direction ("straight", "slight right"...). */
-    fun laneIcon(direction: String?): Icon = when (direction) {
-        "left" -> Icon.LEFT
-        "right" -> Icon.RIGHT
-        "slight left" -> Icon.SLIGHT_LEFT
-        "slight right" -> Icon.SLIGHT_RIGHT
-        "sharp left" -> Icon.SHARP_LEFT
-        "sharp right" -> Icon.SHARP_RIGHT
-        "uturn" -> Icon.U_TURN_LEFT
-        else -> Icon.STRAIGHT
-    }
+    fun laneIcon(direction: String?): Icon = byModifier(direction)
 
     /** The direction to draw for a lane: the one to take when it is the lane to be in, else its first. */
     fun laneDirection(lane: Step.Lane): String? = if (lane.active) lane.activeDirection ?: lane.directions.firstOrNull() else lane.directions.firstOrNull()

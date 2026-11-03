@@ -1085,26 +1085,25 @@ class ScanForegroundService : Service() {
         val prevLogged = lastLogged[a.mac] ?: 0L
         if (now - prevLogged < LOG_THROTTLE_MS) return
         lastLogged[a.mac] = now
+        logDetection(a.mac, a.source.name, best, now, loc?.latitude, loc?.longitude,
+            rssi = a.rssi, vendor = vendor, deviceName = a.name,
+            radio = com.rfsentinel.app.detect.DeviceIntel.radioSummary(a),
+            heardBy = via?.let { "via $it" } ?: com.rfsentinel.app.esp.HeardBy.own(a.mac, a.source))
+    }
+
+    private fun logDetection(
+        mac: String, source: String, hit: Hit, now: Long, latitude: Double?, longitude: Double?,
+        rssi: Int = 0, vendor: String? = null, deviceName: String? = null, radio: String? = null, heardBy: String? = null
+    ) {
         val tag = Prefs.gpsTaggingEnabled(this)
+        val row = DetectionEntity(
+            mac = mac, label = hit.label, source = source, rssi = rssi, timestamp = now,
+            latitude = if (tag) latitude else null, longitude = if (tag) longitude else null,
+            category = hit.category.name, confidence = hit.confidence, evidence = hit.evidence,
+            vendor = vendor, deviceName = deviceName, radio = radio, heardBy = heardBy
+        )
         serviceScope.launch {
-            AppDatabase.getInstance(this@ScanForegroundService).detectionDao().insert(
-                DetectionEntity(
-                    mac = a.mac,
-                    label = best.label,
-                    source = a.source.name,
-                    rssi = a.rssi,
-                    timestamp = now,
-                    latitude = if (tag) loc?.latitude else null,
-                    longitude = if (tag) loc?.longitude else null,
-                    category = best.category.name,
-                    confidence = best.confidence,
-                    evidence = best.evidence,
-                    vendor = vendor,
-                    deviceName = a.name,
-                    radio = com.rfsentinel.app.detect.DeviceIntel.radioSummary(a),
-                    heardBy = via?.let { "via $it" } ?: com.rfsentinel.app.esp.HeardBy.own(a.mac, a.source)
-                )
-            )
+            AppDatabase.getInstance(this@ScanForegroundService).detectionDao().insert(row)
         }
     }
 
@@ -1456,17 +1455,8 @@ class ScanForegroundService : Service() {
         NotificationHelper.sendMapAlert(this, "cellchange", hit, com.rfsentinel.app.ui.CellTowersActivity::class.java, banner = AlertKind.BANNER !in off)
         AlertPlayer.play(this, hit.tier, "Cell tower changed", off = off)
         val loc = lastLocation
-        val tag = Prefs.gpsTaggingEnabled(this)
-        serviceScope.launch {
-            AppDatabase.getInstance(this@ScanForegroundService).detectionDao().insert(
-                DetectionEntity(
-                    mac = "CELL " + serving.key, label = hit.label, source = "CELL", rssi = serving.dbm ?: 0,
-                    timestamp = now,
-                    latitude = if (tag) loc?.latitude else null, longitude = if (tag) loc?.longitude else null,
-                    category = Category.CELL_ANOMALY.name, confidence = hit.confidence, evidence = detail
-                )
-            )
-        }
+        logDetection("CELL " + serving.key, "CELL", hit, now, loc?.latitude, loc?.longitude,
+            rssi = serving.dbm ?: 0)
     }
 
     /**
@@ -1528,25 +1518,15 @@ class ScanForegroundService : Service() {
             e.tdma -> "TETRA radio nearby"
             else -> "Radio transmitting nearby"
         } + (via?.let { ", via $it" } ?: "")
-        radioDetection(hit, "RADIO " + e.mhz + " MHz", e.snrDb, detail, now, "radio:" + e.freqHz, spoken, e.confidence >= threshold, via)
+        radioDetection(hit, "RADIO " + e.mhz + " MHz", e.snrDb, now, "radio:" + e.freqHz, spoken, e.confidence >= threshold, via)
     }
 
     /** A radio [hit] into the detection history (tagged with where you are), and alerted when [alert]. */
-    private fun radioDetection(hit: Hit, mac: String, rssi: Int, evidence: String, now: Long, key: String, spoken: String, alert: Boolean,
+    private fun radioDetection(hit: Hit, mac: String, rssi: Int, now: Long, key: String, spoken: String, alert: Boolean,
                                via: String? = null) {
         val loc = lastLocation
-        val tag = Prefs.gpsTaggingEnabled(this)
-        if (via == null || Prefs.saveLinked(this)) serviceScope.launch {
-            AppDatabase.getInstance(this@ScanForegroundService).detectionDao().insert(
-                DetectionEntity(
-                    mac = mac, label = hit.label, source = "SDR", rssi = rssi,
-                    timestamp = now,
-                    latitude = if (tag) loc?.latitude else null, longitude = if (tag) loc?.longitude else null,
-                    category = hit.category.name, confidence = hit.confidence, evidence = evidence,
-                    heardBy = via?.let { "via $it" }
-                )
-            )
-        }
+        if (via == null || Prefs.saveLinked(this))
+            logDetection(mac, "SDR", hit, now, loc?.latitude, loc?.longitude, rssi = rssi, heardBy = via?.let { "via $it" })
         // Dismissed from the list (swiped left): logged, no alert.
         if (!alert || com.rfsentinel.app.data.AlertMutes.isMuted(this, key, now)) return
         val off = alertsOff(hit.category)
@@ -1568,7 +1548,7 @@ class ScanForegroundService : Service() {
             (if (row?.encrypted == true) "Encrypted. " else "") +
             "Heard on the site's control channel: the radios may be anywhere the site covers, not necessarily near you."
         val hit = Hit(Category.RADIO, "Talkgroup active: $called", P25_CONFIDENCE, detail, "P25 control channel (signalling only, no voice)")
-        radioDetection(hit, "P25 TG $tg", 0, detail, System.currentTimeMillis(), "p25:$tg", "Talkgroup $called active",
+        radioDetection(hit, "P25 TG $tg", 0, System.currentTimeMillis(), "p25:$tg", "Talkgroup $called active",
             P25_CONFIDENCE >= Prefs.alertThreshold(this, Category.RADIO))
     }
 
@@ -1592,7 +1572,7 @@ class ScanForegroundService : Service() {
             (if (call.emergency) " Marked as an emergency call." else "") + (if (call.encrypted) " Encrypted." else "")
         val hit = Hit(Category.RADIO, "P25 radio keyed up $near: $called", confidence, detail,
             "P25 control channel grant + SDR signal strength on the input (no voice)")
-        radioDetection(hit, "P25 radio ${call.source}", snr, detail, now, "p25in:${call.tg ?: call.target}",
+        radioDetection(hit, "P25 radio ${call.source}", snr, now, "p25in:${call.tg ?: call.target}",
             "Radio keyed up $near, $called", confidence >= Prefs.alertThreshold(this, Category.RADIO))
     }
 
@@ -1621,7 +1601,7 @@ class ScanForegroundService : Service() {
             "Busier than usual can mean an incident, an event or a planned operation. Heard on the site's control channel: " +
             "the radios may be anywhere the site covers."
         val hit = Hit(Category.RADIO, "Unusual activity: $called", P25_UNUSUAL_CONFIDENCE, detail, "P25 call log (signalling only, no voice)")
-        radioDetection(hit, "P25 TG ${u.tg}", 0, detail, now, "p25u:${u.tg}", "Unusual activity on $called",
+        radioDetection(hit, "P25 TG ${u.tg}", 0, now, "p25u:${u.tg}", "Unusual activity on $called",
             P25_UNUSUAL_CONFIDENCE >= Prefs.alertThreshold(this, Category.RADIO))
     }
 
@@ -1696,17 +1676,7 @@ class ScanForegroundService : Service() {
         val now = System.currentTimeMillis()
         val hit = Hit(Category.GNSS, a.title, a.confidence, a.detail, "Phone satellite receiver (heuristic, not proof)")
         val loc = lastLocation
-        val tag = Prefs.gpsTaggingEnabled(this)
-        serviceScope.launch {
-            AppDatabase.getInstance(this@ScanForegroundService).detectionDao().insert(
-                DetectionEntity(
-                    mac = "GNSS " + a.key, label = a.title, source = "GNSS", rssi = 0,
-                    timestamp = now,
-                    latitude = if (tag) loc?.latitude else null, longitude = if (tag) loc?.longitude else null,
-                    category = Category.GNSS.name, confidence = a.confidence, evidence = a.detail
-                )
-            )
-        }
+        logDetection("GNSS " + a.key, "GNSS", hit, now, loc?.latitude, loc?.longitude)
         if (a.confidence >= Prefs.alertThreshold(this, hit.category)) {
             val off = alertsOff(hit.category)
             NotificationHelper.sendMapAlert(this, "gnss:" + a.key, hit, com.rfsentinel.app.ui.GnssActivity::class.java, banner = AlertKind.BANNER !in off)
@@ -1764,17 +1734,7 @@ class ScanForegroundService : Service() {
     /** An attack heard over time rather than one device: logged, and alerted like a detection. */
     private fun reportAttack(mac: String, source: String, hit: Hit, name: String?, key: String, spoken: String, now: Long, heardBy: String) {
         val loc = lastLocation
-        val tag = Prefs.gpsTaggingEnabled(this)
-        serviceScope.launch {
-            AppDatabase.getInstance(this@ScanForegroundService).detectionDao().insert(
-                DetectionEntity(
-                    mac = mac, label = hit.label, source = source, rssi = 0, timestamp = now,
-                    latitude = if (tag) loc?.latitude else null, longitude = if (tag) loc?.longitude else null,
-                    category = Category.HACKER.name, confidence = hit.confidence, evidence = hit.evidence, deviceName = name,
-                    heardBy = heardBy
-                )
-            )
-        }
+        logDetection(mac, source, hit, now, loc?.latitude, loc?.longitude, deviceName = name, heardBy = heardBy)
         if (hit.confidence >= Prefs.alertThreshold(this, hit.category)) {
             val off = alertsOff(hit.category)
             NotificationHelper.sendMapAlert(this, key, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java, banner = AlertKind.BANNER !in off)
@@ -1789,17 +1749,7 @@ class ScanForegroundService : Service() {
         CellMonitor.lastAnomaly = now to a
         val hit = Hit(Category.CELL_ANOMALY, a.title, a.confidence, a.detail, "Android cell info (heuristic, not proof)")
         val loc = lastLocation
-        val tag = Prefs.gpsTaggingEnabled(this)
-        serviceScope.launch {
-            AppDatabase.getInstance(this@ScanForegroundService).detectionDao().insert(
-                DetectionEntity(
-                    mac = "CELL " + a.key.substringAfter(':'), label = a.title, source = "CELL", rssi = 0,
-                    timestamp = now,
-                    latitude = if (tag) loc?.latitude else null, longitude = if (tag) loc?.longitude else null,
-                    category = Category.CELL_ANOMALY.name, confidence = a.confidence, evidence = a.detail
-                )
-            )
-        }
+        logDetection("CELL " + a.key.substringAfter(':'), "CELL", hit, now, loc?.latitude, loc?.longitude)
         if (a.confidence >= Prefs.alertThreshold(this, hit.category)) {
             val off = alertsOff(hit.category)
             NotificationHelper.sendMapAlert(this, "cell:" + a.key, hit, com.rfsentinel.app.ui.DetectionLogActivity::class.java, banner = AlertKind.BANNER !in off)

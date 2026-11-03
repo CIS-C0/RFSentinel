@@ -12,18 +12,17 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.chip.Chip
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.rfsentinel.app.R
 import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.KnownDeviceDao
 import com.rfsentinel.app.data.KnownDeviceEntity
-import com.rfsentinel.app.databinding.ActivityDeviceHistoryBinding
+import com.rfsentinel.app.databinding.ActivityLogBinding
 import com.rfsentinel.app.detect.DeviceIntel
 import com.rfsentinel.app.util.Prefs
-import com.rfsentinel.app.util.applySystemBarInsets
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -37,21 +36,20 @@ class DeviceHistoryActivity : AppCompatActivity() {
 
     private enum class Filter(val label: String) { ALL("All"), FAVORITES("Favorites"), FLAGGED("Flagged before"), TODAY("Seen today") }
 
-    private lateinit var binding: ActivityDeviceHistoryBinding
+    private lateinit var binding: ActivityLogBinding
+    private lateinit var keptText: TextView
     private val adapter = Rows { DeviceActions.openDetails(this, it.mac) }
     private var filter = Filter.ALL
     private var searchJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityDeviceHistoryBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        binding.root.applySystemBarInsets()
-        title = "Device history"
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-
-        binding.recyclerView.layoutManager = LinearLayoutManager(this)
-        binding.recyclerView.adapter = adapter
+        binding = logScreen("Device history", adapter)
+        binding.searchLayout.hint = "Search MAC, name, vendor, type, note"
+        binding.emptyText.text = ""
+        binding.emptyText.visibility = View.GONE
+        keptText = layoutInflater.inflate(R.layout.view_history_retention, binding.root, false) as TextView
+        binding.root.addView(keptText)
         for (f in Filter.entries) {
             val chip = FitChip(this).apply {
                 id = View.generateViewId(); text = f.label; isCheckable = true; isCheckedIconVisible = false
@@ -63,7 +61,7 @@ class DeviceHistoryActivity : AppCompatActivity() {
         }
         binding.searchInput.doAfterTextChanged { search(now = false) }
         if (intent.getBooleanExtra(EXTRA_IMPORT, false) && savedInstanceState == null) binding.root.post { pickFile() }
-        binding.keptText.setOnClickListener {
+        keptText.setOnClickListener {
             startActivity(Intent(this, com.rfsentinel.app.settings.SettingsActivity::class.java)
                 .putExtra(com.rfsentinel.app.settings.SettingsActivity.EXTRA_SECTION, com.rfsentinel.app.settings.SettingsActivity.SECTION_DATA))
         }
@@ -73,7 +71,7 @@ class DeviceHistoryActivity : AppCompatActivity() {
         super.onResume()
         // Back from a device's page (a note, a favorite) or Settings: up to date.
         val days = Prefs.retentionDays(this)
-        binding.keptText.text = (if (days <= 0) "History is kept forever" else "History is kept for $days days") +
+        keptText.text = (if (days <= 0) "History is kept forever" else "History is kept for $days days") +
             " (change in Settings > Data)"
         search(now = true)
     }

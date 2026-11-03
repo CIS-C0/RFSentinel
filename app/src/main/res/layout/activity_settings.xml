@@ -5,26 +5,22 @@
     android:layout_height="match_parent">
 
     <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        style="@style/SettingsControl"
         android:orientation="vertical"
         android:padding="16dp">
 
         <!-- ================= General ================= -->
         <TextView android:id="@+id/headerGeneral" style="@style/SettingsHeader" android:paddingTop="4dp" android:text="General" />
-        <LinearLayout android:id="@+id/sectionGeneral" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <LinearLayout style="@style/SettingsControl" android:id="@+id/sectionGeneral" android:orientation="vertical">
 
             <Button
                 android:id="@+id/runSetupButton"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                style="@style/SettingsOutlinedButton"
                 android:text="Run the setup wizard again" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/autoUpdateSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Check for updates on app open" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
@@ -34,50 +30,45 @@
                 android:text="Include prerelease builds" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/discreetSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Discreet mode" />
 
             <TextView android:id="@+id/screenLabel" style="@style/SettingsLabel" android:text="Screen while the app is open" />
 
             <RadioGroup
-                android:id="@+id/screenModeGroup"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                style="@style/SettingsControl"
+                android:id="@+id/screenModeGroup">
 
-                <RadioButton android:id="@+id/screenAlwaysOn" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Always on" />
-                <RadioButton android:id="@+id/screenOnCharging" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="On while charging" />
-                <RadioButton android:id="@+id/screenNormal" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Normal" />
+                <RadioButton style="@style/SettingsControl" android:id="@+id/screenAlwaysOn" android:text="Always on" />
+                <RadioButton style="@style/SettingsControl" android:id="@+id/screenOnCharging" android:text="On while charging" />
+                <RadioButton style="@style/SettingsControl" android:id="@+id/screenNormal" android:text="Normal" />
             </RadioGroup>
 
             <TextView android:id="@+id/rotationLabel" style="@style/SettingsLabel" android:text="Screen rotation" />
 
             <RadioGroup
-                android:id="@+id/rotationGroup"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                style="@style/SettingsControl"
+                android:id="@+id/rotationGroup">
 
-                <RadioButton android:id="@+id/rotationNormal" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Normal" />
-                <RadioButton android:id="@+id/rotationAllWays" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Auto-rotate, upside down too" />
-                <RadioButton android:id="@+id/rotationUpsideDown" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Always upside down" />
+                <RadioButton style="@style/SettingsControl" android:id="@+id/rotationNormal" android:text="Normal" />
+                <RadioButton style="@style/SettingsControl" android:id="@+id/rotationAllWays" android:text="Auto-rotate, upside down too" />
+                <RadioButton style="@style/SettingsControl" android:id="@+id/rotationUpsideDown" android:text="Always upside down" />
             </RadioGroup>
         </LinearLayout>
 
         <!-- ================= Appearance ================= -->
         <TextView android:id="@+id/headerAppearance" style="@style/SettingsHeader" android:text="Appearance" />
-        <LinearLayout android:id="@+id/sectionAppearance" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <LinearLayout style="@style/SettingsControl" android:id="@+id/sectionAppearance" android:orientation="vertical">
 
             <RadioGroup
-                android:id="@+id/themeGroup"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                style="@style/SettingsControl"
+                android:id="@+id/themeGroup" />
 
             <TextView android:id="@+id/bannerLabel" style="@style/SettingsLabel" android:text="Banner image" />
 
             <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                style="@style/SettingsControl"
                 android:orientation="horizontal">
 
                 <Button
@@ -101,44 +92,39 @@
 
         <!-- ================= Scanning ================= -->
         <TextView android:id="@+id/headerScanning" style="@style/SettingsHeader" android:text="Scanning" />
-        <LinearLayout android:id="@+id/sectionScanning" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <LinearLayout style="@style/SettingsControl" android:id="@+id/sectionScanning" android:orientation="vertical">
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/hideTrustedSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Hide trusted devices" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/bleSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Bluetooth scanning" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/wifiSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="WiFi scanning" />
 
             <TextView android:id="@+id/scanModeLabel" style="@style/SettingsLabel" android:text="Bluetooth scan intensity" />
 
             <RadioGroup
-                android:id="@+id/scanModeGroup"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                style="@style/SettingsControl"
+                android:id="@+id/scanModeGroup">
 
-                <RadioButton android:id="@+id/scanModeLowLatency" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Maximum" />
-                <RadioButton android:id="@+id/scanModeBalanced" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Balanced" />
-                <RadioButton android:id="@+id/scanModeLowPower" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Battery saver" />
+                <RadioButton style="@style/SettingsControl" android:id="@+id/scanModeLowLatency" android:text="Maximum" />
+                <RadioButton style="@style/SettingsControl" android:id="@+id/scanModeBalanced" android:text="Balanced" />
+                <RadioButton style="@style/SettingsControl" android:id="@+id/scanModeLowPower" android:text="Battery saver" />
             </RadioGroup>
 
             <TextView android:id="@+id/intervalLabel" style="@style/SettingsLabel" android:text="WiFi scan interval" />
 
             <EditText
+                style="@style/SettingsControl"
                 android:id="@+id/intervalInput"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:hint="30"
                 android:importantForAutofill="no"
                 android:inputType="number" />
@@ -151,33 +137,27 @@
 
             <Button
                 android:id="@+id/wifiThrottleButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                style="@style/SettingsTextButton"
                 android:text="Open Developer options" />
 
             <Button
                 android:id="@+id/batteryButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                style="@style/SettingsTextButton"
                 android:text="Allow background scanning" />
         </LinearLayout>
 
         <!-- ================= Auto-start ================= -->
         <TextView android:id="@+id/headerAutoStart" style="@style/SettingsHeader" android:text="Auto-start" />
-        <LinearLayout android:id="@+id/sectionAutoStart" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <LinearLayout style="@style/SettingsControl" android:id="@+id/sectionAutoStart" android:orientation="vertical">
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/bootSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="When the phone starts" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/carAutoSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="In the car" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
@@ -200,9 +180,7 @@
 
             <Button
                 android:id="@+id/carDevicesButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                style="@style/SettingsTextButton"
                 android:text="Choose your car's Bluetooth" />
 
             <Button
@@ -215,47 +193,44 @@
 
         <!-- ================= What to detect ================= -->
         <TextView android:id="@+id/headerDetect" style="@style/SettingsHeader" android:text="What to detect" />
-        <LinearLayout android:id="@+id/sectionDetect" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <LinearLayout style="@style/SettingsControl" android:id="@+id/sectionDetect" android:orientation="vertical">
 
             <LinearLayout
+                style="@style/SettingsControl"
                 android:id="@+id/categoryContainer"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:orientation="vertical" />
 
             <TextView android:id="@+id/presetLabel" style="@style/SettingsLabel" android:text="Watchlist presets" />
 
-            <CheckBox android:id="@+id/presetGlobal" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Global" />
-            <CheckBox android:id="@+id/presetCanada" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Canada" />
-            <CheckBox android:id="@+id/presetUs" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="United States" />
-            <CheckBox android:id="@+id/presetFrance" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="France" />
-            <CheckBox android:id="@+id/presetUk" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="United Kingdom" />
-            <CheckBox android:id="@+id/presetPortugal" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Portugal" />
-            <CheckBox android:id="@+id/presetGermany" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Germany" />
-            <CheckBox android:id="@+id/presetSpain" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Spain" />
-            <CheckBox android:id="@+id/presetItaly" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Italy" />
+            <CheckBox style="@style/SettingsControl" android:id="@+id/presetGlobal" android:text="Global" />
+            <CheckBox style="@style/SettingsControl" android:id="@+id/presetCanada" android:text="Canada" />
+            <CheckBox style="@style/SettingsControl" android:id="@+id/presetUs" android:text="United States" />
+            <CheckBox style="@style/SettingsControl" android:id="@+id/presetFrance" android:text="France" />
+            <CheckBox style="@style/SettingsControl" android:id="@+id/presetUk" android:text="United Kingdom" />
+            <CheckBox style="@style/SettingsControl" android:id="@+id/presetPortugal" android:text="Portugal" />
+            <CheckBox style="@style/SettingsControl" android:id="@+id/presetGermany" android:text="Germany" />
+            <CheckBox style="@style/SettingsControl" android:id="@+id/presetSpain" android:text="Spain" />
+            <CheckBox style="@style/SettingsControl" android:id="@+id/presetItaly" android:text="Italy" />
         </LinearLayout>
 
         <!-- ================= Alerts ================= -->
         <TextView android:id="@+id/headerAlerts" style="@style/SettingsHeader" android:text="Alerts" />
-        <LinearLayout android:id="@+id/sectionAlerts" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <LinearLayout style="@style/SettingsControl" android:id="@+id/sectionAlerts" android:orientation="vertical">
 
             <TextView android:id="@+id/thresholdLabel" style="@style/SettingsLabel" android:text="Alert for matches that are at least" />
 
             <RadioGroup
-                android:id="@+id/thresholdGroup"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                style="@style/SettingsControl"
+                android:id="@+id/thresholdGroup">
 
-                <RadioButton android:id="@+id/thresholdWeak" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Weak" />
-                <RadioButton android:id="@+id/thresholdMedium" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Probable" />
-                <RadioButton android:id="@+id/thresholdStrong" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Strong only" />
+                <RadioButton style="@style/SettingsControl" android:id="@+id/thresholdWeak" android:text="Weak" />
+                <RadioButton style="@style/SettingsControl" android:id="@+id/thresholdMedium" android:text="Probable" />
+                <RadioButton style="@style/SettingsControl" android:id="@+id/thresholdStrong" android:text="Strong only" />
             </RadioGroup>
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/soundSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Alert sound" />
 
             <TextView android:id="@+id/alertVolumeLabel" style="@style/SettingsLabel" android:text="Alert volume" />
@@ -273,27 +248,23 @@
             </RadioGroup>
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/vibrateSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Vibration" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/radarBeepSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Radar-detector beeps" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/detectorSoundSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Radar-detector sound" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/startupSweepSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:paddingStart="24dp"
                 android:text="Start beep when a scan starts" />
 
@@ -306,30 +277,24 @@
 
             <Button
                 android:id="@+id/detectorEffectButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                style="@style/SettingsTextButton"
                 android:text="Detector sound effect" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/scanIntroSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Intro sound when a scan starts" />
 
             <Button
                 android:id="@+id/testIntroButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                style="@style/SettingsTextButton"
                 android:text="Test intro" />
 
             <TextView android:id="@+id/dedupeLabel" style="@style/SettingsLabel" android:text="Re-alert the same device after" />
 
             <EditText
+                style="@style/SettingsControl"
                 android:id="@+id/dedupeInput"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:hint="5"
                 android:importantForAutofill="no"
                 android:inputType="number" />
@@ -337,26 +302,23 @@
 
         <!-- ================= Voice ================= -->
         <TextView android:id="@+id/headerVoice" style="@style/SettingsHeader" android:text="Voice" />
-        <LinearLayout android:id="@+id/sectionVoice" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <LinearLayout style="@style/SettingsControl" android:id="@+id/sectionVoice" android:orientation="vertical">
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/voiceSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Spoken alerts" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/shortVoiceSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Short spoken alerts" />
 
             <TextView style="@style/SettingsLabel" android:text="Voice speed" />
 
             <RadioGroup
+                style="@style/SettingsControl"
                 android:id="@+id/voiceRateGroup"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:orientation="horizontal">
 
                 <RadioButton android:id="@+id/voiceRateSlow" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Slow" />
@@ -367,9 +329,8 @@
             <TextView android:id="@+id/voiceBoostLabel" style="@style/SettingsLabel" android:text="Voice loudness" />
 
             <com.google.android.material.slider.Slider
+                style="@style/SettingsControl"
                 android:id="@+id/voiceBoostSlider"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:contentDescription="Extra loudness for spoken alerts, in decibels"
                 android:stepSize="1"
                 android:value="6"
@@ -377,28 +338,22 @@
                 android:valueTo="15" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/voicePauseMusicSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Pause music while an alert is spoken" />
 
             <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                style="@style/SettingsControl"
                 android:orientation="horizontal">
 
                 <Button
                     android:id="@+id/voicePickButton"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    style="@style/SettingsTextButton"
                     android:text="Choose voice" />
 
                 <Button
                     android:id="@+id/voiceTestButton"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    style="@style/SettingsTextButton"
                     android:text="Test voice" />
             </LinearLayout>
 
@@ -411,34 +366,30 @@
 
         <!-- ================= Over other apps ================= -->
         <TextView android:id="@+id/headerOverlay" style="@style/SettingsHeader" android:text="Over other apps" />
-        <LinearLayout android:id="@+id/sectionOverlay" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <LinearLayout style="@style/SettingsControl" android:id="@+id/sectionOverlay" android:orientation="vertical">
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/bubbleSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Floating threat bubble" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/floatingMapSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Floating mini map" />
         </LinearLayout>
 
         <!-- ================= Trackers & followers ================= -->
         <TextView android:id="@+id/headerFollow" style="@style/SettingsHeader" android:text="Trackers &amp; followers" />
-        <LinearLayout android:id="@+id/sectionFollow" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <LinearLayout style="@style/SettingsControl" android:id="@+id/sectionFollow" android:orientation="vertical">
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/followSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Warn when a device moves with me" />
 
             <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                style="@style/SettingsControl"
                 android:orientation="horizontal">
 
                 <LinearLayout
@@ -451,9 +402,8 @@
                     <TextView style="@style/SettingsLabel" android:text="For at least" />
 
                     <EditText
+                        style="@style/SettingsControl"
                         android:id="@+id/followMinutesInput"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
                         android:importantForAutofill="no"
                         android:inputType="number" />
                 </LinearLayout>
@@ -467,9 +417,8 @@
                     <TextView style="@style/SettingsLabel" android:text="Over" />
 
                     <EditText
+                        style="@style/SettingsControl"
                         android:id="@+id/followMetersInput"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
                         android:importantForAutofill="no"
                         android:inputType="number" />
                 </LinearLayout>
@@ -483,15 +432,13 @@
 
             <Button
                 android:id="@+id/trackerIgnoreButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                style="@style/SettingsTextButton"
                 android:text="Clear ignored trackers" />
         </LinearLayout>
 
         <!-- ================= Navigation ================= -->
         <TextView android:id="@+id/headerNav" style="@style/SettingsHeader" android:text="Navigation" />
-        <LinearLayout android:id="@+id/sectionNav" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+        <LinearLayout style="@style/SettingsControl" android:id="@+id/sectionNav" android:orientation="vertical" />
 
         <!-- ================= Radar ================= -->
         <TextView android:id="@+id/headerRadar" style="@style/SettingsHeader" android:text="Radar" />
@@ -534,14 +481,13 @@
 
         <!-- ================= Known cameras ================= -->
         <TextView android:id="@+id/headerMap" style="@style/SettingsHeader" android:text="Map" />
-        <LinearLayout android:id="@+id/sectionMap" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <LinearLayout style="@style/SettingsControl" android:id="@+id/sectionMap" android:orientation="vertical">
 
             <TextView android:id="@+id/mapZoomText" style="@style/SettingsLabel" android:text="Default zoom" />
 
             <com.google.android.material.slider.Slider
+                style="@style/SettingsControl"
                 android:id="@+id/mapZoomSlider"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:contentDescription="Default map zoom"
                 android:stepSize="1"
                 android:value="68"
@@ -550,17 +496,14 @@
 
             <Button
                 android:id="@+id/mapZoomReset"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                style="@style/SettingsTextButton"
                 android:text="Waze-like zoom" />
 
             <TextView android:id="@+id/map3dTiltText" style="@style/SettingsLabel" android:text="3D view angle" />
 
             <com.google.android.material.slider.Slider
+                style="@style/SettingsControl"
                 android:id="@+id/map3dTiltSlider"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:contentDescription="3D driving view angle in degrees"
                 android:stepSize="5"
                 android:value="50"
@@ -586,80 +529,67 @@
                 android:text="OpenFreeMap" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/mapKnownCamerasSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Show plate, speed and red-light cameras" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/mapAutoRecenterSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Auto-recenter" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/mapSpeedometerSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Speedometer" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/mapSpeedLimitLiveSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Speed limit without a route" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/mapTowersSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Show cell towers" />
 
             <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                style="@style/SettingsControl"
                 android:orientation="horizontal">
 
                 <Button
                     android:id="@+id/mapTracesButton"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    style="@style/SettingsTextButton"
                     android:text="Recorded traces" />
             </LinearLayout>
         </LinearLayout>
 
         <TextView android:id="@+id/headerCameras" style="@style/SettingsHeader" android:text="Known cameras" />
-        <LinearLayout android:id="@+id/sectionCameras" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <LinearLayout style="@style/SettingsControl" android:id="@+id/sectionCameras" android:orientation="vertical">
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/knownAlprSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Warn before plate-reader cameras" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/speedCameraSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Warn before speed / red-light cameras" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/autoCamerasSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Download cameras for the map area" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/mapCctvSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Show CCTV cameras" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/mapCctvPrivateSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:paddingStart="24dp"
                 android:text="Include private and indoor CCTV" />
 
@@ -670,9 +600,8 @@
                 android:text="Download radius: 100 km" />
 
             <com.google.android.material.slider.Slider
+                style="@style/SettingsControl"
                 android:id="@+id/cameraRadiusSlider"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:contentDescription="Camera download radius in kilometres"
                 android:stepSize="10"
                 android:value="100"
@@ -681,16 +610,12 @@
 
             <Button
                 android:id="@+id/prefetchCamerasButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                style="@style/SettingsTextButton"
                 android:text="Download cameras around me" />
 
             <Button
                 android:id="@+id/mapDeleteCamerasButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                style="@style/SettingsTextButton"
                 android:text="Delete downloaded cameras" />
 
             <TextView
@@ -701,9 +626,7 @@
 
             <Button
                 android:id="@+id/deflockButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                style="@style/SettingsTextButton"
                 android:text="US &amp; Canada plate cameras · 18 MB" />
 
             <TextView
@@ -721,44 +644,37 @@
 
             <Button
                 android:id="@+id/ignoredCamerasButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                style="@style/SettingsTextButton"
                 android:text="Alert for all ignored cameras again" />
         </LinearLayout>
 
         <!-- ================= Cell network ================= -->
         <TextView android:id="@+id/headerCell" style="@style/SettingsHeader" android:text="Cell network" />
-        <LinearLayout android:id="@+id/sectionCell" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <LinearLayout style="@style/SettingsControl" android:id="@+id/sectionCell" android:orientation="vertical">
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/cellChangeSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Alert when the cell tower changes" />
 
             <TextView android:id="@+id/disable2gLabel" style="@style/SettingsLabel" android:text="Turn off 2G" />
 
             <Button
                 android:id="@+id/disable2gButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                style="@style/SettingsTextButton"
                 android:text="Open SIM settings" />
 
             <TextView android:id="@+id/cellSecurityLabel" style="@style/SettingsLabel" android:text="Network security alerts" />
 
             <Button
                 android:id="@+id/cellSecurityButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                style="@style/SettingsTextButton"
                 android:text="Open cellular security settings" />
         </LinearLayout>
 
         <!-- ================= External hardware ================= -->
         <TextView android:id="@+id/headerHardware" style="@style/SettingsHeader" android:text="External hardware" />
-        <LinearLayout android:id="@+id/sectionHardware" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <LinearLayout style="@style/SettingsControl" android:id="@+id/sectionHardware" android:orientation="vertical">
 
             <TextView
                 android:id="@+id/espStatusText"
@@ -783,9 +699,7 @@
 
             <Button
                 android:id="@+id/usbWifiLogButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                style="@style/SettingsTextButton"
                 android:text="Export USB adapter log" />
 
             <TextView
@@ -795,22 +709,17 @@
                 android:text="Record what the USB WiFi adapter or V2X board hears, for Wireshark" />
 
             <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                style="@style/SettingsControl"
                 android:orientation="horizontal">
 
                 <Button
                     android:id="@+id/pcapButton"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    style="@style/SettingsTextButton"
                     android:text="Record frames" />
 
                 <Button
                     android:id="@+id/pcapShareButton"
-                    style="@style/Widget.MaterialComponents.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    style="@style/SettingsTextButton"
                     android:visibility="gone"
                     android:text="Share last recording" />
             </LinearLayout>
@@ -827,15 +736,12 @@
 
             <Button
                 android:id="@+id/ouiSpyButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                style="@style/SettingsTextButton"
                 android:text="Pair OUI-SPY board" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/ouiSpyRelaySwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="OUI-SPY: relay everything" />
 
             <Button
@@ -864,15 +770,13 @@
             </RadioGroup>
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/rtl5gSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="AWUS036ACS: also scan 5 GHz" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/usbLightSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="AWUS036ACS: light blinks with traffic" />
         </LinearLayout>
 
@@ -901,16 +805,15 @@
 
         <!-- ================= RTL-SDR radio (filled in by SettingsActivity.setupRadioSection) ================= -->
         <TextView android:id="@+id/headerRadio" style="@style/SettingsHeader" android:text="RTL-SDR radio" />
-        <LinearLayout android:id="@+id/sectionRadio" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" />
+        <LinearLayout style="@style/SettingsControl" android:id="@+id/sectionRadio" android:orientation="vertical" />
 
         <!-- ================= Location & traces ================= -->
         <TextView android:id="@+id/headerLocation" style="@style/SettingsHeader" android:text="Location &amp; traces" />
-        <LinearLayout android:id="@+id/sectionLocation" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <LinearLayout style="@style/SettingsControl" android:id="@+id/sectionLocation" android:orientation="vertical">
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/autoRecordSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Record a trace whenever scanning starts" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
@@ -920,15 +823,13 @@
                 android:text="Log every sighting in traces" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/gpsSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Save GPS position with matches" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/pinpointSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Pinpoint flagged devices on the map" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
@@ -940,19 +841,16 @@
 
         <!-- ================= Data ================= -->
         <TextView android:id="@+id/headerData" style="@style/SettingsHeader" android:text="Data" />
-        <LinearLayout android:id="@+id/sectionData" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <LinearLayout style="@style/SettingsControl" android:id="@+id/sectionData" android:orientation="vertical">
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/liveExportSwitch"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:text="Live export for other mapping apps" />
 
             <Button
                 android:id="@+id/liveExportFolderButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                style="@style/SettingsTextButton"
                 android:text="Choose folder" />
 
             <TextView
@@ -964,76 +862,59 @@
             <TextView android:id="@+id/retentionLabel" style="@style/SettingsLabel" android:text="Keep history for" />
 
             <EditText
+                style="@style/SettingsControl"
                 android:id="@+id/retentionInput"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
                 android:hint="90"
                 android:importantForAutofill="no"
                 android:inputType="number" />
 
             <Button
                 android:id="@+id/importHistoryButton"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                style="@style/SettingsOutlinedButton"
                 android:layout_marginTop="8dp"
                 android:text="Import device history from a file" />
 
             <Button
                 android:id="@+id/backupSettingsButton"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                style="@style/SettingsOutlinedButton"
                 android:layout_marginTop="8dp"
                 android:text="Back up settings to a file" />
 
             <Button
                 android:id="@+id/restoreSettingsButton"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                style="@style/SettingsOutlinedButton"
                 android:text="Restore settings from a file" />
 
             <Button
                 android:id="@+id/exportAllButton"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                style="@style/SettingsOutlinedButton"
                 android:layout_marginTop="8dp"
                 android:text="Export all devices" />
 
             <Button
                 android:id="@+id/forgetHistoryButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                style="@style/SettingsTextButton"
                 android:text="Forget device history" />
 
             <Button
                 android:id="@+id/clearLogButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                style="@style/SettingsTextButton"
                 android:text="Clear match history" />
         </LinearLayout>
 
         <!-- ================= Lists, tools & about ================= -->
         <TextView android:id="@+id/headerMore" style="@style/SettingsHeader" android:text="Lists, tools &amp; about" />
-        <LinearLayout android:id="@+id/sectionMore" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <LinearLayout style="@style/SettingsControl" android:id="@+id/sectionMore" android:orientation="vertical">
 
             <Button
                 android:id="@+id/openWatchlistButton"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                style="@style/SettingsOutlinedButton"
                 android:layout_marginTop="8dp"
                 android:text="Watchlist &amp; rules" />
 
             <Button
                 android:id="@+id/openWhitelistButton"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                style="@style/SettingsOutlinedButton"
                 android:layout_marginTop="8dp"
                 android:text="Whitelist" />
 
@@ -1047,33 +928,25 @@
 
             <Button
                 android:id="@+id/checkUpdateButton"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                style="@style/SettingsOutlinedButton"
                 android:layout_marginTop="8dp"
                 android:text="Check for updates" />
 
             <Button
                 android:id="@+id/aboutButton"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                style="@style/SettingsOutlinedButton"
                 android:layout_marginTop="8dp"
                 android:text="About &amp; sources" />
 
             <Button
                 android:id="@+id/exportCrashLogButton"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                style="@style/SettingsOutlinedButton"
                 android:layout_marginTop="8dp"
                 android:text="Export crash log" />
 
             <Button
                 android:id="@+id/clearCrashLogButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                style="@style/SettingsTextButton"
                 android:text="Clear crash log" />
         </LinearLayout>
 

@@ -2,29 +2,17 @@ package com.rfsentinel.app.ui
 
 import android.annotation.SuppressLint
 import android.content.Intent
-import android.graphics.Typeface
 import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.rfsentinel.app.databinding.ActivityLogBinding
-import com.rfsentinel.app.databinding.ItemDetectionBinding
 import com.rfsentinel.app.online.PoliceAircraft
 import com.rfsentinel.app.sdr.SdrRadio
 import com.rfsentinel.app.service.DeviceRegistry
 import com.rfsentinel.app.service.ScanForegroundService
 import com.rfsentinel.app.util.Units
-import com.rfsentinel.app.util.applySystemBarInsets
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -45,42 +33,23 @@ class AircraftActivity : AppCompatActivity() {
     private var rows: List<Row> = emptyList()
     private val demo get() = com.rfsentinel.app.BuildConfig.DEBUG && intent.getBooleanExtra("demo", false)
 
-    private val adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-        override fun getItemCount() = rows.size
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder =
-            object : RecyclerView.ViewHolder(ItemDetectionBinding.inflate(LayoutInflater.from(parent.context), parent, false).root) {}
-
-        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-            val r = rows[position]
-            val p = r.seen.plane
-            ItemDetectionBinding.bind(holder.itemView).apply {
-                labelText.text = name(p) + if (r.seen.hit != null) "  ·  ${r.seen.hit.label}" else ""
-                labelText.setTextColor(if (r.seen.hit != null) POLICE else macText.currentTextColor)
-                macText.text = listOfNotNull(p.type, p.owner, p.registration?.takeIf { it != name(p) }).joinToString(" · ").ifEmpty { p.hex.uppercase() }
-                metaText.text = listOfNotNull(
-                    r.distanceKm?.let { Units.distance(it * 1000) + (r.bearingDeg?.let { b -> " ${compass(b)}" } ?: "") },
-                    altitude(p), p.speedKt?.let { String.format(Locale.US, "%.0f kt", it) }, p.trackDeg?.let { "heading ${it.toInt()}°" }
-                ).joinToString(" · ")
-            }
-            holder.itemView.setOnClickListener { openOnMap(p) }
-        }
+    private val adapter = DetectionRows({ rows }) { r ->
+        val p = r.seen.plane
+        labelText.text = name(p) + if (r.seen.hit != null) "  ·  ${r.seen.hit.label}" else ""
+        labelText.setTextColor(if (r.seen.hit != null) POLICE else macText.currentTextColor)
+        macText.text = listOfNotNull(p.type, p.owner, p.registration?.takeIf { it != name(p) }).joinToString(" · ").ifEmpty { p.hex.uppercase() }
+        metaText.text = listOfNotNull(
+            r.distanceKm?.let { Units.distance(it * 1000) + (r.bearingDeg?.let { b -> " ${compass(b)}" } ?: "") },
+            altitude(p), p.speedKt?.let { String.format(Locale.US, "%.0f kt", it) }, p.trackDeg?.let { "heading ${it.toInt()}°" }
+        ).joinToString(" · ")
+        root.setOnClickListener { openOnMap(p) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityLogBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        binding.root.applySystemBarInsets()
-        title = "Aircraft"
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        binding.recyclerView.layoutManager = LinearLayoutManager(this)
-        binding.recyclerView.adapter = adapter
+        binding = logScreen("Aircraft", adapter)
         binding.root.addView(visual.root, 0)
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                while (true) { refresh(); delay(1_000) }
-            }
-        }
+        refreshWhileStarted(1_000) { refresh() }
     }
 
     override fun onSupportNavigateUp(): Boolean { finish(); return true }
@@ -112,24 +81,12 @@ class AircraftActivity : AppCompatActivity() {
         var lastCount = -1L
         var lastAt = 0L
 
-        fun title(t: String) = TextView(ctx).apply {
-            text = t; textSize = 12f; setTypeface(typeface, Typeface.BOLD); setTextColor(accent); letterSpacing = 0.08f
-        }
-
-        fun card(vararg views: View) = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            background = VisualMode.card(ctx)
-            val p = (12 * dp).toInt(); setPadding(p, p, p, p)
-            views.forEach { addView(it) }
-            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = (10 * dp).toInt() }
-        }
-
         init {
             box.addView(VisualMode.tileRow(ctx, tiles).apply {
                 layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = (10 * dp).toInt() }
             })
-            box.addView(card(title("RADAR · NORTH UP"), radar, sources))
-            rateCard = card(title("RTL-SDR · ADS-B MESSAGES PER SECOND"), rate, rateText)
+            box.addView(visualCard(visualTitle("RADAR · NORTH UP"), radar, sources))
+            rateCard = visualCard(visualTitle("RTL-SDR · ADS-B MESSAGES PER SECOND"), rate, rateText)
             box.addView(rateCard)
         }
 

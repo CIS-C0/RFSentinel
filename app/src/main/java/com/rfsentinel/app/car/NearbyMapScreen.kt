@@ -1,25 +1,13 @@
 package com.rfsentinel.app.car
 
-import android.annotation.SuppressLint
 import android.location.Location
-import android.location.LocationManager
 import androidx.car.app.CarContext
-import androidx.car.app.CarToast
-import androidx.car.app.model.Action
 import androidx.car.app.model.CarColor
-import androidx.car.app.model.CarLocation
-import androidx.car.app.model.ItemList
-import androidx.car.app.model.Metadata
-import androidx.car.app.model.Place
-import androidx.car.app.model.PlaceListMapTemplate
-import androidx.car.app.model.PlaceMarker
 import androidx.car.app.model.Row
 import androidx.car.app.model.Template
 import com.rfsentinel.app.alpr.AlprStore
 import com.rfsentinel.app.alpr.KnownCameras
 import com.rfsentinel.app.service.DeviceRegistry
-import com.rfsentinel.app.service.ScanForegroundService
-import com.rfsentinel.app.util.Permissions
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -57,32 +45,15 @@ class NearbyMapScreen(
         val limit = CarUi.listLimit(carContext).coerceAtMost(6)
         val items = if (me == null) emptyList() else nearby(me.latitude, me.longitude, limit)
 
-        val list = ItemList.Builder()
-        if (me == null) {
-            list.setNoItemsMessage("Waiting for your location...")
-        } else if (items.isEmpty()) {
-            list.setNoItemsMessage(
-                if (AlprStore.cameras.isEmpty()) "No known cameras downloaded - on your phone: Map > menu > Download nearby cameras"
-                else "No known cameras or drones within ${com.rfsentinel.app.util.Units.km((SEARCH_RADIUS_M / 1000).toInt())}"
-            )
+        val noItems = when {
+            me == null -> "Waiting for your location..."
+            items.isNotEmpty() -> null
+            AlprStore.cameras.isEmpty() -> "No known cameras downloaded - on your phone: Map > menu > Download nearby cameras"
+            else -> "No known cameras or drones within ${com.rfsentinel.app.util.Units.km((SEARCH_RADIUS_M / 1000).toInt())}"
         }
-        items.forEach { it -> list.addItem(row(it)) }
-
-        val template = PlaceListMapTemplate.Builder()
-            .setTitle("Cameras nearby")
-            .setHeaderAction(Action.BACK)
-            .setActionStrip(
-                androidx.car.app.model.ActionStrip.Builder().addAction(
-                    Action.Builder().setTitle("Devices").setOnClickListener {
-                        if (fromDevicesMap) screenManager.pop() else screenManager.push(DevicesMapScreen(carContext))
-                    }.build()
-                ).build()
-            )
-            .setCurrentLocationEnabled(me != null)
-            .setItemList(list.build())
-        // Centre on the driver, not on 0°,0°, when there is nothing to show.
-        if (me != null) template.setAnchor(Place.Builder(CarLocation.create(me.latitude, me.longitude)).build())
-        return template.build()
+        return mapTemplate("Cameras nearby", items.map { row(it) }, action("Devices") {
+            if (fromDevicesMap) screenManager.pop() else screenManager.push(DevicesMapScreen(carContext))
+        }, location = me, noItems = noItems)
     }
 
     private fun row(it: Item): Row {
@@ -95,24 +66,11 @@ class NearbyMapScreen(
             else -> CarColor.YELLOW
         }
         val label = it.kind?.let { k -> cameraLabel(k) } ?: if (it.drone) "D" else "!"
-        val place = Place.Builder(CarLocation.create(it.lat, it.lon))
-            .setMarker(PlaceMarker.Builder().setColor(color).setLabel(label).build())
-            .build()
-        // Android Auto requires every place row on a map template to carry its distance
-        // as a DistanceSpan (the host formats it in the driver's units); plain text throws.
-        val text = android.text.SpannableString("  · " + it.detail + if (ignored) " · alerts off" else "")
-        text.setSpan(androidx.car.app.model.DistanceSpan.create(distanceOf(it.distanceM)), 0, 1,
-            android.text.Spanned.SPAN_INCLUSIVE_INCLUSIVE)
-        return Row.Builder()
-            .setTitle(it.title)
-            .addText(text)
-            .setMetadata(Metadata.Builder().setPlace(place).build())
-            .setOnClickListener {
-                if (it.mac != null) screenManager.push(DeviceDetailScreen(carContext, it.mac))
-                else if (it.camera != null) screenManager.push(PlaceFocusScreen.forCamera(carContext, it.camera))
-                else screenManager.push(PlaceFocusScreen(carContext, it.title, it.detail, it.lat, it.lon, color, label))
-            }
-            .build()
+        return mapRow(it.title, it.detail + if (ignored) " · alerts off" else "", it.lat, it.lon, it.distanceM, color, label) {
+            if (it.mac != null) screenManager.push(DeviceDetailScreen(carContext, it.mac))
+            else if (it.camera != null) screenManager.push(PlaceFocusScreen.forCamera(carContext, it.camera))
+            else screenManager.push(PlaceFocusScreen(carContext, it.title, it.detail, it.lat, it.lon, color, label))
+        }
     }
 
     /** Fetches the cameras within ~20 km when that area isn't cached yet, then refreshes. */

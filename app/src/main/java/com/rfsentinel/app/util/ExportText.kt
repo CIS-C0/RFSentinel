@@ -1,10 +1,23 @@
 package com.rfsentinel.app.util
 
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.TimeZone
+import java.util.Locale
+
 /**
  * Safe text for exported files. Device names and WiFi SSIDs are chosen by
  * whoever owns the device, so exports must treat them as hostile input.
  */
 object ExportText {
+
+    private val utcTime = ThreadLocal.withInitial {
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
+    }
+    private val localTime = ThreadLocal.withInitial { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US) }
+
+    internal fun iso(time: Long): String = utcTime.get()!!.format(Date(time))
+    internal fun local(time: Long): String = localTime.get()!!.apply { timeZone = TimeZone.getDefault() }.format(Date(time))
 
     /** Characters that make a spreadsheet treat a cell as a formula (CSV/formula injection). */
     private val FORMULA_START = charArrayOf('=', '+', '-', '@', '\t', '\r')

@@ -9,9 +9,7 @@ import android.os.SystemClock;
 import android.util.Log;
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -39,15 +37,7 @@ final class WazeSession {
     /** Server session the handshake last ran on (0 = none), so it runs once per login. */
     private long handshakedSessionId = 0L;
 
-    WazeSession(String region) {
-        this(region, DeviceIdentity.random(), null);
-    }
-
-    WazeSession(String region, DeviceIdentity device, WazeCredentials credentials) {
-        this(region, device, credentials, new WazeHttpClient());
-    }
-
-    /** Test seam: same as above with the transport supplied by the caller. */
+    /** The caller supplies the session transport. */
     WazeSession(String region, DeviceIdentity device, WazeCredentials credentials, WazeHttpClient http) {
         this.region = region;
         this.device = device;
@@ -60,10 +50,6 @@ final class WazeSession {
 
     /** Server session id (0 if not logged in), lets the caller detect a re-login. */
     long currentServerSessionId() { return session != null ? session.serverSessionId : 0L; }
-
-    /** Drop the logged-in session but KEEP credentials, so the next call re-logs in
-     *  (with the in-memory account) instead of registering a brand-new one. */
-    void invalidateSession() { session = null; }
 
     /**
      * Inspect a parsed response batch for in-band errors the server returns with an
@@ -270,15 +256,5 @@ final class WazeSession {
      */
     WazeProto.Batch queryBox(double[] bbox) throws Exception {
         return command(WazeRtCodec.mapDisplayedCommand(bbox[0], bbox[1], bbox[2], bbox[3]));
-    }
-
-    /** Full flow for a single box: prepare + one query. Used by the debug selfTest. */
-    List<WazeAlert> fetchArea(double lat, double lon, double radiusMeters) throws Exception {
-        prepareForArea(lat, lon);
-        double latDelta = radiusMeters / WazeConstants.M_PER_DEG_LAT;
-        double lonDelta = radiusMeters / WazeConstants.mPerDegLon(lat);
-        WazeProto.Batch batch = queryBox(new double[]{
-                lon - lonDelta, lat - latDelta, lon + lonDelta, lat + latDelta});
-        return WazeRtCodec.parseAlerts(batch);
     }
 }

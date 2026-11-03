@@ -7,12 +7,19 @@ import android.provider.Settings
 import android.view.View
 import android.widget.RadioButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import android.widget.LinearLayout
+import android.widget.TextView
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import com.rfsentinel.app.ui.CustomThemes
 import com.rfsentinel.app.ui.ThemeManager
 import com.rfsentinel.app.ui.ThemeImport
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.core.widget.doAfterTextChanged
+import androidx.appcompat.widget.AppCompatSpinner
+import com.google.android.material.slider.Slider
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.rfsentinel.app.R
 import com.rfsentinel.app.data.AppDatabase
@@ -66,6 +73,9 @@ class SettingsActivity : AppCompatActivity() {
          * (possibly twice: ours + AppCompat's night-mode switch).
          */
         private var resumeScroll: Int? = null
+        private val SCAN_MODES = intArrayOf(
+            ScanSettings.SCAN_MODE_LOW_LATENCY, ScanSettings.SCAN_MODE_BALANCED, ScanSettings.SCAN_MODE_LOW_POWER
+        )
     }
     private lateinit var binding: ActivitySettingsBinding
     private var stopObservingPrefetch: (() -> Unit)? = null
@@ -84,6 +94,50 @@ class SettingsActivity : AppCompatActivity() {
     private var wazeKeyInput: android.widget.EditText? = null
     private var aircraftStatusText: android.widget.TextView? = null
     private var wazeStatusText: android.widget.TextView? = null
+
+    private fun SwitchMaterial.bindLive(on: Boolean, save: (Boolean) -> Unit) {
+        isChecked = on
+        setOnCheckedChangeListener { _, value -> save(value) }
+    }
+
+    private fun LinearLayout.toggle(text: String, on: Boolean, details: String? = null, save: (Boolean) -> Unit) =
+        SwitchMaterial(this@SettingsActivity).apply {
+            this.text = text
+            bindLive(on, save)
+        }.also { addView(if (details == null) it else infoRow(it, details)) }
+
+    private fun LinearLayout.label(text: String, small: Boolean = false) = TextView(this@SettingsActivity).apply {
+        this.text = text
+        textSize = if (small) 12f else 14f
+        if (small) alpha = 0.75f
+        setPadding(0, if (small) 0 else dp(10), 0, dp(2))
+    }.also { addView(it) }
+
+    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
+
+    private fun spinner(labels: List<String>, selected: Int, description: String, save: (Int) -> Unit) =
+        AppCompatSpinner(this).apply {
+            adapter = ArrayAdapter(this@SettingsActivity, android.R.layout.simple_spinner_item, labels).also {
+                it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            setSelection(selected)
+            contentDescription = description
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) = save(position)
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+
+    private fun slider(from: Int, to: Int, current: Int, step: Int = 1, description: String,
+                       format: ((Int) -> String)? = null, save: (Int) -> Unit) = Slider(this).apply {
+        valueFrom = from.toFloat()
+        valueTo = to.toFloat()
+        stepSize = step.toFloat()
+        value = current.coerceIn(from, to).toFloat()
+        contentDescription = description
+        if (format != null) setLabelFormatter { format(it.toInt()) }
+        addOnChangeListener { _, value, fromUser -> if (fromUser) save(value.toInt()) }
+    }
 
     private val bannerPicker = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.GetContent()
@@ -245,6 +299,12 @@ class SettingsActivity : AppCompatActivity() {
         binding.ignoredCamerasButton.shownIf(n > 0)
     }
 
+    private fun presetSwitches() = mapOf(
+        "global" to binding.presetGlobal, "canada" to binding.presetCanada, "us" to binding.presetUs,
+        "france" to binding.presetFrance, "uk" to binding.presetUk, "portugal" to binding.presetPortugal,
+        "germany" to binding.presetGermany, "spain" to binding.presetSpain, "italy" to binding.presetItaly
+    )
+
     /** ESP32 boards on USB (OUI-Spy / GhostESP / Marauder) and an OUI-SPY board over Bluetooth. */
     /** Speed, voice and a test button for spoken alerts; changes apply right away. */
     private fun setupVoiceControls() {
@@ -268,8 +328,7 @@ class SettingsActivity : AppCompatActivity() {
                 com.rfsentinel.app.util.AlertPlayer.testVoice(this@SettingsActivity, binding.shortVoiceSwitch.isChecked)
             }
         })
-        binding.voicePauseMusicSwitch.isChecked = Prefs.voicePausesMusic(this)
-        binding.voicePauseMusicSwitch.setOnCheckedChangeListener { _, on -> Prefs.setVoicePausesMusic(this, on) }
+        binding.voicePauseMusicSwitch.bindLive(Prefs.voicePausesMusic(this)) { Prefs.setVoicePausesMusic(this, it) }
         // Tests what is on screen (Settings save when you leave), so the short switch counts right away.
         binding.voiceTestButton.setOnClickListener {
             com.rfsentinel.app.util.AlertPlayer.testVoice(this, binding.shortVoiceSwitch.isChecked)
@@ -1098,14 +1157,14 @@ class SettingsActivity : AppCompatActivity() {
     /** Settings the search hid for not matching (shown again when it changes or is cleared). */
     private val searchHidden = mutableListOf<View>()
 
-    /**
-     * Shows or hides a setting for the app's own reasons (a switch turned off, nothing to say...). It
-     * also takes the setting off the search's list, so clearing the search leaves it the way this set it.
-     */
     /** Radio buttons listed in the order of the choices they stand for. */
     private fun android.widget.RadioGroup.checkIndex(i: Int) = check(getChildAt(i).id)
     private val android.widget.RadioGroup.checkedIndex get() = indexOfChild(findViewById(checkedRadioButtonId))
 
+    /**
+     * Shows or hides a setting for the app's own reasons (a switch turned off, nothing to say...). It
+     * also takes the setting off the search's list, so clearing the search leaves it the way this set it.
+     */
     private fun View.shownIf(on: Boolean) {
         setTag(R.id.search_hidden, null)
         visibility = if (on) View.VISIBLE else View.GONE
@@ -1138,15 +1197,11 @@ class SettingsActivity : AppCompatActivity() {
             getSystemService(android.view.inputmethod.InputMethodManager::class.java)?.hideSoftInputFromWindow(v.windowToken, 0)
             true
         }
-        searchInput.addTextChangedListener(object : android.text.TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: android.text.Editable?) {
-                val q = s?.toString().orEmpty()
-                clear.visibility = if (q.isEmpty()) View.GONE else View.VISIBLE
-                filterSettings(q)
-            }
-        })
+        searchInput.doAfterTextChanged {
+            val q = it?.toString().orEmpty()
+            clear.visibility = if (q.isEmpty()) View.GONE else View.VISIBLE
+            filterSettings(q)
+        }
         return android.widget.LinearLayout(this).apply {
             orientation = android.widget.LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER_VERTICAL
@@ -1373,39 +1428,23 @@ class SettingsActivity : AppCompatActivity() {
     /** Settings > RTL-SDR radio, built in code; everything is saved as you change it. */
     private fun setupRadioSection() {
         val box = binding.sectionRadio
-        val dp = resources.displayMetrics.density
-        fun label(t: String, small: Boolean = false) = android.widget.TextView(this).apply {
-            text = t; textSize = if (small) 12f else 14f
-            if (small) alpha = 0.75f
-            setPadding(0, (if (small) 0 else 10 * dp).toInt(), 0, (2 * dp).toInt())
-        }.also { box.addView(it) }
         fun slider(from: Int, to: Int, value: Int, text: (Int) -> String, save: (Int) -> Unit) {
-            val l = label(text(value))
-            box.addView(com.google.android.material.slider.Slider(this).apply {
-                valueFrom = from.toFloat(); valueTo = to.toFloat(); stepSize = 1f
-                this.value = value.coerceIn(from, to).toFloat()
-                contentDescription = text(value)
-                addOnChangeListener { _, v, fromUser -> if (fromUser) { save(v.toInt()); l.text = text(v.toInt()) } }
+            val l = box.label(text(value))
+            box.addView(this@SettingsActivity.slider(from, to, value, description = text(value)) {
+                save(it)
+                l.text = text(it)
             })
         }
         fun lines(title: String, hint: String, value: String, details: String? = null, save: (String) -> Unit) {
-            label(title).also { if (details != null) info(it, details) }
+            box.label(title).also { if (details != null) info(it, details) }
             box.addView(android.widget.EditText(this).apply {
                 setText(value); this.hint = hint
                 minLines = 2; maxLines = 8; gravity = android.view.Gravity.TOP
                 inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
                 importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
-                addTextChangedListener(object : android.text.TextWatcher {
-                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-                    override fun afterTextChanged(s: android.text.Editable?) { save(s?.toString().orEmpty()) }
-                })
+                doAfterTextChanged { save(it?.toString().orEmpty()) }
             })
         }
-        fun switch(t: String, on: Boolean, info: String? = null, save: (Boolean) -> Unit) = SwitchMaterial(this).apply {
-            text = t; isChecked = on
-            setOnCheckedChangeListener { _, v -> save(v) }
-        }.also { box.addView(if (info == null) it else infoRow(it, info)) }
 
         info(label("Network SDR"), "Uses an RTL-SDR on another device over WiFi, such as an ESP32 board or a computer running " +
             "rtl_tcp. Enter its address and port; the port is ${com.rfsentinel.app.sdr.RtlTcp.DEFAULT_PORT} if left out. A plugged-in " +
@@ -1427,7 +1466,7 @@ class SettingsActivity : AppCompatActivity() {
 
         // What the SDR does: any mix; with more than one ticked it takes turns.
         var showSdrOptions: () -> Unit = {}
-        info(label("Scan with the SDR"), "Tick what the RTL-SDR or HackRF does while scanning. One SDR hears one thing at a time: " +
+        info(box.label("Scan with the SDR"), "Tick what the RTL-SDR or HackRF does while scanning. One SDR hears one thing at a time: " +
             "with more than one ticked it takes turns, and each scan hears nothing while another has its turn. " +
             "Tick only one to give it all the time.", "Scan with the SDR")
         fun scan(t: String, on: Boolean, details: String, save: (Boolean) -> Unit) = android.widget.CheckBox(this).apply {
@@ -1503,7 +1542,7 @@ class SettingsActivity : AppCompatActivity() {
         info(box.getChildAt(box.childCount - 2), "A radio is reported once its signal is this far above the noise. Lower hears farther, with more false alarms. " +
             "Below about 10 dB the noise's own flicker sets off some alerts: good for testing how far a known radio carries " +
             "(a fire station's TETRA, say), noisy for everyday use.", "Sensitivity")
-        label("Bands to sweep")
+        box.label("Bands to sweep")
         val off = Prefs.radioBandsOff(this).toMutableSet()
         for ((key, band) in com.rfsentinel.app.sdr.RadioSettings.BUILT_IN) {
             box.addView(android.widget.CheckBox(this).apply {
@@ -1519,12 +1558,12 @@ class SettingsActivity : AppCompatActivity() {
         lines("Never report these ranges", "462-469 business band\n151.8-152.0", Prefs.radioExcluded(this), "One per line, in MHz.") { Prefs.setRadioExcluded(this, it) }
         lines("Watch these frequencies", "154.4300 County fire dispatch\n460.125", Prefs.radioTargets(this),
             "Always reported when active, whatever the sensitivity. One per line, in MHz, with an optional name.") { Prefs.setRadioTargets(this, it) }
-        switch("Say the frequency", Prefs.radioSpeakFreq(this), "Says the frequency (and its name) instead of \"Radio transmitting nearby\".") { Prefs.setRadioSpeakFreq(this, it) }
-        switch("Detect cellular transmitters", Prefs.radioCellOn(this),
+        box.toggle("Say the frequency", Prefs.radioSpeakFreq(this), "Says the frequency (and its name) instead of \"Radio transmitting nearby\".") { Prefs.setRadioSpeakFreq(this, it) }
+        box.toggle("Detect cellular transmitters", Prefs.radioCellOn(this),
             "Experimental. Watches the phone / modem side of the LTE bands (uplink) for a transmitter travelling near you: a vehicle modem, a " +
             "Cradlepoint-style router, a camera with a SIM. Energy only, nothing decoded. Adds time to each sweep; " +
             "a phone counts too, so it is a weak sign on its own.") { Prefs.setRadioCellOn(this, it) }
-        switch("Detect TETRA radios", Prefs.radioTetraOn(this),
+        box.toggle("Detect TETRA radios", Prefs.radioTetraOn(this),
             "Watches 380-385 MHz, where emergency-service TETRA handsets transmit in Europe and many other countries. " +
             "A handset sends short time-slot bursts; that rhythm marks it as a TETRA radio. Energy only: TETRA is encrypted " +
             "and nothing is decoded. On by default when the phone's region is in Europe.") { Prefs.setRadioTetraOn(this, it) }
@@ -1535,8 +1574,8 @@ class SettingsActivity : AppCompatActivity() {
         sweepViews = (sweepFrom until box.childCount).map(box::getChildAt)
         showSdrOptions()
 
-        label("Frequency names")
-        freqListText = label("", small = true)
+        box.label("Frequency names")
+        freqListText = box.label("", small = true)
         com.rfsentinel.app.sdr.FreqNames.load(this)
         updateFreqListText()
         box.addView(android.widget.LinearLayout(this).apply {
@@ -1553,7 +1592,7 @@ class SettingsActivity : AppCompatActivity() {
             })
         })
 
-        val rrSwitch = switch("Name hits from RadioReference", Prefs.radioReferenceOn(this),
+        val rrSwitch = box.toggle("Name hits from RadioReference", Prefs.radioReferenceOn(this),
             "Names a hit from RadioReference's database. Needs your own RadioReference Premium login and developer key, stored encrypted on this phone.") {
             Prefs.setRadioReferenceOn(this, it)
         }
@@ -1574,7 +1613,7 @@ class SettingsActivity : AppCompatActivity() {
         secret("RadioReference username (not your email)", com.rfsentinel.app.sdr.RadioReference.USER_KEY, false)
         secret("RadioReference password", com.rfsentinel.app.sdr.RadioReference.PASS_KEY, true)
         secret("RadioReference developer key", com.rfsentinel.app.sdr.RadioReference.APPKEY_KEY, true)
-        val rrStatus = label(com.rfsentinel.app.sdr.RadioReference.status.ifEmpty { "Stored encrypted on this phone." }, small = true)
+        val rrStatus = box.label(com.rfsentinel.app.sdr.RadioReference.status.ifEmpty { "Stored encrypted on this phone." }, small = true)
         box.addView(com.google.android.material.button.MaterialButton(this, null, android.R.attr.borderlessButtonStyle).apply {
             text = "Test login"
             setOnClickListener {
@@ -1643,36 +1682,26 @@ class SettingsActivity : AppCompatActivity() {
     /** Settings > Navigation: directions, route preferences, distance units and the places kept for it. */
     private fun setupNavSection() {
         val box = binding.sectionNav
-        val dp = resources.displayMetrics.density
-        fun label(t: String, small: Boolean = false) = android.widget.TextView(this).apply {
-            text = t; textSize = if (small) 12f else 14f
-            if (small) alpha = 0.75f
-            setPadding(0, (if (small) 0 else 10 * dp).toInt(), 0, (2 * dp).toInt())
-        }.also { box.addView(it) }
-        fun switch(t: String, on: Boolean, info: String? = null, save: (Boolean) -> Unit) = SwitchMaterial(this).apply {
-            text = t; isChecked = on
-            setOnCheckedChangeListener { _, v -> save(v) }
-        }.also { box.addView(if (info == null) it else infoRow(it, info)) }
 
-        switch("Spoken directions", Prefs.navVoice(this), "Turn-by-turn directions spoken aloud. Muting them never mutes the detection alerts.") { Prefs.setNavVoice(this, it) }
-        switch("Scan when a route starts", Prefs.navStartScan(this),
+        box.toggle("Spoken directions", Prefs.navVoice(this), "Turn-by-turn directions spoken aloud. Muting them never mutes the detection alerts.") { Prefs.setNavVoice(this, it) }
+        box.toggle("Scan when a route starts", Prefs.navStartScan(this),
             "Starts scanning when you start a destination. A scan already running is left alone, and the scan keeps going after you arrive.") { Prefs.setNavStartScan(this, it) }
-        switch("Keep the screen on while guiding", Prefs.navKeepScreenOn(this)) { Prefs.setNavKeepScreenOn(this, it) }
-        switch("Night map after sunset", Prefs.navAutoNight(this),
+        box.toggle("Keep the screen on while guiding", Prefs.navKeepScreenOn(this)) { Prefs.setNavKeepScreenOn(this, it) }
+        box.toggle("Night map after sunset", Prefs.navAutoNight(this),
             "While guiding, the map turns dark after sunset, worked out on the phone from your position and the time. " +
             "Pressing the sun / moon button on the map keeps the look you chose instead.") { Prefs.setNavAutoNight(this, it) }
-        box.addView(infoRow(label("Routes avoid").also { box.removeView(it) },
+        box.addView(infoRow(box.label("Routes avoid").also { box.removeView(it) },
             "Ticking one while you plan a route is remembered here for the next one.\n\n" +
             "Speed cameras and plate readers: routes go round the cameras of the camera map (Known cameras) where there is a way round, " +
             "and each route says what is left on it. The cameras along the route are fetched first if they are not on the phone. " +
             "A camera right at the start or end, or on the only bridge, can't be avoided. A detour can be longer."))
-        switch("Tolls", Prefs.navAvoidTolls(this)) { Prefs.setNavAvoidTolls(this, it) }
-        switch("Highways", Prefs.navAvoidHighways(this)) { Prefs.setNavAvoidHighways(this, it) }
-        switch("Ferries", Prefs.navAvoidFerries(this)) { Prefs.setNavAvoidFerries(this, it) }
-        switch("Speed cameras", Prefs.navAvoidSpeedCameras(this)) { Prefs.setNavAvoidSpeedCameras(this, it) }
-        switch("Plate readers", Prefs.navAvoidPlateReaders(this)) { Prefs.setNavAvoidPlateReaders(this, it) }
+        box.toggle("Tolls", Prefs.navAvoidTolls(this)) { Prefs.setNavAvoidTolls(this, it) }
+        box.toggle("Highways", Prefs.navAvoidHighways(this)) { Prefs.setNavAvoidHighways(this, it) }
+        box.toggle("Ferries", Prefs.navAvoidFerries(this)) { Prefs.setNavAvoidFerries(this, it) }
+        box.toggle("Speed cameras", Prefs.navAvoidSpeedCameras(this)) { Prefs.setNavAvoidSpeedCameras(this, it) }
+        box.toggle("Plate readers", Prefs.navAvoidPlateReaders(this)) { Prefs.setNavAvoidPlateReaders(this, it) }
 
-        label("Places")
+        box.label("Places")
         val places = android.widget.TextView(this).apply { textSize = 14f; alpha = 0.8f }
         fun showPlaces() {
             places.text = "Home: ${Prefs.navHome(this@SettingsActivity)?.name ?: "not set"}\n" +
@@ -1840,8 +1869,7 @@ class SettingsActivity : AppCompatActivity() {
             Prefs.setMapSpeedLimitLive(this, on)
             if (!on) com.rfsentinel.app.nav.SpeedLimits.Live.reset()
         }
-        binding.mapTowersSwitch.isChecked = Prefs.showCellTowers(this)
-        binding.mapTowersSwitch.setOnCheckedChangeListener { _, on -> Prefs.setShowCellTowers(this, on) }
+        binding.mapTowersSwitch.bindLive(Prefs.showCellTowers(this)) { Prefs.setShowCellTowers(this, it) }
         binding.mapCctvSwitch.isChecked = Prefs.showCctv(this)
         binding.mapCctvPrivateSwitch.isChecked = Prefs.cctvPrivate(this)
         binding.mapCctvPrivateSwitch.isEnabled = binding.mapCctvSwitch.isChecked
@@ -1936,15 +1964,6 @@ class SettingsActivity : AppCompatActivity() {
                 .setNegativeButton("Cancel", null)
                 .show()
         }
-    }
-
-    /** A small grey line under a category switch, indented like the AirTag option. */
-    private fun indentedNote(text: String) = android.widget.TextView(this).apply {
-        this.text = text
-        textSize = 12f
-        alpha = 0.75f
-        setPadding((24 * resources.displayMetrics.density).toInt(), 0, 0, (6 * resources.displayMetrics.density).toInt())
-        shownIf(text.isNotBlank())
     }
 
     private fun showNote(view: android.widget.TextView?, text: String) {
@@ -2169,22 +2188,6 @@ class SettingsActivity : AppCompatActivity() {
         val backendGroup = android.widget.RadioGroup(this).apply { addView(ninjaBtn); addView(directBtn) }
         box.addView(backendGroup)
         // Two independent ranges (both backends): how close a report must be to alert, and how far the map shows them.
-        fun rangeSlider(label: String, from: Float, to: Float, km: Int, desc: String, save: (Int) -> Unit) {
-            val text = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
-            fun show(v: Int) { text.text = "$label ${com.rfsentinel.app.util.Units.km(v)}" }
-            show(km)
-            box.addView(text)
-            box.addView(com.google.android.material.slider.Slider(this).apply {
-                valueFrom = from; valueTo = to; stepSize = 1f
-                value = km.toFloat().coerceIn(from, to)
-                contentDescription = desc
-                setLabelFormatter { com.rfsentinel.app.util.Units.km(it.toInt()) }
-                addOnChangeListener { _, v, fromUser ->
-                    if (!fromUser) return@addOnChangeListener
-                    save(v.toInt()); show(v.toInt())
-                }
-            })
-        }
         // The alert range steps through fixed distances, from 100 m up.
         val steps = Prefs.WAZE_ALERT_STEPS_M
         val alertText = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
@@ -2192,18 +2195,20 @@ class SettingsActivity : AppCompatActivity() {
         val alertNow = Prefs.wazeAlertM(this)
         showAlert(alertNow)
         box.addView(alertText)
-        box.addView(com.google.android.material.slider.Slider(this).apply {
-            valueFrom = 0f; valueTo = (steps.size - 1).toFloat(); stepSize = 1f
-            value = steps.indexOf(alertNow).coerceAtLeast(0).toFloat()
-            contentDescription = "Waze alert distance"
-            setLabelFormatter { Prefs.formatRange(steps[it.toInt().coerceIn(0, steps.size - 1)]) }
-            addOnChangeListener { _, v, fromUser ->
-                if (!fromUser) return@addOnChangeListener
-                val m = steps[v.toInt().coerceIn(0, steps.size - 1)]
-                Prefs.setWazeAlertM(this@SettingsActivity, m); showAlert(m)
-            }
+        box.addView(slider(0, steps.lastIndex, steps.indexOf(alertNow).coerceAtLeast(0), description = "Waze alert distance",
+            format = { Prefs.formatRange(steps[it]) }) {
+            Prefs.setWazeAlertM(this, steps[it])
+            showAlert(steps[it])
         })
-        rangeSlider("Show reports on the map within", 1f, 20f, Prefs.wazeViewKm(this), "Waze map view range in kilometres") { Prefs.setWazeViewKm(this, it) }
+        val viewText = TextView(this).apply { textSize = 12f; alpha = 0.75f }
+        fun showView(km: Int) { viewText.text = "Show reports on the map within ${com.rfsentinel.app.util.Units.km(km)}" }
+        showView(Prefs.wazeViewKm(this))
+        box.addView(viewText)
+        box.addView(slider(1, 20, Prefs.wazeViewKm(this), description = "Waze map view range in kilometres",
+            format = { com.rfsentinel.app.util.Units.km(it) }) {
+            Prefs.setWazeViewKm(this, it)
+            showView(it)
+        })
         // How often Waze is asked. Each backend has its own steps; only the chosen backend's slider shows.
         fun intervalBlock(direct: Boolean): android.widget.LinearLayout {
             val steps = if (direct) Prefs.WAZE_DIRECT_INTERVALS_S else Prefs.WAZE_NINJA_INTERVALS_S
@@ -2223,16 +2228,10 @@ class SettingsActivity : AppCompatActivity() {
             val now = Prefs.wazeIntervalS(this, direct)
             show(now)
             col.addView(text)
-            col.addView(com.google.android.material.slider.Slider(this).apply {
-                valueFrom = 0f; valueTo = (steps.size - 1).toFloat(); stepSize = 1f
-                value = steps.indexOf(now).coerceAtLeast(0).toFloat()
-                contentDescription = "How often to check Waze"
-                setLabelFormatter { Prefs.formatInterval(steps[it.toInt().coerceIn(0, steps.size - 1)]) }
-                addOnChangeListener { _, v, fromUser ->
-                    if (!fromUser) return@addOnChangeListener
-                    val sec = steps[v.toInt().coerceIn(0, steps.size - 1)]
-                    Prefs.setWazeIntervalS(this@SettingsActivity, direct, sec); show(sec)
-                }
+            col.addView(slider(0, steps.lastIndex, steps.indexOf(now).coerceAtLeast(0), description = "How often to check Waze",
+                format = { Prefs.formatInterval(steps[it]) }) {
+                Prefs.setWazeIntervalS(this, direct, steps[it])
+                show(steps[it])
             })
             col.addView(hint)
             return col
@@ -2242,31 +2241,20 @@ class SettingsActivity : AppCompatActivity() {
         box.addView(directInterval)
         box.addView(ninjaInterval)
         // Behaviour switches: each has a line under it saying what it does.
-        fun switchRow(label: String, hint: String, checked: Boolean, save: (Boolean) -> Unit) {
-            box.addView(infoRow(SwitchMaterial(this).apply {
-                text = label
-                isChecked = checked
-                setOnCheckedChangeListener { _, on -> save(on) }
-            }, hint))
-        }
-        switchRow("Slower when parked, faster on fast roads",
-            "Parked for 90 s: checks run 4 times less often. Over 80 km/h: twice as often (Waze direct only).",
-            Prefs.wazeAdaptive(this)) { Prefs.setWazeAdaptive(this, it) }
-        switchRow("Only alert for reports ahead of me",
+        box.toggle("Slower when parked, faster on fast roads", Prefs.wazeAdaptive(this),
+            "Parked for 90 s: checks run 4 times less often. Over 80 km/h: twice as often (Waze direct only).") { Prefs.setWazeAdaptive(this, it) }
+        box.toggle("Only alert for reports ahead of me", Prefs.wazeAheadOnly(this),
             "While you drive, only reports on the road you're on, ahead of you, alert, flash or speak - checked on the map's " +
                 "roads, so one on a parallel road, a cross street, an overpass or behind you stays quiet (it stays on the list, " +
                 "marked \"not on your way\" unless you hide them below). While you are being guided to a destination the route " +
                 "decides: only reports on the part of it still ahead count, round corners too. Where the map can't tell yet, " +
                 "reports behind you stay quiet. Parked, or before you've driven off, there is no \"ahead\" yet, so reports " +
-                "stay quiet until you move.",
-            Prefs.wazeAheadOnly(this)) { Prefs.setWazeAheadOnly(this, it) }
-        switchRow("Hide reports that aren't on my way",
+                "stay quiet until you move.") { Prefs.setWazeAheadOnly(this, it) }
+        box.toggle("Hide reports that aren't on my way", Prefs.wazeHideOffWay(this),
             "With the switch above on, a report behind you, on another street or off your route is left off the list (the map " +
-                "still shows it). Off: it stays listed, quiet, marked \"not on your way\".",
-            Prefs.wazeHideOffWay(this)) { Prefs.setWazeHideOffWay(this, it) }
-        switchRow("Call out again as I get closer",
-            "Speaks at 1 km, 500 m and 200 m when voice alerts are on, or in the car.",
-            Prefs.wazeApproach(this)) { Prefs.setWazeApproach(this, it) }
+                "still shows it). Off: it stays listed, quiet, marked \"not on your way\".") { Prefs.setWazeHideOffWay(this, it) }
+        box.toggle("Call out again as I get closer", Prefs.wazeApproach(this),
+            "Speaks at 1 km, 500 m and 200 m when voice alerts are on, or in the car.") { Prefs.setWazeApproach(this, it) }
         // What to watch (ticked) and what an alert of that kind does (the menu beside it).
         box.addView(android.widget.TextView(this).apply { text = "What to alert on, and how loud"; textSize = 12f; alpha = 0.75f })
         val levels = com.rfsentinel.app.online.WazePolice.Level.entries
@@ -2286,18 +2274,8 @@ class SettingsActivity : AppCompatActivity() {
                     Prefs.setWazeTypes(this@SettingsActivity, now)
                 }
             })
-            row.addView(androidx.appcompat.widget.AppCompatSpinner(this).apply {
-                adapter = android.widget.ArrayAdapter(this@SettingsActivity, android.R.layout.simple_spinner_item, levels.map { it.label }).also {
-                    it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                }
-                setSelection(Prefs.wazeLevel(this@SettingsActivity, t).ordinal)
-                contentDescription = "What a ${t.label.lowercase()} alert does"
-                onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-                    override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
-                        Prefs.setWazeLevel(this@SettingsActivity, t, levels[position])
-                    }
-                    override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
-                }
+            row.addView(spinner(levels.map { it.label }, Prefs.wazeLevel(this, t).ordinal, "What a ${t.label.lowercase()} alert does") {
+                Prefs.setWazeLevel(this, t, levels[it])
             })
             box.addView(row)
         }
@@ -2384,35 +2362,26 @@ class SettingsActivity : AppCompatActivity() {
         binding.themeGroup.removeAllViews()
         val current = ThemeManager.current(this)
         val custom = ThemeManager.custom(this)
-        ThemeManager.builtIn.forEach { t ->
-            val unavailable = t == ThemeManager.AppTheme.MATERIAL_YOU && !ThemeManager.isDynamicColorAvailable
-            binding.themeGroup.addView(RadioButton(this).apply {
-                id = View.generateViewId()
-                text = t.title
-                isChecked = t == current
-                setOnCheckedChangeListener { _, checked ->
-                    if (checked && t != ThemeManager.current(this@SettingsActivity)) {
-                        resumeScroll = binding.root.scrollY
-                        ThemeManager.set(this@SettingsActivity, t)
-                        recreate()
-                    }
+        fun choice(title: String, checked: Boolean, selected: () -> Boolean, choose: () -> Unit) = RadioButton(this).apply {
+            id = View.generateViewId()
+            text = title
+            isChecked = checked
+            setOnCheckedChangeListener { _, checked ->
+                if (checked && !selected()) {
+                    resumeScroll = binding.root.scrollY
+                    choose()
+                    recreate()
                 }
-            })
+            }
+        }.also { binding.themeGroup.addView(it) }
+        ThemeManager.builtIn.forEach { theme ->
+            choice(theme.title, theme == current, { theme == ThemeManager.current(this) }) { ThemeManager.set(this, theme) }
         }
-        CustomThemes.all(this).forEach { c ->
-            binding.themeGroup.addView(RadioButton(this).apply {
-                id = View.generateViewId()
-                text = c.name
-                isChecked = current == ThemeManager.AppTheme.CUSTOM && custom?.id == c.id
-                setOnCheckedChangeListener { _, checked ->
-                    if (checked && !(ThemeManager.current(this@SettingsActivity) == ThemeManager.AppTheme.CUSTOM && ThemeManager.custom(this@SettingsActivity)?.id == c.id)) {
-                        resumeScroll = binding.root.scrollY
-                        ThemeManager.setCustom(this@SettingsActivity, c.id)
-                        recreate()
-                    }
-                }
-                setOnLongClickListener { editTheme(c.id); true }
-            })
+        CustomThemes.all(this).forEach { theme ->
+            choice(theme.name, current == ThemeManager.AppTheme.CUSTOM && custom?.id == theme.id,
+                { ThemeManager.current(this) == ThemeManager.AppTheme.CUSTOM && ThemeManager.custom(this)?.id == theme.id }) {
+                ThemeManager.setCustom(this, theme.id)
+            }.setOnLongClickListener { editTheme(theme.id); true }
         }
     }
 
@@ -2526,18 +2495,8 @@ class SettingsActivity : AppCompatActivity() {
         // Scanning
         binding.bleSwitch.isChecked = Prefs.bleEnabled(this)
         binding.wifiSwitch.isChecked = Prefs.wifiEnabled(this)
-        binding.wifiBandGroup.check(when (Prefs.wifiBand(this)) {
-            Prefs.WifiBand.LOW -> R.id.wifiBandLow
-            Prefs.WifiBand.HIGH -> R.id.wifiBandHigh
-            Prefs.WifiBand.ALL -> R.id.wifiBandAll
-        })
-        binding.scanModeGroup.check(
-            when (Prefs.bleScanMode(this)) {
-                ScanSettings.SCAN_MODE_BALANCED -> R.id.scanModeBalanced
-                ScanSettings.SCAN_MODE_LOW_POWER -> R.id.scanModeLowPower
-                else -> R.id.scanModeLowLatency
-            }
-        )
+        binding.wifiBandGroup.checkIndex(Prefs.wifiBand(this).ordinal)
+        binding.scanModeGroup.checkIndex(SCAN_MODES.indexOf(Prefs.bleScanMode(this)).coerceAtLeast(0))
         binding.intervalInput.setText((Prefs.scanIntervalMs(this) / 1000).toString())
         binding.wifiThrottleButton.setOnClickListener { openWifiThrottleSetting() }
         binding.disable2gButton.setOnClickListener {
@@ -2614,27 +2573,20 @@ class SettingsActivity : AppCompatActivity() {
             if (c == Category.POLICE_REPORT) addWazeControls(sw)
         }
         val enabledPresets = OuiWatchlist.getEnabledPresets(this)
-        binding.presetGlobal.isChecked = "global" in enabledPresets
-        binding.presetCanada.isChecked = "canada" in enabledPresets
-        binding.presetUs.isChecked = "us" in enabledPresets
-        binding.presetFrance.isChecked = "france" in enabledPresets
-        binding.presetFrance.setOnCheckedChangeListener { _, on -> if (on) com.rfsentinel.app.ui.RegionNotice.show(this, "france") }
-        binding.presetUk.isChecked = "uk" in enabledPresets
-        binding.presetPortugal.isChecked = "portugal" in enabledPresets
-        binding.presetGermany.isChecked = "germany" in enabledPresets
-        binding.presetGermany.setOnCheckedChangeListener { _, on -> if (on) com.rfsentinel.app.ui.RegionNotice.show(this, "germany") }
-        binding.presetSpain.isChecked = "spain" in enabledPresets
-        binding.presetItaly.isChecked = "italy" in enabledPresets
+        presetSwitches().forEach { (key, control) ->
+            control.isChecked = key in enabledPresets
+            if (key == "france" || key == "germany") control.setOnCheckedChangeListener { _, on ->
+                if (on) com.rfsentinel.app.ui.RegionNotice.show(this, key)
+            }
+        }
 
         // Alerts
         val threshold = Prefs.alertThreshold(this)
-        binding.thresholdGroup.check(
-            when {
-                threshold >= 80 -> R.id.thresholdStrong
-                threshold >= 50 -> R.id.thresholdMedium
-                else -> R.id.thresholdWeak
-            }
-        )
+        binding.thresholdGroup.checkIndex(when {
+            threshold >= 80 -> 2
+            threshold >= 50 -> 1
+            else -> 0
+        })
         binding.soundSwitch.isChecked = Prefs.soundEnabled(this)
         binding.alertVolumeGroup.checkIndex(Prefs.alertVolume(this).ordinal)
         // Each choice plays the alert sound at that volume.
@@ -2668,11 +2620,9 @@ class SettingsActivity : AppCompatActivity() {
         binding.shortVoiceSwitch.isChecked = Prefs.shortVoice(this)
         setupVoiceControls()
         binding.discreetSwitch.isChecked = Prefs.discreetMode(this)
-        val rotations = mapOf(R.id.rotationNormal to Prefs.Rotation.NORMAL, R.id.rotationAllWays to Prefs.Rotation.ALL_WAYS,
-            R.id.rotationUpsideDown to Prefs.Rotation.UPSIDE_DOWN)
-        binding.rotationGroup.check(rotations.entries.first { it.value == Prefs.rotation(this) }.key)
-        binding.rotationGroup.setOnCheckedChangeListener { _, id ->
-            rotations[id]?.let { Prefs.setRotation(this, it) }
+        binding.rotationGroup.checkIndex(Prefs.rotation(this).ordinal)
+        binding.rotationGroup.setOnCheckedChangeListener { group, _ ->
+            Prefs.Rotation.entries.getOrNull(group.checkedIndex)?.let { Prefs.setRotation(this, it) }
             (application as com.rfsentinel.app.RFSentinelApp).applyOrientation(this) // turns right away
         }
         binding.floatingMapSwitch.isChecked = Prefs.floatingMap(this) && Settings.canDrawOverlays(this)
@@ -2748,11 +2698,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.traceEveryPingSwitch.isChecked = Prefs.traceEveryPing(this)
         binding.ouiSpyRelaySwitch.isChecked = Prefs.ouiSpyRelayAll(this)
         binding.ouiSpyPhoneBleSwitch.isChecked = Prefs.ouiSpyPhoneBle(this)
-        binding.screenModeGroup.check(when (Prefs.screenMode(this)) {
-            Prefs.ScreenMode.ALWAYS_ON -> R.id.screenAlwaysOn
-            Prefs.ScreenMode.ON_WHILE_CHARGING -> R.id.screenOnCharging
-            Prefs.ScreenMode.NORMAL -> R.id.screenNormal
-        })
+        binding.screenModeGroup.checkIndex(Prefs.screenMode(this).ordinal)
         binding.knownAlprSwitch.isChecked = Prefs.knownAlprAlerts(this)
         binding.cellChangeSwitch.isChecked = Prefs.cellChangeAlerts(this)
         binding.speedCameraSwitch.isChecked = Prefs.speedCameraAlerts(this)
@@ -2959,19 +2905,8 @@ class SettingsActivity : AppCompatActivity() {
     private fun save() {
         Prefs.setBleEnabled(this, binding.bleSwitch.isChecked)
         Prefs.setWifiEnabled(this, binding.wifiSwitch.isChecked)
-        Prefs.setWifiBand(this, when (binding.wifiBandGroup.checkedRadioButtonId) {
-            R.id.wifiBandLow -> Prefs.WifiBand.LOW
-            R.id.wifiBandHigh -> Prefs.WifiBand.HIGH
-            else -> Prefs.WifiBand.ALL
-        })
-        Prefs.setBleScanMode(
-            this,
-            when (binding.scanModeGroup.checkedRadioButtonId) {
-                R.id.scanModeBalanced -> ScanSettings.SCAN_MODE_BALANCED
-                R.id.scanModeLowPower -> ScanSettings.SCAN_MODE_LOW_POWER
-                else -> ScanSettings.SCAN_MODE_LOW_LATENCY
-            }
-        )
+        Prefs.setWifiBand(this, Prefs.WifiBand.entries.getOrElse(binding.wifiBandGroup.checkedIndex) { Prefs.WifiBand.ALL })
+        Prefs.setBleScanMode(this, SCAN_MODES.getOrElse(binding.scanModeGroup.checkedIndex) { ScanSettings.SCAN_MODE_LOW_LATENCY })
         val intervalSec = binding.intervalInput.text.toString().toLongOrNull() ?: 30L
         Prefs.setScanIntervalMs(this, intervalSec.coerceAtLeast(5) * 1000L)
         Prefs.setAutoStartOnBoot(this, binding.bootSwitch.isChecked)
@@ -2986,26 +2921,9 @@ class SettingsActivity : AppCompatActivity() {
             val name = com.rfsentinel.app.online.OnlineWatch.WAZE_KEY_NAME
             if (key != com.rfsentinel.app.util.SecureStore.get(this, name).orEmpty()) com.rfsentinel.app.util.SecureStore.put(this, name, key)
         }
-        val presets = mutableSetOf<String>()
-        if (binding.presetGlobal.isChecked) presets.add("global")
-        if (binding.presetCanada.isChecked) presets.add("canada")
-        if (binding.presetUs.isChecked) presets.add("us")
-        if (binding.presetFrance.isChecked) presets.add("france")
-        if (binding.presetUk.isChecked) presets.add("uk")
-        if (binding.presetPortugal.isChecked) presets.add("portugal")
-        if (binding.presetGermany.isChecked) presets.add("germany")
-        if (binding.presetSpain.isChecked) presets.add("spain")
-        if (binding.presetItaly.isChecked) presets.add("italy")
-        OuiWatchlist.setEnabledPresets(this, presets)
+        OuiWatchlist.setEnabledPresets(this, presetSwitches().filterValues { it.isChecked }.keys)
 
-        Prefs.setAlertThreshold(
-            this,
-            when (binding.thresholdGroup.checkedRadioButtonId) {
-                R.id.thresholdWeak -> 0
-                R.id.thresholdStrong -> 80
-                else -> 50
-            }
-        )
+        Prefs.setAlertThreshold(this, intArrayOf(0, 50, 80).getOrElse(binding.thresholdGroup.checkedIndex) { 50 })
         Prefs.setSoundEnabled(this, binding.soundSwitch.isChecked)
         Prefs.setRadarNorthUp(this, binding.radarTopGroup.checkedIndex == 1)
         Prefs.setRadarSpinDots(this, binding.radarDotsGroup.checkedIndex == 1)
@@ -3037,11 +2955,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setTraceEveryPing(this, binding.traceEveryPingSwitch.isChecked)
         Prefs.setOuiSpyRelayAll(this, binding.ouiSpyRelaySwitch.isChecked)
         Prefs.setOuiSpyPhoneBle(this, binding.ouiSpyPhoneBleSwitch.isChecked)
-        Prefs.setScreenMode(this, when (binding.screenModeGroup.checkedRadioButtonId) {
-            R.id.screenAlwaysOn -> Prefs.ScreenMode.ALWAYS_ON
-            R.id.screenNormal -> Prefs.ScreenMode.NORMAL
-            else -> Prefs.ScreenMode.ON_WHILE_CHARGING
-        })
+        Prefs.setScreenMode(this, Prefs.ScreenMode.entries.getOrElse(binding.screenModeGroup.checkedIndex) { Prefs.ScreenMode.ON_WHILE_CHARGING })
         com.rfsentinel.app.ui.ScreenAwake.apply(this)
         Prefs.setKnownAlprAlerts(this, binding.knownAlprSwitch.isChecked)
         Prefs.setCellChangeAlerts(this, binding.cellChangeSwitch.isChecked)

@@ -1,19 +1,7 @@
 package com.rfsentinel.app.car
 
-import android.text.SpannableString
-import android.text.Spanned
 import androidx.car.app.CarContext
-import androidx.car.app.model.Action
-import androidx.car.app.model.ActionStrip
 import androidx.car.app.model.CarColor
-import androidx.car.app.model.CarLocation
-import androidx.car.app.model.DistanceSpan
-import androidx.car.app.model.ItemList
-import androidx.car.app.model.Metadata
-import androidx.car.app.model.Place
-import androidx.car.app.model.PlaceListMapTemplate
-import androidx.car.app.model.PlaceMarker
-import androidx.car.app.model.Row
 import androidx.car.app.model.Template
 import com.rfsentinel.app.data.WhitelistCache
 import com.rfsentinel.app.detect.Tier
@@ -49,45 +37,18 @@ class DevicesMapScreen(carContext: CarContext) : LiveScreen(carContext, periodMs
         val limit = CarUi.listLimit(carContext).coerceAtMost(6)
         val items = if (me == null) emptyList() else around(me.latitude, me.longitude, limit)
 
-        val list = ItemList.Builder()
-        if (items.isEmpty()) list.setNoItemsMessage(
-            when {
-                !ScanForegroundService.isRunning -> "Not scanning - tap Start on the RF Sentinel home screen"
-                me == null -> "Waiting for your location..."
-                else -> "No devices placed yet - they appear as GPS fixes come in"
+        val noItems = when {
+            !ScanForegroundService.isRunning -> "Not scanning - tap Start on the RF Sentinel home screen"
+            me == null -> "Waiting for your location..."
+            else -> "No devices placed yet - they appear as GPS fixes come in"
+        }
+        return mapTemplate("Devices around me", items.map { item ->
+            mapRow(item.title, item.detail, item.lat, item.lon, item.distanceM,
+                CarColor.createCustom(item.color, item.color), item.tag) {
+                screenManager.push(DeviceDetailScreen(carContext, item.mac))
             }
-        )
-        items.forEach { list.addItem(row(it)) }
-
-        val template = PlaceListMapTemplate.Builder()
-            .setTitle("Devices around me")
-            .setHeaderAction(Action.BACK)
-            .setCurrentLocationEnabled(me != null)
-            .setActionStrip(
-                ActionStrip.Builder().addAction(
-                    Action.Builder().setTitle("Cameras")
-                        .setOnClickListener { screenManager.push(NearbyMapScreen(carContext, fromDevicesMap = true)) }
-                        .build()
-                ).build()
-            )
-            .setItemList(list.build())
-        if (me != null) template.setAnchor(Place.Builder(CarLocation.create(me.latitude, me.longitude)).build())
-        return template.build()
-    }
-
-    private fun row(it: Item): Row {
-        val marker = PlaceMarker.Builder().setColor(CarColor.createCustom(it.color, it.color))
-        it.tag?.let { t -> marker.setLabel(t) } // W = WiFi, B = Bluetooth, else the category's first letter
-        val place = Place.Builder(CarLocation.create(it.lat, it.lon)).setMarker(marker.build()).build()
-        // Map rows must carry their distance as a DistanceSpan (the car formats it).
-        val text = SpannableString("  · " + it.detail)
-        text.setSpan(DistanceSpan.create(NearbyMapScreen.distanceOf(it.distanceM)), 0, 1, Spanned.SPAN_INCLUSIVE_INCLUSIVE)
-        return Row.Builder()
-            .setTitle(it.title)
-            .addText(text)
-            .setMetadata(Metadata.Builder().setPlace(place).build())
-            .setOnClickListener { screenManager.push(DeviceDetailScreen(carContext, it.mac)) }
-            .build()
+        }, action("Cameras") { screenManager.push(NearbyMapScreen(carContext, fromDevicesMap = true)) },
+            location = me, noItems = noItems.takeIf { items.isEmpty() })
     }
 
     companion object {

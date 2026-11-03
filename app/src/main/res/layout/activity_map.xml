@@ -312,79 +312,43 @@
     <!-- Where to? Search a destination (Home, Work, starred, recent). -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/searchButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="end"
-        android:layout_marginEnd="14dp"
-        android:layout_marginBottom="8dp"
+        style="@style/MapActionButton"
         android:contentDescription="Search a destination"
-        android:src="@drawable/ic_search"
-        app:fabSize="mini"
-        app:tint="#FFFFFF" />
+        android:src="@drawable/ic_search" />
 
     <!-- On the main screen: open the map full screen. -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fullscreenButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="end"
-        android:layout_marginEnd="14dp"
-        android:layout_marginBottom="8dp"
+        style="@style/MapActionButton"
         android:contentDescription="Open the map full screen"
         android:src="@drawable/ic_fullscreen"
-        android:visibility="gone"
-        app:fabSize="mini"
-        app:tint="#FFFFFF" />
+        android:visibility="gone" />
 
     <!-- Map settings (provider, layers...): Settings > Map. -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/mapSettingsButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="end"
-        android:layout_marginEnd="14dp"
-        android:layout_marginBottom="8dp"
+        style="@style/MapActionButton"
         android:contentDescription="Map settings"
-        android:src="@drawable/ic_settings"
-        app:fabSize="mini"
-        app:tint="#FFFFFF" />
+        android:src="@drawable/ic_settings" />
 
     <!-- Light / dark map. -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/themeButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="end"
-        android:layout_marginEnd="14dp"
-        android:layout_marginBottom="8dp"
+        style="@style/MapActionButton"
         android:contentDescription="Light / dark map"
-        android:src="@drawable/ic_dark_mode"
-        app:fabSize="mini"
-        app:tint="#FFFFFF" />
+        android:src="@drawable/ic_dark_mode" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/orientationButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="end"
-        android:layout_marginEnd="14dp"
-        android:layout_marginBottom="8dp"
+        style="@style/MapActionButton"
         android:contentDescription="Map: north up"
-        android:src="@drawable/ic_north_up"
-        app:fabSize="mini"
-        app:tint="#FFFFFF" />
+        android:src="@drawable/ic_north_up" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/centerButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="end"
-        android:layout_marginEnd="14dp"
-        android:layout_marginBottom="8dp"
+        style="@style/MapActionButton"
         android:contentDescription="Follow my position"
-        android:src="@drawable/ic_my_location"
-        app:fabSize="mini"
-        app:tint="#FFFFFF" />
+        android:src="@drawable/ic_my_location" />
     </LinearLayout>
 
     <!-- A place or the routes to it: pick one and start. -->

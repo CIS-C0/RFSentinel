@@ -8,7 +8,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
-import androidx.annotation.ColorInt
 import com.google.android.material.color.ColorResourcesOverride
 import com.google.android.material.color.MaterialColorUtilitiesHelper
 import com.google.android.material.color.ThemeUtils
@@ -132,5 +131,4 @@ object CustomColors {
         }
     }
 
-    @ColorInt fun accentOf(t: CustomTheme): Int = t.accent
 }

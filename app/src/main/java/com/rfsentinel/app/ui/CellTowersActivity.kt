@@ -8,10 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.databinding.ActivityLogBinding
@@ -21,8 +18,6 @@ import com.rfsentinel.app.service.CellMonitor
 import com.rfsentinel.app.service.CellTowerStore
 import com.rfsentinel.app.service.ScanForegroundService
 import com.rfsentinel.app.util.Permissions
-import com.rfsentinel.app.util.applySystemBarInsets
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
@@ -101,22 +96,9 @@ class CellTowersActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityLogBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        binding.root.applySystemBarInsets()
-        title = "Cell towers"
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        binding.recyclerView.layoutManager = LinearLayoutManager(this)
-        binding.recyclerView.adapter = adapter
+        binding = logScreen("Cell towers", adapter)
 
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                while (true) {
-                    refresh()
-                    delay(REFRESH_MS)
-                }
-            }
-        }
+        refreshWhileStarted(REFRESH_MS) { refresh() }
     }
 
     override fun onDestroy() {

@@ -4,24 +4,15 @@ import android.annotation.SuppressLint
 import android.content.res.ColorStateList
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.rfsentinel.app.databinding.ActivityAntennaCheckBinding
-import com.rfsentinel.app.databinding.ItemDetectionBinding
 import com.rfsentinel.app.service.ScanForegroundService
 import com.rfsentinel.app.usb.AntennaCheck
 import com.rfsentinel.app.usb.UsbWifi
 import com.rfsentinel.app.R
 import com.rfsentinel.app.util.applySystemBarInsets
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /**
  * Antenna check for the USB WiFi adapter (after Wardrive Go's): pick a nearby access point as
@@ -53,21 +44,12 @@ class AntennaCheckActivity : AppCompatActivity() {
     /** Checking the USB Bluetooth adapter's antennas instead of the USB WiFi adapter's. */
     private var bt = false
 
-    private val adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-        init { setHasStableIds(true) } // rows stay put across refreshes, so a tap isn't lost to a rebind
-        override fun getItemCount() = aps.size
-        override fun getItemId(position: Int) = aps[position].bssid.hashCode().toLong()
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder =
-            object : RecyclerView.ViewHolder(ItemDetectionBinding.inflate(LayoutInflater.from(parent.context), parent, false).root) {}
-        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-            val ap = aps[position]
-            ItemDetectionBinding.bind(holder.itemView).apply {
-                labelText.text = ap.ssid ?: if (bt) "Unnamed device" else "Hidden network"
-                macText.text = ap.bssid
-                metaText.text = "${AntennaCheck.channelName(ap.channel)} · ${ap.rssi} dBm"
-            }
-            holder.itemView.setOnClickListener { pick(ap) }
-        }
+    // Stable IDs keep a tap on the same access point across refreshes.
+    private val adapter = DetectionRows({ aps }, id = { it.bssid.hashCode().toLong() }) { ap ->
+        labelText.text = ap.ssid ?: if (bt) "Unnamed device" else "Hidden network"
+        macText.text = ap.bssid
+        metaText.text = "${AntennaCheck.channelName(ap.channel)} · ${ap.rssi} dBm"
+        root.setOnClickListener { pick(ap) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -101,11 +83,7 @@ class AntennaCheckActivity : AppCompatActivity() {
         }
         styleCards()
         demo = com.rfsentinel.app.BuildConfig.DEBUG && intent.getBooleanExtra("demo", false)
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                while (true) { if (demo) feedDemo(); refresh(); delay(500) }
-            }
-        }
+        refreshWhileStarted(500) { if (demo) feedDemo(); refresh() }
     }
 
     override fun onStart() {

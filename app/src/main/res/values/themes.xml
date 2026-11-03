@@ -28,14 +28,7 @@
     </style>
 
     <!-- A theme made in the theme maker: Material 3 components; ThemeManager recolours it from the maker's accent (Android 11+). -->
-    <style name="Theme.RFSentinel.Custom" parent="Theme.Material3.DayNight">
-        <item name="rfAccent">?attr/colorPrimary</item>
-        <item name="rfOnAccent">?attr/colorOnPrimary</item>
-        <item name="rfScopeColor">?attr/colorPrimary</item>
-        <item name="rfScopeTextColor">?attr/colorOnSurfaceVariant</item>
-        <item name="rfTraceColor">?attr/colorTertiary</item>
-        <item name="actionBarTheme">@style/ThemeOverlay.Material3.ActionBar</item>
-    </style>
+    <style name="Theme.RFSentinel.Custom" parent="Theme.RFSentinel.MaterialYou" />
 
     <!-- DedSec-inspired hacktivist poster: black and white with electric blue, monospace. -->
     <style name="Theme.RFSentinel.DedSec" parent="Theme.MaterialComponents">
@@ -177,11 +170,17 @@
         <item name="android:background">?attr/colorSurface</item>
     </style>
 
-    <!-- Night Drive: red-only on black, like a cockpit - protects dark adaptation while driving. -->
-    <style name="Theme.RFSentinel.NightDrive" parent="Theme.MaterialComponents">
-        <!-- Selected chips / toggles use this theme's own primary colour. -->
+    <style name="Theme.RFSentinel.Styled" parent="Theme.MaterialComponents">
         <item name="rfAccent">?attr/colorPrimary</item>
         <item name="rfOnAccent">?attr/colorOnPrimary</item>
+        <item name="actionBarStyle">@style/Styled.ActionBar</item>
+        <item name="actionBarTheme">@style/Styled.ActionBarOverlay</item>
+        <item name="alertDialogTheme">@style/Styled.Dialog</item>
+        <item name="materialAlertDialogTheme">@style/Styled.Dialog</item>
+    </style>
+
+    <!-- Night Drive: red-only on black, like a cockpit - protects dark adaptation while driving. -->
+    <style name="Theme.RFSentinel.NightDrive" parent="Theme.RFSentinel.Styled">
         <item name="colorPrimary">@color/nd_red</item>
         <item name="colorPrimaryVariant">@color/nd_bg</item>
         <item name="colorOnPrimary">@color/nd_bg</item>
@@ -200,10 +199,6 @@
         <item name="fontFamily">sans-serif-condensed</item>
         <item name="android:statusBarColor">@color/nd_bg</item>
         <item name="android:navigationBarColor">@color/nd_bg</item>
-        <item name="actionBarStyle">@style/Styled.ActionBar</item>
-        <item name="actionBarTheme">@style/Styled.ActionBarOverlay</item>
-        <item name="alertDialogTheme">@style/Styled.Dialog</item>
-        <item name="materialAlertDialogTheme">@style/Styled.Dialog</item>
         <item name="rfBarColor">@color/nd_bg</item>
         <item name="rfTitleColor">@color/nd_red</item>
         <item name="rfScopeColor">@color/nd_deep</item>
@@ -212,10 +207,7 @@
     </style>
 
     <!-- Night Vision: green phosphor image-intensifier look. -->
-    <style name="Theme.RFSentinel.NightVision" parent="Theme.MaterialComponents">
-        <!-- Selected chips / toggles use this theme's own primary colour. -->
-        <item name="rfAccent">?attr/colorPrimary</item>
-        <item name="rfOnAccent">?attr/colorOnPrimary</item>
+    <style name="Theme.RFSentinel.NightVision" parent="Theme.RFSentinel.Styled">
         <item name="colorPrimary">@color/nv_green</item>
         <item name="colorPrimaryVariant">@color/nv_bg</item>
         <item name="colorOnPrimary">@color/nv_bg</item>
@@ -234,10 +226,6 @@
         <item name="fontFamily">@font/share_tech_mono</item>
         <item name="android:statusBarColor">@color/nv_bg</item>
         <item name="android:navigationBarColor">@color/nv_bg</item>
-        <item name="actionBarStyle">@style/Styled.ActionBar</item>
-        <item name="actionBarTheme">@style/Styled.ActionBarOverlay</item>
-        <item name="alertDialogTheme">@style/Styled.Dialog</item>
-        <item name="materialAlertDialogTheme">@style/Styled.Dialog</item>
         <item name="rfBarColor">@color/nv_bg</item>
         <item name="rfTitleColor">@color/nv_green</item>
         <item name="rfScopeColor">@color/nv_green</item>
@@ -246,10 +234,7 @@
     </style>
 
     <!-- Amber CRT: 1980s monochrome terminal. -->
-    <style name="Theme.RFSentinel.Amber" parent="Theme.MaterialComponents">
-        <!-- Selected chips / toggles use this theme's own primary colour. -->
-        <item name="rfAccent">?attr/colorPrimary</item>
-        <item name="rfOnAccent">?attr/colorOnPrimary</item>
+    <style name="Theme.RFSentinel.Amber" parent="Theme.RFSentinel.Styled">
         <item name="colorPrimary">@color/amber_main</item>
         <item name="colorPrimaryVariant">@color/amber_bg</item>
         <item name="colorOnPrimary">@color/amber_bg</item>
@@ -268,10 +253,6 @@
         <item name="fontFamily">monospace</item>
         <item name="android:statusBarColor">@color/amber_bg</item>
         <item name="android:navigationBarColor">@color/amber_bg</item>
-        <item name="actionBarStyle">@style/Styled.ActionBar</item>
-        <item name="actionBarTheme">@style/Styled.ActionBarOverlay</item>
-        <item name="alertDialogTheme">@style/Styled.Dialog</item>
-        <item name="materialAlertDialogTheme">@style/Styled.Dialog</item>
         <item name="rfBarColor">@color/amber_bg</item>
         <item name="rfTitleColor">@color/amber_main</item>
         <item name="rfScopeColor">@color/amber_main</item>
@@ -280,10 +261,7 @@
     </style>
 
     <!-- Synthwave: neon pink and cyan over a purple night. -->
-    <style name="Theme.RFSentinel.Synthwave" parent="Theme.MaterialComponents">
-        <!-- Selected chips / toggles use this theme's own primary colour. -->
-        <item name="rfAccent">?attr/colorPrimary</item>
-        <item name="rfOnAccent">?attr/colorOnPrimary</item>
+    <style name="Theme.RFSentinel.Synthwave" parent="Theme.RFSentinel.Styled">
         <item name="colorPrimary">@color/sw_pink</item>
         <item name="colorPrimaryVariant">@color/sw_bg</item>
         <item name="colorOnPrimary">@color/sw_bg</item>
@@ -302,10 +280,6 @@
         <item name="fontFamily">sans-serif-medium</item>
         <item name="android:statusBarColor">@color/sw_bg</item>
         <item name="android:navigationBarColor">@color/sw_bg</item>
-        <item name="actionBarStyle">@style/Styled.ActionBar</item>
-        <item name="actionBarTheme">@style/Styled.ActionBarOverlay</item>
-        <item name="alertDialogTheme">@style/Styled.Dialog</item>
-        <item name="materialAlertDialogTheme">@style/Styled.Dialog</item>
         <item name="rfBarColor">@color/sw_bg</item>
         <item name="rfTitleColor">@color/sw_pink</item>
         <item name="rfScopeColor">@color/sw_cyan</item>
@@ -314,10 +288,7 @@
     </style>
 
     <!-- Tactical: olive drab and coyote tan, low glare. -->
-    <style name="Theme.RFSentinel.Tactical" parent="Theme.MaterialComponents">
-        <!-- Selected chips / toggles use this theme's own primary colour. -->
-        <item name="rfAccent">?attr/colorPrimary</item>
-        <item name="rfOnAccent">?attr/colorOnPrimary</item>
+    <style name="Theme.RFSentinel.Tactical" parent="Theme.RFSentinel.Styled">
         <item name="colorPrimary">@color/tac_olive</item>
         <item name="colorPrimaryVariant">@color/tac_bg</item>
         <item name="colorOnPrimary">@color/tac_bg</item>
@@ -336,10 +307,6 @@
         <item name="fontFamily">sans-serif-condensed</item>
         <item name="android:statusBarColor">@color/tac_panel</item>
         <item name="android:navigationBarColor">@color/tac_panel</item>
-        <item name="actionBarStyle">@style/Styled.ActionBar</item>
-        <item name="actionBarTheme">@style/Styled.ActionBarOverlay</item>
-        <item name="alertDialogTheme">@style/Styled.Dialog</item>
-        <item name="materialAlertDialogTheme">@style/Styled.Dialog</item>
         <item name="rfBarColor">@color/tac_panel</item>
         <item name="rfTitleColor">@color/tac_tan</item>
         <item name="rfScopeColor">@color/tac_olive</item>
@@ -348,10 +315,7 @@
     </style>
 
     <!-- Blueprint: white technical drawing on drafting blue. -->
-    <style name="Theme.RFSentinel.Blueprint" parent="Theme.MaterialComponents">
-        <!-- Selected chips / toggles use this theme's own primary colour. -->
-        <item name="rfAccent">?attr/colorPrimary</item>
-        <item name="rfOnAccent">?attr/colorOnPrimary</item>
+    <style name="Theme.RFSentinel.Blueprint" parent="Theme.RFSentinel.Styled">
         <item name="colorPrimary">@color/bp_line</item>
         <item name="colorPrimaryVariant">@color/bp_bg</item>
         <item name="colorOnPrimary">@color/bp_bg</item>
@@ -370,10 +334,6 @@
         <item name="fontFamily">serif-monospace</item>
         <item name="android:statusBarColor">@color/bp_bg</item>
         <item name="android:navigationBarColor">@color/bp_bg</item>
-        <item name="actionBarStyle">@style/Styled.ActionBar</item>
-        <item name="actionBarTheme">@style/Styled.ActionBarOverlay</item>
-        <item name="alertDialogTheme">@style/Styled.Dialog</item>
-        <item name="materialAlertDialogTheme">@style/Styled.Dialog</item>
         <item name="rfBarColor">@color/bp_bg</item>
         <item name="rfTitleColor">@color/bp_line</item>
         <item name="rfScopeColor">@color/bp_line</item>
@@ -417,9 +377,32 @@
         <item name="rfTraceColor">@color/paper_red</item>
     </style>
 
-    <style name="SettingsHeader">
+    <style name="MapActionButton">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_gravity">end</item>
+        <item name="android:layout_marginEnd">14dp</item>
+        <item name="android:layout_marginBottom">8dp</item>
+        <item name="fabSize">mini</item>
+        <item name="tint">#FFFFFF</item>
+    </style>
+
+    <style name="SettingsControl">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
+    </style>
+
+    <style name="SettingsTextButton" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+    </style>
+
+    <style name="SettingsOutlinedButton" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+    </style>
+
+    <style name="SettingsHeader" parent="SettingsControl">
         <item name="android:paddingTop">20dp</item>
         <item name="android:paddingBottom">4dp</item>
         <item name="android:textSize">16sp</item>
@@ -427,9 +410,7 @@
         <item name="android:textColor">?attr/colorSecondary</item>
     </style>
 
-    <style name="SettingsLabel">
-        <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">wrap_content</item>
+    <style name="SettingsLabel" parent="SettingsControl">
         <item name="android:paddingTop">10dp</item>
         <item name="android:textSize">13sp</item>
     </style>

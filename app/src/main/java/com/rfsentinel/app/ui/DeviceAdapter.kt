@@ -98,6 +98,15 @@ class DeviceAdapter(
         private var animator: ValueAnimator? = null
         private var animColor = 0
 
+        init {
+            binding.root.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(view: View) {
+                    currentList.getOrNull(bindingAdapterPosition)?.let { setHighlight(it.highlight, it.flashing) }
+                }
+                override fun onViewDetachedFromWindow(view: View) = stopFlash()
+            })
+        }
+
         /**
          * Pulses the row background while flashing. A running pulse of the same
          * colour is left alone on rebind (rows rebind every second as RSSI and
@@ -111,7 +120,7 @@ class DeviceAdapter(
             }
             val low = (color and 0x00FFFFFF) or 0x26000000
             val high = (color and 0x00FFFFFF) or 0xE6000000.toInt()
-            if (flashing) {
+            if (flashing && binding.root.isAttachedToWindow) {
                 if (animator?.isRunning == true && animColor == color) return
                 stopFlash()
                 animColor = color
@@ -156,7 +165,7 @@ class DeviceAdapter(
             b.tagText.visibility = View.GONE
         }
         b.titleText.text = row.title
-        b.titleText.setTypeface(null, if (row.bold) Typeface.BOLD else Typeface.NORMAL)
+        b.titleText.setTypeface(b.titleText.typeface, if (row.bold) Typeface.BOLD else Typeface.NORMAL)
         b.macText.text = row.subtitle
         b.metaText.text = metaWithBadges(row)
         val conf = row.confidence

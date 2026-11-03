@@ -101,7 +101,7 @@
                 android:paddingStart="0dp"
                 android:paddingEnd="0dp"
                 app:iconGravity="textStart"
-                app:icon="@drawable/ic_car_list"
+                app:icon="@drawable/ic_view_list"
                 app:iconPadding="0dp" />
 
             <com.google.android.material.button.MaterialButton

@@ -1,10 +1,7 @@
 package com.rfsentinel.app.car
 
 import androidx.car.app.CarContext
-import androidx.car.app.model.Action
 import androidx.car.app.model.CarColor
-import androidx.car.app.model.ItemList
-import androidx.car.app.model.ListTemplate
 import androidx.car.app.model.Row
 import androidx.car.app.model.Template
 import com.rfsentinel.app.R
@@ -27,65 +24,33 @@ class CellsScreen(carContext: CarContext) : LiveScreen(carContext, periodMs = 5_
         Prefs.categoryEnabled(carContext, Category.CELL_ANOMALY)
     )
 
-    @Suppress("DEPRECATION") // setTitle keeps compatibility with older Android Auto hosts
     override fun render(): Template {
-        val items = ItemList.Builder()
         val running = ScanForegroundService.isRunning
         val checks = Prefs.categoryEnabled(carContext, Category.CELL_ANOMALY)
-
-        // 1. Fake-cell check status.
         val warning = recentWarning()
-        items.addItem(
-            when {
-                warning != null -> Row.Builder()
-                    .setTitle(warning.second.title)
-                    .addText(CarUi.ageText(System.currentTimeMillis() - warning.first) + " · " + warning.second.detail.take(90))
-                    .setImage(CarUi.icon(carContext, R.drawable.ic_car_warning, CarUi.DANGER_COLOR))
-                    .build()
-                !checks -> Row.Builder()
-                    .setTitle("Fake cell tower checks are off")
-                    .addText("Turn on the category in Settings on your phone")
-                    .setImage(CarUi.icon(carContext, R.drawable.ic_car_tower))
-                    .build()
-                !running -> Row.Builder()
-                    .setTitle("Not scanning")
-                    .addText("Cells are checked every 15 s while scanning")
-                    .setImage(CarUi.icon(carContext, R.drawable.ic_car_tower))
-                    .build()
-                else -> Row.Builder()
-                    .setTitle("No fake-cell signs")
-                    .addText("Checked every 15 s - a hint, not proof")
-                    .setImage(CarUi.icon(carContext, R.drawable.ic_car_tower, CarUi.CLEAR_COLOR))
-                    .build()
-            }
-        )
-
-        // 2. The serving cell, then the strongest neighbours.
+        val status = when {
+            warning != null -> row(warning.second.title,
+                CarUi.ageText(System.currentTimeMillis() - warning.first) + " · " + warning.second.detail.take(90),
+                icon = R.drawable.ic_car_warning, color = CarUi.DANGER_COLOR)
+            !checks -> row("Fake cell tower checks are off", "Turn on the category in Settings on your phone", icon = R.drawable.ic_car_tower)
+            !running -> row("Not scanning", "Cells are checked every 15 s while scanning", icon = R.drawable.ic_car_tower)
+            else -> row("No fake-cell signs", "Checked every 15 s - a hint, not proof", icon = R.drawable.ic_car_tower, color = CarUi.CLEAR_COLOR)
+        }
         val cells = if (running) CellTowerStore.current else emptyList()
-        cells.sortedWith(compareByDescending<CellAnalyzer.Cell> { it.registered }.thenByDescending { it.dbm ?: -999 })
-            .take((CarUi.listLimit(carContext) - 1).coerceAtLeast(0))
-            .forEach { c -> items.addItem(cellRow(c)) }
-
-        return ListTemplate.Builder()
-            .setTitle("Cell towers")
-            .setHeaderAction(Action.BACK)
-            .setSingleList(items.build())
-            .build()
+        val neighbours = cells.sortedWith(compareByDescending<CellAnalyzer.Cell> { it.registered }.thenByDescending { it.dbm ?: -999 })
+            .take((CarUi.listLimit(carContext) - 1).coerceAtLeast(0)).map { cellRow(it) }
+        return listTemplate("Cell towers", listOf(status) + neighbours)
     }
 
-    private fun cellRow(c: CellAnalyzer.Cell): Row {
-        val row = Row.Builder()
-            .setTitle(c.rat.label + if (c.registered) " · serving" else " · neighbour")
-            .addText(listOfNotNull(
-                c.operator,
-                if (c.mcc != null || c.mnc != null) "${c.mcc ?: "?"}-${c.mnc ?: "?"}" else null,
-                c.cellId?.let { "cell $it" } ?: c.pci?.let { "PCI $it" },
-                c.dbm?.let { "$it dBm" }
-            ).joinToString(" · ").ifEmpty { "No IDs reported" })
-            .setImage(CarUi.icon(carContext, R.drawable.ic_car_tower, if (c.registered) CarUi.CLEAR_COLOR else null))
-        // A tower with an estimated spot (where its signal was strongest) opens on the map.
-        if (c.cellId != null) {
-            row.setOnClickListener {
+    private fun cellRow(c: CellAnalyzer.Cell): Row = row(
+        c.rat.label + if (c.registered) " · serving" else " · neighbour",
+        listOfNotNull(c.operator,
+            if (c.mcc != null || c.mnc != null) "${c.mcc ?: "?"}-${c.mnc ?: "?"}" else null,
+            c.cellId?.let { "cell $it" } ?: c.pci?.let { "PCI $it" }, c.dbm?.let { "$it dBm" }
+        ).joinToString(" · ").ifEmpty { "No IDs reported" },
+        icon = R.drawable.ic_car_tower, color = if (c.registered) CarUi.CLEAR_COLOR else null,
+        onClick = if (c.cellId == null) null else {
+            {
                 val t = CellTowerStore.all(carContext).firstOrNull { it.key == c.key }
                 val lat = t?.bestLat
                 val lon = t?.bestLon
@@ -98,8 +63,7 @@ class CellsScreen(carContext: CarContext) : LiveScreen(carContext, periodMs = 5_
                 }
             }
         }
-        return row.build()
-    }
+    )
 
     private fun recentWarning() = CellMonitor.lastAnomaly?.takeIf { System.currentTimeMillis() - it.first < WARNING_MS }
 
