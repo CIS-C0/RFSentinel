@@ -349,9 +349,6 @@ object Prefs {
      * Map device filter (a [com.rfsentinel.app.ui.DeviceFilter] name). Older
      * versions had only "all devices" on/off: off becomes Flagged.
      */
-    /** The live map's last zoom. A zoom level is not a place, so it is always kept. */
-    fun mapZoom(context: Context): Double? = sp(context).getFloat("map_zoom", -1f).takeIf { it > 0f }?.toDouble()
-
     /** Where the live map last looked; remembered only with GPS tagging on, like the other saved positions. */
     fun lastMapCenter(context: Context): Pair<Double, Double>? {
         if (!gpsTaggingEnabled(context)) return null

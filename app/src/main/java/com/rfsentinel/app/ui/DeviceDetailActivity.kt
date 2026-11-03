@@ -10,9 +10,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.data.AppDatabase
@@ -31,8 +29,6 @@ import com.rfsentinel.app.util.MacUtil
 import com.rfsentinel.app.util.ProximityUtil
 import com.rfsentinel.app.util.applySystemBarInsets
 import com.rfsentinel.app.util.Prefs
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
@@ -139,14 +135,7 @@ class DeviceDetailActivity : AppCompatActivity() {
             sectionsKey = ""
             refresh()
         }
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                while (isActive) {
-                    refresh()
-                    delay(1000)
-                }
-            }
-        }
+        refreshWhileStarted(1000) { refresh() }
     }
 
     override fun onSupportNavigateUp(): Boolean {

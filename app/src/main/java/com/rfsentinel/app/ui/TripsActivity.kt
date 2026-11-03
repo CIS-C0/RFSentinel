@@ -10,7 +10,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -20,7 +19,6 @@ import com.rfsentinel.app.databinding.ActivityLogBinding
 import com.rfsentinel.app.databinding.ItemDetectionBinding
 import com.rfsentinel.app.service.TripRecorder
 import com.rfsentinel.app.util.Exporter
-import com.rfsentinel.app.util.applySystemBarInsets
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
@@ -93,12 +91,7 @@ class TripsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityLogBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        binding.root.applySystemBarInsets()
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        binding.recyclerView.layoutManager = LinearLayoutManager(this)
-        binding.recyclerView.adapter = adapter
+        binding = logScreen("Recorded traces", adapter)
         section = savedInstanceState?.getString(EXTRA_SECTION) ?: intent.getStringExtra(EXTRA_SECTION) ?: TripEntity.KIND_TRACE
         for ((kind, label) in listOf(TripEntity.KIND_TRACE to "Traces", TripEntity.KIND_SNAPSHOT to "Snapshots")) {
             binding.filterChips.addView(com.rfsentinel.app.ui.FitChip(this).apply {
@@ -211,31 +204,16 @@ class TripsActivity : AppCompatActivity() {
     }
 
     private fun actions(t: TripEntity) {
-        if (t.snapshot) {
-            MaterialAlertDialogBuilder(this)
-                .setTitle(t.name)
-                .setItems(arrayOf("View list", "View on map", "Export (GPX, KML, GeoJSON, CSV)...", "Rename", "Delete")) { _, which ->
-                    when (which) {
-                        0 -> open(t)
-                        1 -> startActivity(Intent(this, MapActivity::class.java).putExtra(MapActivity.EXTRA_TRIP_ID, t.id))
-                        2 -> Exporter.showTripExport(this, t.id, snapshot = true)
-                        3 -> rename(t)
-                        4 -> delete(t)
-                    }
-                }
-                .show()
-            return
+        val choices = buildList<Pair<String, () -> Unit>> {
+            if (t.snapshot) add("View list" to { open(t) })
+            add("View on map" to { startActivity(Intent(this@TripsActivity, MapActivity::class.java).putExtra(MapActivity.EXTRA_TRIP_ID, t.id)) })
+            add("Export (GPX, KML, GeoJSON, CSV)..." to { Exporter.showTripExport(this@TripsActivity, t.id, snapshot = t.snapshot) })
+            add("Rename" to { rename(t) })
+            add("Delete" to { delete(t) })
         }
         MaterialAlertDialogBuilder(this)
             .setTitle(t.name)
-            .setItems(arrayOf("View on map", "Export (GPX, KML, GeoJSON, CSV)...", "Rename", "Delete")) { _, which ->
-                when (which) {
-                    0 -> startActivity(Intent(this, MapActivity::class.java).putExtra(MapActivity.EXTRA_TRIP_ID, t.id))
-                    1 -> Exporter.showTripExport(this, t.id)
-                    2 -> rename(t)
-                    3 -> delete(t)
-                }
-            }
+            .setItems(choices.map { it.first }.toTypedArray()) { _, which -> choices[which].second() }
             .show()
     }
 

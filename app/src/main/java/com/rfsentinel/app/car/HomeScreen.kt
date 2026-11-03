@@ -4,8 +4,6 @@ import androidx.car.app.CarContext
 import androidx.car.app.CarToast
 import androidx.car.app.model.Action
 import androidx.car.app.model.ActionStrip
-import androidx.car.app.model.ItemList
-import androidx.car.app.model.ListTemplate
 import androidx.car.app.model.Row
 import androidx.car.app.model.Template
 import com.rfsentinel.app.R
@@ -71,124 +69,62 @@ class HomeScreen(carContext: CarContext) : LiveScreen(carContext) {
         )
     }
 
-    @Suppress("DEPRECATION") // setTitle/setActionStrip keep compatibility with older Android Auto hosts
     override fun render(): Template {
         val m = model()
         val now = System.currentTimeMillis()
         val rows = ArrayList<Row>()
-
-        // 1. Headline: the threat level; tap for the flagged devices.
         rows += if (m.running) {
             val (color, text) = m.headline!!
-            Row.Builder()
-                .setTitle(text)
-                .addText(listOf("Scanning · ${m.devices} nearby · ${m.flagged} flagged", m.silenced,
-                    if (m.screenOff) SCREEN_OFF_SHORT else "")
-                    .filter { it.isNotEmpty() }.joinToString(" · "))
-                .setImage(CarUi.icon(carContext, R.drawable.ic_car_warning, color))
-                .setBrowsable(true)
-                .setOnClickListener { screenManager.push(DeviceListScreen(carContext, DeviceFilter.FLAGGED)) }
-                .build()
-        } else {
-            Row.Builder()
-                .setTitle("Not scanning")
-                .addText("Tap Start to listen for nearby equipment")
-                .setImage(CarUi.icon(carContext, R.drawable.ic_tile_scan))
-                .build()
-        }
-
-        // 2. The next known camera on your way (works without scanning too).
-        m.camera?.let { (cam, d) ->
-            rows += Row.Builder()
-                .setTitle("${cam.label} ahead")
-                .addText(NearbyMapScreen.distanceText(d) + (cam.operator?.let { " · $it" } ?: ""))
-                .setImage(CarUi.icon(carContext, R.drawable.ic_car_warning, NearbyMapScreen.cameraColor(cam.type)))
-                .setBrowsable(true)
-                .setOnClickListener { screenManager.push(PlaceFocusScreen.forCamera(carContext, cam)) }
-                .build()
-        }
-
-        // 3. Recent alerts (still there after the device has left).
-        rows += Row.Builder()
-            .setTitle("Recent alerts (${m.alerts})")
-            .addText(m.newestAlert?.let { "${it.label} · ${CarUi.ageText(now - it.time)}" } ?: "None yet")
-            .setImage(CarUi.icon(carContext, R.drawable.ic_car_history))
-            .setBrowsable(true)
-            .setOnClickListener { screenManager.push(RecentAlertsScreen(carContext)) }
-            .build()
-
-        // 4. Map: our own pannable map when the car allows it, else the car-drawn one.
-        rows += Row.Builder()
-            .setTitle(if (m.liveMap) "Live map & navigation" else "Map: devices & cameras around me")
-            .setImage(CarUi.icon(carContext, R.drawable.ic_car_navigate))
-            .setBrowsable(true)
-            .setOnClickListener {
-                screenManager.push(if (m.liveMap) LiveMapScreen(carContext) else DevicesMapScreen(carContext))
+            row(text, listOf("Scanning · ${m.devices} nearby · ${m.flagged} flagged", m.silenced,
+                if (m.screenOff) SCREEN_OFF_SHORT else "").filter { it.isNotEmpty() }.joinToString(" · "),
+                icon = R.drawable.ic_car_warning, color = color, browsable = true) {
+                screenManager.push(DeviceListScreen(carContext, DeviceFilter.FLAGGED))
             }
-            .build()
-
-        // 5. Everything nearby, filtered like the phone's chips.
-        rows += Row.Builder()
-            .setTitle("Nearby devices (${m.devices})")
-            .addText("Flagged, trackers, drones, favorites, new, external...")
-            .setImage(CarUi.icon(carContext, R.drawable.ic_car_drone))
-            .setBrowsable(true)
-            .setOnClickListener { screenManager.push(NearbyDevicesScreen(carContext)) }
-            .build()
-
-        // 6. Cell towers when there is room (no camera row), then More.
-        if (m.camera == null && m.cellSummary != null) {
-            rows += Row.Builder()
-                .setTitle("Cell towers")
-                .addText(m.cellSummary)
-                .setImage(CarUi.icon(carContext, R.drawable.ic_car_tower))
-                .setBrowsable(true)
-                .setOnClickListener { screenManager.push(CellsScreen(carContext)) }
-                .build()
+        } else {
+            row("Not scanning", "Tap Start to listen for nearby equipment", icon = R.drawable.ic_tile_scan)
         }
-        rows += Row.Builder()
-            .setTitle("More")
-            .addText("Snooze alerts, voice, cell towers, hardware")
-            .setImage(CarUi.icon(carContext, R.drawable.ic_car_more))
-            .setBrowsable(true)
-            .setOnClickListener { screenManager.push(MoreScreen(carContext)) }
-            .build()
-
-        // The car shows only its row limit while driving: More must stay reachable.
+        m.camera?.let { (cam, d) ->
+            rows += row("${cam.label} ahead", NearbyMapScreen.distanceText(d) + (cam.operator?.let { " · $it" } ?: ""),
+                icon = R.drawable.ic_car_warning, color = NearbyMapScreen.cameraColor(cam.type), browsable = true) {
+                screenManager.push(PlaceFocusScreen.forCamera(carContext, cam))
+            }
+        }
+        rows += row("Recent alerts (${m.alerts})",
+            m.newestAlert?.let { "${it.label} · ${CarUi.ageText(now - it.time)}" } ?: "None yet",
+            icon = R.drawable.ic_car_history, browsable = true) { screenManager.push(RecentAlertsScreen(carContext)) }
+        rows += row(if (m.liveMap) "Live map & navigation" else "Map: devices & cameras around me",
+            icon = R.drawable.ic_car_navigate, browsable = true) {
+            screenManager.push(if (m.liveMap) LiveMapScreen(carContext) else DevicesMapScreen(carContext))
+        }
+        rows += row("Nearby devices (${m.devices})", "Flagged, trackers, drones, favorites, new, external...",
+            icon = R.drawable.ic_car_drone, browsable = true) { screenManager.push(NearbyDevicesScreen(carContext)) }
+        if (m.camera == null && m.cellSummary != null) {
+            rows += row("Cell towers", m.cellSummary, icon = R.drawable.ic_car_tower, browsable = true) {
+                screenManager.push(CellsScreen(carContext))
+            }
+        }
+        rows += row("More", "Snooze alerts, voice, cell towers, hardware", icon = R.drawable.ic_car_more, browsable = true) {
+            screenManager.push(MoreScreen(carContext))
+        }
+        // More must stay reachable even when the host limits the row count.
         val limit = CarUi.listLimit(carContext)
         val shown = if (rows.size <= limit) rows else rows.take(limit - 1) + rows.last()
-        val items = ItemList.Builder()
-        shown.forEach { items.addItem(it) }
-
-        val running = m.running
-        val startStop = Action.Builder()
-            .setTitle(if (running) "Stop" else "Start")
-            .setIcon(CarUi.icon(carContext, if (running) R.drawable.ic_car_stop else R.drawable.ic_car_play))
-            .setOnClickListener { if (ScanForegroundService.isRunning) stop() else start() }
-            .build()
-
-        // Master mute: alert tone + voice (plays through the car speakers otherwise).
-        // Icon-only: Android Auto allows a single titled button in this strip.
+        val startStop = action(if (m.running) "Stop" else "Start",
+            if (m.running) R.drawable.ic_car_stop else R.drawable.ic_car_play) {
+            if (ScanForegroundService.isRunning) stop() else start()
+        }
+        // Icon-only: Android Auto permits a single titled button in this strip.
         val muted = Prefs.alertsMuted(carContext)
-        val muteButton = Action.Builder()
-            .setIcon(CarUi.icon(carContext, if (muted) R.drawable.ic_car_volume_off else R.drawable.ic_car_volume))
-            .setOnClickListener {
-                val nowMuted = !Prefs.alertsMuted(carContext)
-                if (nowMuted) com.rfsentinel.app.util.Voice.silence()
-                Prefs.setAlertsMuted(carContext, nowMuted)
-                // Unmuting also ends a snooze: the driver wants sound back now.
-                if (!nowMuted) Prefs.setAlertsSnoozedUntil(carContext, 0L)
-                toast(if (nowMuted) "Alert sound muted" else "Alert sound on - plays through the car speakers")
-                invalidate()
-            }
-            .build()
-
-        return ListTemplate.Builder()
-            .setTitle("RF Sentinel")
-            .setHeaderAction(Action.APP_ICON)
-            .setActionStrip(ActionStrip.Builder().addAction(startStop).addAction(muteButton).build())
-            .setSingleList(items.build())
-            .build()
+        val muteButton = action(icon = if (muted) R.drawable.ic_car_volume_off else R.drawable.ic_car_volume) {
+            val nowMuted = !Prefs.alertsMuted(carContext)
+            if (nowMuted) com.rfsentinel.app.util.Voice.silence()
+            Prefs.setAlertsMuted(carContext, nowMuted)
+            if (!nowMuted) Prefs.setAlertsSnoozedUntil(carContext, 0L)
+            toast(if (nowMuted) "Alert sound muted" else "Alert sound on - plays through the car speakers")
+            invalidate()
+        }
+        return listTemplate("RF Sentinel", shown, header = Action.APP_ICON,
+            actions = ActionStrip.Builder().addAction(startStop).addAction(muteButton).build())
     }
 
     private fun start() {

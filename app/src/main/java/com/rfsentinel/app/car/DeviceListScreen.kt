@@ -1,10 +1,6 @@
 package com.rfsentinel.app.car
 
 import androidx.car.app.CarContext
-import androidx.car.app.model.Action
-import androidx.car.app.model.ItemList
-import androidx.car.app.model.ListTemplate
-import androidx.car.app.model.Row
 import androidx.car.app.model.Template
 import com.rfsentinel.app.R
 import com.rfsentinel.app.service.DeviceRegistry
@@ -28,37 +24,14 @@ class DeviceListScreen(carContext: CarContext, private val filter: DeviceFilter)
         return listOf(ScanForegroundService.isRunning) + matching(now).map { CarUi.rowKey(it, now) }
     }
 
-    @Suppress("DEPRECATION") // setTitle keeps compatibility with older Android Auto hosts
     override fun render(): Template {
         val now = System.currentTimeMillis()
-        val items = ItemList.Builder()
-        // The car caps list length while driving; the most important come first.
-        matching(now).forEach { s ->
-            items.addItem(
-                Row.Builder()
-                    .setTitle(CarUi.title(s))
-                    .addText(CarUi.tagLine(s))
-                    .addText(CarUi.signalLine(s, now))
-                    .setImage(
-                        CarUi.icon(
-                            carContext,
-                            if (CarUi.isFlagged(s)) R.drawable.ic_car_warning else R.drawable.ic_tile_scan,
-                            CarUi.colorFor(s)
-                        )
-                    )
-                    .setOnClickListener { screenManager.push(DeviceDetailScreen(carContext, s.mac)) }
-                    .build()
-            )
-        }
-        items.setNoItemsMessage(emptyMessage(filter))
-
-        // Title stays constant: Android Auto only treats a same-title template as a
-        // refresh rather than a new step (steps are capped for driver safety).
-        return ListTemplate.Builder()
-            .setTitle(titleOf(filter))
-            .setHeaderAction(Action.BACK)
-            .setSingleList(items.build())
-            .build()
+        // The title stays constant so Android Auto treats updates as refreshes.
+        return listTemplate(titleOf(filter), matching(now).map { s ->
+            row(CarUi.title(s), CarUi.tagLine(s), CarUi.signalLine(s, now),
+                icon = if (CarUi.isFlagged(s)) R.drawable.ic_car_warning else R.drawable.ic_tile_scan,
+                color = CarUi.colorFor(s)) { screenManager.push(DeviceDetailScreen(carContext, s.mac)) }
+        }, emptyMessage(filter))
     }
 
     companion object {

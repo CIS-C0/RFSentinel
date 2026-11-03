@@ -6,9 +6,6 @@ import android.view.View
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.databinding.ActivityWaterfallBinding
 import com.rfsentinel.app.sdr.FreqNames
@@ -16,8 +13,6 @@ import com.rfsentinel.app.sdr.RadioWatch
 import com.rfsentinel.app.sdr.SdrRadio
 import com.rfsentinel.app.sdr.SdrWaterfall
 import com.rfsentinel.app.util.applySystemBarInsets
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
@@ -53,11 +48,7 @@ class WaterfallActivity : AppCompatActivity() {
         binding.sweepButton.setOnClickListener { SdrRadio.tuneHz = null; refresh() }
         // Opened from a radio transmission's Locate: straight to its frequency (not again after a rotation).
         if (savedInstanceState == null) intent.getLongExtra(EXTRA_TUNE_HZ, 0L).takeIf { it > 0 }?.let { zoom(it) }
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                while (true) { refresh(); delay(1000) }
-            }
-        }
+        refreshWhileStarted(1000) { refresh() }
     }
 
     override fun onStart() {

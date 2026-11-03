@@ -224,12 +224,6 @@ public final class WazeRtFetcher {
         }
     }
 
-    /** Forget the session (not the account) so the next fetch logs in again. */
-    public synchronized void reset() {
-        session = null;
-        cache.clear();
-    }
-
     // ── privacy: what position Waze gets ─────────────────────────────────────
 
     /**
@@ -385,11 +379,6 @@ public final class WazeRtFetcher {
         SecureStore.INSTANCE.put(ctx, KEY_ACCOUNT, "");   // empty clears the entry
         cache.clear();
         session = null;
-    }
-
-    public synchronized boolean hasAccount() {
-        String blob = SecureStore.INSTANCE.get(ctx, KEY_ACCOUNT);
-        return blob != null && !blob.isEmpty();
     }
 
     // ── registration cap + backoff ───────────────────────────────────────────

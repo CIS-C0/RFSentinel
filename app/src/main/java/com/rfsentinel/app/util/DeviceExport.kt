@@ -12,10 +12,9 @@ import com.rfsentinel.app.detect.DeviceIntel
 import com.rfsentinel.app.detect.VendorDb
 import com.rfsentinel.app.oui.OuiEntry
 import com.rfsentinel.app.service.DeviceRegistry
-import java.text.SimpleDateFormat
-import java.util.Date
+import com.rfsentinel.app.util.ExportText.iso
+import com.rfsentinel.app.util.ExportText.local
 import java.util.Locale
-import java.util.TimeZone
 
 /**
  * Serializes EVERY device the app knows about - matched or not - for the
@@ -25,9 +24,6 @@ import java.util.TimeZone
 object DeviceExport {
 
     private val gson = GsonBuilder().setPrettyPrinting().serializeNulls().create()
-    private fun iso(t: Long): String =
-        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }.format(Date(t))
-    private fun local(t: Long): String = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date(t))
 
     /** Per-device flags the registry doesn't hold (whitelist / favorite). */
     class Flags(val whitelisted: (String) -> Boolean, val favorite: (String) -> Boolean)

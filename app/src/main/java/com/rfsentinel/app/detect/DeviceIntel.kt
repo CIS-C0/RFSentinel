@@ -357,9 +357,11 @@ object DeviceIntel {
         // Apple Continuity: manufacturer data is a list of [type][length][payload] TLVs.
         a.manufacturerData[CID_APPLE]?.let { d ->
             val found = mutableListOf<String>()
+            val types = HashSet<Int>()
             var i = 0
             while (i + 1 < d.size) {
                 val t = Bytes.u8(d, i)
+                types += t
                 val len = Bytes.u8(d, i + 1)
                 val name = APPLE_TYPES[t] ?: String.format("type 0x%02X", t)
                 found += name
@@ -388,15 +390,15 @@ object DeviceIntel {
             if (found.isNotEmpty()) facts += "Apple Continuity" to found.distinct().joinToString()
             if (basis == null) basis = "Apple Continuity message"
             type = type ?: when {
-                0x07 in typesIn(d) -> "AirPods / Beats"
-                0x12 in typesIn(d) -> "Apple Find My device (AirTag, iPhone, Mac...)"
-                0x09 in typesIn(d) -> "Apple TV / AirPlay speaker"
+                0x07 in types -> "AirPods / Beats"
+                0x12 in types -> "Apple Find My device (AirTag, iPhone, Mac...)"
+                0x09 in types -> "Apple TV / AirPlay speaker"
                 // Only a Watch reports being on a wrist or offers Magic Switch; only a phone drives,
                 // and only a phone or cellular iPad offers its hotspot.
-                0x0B in typesIn(d) || appleActivity(d) == 0x0A -> "Apple Watch"
+                0x0B in types || appleActivity(d) == 0x0A -> "Apple Watch"
                 appleActivity(d) == 0x0D -> "iPhone"
-                0x0E in typesIn(d) -> "iPhone or cellular iPad"
-                0x10 in typesIn(d) || 0x0C in typesIn(d) -> "Apple device (iPhone, iPad, Mac or Watch)"
+                0x0E in types -> "iPhone or cellular iPad"
+                0x10 in types || 0x0C in types -> "Apple device (iPhone, iPad, Mac or Watch)"
                 else -> "Apple device"
             }
         }
@@ -472,18 +474,6 @@ object DeviceIntel {
             i += 2 + len
         }
         return null
-    }
-
-    private fun typesIn(d: ByteArray): Set<Int> {
-        val out = HashSet<Int>()
-        var i = 0
-        while (i + 1 < d.size) {
-            out += Bytes.u8(d, i)
-            val len = Bytes.u8(d, i + 1)
-            if (len == 0) break
-            i += 2 + len
-        }
-        return out
     }
 
     private val WIFI_VENDOR_KINDS = setOf(

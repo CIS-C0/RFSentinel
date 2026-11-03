@@ -18,7 +18,6 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
 
 /**
  * Exports the match log (CSV with every field, GPX / KML of GPS-tagged
@@ -313,10 +312,9 @@ object Exporter {
     }
 
     fun csv(rows: List<DetectionEntity>): String {
-        val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
         val sb = StringBuilder("timestamp,mac,label,category,confidence,source,rssi,vendor,device_name,evidence,latitude,longitude\n")
         rows.forEach { r ->
-            sb.append(fmt.format(Date(r.timestamp))).append(',')
+            sb.append(ExportText.local(r.timestamp)).append(',')
                 .append(r.mac).append(',')
                 .append(q(r.label)).append(',')
                 .append(r.category).append(',')
@@ -335,13 +333,12 @@ object Exporter {
     private fun q(s: String?): String = ExportText.csv(s)
 
     fun gpx(rows: List<DetectionEntity>): String {
-        val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
         val sb = StringBuilder()
         sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
         sb.append("<gpx version=\"1.1\" creator=\"RF Sentinel\" xmlns=\"http://www.topografix.com/GPX/1/1\">\n")
         rows.forEach { r ->
             sb.append(String.format(Locale.US, "  <wpt lat=\"%.7f\" lon=\"%.7f\">\n", r.latitude, r.longitude))
-            sb.append("    <time>").append(iso.format(Date(r.timestamp))).append("</time>\n")
+            sb.append("    <time>").append(ExportText.iso(r.timestamp)).append("</time>\n")
             sb.append("    <name>").append(x(r.label)).append("</name>\n")
             sb.append("    <desc>").append(x("${r.category} ${r.confidence}% - ${r.mac} - ${r.rssi} dBm - ${r.evidence}")).append("</desc>\n")
             sb.append("    <type>").append(x(r.category)).append("</type>\n")
@@ -352,14 +349,13 @@ object Exporter {
     }
 
     fun kml(rows: List<DetectionEntity>): String {
-        val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
         val sb = StringBuilder()
         sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<kml xmlns=\"http://www.opengis.net/kml/2.2\">\n<Document>\n")
         sb.append("  <name>RF Sentinel matches</name>\n")
         rows.forEach { r ->
             sb.append("  <Placemark>\n")
             sb.append("    <name>").append(x(r.label)).append("</name>\n")
-            sb.append("    <description>").append(x("${fmt.format(Date(r.timestamp))} - ${r.category} ${r.confidence}% - ${r.mac} - ${r.rssi} dBm")).append("</description>\n")
+            sb.append("    <description>").append(x("${ExportText.local(r.timestamp)} - ${r.category} ${r.confidence}% - ${r.mac} - ${r.rssi} dBm")).append("</description>\n")
             sb.append(String.format(Locale.US, "    <Point><coordinates>%.7f,%.7f,0</coordinates></Point>\n", r.longitude, r.latitude))
             sb.append("  </Placemark>\n")
         }

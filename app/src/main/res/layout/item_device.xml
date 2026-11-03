@@ -104,5 +104,6 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="#22888888" />
+        android:alpha="0.08"
+        android:background="?attr/colorOnSurface" />
 </LinearLayout>

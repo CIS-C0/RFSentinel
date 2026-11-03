@@ -26,7 +26,6 @@ import com.rfsentinel.app.oui.OuiWatchlist
 import com.rfsentinel.app.service.DeviceRegistry
 import com.rfsentinel.app.util.ProximityUtil
 import kotlinx.coroutines.launch
-import java.util.Locale
 
 /**
  * One device on the car screen: why it's flagged, live signal, which radio heard
@@ -51,34 +50,18 @@ class DeviceDetailScreen(carContext: CarContext, private val mac: String) : Live
 
         val best = s.best
         val rows = mutableListOf<Row>()
-        rows += Row.Builder()
-            .setTitle(CarUi.title(s))
-            .addText(CarUi.tagLine(s))
-            .setImage(CarUi.icon(carContext, if (CarUi.isFlagged(s)) R.drawable.ic_car_warning else R.drawable.ic_tile_scan, CarUi.colorFor(s)))
-            .build()
-        if (best != null) {
-            rows += Row.Builder().setTitle("Why").addText(best.evidence.take(120)).build()
-        }
-        rows += Row.Builder()
-            .setTitle("Signal ${s.rssi} dBm · ${ProximityUtil.band(s.rssi)}${trend(s)}")
-            .addText("${DeviceIntel.formatDistance(s.distanceM)} (rough) · best ${s.bestRssi} dBm")
-            .build()
+        rows += row(CarUi.title(s), CarUi.tagLine(s),
+            icon = if (CarUi.isFlagged(s)) R.drawable.ic_car_warning else R.drawable.ic_tile_scan, color = CarUi.colorFor(s))
+        if (best != null) rows += row("Why", best.evidence.take(120))
+        rows += row("Signal ${s.rssi} dBm · ${ProximityUtil.band(s.rssi)}${trend(s)}",
+            "${DeviceIntel.formatDistance(s.distanceM)} (rough) · best ${s.bestRssi} dBm")
         s.remoteId?.takeIf { it.hasPosition }?.let { r ->
-            rows += Row.Builder()
-                .setTitle("Drone " + (r.uasId ?: ""))
-                .addText(
-                    listOfNotNull(
-                        r.heightM?.let { com.rfsentinel.app.util.Units.length(it) + " high" },
-                        r.speedMs?.let { com.rfsentinel.app.util.Units.speed(it) },
-                        r.status
-                    ).joinToString(" · ").ifEmpty { "Position known" }
-                )
-                .build()
+            rows += row("Drone " + (r.uasId ?: ""), listOfNotNull(
+                r.heightM?.let { com.rfsentinel.app.util.Units.length(it) + " high" },
+                r.speedMs?.let { com.rfsentinel.app.util.Units.speed(it) }, r.status
+            ).joinToString(" · ").ifEmpty { "Position known" })
         }
-        rows += Row.Builder()
-            .setTitle(s.vendor ?: s.deviceType)
-            .addText("$mac · ${s.addressType.label} · heard by ${heardBy(s)}")
-            .build()
+        rows += row(s.vendor ?: s.deviceType, "$mac · ${s.addressType.label} · heard by ${heardBy(s)}")
 
         val pane = Pane.Builder()
         rows.take(CarUi.paneLimit(carContext)).forEach { pane.addRow(it) }
@@ -87,20 +70,14 @@ class DeviceDetailScreen(carContext: CarContext, private val mac: String) : Live
         val whitelisted = WhitelistCache.inTable(mac)
         val ignored = TrackerMutes.isMuted(mac)
         val tracker = best?.category == Category.TRACKER && s.addressType != AddressType.PUBLIC
-        pane.addAction(
-            Action.Builder()
-                .setTitle(when { ignored -> "Stop ignoring"; whitelisted -> "Un-whitelist"; tracker -> "Ignore..."; else -> "Whitelist" })
-                .setOnClickListener {
-                    when {
-                        ignored -> { TrackerMutes.unmute(carContext, mac); toast("No longer ignored") }
-                        // Its address changes daily, so it can't be whitelisted: offer the phone's choices.
-                        tracker && !whitelisted -> screenManager.push(TrackerIgnoreScreen(carContext, mac))
-                        else -> toggleWhitelist(whitelisted, best?.label ?: s.name ?: "")
-                    }
-                    invalidate()
-                }
-                .build()
-        )
+        pane.addAction(action(when { ignored -> "Stop ignoring"; whitelisted -> "Un-whitelist"; tracker -> "Ignore..."; else -> "Whitelist" }) {
+            when {
+                ignored -> { TrackerMutes.unmute(carContext, mac); toast("No longer ignored") }
+                tracker && !whitelisted -> screenManager.push(TrackerIgnoreScreen(carContext, mac))
+                else -> toggleWhitelist(whitelisted, best?.label ?: s.name ?: "")
+            }
+            invalidate()
+        })
         val watched = OuiWatchlist.customEntry(mac) != null
         pane.addAction(
             Action.Builder()
@@ -113,29 +90,18 @@ class DeviceDetailScreen(carContext: CarContext, private val mac: String) : Live
         // Action strip: favorite, and navigate to a drone's broadcast position.
         val strip = ActionStrip.Builder()
         val fav = Favorites.contains(mac)
-        strip.addAction(
-            Action.Builder()
-                .setIcon(CarUi.icon(carContext, if (fav) R.drawable.ic_car_star else R.drawable.ic_car_star_outline))
-                .setOnClickListener {
-                    lifecycleScope.launch {
-                        Favorites.set(carContext, mac, !fav, s.name, s.vendor, s.deviceType)
-                        toast(if (fav) "Removed from favorites" else "Added to favorites")
-                        invalidate()
-                    }
-                }
-                .build()
-        )
+        strip.addAction(action(icon = if (fav) R.drawable.ic_car_star else R.drawable.ic_car_star_outline) {
+            lifecycleScope.launch {
+                Favorites.set(carContext, mac, !fav, s.name, s.vendor, s.deviceType)
+                toast(if (fav) "Removed from favorites" else "Added to favorites")
+                invalidate()
+            }
+        })
         s.remoteId?.let { r ->
             val lat = r.latitude ?: r.operatorLatitude
             val lon = r.longitude ?: r.operatorLongitude
             if (lat != null && lon != null) {
-                strip.addAction(
-                    Action.Builder()
-                        .setTitle("Navigate")
-                        .setIcon(CarUi.icon(carContext, R.drawable.ic_car_navigate))
-                        .setOnClickListener { CarUi.navigateTo(carContext, lat, lon) }
-                        .build()
-                )
+                strip.addAction(action("Navigate", R.drawable.ic_car_navigate) { CarUi.navigateTo(carContext, lat, lon) })
             }
         }
 
@@ -159,29 +125,19 @@ class DeviceDetailScreen(carContext: CarContext, private val mac: String) : Live
             else e.categoryEnum?.colorArgb ?: CarUi.DANGER_COLOR
         val pane = Pane.Builder()
         listOf(
-            Row.Builder().setTitle((if (e.following) "FOLLOWING · " else "") + e.label)
-                .addText("Out of range · last alert ${CarUi.ageText(now - e.time)}" + (e.rssi?.let { " · $it dBm" } ?: ""))
-                .setImage(CarUi.icon(carContext, R.drawable.ic_car_warning, color)).build(),
-            Row.Builder().setTitle("Why").addText(e.evidence.take(120)).build(),
-            Row.Builder().setTitle(mac).addText("${e.categoryEnum?.title ?: e.category} · ${e.confidence}%").build()
+            row((if (e.following) "FOLLOWING · " else "") + e.label,
+                "Out of range · last alert ${CarUi.ageText(now - e.time)}" + (e.rssi?.let { " · $it dBm" } ?: ""),
+                icon = R.drawable.ic_car_warning, color = color),
+            row("Why", e.evidence.take(120)),
+            row(mac, "${e.categoryEnum?.title ?: e.category} · ${e.confidence}%")
         ).take(CarUi.paneLimit(carContext)).forEach { pane.addRow(it) }
 
         val whitelisted = WhitelistCache.inTable(mac)
-        pane.addAction(
-            Action.Builder()
-                .setTitle(if (whitelisted) "Un-whitelist" else "Whitelist")
-                .setOnClickListener { toggleWhitelist(whitelisted, e.label) }
-                .build()
-        )
+        pane.addAction(action(if (whitelisted) "Un-whitelist" else "Whitelist") { toggleWhitelist(whitelisted, e.label) })
         val lat = e.lat
         val lon = e.lon
         if (lat != null && lon != null) {
-            pane.addAction(
-                Action.Builder()
-                    .setTitle("Navigate there")
-                    .setOnClickListener { CarUi.navigateTo(carContext, lat, lon) }
-                    .build()
-            )
+            pane.addAction(action("Navigate there") { CarUi.navigateTo(carContext, lat, lon) })
         }
         return PaneTemplate.Builder(pane.build())
             .setTitle("Device details")

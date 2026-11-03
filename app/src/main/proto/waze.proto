@@ -1,6 +1,6 @@
 // Vendored from highway-radar-sabre-plus (MIT, (c) 2026 highway-radar-sabre-plus
 // contributors) — see app/src/main/java/com/rfsentinel/app/online/wazert/LICENSE.
-// Unmodified except for java_package, which points at RF Sentinel's own package.
+// Adapted for RF Sentinel's read-only fetch path and Java package.
 //
 // Minimal, wire-compatible description of the Waze mobile RT protocol, limited
 // to the messages this plugin exchanges. Field numbers and wire types match
@@ -49,8 +49,7 @@ message Element {
   optional LoginSuccessful login_successful = 2225;
   optional AT at = 2384;
   optional AddAlertAction add_alert_action = 2708;
-  optional AddUserReportedAlertRequest add_user_reported_alert_request = 2737;
-  optional AddUserReportedAlertResponse add_user_reported_alert_response = 2738;
+  reserved 2737, 2738; // Alert submission is not part of this read-only client.
   optional LoginRequest login_request = 2744;
   optional LoginResponse login_response = 2745;
 }
@@ -465,119 +464,3 @@ message ServerError {
 message ResponseTimestamp {}
 message LoginSuccessful {}
 message AT {}
-
-// ---------------------------------------------------------------------------
-// Alert REPORTING (write) path (plain int32/int64/enum/double/message, no
-// zig-zag). Built by WazeReportCodec.
-// ---------------------------------------------------------------------------
-
-message CoordinateWithAlt {
-  optional int32 lon_times1000000 = 101;
-  optional int32 lat_times1000000 = 102;
-  optional int32 alt_times1000000 = 103;
-}
-
-message SegmentNodes {
-  optional int64 from_node = 1;
-  optional int64 to_node = 2;
-}
-
-message GpsPosition {
-  optional CoordinateWithAlt coordinate = 1;
-  optional double horizontal_accuracy_meters = 2;
-  optional int64 time_epoch_ms = 3;
-}
-
-message UserPosition {
-  optional GpsPosition gps_position = 1;
-  optional SegmentNodes segment_nodes = 2;
-}
-
-message Timestamp {
-  optional int64 seconds = 1;
-  optional int32 nanos = 2;
-}
-
-enum ReportingManner {
-  REPORTING_MANNER_UNSPECIFIED = 0;
-  REPORTING_MANNER_DEFAULT = 1;
-  REPORTING_MANNER_VOICE = 2;
-  REPORTING_MANNER_VOICE_CONVERSATION = 3;
-}
-
-enum PoliceAlertSubType {
-  POLICE_UNSPECIFIED = 0;
-  POLICE_DEFAULT = 1;
-  POLICE_HIDDEN_REPORT = 2;
-  POLICE_MOBILE_CAMERA = 3;
-}
-message PoliceDetails { optional PoliceAlertSubType type = 1; }
-
-enum CrashReportSubType {
-  CRASH_REPORT_UNSPECIFIED = 0;
-  CRASH_REPORT_DEFAULT = 1;
-  CRASH_REPORT_PILE_UP = 2;
-  CRASH_REPORT_MAJOR = 3;
-  CRASH_REPORT_MINOR = 4;
-}
-message CrashDetails { optional CrashReportSubType type = 1; }
-
-enum TrafficReportSubType {
-  TRAFFIC_REPORT_UNSPECIFIED = 0;
-  TRAFFIC_REPORT_DEFAULT = 1;
-  TRAFFIC_REPORT_STANDSTILL = 2;
-  TRAFFIC_REPORT_LIGHT = 3;
-  TRAFFIC_REPORT_MODERATE = 4;
-  TRAFFIC_REPORT_HEAVY = 5;
-}
-message TrafficDetails { optional TrafficReportSubType type = 1; }
-
-enum HazardReportSubType {
-  HAZARD_REPORT_UNSPECIFIED = 0;
-  HAZARD_REPORT_DEFAULT = 1;
-  HAZARD_REPORT_CONSTRUCTION = 2;
-  HAZARD_REPORT_VEHICLE_STOPPED = 3;
-  HAZARD_REPORT_OBJECT_ON_ROAD = 4;
-  HAZARD_REPORT_POTHOLE = 5;
-  HAZARD_REPORT_BROKEN_TRAFFIC_LIGHT = 6;
-  HAZARD_REPORT_OIL = 7;
-  HAZARD_REPORT_ANIMALS = 8;
-  HAZARD_REPORT_MISSING_SIGN = 9;
-  HAZARD_REPORT_ROAD_KILL = 10;
-  HAZARD_REPORT_SHOULDER = 11;
-  HAZARD_REPORT_SHOULDER_VEHICLE_STOPPED = 12;
-  HAZARD_REPORT_EMERGENCY_VEHICLE = 13;
-}
-message HazardOnRoadDetails { optional HazardReportSubType type = 1; }
-
-message AlertDetails {
-  oneof details {
-    TrafficDetails traffic = 1;
-    PoliceDetails police = 2;
-    CrashDetails crash = 3;
-    HazardOnRoadDetails hazard_on_road = 4;
-  }
-}
-
-message AddUserReportedAlertRequest {
-  optional UserPosition user_position = 1;
-  optional int32 azymuth = 2;
-  optional AlertDetails alert_details = 3;
-  optional SegmentDirection segment_direction = 4;
-  optional Timestamp report_time = 5;
-  optional bool is_offline_delayed_report = 6;
-  optional ReportingManner reporting_manner = 7;
-}
-
-message AddUserReportedAlertResponse {
-  enum AddAlertStatus {
-    STATUS_UNSPECIFIED = 0;
-    SUCCESS = 1;
-    FAILURE = 2;
-  }
-  optional AddAlertStatus status = 1;
-  optional int32 received_points_count = 2;
-  optional int64 client_alert_id = 3;
-  optional AlertDetails alert_details = 4;
-  optional string alert_uuid = 5;
-}

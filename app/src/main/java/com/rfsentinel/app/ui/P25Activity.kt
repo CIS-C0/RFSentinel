@@ -11,10 +11,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.rfsentinel.app.databinding.ActivityLogBinding
 import com.rfsentinel.app.databinding.ItemDetectionBinding
@@ -23,9 +20,7 @@ import com.rfsentinel.app.sdr.P25Log
 import com.rfsentinel.app.sdr.P25Tsbk
 import com.rfsentinel.app.sdr.SdrRadio
 import com.rfsentinel.app.util.Prefs
-import com.rfsentinel.app.util.applySystemBarInsets
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -84,20 +79,10 @@ class P25Activity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityLogBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        binding.root.applySystemBarInsets()
-        title = "P25 talkgroups"
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        binding = logScreen("P25 talkgroups", adapter)
         binding.searchInput.doAfterTextChanged { refresh() }
         binding.root.addView(header, 2)
-        binding.recyclerView.layoutManager = LinearLayoutManager(this)
-        binding.recyclerView.adapter = adapter
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                while (true) { refresh(); delay(1_000) }
-            }
-        }
+        refreshWhileStarted(1_000) { refresh() }
     }
 
     override fun onSupportNavigateUp(): Boolean { finish(); return true }

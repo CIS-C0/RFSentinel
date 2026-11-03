@@ -8,10 +8,9 @@ import com.rfsentinel.app.data.TripEntity
 import com.rfsentinel.app.data.TripPingEntity
 import com.rfsentinel.app.data.TripPointEntity
 import com.rfsentinel.app.detect.DeviceIntel
-import java.text.SimpleDateFormat
-import java.util.Date
+import com.rfsentinel.app.util.ExportText.iso
+import com.rfsentinel.app.util.ExportText.local
 import java.util.Locale
-import java.util.TimeZone
 
 /**
  * Exports a recorded trace: your GPS track plus the devices heard along it
@@ -20,9 +19,6 @@ import java.util.TimeZone
  */
 object TripExport {
 
-    private fun iso(t: Long): String =
-        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }.format(Date(t))
-    private fun local(t: Long): String = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date(t))
     private fun x(s: String?): String = ExportText.xml(s)
     private fun q(s: String?): String = ExportText.csv(s)
 

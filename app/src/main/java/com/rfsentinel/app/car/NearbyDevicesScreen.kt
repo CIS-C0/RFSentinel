@@ -1,10 +1,6 @@
 package com.rfsentinel.app.car
 
 import androidx.car.app.CarContext
-import androidx.car.app.model.Action
-import androidx.car.app.model.ItemList
-import androidx.car.app.model.ListTemplate
-import androidx.car.app.model.Row
 import androidx.car.app.model.Template
 import com.rfsentinel.app.R
 import com.rfsentinel.app.service.DeviceRegistry
@@ -24,31 +20,18 @@ class NearbyDevicesScreen(carContext: CarContext) : LiveScreen(carContext) {
 
     override fun contentKey(): Any = listOf(ScanForegroundService.isRunning, counts())
 
-    @Suppress("DEPRECATION") // setTitle keeps compatibility with older Android Auto hosts
-    override fun render(): Template {
-        val items = ItemList.Builder()
-        counts().take(CarUi.listLimit(carContext)).forEach { (f, n) ->
-            items.addItem(
-                Row.Builder()
-                    .setTitle("${DeviceListScreen.titleOf(f)} ($n)")
-                    .setImage(CarUi.icon(carContext, iconOf(f)))
-                    .setBrowsable(true)
-                    .setOnClickListener { screenManager.push(DeviceListScreen(carContext, f)) }
-                    .build()
-            )
-        }
-        return ListTemplate.Builder()
-            .setTitle("Nearby devices")
-            .setHeaderAction(Action.BACK)
-            .setSingleList(items.build())
-            .build()
-    }
+    override fun render(): Template = listTemplate("Nearby devices",
+        counts().take(CarUi.listLimit(carContext)).map { (f, n) ->
+            row("${DeviceListScreen.titleOf(f)} ($n)", icon = iconOf(f), browsable = true) {
+                screenManager.push(DeviceListScreen(carContext, f))
+            }
+        })
 
     private fun iconOf(f: DeviceFilter) = when (f) {
         DeviceFilter.FLAGGED -> R.drawable.ic_car_warning
         DeviceFilter.TRACKERS, DeviceFilter.DRONES -> R.drawable.ic_car_drone
         DeviceFilter.FAVORITES -> R.drawable.ic_car_star
         DeviceFilter.EXTERNAL -> R.drawable.ic_car_usb
-        else -> R.drawable.ic_car_list
+        else -> R.drawable.ic_view_list
     }
 }

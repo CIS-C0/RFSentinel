@@ -1,10 +1,6 @@
 package com.rfsentinel.app.car
 
 import androidx.car.app.CarContext
-import androidx.car.app.model.Action
-import androidx.car.app.model.ItemList
-import androidx.car.app.model.ListTemplate
-import androidx.car.app.model.Row
 import androidx.car.app.model.Template
 import com.rfsentinel.app.R
 import com.rfsentinel.app.esp.EspBoards
@@ -50,16 +46,8 @@ class HardwareScreen(carContext: CarContext) : LiveScreen(carContext, periodMs =
 
     override fun contentKey(): Any = lines()
 
-    @Suppress("DEPRECATION") // setTitle keeps compatibility with older Android Auto hosts
-    override fun render(): Template {
-        val items = ItemList.Builder()
-        lines().take(CarUi.listLimit(carContext)).forEach { (title, text, icon) ->
-            items.addItem(Row.Builder().setTitle(title).addText(text.take(120)).setImage(CarUi.icon(carContext, icon)).build())
-        }
-        return ListTemplate.Builder()
-            .setTitle("Hardware")
-            .setHeaderAction(Action.BACK)
-            .setSingleList(items.build())
-            .build()
-    }
+    override fun render(): Template = listTemplate("Hardware",
+        lines().take(CarUi.listLimit(carContext)).map { (title, text, icon) ->
+            row(title, text.take(120), icon = icon)
+        })
 }

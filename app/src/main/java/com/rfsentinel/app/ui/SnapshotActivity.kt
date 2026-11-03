@@ -9,7 +9,6 @@ import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.chip.Chip
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.data.AppDatabase
@@ -18,7 +17,6 @@ import com.rfsentinel.app.data.TripEntity
 import com.rfsentinel.app.databinding.ActivityLogBinding
 import com.rfsentinel.app.detect.DeviceIntel
 import com.rfsentinel.app.util.Exporter
-import com.rfsentinel.app.util.applySystemBarInsets
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
@@ -48,13 +46,7 @@ class SnapshotActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         tripId = intent.getLongExtra(EXTRA_TRIP_ID, 0L)
-        binding = ActivityLogBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        binding.root.applySystemBarInsets()
-        title = "Snapshot"
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        binding.recyclerView.layoutManager = LinearLayoutManager(this)
-        binding.recyclerView.adapter = adapter
+        binding = logScreen("Snapshot", adapter)
         // As the main list: room under the last row.
         binding.recyclerView.clipToPadding = false
         binding.recyclerView.setPadding(0, 0, 0, (8 * resources.displayMetrics.density).toInt())

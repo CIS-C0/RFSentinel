@@ -17,9 +17,6 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.slider.Slider
@@ -29,8 +26,6 @@ import com.rfsentinel.app.link.MeshNode
 import com.rfsentinel.app.link.PhoneLink
 import com.rfsentinel.app.service.ScanForegroundService
 import com.rfsentinel.app.util.applySystemBarInsets
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /**
  * Sentinel Link: this phone's name, sharing on / off, linking a new phone ("Link up a Sentinel" on one,
@@ -126,11 +121,7 @@ class SentinelLinkActivity : AppCompatActivity() {
         setContentView(scroll)
         scroll.applySystemBarInsets()
 
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                while (true) { refresh(); delay(5_000) }
-            }
-        }
+        refreshWhileStarted(5_000) { refresh() }
     }
 
     override fun onStart() {

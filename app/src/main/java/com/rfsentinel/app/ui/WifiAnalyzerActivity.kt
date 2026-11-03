@@ -9,26 +9,17 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
-import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuItem
-import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.chip.Chip
 import com.rfsentinel.app.databinding.ActivityWifiAnalyzerBinding
-import com.rfsentinel.app.databinding.ItemDetectionBinding
 import com.rfsentinel.app.ui.WifiChartView.Ap
 import com.rfsentinel.app.ui.WifiChartView.Band
 import com.rfsentinel.app.util.applySystemBarInsets
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /**
  * WiFi channel and spectrum analyzer for 2.4, 5 and 6 GHz, from the phone's own
@@ -47,19 +38,12 @@ class WifiAnalyzerActivity : AppCompatActivity() {
         override fun onReceive(c: Context?, i: Intent?) = reload()
     }
 
-    private val adapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-        var items: List<Ap> = emptyList()
-        override fun getItemCount() = items.size
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
-            object : RecyclerView.ViewHolder(ItemDetectionBinding.inflate(LayoutInflater.from(parent.context), parent, false).root) {}
-        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-            val ap = items[position]
-            val b = ItemDetectionBinding.bind(holder.itemView)
-            b.labelText.text = ap.ssid
-            b.macText.text = "${ap.bssid}  ·  ch ${WifiChartView.channelOf(ap.freq)}  ·  ${ap.widthMhz} MHz"
-            b.metaText.text = "${ap.rssi} dBm  ·  ${ap.freq} MHz" +
-                if (ap.centerFreq > 0 && ap.centerFreq != ap.freq) "  ·  centre ${ap.centerFreq} MHz" else ""
-        }
+    private var listed: List<Ap> = emptyList()
+    private val adapter = DetectionRows({ listed }) { ap ->
+        labelText.text = ap.ssid
+        macText.text = "${ap.bssid}  ·  ch ${WifiChartView.channelOf(ap.freq)}  ·  ${ap.widthMhz} MHz"
+        metaText.text = "${ap.rssi} dBm  ·  ${ap.freq} MHz" +
+            if (ap.centerFreq > 0 && ap.centerFreq != ap.freq) "  ·  centre ${ap.centerFreq} MHz" else ""
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -95,11 +79,7 @@ class WifiAnalyzerActivity : AppCompatActivity() {
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
 
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                while (true) { reload(); delay(5_000) }
-            }
-        }
+        refreshWhileStarted(5_000) { reload() }
     }
 
     override fun onStart() {
@@ -170,7 +150,7 @@ class WifiAnalyzerActivity : AppCompatActivity() {
                 (busiest?.let { " · busiest channel ${it.key} (${it.value.size})" } ?: "") +
                 " · strongest ${inBand.first().rssi} dBm"
         }
-        adapter.items = inBand
+        listed = inBand
         adapter.notifyDataSetChanged()
     }
 

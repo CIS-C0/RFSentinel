@@ -6,9 +6,6 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.button.MaterialButton
 import com.rfsentinel.app.online.MotionTracker
 import com.rfsentinel.app.online.OnlineWatch
@@ -20,8 +17,6 @@ import com.rfsentinel.app.service.ScanForegroundService
 import com.rfsentinel.app.util.Prefs
 import com.rfsentinel.app.util.SecureStore
 import com.rfsentinel.app.util.applySystemBarInsets
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.util.Locale
 
 /**
@@ -70,11 +65,7 @@ class WazeStatusActivity : AppCompatActivity() {
         setContentView(scroll)
         scroll.applySystemBarInsets()
 
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                while (true) { refresh(); delay(1_000) }
-            }
-        }
+        refreshWhileStarted(1_000) { refresh() }
     }
 
     override fun onSupportNavigateUp(): Boolean { finish(); return true }
@@ -106,22 +97,10 @@ class WazeStatusActivity : AppCompatActivity() {
         val out = TextView(ctx).apply { textSize = 13f; setLineSpacing(0f, 1.15f); setTextIsSelectable(true) }
         val answer = TextView(ctx).apply { textSize = 12f; alpha = 0.8f; setTextIsSelectable(true) }
 
-        fun title(t: String) = TextView(ctx).apply {
-            text = t; textSize = 12f; setTypeface(typeface, android.graphics.Typeface.BOLD); setTextColor(accent); letterSpacing = 0.08f
-        }
-
-        fun card(vararg views: View) = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            background = VisualMode.card(ctx)
-            val p = (12 * dp).toInt(); setPadding(p, p, p, p)
-            views.forEach { addView(it) }
-            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = (10 * dp).toInt() }
-        }
-
         init {
             val head = LinearLayout(ctx).apply {
                 orientation = LinearLayout.HORIZONTAL; gravity = android.view.Gravity.CENTER_VERTICAL
-                addView(title("WAZE CHECKS"), LinearLayout.LayoutParams(0, -2, 1f))
+                addView(visualTitle("WAZE CHECKS"), LinearLayout.LayoutParams(0, -2, 1f))
                 addView(stateChip)
             }
             val timing = LinearLayout(ctx).apply {
@@ -131,13 +110,13 @@ class WazeStatusActivity : AppCompatActivity() {
                     LinearLayout.LayoutParams(0, -2, 1f))
                 setPadding(0, (8 * dp).toInt(), 0, 0)
             }
-            box.addView(card(head, source, timing))
+            box.addView(visualCard(head, source, timing))
             box.addView(VisualMode.tileRow(ctx, tiles).apply {
                 layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = (10 * dp).toInt() }
             })
-            box.addView(card(title("LAST CHECKS"), timeline, timelineNote))
-            box.addView(card(title("WHAT GOES OUT"), out))
-            box.addView(card(title("LAST ANSWER"), answer))
+            box.addView(visualCard(visualTitle("LAST CHECKS"), timeline, timelineNote))
+            box.addView(visualCard(visualTitle("WHAT GOES OUT"), out))
+            box.addView(visualCard(visualTitle("LAST ANSWER"), answer))
         }
 
         fun value(tile: View, v: String) { ((tile as LinearLayout).getChildAt(0) as TextView).text = v }
