@@ -255,9 +255,7 @@ class DeviceDetailActivity : AppCompatActivity() {
         }
 
         // Action labels
-        val fp = com.rfsentinel.app.usb.ProbeIntel.of(mac)?.fingerprint
-        val custom = OuiWatchlist.customAddressEntry(mac)
-            ?: fp?.let { OuiWatchlist.customEntry(com.rfsentinel.app.oui.OuiEntry.FINGERPRINT + it) }
+        val custom = DeviceActions.watchEntry(mac)
         binding.actionWatchlist.text = if (custom != null) "Remove from watchlist" else "Add to watchlist"
         radioHz?.let { hz ->
             // A radio transmission (RTL-SDR / HackRF): found with the waterfall, watched as a frequency.
@@ -478,7 +476,7 @@ class DeviceDetailActivity : AppCompatActivity() {
     // ---- Actions --------------------------------------------------------------
 
     private fun onWatchlistAction() {
-        val custom = OuiWatchlist.customAddressEntry(mac)
+        val custom = DeviceActions.watchEntry(mac)
         if (custom != null) {
             OuiWatchlist.removeCustomEntry(this, custom.prefix)
             com.rfsentinel.app.util.Undo.show(this, "Removed ${custom.prefix} from the watchlist") {

@@ -53,10 +53,23 @@ object DeviceActions {
         )
     }
 
+    /**
+     * Your own watchlist entry this device is on: its address, else its WPS UUID, probe fingerprint or probe shape.
+     * The device page's button label, its click and the long-press menu all use this, so they agree.
+     */
+    fun watchEntry(mac: String): OuiEntry? {
+        val probe = com.rfsentinel.app.usb.ProbeIntel.of(mac)
+        return OuiWatchlist.customAddressEntry(mac) ?: listOfNotNull(
+            probe?.wps?.uuid?.let { com.rfsentinel.app.usb.ProbeIntel.uuidKey(it) },
+            probe?.fingerprint,
+            probe?.skeleton?.let { com.rfsentinel.app.usb.ProbeIntel.shapeKey(it) }
+        ).firstNotNullOfOrNull { OuiWatchlist.customEntry(OuiEntry.FINGERPRINT + it) }
+    }
+
     /** Long-press menu. */
     fun showQuickActions(activity: AppCompatActivity, mac: String) {
         val snap = DeviceRegistry.get(mac)
-        val custom = OuiWatchlist.customAddressEntry(mac)
+        val custom = watchEntry(mac)
         val whitelisted = WhitelistCache.inTable(mac)
         val ignoredTracker = com.rfsentinel.app.data.TrackerMutes.isMuted(mac)
         // Trackers that change their address can't be whitelisted: offer ignoring instead.
