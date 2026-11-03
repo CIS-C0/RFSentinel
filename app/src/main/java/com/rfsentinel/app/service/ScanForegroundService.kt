@@ -1732,7 +1732,7 @@ class ScanForegroundService : Service() {
             "handful, never a stream. Heard by the USB WiFi adapter; nothing is sent."
         val hit = Hit(Category.HACKER, "WiFi deauth attack on $net", if (a.broadcast) 80 else 70, detail,
             "802.11 management frames (USB WiFi adapter, receive-only)")
-        reportAttack(a.bssid, "WIFI", hit, ssid, "deauth:" + a.bssid, "WiFi attack nearby", now)
+        reportAttack(a.bssid, "WIFI", hit, ssid, "deauth:" + a.bssid, "WiFi attack nearby", now, "USB WiFi")
     }
 
     /** One transmitter answering under many network names (USB WiFi adapter): a Karma / PineAP fake access point. */
@@ -1747,7 +1747,7 @@ class ScanForegroundService : Service() {
             "Heard by the USB WiFi adapter; nothing is sent."
         val hit = Hit(Category.HACKER, "Fake WiFi access point (Karma / PineAP)", 80, detail,
             "802.11 beacons and probe responses (USB WiFi adapter, receive-only); SignalSweep research (GPL-3.0; facts only)")
-        reportAttack(a.transmitter, "WIFI", hit, a.names.firstOrNull(), "karma:" + a.transmitter, "WiFi attack nearby", now)
+        reportAttack(a.transmitter, "WIFI", hit, a.names.firstOrNull(), "karma:" + a.transmitter, "WiFi attack nearby", now, "USB WiFi")
     }
 
     /** A flood of fake trackers on throwaway addresses (HackerWatch.tagFlood). */
@@ -1762,11 +1762,12 @@ class ScanForegroundService : Service() {
             "in a crowd, many real tags come and go too, which lowers the confidence. Real trackers are still reported as usual."
         val hit = Hit(Category.HACKER, "Fake tracker flood (${f.network})", f.score, detail,
             "Bluetooth adverts, receive-only; SignalSweep research (GPL-3.0; facts only)")
-        reportAttack(f.sample, "BLE", hit, null, "tagflood:" + f.network, "Fake trackers nearby", now)
+        reportAttack(f.sample, "BLE", hit, null, "tagflood:" + f.network, "Fake trackers nearby", now,
+            com.rfsentinel.app.esp.HeardBy.tag(f.sample, Advert.Source.BLE))
     }
 
     /** An attack heard over time rather than one device: logged, and alerted like a detection. */
-    private fun reportAttack(mac: String, source: String, hit: Hit, name: String?, key: String, spoken: String, now: Long) {
+    private fun reportAttack(mac: String, source: String, hit: Hit, name: String?, key: String, spoken: String, now: Long, heardBy: String) {
         val loc = lastLocation
         val tag = Prefs.gpsTaggingEnabled(this)
         serviceScope.launch {
@@ -1774,7 +1775,8 @@ class ScanForegroundService : Service() {
                 DetectionEntity(
                     mac = mac, label = hit.label, source = source, rssi = 0, timestamp = now,
                     latitude = if (tag) loc?.latitude else null, longitude = if (tag) loc?.longitude else null,
-                    category = Category.HACKER.name, confidence = hit.confidence, evidence = hit.evidence, deviceName = name
+                    category = Category.HACKER.name, confidence = hit.confidence, evidence = hit.evidence, deviceName = name,
+                    heardBy = heardBy
                 )
             )
         }
