@@ -1418,7 +1418,7 @@ class SettingsActivity : AppCompatActivity() {
             "A 1090 MHz antenna helps; the stock one hears out to about 50 km.") { Prefs.setSdrAdsb(this, it) }
         val p25Box = scan("P25 control channel", Prefs.sdrP25(this),
             "Experimental. Finds the P25 trunked-radio control channel here (700 / 800 MHz, used in the United States and Canada) and " +
-            "follows it: which talkgroups get a channel, and when (Tools › P25 talkgroups). Signalling only: voice is never decoded. " +
+            "follows it: which talkgroups get a channel, and when (Tools › P25 talkgroups). Voice is only played with Listen to P25 voice, below. " +
             "Needs Two-way radio turned on. On by default when your region is the United States or Canada. Receiving radio " +
             "signalling is legal in many places but not all, and some forbid it in a vehicle or passing on what you hear: " +
             "check the law where you are.") { Prefs.setSdrP25(this, it) }
@@ -1446,7 +1446,7 @@ class SettingsActivity : AppCompatActivity() {
             Prefs.setP25Inputs(this, it)
         }
         scan("Record P25 voice calls", Prefs.p25Record(this),
-            "For building P25 voice: when a clear (not encrypted) call starts, the SDR leaves the control channel for " +
+            "For testing P25 voice: when a clear (not encrypted) call starts, the SDR leaves the control channel for " +
             "${com.rfsentinel.app.sdr.P25Record.SECONDS} s and saves that call's radio signal to a file, about 1 MB each. Nothing " +
             "is decoded or played. At most one call every 20 s; the last ${com.rfsentinel.app.sdr.P25Record.KEEP} are kept. " +
             "Share them with the button below. Recording radio calls is not allowed everywhere: check the law where you are.") {
@@ -1456,7 +1456,14 @@ class SettingsActivity : AppCompatActivity() {
             text = "Share P25 recordings"
             setOnClickListener { shareP25Recordings() }
         })
-        val talkgroupViews = (box.childCount - 8 until box.childCount).map { box.getChildAt(it) }
+        box.addView(infoRow(choiceRow("Listen to P25 voice", listOf("Off", "Watched talkgroups", "All clear calls"), Prefs.p25Listen(this)) {
+            Prefs.setP25Listen(this, it)
+        }, "Plays clear (not encrypted) P25 calls as they happen, through the speaker, headphones or car like other audio. " +
+            "The SDR leaves the control channel for the call and misses its messages meanwhile: one call at a time, at most " +
+            "2 minutes each. Watched talkgroups: only those in Watch these talkgroups. Mute on the P25 talkgroups screen pauses it. " +
+            "Encrypted calls can't be played. Listening to radio calls is not allowed everywhere, and some places forbid it in " +
+            "a vehicle: check the law where you are.", "Listen to P25 voice"))
+        val talkgroupViews = (box.childCount - 9 until box.childCount).map { box.getChildAt(it) }
         var sweepViews = emptyList<View>() // the sweep's own settings, below
         showSdrOptions = {
             val ticked = listOf(sweepBox, adsbBox, p25Box).count { it.isChecked }

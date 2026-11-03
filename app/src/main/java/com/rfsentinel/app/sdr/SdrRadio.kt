@@ -42,6 +42,9 @@ object SdrRadio {
     private const val INPUT_READS = 16         // ~70 ms of the input
     private const val INPUT_OFFSET_HZ = 250_000L // the input this far above the tuned centre, clear of the DC spike
     private const val RECORD_GAP_MS = 20_000L  // at most one call recording this often: each costs P25Record.SECONDS of control channel
+    private const val FOLLOW_START_S = 1.5     // no voice this long after tuning to a call: it isn't there (or already over)
+    private const val FOLLOW_QUIET_S = 1.0     // voice gone this long: the call is over
+    private const val FOLLOW_MAX_MS = 120_000L // then back to the control channel regardless
 
     @Volatile var status: String = ""; private set
     /** ADS-B messages decoded since the app started, for the main screen's messages-per-second line. */
@@ -95,6 +98,16 @@ object SdrRadio {
     @Volatile var onP25Input: ((P25History.Call, Long, Int) -> Unit)? = null
     /** Settings › RTL-SDR radio: save the radio signal of clear calls ([P25Record]). */
     @Volatile var p25Record = false
+    /** Settings › Listen to P25 voice: which clear calls to play live ([P25Follow]). */
+    enum class Listen { OFF, WATCHED, ALL }
+    @Volatile var p25Listen = Listen.OFF
+    /** The watched talkgroups (Settings › Watch these talkgroups). */
+    @Volatile var p25Watched: Set<Int> = emptySet()
+    /** P25 talkgroups › Mute: no call is played, the SDR stays on the control channel. */
+    @Volatile var p25Mute = false
+    /** The call playing now (the P25 screen marks it), or null. */
+    @Volatile var p25Playing: P25History.Call? = null; private set
+    private var speaker: android.media.AudioTrack? = null
     /**
      * The waterfall screen zoomed in: hold this frequency instead of sweeping (or receiving ADS-B),
      * until set back to null. Picked up within a chunk.
@@ -443,9 +456,11 @@ object SdrRadio {
             var messages = 0; var lastStatus = 0L
             var pending: Pair<P25History.Call, Long>? = null; var lastInput = 0L; var inputs = 0; var heard = 0
             var toRecord: P25History.Call? = null; var lastRecord = 0L; var recorded = 0
+            var toFollow: P25History.Call? = null; var followed = 0
             // A call's input: once it's on the air, tune there for a moment and measure it (the control channel comes back after).
-            // A call to record goes first: its voice channel, for a few seconds.
+            // A call to play goes first, for as long as it lasts; then a call to record, its voice channel for a few seconds.
             val detour = detour@{
+                toFollow?.let { call -> toFollow = null; if (followCall(sdr, call, stop)) followed++; return@detour true }
                 toRecord?.let { call -> toRecord = null; if (recordCall(sdr, call)) recorded++; return@detour true }
                 val (call, hz) = pending ?: return@detour false
                 if (System.currentTimeMillis() - call.time < INPUT_DELAY_MS) return@detour false
@@ -466,8 +481,12 @@ object SdrRadio {
                         p25Log.inputHz(c.channel!!)?.let { hz -> pending = c to hz; lastInput = now }
                     }
                 }
+                val listen = p25Listen
+                if (listen != Listen.OFF && !p25Mute && toFollow == null) {
+                    calls.lastOrNull { !it.encrypted && it.hz != null && (listen == Listen.ALL || it.tg in p25Watched) }?.let { toFollow = it }
+                }
                 if (p25Record && toRecord == null && now - lastRecord >= RECORD_GAP_MS) {
-                    calls.lastOrNull { !it.encrypted && it.hz != null }?.let { toRecord = it; lastRecord = now }
+                    calls.lastOrNull { !it.encrypted && it.hz != null && it !== toFollow }?.let { toRecord = it; lastRecord = now }
                 }
                 if (now - lastStatus >= 2_000L && !halted) { lastStatus = now; status = "$deviceLabel · P25 · control channel $where · $messages messages" + turnNote() }
             }
@@ -475,9 +494,56 @@ object SdrRadio {
             UsbWifi.log("$deviceLabel: P25 ${if (lost) "control channel went quiet" else "turn over or stopped"} after $messages messages (${hunt.blocks} blocks in all), " +
                 p25Log.rows().let { r -> "${r.size} talkgroups / private calls, ${r.sumOf { it.calls }} calls" } +
                 (if (inputs > 0) ", $inputs input checks, $heard radios heard nearby" else "") +
-                (if (recorded > 0) ", $recorded calls recorded" else ""))
+                (if (recorded > 0) ", $recorded calls recorded" else "") +
+                (if (followed > 0) ", $followed calls played" else ""))
         }
+        speaker?.release(); speaker = null
     }
+
+    /**
+     * Plays [call] live from its voice channel until it ends, goes quiet, or listening stops ([FOLLOW_MAX_MS] at most);
+     * false when no voice was heard. Frequency kept off the log.
+     */
+    private fun followCall(sdr: SdrDevice, call: P25History.Call, stop: () -> Boolean): Boolean {
+        val hz = call.hz ?: return false
+        val out = speaker ?: runCatching { newSpeaker() }.onFailure { UsbWifi.log("$deviceLabel: P25 no audio output - ${UsbWifi.describe(it)}") }
+            .getOrNull()?.also { speaker = it } ?: return false
+        if (!sdr.tune(hz - INPUT_OFFSET_HZ)) return false
+        sdr.resetBuffer()
+        val buf = ByteArray(XFER)
+        repeat(sdr.settleReads) { sdr.read(buf) }
+        var started = false
+        val follow = P25Follow(INPUT_OFFSET_HZ.toDouble()) { pcm ->
+            // A little silence first: voice comes in 180 ms bursts, and the buffer shouldn't run dry between them.
+            if (!started) { started = true; out.write(ShortArray(ImbeDecoder.RATE / 5), 0, ImbeDecoder.RATE / 5, android.media.AudioTrack.WRITE_NON_BLOCKING) }
+            out.write(pcm, 0, pcm.size, android.media.AudioTrack.WRITE_NON_BLOCKING)
+        }
+        p25Playing = call
+        status = "$deviceLabel · P25 · playing ${call.tg?.let { "talkgroup $it" } ?: "a private call"}" + turnNote()
+        out.play()
+        val start = System.currentTimeMillis()
+        var fails = 0
+        try {
+            while (!stop() && !p25Mute && p25Listen != Listen.OFF && !follow.ended && fails < STALL_CHUNKS &&
+                follow.quietS < (if (follow.frames == 0) FOLLOW_START_S else FOLLOW_QUIET_S) && System.currentTimeMillis() - start < FOLLOW_MAX_MS) {
+                val n = sdr.read(buf)
+                if (n <= 0) { fails++; continue }
+                follow.feed(buf, n / 2)
+            }
+        } finally { p25Playing = null; out.stop() } // stop: what's buffered still plays
+        if (follow.frames > 0) UsbWifi.log("$deviceLabel: P25 call played (%.1f s)".format(java.util.Locale.US, follow.frames * 0.18))
+        return follow.frames > 0
+    }
+
+    /** 8 kHz mono speech out, as media (so it goes to the car or headphones like other audio). */
+    private fun newSpeaker(): android.media.AudioTrack = android.media.AudioTrack.Builder()
+        .setAudioAttributes(android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH).build())
+        .setAudioFormat(android.media.AudioFormat.Builder().setSampleRate(ImbeDecoder.RATE)
+            .setEncoding(android.media.AudioFormat.ENCODING_PCM_16BIT).setChannelMask(android.media.AudioFormat.CHANNEL_OUT_MONO).build())
+        .setTransferMode(android.media.AudioTrack.MODE_STREAM)
+        .setBufferSizeInBytes(ImbeDecoder.RATE) // half a second
+        .build()
 
     /** Records [P25Record.SECONDS] of [call]'s voice channel to a file; false when nothing was saved. Frequency kept off the log. */
     private fun recordCall(sdr: SdrDevice, call: P25History.Call): Boolean {

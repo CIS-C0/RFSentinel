@@ -34,7 +34,7 @@ import java.util.Locale
  * The P25 control channel the SDR follows (Settings > RTL-SDR radio > P25 control channel): its site, and the
  * talkgroups and private calls granted a channel there, most recent first. Watched talkgroups are named and
  * marked. History: the kept call log ([P25History]) per talkgroup over the last day and week, and its busiest hour.
- * Signalling only: nothing here is voice.
+ * With Settings › Listen to P25 voice on, the call playing is marked, and Mute pauses listening.
  */
 class P25Activity : AppCompatActivity() {
 
@@ -61,7 +61,8 @@ class P25Activity : AppCompatActivity() {
             val r = rows[position]
             ItemDetectionBinding.bind(holder.itemView).apply {
                 val name = r.tg?.let { watched[it] }
-                labelText.text = listOfNotNull(title(r), name?.ifEmpty { "watched" }, "EMERGENCY".takeIf { r.emergency },
+                val playing = SdrRadio.p25Playing?.let { if (r.tg != null) it.tg == r.tg else it.tg == null && it.target == r.target } == true
+                labelText.text = listOfNotNull(title(r), "playing".takeIf { playing }, name?.ifEmpty { "watched" }, "EMERGENCY".takeIf { r.emergency },
                     "encrypted".takeIf { r.encrypted }).joinToString("  ·  ")
                 labelText.setTextColor(when {
                     r.emergency -> EMERGENCY
@@ -105,6 +106,8 @@ class P25Activity : AppCompatActivity() {
         menu.add(0, MENU_HISTORY, 0, if (history == null) "History" else "Live")
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
         menu.add(0, MENU_EXPORT, 1, "Export call log")
+        if (Prefs.p25Listen(this) != 0) menu.add(0, MENU_MUTE, 0, if (Prefs.p25Mute(this)) "Unmute" else "Mute")
+            .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
         return true
     }
 
@@ -116,6 +119,11 @@ class P25Activity : AppCompatActivity() {
             invalidateOptionsMenu(); refresh(); true
         }
         MENU_EXPORT -> { exportLog(); true }
+        MENU_MUTE -> {
+            val mute = !Prefs.p25Mute(this)
+            Prefs.setP25Mute(this, mute); SdrRadio.p25Mute = mute
+            invalidateOptionsMenu(); true
+        }
         else -> super.onOptionsItemSelected(item)
     }
 
@@ -207,6 +215,7 @@ class P25Activity : AppCompatActivity() {
     companion object {
         private const val MENU_HISTORY = 1
         private const val MENU_EXPORT = 2
+        private const val MENU_MUTE = 3
         private const val HISTORY_MS = 30_000L
         private val EMERGENCY = 0xFFD0503C.toInt()
 

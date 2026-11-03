@@ -660,6 +660,12 @@ object Prefs {
     /** Save the radio signal of clear calls ([com.rfsentinel.app.sdr.P25Record]), for the voice decoder. Off by default. */
     fun p25Record(context: Context): Boolean = bool(context, "p25_record", false)
     fun setP25Record(context: Context, v: Boolean) = setBool(context, "p25_record", v)
+    /** Which clear P25 calls to play live: 0 none (default), 1 watched talkgroups, 2 all ([com.rfsentinel.app.sdr.SdrRadio.Listen]). */
+    fun p25Listen(context: Context): Int = int(context, "p25_listen", 0).coerceIn(0, 2)
+    fun setP25Listen(context: Context, v: Int) = setInt(context, "p25_listen", v.coerceIn(0, 2))
+    /** P25 talkgroups › Mute: listening paused. */
+    fun p25Mute(context: Context): Boolean = bool(context, "p25_mute", false)
+    fun setP25Mute(context: Context, v: Boolean) = setBool(context, "p25_mute", v)
     /** Seconds the SDR gives each ticked scan in turn, 30-300: a first P25 search takes up to about 15 s. */
     fun sdrTurnS(context: Context): Int = int(context, "sdr_turn_s", 60).coerceIn(30, 300)
     fun setSdrTurnS(context: Context, v: Int) = setInt(context, "sdr_turn_s", v.coerceIn(30, 300))
