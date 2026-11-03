@@ -2,7 +2,7 @@
 <div class="page-head">
   <p class="crumbs"><a href="./">rf_sentinel</a> / hardware</p>
   <h1>External hardware</h1>
-  <p class="lead">Optional add-ons that hear further than a phone and see things Android hides: ESP32 boards, USB WiFi and Bluetooth adapters, and RTL-SDR / HackRF radios. Plug them in with a USB OTG cable while scanning, no root. What they hear merges into RF Sentinel's own list with a badge (<b>ESP32</b>, <b>USB WIFI</b>, <b>USB BT</b>). Settings &rarr; External hardware has the switches and an adapter log to export.</p>
+  <p class="lead">Optional add-ons that hear further than a phone and see things Android hides: ESP32 boards, USB WiFi and Bluetooth adapters, and RTL-SDR / HackRF radios. Plug them in with a USB OTG cable while scanning, no root. What they hear merges into RF Sentinel's own list with a badge (<b>ESP32</b>, <b>USB WIFI</b>, <b>USB BT</b>). Settings &rarr; External hardware has the switches and an adapter log to export. How each one works inside, with the numbers: <a href="hardware-technical.html">Hardware internals</a>.</p>
   <div class="cta">
     <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
     <a class="btn discord" href="{{DISCORD}}" rel="noopener">{{DISCORD_SVG}}ESP32 builds on Discord</a>
@@ -19,6 +19,7 @@
 <tr><td><a href="https://github.com/GhostESP-Revival/GhostESP" rel="noopener">GhostESP</a></td><td>USB OTG</td><td>The WiFi networks it scans, about every 10 s (no Bluetooth over USB)</td></tr>
 <tr><td><a href="https://github.com/justcallmekoko/ESP32Marauder" rel="noopener">ESP32 Marauder</a></td><td>USB OTG, or through a Flipper Zero</td><td>WiFi networks and client devices from its passive beacon and probe sniffers, batched every 2 s; on ESP32-C5 boards (Marauder v8, BFFB v2, LilyGo T-Dongle C5, C5 DevKit) both 2.4 and 5 GHz</td></tr>
 <tr><td><a href="https://github.com/pit711/V2X2MAP" rel="noopener">V2X2MAP</a> (ESP32-C5, Europe)</td><td>USB OTG</td><td>European car-to-car radio (ITS-G5, 5.9 GHz): emergency vehicles with their light bar and siren state at the position they broadcast, and their "emergency vehicle approaching" warnings. RF Sentinel only listens to the board's stream; nothing is sent to it. Not in North America, which uses C-V2X</td></tr>
+<tr><td><a href="https://freewili.com" rel="noopener">FREE-WiLi 2</a></td><td>USB OTG</td><td>The WiFi networks its ESP32-C5 scans from its console's WiFi menu (2.4 + 5 GHz)</td></tr>
 </tbody></table></div>
 
 <h3 id="usb">USB</h3>
@@ -53,6 +54,12 @@
 <tr><td>AR9271</td><td>2.4 GHz, experimental</td><td>-</td><td>ALFA AWUS036NHA, TP-Link TL-WN722N v1</td></tr>
 </tbody></table></div>
 <p>Recognised but not supported yet: RTL8811CU / 8821CU / 8812CU, RT5370, MT7610U, AR7010.</p>
+<ul>
+<li><b>Firmware:</b> the GitHub build includes each chip's firmware. The F-Droid build asks once before downloading the non-free files from linux-firmware and checks each one's SHA-256; the AR9271's free firmware is built in.</li>
+<li><b>Antenna check</b> (Tools): compares the signal on each of the adapter's antennas from one access point, with an A / B swap test.</li>
+<li><b>Record frames</b> (Settings &rarr; External hardware): saves what the adapter or a V2X board hears as a .pcap for Wireshark, up to 200 MB.</li>
+<li>It also flags deauthentication floods and karma / evil-twin access points (<a href="hardware-technical.html#usb-wifi">details</a>).</li>
+</ul>
 
 <h2 id="usb-bluetooth">USB Bluetooth</h2>
 <p>The Bluetooth part of a combo adapter (MT7921AU, RTL8821AU, RTL8822BU), or a plain USB Bluetooth dongle, works as a second Bluetooth LE scanner next to the phone's own, listening only, with LE Coded long range where the chip has it. Turn it off in Settings &rarr; External hardware &rarr; Scan Bluetooth with a USB adapter to leave a combo adapter to WiFi only.</p>
@@ -68,11 +75,16 @@
 <p>An RTL-SDR dongle (R820T / R820T2 / R860 tuner, e.g. RTL-SDR Blog V3 or V4) or a HackRF One (receive only: its transmitter stays off) adds:</p>
 <ul>
 <li><b>Two-way radio transmitting nearby:</b> sweeps the public-safety radio bands and measures only how much energy each channel carries; nothing is demodulated or decoded.</li>
-<li><b>P25 control channel</b> (experimental): finds a P25 trunked system's control channel (700 / 800 MHz) and lists which talkgroups get a channel and when (Tools › P25 talkgroups), with alerts for talkgroups you watch. Signalling only: voice is never decoded. Receiving radio signalling is legal in many places but not all: check the law where you are. With more than one SDR scan ticked, the dongle takes turns.</li>
+<li><b>P25 control channel</b> (experimental): finds a P25 trunked system's control channel (700 / 800 MHz) and lists which talkgroups get a channel and when (Tools › P25 talkgroups), with alerts for talkgroups you watch. <b>Listen to P25 voice</b> (experimental, off by default) plays clear calls; encrypted calls can't be played. Receiving radio signalling is legal in many places but not all: check the law where you are. With more than one SDR scan ticked, the dongle takes turns.</li>
+<li><b>Cellular transmitters</b> (experimental, off by default): a rise on the LTE uplink bands, such as a vehicle modem travelling with you.</li>
 <li><b>TETRA handsets</b> (Europe and elsewhere): spots their burst rhythm on 380-385 MHz.</li>
 <li><b>ADS-B aircraft</b> (Settings &rarr; RTL-SDR radio): decodes aircraft on 1090 MHz with no internet, for the police-aircraft check.</li>
 <li>A live <b>radio waterfall</b> (Tools).</li>
 </ul>
+<p><b>Network SDR:</b> an RTL-SDR plugged into a computer running <code>rtl_tcp</code> on your WiFi works too (Settings &rarr; RTL-SDR radio &rarr; Network SDR, about 5 MB/s of WiFi). How the sweep, P25 and ADS-B decoding work: <a href="hardware-technical.html#sdr">Hardware internals</a>.</p>
+
+<h2 id="meshtastic">Meshtastic</h2>
+<p>A Meshtastic LoRa node paired over Bluetooth lets <a href="qa.html#sentinel-link">Sentinel Link</a> phones far apart share detections on a private channel (<a href="hardware-technical.html#link">details</a>). Not yet tested on real hardware.</p>
 
 <h2 id="faq-esp">Questions</h2>
 <details class="faq" id="q-esp-board">

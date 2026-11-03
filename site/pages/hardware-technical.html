@@ -1,0 +1,253 @@
+<!--META {"title": "How RF Sentinel's external hardware works: RTL-SDR, P25, ADS-B, USB WiFi, USB Bluetooth, ESP32", "description": "Technical reference for RF Sentinel's external hardware: the userspace RTL-SDR / HackRF drivers, radio sweep and busy-channel learning, P25 control-channel decoding, ADS-B, USB WiFi monitor mode, USB Bluetooth HCI, ESP32 protocols, V2X and Sentinel Link.", "nav": "hardware", "crumb": "Hardware internals"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / <a href="hardware.html">hardware</a> / internals</p>
+  <h1>How the external hardware works</h1>
+  <p class="lead">What RF Sentinel does with each radio you plug in, down to sample rates, frame formats and thresholds. Every number here is a constant in the public source; file names point at the Kotlin classes under <code>app/src/main/java/com/rfsentinel/app/</code>. Which hardware to buy is on <a href="hardware.html">External hardware</a>.</p>
+</div>
+
+<ol class="faq-toc">
+<li><a href="#rules">Ground rules</a></li>
+<li><a href="#sdr">SDR basics</a></li>
+<li><a href="#rtlsdr">RTL-SDR driver</a></li>
+<li><a href="#hackrf">HackRF One</a></li>
+<li><a href="#network-sdr">Network SDR (rtl_tcp)</a></li>
+<li><a href="#modes">Modes, turns and the waterfall</a></li>
+<li><a href="#sweep">Radio activity sweep</a></li>
+<li><a href="#cellular">Cellular uplink</a></li>
+<li><a href="#tetra">TETRA bursts</a></li>
+<li><a href="#p25">P25 control channel</a></li>
+<li><a href="#p25-voice">P25 voice (experimental)</a></li>
+<li><a href="#adsb">ADS-B aircraft</a></li>
+<li><a href="#usb-wifi">USB WiFi monitor mode</a></li>
+<li><a href="#usb-bluetooth">USB Bluetooth</a></li>
+<li><a href="#esp32">ESP32 boards over USB</a></li>
+<li><a href="#oui-spy-ble">OUI-Spy over Bluetooth</a></li>
+<li><a href="#v2x">V2X emergency vehicles</a></li>
+<li><a href="#link">Sentinel Link and Meshtastic</a></li>
+<li><a href="#limits">Limits</a></li>
+<li><a href="#faq-tech">Questions</a></li>
+</ol>
+
+<h2 id="rules">Ground rules</h2>
+<ul>
+<li><b>Receive only.</b> Only the features whose job is to send (Sentinel Link, Meshtastic, and an OUI-SPY board relaying every network, which sends probe requests) transmit. No driver here does: the HackRF's transmitter, amplifier and antenna bias stay off, the rtl_tcp bias-T is set off, the WiFi drivers have every transmit path removed (no injection, no deauth, no handshake or PMKID capture), and USB Bluetooth never advertises or connects.</li>
+<li><b>No root, no kernel driver.</b> Every USB device is driven from the app through Android's USB host API (<code>UsbManager</code>, control and bulk transfers). Android asks you once per device for permission.</li>
+<li><b>No decryption.</b> Encrypted P25 calls, WPA traffic and TETRA are never decoded. Radio scanning measures energy, timing and clear signalling only.</li>
+<li><b>Nothing leaves the phone</b> unless you turn on something that says so (RadioReference lookups, Sentinel Link, Meshtastic).</li>
+</ul>
+
+<h2 id="sdr">SDR basics</h2>
+<p>An SDR (software-defined radio) is a tuner plus an analogue-to-digital converter: it hands the app a stream of <b>I/Q samples</b>, pairs of numbers that describe the amplitude and phase of everything within a slice of spectrum around the tuned frequency. The app does all filtering and decoding in software (<code>sdr/SdrRadio.kt</code>).</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Setting</th><th>Value</th></tr></thead>
+<tbody>
+<tr><td>Sample rate</td><td>2.048 MS/s (2 MS/s for ADS-B), so each tune sees about 2 MHz of spectrum</td></tr>
+<tr><td>Gain</td><td>Fixed 29.7 dB for sweeps and P25; 49.6 dB (the tuner's maximum) for ADS-B. No AGC, so levels are comparable over time</td></tr>
+<tr><td>USB read</td><td>16 KB (8192 complex samples), about 4 ms of signal each; 8 reads per tuned chunk (16 for TETRA, to see whole frames)</td></tr>
+<tr><td>Stalled stream</td><td>After 8 empty chunks the stream is reset, as librtlsdr's <code>reset_buffer</code> does</td></tr>
+<tr><td>Unplug detection</td><td>The device is checked every couple of seconds; a USB SDR plugged in takes over from a network SDR</td></tr>
+</tbody>
+</table></div>
+<p>Driver messages go into the USB adapter log (Settings › Export USB adapter log), without positions.</p>
+
+<h2 id="rtlsdr">RTL-SDR driver</h2>
+<p><code>sdr/RtlSdr.kt</code> is a Kotlin port of osmocom's <a href="https://github.com/osmocom/rtl-sdr" rel="noopener">librtlsdr</a> (GPL-2.0-or-later) for the RTL2832U demodulator chip with an <b>R820T, R820T2, R860 or R828D</b> tuner.</p>
+<ul>
+<li><b>Tuner access:</b> the tuner sits behind the RTL2832U on I²C; every register write goes through the RTL2832U's I²C repeater with 3 retries, and the driver keeps shadow copies of the tuner registers so partial writes don't need a read-back.</li>
+<li><b>Low IF, not zero IF:</b> the R82xx tuners mix the signal to a 3.57 MHz intermediate frequency, which the RTL2832U shifts back to baseband with spectrum inversion. That avoids the DC spike zero-IF tuners put in the middle of the spectrum.</li>
+<li><b>IF filter</b> chosen to match the sample rate (0.9 to 3.2 MS/s supported).</li>
+<li><b>RTL-SDR Blog V4:</b> an R828D with a 28.8 MHz crystal and an input band switch; its notch filters are turned off inside the FM and DAB bands as the RTL-SDR Blog code does.</li>
+<li><b>Gone:</b> after 25 control transfers in a row fail, the dongle is treated as unplugged and released.</li>
+</ul>
+
+<h2 id="hackrf">HackRF One</h2>
+<p><code>sdr/HackRf.kt</code> speaks libhackrf's USB vendor requests, receive only: amplifier off, antenna port power off, sample rate 2 to 20 MS/s. The HackRF sends signed 8-bit I/Q; it is converted to the RTL-SDR's unsigned format so the rest of the code is shared. About 48 KB of samples still in flight after a retune are dropped, so they don't land in the wrong channel.</p>
+
+<h2 id="network-sdr">Network SDR (rtl_tcp)</h2>
+<p>Settings › RTL-SDR radio › Network SDR reads an RTL-SDR plugged into another device on your WiFi, such as a computer running <code>rtl_tcp</code> (default port 1234 if left out) (<code>sdr/RtlTcp.kt</code>).</p>
+<ul>
+<li>The server first sends a 12-byte header starting with <code>RTL0</code> (tuner type and gain count).</li>
+<li>Each command is 1 byte plus a 32-bit big-endian value: <code>0x01</code> frequency, <code>0x02</code> sample rate, <code>0x03</code> gain mode, <code>0x04</code> gain, <code>0x08</code> AGC, <code>0x0E</code> bias-T (always sent as off).</li>
+<li>Samples are the same unsigned 8-bit I/Q as over USB, about 5 MB/s of WiFi, so use a fast local network.</li>
+<li>A lost connection is retried every 10 s, and a USB SDR plugged into the phone is used first. rtl_tcp has no password: only run it on a network you trust.</li>
+</ul>
+
+<h2 id="modes">Modes, turns and the waterfall</h2>
+<p>Settings › RTL-SDR radio has three uses: <b>radio sweep</b>, <b>ADS-B</b> and <b>P25</b>. One dongle can only listen to one frequency range at a time, so with more than one ticked the SDR takes turns of 60 s each.</p>
+<p>The live waterfall (Tools › Radio waterfall, <code>sdr/SdrWaterfall.kt</code>) shows each sweep as one row. Zoom in on a few channels and it switches to a <b>tuned view</b> (4 reads per row, up to about 25 rows per second); the sweep and ADS-B pause while you look.</p>
+
+<h2 id="sweep">Radio activity sweep</h2>
+<p><code>sdr/RadioWatch.kt</code> answers one question: <i>is someone transmitting on a public-safety channel near me?</i> It measures energy only. Nothing is demodulated.</p>
+<ol>
+<li>The tuner steps across each band. Every chunk is cut into 1024-point FFTs with a Hann window, averaged and shifted so 0 Hz is in the middle.</li>
+<li>Only the middle ±800 kHz of each 2 MHz chunk is used (the edges are filtered off), and ±15 kHz around the centre is ignored for DC leakage.</li>
+<li>The spectrum is grouped into <b>12.5 kHz channels</b>. The noise floor is the median of the chunk; a channel's SNR is its peak above that median.</li>
+<li>A channel at or above the <b>sensitivity</b> (default 30 dB, settable 6 to 50 dB) is a candidate; 12 dB counts as "active" for learning.</li>
+<li><b>Splatter:</b> a strong transmitter spills into its neighbours, so candidates within 37.5 kHz of each other are merged and only the strongest is kept.</li>
+<li><b>Busy-channel learning:</b> the last 32 visits of every channel are kept. A channel active on 40 % or more of them (after at least 6 visits) is a busy local channel (a repeater, a paging tower, data) and is never reported. No alerts during the first 6 sweeps, while it learns.</li>
+<li>The same channel alerts again only after 120 s.</li>
+</ol>
+<div class="table-wrap"><table>
+<thead><tr><th>Band</th><th>Range</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td>700 MHz public safety</td><td>799-805 MHz</td><td>Narrowband public-safety channels</td></tr>
+<tr><td>800 MHz</td><td>806-813.9 MHz</td><td>Mobile and portable transmit side</td></tr>
+<tr><td>VHF high</td><td>150.8-174 MHz</td><td>Shared with business and other users</td></tr>
+<tr><td>UHF</td><td>450-470 MHz</td><td>Shared with business and other users</td></tr>
+</tbody>
+</table></div>
+<p><b>Always skipped:</b> MURS, marine VHF, railroad, NOAA weather, FRS / GMRS and paging frequencies, and any range you exclude. Frequencies you add as targets skip the learning and alert straight away. A hit is "a radio transmitted nearby", not "police": VHF and UHF are shared, which is why the default sensitivity is high.</p>
+
+<h2 id="cellular">Cellular uplink</h2>
+<p><b>Detect cellular transmitters</b> (experimental, off by default). Phones transmit on the uplink half of each LTE band; a sudden crowd of uplink energy around you (many phones, or a vehicle's modem) can be measured without decoding anything. The same sweep looks at about 1.6 MHz slices of the uplink bands 71, 12/17, 13, 14 (FirstNet), 5/26 and part of 4/66, learns each slice's quiet level (a slow average, alpha 0.1) and flags a rise of 8 dB or more. Downlinks (towers) are left out on purpose: they are always on.</p>
+
+<h2 id="tetra">TETRA bursts</h2>
+<p>TETRA (used by police in Europe and elsewhere) is TDMA: a handset transmits in one 14.17 ms slot of a 56.67 ms frame. On the 380-385 MHz handset band (the 390-395 MHz base stations are left out), the app reads 16 USB blocks per tune, measures energy in 2 ms steps and calls a channel TDMA when it is on for runs of 0.5 to 2 slots, quiet at least a third of the time and on no more than 60 %. That rhythm is TETRA's fingerprint; the content is never decoded.</p>
+
+<h2 id="p25">P25 control channel</h2>
+<p>A P25 trunked system has one <b>control channel</b> that tells radios which voice channel to use for each call. RF Sentinel decodes that signalling (experimental), which shows which talkgroups are active, without listening to calls. The chain follows TIA-102.BAAA and the open-source OP25 project.</p>
+<ol>
+<li><b>Hunt</b> (<code>sdr/P25Hunt.kt</code>): sweeps the 769-775 and 851-869 MHz downlinks, tries the strongest channels first and keeps the first one whose messages pass their CRC. No ppm calibration is needed: the demodulator's frequency loop follows the dongle's drift. If nothing is found it tries again after 30 s.</li>
+<li><b>Demodulate</b> (<code>sdr/P25Demod.kt</code>): mixes the 12.5 kHz channel to 0 Hz, decimates by integrate-and-dump to 48 kS/s, low-pass filters, then an FM discriminator gives the C4FM signal (4 levels, 4800 symbols/s, 2 bits each). The 48-bit frame sync <code>0x5575F5FF77FF</code> (24 symbols) sets symbol timing, the ±3 level and the DC offset.</li>
+<li><b>Frame</b> (<code>sdr/P25Frame.kt</code>): removes the status symbol after every 35 data symbols, corrects the Network ID with BCH(63,16,23) (up to 11 bit errors), then takes each TSBK block (98 symbols), de-interleaves it, decodes the rate-1/2 trellis code with a Viterbi decoder and checks its CRC.</li>
+<li><b>Messages</b> (<code>sdr/P25Tsbk.kt</code>): standard (MFID 0) messages only.</li>
+</ol>
+<div class="table-wrap"><table>
+<thead><tr><th>Opcode</th><th>Message</th><th>Used for</th></tr></thead>
+<tbody>
+<tr><td><code>0x00</code></td><td>Group voice channel grant</td><td>A talkgroup got a voice channel: the log entry</td></tr>
+<tr><td><code>0x02</code></td><td>Grant update</td><td>Calls still running</td></tr>
+<tr><td><code>0x28</code></td><td>Group affiliation response</td><td>A radio joined a talkgroup</td></tr>
+<tr><td><code>0x3D</code>, <code>0x34</code></td><td>Identifier update</td><td>Turns channel numbers into frequencies</td></tr>
+<tr><td><code>0x3A</code>, <code>0x3B</code></td><td>RFSS / network status</td><td>Site and system identity</td></tr>
+<tr><td><code>0x3C</code></td><td>Adjacent site</td><td>Neighbour sites</td></tr>
+</tbody>
+</table></div>
+<p><b>Input check:</b> 400 ms after a grant, at most every 5 s, the app tunes for about 70 ms to the voice channel's <i>input</i> (the frequency the radios transmit on). Energy there means a radio transmitting close to you, not just somewhere on the system.</p>
+<p><b>Talkgroup names</b> (optional, off by default, US only, <code>sdr/RadioReference.kt</code>): with your own RadioReference Premium login and developer key (stored encrypted on the phone), the app looks up the FCC-licensed system around you. It sends a position rounded to about 1 km, at most once a day per area.</p>
+
+<h2 id="p25-voice">P25 voice (experimental)</h2>
+<p>With <b>Listen to P25 voice</b> (Off, Watched talkgroups or All clear calls), the app follows a clear (unencrypted) call's grant to the voice channel (<code>sdr/P25Follow.kt</code>), one call at a time, and misses control-channel messages meanwhile. It gives up if no voice frame arrives in 1.5 s, ends after 1 s of quiet and stops at 120 s.</p>
+<ul>
+<li><b>Frames</b> (<code>sdr/P25Voice.kt</code>): LDU1 / LDU2 frames (840 symbols after the sync) carry nine IMBE codewords each. Each codeword is de-interleaved, error-corrected (Golay(23,12), PN descrambling, Hamming(15,11)) into 88 bits. The algorithm ID must be <code>0x80</code> (clear); <b>any encrypted call is skipped</b>.</li>
+<li><b>Vocoder</b> (<code>sdr/ImbeDecoder.kt</code>): a Kotlin port of mbelib's IMBE 4400 decoder; each 20 ms frame becomes 160 samples at 8 kHz. A damaged frame repeats the last good one, at most 3 times.</li>
+<li><b>Record P25 voice calls</b> (<code>sdr/P25Record.kt</code>, for testing): the raw radio signal of a clear call as a 6 s two-channel 16-bit I/Q WAV at 48 kS/s (about 1 MB), at most one every 20 s, the last 20 kept on the phone. Nothing in the file is decoded.</li>
+</ul>
+<p>Frame layout and tables from <a href="https://github.com/szechyjs/dsd" rel="noopener">DSD</a> and <a href="https://github.com/szechyjs/mbelib" rel="noopener">mbelib</a> (ISC). IMBE is a voice coding method of Digital Voice Systems, Inc. Listening to radio voice traffic is illegal in some places: check the law where you are.</p>
+
+<h2 id="adsb">ADS-B aircraft</h2>
+<p>Aircraft broadcast their position on 1090 MHz. <code>sdr/ModeS.kt</code> decodes it at 2 MS/s:</p>
+<ul>
+<li>Finds the 8 µs preamble, then reads 56 or 112 bits of pulse-position modulation (1 µs per bit).</li>
+<li>Checks the 24-bit CRC (polynomial <code>0xFFF409</code>) and corrects a single bit error in DF17 messages.</li>
+<li>Decodes DF11, DF17 and DF18: ICAO address, call sign, altitude, CPR-encoded position and ground speed.</li>
+</ul>
+<p><code>sdr/AdsbTracker.kt</code> turns an even and an odd CPR message into a position, then decodes later ones locally against the aircraft's last position and drops anything beyond 450 km. The aircraft list goes to the police-aircraft check every 2 s, with no internet needed.</p>
+
+<h2 id="usb-wifi">USB WiFi monitor mode</h2>
+<p>In monitor mode an adapter hands over every 802.11 frame it hears, not just its own network's. The app's userspace drivers (<code>usb/</code>, ported from the Linux drivers, Wardrive Go, devourer and mt76; see <a href="{{REPO}}/blob/main/app/src/main/java/com/rfsentinel/app/usb/NOTICE.md" rel="noopener">NOTICE.md</a>) bring the chip up, tune it and read the frames. They follow the Linux drivers' initialisation order.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Chip</th><th>Channels hopped</th><th>Dwell per channel</th></tr></thead>
+<tbody>
+<tr><td>AR9271</td><td>2.4 GHz, 1, 6, 11 first</td><td>500 ms</td></tr>
+<tr><td>RT3070, RTL8187</td><td>2.4 GHz 1-13</td><td>350 ms</td></tr>
+<tr><td>RTL8811AU / 8821AU, RTL8812AU</td><td>1-13, 36-48, 149-165</td><td>350 ms</td></tr>
+<tr><td>RTL8814AU</td><td>1-13, 36-48, 149-165</td><td>125 ms</td></tr>
+<tr><td>RTL8812BU / 8822BU</td><td>1-13, 36-48, 149-165, DFS 52-144</td><td>200 ms</td></tr>
+<tr><td>MT7612U</td><td>1-13, 36-165 including DFS</td><td>125 ms</td></tr>
+<tr><td>MT7921AU</td><td>2.4 + 5 GHz and the 6 GHz preferred scanning channels (5, 21, 37 ... 229), visited less often unless active</td><td>150 ms</td></tr>
+</tbody>
+</table></div>
+<ul>
+<li><b>Receive loop</b> (<code>usb/BulkRx.kt</code>): 16 KB asynchronous USB requests (24 queued for RTL88xxAU, 16 for RTL8822BU), with a synchronous fallback, strict frame boundaries and a guard that resets a stream that keeps returning nothing.</li>
+<li><b>Frames read</b> (<code>usb/MonitorFrames.kt</code>): beacons, probe responses, probe requests and data frames. A beacon's own channel field wins over the tuned channel (adjacent-channel leakage). The beacon timestamp gives "WiFi on since", data bytes are counted, and hidden network names are revealed by probe responses and associations. Results are grouped every 2 s.</li>
+<li><b>Device intel</b> (<code>usb/ProbeIntel.kt</code>): the WPS block (maker, model, device name, and the UUID-E that links a phone's random addresses), a probe-request fingerprint (order of information elements plus capability fields, 8 hex digits), the FlipDeFlock probe shape and Flock's Wi-Fi Alliance element.</li>
+<li><b>Deauth floods</b> (<code>usb/DeauthWatch.kt</code>): 25 deauthentication / disassociation frames in 30 s, or a burst in 5 s, spread over at least 3 time slices; protected (802.11w) frames are ignored; one alert per 5 min.</li>
+<li><b>Karma / evil-twin APs</b> (<code>usb/KarmaWatch.kt</code>): one transmitter answering for 4 or more network names within 60 s; idea from SignalSweep.</li>
+<li><b>Antenna check</b> (<code>usb/AntennaCheck.kt</code>, after Wardrive Go): holds one reference AP's channel and compares the signal on each antenna chain, with an A / B swap test. It compares received signal, it is not an SWR meter.</li>
+<li><b>Capture</b> (<code>usb/PcapRecorder.kt</code>): saves frames as a pcap with radiotap headers (link type 127, opens in Wireshark), up to 200 MB.</li>
+<li><b>Firmware:</b> the full build includes the chips' firmware. The F-Droid / FOSS build asks before downloading the non-free files once from linux-firmware (commit e981caea6ed3) and checks each SHA-256. The free ath9k_htc firmware (AR9271) is in both. An MT7612U that says "not calibrated" needs to be unplugged and plugged back in.</li>
+</ul>
+
+<h2 id="usb-bluetooth">USB Bluetooth</h2>
+<p>A USB Bluetooth dongle, or the Bluetooth side of a MT7921AU / Realtek combo adapter, becomes a second Bluetooth LE scanner (<code>usb/HciUsb.kt</code>), as Linux's btusb drives it: HCI commands as class requests on endpoint 0, events read from the interrupt endpoint. No data (ACL / SCO) channels are opened.</p>
+<ul>
+<li><b>Realtek</b> (<code>usb/BtRealtek.kt</code>, after Linux btrtl): reads the chip's LMP subversion and ROM version, then sends the v1 epatch and its config file in 252-byte pieces. The newer RTBTCore chips (RTL8822CU, RTL8852) aren't supported yet.</li>
+<li><b>MediaTek MT7961</b> (<code>usb/BtMediatek.kt</code>, after btmtk): WMT patch download and function-on, with a subsystem reset and retry.</li>
+<li>Plain CSR or Broadcom dongles need no firmware.</li>
+<li><b>Scan:</b> passive, duplicates kept, interval 0x60 / window 0x30. Extended scanning on LE 1M and LE Coded (long range) when the controller has it, otherwise the legacy scan. It never connects, pairs or advertises.</li>
+</ul>
+
+<h2 id="esp32">ESP32 boards over USB</h2>
+<p><code>esp/SerialPort.kt</code> opens the board's USB serial port at 115200 baud, 8N1:</p>
+<ul>
+<li><b>Native USB</b> (ESP32-S2 / S3 / C3 / C6, FREE-WiLi 2): CDC-ACM, DTR raised.</li>
+<li><b>CP210x</b> (10C4:EA60): DTR and RTS kept low so the board doesn't reset into its bootloader.</li>
+<li><b>CH340 / CH341 / CH9102</b> (1A86:7523, 5523, 55D4).</li>
+</ul>
+<p><code>esp/EspReader.kt</code> then works out which firmware is talking, in this order, and only sends read-only commands:</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Firmware</th><th>How it is recognised and read</th></tr></thead>
+<tbody>
+<tr><td>OUI-Spy / Flock You</td><td>Streams JSON lines by itself (<code>{"event":"detection",...}</code>, Sky Spy drone lines); the app may ask <code>CMD:VERSION</code> and <code>CMD:DUMP_LIVE</code></td></tr>
+<tr><td>V2X2MAP</td><td>Its binary <code>ITS5</code> stream (see <a href="#v2x">V2X</a>)</td></tr>
+<tr><td>GhostESP</td><td><code>help</code>, then its scan and list commands</td></tr>
+<tr><td>ESP32 Marauder</td><td><code>help</code>, then <code>sniffbeacon</code> / <code>sniffprobe</code>; also through a Flipper Zero's USB-UART bridge</td></tr>
+<tr><td>FREE-WiLi 2</td><td>The console's WiFi menu keys and its AP scan only</td></tr>
+</tbody>
+</table></div>
+
+<h2 id="oui-spy-ble">OUI-Spy over Bluetooth</h2>
+<p>The OUI-SPY App-Controlled firmware is driven over Bluetooth GATT (<code>esp/OuiSpyBle.kt</code>): a 128-bit service ending <code>-0a15-4b70-ba00-c010ae1ba01c</code>, MTU 247, reconnect every 8 s if lost. The app turns on the engines it needs (Detector, Flock BLE, Flock WiFi, Sky Spy, survey) and sends DISABLE_ALL (<code>0x0F</code>) when you stop. With relaying on, its survey engine sends standard WiFi probe requests. Detections the board saved while offline arrive as spooled frames (<code>0xFF</code> ... <code>0xFE</code>). Its attack-style engines (UniPwn, PCAP, Foxhunter) are never used.</p>
+
+<h2 id="v2x">V2X emergency vehicles</h2>
+<p>An ESP32-C5 running <a href="https://github.com/pit711/V2X2MAP" rel="noopener">V2X2MAP</a> (MIT) listens to 5.9 GHz vehicle-to-everything messages (ETSI ITS-G5). Its USB stream is <code>"ITS5"</code>, seconds (u32), microseconds (u32), length (u16), then the raw 802.11 frame, little-endian. <code>esp/V2x.kt</code> finds the GeoNetworking ethertype <code>0x8947</code>, decodes CAM and DENM messages (ETSI EN 302 637-2 / -3) and lists only <b>emergency vehicles</b>: light bar or siren on, or a DENM warning. The stream has no signal strength, so a nominal −70 dBm is shown.</p>
+
+<h2 id="link">Sentinel Link and Meshtastic</h2>
+<ul>
+<li><b>Phone to phone</b> (<code>link/PhoneLink.kt</code>): Bluetooth LE GATT, no system pairing. Phones in a group find each other by a group tag in their advert that changes every 15 min.</li>
+<li><b>Pairing and encryption</b> (<code>link/LinkCrypto.kt</code>): P-256 ECDH key exchange confirmed by a 6-digit code both screens show (numeric comparison, so a man in the middle shows a different code). Keys come from HKDF-SHA256; each connection uses AES-256-GCM with one key per direction and counter nonces, and replayed messages are refused.</li>
+<li><b>Meshtastic</b> (<code>link/MeshNode.kt</code>): talks to your Meshtastic node over its phone Bluetooth API and adds a private "RFSentinel" channel keyed from the group key, so only your group can read it. Watchlist matches go first; up to 12 messages wait in the queue, retried every 10 to 120 s. A node serves one app at a time, so close the Meshtastic app. Not yet tested on real hardware.</li>
+</ul>
+
+<h2 id="limits">Limits</h2>
+<ul>
+<li>An SDR alert means energy on a channel, not a confirmed police radio. VHF / UHF are shared with businesses, and an encrypted P25 system still shows grants but no voice.</li>
+<li>P25 Phase 2 (TDMA) voice and non-standard (vendor MFID) messages aren't decoded. P25 voice is experimental and untested on many systems.</li>
+<li>One dongle covers about 2 MHz at a time: a band is swept, so a short transmission can be missed while the tuner is elsewhere.</li>
+<li>USB power: an SDR or AC WiFi adapter can draw more than some phones give; use a powered hub or Y-cable if it keeps dropping.</li>
+<li>Monitor-mode WiFi drivers marked experimental (RTL8812AU, AR9271, MT7921AU) may not start on every board revision.</li>
+</ul>
+
+<h2 id="faq-tech">Questions</h2>
+<details class="faq" id="q-sdr-decode">
+<summary>Does the radio sweep listen to police radio?</summary>
+<div><p>No. The sweep measures how much energy each 12.5 kHz channel carries and nothing else. Only the experimental P25 voice option decodes audio, and only unencrypted calls.</p></div>
+</details>
+<details class="faq" id="q-sdr-which">
+<summary>Which SDR should I buy?</summary>
+<div><p>An RTL-SDR with an R820T2 or R828D tuner, such as the RTL-SDR Blog V3 or V4. A HackRF One works too but costs more and gives nothing extra here. For ADS-B, a 1090 MHz antenna helps a lot.</p></div>
+</details>
+<details class="faq" id="q-sdr-ppm">
+<summary>Do I need to calibrate the dongle's ppm error?</summary>
+<div><p>No. The sweep works on 12.5 kHz channels wide enough for a dongle's drift, and the P25 demodulator's frequency loop follows the drift itself.</p></div>
+</details>
+<details class="faq" id="q-sdr-network">
+<summary>Can I use an SDR that is plugged into my computer?</summary>
+<div><p>Yes: run <code>rtl_tcp -a 0.0.0.0</code> on the computer and enter its address under Settings › RTL-SDR radio › Network SDR. It needs a fast, trusted local network.</p></div>
+</details>
+<details class="faq" id="q-wifi-transmit">
+<summary>Can the USB WiFi drivers deauth or capture handshakes?</summary>
+<div><p>No. Every transmit path, and the handshake / PMKID capture of the original drivers, was removed. They only listen.</p></div>
+</details>
+
+<h2 id="sources">Sources</h2>
+<ul>
+<li>librtlsdr (osmocom, GPL-2.0-or-later): RTL2832U and R82xx tuner driver</li>
+<li>OP25 and TIA-102.BAAA: P25 framing, BCH, trellis and TSBK layout</li>
+<li>DSD and mbelib (ISC): P25 voice frames and the IMBE vocoder</li>
+<li>Linux kernel drivers (rtl8187, rt2x00, ath9k, mt76, btusb, btmtk, btrtl), aircrack-ng rtl8812au, OpenIPC devourer, Network Weather mt76-usb-macos</li>
+<li>Wardrive Go by RocketGod: USB WiFi drivers, FREE-WiLi 2 reader, antenna check idea</li>
+<li>V2X2MAP (MIT), SignalSweep (karma idea), OUI-Spy / Flock You, GhostESP, ESP32 Marauder</li>
+</ul>
+<p>Full credits and licences: <a href="{{REPO}}/blob/main/app/src/main/java/com/rfsentinel/app/usb/NOTICE.md" rel="noopener">usb/NOTICE.md</a> and <a href="{{REPO}}/blob/main/app/src/main/java/com/rfsentinel/app/sdr/NOTICE.md" rel="noopener">sdr/NOTICE.md</a>.</p>
