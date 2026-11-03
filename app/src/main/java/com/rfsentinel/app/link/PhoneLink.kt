@@ -125,8 +125,9 @@ object PhoneLink {
 
     /** When each Sentinel was last heard from (directly or relayed), wall clock. */
     val lastHeard = ConcurrentHashMap<Long, Long>()
-    /** When each Sentinel was last heard over the mesh (Meshtastic node). */
+    /** When each Sentinel was last heard over the mesh (Meshtastic node), and through the internet relay (MQTT). */
     val lastHeardMesh = ConcurrentHashMap<Long, Long>()
+    val lastHeardNet = ConcurrentHashMap<Long, Long>()
 
     private val listeners = CopyOnWriteArraySet<() -> Unit>()
     fun addListener(l: () -> Unit) { listeners += l }
@@ -776,7 +777,7 @@ object PhoneLink {
      * A packet from the Meshtastic node: what a Sentinel far away heard. Shown like a Bluetooth one and passed on
      * to the Sentinels linked here over Bluetooth (each one shows it once, whichever way it arrives first).
      */
-    fun meshIn(payload: ByteArray) = h.post {
+    fun meshIn(payload: ByteArray, viaNet: Boolean = false) = h.post {
         if (!sharing) return@post
         val key = meshKey ?: return@post
         val m = MeshCodec.open(key, payload) ?: return@post
@@ -787,7 +788,7 @@ object PhoneLink {
         val c = ctx ?: return@post
         m.name?.let { if (LinkStore.addMembers(c, listOf(LinkCodec.Member(m.origin, it)))) names = LinkStore.members(c).associate { x -> x.id to x.name } }
         lastHeard[m.origin] = now
-        lastHeardMesh[m.origin] = now
+        (if (viaNet) lastHeardNet else lastHeardMesh)[m.origin] = now
         val b = MeshCodec.toBatch(m)
         if (seen.first(b.origin, b.seq)) {
             onBatch?.invoke(b, nameOf(b.origin))

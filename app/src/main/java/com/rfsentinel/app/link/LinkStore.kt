@@ -120,6 +120,20 @@ object LinkStore {
     const val MESH_HOPS_MIN = 1
     const val MESH_HOPS_MAX = 7
 
+    // ---- Internet relay (MQTT)
+
+    /** Sentinel Link also goes through an MQTT broker (off until turned on). */
+    fun mqttOn(c: Context) = sp(c).getBoolean("mqtt_on", false)
+    fun setMqttOn(c: Context, on: Boolean) = sp(c).edit { putBoolean("mqtt_on", on) }
+    /** "mqtts://host:8883" as typed, "" until set. */
+    fun mqttBroker(c: Context): String = sp(c).getString("mqtt_broker", "") ?: ""
+    fun setMqttBroker(c: Context, url: String) = sp(c).edit { putString("mqtt_broker", url.trim()) }
+    fun mqttUser(c: Context): String = sp(c).getString("mqtt_user", "") ?: ""
+    fun setMqttUser(c: Context, user: String) = sp(c).edit { putString("mqtt_user", user.trim()) }
+    /** Kept encrypted ([SecureStore]), out of backups. */
+    fun mqttPassword(c: Context): String? = SecureStore.get(c, "mqtt_password")
+    fun setMqttPassword(c: Context, password: String) = SecureStore.put(c, "mqtt_password", password)
+
     private var meshNext = -1L
     private var meshReserved = 0L
 

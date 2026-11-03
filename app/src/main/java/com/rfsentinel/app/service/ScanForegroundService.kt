@@ -139,6 +139,10 @@ class ScanForegroundService : Service() {
         private const val MESH_MIN_GAP_MS = 15_000L
         private const val MESH_PRESENCE_MS = 10 * 60_000L
         private const val MESH_NAME_MS = 10 * 60_000L
+        private const val MQTT_TICK_MS = 5_000L
+        private const val MQTT_PRESENCE_MS = 60_000L
+        /** Packets per tick at most: a burst of new devices goes out over a few ticks. */
+        private const val MQTT_MAX_PACKETS = 8
         /** A network fix this soon after a raw GPS fix is ignored. */
         private const val RAW_GPS_PREFERRED_MS = 10_000L
         private const val PLACING_MAX_ACCURACY_M = 50f
@@ -754,7 +758,7 @@ class ScanForegroundService : Service() {
         val isFirst = DeviceRegistry.report(a, c.hits, c.identity, c.vendor, remoteId, geo, now, broadcast)
         if (isFirst) serviceScope.launch { loadHistory(mac) }
         // Over the mesh too (Meshtastic node): not the user's own whitelisted devices.
-        if (toMesh && !WhitelistCache.contains(mac)) meshOutbox?.add(a, c.hits, now)
+        if (toMesh && !WhitelistCache.contains(mac)) { meshOutbox?.add(a, c.hits, now); mqttOutbox?.add(a, c.hits, now) }
         if (TripRecorder.isRecording) {
             TripRecorder.onDevice(
                 mac, a.rssi, a.source.name,
@@ -917,6 +921,68 @@ class ScanForegroundService : Service() {
         }
         com.rfsentinel.app.link.PhoneLink.start(this) { b, name -> pipeline.post { onPeerBatch(b, name) } }
         updateMesh()
+        updateMqtt()
+    }
+
+    /** What goes out through the MQTT broker (null while it's off). */
+    @Volatile private var mqttOutbox: com.rfsentinel.app.link.MeshOutbox? = null
+    private var mqttLastSend = 0L
+    private var mqttLastName = 0L
+
+    /** The internet relay runs with Sentinel Link when it's turned on and a broker is set. */
+    private fun updateMqtt() {
+        val link = com.rfsentinel.app.link.LinkStore
+        val relay = com.rfsentinel.app.link.MqttRelay
+        val broker = relay.parse(link.mqttBroker(this))
+        val key = link.groupKey(this)
+        if (linkOutbox == null || !link.mqttOn(this) || broker == null || key == null) { stopMqtt(); return }
+        if (mqttOutbox == null) {
+            mqttOutbox = com.rfsentinel.app.link.MeshOutbox()
+            mqttLastSend = 0L
+            mqttLastName = 0L
+            pipeline.postDelayed(mqttFlush, MQTT_TICK_MS)
+        }
+        relay.start(broker, link.mqttUser(this), link.mqttPassword(this), key) { com.rfsentinel.app.link.PhoneLink.meshIn(it, viaNet = true) }
+    }
+
+    private fun stopMqtt() {
+        if (mqttOutbox == null) return
+        mqttOutbox = null
+        pipeline.removeCallbacks(mqttFlush)
+        com.rfsentinel.app.link.MqttRelay.stop()
+    }
+
+    /**
+     * Every few seconds, the devices due (the mesh's turns: watchlist matches first, repeats spaced out), as many
+     * packets as they fill; a packet with none every minute so the others know this Sentinel is there and where.
+     */
+    private val mqttFlush = object : Runnable {
+        override fun run() {
+            val box = mqttOutbox ?: return
+            pipeline.postDelayed(this, MQTT_TICK_MS)
+            val relay = com.rfsentinel.app.link.MqttRelay
+            val now = System.currentTimeMillis()
+            relay.keepAlive(now)
+            if (!relay.ready) return
+            val ctx = this@ScanForegroundService
+            val link = com.rfsentinel.app.link.LinkStore
+            val key = link.groupKey(ctx) ?: return
+            val loc = lastLocation?.takeIf { usableForPlacing(it) }
+            val lat = loc?.latitude ?: Double.NaN
+            val lon = loc?.longitude ?: Double.NaN
+            val codec = com.rfsentinel.app.link.MeshCodec
+            var presence = now - mqttLastSend >= MQTT_PRESENCE_MS
+            repeat(MQTT_MAX_PACKETS) {
+                val name = if (now - mqttLastName >= MESH_NAME_MS) link.myName(ctx) else null
+                val devices = box.take(now, codec.MAX_BODY - codec.baseSize(!lat.isNaN(), name))
+                if (devices.isEmpty() && !presence) return
+                val bytes = codec.seal(codec.messageKey(key), link.myId(ctx), link.nextMeshCounter(ctx), now, lat, lon, name, devices)
+                if (!relay.send(bytes)) return
+                mqttLastSend = now
+                presence = false
+                if (name != null) mqttLastName = now
+            }
+        }
     }
 
     /** What goes out over the Meshtastic node (null while it's off). */
@@ -981,6 +1047,7 @@ class ScanForegroundService : Service() {
 
     private fun stopLink() {
         stopMesh()
+        stopMqtt()
         if (linkOutbox == null) return
         linkOutbox = null
         pipeline.removeCallbacks(linkFlush)

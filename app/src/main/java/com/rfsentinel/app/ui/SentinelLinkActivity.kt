@@ -4,6 +4,7 @@ import android.content.Intent
 import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
+import android.text.InputType
 import android.text.format.DateUtils
 import android.view.Gravity
 import android.view.View
@@ -23,6 +24,7 @@ import com.google.android.material.slider.Slider
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.rfsentinel.app.link.LinkStore
 import com.rfsentinel.app.link.MeshNode
+import com.rfsentinel.app.link.MqttRelay
 import com.rfsentinel.app.link.PhoneLink
 import com.rfsentinel.app.service.ScanForegroundService
 import com.rfsentinel.app.util.applySystemBarInsets
@@ -46,6 +48,8 @@ class SentinelLinkActivity : AppCompatActivity() {
     private lateinit var meshSwitch: SwitchMaterial
     private lateinit var meshNodeText: TextView
     private lateinit var meshStatus: TextView
+    private lateinit var mqttSection: LinearLayout
+    private lateinit var mqttStatus: TextView
     private var pairDialog: AlertDialog? = null
     private var pending: (() -> Unit)? = null
     private val onLinkChanged: () -> Unit = { refresh() }
@@ -110,12 +114,13 @@ class SentinelLinkActivity : AppCompatActivity() {
         }
 
         meshSection = meshSection(::button)
+        mqttSection = mqttSection()
 
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad(16), pad(16), pad(16), pad(16))
             addView(intro); addView(status); addView(nameLabel); addView(name); addView(share)
-            addView(hostButton); addView(joinButton); addView(listHeader); addView(list); addView(meshSection); addView(leave)
+            addView(hostButton); addView(joinButton); addView(listHeader); addView(list); addView(meshSection); addView(mqttSection); addView(leave)
         }
         val scroll = ScrollView(this).apply { addView(column) }
         setContentView(scroll)
@@ -128,11 +133,13 @@ class SentinelLinkActivity : AppCompatActivity() {
         super.onStart()
         PhoneLink.addListener(onLinkChanged)
         MeshNode.addListener(onLinkChanged)
+        MqttRelay.addListener(onLinkChanged)
     }
 
     override fun onStop() {
         PhoneLink.removeListener(onLinkChanged)
         MeshNode.removeListener(onLinkChanged)
+        MqttRelay.removeListener(onLinkChanged)
         super.onStop()
     }
 
@@ -225,6 +232,66 @@ class SentinelLinkActivity : AppCompatActivity() {
         }
     }
 
+    /** Internet relay: on / off, the MQTT broker and its login, how it's doing. */
+    private fun mqttSection(): LinearLayout {
+        val header = TextView(this).apply {
+            textSize = 16f; setTypeface(typeface, Typeface.BOLD); text = "Internet relay"; setPadding(0, pad(20), 0, pad(4))
+        }
+        val about = TextView(this).apply {
+            textSize = 14f
+            setLineSpacing(0f, 1.2f)
+            text = "Reach Sentinels anywhere through an MQTT broker you choose, like your own Mosquitto server. Every phone " +
+                "of the group sets the same broker. Packets are encrypted with the group's key before they leave the phone, " +
+                "on a topic made from it: the broker only sees encrypted bytes, your IP address and when you send. " +
+                "mqtts:// connects with TLS (port 8883 unless you give one); mqtt:// doesn't, so the username and password " +
+                "go unencrypted - use it only on a network you trust. Uses mobile data: a few small packets a minute."
+        }
+        val switch = SwitchMaterial(this).apply {
+            text = "Use an MQTT broker"
+            isChecked = LinkStore.mqttOn(this@SentinelLinkActivity)
+            setOnCheckedChangeListener { _, on ->
+                LinkStore.setMqttOn(this@SentinelLinkActivity, on)
+                ScanForegroundService.refreshLink(this@SentinelLinkActivity)
+                refresh()
+            }
+            setPadding(0, pad(8), 0, pad(8))
+        }
+        fun field(label: String, hint: String, value: String, password: Boolean, save: (String) -> Unit): List<View> {
+            val l = TextView(this).apply { textSize = 13f; text = label; setPadding(0, pad(8), 0, 0) }
+            val e = EditText(this).apply {
+                setSingleLine(true)
+                this.hint = hint
+                setText(value)
+                inputType = if (password) InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+                    else InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+                var saved = value
+                fun commit() {
+                    val t = text.toString()
+                    if (t == saved) return
+                    saved = t
+                    save(t)
+                    ScanForegroundService.refreshLink(this@SentinelLinkActivity)
+                    refresh()
+                }
+                setOnFocusChangeListener { _, focused -> if (!focused) commit() }
+                setOnEditorActionListener { v, _, _ -> commit(); v.clearFocus(); false }
+            }
+            return listOf(l, e)
+        }
+        val ctx = this
+        val views = field("Broker", "mqtts://broker.example.com:8883", LinkStore.mqttBroker(ctx), false) { LinkStore.setMqttBroker(ctx, it) } +
+            field("Username", "Optional", LinkStore.mqttUser(ctx), false) { LinkStore.setMqttUser(ctx, it) } +
+            field("Password", "Optional", LinkStore.mqttPassword(ctx).orEmpty(), true) { LinkStore.setMqttPassword(ctx, it) }
+        mqttStatus = TextView(this).apply { textSize = 14f; setPadding(0, pad(8), 0, 0) }
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(header); addView(about); addView(switch)
+            views.forEach { addView(it) }
+            addView(mqttStatus)
+            setPadding(0, 0, 0, pad(12))
+        }
+    }
+
     /** Lists the Meshtastic nodes nearby; the one tapped is paired (Android asks for its PIN) and used. */
     private fun chooseNode() = withPermission {
         val names = ArrayList<String>()
@@ -312,6 +379,15 @@ class SentinelLinkActivity : AppCompatActivity() {
         share.visibility = if (grouped) View.VISIBLE else View.GONE
         leave.visibility = if (grouped) View.VISIBLE else View.GONE
         meshSection.visibility = if (grouped) View.VISIBLE else View.GONE
+        mqttSection.visibility = if (grouped) View.VISIBLE else View.GONE
+        mqttStatus.text = when {
+            !LinkStore.mqttOn(this) -> "Off"
+            LinkStore.mqttBroker(this).isBlank() -> "Set the broker"
+            MqttRelay.parse(LinkStore.mqttBroker(this)) == null -> "Not a broker address: mqtts://host or mqtt://host:port"
+            !ScanForegroundService.isRunning || !LinkStore.enabled(this) -> "Starts with sharing, while scanning"
+            else -> MqttRelay.status.ifBlank { "Starting…" } +
+                (MqttRelay.lastSent.takeIf { it > 0 }?.let { " · sent " + DateUtils.getRelativeTimeSpanString(it, System.currentTimeMillis(), DateUtils.SECOND_IN_MILLIS) } ?: "")
+        }
         meshNodeText.text = LinkStore.meshNodeName(this)?.let { "Node: $it" } ?: "No node chosen yet"
         meshStatus.text = when {
             !LinkStore.meshOn(this) -> "Off"
@@ -335,10 +411,13 @@ class SentinelLinkActivity : AppCompatActivity() {
         for (m in members) {
             val heard = PhoneLink.lastHeard[m.id]
             val overMesh = PhoneLink.lastHeardMesh[m.id]
+            val overNet = PhoneLink.lastHeardNet[m.id]
             val detail = when {
                 linked.containsKey(m.id) -> "Linked now"
                 overMesh != null && overMesh == heard ->
                     "Over the mesh · last heard " + DateUtils.getRelativeTimeSpanString(overMesh, now, DateUtils.MINUTE_IN_MILLIS)
+                overNet != null && overNet == heard ->
+                    "Over the internet relay · last heard " + DateUtils.getRelativeTimeSpanString(overNet, now, DateUtils.MINUTE_IN_MILLIS)
                 heard != null -> "Last heard " + DateUtils.getRelativeTimeSpanString(heard, now, DateUtils.MINUTE_IN_MILLIS)
                 else -> "Not in reach"
             }
