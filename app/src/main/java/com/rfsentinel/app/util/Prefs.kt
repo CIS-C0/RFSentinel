@@ -337,6 +337,9 @@ object Prefs {
     /** Check GitHub for a new release when the app opens. Off by default: it contacts GitHub. */
     fun autoUpdateCheck(context: Context): Boolean = bool(context, "auto_update_check", false)
     fun setAutoUpdateCheck(context: Context, value: Boolean) = setBool(context, "auto_update_check", value)
+    /** Update checks also offer GitHub prereleases (test builds), off by default. */
+    fun updatePrereleases(context: Context): Boolean = bool(context, "update_prereleases", false)
+    fun setUpdatePrereleases(context: Context, value: Boolean) = setBool(context, "update_prereleases", value)
     /** Whether you were asked (once) if the app may check for updates; until then it never checks on its own. */
     fun updateCheckAsked(context: Context): Boolean = bool(context, "update_check_asked", false)
     fun setUpdateCheckAsked(context: Context, value: Boolean) = setBool(context, "update_check_asked", value)

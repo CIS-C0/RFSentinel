@@ -28,6 +28,12 @@
                 android:text="Check for updates on app open" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/prereleaseSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Include prerelease builds" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/discreetSwitch"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

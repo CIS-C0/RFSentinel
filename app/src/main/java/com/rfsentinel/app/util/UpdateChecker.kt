@@ -10,6 +10,7 @@ import com.rfsentinel.app.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -21,6 +22,8 @@ import java.net.URL
 object UpdateChecker {
 
     private const val API = "https://api.github.com/repos/CIS-C0/RFSentinel/releases/latest"
+    /** Every release, prereleases too (newest first), for Settings › Include prerelease builds. */
+    private const val API_ALL = "https://api.github.com/repos/CIS-C0/RFSentinel/releases?per_page=10"
     private const val RELEASES = "https://github.com/CIS-C0/RFSentinel/releases/latest"
 
     /** The newest release: its version, the APK's link, size and SHA-256 (as GitHub lists them) and the notes page. */
@@ -41,9 +44,17 @@ object UpdateChecker {
      * The newest release from GitHub's answer: version, this build's APK asset with its size and SHA-256, the notes
      * page. The full build takes the "-release.apk" asset, the FOSS build the "-foss.apk" one.
      */
-    internal fun parseLatest(text: String, foss: Boolean = BuildConfig.FLAVOR == "foss"): Latest {
+    internal fun parseLatest(text: String, foss: Boolean = BuildConfig.FLAVOR == "foss"): Latest = parse(JSONObject(text), foss)
+
+    /** The highest version in GitHub's release list, prereleases included, drafts not. */
+    internal fun parseNewest(text: String, foss: Boolean = BuildConfig.FLAVOR == "foss"): Latest {
+        val list = JSONArray(text)
+        return (0 until list.length()).map { list.getJSONObject(it) }.filter { !it.optBoolean("draft") }.map { parse(it, foss) }
+            .reduceOrNull { a, b -> if (isNewer(b.version, a.version)) b else a } ?: throw IllegalStateException("No releases on GitHub")
+    }
+
+    private fun parse(json: JSONObject, foss: Boolean): Latest {
         val suffix = if (foss) "-foss.apk" else "-release.apk"
-        val json = JSONObject(text)
         val assets = json.optJSONArray("assets")
         var apk: String? = null; var size = 0L; var sha: String? = null
         if (assets != null) for (i in 0 until assets.length()) {
@@ -56,15 +67,16 @@ object UpdateChecker {
         return Latest(json.getString("tag_name").trimStart('v'), apk, json.optString("html_url", RELEASES), size, sha)
     }
 
-    private fun fetch(): Latest {
-        val conn = (URL(API).openConnection() as HttpURLConnection).apply {
+    private fun fetch(prereleases: Boolean): Latest {
+        val conn = (URL(if (prereleases) API_ALL else API).openConnection() as HttpURLConnection).apply {
             connectTimeout = 10_000; readTimeout = 10_000
             setRequestProperty("Accept", "application/vnd.github+json")
             setRequestProperty("User-Agent", "${BuildConfig.APPLICATION_ID}/${BuildConfig.VERSION_NAME}")
         }
         try {
             if (conn.responseCode != 200) throw IllegalStateException("GitHub answered ${conn.responseCode}")
-            return parseLatest(conn.inputStream.bufferedReader().use { it.readText() })
+            val text = conn.inputStream.bufferedReader().use { it.readText() }
+            return if (prereleases) parseNewest(text) else parseLatest(text)
         } finally {
             conn.disconnect()
         }
@@ -136,8 +148,9 @@ object UpdateChecker {
         if (!silent) Toast.makeText(activity, "Checking for updates…", Toast.LENGTH_SHORT).show()
         if (checking) return
         checking = true
+        val prereleases = Prefs.updatePrereleases(activity)
         activity.lifecycleScope.launch {
-            val result = try { withContext(Dispatchers.IO) { runCatching { fetch() } } } finally { checking = false }
+            val result = try { withContext(Dispatchers.IO) { runCatching { fetch(prereleases) } } } finally { checking = false }
             // Reached GitHub: the next automatic check is an interval away; not reached: soon.
             val now = System.currentTimeMillis()
             Prefs.setLastUpdateCheck(activity, if (result.isSuccess) now else now - AUTO_INTERVAL_MS + RETRY_MS)

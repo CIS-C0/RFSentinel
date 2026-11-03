@@ -96,4 +96,16 @@ class UpdateInstallerTest {
         assertTrue("30 minutes after a failure", UpdateChecker.due(recorded, t + h / 2))
         assertTrue("a clock set back never blocks it", UpdateChecker.due(now + h, now))
     }
+
+    @Test
+    fun withPrereleasesTheHighestVersionWinsAndDraftsDont() {
+        val list = """[
+            {"tag_name":"v2.34.0","draft":true,"assets":[]},
+            {"tag_name":"v2.32.1","prerelease":false,"assets":[]},
+            {"tag_name":"v2.33.0","prerelease":true,"assets":[{"name":"RFSentinel-v2.33.0-release.apk","browser_download_url":"p","size":1}]},
+            {"tag_name":"v2.32.0","prerelease":false,"assets":[]}]"""
+        val l = UpdateChecker.parseNewest(list, foss = false)
+        assertEquals("2.33.0", l.version)
+        assertEquals("p", l.apkUrl)
+    }
 }

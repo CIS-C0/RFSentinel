@@ -1011,6 +1011,8 @@ class SettingsActivity : AppCompatActivity() {
     /** The ⓘ of the settings laid out in the layout file, and the units beside their number fields. */
     private fun addDetails() {
         info(binding.autoUpdateSwitch, "When RF Sentinel opens, it asks GitHub whether a newer release is out. Off: nothing is sent until you tap Check for updates.")
+        info(binding.prereleaseSwitch, "Update checks also offer prerelease builds: test versions published on GitHub before " +
+            "a full release, with the newest features and more bugs. Off: only full releases are offered.")
         info(binding.discreetSwitch, "Hides what was detected on the lock screen and in notifications.")
         info(binding.screenLabel, "Always on: the screen never turns off while RF Sentinel is open.\n\nOn while charging: stays on in the car or on a desk (recommended).\n\nNormal: turns off like any other app.")
         info(binding.rotationLabel, "Normal follows the phone's auto-rotate.\n\nAuto-rotate, upside down too: also turns upside down, which phones like the Pixel never do on their own.\n\nAlways upside down: the USB-C port at the top, for an antenna or adapter plugged in.")
@@ -2756,6 +2758,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.rtl5gSwitch.isChecked = Prefs.rtl8821au5g(this)
         binding.rtl5gSwitch.setOnCheckedChangeListener { _, on -> Prefs.setRtl8821au5g(this, on) }
         binding.autoUpdateSwitch.isChecked = Prefs.autoUpdateCheck(this)
+        binding.prereleaseSwitch.isChecked = Prefs.updatePrereleases(this)
         fun showRadius(km: Int) {
             binding.cameraRadiusText.text = "Download radius: ${com.rfsentinel.app.util.Units.km(km)}"
             binding.prefetchCamerasButton.text = "Download cameras around me"
@@ -3025,6 +3028,7 @@ class SettingsActivity : AppCompatActivity() {
         // Turning the check on or off here answers the one-time question too.
         if (binding.autoUpdateSwitch.isChecked != Prefs.autoUpdateCheck(this)) Prefs.setUpdateCheckAsked(this, true)
         Prefs.setAutoUpdateCheck(this, binding.autoUpdateSwitch.isChecked)
+        Prefs.setUpdatePrereleases(this, binding.prereleaseSwitch.isChecked)
 
         Prefs.setRetentionDays(this, (binding.retentionInput.text.toString().toIntOrNull() ?: 90).coerceAtLeast(0))
 
