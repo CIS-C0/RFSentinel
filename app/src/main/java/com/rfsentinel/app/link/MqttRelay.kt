@@ -69,7 +69,6 @@ object MqttRelay {
     private var thread: Thread? = null
     @Volatile private var socket: Socket? = null
     @Volatile private var out: OutputStream? = null
-    private val writeLock = Any()
     @Volatile private var lastWrite = 0L
 
     /** Connects (again, when anything changed); [packets] gets the group's payloads, on the relay's thread. */
@@ -87,8 +86,7 @@ object MqttRelay {
         config = null
         thread?.interrupt()
         thread = null
-        closeSocket()
-        ready = false
+        closeSocket(socket)
         setStatus("")
     }
 
@@ -104,17 +102,18 @@ object MqttRelay {
         if (ready && now - lastWrite >= PING_MS) write(MqttCodec.PINGREQ)
     }
 
-    private fun write(bytes: ByteArray): Boolean = synchronized(writeLock) {
+    // One lock (this object) for the connection's fields, start / stop and writes: a thread being replaced
+    // never touches the new connection.
+    private fun write(bytes: ByteArray): Boolean = synchronized(this) {
         val o = out ?: return false
         try { o.write(bytes); o.flush(); lastWrite = System.currentTimeMillis(); true }
-        catch (e: IOException) { closeSocket(); false } // the reader sees it and reconnects
+        catch (e: IOException) { closeSocket(socket); false } // the reader sees it and reconnects
     }
 
-    private fun closeSocket() {
-        ready = false
-        out = null
-        runCatching { socket?.close() }
-        socket = null
+    /** Closes [s]; the shared fields are cleared only while they're still [s]'s. */
+    private fun closeSocket(s: Socket?) {
+        synchronized(this) { if (socket === s) { ready = false; out = null; socket = null } }
+        runCatching { s?.close() }
     }
 
     private fun current(c: Config) = synchronized(this) { config === c }
@@ -122,17 +121,16 @@ object MqttRelay {
     private fun run(c: Config, packets: (ByteArray) -> Unit) {
         var retry = RETRY_MIN_MS
         while (current(c) && !Thread.currentThread().isInterrupted) {
+            var s: Socket? = null
             try {
                 setStatus("Connecting to ${c.broker.host}…")
-                val s = open(c.broker, c.checkCert)
-                socket = s
+                s = open(c.broker, c.checkCert)
                 s.soTimeout = DEAD_MS.toInt()
                 val input = DataInputStream(BufferedInputStream(s.getInputStream()))
                 val o = s.getOutputStream()
-                synchronized(writeLock) { out = o }
                 // A fresh client id each time: nothing ties two sessions (or the phone) together on the broker.
                 val id = "rfs-" + LinkCrypto.random(6).joinToString("") { "%02x".format(it) }
-                if (!write(MqttCodec.connect(id, c.user, c.password, KEEPALIVE_S))) throw IOException("closed")
+                o.write(MqttCodec.connect(id, c.user, c.password, KEEPALIVE_S)); o.flush()
                 val ack = MqttCodec.read(input)
                 if (ack.type != MqttCodec.CONNACK || ack.body.size < 2) throw IOException("not an MQTT broker")
                 when (val code = ack.body[1].toInt()) {
@@ -140,8 +138,11 @@ object MqttRelay {
                     4, 5 -> throw Refused("The broker refused the username or password")
                     else -> throw Refused("The broker refused the connection (code $code)")
                 }
-                if (!write(MqttCodec.subscribe(1, c.topic))) throw IOException("closed")
-                ready = true
+                o.write(MqttCodec.subscribe(1, c.topic)); o.flush()
+                synchronized(this) {
+                    if (!current(c)) throw IOException("stopped")
+                    socket = s; out = o; lastWrite = System.currentTimeMillis(); ready = true
+                }
                 retry = RETRY_MIN_MS
                 setStatus("Connected to ${c.broker.host}")
                 while (current(c)) {
@@ -157,7 +158,7 @@ object MqttRelay {
                 Log.d(TAG, "connection ended: ${e.javaClass.simpleName}")
                 setStatus("Can't reach ${c.broker.host} - ${e.message?.take(60) ?: e.javaClass.simpleName}, retrying")
             } finally {
-                closeSocket()
+                closeSocket(s)
             }
             try { Thread.sleep(retry) } catch (e: InterruptedException) { break }
             retry = (retry * 2).coerceAtMost(RETRY_MAX_MS)

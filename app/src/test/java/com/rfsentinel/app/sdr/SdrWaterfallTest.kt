@@ -24,4 +24,15 @@ class SdrWaterfallTest {
         assertEquals("VHF", s.band)
         assertTrue("the input is left alone", psd[n / 2] == 0f)
     }
+
+    @Test
+    fun aFailedChunkKeepsTheSameStretchSoTheRowLayoutHolds() {
+        val rate = 2_048_000
+        val s = SdrWaterfall.segment(155_000_000L, FloatArray(1024) { -60f }, rate, RadioWatch.USABLE_HZ, "VHF")
+        val b = SdrWaterfall.blank(155_000_000L, rate, RadioWatch.USABLE_HZ, "VHF")
+        assertEquals(s.startHz, b.startHz)
+        assertEquals(s.endHz, b.endHz)
+        assertEquals(s.db.size, b.db.size)
+        assertTrue(b.db.all { it == SdrWaterfall.NO_DATA })
+    }
 }

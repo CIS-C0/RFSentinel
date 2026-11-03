@@ -25,7 +25,7 @@ object SdrWaterfall {
     fun segment(centerHz: Long, psd: FloatArray, sampleRate: Int, halfSpanHz: Double, band: String?): Segment {
         val n = psd.size
         val binHz = sampleRate.toDouble() / n
-        val half = (halfSpanHz / binHz).toInt().coerceIn(1, n / 2 - 1)
+        val half = half(n, sampleRate, halfSpanHz)
         val out = psd.copyOfRange(n / 2 - half, n / 2 + half + 1)
         val guard = maxOf(1, (RadioWatch.DC_GUARD_HZ / binHz).toInt()).coerceAtMost(half - 1)
         val level = minOf(out[half - guard - 1], out[half + guard + 1])
@@ -33,4 +33,19 @@ object SdrWaterfall {
         val edge = (half * binHz).toLong()
         return Segment(centerHz - edge, centerHz + edge, out, band)
     }
+
+    /** A value that isn't a reading: drawn black and left out of the noise floor. */
+    const val NO_DATA = -200f
+
+    /**
+     * The same stretch as [segment] for a chunk that gave nothing (didn't tune, or the stream stalled), so every
+     * sweep's row keeps the same layout: a row missing a chunk made the screen start over, and looked stuck.
+     */
+    fun blank(centerHz: Long, sampleRate: Int, halfSpanHz: Double, band: String?, n: Int = 1024): Segment {
+        val half = half(n, sampleRate, halfSpanHz)
+        val edge = (half * sampleRate.toDouble() / n).toLong()
+        return Segment(centerHz - edge, centerHz + edge, FloatArray(2 * half + 1) { NO_DATA }, band)
+    }
+
+    private fun half(n: Int, sampleRate: Int, halfSpanHz: Double) = (halfSpanHz / (sampleRate.toDouble() / n)).toInt().coerceIn(1, n / 2 - 1)
 }

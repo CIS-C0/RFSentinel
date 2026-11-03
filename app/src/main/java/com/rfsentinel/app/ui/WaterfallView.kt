@@ -83,12 +83,16 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
             for (k in colFrom[x]..colTo[x]) if (d[k] > m) m = d[k]
             m
         }
-        val median = values.copyOf().also { it.sort() }[w / 2]
-        floor = if (floor.isNaN()) median else floor + (median - floor) * (if (row.tuned) 0.05f else 0.3f)
+        val heard = values.filter { it > SdrWaterfall.NO_DATA }.sorted()
+        if (heard.isNotEmpty()) {
+            val median = heard[heard.size / 2]
+            floor = if (floor.isNaN()) median else floor + (median - floor) * (if (row.tuned) 0.05f else 0.3f)
+        }
         spectrum = values
         peak = peak?.let { p -> FloatArray(w) { maxOf(values[it], p[it] - (if (row.tuned) 0.15f else 1.5f)) } } ?: values.copyOf()
         val bmp = bitmap ?: return
-        for (x in 0 until w) pixels[x] = PALETTE[(((values[x] - floor + 3f) / RANGE_DB) * 255).toInt().coerceIn(0, 255)]
+        if (floor.isNaN()) return
+        for (x in 0 until w) pixels[x] = if (values[x] <= SdrWaterfall.NO_DATA) PALETTE[0] else PALETTE[(((values[x] - floor + 3f) / RANGE_DB) * 255).toInt().coerceIn(0, 255)]
         newest = (newest - 1 + bmp.height) % bmp.height
         bmp.setPixels(pixels, 0, w, 0, newest, w, 1)
         rows = minOf(rows + 1, bmp.height)

@@ -423,7 +423,11 @@ object SdrRadio {
             for (center in plan) {
                 if (halted || sdr.lost || !keeps(Mode.SWEEP)) break
                 if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
-                if (!sdr.tune(center)) { unlocked++; continue }
+                fun skipped() {
+                    if (SdrWaterfall.listening) row += SdrWaterfall.blank(center, sdr.sampleRate, RadioWatch.USABLE_HZ,
+                        cfg.bands.firstOrNull { RadioWatch.covers(it, center) }?.label)
+                }
+                if (!sdr.tune(center)) { unlocked++; skipped(); continue }
                 repeat(sdr.settleReads) { sdr.read(buf) }
                 // TETRA chunks also keep the power in 2 ms steps, to see a radio's 14 ms time-slot bursts.
                 val tetra = cfg.bands.any { it.kind == RadioWatch.Kind.TETRA && RadioWatch.covers(it, center) }
@@ -439,6 +443,7 @@ object SdrRadio {
                         if (failedChunks <= STALL_CHUNKS * 3) UsbWifi.log("$deviceLabel: no samples for $failedChunks chunks in a row - restarting the stream")
                         sdr.resetBuffer()
                     }
+                    skipped()
                     continue
                 }
                 failedChunks = 0
