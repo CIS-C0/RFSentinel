@@ -93,7 +93,7 @@ class OnlineWatch(
                 val hit = PoliceAircraft.classify(p, registry, circling, distanceM)
                 seen += PoliceAircraft.Seen(p, hit)
                 if (hit == null) continue
-                val loud = PoliceAircraft.alerts(hit, distanceM, Prefs.aircraftCircling(context))
+                val loud = PoliceAircraft.alerts(hit, distanceM, Prefs.aircraftCircling(context), Prefs.aircraftAlertKm(context) * 1000.0)
                 if (loud && (best == null || hit.confidence > best!!.confidence)) best = hit
                 reportAircraft(hit, p.hex, p.lat, p.lon, loud, now, said(hit, distanceM, me, p))
             }
@@ -126,7 +126,7 @@ class OnlineWatch(
                 val hit = PoliceAircraft.classify(p, registry, circling, distanceM, PoliceAircraft.VIA_LOCAL)
                 seen += PoliceAircraft.Seen(p, hit)
                 if (hit == null) continue
-                val loud = PoliceAircraft.alerts(hit, distanceM, Prefs.aircraftCircling(context))
+                val loud = PoliceAircraft.alerts(hit, distanceM, Prefs.aircraftCircling(context), Prefs.aircraftAlertKm(context) * 1000.0)
                 if (loud && (best == null || hit.confidence > best!!.confidence)) best = hit
                 reportAircraft(hit, p.hex, p.lat, p.lon, loud, now, said(hit, distanceM, me, p))
             }

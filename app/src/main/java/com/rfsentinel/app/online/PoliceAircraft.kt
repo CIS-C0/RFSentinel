@@ -149,15 +149,15 @@ object PoliceAircraft {
             "FAA / Transport Canada aircraft registry; $VIA_LOCAL")
     }
 
-    /** Closer than this (ground distance) a strong match alerts; farther, or weaker, it's only logged and listed. */
+    /** The default alert distance (ground distance, Settings): closer, a strong match alerts; farther, or weaker, it's only logged and listed. */
     const val ALERT_M = 5_000.0
 
     /**
-     * Whether a hit alerts (sound, voice, notification): a strong match (police, government) within [ALERT_M], or with
+     * Whether a hit alerts (sound, voice, notification): a strong match (police, government) within [alertM], or with
      * [circlingOn] (Settings) any aircraft circling within it; otherwise it's only logged.
      */
-    fun alerts(hit: Hit, distanceM: Double?, circlingOn: Boolean = false): Boolean =
-        distanceM != null && distanceM <= ALERT_M &&
+    fun alerts(hit: Hit, distanceM: Double?, circlingOn: Boolean = false, alertM: Double = ALERT_M): Boolean =
+        distanceM != null && distanceM <= alertM &&
             (hit.confidence >= com.rfsentinel.app.detect.Tier.STRONG.min || (circlingOn && hit.label == CIRCLING))
 
     const val VIA_ONLINE = "ADS-B (adsb.fi / adsb.lol)"

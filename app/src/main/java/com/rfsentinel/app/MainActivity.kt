@@ -814,7 +814,7 @@ class MainActivity : AppCompatActivity() {
             // the rest follow the devices.
             val (urgent, quiet) = waze.partition { it.flashing }
             val (radioLive, radioOld) = radio.partition { it.flashing }
-            val (tgLive, tgOld) = talkgroups.partition { it.flashing }
+            val (tgLive, tgOld) = talkgroups.partition { it.flashing || it.mac == TG_ROW + com.rfsentinel.app.sdr.SdrRadio.p25Hold }
             val (airUrgent, airQuiet) = air.partition { it.flashing }
             // Alerting devices from your own watchlist entries go above all of them.
             fun mine(s: DeviceRegistry.Snapshot) = com.rfsentinel.app.ui.LiveWindow.alerting(s, now) &&
@@ -986,16 +986,18 @@ class MainActivity : AppCompatActivity() {
             }
     }
 
-    /** P25 talkgroups (and private calls) of the last few minutes that you watch, or whose radio was heard close by on the site's input. */
+    /** The held P25 talkgroup, plus talkgroups (and private calls) of the last few minutes that you watch, or whose radio was heard close by on the site's input. */
     private fun currentTalkgroups(now: Long): List<com.rfsentinel.app.sdr.P25Log.Row> =
         if (!ScanForegroundService.isRunning) emptyList()
         else com.rfsentinel.app.sdr.SdrRadio.p25Log.rows().filter {
-            now - it.lastAt <= TG_LIST_MS && (it.tg in com.rfsentinel.app.sdr.SdrRadio.p25Watched || now - it.inputAt <= TG_LIST_MS)
+            (it.tg != null && it.tg == com.rfsentinel.app.sdr.SdrRadio.p25Hold) ||
+                now - it.lastAt <= TG_LIST_MS && (it.tg in com.rfsentinel.app.sdr.SdrRadio.p25Watched || now - it.inputAt <= TG_LIST_MS)
         }
 
     /**
-     * The Talkgroups filter's rows (under All, only the NEAR ones): a talkgroup whose radio keyed up on the input in the
-     * last 2 minutes gets the NEAR box and, at or above the alert threshold, is tinted, flashes and is pinned to the top.
+     * The Talkgroups filter's rows (under All, only the NEAR and held ones): a talkgroup whose radio keyed up on the input in
+     * the last 2 minutes gets the NEAR box and, at or above the alert threshold, is tinted, flashes and is pinned to the top.
+     * A held talkgroup is pinned there too, without the tint.
      */
     private fun talkgroupRows(now: Long, threshold: Int): List<DeviceRow> {
         if (filter != com.rfsentinel.app.ui.DeviceFilter.ALL && filter != com.rfsentinel.app.ui.DeviceFilter.TALKGROUPS) return emptyList()
@@ -1005,7 +1007,8 @@ class MainActivity : AppCompatActivity() {
         val playing = sdr.p25Playing
         return currentTalkgroups(now).mapNotNull { r ->
             val near = now - r.inputAt <= TG_NEAR_MS
-            if (filter == com.rfsentinel.app.ui.DeviceFilter.ALL && !near) return@mapNotNull null
+            val held = r.tg != null && r.tg == sdr.p25Hold
+            if (filter == com.rfsentinel.app.ui.DeviceFilter.ALL && !near && !held) return@mapNotNull null
             val title = com.rfsentinel.app.ui.P25Activity.title(r) + (sdr.p25Watched[r.tg]?.ifEmpty { null }?.let { " · $it" } ?: "")
             if (query.isNotBlank() && !title.contains(query.trim(), ignoreCase = true)) return@mapNotNull null
             val key = TG_ROW + (r.tg ?: "r${r.target}")
@@ -1028,7 +1031,7 @@ class MainActivity : AppCompatActivity() {
                 badges = listOfNotNull(
                     ("NEAR ${r.inputSnr} dB" to com.rfsentinel.app.ui.NEAR_BADGE).takeIf { near },
                     ("PLAYING" to com.rfsentinel.app.ui.PEER_BADGE).takeIf { playing != null && playing.tg == r.tg && playing.target == r.target },
-                    ("HELD" to com.rfsentinel.app.ui.PEER_BADGE).takeIf { r.tg != null && r.tg == sdr.p25Hold })
+                    ("HELD" to com.rfsentinel.app.ui.PEER_BADGE).takeIf { held })
             )
         }
     }

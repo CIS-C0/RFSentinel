@@ -331,6 +331,10 @@ object Prefs {
     fun aircraftCircling(context: Context): Boolean = bool(context, "aircraft_circling", false)
     fun setAircraftCircling(context: Context, v: Boolean) = setBool(context, "aircraft_circling", v)
 
+    /** How close a police or government aircraft has to be to alert. */
+    fun aircraftAlertKm(context: Context): Int = int(context, "aircraft_alert_km", 5).coerceIn(1, 20)
+    fun setAircraftAlertKm(context: Context, km: Int) = setInt(context, "aircraft_alert_km", km.coerceIn(1, 20))
+
     fun aircraftRadiusKm(context: Context): Int = int(context, "aircraft_radius_km", 30).coerceIn(10, 50)
     fun setAircraftRadiusKm(context: Context, km: Int) = setInt(context, "aircraft_radius_km", km.coerceIn(10, 50))
 

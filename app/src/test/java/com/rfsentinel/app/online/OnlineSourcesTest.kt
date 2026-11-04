@@ -44,6 +44,8 @@ class OnlineSourcesTest {
         assertTrue(!PoliceAircraft.alerts(circling, 9000.0, circlingOn = true))
         val gov = PoliceAircraft.classify(airline.copy(owner = "STATE OF MINNESOTA DEPT OF NATURAL RESOURCES"), registry, circling = false, distanceM = 900.0)!!
         assertTrue(gov.label.startsWith("Government aircraft") && PoliceAircraft.alerts(gov, 900.0))
+        assertTrue(!PoliceAircraft.alerts(gov, 9000.0) && PoliceAircraft.alerts(gov, 9000.0, alertM = 10_000.0))
+        assertTrue(!PoliceAircraft.alerts(gov, 3000.0, alertM = 2_000.0))
         assertEquals("Police aircraft overhead", com.rfsentinel.app.util.Spoken.aircraft(h1, 300.0, 0.0))
         assertEquals("Police aircraft, 2 kilometers northeast", com.rfsentinel.app.util.Spoken.aircraft(h1, 2000.0, 50.0))
     }

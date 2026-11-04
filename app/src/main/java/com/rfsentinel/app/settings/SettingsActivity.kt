@@ -655,7 +655,7 @@ class SettingsActivity : AppCompatActivity() {
                 "Police aircraft and Waze reports are online sources, off by default. Aircraft: every minute, a position " +
                 "rounded to about 1 km goes to the community ADS-B feeds adsb.fi / adsb.lol; matched against a list of " +
                 "about 1,400 US and Canadian law-enforcement aircraft, plus unlisted aircraft circling low overhead. Only a strong match " +
-                "within 5 km alerts; the rest are listed and logged. With an RTL-SDR " +
+                "within the alert distance alerts; the rest are listed and logged. With an RTL-SDR " +
                 "set up as an ADS-B receiver, aircraft are also heard directly, and the online feeds can be turned off. " +
                 "Waze: crowd reports (police, and any other kind you tick), at your own risk. Either through your own OpenWeb Ninja key " +
                 "(Waze never sees you), or Waze direct: no key, free, but an anonymous Waze account on this phone sends Waze (Google) your " +
@@ -2162,7 +2162,7 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    /** Aircraft search radius (10-50 km) and the feed status, under the aircraft switch. */
+    /** Aircraft alert distance (1-20 km), search radius (10-50 km) and the feed status, under the aircraft switch. */
     private fun addAircraftControls(sw: SwitchMaterial) {
         val dp = resources.displayMetrics.density
         val box = android.widget.LinearLayout(this).apply {
@@ -2177,24 +2177,31 @@ class SettingsActivity : AppCompatActivity() {
         box.addView(detectRow(SwitchMaterial(this).apply {
             text = "Alert for circling aircraft"; isChecked = Prefs.aircraftCircling(this@SettingsActivity)
             setOnCheckedChangeListener { _, v -> Prefs.setAircraftCircling(this@SettingsActivity, v) }
-        }, "Police and government aircraft within 5 km always alert. Turn this on to also hear about any other aircraft " +
-            "circling within 5 km (news, training, survey and unlisted police flights orbit too). Off: they're only listed and logged."))
-        val radiusText = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
-        fun showRadius(km: Int) { radiusText.text = "Look for aircraft within ${com.rfsentinel.app.util.Units.km(km)}" }
-        val km = Prefs.aircraftRadiusKm(this)
-        showRadius(km)
-        box.addView(radiusText)
-        box.addView(com.google.android.material.slider.Slider(this).apply {
-            valueFrom = 10f; valueTo = 50f; stepSize = 5f
-            value = (km - km % 5).coerceIn(10, 50).toFloat()
-            contentDescription = "Aircraft search radius in kilometres"
-            setLabelFormatter { com.rfsentinel.app.util.Units.km(it.toInt()) }
-            addOnChangeListener { _, v, fromUser ->
-                if (!fromUser) return@addOnChangeListener
-                Prefs.setAircraftRadiusKm(this@SettingsActivity, v.toInt())
-                showRadius(v.toInt())
-            }
-        })
+        }, "Police and government aircraft within the alert distance always alert. Turn this on to also hear about any other aircraft " +
+            "circling within it (news, training, survey and unlisted police flights orbit too). Off: they're only listed and logged."))
+        fun kmSlider(label: String, about: String, km: Int, from: Int, to: Int, step: Int, save: (Int) -> Unit) {
+            val text = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
+            fun show(v: Int) { text.text = "$label ${com.rfsentinel.app.util.Units.km(v)}" }
+            show(km)
+            box.addView(text)
+            box.addView(com.google.android.material.slider.Slider(this).apply {
+                valueFrom = from.toFloat(); valueTo = to.toFloat(); stepSize = step.toFloat()
+                value = (km - km % step).coerceIn(from, to).toFloat()
+                contentDescription = about
+                setLabelFormatter { com.rfsentinel.app.util.Units.km(it.toInt()) }
+                addOnChangeListener { _, v, fromUser ->
+                    if (!fromUser) return@addOnChangeListener
+                    save(v.toInt())
+                    show(v.toInt())
+                }
+            })
+        }
+        kmSlider("Alert for aircraft within", "Aircraft alert distance in kilometres", Prefs.aircraftAlertKm(this), 1, 20, 1) {
+            Prefs.setAircraftAlertKm(this, it)
+        }
+        kmSlider("Look for aircraft within", "Aircraft search radius in kilometres", Prefs.aircraftRadiusKm(this), 10, 50, 5) {
+            Prefs.setAircraftRadiusKm(this, it)
+        }
         aircraftStatusText = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
         box.addView(aircraftStatusText)
         showNote(aircraftStatusText, com.rfsentinel.app.online.OnlineWatch.aircraftStatus)
