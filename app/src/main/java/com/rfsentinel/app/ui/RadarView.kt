@@ -91,7 +91,6 @@ class RadarView @JvmOverloads constructor(
     /** Compass degrees at the top, null for north-up. */
     private var heading: Float? = null
 
-    private var sweep = 0f
     private val density = resources.displayMetrics.density
     private val scope = MaterialColors.getColor(context, R.attr.rfScopeColor, 0xFF0B5C63.toInt())
     private val scopeText = MaterialColors.getColor(context, R.attr.rfScopeTextColor, 0xAA0B5C63.toInt())
@@ -238,7 +237,7 @@ class RadarView @JvmOverloads constructor(
 
         if (sweepLine) {
             canvas.save()
-            canvas.rotate(sweep, cx, cy)
+            canvas.rotate(LiveWindow.sweepAngle(now), cx, cy)
             canvas.drawCircle(cx, cy, rad, sweepPaint)
             canvas.restore()
         }
@@ -275,7 +274,6 @@ class RadarView @JvmOverloads constructor(
         val footer = footer(width - 16 * density, now)
         canvas.drawText(footer, 8 * density, height - 8 * density, textPaint)
 
-        sweep = (sweep + 2.4f) % 360f
         if (isShown) postInvalidateOnAnimation()
     }
 

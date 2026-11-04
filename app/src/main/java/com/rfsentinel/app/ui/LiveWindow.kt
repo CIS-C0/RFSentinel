@@ -17,6 +17,18 @@ object LiveWindow {
     /** The WiFi scan interval in use (kept current by the scan service): WiFi devices only refresh once per scan. */
     @Volatile var wifiScanMs = 30_000L
 
+    /** When the last WiFi scan was requested (kept current by the scan service): the radar line passes the top then. */
+    @Volatile var wifiScanAt = 0L
+
+    /**
+     * The radar line's angle for Canvas.rotate (-90 = top): turns of about 5 s that fit a whole number of times in
+     * the scan interval, so it passes the top at each scan request. It keeps turning when no scan is running.
+     */
+    fun sweepAngle(now: Long, scanAt: Long = wifiScanAt, scanMs: Long = wifiScanMs): Float {
+        val turnMs = scanMs.toDouble() / Math.round(scanMs / 5_000.0).coerceAtLeast(1L)
+        return (((now - scanAt) / turnMs).mod(1.0) * 360.0 - 90.0).toFloat()
+    }
+
     /** Still being heard: Bluetooth within 8 s, WiFi within one scan round + 10 s. */
     fun inRange(s: DeviceRegistry.Snapshot, now: Long = System.currentTimeMillis()): Boolean {
         val wifi = Advert.Source.WIFI in s.sources || s.source == Advert.Source.WIFI

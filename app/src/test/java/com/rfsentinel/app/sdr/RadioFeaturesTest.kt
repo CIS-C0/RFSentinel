@@ -21,6 +21,25 @@ class RadioFeaturesTest {
     }
 
     @Test
+    fun importedListJoinsWatchedFrequencies() {
+        fun n(hz: Long, name: String) = FreqNames.Name(hz, name, "t")
+        val (text, added, left) = RadioSettings.addTargets("154.4300 County fire\n",
+            listOf(n(154_430_000L, "same"), n(851_006_250L, "Fine step"), n(155_000_000L, "Whole"), n(155_000_000L, "Twice"), n(1_790_000_000L, "Too high")))
+        assertEquals(2, added)
+        assertEquals(0, left)
+        val t = RadioSettings.targets(text)
+        assertEquals(listOf(154_430_000L, 851_006_250L, 155_000_000L), t.map { it.freqHz })
+        assertEquals(listOf("County fire", "Fine step", "Whole"), t.map { it.label })
+
+        val many = (0 until RadioSettings.MAX_TARGETS + 5).map { n(150_000_000L + it * 12_500L, "Ch $it") }
+        val (full, fit, over) = RadioSettings.addTargets("", many)
+        assertEquals(RadioSettings.MAX_TARGETS, fit)
+        assertEquals(5, over)
+        assertEquals(RadioSettings.MAX_TARGETS, RadioSettings.targets(full).size)
+        assertEquals(0, RadioSettings.addTargets(full, many).second)
+    }
+
+    @Test
     fun trendIsCalledOnTheSetStep() {
         RadioLog.clear()
         val band = RadioWatch.BANDS[1]

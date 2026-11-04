@@ -831,6 +831,7 @@ class SettingsActivity : AppCompatActivity() {
                 "that lines up with a device flagged over Wi-Fi / Bluetooth - is a useful sign; a phone alone is not. It adds time to " +
                 "each sweep while it's on.\n\n" +
                 "Frequency names: import a CSV (RadioReference's export, CHIRP, or any file with a frequency and a name column), " +
+                "then Watch this list to report its channels whenever they're active, " +
                 "or let RadioReference name the FCC licences near you (US): needs your own RadioReference Premium login and a " +
                 "RadioReference developer key; your position rounded to ~1 km is sent to RadioReference, at most once a day per area.\n\n" +
                 "Changes apply from the next sweep while scanning."),
@@ -1141,6 +1142,7 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.retentionLabel, "How long device history is kept. 0 keeps it forever.")
         withUnit(binding.retentionInput, "days")
         info(binding.exportAllButton, "CSV, JSON, KML, GPX or GeoJSON.")
+        info(binding.radarSweepSwitch, "One turn takes about 5 seconds. The line passes the top each time a WiFi scan is requested; Android may still hold back the scan.")
         info(binding.forgetHistoryButton, "New / returning status, detect counts and the remembered cell towers start over. Favorites are kept.")
         info(binding.openWhitelistButton, "Trusted devices: never flagged, and hidden from the list when you choose.")
         info(binding.ignoredSsidsButton, "WiFi networks whose name contains one of these words are never flagged, " +
@@ -1435,15 +1437,15 @@ class SettingsActivity : AppCompatActivity() {
                 l.text = text(it)
             })
         }
-        fun lines(title: String, hint: String, value: String, details: String? = null, save: (String) -> Unit) {
+        fun lines(title: String, hint: String, value: String, details: String? = null, save: (String) -> Unit): android.widget.EditText {
             box.label(title).also { if (details != null) info(it, details) }
-            box.addView(android.widget.EditText(this).apply {
+            return android.widget.EditText(this).apply {
                 setText(value); this.hint = hint
                 minLines = 2; maxLines = 8; gravity = android.view.Gravity.TOP
                 inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
                 importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
                 doAfterTextChanged { save(it?.toString().orEmpty()) }
-            })
+            }.also { box.addView(it) }
         }
 
         info(box.label("Network SDR"), "Uses an RTL-SDR on another device over WiFi, such as an ESP32 board or a computer running " +
@@ -1566,7 +1568,7 @@ class SettingsActivity : AppCompatActivity() {
         }
         lines("Your own bands", "380-400 TETRA\n220-222", Prefs.radioCustomBands(this), "One per line, in MHz, with an optional name.") { Prefs.setRadioCustomBands(this, it) }
         lines("Never report these ranges", "462-469 business band\n151.8-152.0", Prefs.radioExcluded(this), "One per line, in MHz.") { Prefs.setRadioExcluded(this, it) }
-        lines("Watch these frequencies", "154.4300 County fire dispatch\n460.125", Prefs.radioTargets(this),
+        val watched = lines("Watch these frequencies", "154.4300 County fire dispatch\n460.125", Prefs.radioTargets(this),
             "Always reported when active, whatever the sensitivity. One per line, in MHz, with an optional name.") { Prefs.setRadioTargets(this, it) }
         box.toggle("Say the frequency", Prefs.radioSpeakFreq(this), "Says the frequency (and its name) instead of \"Radio transmitting nearby\".") { Prefs.setRadioSpeakFreq(this, it) }
         box.toggle("Detect cellular transmitters", Prefs.radioCellOn(this),
@@ -1601,6 +1603,20 @@ class SettingsActivity : AppCompatActivity() {
                 setOnClickListener { com.rfsentinel.app.sdr.FreqNames.clearImported(this@SettingsActivity); updateFreqListText() }
             })
         })
+        // Its own row: three buttons side by side would be cut off on a narrow screen.
+        box.addView(com.google.android.material.button.MaterialButton(this, null, android.R.attr.borderlessButtonStyle).apply {
+            text = "Watch this list"
+            setOnClickListener {
+                val names = com.rfsentinel.app.sdr.FreqNames.importedNames
+                val (merged, added, left) = com.rfsentinel.app.sdr.RadioSettings.addTargets(watched.text.toString(), names)
+                if (added > 0) watched.setText(merged)
+                Toast.makeText(this@SettingsActivity, when {
+                    names.isEmpty() -> "Import a frequency list first"
+                    left > 0 -> "$added added, $left did not fit: the limit is ${com.rfsentinel.app.sdr.RadioSettings.MAX_TARGETS} watched frequencies"
+                    else -> "$added added to Watch these frequencies"
+                }, Toast.LENGTH_LONG).show()
+            }
+        }, android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT))
 
         val rrSwitch = box.toggle("Name hits from RadioReference", Prefs.radioReferenceOn(this),
             "Names a hit from RadioReference's database. Needs your own RadioReference Premium login and developer key, stored encrypted on this phone.") {

@@ -601,9 +601,10 @@ class ScanForegroundService : Service() {
         wifiPollJob = serviceScope.launch {
             while (isActive) {
                 holdAwake()
-                wifiEngine.requestScan()
                 val interval = Prefs.scanIntervalMs(this@ScanForegroundService)
                 com.rfsentinel.app.ui.LiveWindow.wifiScanMs = interval
+                com.rfsentinel.app.ui.LiveWindow.wifiScanAt = System.currentTimeMillis()
+                wifiEngine.requestScan()
                 delay(interval)
             }
         }

@@ -20,7 +20,7 @@ object RadioSettings {
     private const val MIN_HZ = 24_000_000L
     private const val MAX_HZ = 1_766_000_000L
     private const val MAX_CUSTOM_SPAN_HZ = 120_000_000L
-    private const val MAX_TARGETS = 50
+    const val MAX_TARGETS = 50
 
     fun config(context: Context): RadioWatch.Config {
         val off = Prefs.radioBandsOff(context)
@@ -67,4 +67,14 @@ object RadioSettings {
         val hz = mhzToHz(m.groupValues[1])?.takeIf { it in MIN_HZ..MAX_HZ } ?: return@mapNotNull null
         RadioWatch.Target(hz, m.groupValues[2].trim().ifEmpty { "%.4f MHz".format(java.util.Locale.US, hz / 1e6) })
     }.distinctBy { it.freqHz }.take(MAX_TARGETS)
+
+    /** [current] watched lines plus [names], up to the limit: the new text, how many were added, how many did not fit. */
+    fun addTargets(current: String, names: List<FreqNames.Name>): Triple<String, Int, Int> {
+        val have = targets(current).mapTo(HashSet()) { it.freqHz }
+        val fresh = names.filter { it.hz in MIN_HZ..MAX_HZ && it.hz !in have }.distinctBy { it.hz }
+        val added = fresh.take(MAX_TARGETS - have.size)
+        val lines = added.map { "${java.math.BigDecimal(it.hz).movePointLeft(6).stripTrailingZeros().toPlainString()} ${it.name}" }
+        val text = (listOf(current.trimEnd()).filter { it.isNotEmpty() } + lines).joinToString("\n")
+        return Triple(text, added.size, fresh.size - added.size)
+    }
 }

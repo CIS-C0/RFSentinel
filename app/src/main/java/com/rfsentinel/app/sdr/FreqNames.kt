@@ -26,6 +26,7 @@ object FreqNames {
     @Volatile var nearby: List<Name> = emptyList()
 
     val importedCount: Int get() = imported.size
+    val importedNames: List<Name> get() = imported
 
     @Synchronized
     fun load(context: Context) {
