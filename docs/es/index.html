@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RF Sentinel: detector de rastreadores, cámaras y drones para Android</title>
+<meta name="description" content="App gratuita y de código abierto para Android: detecta AirTag, cámaras corporales, drones, gafas con cámara y antenas falsas por Bluetooth y WiFi. Sin root.">
+<link rel="canonical" href="https://cis-c0.github.io/RFSentinel/es/">
+<link rel="alternate" hreflang="en" href="https://cis-c0.github.io/RFSentinel/">
+<link rel="alternate" hreflang="fr" href="https://cis-c0.github.io/RFSentinel/fr/">
+<link rel="alternate" hreflang="es" href="https://cis-c0.github.io/RFSentinel/es/">
+<link rel="alternate" hreflang="de" href="https://cis-c0.github.io/RFSentinel/de/">
+<link rel="alternate" hreflang="x-default" href="https://cis-c0.github.io/RFSentinel/">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#050507">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="RF Sentinel">
+<meta property="og:locale" content="es_ES">
+<meta property="og:title" content="RF Sentinel: detector de rastreadores, cámaras y drones para Android">
+<meta property="og:description" content="App gratuita y de código abierto para Android: detecta AirTag, cámaras corporales, drones, gafas con cámara y antenas falsas por Bluetooth y WiFi. Sin root.">
+<meta property="og:url" content="https://cis-c0.github.io/RFSentinel/es/">
+<meta property="og:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preload" href="../assets/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="../assets/style.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "RF Sentinel", "applicationCategory": "UtilitiesApplication", "operatingSystem": "Android 8.0+", "inLanguage": "es", "description": "App gratuita y de código abierto para Android: detecta AirTag, cámaras corporales, drones, gafas con cámara y antenas falsas por Bluetooth y WiFi. Sin root.", "url": "https://cis-c0.github.io/RFSentinel/es/", "downloadUrl": "https://github.com/CIS-C0/RFSentinel/releases/latest", "license": "https://www.gnu.org/licenses/gpl-3.0.html", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "image": "https://cis-c0.github.io/RFSentinel/assets/og.png"}</script>
+</head>
+<body>
+<a class="skip" href="#main">Ir al contenido</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="../favicon.svg" alt="" width="28" height="28">RF<span>_</span>SENTINEL</a>
+    <nav class="nav" aria-label="Inicio"><a href="./" aria-current="page">Inicio</a><a href="#detects">Detecciones</a><a href="#install">Instalar</a><a href="#privacy">Privacidad</a><a href="../" hreflang="en" lang="en">English</a><a href="../fr/" hreflang="fr" lang="fr">Français</a><a href="../de/" hreflang="de" lang="de">Deutsch</a></nav>
+    <div class="social">
+      <a class="icon-btn discord" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span class="lbl">Discord</span></a>
+      <a class="icon-btn github" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg><span class="lbl">GitHub</span></a>
+    </div>
+  </div>
+</header>
+<main id="main" class="wrap">
+<section class="hero">
+  <div>
+    <h1><span aria-hidden="true">RF_SENTINEL</span><span class="sr-only">RF Sentinel, detector de vigilancia para Android</span></h1>
+    <p class="lead">Una app <b>gratuita y de código abierto para Android</b>. Escucha las señales Bluetooth LE y WiFi a tu alrededor y avisa del equipo de vigilancia: rastreadores que te siguen, cámaras corporales de policía, drones, gafas con cámara e indicios de antenas de telefonía falsas.</p>
+    <p><span class="stamp">SOLO RECEPCIÓN</span><span class="small">Sin root · sin cuenta · sin analíticas · GPL-3.0 · Android 8.0+</span></p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/CIS-C0/RFSentinel/releases/latest" data-apk><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Descargar el APK <span data-version></span></a>
+      <a class="btn" href="https://github.com/CIS-C0/RFSentinel" rel="noopener">Código fuente</a>
+      <a class="btn discord" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg>Discord</a>
+    </div>
+    <p class="small">APK firmado, publicado en GitHub. No está en Google Play. Por ahora la app está en inglés.</p>
+  </div>
+  <div class="shots">
+    <img src="../screenshots/list-dedsec.webp" width="540" height="1202" alt="Lista de dispositivos detectados en RF Sentinel (datos de demostración)">
+    <img src="../screenshots/list-fsociety.webp" width="540" height="1202" alt="Lista de dispositivos detectados en RF Sentinel (datos de demostración)">
+  </div>
+</section>
+
+<h2 id="detects">Qué detecta</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Categoría</th><th>Ejemplos</th><th>Cómo</th></tr></thead>
+<tbody>
+<tr><td>Rastreadores que te siguen</td><td>AirTag, Google Find Hub, Samsung SmartTag, Tile, Chipolo</td><td>Avisa cuando un rastreador sigue contigo (por defecto, 10 min y 800 m)</td></tr>
+<tr><td>Cámaras corporales</td><td>Axon, Motorola VB400, Zepcam, Getac</td><td>Identificadores Bluetooth y prefijos de fabricante</td></tr>
+<tr><td>Drones</td><td>Cualquier dron que emita Remote ID (DJI, Autel, Parrot...)</td><td>Número de serie, posición, altitud y posición del piloto</td></tr>
+<tr><td>Gafas con cámara</td><td>Ray-Ban y Oakley Meta, Snap Spectacles, Vuzix</td><td>Identificadores Bluetooth del fabricante</td></tr>
+<tr><td>Antenas de telefonía falsas</td><td>IMSI catchers</td><td>Indicios visibles sin root: paso repentino de 4G a 2G, identificadores clonados o reservados</td></tr>
+<tr><td>Skimmers de tarjetas</td><td>Módulos Bluetooth ocultos en surtidores y cajeros</td><td>Nombres y servicios Bluetooth típicos</td></tr>
+<tr><td>Cámaras ocultas <i>(opcional)</i></td><td>Cámaras espía WiFi en modo de configuración</td><td>Nombres de red por defecto</td></tr>
+<tr><td>Herramientas de hacking <i>(opcional)</i></td><td>Flipper Zero, WiFi Pineapple, ataques de desautenticación WiFi</td><td>Identificadores, nombres de red por defecto, ráfagas de paquetes</td></tr>
+</tbody>
+</table></div>
+<p>En la configuración, marca <b>Spain</b> para añadir el equipo usado en España: cámaras Axon y radios Teltronic.</p>
+<p>Cada detección muestra sus pruebas, su fuente y un nivel de confianza. Es una coincidencia de firma, no una prueba de quién está presente.</p>
+
+<h2 id="install">Instalar</h2>
+<ol>
+<li>En tu teléfono, toca <b>Descargar el APK</b> arriba.</li>
+<li>Abre el archivo desde la notificación o desde tus descargas.</li>
+<li>Si Android lo bloquea, abre los ajustes que te propone, permite esta fuente, vuelve atrás y toca <b>Instalar</b>.</li>
+<li>Abre <b>RF Sentinel</b> y sigue la configuración: tema, región, alertas y permisos.</li>
+<li>Toca <b>Start scanning</b> y concede la ubicación y <i>Dispositivos cercanos</i>.</li>
+</ol>
+<p class="small">Guía completa, en inglés: <a href="../install.html">Install</a> · <a href="../qa.html">Q&amp;A</a></p>
+
+<h2 id="privacy">Privacidad</h2>
+<ul>
+  <li><b>Solo recepción.</b> La app no emite nada, no interfiere y no se conecta a los dispositivos que detecta.</li>
+  <li><b>Sin cuenta, sin nube, sin analíticas.</b> Las detecciones se guardan en una base de datos local, excluida de la copia en la nube.</li>
+  <li><b>Internet</b> se usa para el mapa, los datos de cámaras y las opciones que actives.</li>
+  <li><b>Tus datos solo salen del teléfono si los exportas o compartes.</b></li>
+</ul>
+
+<h2 id="law">La ley</h2>
+<p>En España están prohibidos los detectores y los inhibidores de radar. No uses RF Sentinel para eso. Las normas cambian de un país a otro: comprueba las que se aplican donde estás. Esto no es asesoramiento legal.</p>
+</main>
+<footer>
+  <div class="wrap">
+    <p class="legal">RF Sentinel es software libre bajo la licencia GNU GPL v3.0. Copyright © 2026 CIS-C0. Sin relación con las empresas y productos citados: sus nombres solo describen la detección y la compatibilidad. Este sitio no usa cookies, analíticas ni rastreadores.</p>
+  </div>
+</footer>
+<script src="../assets/site.js"></script>
+</body>
+</html>
