@@ -31,7 +31,8 @@ class LegacyUsbDriverTest {
         assertEquals("RTL8187B", UsbWifi.chipOf(0x0846, 0x4260)?.name) // Netgear WG111v3
         assertEquals(UsbWifi.Driver.RT3070, UsbWifi.chipOf(0x148f, 0x3070)?.driver) // ALFA AWUS036NH / NEH
         assertEquals(UsbWifi.Driver.RTL88X2BU, UsbWifi.chipOf(0x0bda, 0xb812)?.driver)
-        assertNull(UsbWifi.chipOf(0x148f, 0x5370)) // RT5370: different radio, not supported
+        assertEquals(UsbWifi.Driver.RT3070, UsbWifi.chipOf(0x148f, 0x5370)?.driver) // RT5370: same driver, its own radio path
+        assertEquals("RT5372", UsbWifi.chipOf(0x148f, 0x5372)?.name)
     }
 
     // --- RTL8187: | 802.11 frame | FCS | RX descriptor (16 B, or 20 B on the 8187B) | ---

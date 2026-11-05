@@ -720,9 +720,10 @@ Realtek RTL8822CU / 8852 and Intel dongles aren't supported yet.
 | MT7921AU (WiFi 6E) | 2.4 + 5 + 6 GHz | Yes, long range | ALFA AWUS036AXML / AXM, Comfast CF-952AX, Netgear A8000 |
 | RTL8187 | 2.4 GHz | - | ALFA AWUS036H, Netgear WG111v2 |
 | RT3070 | 2.4 GHz | - | ALFA AWUS036NH / NEH |
+| RT5370 / RT5372 | 2.4 GHz, experimental | - | Generic Ralink dongles |
 | AR9271 | 2.4 GHz, experimental | - | ALFA AWUS036NHA, TP-Link TL-WN722N v1 |
 
-Recognised but not supported yet: RTL8811CU / 8821CU / 8812CU, RT5370, MT7610U, AR7010.
+Recognised but not supported yet: RTL8811CU / 8821CU / 8812CU, MT7610U, AR7010.
 
 <details>
 <summary><b>Receive-only, the adapter log and single-antenna dongles</b></summary>

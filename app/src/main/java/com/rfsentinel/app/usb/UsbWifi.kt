@@ -72,6 +72,7 @@ object UsbWifi {
     private val L8187 = Chip("RTL8187L", Driver.RTL8187)
     private val B8187 = Chip("RTL8187B", Driver.RTL8187)
     private val RT3070 = Chip("RT3070", Driver.RT3070)
+    private val RT53 = Chip("RT5370", Driver.RT3070)
     private val AU14 = Chip("RTL8814AU", Driver.RTL8814AU)
     private val MT = Chip("MT7612U", Driver.MT7612U)
     private val ATH = Chip("AR9271", Driver.AR9271)
@@ -123,6 +124,13 @@ object UsbWifi {
         (0x0df6 to 0x0029) to B8187, (0x1737 to 0x0073) to B8187,
         (0x148f to 0x3070) to RT3070, // ALFA AWUS036NH / AWUS036NEH and other RT3070 dongles
         (0x148f to 0x2070) to RT3070, (0x7392 to 0x7711) to RT3070, (0x1737 to 0x0077) to RT3070, (0x2019 to 0xab25) to RT3070,
+        (0x148f to 0x5370) to RT53, (0x148f to 0x5372) to Chip("RT5372", Driver.RT3070), // generic Ralink dongles
+        (0x043e to 0x7a12) to RT53, (0x0b05 to 0x17e8) to RT53, (0x13d3 to 0x3329) to RT53, (0x13d3 to 0x3365) to RT53,
+        (0x2001 to 0x3c15) to RT53, (0x2001 to 0x3c19) to RT53, (0x2001 to 0x3c1c) to RT53, (0x2001 to 0x3c1d) to RT53,
+        (0x2001 to 0x3c1e) to RT53, (0x2001 to 0x3c20) to RT53, (0x2001 to 0x3c22) to RT53, (0x2001 to 0x3c23) to RT53,
+        (0x043e to 0x7a22) to RT53, (0x043e to 0x7a42) to RT53, (0x04da to 0x1801) to RT53, (0x04da to 0x1800) to RT53,
+        (0x04da to 0x23f6) to RT53, (0x0471 to 0x2104) to RT53, (0x0471 to 0x2180) to RT53, (0x0471 to 0x2181) to RT53,
+        (0x0471 to 0x2182) to RT53,
         (0x0bda to 0x8813) to AU14, // ALFA AWUS1900
         (0x056e to 0x400b) to AU14, (0x056e to 0x400d) to AU14, (0x0846 to 0x9054) to AU14, // ELECOM, Netgear A7000
         (0x0b05 to 0x1817) to AU14, (0x0b05 to 0x1852) to AU14, (0x0b05 to 0x1853) to AU14, // ASUS USB-AC68
@@ -148,8 +156,7 @@ object UsbWifi {
     private val KNOWN = mapOf(
         (0x0bda to 0xc811) to "RTL8811CU / 8821CU", (0x0bda to 0xc820) to "RTL8821CU", (0x0bda to 0xc812) to "RTL8812CU",
         (0x0cf3 to 0x7010) to "AR7010", (0x0cf3 to 0x7015) to "AR7010", (0x0e8d to 0x7610) to "MT7610U",
-        (0x148f to 0x3071) to "RT3071", (0x148f to 0x3072) to "RT3072", (0x148f to 0x5370) to "RT5370",
-        (0x148f to 0x5372) to "RT5372"
+        (0x148f to 0x3071) to "RT3071", (0x148f to 0x3072) to "RT3072"
     )
 
     private var receiver: BroadcastReceiver? = null

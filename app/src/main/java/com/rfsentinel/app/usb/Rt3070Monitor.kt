@@ -2,7 +2,7 @@ package com.rfsentinel.app.usb
 
 /*
  * Receive-only monitor mode for Ralink RT3070 USB WiFi adapters (e.g. ALFA AWUS036NH /
- * AWUS036NEH), 2.4 GHz 802.11b/g/n, driven from userspace over Android's USB host API -
+ * AWUS036NEH) and RT5370 / RT5372 ones, 2.4 GHz 802.11b/g/n, driven from userspace over Android's USB host API -
  * no root, no kernel driver. Loads Ralink's firmware (assets/usbwifi/rt2870.bin, from
  * linux-firmware; licence in LICENCE.ralink-firmware.txt), hops the 2.4 GHz channels and
  * reports the access points and client devices it hears. It never transmits.
@@ -12,7 +12,9 @@ package com.rfsentinel.app.usb
  * GPL-2.0-or-later). Checked against the kernel and completed here: eFuse addressing,
  * EEPROM reads in 64-byte steps, the DMA / frame-length setup, the receive gain
  * (BBP 62-66), external-LNA boards, the EEPROM's BBP overrides and the MCU current
- * request. Its handshake / PMKID capture was left out.
+ * request. Its handshake / PMKID capture was left out. The RT5370 / RT5372 paths (the chip
+ * answers as RT5390 / RT5392) come straight from rt2800lib; shortcut: Bluetooth combo boards'
+ * channel values are left out, as no USB RT53xx adapter is one; add them if a log shows one.
  */
 
 import android.content.Context
@@ -36,8 +38,10 @@ object Rt3070Monitor {
     private const val EEPROM_READ = 0x09
     private const val USB_MODE_RESET = 1; private const val USB_MODE_FIRMWARE = 8; private const val USB_MODE_AUTORUN = 17
     private const val FIRMWARE_BASE = 0x3000; private const val FW_LEN = 4096; private const val CSR_CACHE = 64
-    private const val MCU_CURRENT = 0x36; private const val MCU_BOOT_SIGNAL = 0x72
-    private const val REV_RT3070F = 0x0201
+    private const val MCU_CURRENT = 0x36; private const val MCU_BOOT_SIGNAL = 0x72; private const val MCU_FREQ_OFFSET = 0x74
+    private const val REV_RT3070F = 0x0201; private const val REV_RT5390F = 0x0502; private const val REV_RT5370G = 0x0503
+    private const val RT3070 = 0x3070; private const val RT5390 = 0x5390; private const val RT5392 = 0x5392
+    private const val FREQ_OFFSET_BOUND = 0x5f
 
     private const val OPT_14_CSR = 0x0114; private const val WPDMA_GLO_CFG = 0x0208; private const val USB_DMA_CFG = 0x02a0
     private const val US_CYC_CNT = 0x02a4; private const val PBF_SYS_CTRL = 0x0400; private const val HOST_CMD_CSR = 0x0404
@@ -74,8 +78,17 @@ object Rt3070Monitor {
     /** rf_vals_3x: synthesizer N and K per 2.4 GHz channel (R is 2 on all of them). */
     private val RF_N = intArrayOf(241, 241, 242, 242, 243, 243, 244, 244, 245, 245, 246, 246, 247, 248)
     private val RF_K = intArrayOf(2, 7, 2, 7, 2, 7, 2, 7, 2, 7, 2, 7, 2, 4)
+    /** rt2800_config_channel_rf53xx: RFCSR 55 / 59 per channel on RT5390 from rev F, RFCSR 59 on the others. */
+    private val R55_REV_F = intArrayOf(0x23, 0x23, 0x23, 0x23, 0x13, 0x13, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03)
+    private val R59_REV_F = intArrayOf(0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x06, 0x05, 0x04, 0x04)
+    private val R59 = intArrayOf(0x8f, 0x8f, 0x8f, 0x8f, 0x8f, 0x8f, 0x8f, 0x8d, 0x8a, 0x88, 0x88, 0x87, 0x87, 0x86)
 
     private lateinit var conn: UsbDeviceConnection
+    private var rt = RT3070
+    private var rev = 0
+    private val rt53 get() = rt == RT5390 || rt == RT5392
+    /** RT5390 from rev F (rt2x00_rt_rev_gte: never true of an RT5392). */
+    private val revF53 get() = rt == RT5390 && rev >= REV_RT5390F
     private var revLtF = false
     private val ee = ByteArray(512)
     private var freqOffset = 0
@@ -102,10 +115,10 @@ object Rt3070Monitor {
             val t0 = System.currentTimeMillis()
             if (!waitCsrReady()) { UsbWifi.log("RT3070: MAC_CSR0 never ready"); onStatus("$chipName: not responding - unplug the adapter and plug it back in"); return }
             val csr0 = regRd(MAC_CSR0)
-            val rt = csr0 ushr 16; val rev = csr0 and 0xffff
+            rt = csr0 ushr 16; rev = csr0 and 0xffff
             UsbWifi.log("RT3070: chip RT%04x rev 0x%04x, RX EP=0x%02x".format(rt, rev, rx.address))
-            if (rt != 0x3070) { onStatus("$chipName: this Ralink chip (RT%04x) isn't supported yet".format(rt)); return }
-            revLtF = rev < REV_RT3070F
+            if (rt != RT3070 && !rt53) { onStatus("$chipName: this Ralink chip (RT%04x) isn't supported yet".format(rt)); return }
+            revLtF = rt == RT3070 && rev < REV_RT3070F
 
             onStatus("$chipName · reading calibration…")
             readEeprom()
@@ -196,11 +209,12 @@ object Rt3070Monitor {
         if (autorun) UsbWifi.log("RT3070: firmware already running (autorun)")
         else {
             val fw = Firmware.read(ctx, "rt2870.bin")
-            if (fw.size < FW_LEN) { UsbWifi.log("RT3070: rt2870.bin too short (${fw.size} B)"); return false }
-            var off = 0 // the RT3070 runs the first 4 KB image
+            val image = if (rt == RT3070) 0 else FW_LEN // the RT3070 runs the first 4 KB image, the RT53xx the second
+            if (fw.size < image + FW_LEN) { UsbWifi.log("RT3070: rt2870.bin too short (${fw.size} B)"); return false }
+            var off = 0
             while (off < FW_LEN) {
                 val len = minOf(CSR_CACHE, FW_LEN - off)
-                val chunk = fw.copyOfRange(off, off + len)
+                val chunk = fw.copyOfRange(image + off, image + off + len)
                 // a write now and then isn't taken right after plug-in: try it again before giving up
                 if ((0 until 3).none { conn.controlTransfer(OUT_VENDOR, MULTI_WRITE, 0, FIRMWARE_BASE + off, chunk, len, 1000) >= 0 }) {
                     UsbWifi.log("RT3070: firmware write failed at $off"); return false
@@ -222,9 +236,9 @@ object Rt3070Monitor {
         return true
     }
 
-    private fun mcuRequest(command: Int) {
+    private fun mcuRequest(command: Int, token: Int = 0, arg0: Int = 0, arg1: Int = 0) {
         poll(100) { regRd(H2M_MAILBOX_CSR) and 0xff000000.toInt() == 0 } // mailbox free
-        regWr(H2M_MAILBOX_CSR, 0x01000000) // owner = host, token 0, no arguments
+        regWr(H2M_MAILBOX_CSR, 0x01000000 or (token shl 16) or (arg1 shl 8) or arg0) // owner = host
         regWr(HOST_CMD_CSR, command and 0xff)
     }
 
@@ -280,7 +294,7 @@ object Rt3070Monitor {
         regWr(BCN_TIME_CFG, (regRd(BCN_TIME_CFG) and 0xf01fffff.toInt().inv()) or 1600) // beacon interval only, no TSF / beacons
         regWr(RX_FILTR_CFG, RX_FILTER_MONITOR)
         run { var r = regRd(BKOFF_SLOT_CFG); r = setf(r, 0xff, 9); r = setf(r, 0xff00, 2); regWr(BKOFF_SLOT_CFG, r) }
-        regWr(TX_SW_CFG0, 0x00000400)
+        regWr(TX_SW_CFG0, if (rt53) 0x00000404 else 0x00000400)
         if (revLtF) { regWr(TX_SW_CFG1, 0x00000000); regWr(TX_SW_CFG2, 0x0000002c) }
         else { regWr(TX_SW_CFG1, 0x00080606); regWr(TX_SW_CFG2, 0x00000000) }
         regWr(TX_LINK_CFG, 0x00001020)
@@ -315,10 +329,12 @@ object Rt3070Monitor {
     }
 
     private fun initBbp() {
-        // rt2800_init_bbp_30xx
-        val tab = intArrayOf(65, 0x2c, 66, 0x38, 69, 0x12, 73, 0x10, 70, 0x0a, 79, 0x13, 80, 0x05, 81, 0x33,
-            82, 0x62, 83, 0x6a, 84, 0x99, 86, 0x00, 91, 0x04, 92, 0x00, 103, if (revLtF) 0x00 else 0xc0, 105, 0x05, 106, 0x35)
-        for (i in tab.indices step 2) bbpWr(tab[i], tab[i + 1])
+        if (rt53) initBbp53() else {
+            // rt2800_init_bbp_30xx
+            val tab = intArrayOf(65, 0x2c, 66, 0x38, 69, 0x12, 73, 0x10, 70, 0x0a, 79, 0x13, 80, 0x05, 81, 0x33,
+                82, 0x62, 83, 0x6a, 84, 0x99, 86, 0x00, 91, 0x04, 92, 0x00, 103, if (revLtF) 0x00 else 0xc0, 105, 0x05, 106, 0x35)
+            for (i in tab.indices step 2) bbpWr(tab[i], tab[i + 1])
+        }
         // Board-specific overrides stored in the EEPROM.
         for (i in 0 until 16) {
             val w = ew(EE_BBP_START + i)
@@ -326,7 +342,63 @@ object Rt3070Monitor {
         }
     }
 
+    /** rt2800_init_bbp_53xx. */
+    private fun initBbp53() {
+        val r5392 = rt == RT5392
+        bbpWr(4, bbpRd(4) or 0x40) // MAC_IF_CTRL
+        val tab = intArrayOf(31, 0x08, 65, 0x2c, 66, 0x38, 68, 0x0b, 69, 0x12, 73, 0x13, 75, 0x46, 76, 0x28, 77, 0x59,
+            70, 0x0a, 79, 0x13, 80, 0x05, 81, 0x33, 82, 0x62, 83, 0x7a, 84, 0x9a, 86, 0x38)
+        for (i in tab.indices step 2) bbpWr(tab[i], tab[i + 1])
+        if (r5392) bbpWr(88, 0x90)
+        bbpWr(91, 0x04); bbpWr(92, 0x02)
+        if (r5392) { bbpWr(95, 0x9a); bbpWr(98, 0x12) }
+        bbpWr(103, 0xc0); bbpWr(104, 0x92); bbpWr(105, 0x3c)
+        bbpWr(106, if (r5392) 0x12 else 0x03)
+        bbpWr(128, 0x12)
+        if (r5392) { bbpWr(134, 0xd0); bbpWr(135, 0xf6) }
+        unusedDacAdc()
+        // Chips with hardware receive antenna diversity: software selection off.
+        if (rt == RT5390 && rev >= REV_RT5370G) { bbpWr(150, 0); bbpWr(151, 0); bbpWr(154, 0) }
+        val ant = if ((ew(EE_NIC_CONF1) ushr 11) and 3 == 3) 1 else 0
+        bbpWr(152, setf(bbpRd(152), 0x80, if (ant == 0) 1 else 0)) // RX default antenna
+        bbpWr(142, 1); bbpWr(143, 57) // rt2800_init_freq_calibration
+    }
+
+    /** rt2800_disable_unused_dac_adc: the second DAC and ADC of a one-chain board. */
+    private fun unusedDacAdc() {
+        val nic0 = ew(EE_NIC_CONF0)
+        var v = bbpRd(138)
+        if ((nic0 ushr 4) and 0xf == 1) v = v or 0x20
+        if (nic0 and 0xf == 1) v = v and 0x02.inv()
+        bbpWr(138, v)
+    }
+
+    /** rt2800_init_rfcsr_5390 / _5392, then rt2800_normal_mode_setup_5xxx. */
+    private fun initRfcsr53() {
+        rfToggle(2)
+        val f = revF53
+        val tab = if (rt == RT5392) intArrayOf(1, 0x17, 3, 0x88, 5, 0x10, 6, 0xe0, 7, 0x00, 10, 0x53, 11, 0x4a, 12, 0x46, 13, 0x9f,
+            14, 0x00, 15, 0x00, 16, 0x00, 18, 0x03, 19, 0x4d, 20, 0x00, 21, 0x8d, 22, 0x20, 23, 0x0b, 24, 0x44, 25, 0x80, 26, 0x82,
+            27, 0x09, 28, 0x00, 29, 0x10, 30, 0x10, 31, 0x80, 32, 0x20, 33, 0xc0, 34, 0x07, 35, 0x12, 36, 0x00, 37, 0x08, 38, 0x89,
+            39, 0x1b, 40, 0x0f, 41, 0xbb, 42, 0xd5, 43, 0x9b, 44, 0x0e, 45, 0xa2, 46, 0x73, 47, 0x0c, 48, 0x10, 49, 0x94, 50, 0x94,
+            51, 0x3a, 52, 0x48, 53, 0x44, 54, 0x38, 55, 0x43, 56, 0xa1, 57, 0x00, 58, 0x39, 59, 0x07, 60, 0x45, 61, 0x91, 62, 0x39, 63, 0x07)
+        else intArrayOf(1, 0x0f, 2, 0x80, 3, 0x88, 5, 0x10, 6, if (f) 0xe0 else 0xa0, 7, 0x00, 10, 0x53, 11, 0x4a, 12, 0x46, 13, 0x9f,
+            14, 0x00, 15, 0x00, 16, 0x00, 18, 0x03, 19, 0x00, 20, 0x00, 21, 0x00, 22, 0x20, 23, 0x00, 24, 0x00, 25, if (f) 0x80 else 0xc0,
+            26, 0x00, 27, 0x09, 28, 0x00, 29, 0x10, 30, 0x10, 31, 0x80, 32, 0x80, 33, 0x00, 34, 0x07, 35, 0x12, 36, 0x00, 37, 0x08,
+            38, 0x85, 39, 0x1b, 40, 0x0b, 41, 0xbb, 42, 0xd2, 43, 0x9a, 44, 0x0e, 45, 0xa2, 46, if (f) 0x73 else 0x7b, 47, 0x00,
+            48, 0x10, 49, 0x94, 52, 0x38, 53, if (f) 0x00 else 0x84, 54, 0x78, 55, 0x44, 56, if (f) 0x42 else 0x22, 57, 0x80,
+            58, 0x7f, 59, 0x8f, 60, 0x45, 61, if (f) 0xd1 else 0xdd, 62, 0x00, 63, 0x00)
+        for (i in tab.indices step 2) rfWr(tab[i], tab[i + 1])
+        unusedDacAdc()
+        rfWr(38, setf(rfRd(38), 0x20, 0)) // RX_LO1_EN
+        rfWr(39, setf(rfRd(39), 0x80, 0)) // RX_LO2_EN
+        bbpWr(4, bbpRd(4) or 0x40)
+        rfWr(30, setf(rfRd(30), 0x18, 2)) // RX_VCM
+        regWr(OPT_14_CSR, regRd(OPT_14_CSR) or 0x1) // LED open drain
+    }
+
     private fun initRfcsr() {
+        if (rt53) { initRfcsr53(); return }
         // rt2800_init_rfcsr_30xx
         rfToggle(30)
         val tab = intArrayOf(4, 0x40, 5, 0x03, 6, 0x02, 7, 0x60, 9, 0x0f, 10, 0x41, 11, 0x21, 12, 0x7b,
@@ -380,9 +452,26 @@ object Rt3070Monitor {
         val v = rfRd(reg); rfWr(reg, v or 0x80); sleep(1); rfWr(reg, v and 0x80.inv())
     }
 
-    /** rt2800_config_channel_rf3xxx + the channel's BBP / pin setup, 20 MHz, one antenna. */
-    private fun tune(ch: Int) {
-        val i = ch - 1
+    /** rt2800_config_channel_rf53xx, 20 MHz. */
+    private fun tuneRf53(i: Int) {
+        rfWr(8, RF_N[i])
+        rfWr(9, RF_K[i])
+        rfWr(11, setf(rfRd(11), 0x03, 2))
+        rfWr(49, setf(rfRd(49), 0x3f, 0)) // TX power: lowest (never transmits)
+        if (rt == RT5392) rfWr(50, setf(rfRd(50), 0x3f, 0))
+        // Block, PLL, RX0 and TX0 on, and the second chain of the two-chain RT5392.
+        rfWr(1, rfRd(1) or 0x0f or (if (rt == RT5392) 0x30 else 0))
+        // rt2800_freq_cal_mode1: on USB the firmware moves the crystal offset.
+        val code = minOf(freqOffset and 0x7f, FREQ_OFFSET_BOUND)
+        val prev = rfRd(17)
+        if (setf(prev, 0x7f, code) != prev) mcuRequest(MCU_FREQ_OFFSET, 0xff, code, prev)
+        if (revF53) { rfWr(55, R55_REV_F[i]); rfWr(59, R59_REV_F[i]) } else rfWr(59, R59[i])
+        rfWr(30, setf(setf(rfRd(30), 0x02, 0), 0x04, 0)) // 20 MHz
+        rfWr(3, rfRd(3) or 0x80) // VCO calibration
+    }
+
+    /** rt2800_config_channel_rf3xxx, 20 MHz, one antenna. */
+    private fun tuneRf30(i: Int) {
         rfWr(2, RF_N[i])
         rfWr(3, setf(rfRd(3), 0x0f, RF_K[i]))
         rfWr(6, setf(rfRd(6), 0x03, 2))
@@ -397,12 +486,18 @@ object Rt3070Monitor {
         rfWr(31, setf(rfRd(31), 0x7f, calBw20))
         rfWr(7, setf(rfRd(7), 0x01, 1)) // RF tuning
         rfToggle(30)                     // RF calibration
+    }
 
+    /** The channel's radio, then its BBP / pin setup. */
+    private fun tune(ch: Int) {
+        if (rt53) tuneRf53(ch - 1) else tuneRf30(ch - 1)
         val agc = 0x37 - lnaGain
         bbpWr(62, agc); bbpWr(63, agc); bbpWr(64, agc); bbpWr(86, 0)
-        if (externalLna) { bbpWr(82, 0x62); bbpWr(75, 0x46) } else { bbpWr(82, 0x84); bbpWr(75, 0x50) }
+        if (!rt53) { if (externalLna) { bbpWr(82, 0x62); bbpWr(75, 0x46) } else { bbpWr(82, 0x84); bbpWr(75, 0x50) } }
         regWr(TX_BAND_CFG, setf(setf(setf(regRd(TX_BAND_CFG), 0x01, 0), 0x02, 0), 0x04, 1)) // 2.4 GHz
-        regWr(TX_PIN_CFG, 0x02 or 0x100 or 0x200 or 0x10000 or 0x40000) // G-band PA, LNAs, RF / TR switch
+        val twoChains = rt == RT5392 // its second LNAs and receive chain too
+        regWr(TX_PIN_CFG, 0x02 or 0x100 or 0x200 or 0x10000 or 0x40000 or (if (twoChains) 0x400 or 0x800 else 0)) // G-band PA, LNAs, RF / TR switch
+        if (twoChains) bbpWr(3, setf(bbpRd(3), 0x18, 1))
         bbpWr(4, setf(bbpRd(4), 0x18, 0)) // 20 MHz
         bbpWr(3, setf(bbpRd(3), 0x20, 0))
         sleep(1)
