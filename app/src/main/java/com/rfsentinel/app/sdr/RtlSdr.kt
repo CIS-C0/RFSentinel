@@ -2,7 +2,7 @@ package com.rfsentinel.app.sdr
 
 /*
  * Userspace driver for RTL2832U "RTL-SDR" dongles with a Rafael Micro R820T / R820T2 /
- * R860 or R828D tuner (RTL-SDR Blog V3 / V4, Nooelec NESDR and most generic DVB-T
+ * R860 or R828D tuner (RTL-SDR Blog V3 / V4 / V4L, Nooelec NESDR and most generic DVB-T
  * sticks), over Android's USB host API - no root. Receive only: it tunes, sets the gain
  * and reads raw I/Q samples, which RF Sentinel only turns into a power spectrum
  * (nothing is demodulated, decoded or recorded).
@@ -26,6 +26,8 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
     var tuner: Tuner? = null; private set
     /** RTL-SDR Blog V4: R828D with a 28.8 MHz crystal, its own band inputs and notch filters. */
     var blogV4 = false; private set
+    /** RTL-SDR Blog V4L: answers as an R820T, with the R828D's VCO setting and an input switch on the upconverter GPIO. */
+    var blogV4L = false; private set
     override var sampleRate = 0; private set
     override var ctlErrors = 0; private set
     /** True once the dongle stops answering altogether (unplugged, or its USB link died). */
@@ -69,7 +71,8 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
             try { Thread.sleep(50) } catch (_: InterruptedException) {}
         }
         blogV4 = tuner == Tuner.R828D && maker == "RTLSDRBlog" && product == "Blog V4"
-        log("RTL-SDR: \"$maker $product\", tuner ${tuner ?: "not supported (E4000 / FC001x / FC2580?)"}${if (blogV4) " (RTL-SDR Blog V4)" else ""}")
+        blogV4L = tuner == Tuner.R820T && maker == "RTLSDRBlog" && product == "Blog V4L"
+        log("RTL-SDR: \"$maker $product\", tuner ${tuner ?: "not supported (E4000 / FC001x / FC2580?)"}${if (blogV4) " (RTL-SDR Blog V4)" else if (blogV4L) " (RTL-SDR Blog V4L)" else ""}")
         if (tuner == null) { setI2cRepeater(false); return false }
         if (tuner == Tuner.R828D) { i2cAddr = R828D_I2C_ADDR; if (!blogV4) tunerXtal = R828D_XTAL }
         // R82xx: low IF, not zero-IF; only the in-phase ADC; spectrum inversion
@@ -364,7 +367,7 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
             mixDiv = mixDiv shl 1
         }
         val data = r82xxRead(5)
-        val vcoPowerRef = if (tuner == Tuner.R828D) 1 else 2
+        val vcoPowerRef = if (tuner == Tuner.R828D || blogV4L) 1 else 2
         val vcoFineTune = (data[4] and 0x30) shr 4
         if (vcoFineTune > vcoPowerRef) divNum-- else if (vcoFineTune < vcoPowerRef) divNum++
         p[0] = (p[0] and 0xe0.inv()) or ((divNum shl 5) and 0xe0)
@@ -402,6 +405,12 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
                 setGpioOutput(5); setGpioBit(5, true)          // upconverter switch: not HF
                 r82xxWriteMask(0x05, if (band == VHF) 0x40 else 0x00, 0x40)
                 r82xxWriteMask(0x05, if (band == UHF) 0x00 else 0x20, 0x20)
+            }
+        } else if (blogV4L) {
+            if (input != UHF) {                                // one input above HF: air-in, cable 1 off
+                input = UHF
+                setGpioOutput(5); setGpioBit(5, true)          // upconverter switch: not HF
+                r82xxWriteMask(0x05, 0x00, 0x60)
             }
         } else if (tuner == Tuner.R828D) {
             val airCable1 = if (hz > 345_000_000L) 0x00 else 0x60

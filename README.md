@@ -752,7 +752,7 @@ in radio range. Needs *Police aircraft* on; its *Online aircraft feeds* switch c
 be turned off so nothing leaves the phone. A 1090 MHz antenna helps.
 
 Plug an RTL-SDR dongle (R820T / R820T2 / R860 tuner, e.g. RTL-SDR Blog V3, or the
-RTL-SDR Blog V4) or a **HackRF One** into the phone with an OTG cable while scanning.
+RTL-SDR Blog V4 or V4L) or a **HackRF One** into the phone with an OTG cable while scanning.
 The HackRF is only ever used to receive: its transmitter, RF amplifier and antenna-port
 power stay off. RF Sentinel
 sweeps the North American public-safety radio bands - the 700 and 800 MHz bands
