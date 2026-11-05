@@ -24,7 +24,7 @@ object OuiWatchlist {
     private const val PREFS = "oui_watchlist_prefs"
     private const val KEY_CUSTOM = "custom_entries"
     private const val KEY_ENABLED_PRESETS = "enabled_presets"
-    private val DEFAULT_PRESETS = setOf("global", "canada")
+    private val DEFAULT_PRESETS = setOf("global")
 
     private val gson = Gson()
     private val listType = object : TypeToken<List<OuiEntry>>() {}.type
@@ -48,7 +48,7 @@ object OuiWatchlist {
 
     /**
      * False when a European region is on without the United States: Flock isn't deployed there, so its matches are
-     * ignored (see FlockNoise). Canada doesn't count: it's on by default, so a European user may never have unticked it.
+     * ignored (see FlockNoise). Canada doesn't count: it was on by default, so a European user may never have unticked it.
      */
     @Volatile
     var flockRegion = true
@@ -146,9 +146,13 @@ object OuiWatchlist {
         }
     }
 
+    /** With no saved choice: an install set up before Canada stopped being a default keeps it, so its detection doesn't silently change. */
+    fun defaultPresets(setupDone: Boolean) = if (setupDone) DEFAULT_PRESETS + "canada" else DEFAULT_PRESETS
+
     fun getEnabledPresets(context: Context): Set<String> {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val set = prefs.getStringSet(KEY_ENABLED_PRESETS, DEFAULT_PRESETS) ?: DEFAULT_PRESETS
+        val default = defaultPresets(com.rfsentinel.app.util.Prefs.onboardingDone(context))
+        val set = prefs.getStringSet(KEY_ENABLED_PRESETS, default) ?: default
         // Presets that no longer exist were merged into "canada".
         return set.map { if (it in availablePresets) it else "canada" }.toSet()
     }

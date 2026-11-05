@@ -347,6 +347,8 @@ class SetupActivity : AppCompatActivity() {
     }
 
     private fun finishSetup() {
+        // Before the flag: a finished setup with no saved regions reads as an older install (OuiWatchlist.defaultPresets).
+        OuiWatchlist.setEnabledPresets(this, OuiWatchlist.getEnabledPresets(this))
         Prefs.setOnboardingDone(this)
         val prefetch = com.rfsentinel.app.alpr.CameraPrefetch
         if (step == STEPS - 1 && prefetchOnFinish && prefetch.canRun(this) && !prefetch.isRunning &&

@@ -1,6 +1,7 @@
 package com.rfsentinel.app.ui
 
 import com.rfsentinel.app.oui.OuiWatchlist
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -17,6 +18,12 @@ class RegionNoticeTest {
         assertNull(RegionNotice.textFor("spain"))
         assertNull(RegionNotice.textFor("italy"))
         assertNull(RegionNotice.textFor("us"))
+    }
+
+    @Test
+    fun canadaIsADefaultOnlyForInstallsSetUpBefore() {
+        assertEquals(setOf("global"), OuiWatchlist.defaultPresets(setupDone = false))
+        assertEquals(setOf("global", "canada"), OuiWatchlist.defaultPresets(setupDone = true))
     }
 
     @Test
