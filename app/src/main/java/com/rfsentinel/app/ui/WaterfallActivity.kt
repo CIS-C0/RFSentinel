@@ -116,6 +116,7 @@ class WaterfallActivity : AppCompatActivity() {
             tuned != null -> "Zoomed in on about 2 MHz. Radio detection is paused until you go back to the sweep. Tap to move."
             SdrRadio.mode == SdrRadio.Mode.ADSB -> "The SDR is receiving ADS-B. Tune to look at a frequency."
             SdrRadio.mode == SdrRadio.Mode.P25 -> "The SDR is following a P25 control channel. Tune to look at a frequency."
+            SdrRadio.mode == SdrRadio.Mode.PAGER -> "The SDR is decoding pagers. Tune to look at a frequency."
             else -> "One row per sweep of your watched bands, newest at the top. Tap a signal to zoom in."
         }
         binding.sweepButton.visibility = if (tuned != null) View.VISIBLE else View.GONE

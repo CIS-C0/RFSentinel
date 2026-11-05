@@ -25,8 +25,8 @@ object P25Record {
     /** 8-bit samples summed [P25Demod.DECIM] at a time reach ±5100: this fills 16 bits without clipping. */
     private const val SCALE = 6.0
 
-    /** Mixes [offsetHz] down to 0 and integrates-and-dumps to [RATE], collecting 16-bit I/Q pairs. */
-    class Baseband(val offsetHz: Long, sampleRate: Int = P25Demod.SAMPLE_RATE) {
+    /** Mixes [offsetHz] down to 0 and integrates-and-dumps to [RATE], collecting 16-bit I/Q pairs, or handing each to [onSample]. */
+    class Baseband(val offsetHz: Long, sampleRate: Int = P25Demod.SAMPLE_RATE, private val onSample: ((Double, Double) -> Unit)? = null) {
         private val decim = sampleRate / RATE
         private val stepR: Double; private val stepI: Double
         init { val w = -2 * PI * offsetHz / sampleRate; stepR = cos(w); stepI = sin(w) }
@@ -47,7 +47,8 @@ object P25Record {
                 val nr = pr * stepR - pi * stepI
                 pi = pr * stepI + pi * stepR; pr = nr
                 if (++accN == decim) {
-                    short(accR); short(accI); samples++
+                    if (onSample != null) onSample.invoke(accR, accI) else { short(accR); short(accI) }
+                    samples++
                     accN = 0; accR = 0.0; accI = 0.0
                     val m = 1.5 - 0.5 * (pr * pr + pi * pi); pr *= m; pi *= m // keeps the phasor on the unit circle
                 }

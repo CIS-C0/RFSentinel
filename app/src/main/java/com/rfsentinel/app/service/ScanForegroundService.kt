@@ -438,7 +438,8 @@ class ScanForegroundService : Service() {
         val sdrModes = listOfNotNull(
             com.rfsentinel.app.sdr.SdrRadio.Mode.SWEEP.takeIf { radioOn && Prefs.sdrSweep(this) },
             com.rfsentinel.app.sdr.SdrRadio.Mode.ADSB.takeIf { Prefs.sdrAdsb(this) && Prefs.categoryEnabled(this, Category.AIRCRAFT) },
-            com.rfsentinel.app.sdr.SdrRadio.Mode.P25.takeIf { radioOn && Prefs.sdrP25(this) }
+            com.rfsentinel.app.sdr.SdrRadio.Mode.P25.takeIf { radioOn && Prefs.sdrP25(this) },
+            com.rfsentinel.app.sdr.SdrRadio.Mode.PAGER.takeIf { radioOn && Prefs.sdrPager(this) }
         ).toSet()
         com.rfsentinel.app.sdr.SdrRadio.modes = sdrModes
         com.rfsentinel.app.sdr.SdrRadio.turnMs = com.rfsentinel.app.sdr.SdrRadio.Mode.entries.associateWith { Prefs.sdrTurnS(this, it) * 1000L }

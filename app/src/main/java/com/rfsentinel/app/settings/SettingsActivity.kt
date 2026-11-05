@@ -1490,9 +1490,18 @@ class SettingsActivity : AppCompatActivity() {
             "Needs Two-way radio turned on. On by default when your region is the United States or Canada. Receiving radio " +
             "signalling is legal in many places but not all, and some forbid it in a vehicle or passing on what you hear: " +
             "check the law where you are.") { Prefs.setSdrP25(this, it) }
+        val pagerBox = scan("Pager messages", Prefs.sdrPager(this),
+            "Experimental. Finds paging channels and decodes POCSAG and FLEX pages (Tools › Pager messages). Pages stay in the " +
+            "phone's memory: never saved, exported or sent, and gone when the app closes or you untick this. Pages can hold " +
+            "private or medical details. Canada, the United States and many other places restrict using or passing on " +
+            "messages you intercept, and some forbid listening at all: check the law where you are. " +
+            "Needs Two-way radio turned on.") {
+            Prefs.setSdrPager(this, it)
+            if (!it) com.rfsentinel.app.sdr.SdrRadio.pagerLog.clear()
+        }
         // Each ticked scan's own turn length, shown while it shares the SDR.
         val turnViews = listOf(sweepBox to com.rfsentinel.app.sdr.SdrRadio.Mode.SWEEP, adsbBox to com.rfsentinel.app.sdr.SdrRadio.Mode.ADSB,
-            p25Box to com.rfsentinel.app.sdr.SdrRadio.Mode.P25).map { (ticked, m) ->
+            p25Box to com.rfsentinel.app.sdr.SdrRadio.Mode.P25, pagerBox to com.rfsentinel.app.sdr.SdrRadio.Mode.PAGER).map { (ticked, m) ->
             slider(30, 300, Prefs.sdrTurnS(this, m), { "Time for ${m.label}: $it s" }) { Prefs.setSdrTurnS(this, m, it) }
             info(box.getChildAt(box.childCount - 2), "With more than one scan ticked, the SDR gives ${m.label} this long before the next scan takes " +
                 "its turn. Longer misses less of it; shorter comes back to the other scans sooner.",

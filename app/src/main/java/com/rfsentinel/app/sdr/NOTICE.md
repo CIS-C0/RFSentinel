@@ -23,3 +23,14 @@ The ISC license of DSD and mbelib:
 > PERFORMANCE OF THIS SOFTWARE.
 
 IMBE is a voice coding method of Digital Voice Systems, Inc. (DVSI); the P25 standard (TIA-102.BABA) describes it.
+
+# Pager messages: sources and licenses
+
+- `Flex.kt` is a Kotlin port of multimon-ng's FLEX decoder: symbol recovery, frame state machine, phase, address and message parsing.
+- `Pocsag.kt` follows multimon-ng's POCSAG decoder and its BCH(31,21) error correction, rewritten for one table shared with FLEX.
+
+| Part | Origin | License |
+|---|---|---|
+| FLEX decoder (`demod_flex.c`) | [multimon-ng](https://github.com/EliasOenal/multimon-ng), adapted from GNU Radio: Copyright 2004, 2006, 2010 Free Software Foundation, Inc.; (C) 2015 Craig Shelley; (C) 2024 Jason Lingohr | GPL-3.0-or-later |
+| POCSAG decoder (`pocsag.c`) | [multimon-ng](https://github.com/EliasOenal/multimon-ng): (C) 1996 Thomas Sailer; (C) 2012-2014 Elias Oenal and others | GPL-2.0-or-later |
+| BCH(31,21) correction (`bch.c`) | [multimon-ng](https://github.com/EliasOenal/multimon-ng) | Public domain (Unlicense) |

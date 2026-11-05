@@ -176,15 +176,16 @@ class P25Demod(offsetHz: Double, private val frameDibits: Int = FRAME_DIBITS, pr
             else -> 3
         }
 
-        /** Channel low-pass at 48 kS/s: windowed sinc, cut at 6.25 kHz. */
-        private val TAPS: DoubleArray = run {
-            val len = 31; val fc = 6_250.0 / CHANNEL_RATE
+        /** Channel low-pass at 48 kS/s: windowed sinc, cut at [cutHz]. */
+        internal fun lowPass(cutHz: Double): DoubleArray {
+            val len = 31; val fc = cutHz / CHANNEL_RATE
             val t = DoubleArray(len) { k ->
                 val x = k - (len - 1) / 2.0
                 val sinc = if (x == 0.0) 2 * fc else sin(2 * PI * fc * x) / (PI * x)
                 sinc * (0.54 - 0.46 * cos(2 * PI * k / (len - 1)))
             }
-            val sum = t.sum(); DoubleArray(len) { t[it] / sum }
+            val sum = t.sum(); return DoubleArray(len) { t[it] / sum }
         }
+        private val TAPS = lowPass(6_250.0)
     }
 }

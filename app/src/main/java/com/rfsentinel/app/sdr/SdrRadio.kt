@@ -18,7 +18,8 @@ import com.rfsentinel.app.usb.UsbWifi
  *
  * Or an ADS-B receiver on 1090 MHz ([ModeS], [AdsbTracker]): aircraft heard directly, no internet
  * needed, handed to [onAircraft] every few seconds. Or it finds and follows a P25 trunked-radio
- * control channel ([P25Hunt]). Any mix of the three ([modes]): it takes turns, each of its own [turnMs].
+ * control channel ([P25Hunt]). Or it decodes pager messages ([PagerHunt], [PagerLog]). Any mix of them ([modes]): it takes
+ * turns, each of its own [turnMs].
  *
  * The radio waterfall screen ([SdrWaterfall]) gets a row per sweep, or, zoomed in with [tuneHz],
  * holds one frequency for a fast live view (the sweep and ADS-B pause meanwhile).
@@ -39,6 +40,7 @@ object SdrRadio {
     private const val TUNED_READS = 4          // ~16 ms of samples per waterfall row
     private const val TUNED_ROW_MS = 40L       // at most ~25 rows a second
     private const val P25_RETRY_MS = 30_000L   // no control channel found: look again after this
+    private const val PAGER_RETRY_MS = 5_000L  // no paging channel decoded: look again after this (they can be silent between pages)
     private const val INPUT_DELAY_MS = 400L    // after a grant: the radio is on the air by then
     private const val INPUT_GAP_MS = 5_000L    // at most one input check this often: each costs ~0.2 s of control channel
     private const val INPUT_READS = 16         // ~70 ms of the input
@@ -67,7 +69,7 @@ object SdrRadio {
     private val UNPLUGGED get() = "$deviceLabel unplugged"
     /** For the reading thread: stop now (scan stopped, unplugged, or a newer thread took over). */
     private val halted get() = stop || Thread.currentThread() !== worker
-    enum class Mode(val label: String) { SWEEP("radio sweep"), ADSB("ADS-B"), P25("P25") }
+    enum class Mode(val label: String) { SWEEP("radio sweep"), ADSB("ADS-B"), P25("P25"), PAGER("pagers") }
     /** What the SDR does (Settings > RTL-SDR radio); with more than one it takes turns ([turnMs]). */
     @Volatile var modes: Set<Mode> = setOf(Mode.SWEEP)
     /** How long each scan's turn lasts (Settings › RTL-SDR radio); 60 s when not set. */
@@ -96,6 +98,10 @@ object SdrRadio {
     @Volatile var p25Messages = 0L; private set
     /** Talkgroups and calls heard on the current control channel (the P25 screen). */
     val p25Log = P25Log()
+    /** Pages heard, in memory only (the Pager messages screen). */
+    val pagerLog = PagerLog()
+    /** The paging channel to go back to on its next turn. */
+    private var pagerHz: Long? = null
     /** A call started on this talkgroup (the service alerts on watched ones). */
     @Volatile var onP25Call: ((Int) -> Unit)? = null
     /** Settings › RTL-SDR radio: after a call starts, briefly listen where its radio transmits (the site's input). */
@@ -306,7 +312,7 @@ object SdrRadio {
                 else "RTL-SDR: this tuner isn't supported yet (R820T / R820T2 / R860 / R828D only)"
             return false
         }
-        sweepWatch = null; p25Hunt = null; p25Lock = null
+        sweepWatch = null; p25Hunt = null; p25Lock = null; pagerHz = null
         var tuned = false
         while (!halted && !sdr.lost && !gone(name)) {
             if (tuneHz != null) { runTuned(sdr, name); tuned = true; continue }
@@ -325,6 +331,7 @@ object SdrRadio {
                 Mode.SWEEP -> runSweep(sdr, name)
                 Mode.ADSB -> runAdsb(sdr, name)
                 Mode.P25 -> runP25(sdr, name)
+                Mode.PAGER -> runPager(sdr, name)
             }
         }
         if (sdr.lost) UsbWifi.log("$deviceLabel: the dongle stopped answering (unplugged?)")
@@ -651,6 +658,39 @@ object SdrRadio {
         }
         if (got < 2 * 1024) return null
         return RadioWatch.channelSnrDb(RadioWatch.powerSpectrum(iq, got / 2), sdr.sampleRate, INPUT_OFFSET_HZ)
+    }
+
+    /** Finds a paging channel and decodes it; looks again when it goes quiet or none decoded. */
+    private fun runPager(sdr: SdrDevice, name: String) {
+        sdr.setGain(GAIN_TENTHS_DB)
+        sdr.resetBuffer()
+        val hunt = PagerHunt(sdr) { UsbWifi.log("$deviceLabel: $it") }
+        var lastCheck = System.currentTimeMillis(); var away = false
+        val stop = {
+            val now = System.currentTimeMillis()
+            if (now - lastCheck >= 2_000L) { lastCheck = now; away = gone(name) }
+            halted || sdr.lost || away || !keeps(Mode.PAGER)
+        }
+        val onPage = { page: PagerLog.Page, hz: Long -> pagerLog.add(page, hz, System.currentTimeMillis()) }
+        while (!stop()) {
+            val known = pagerHz
+            if (known == null) status = "$deviceLabel · pagers · looking for a paging channel…" + turnNote()
+            val hz = known ?: hunt.hunt(stop, onPage)
+            if (hz == null) {
+                if (stop()) break
+                status = "$deviceLabel · pagers · nothing decoding here · looking again shortly" + turnNote()
+                val until = System.currentTimeMillis() + PAGER_RETRY_MS
+                while (!stop() && System.currentTimeMillis() < until) Thread.sleep(200)
+                continue
+            }
+            pagerHz = hz
+            status = "$deviceLabel · pagers · listening on %.4f MHz".format(java.util.Locale.US, hz / 1e6) + turnNote()
+            val before = pagerLog.total
+            val quiet = hunt.listen(hz, stop, onPage)
+            if (quiet) pagerHz = null
+            // A count only: frequency, capcodes and text stay off the log.
+            UsbWifi.log("$deviceLabel: pagers ${if (quiet) "channel went quiet" else "turn over or stopped"} after ${pagerLog.total - before} pages")
+        }
     }
 
     /** Holds [tuneHz] for the waterfall screen: a row of the ~2 MHz around it every few tens of ms. */

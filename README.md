@@ -275,6 +275,7 @@ Everything the app does, grouped by area.
 - The ALFA AWUS036ACS's light blinks with received traffic (Settings → External hardware switches it off, for the adapters whose light the app can control)
 - RTL-SDR and HackRF transmissions show on the **radar** too, for a minute after they were last heard
 - **P25 control channel** (experimental, RTL-SDR): finds the trunked-radio control channel and lists which talkgroups get a channel and when (Tools → P25 talkgroups), with alerts for talkgroups you watch. Signalling only, voice is never decoded. With more than one SDR scan ticked (radio sweep, ADS-B, P25) the dongle takes turns
+- **Pager messages** (experimental, RTL-SDR or HackRF, off by default): decodes POCSAG and FLEX pages (Tools → Pager messages), kept in memory only
 - **More from every frame:** WPS maker / model / device name, a **probe fingerprint** that survives MAC randomization (watchable: "every device of this type"), and the real name of **hidden networks** when a device joins them
 
 </details>
@@ -770,8 +771,16 @@ talkgroups with their calls, last channel and radio, and emergency / encrypted f
 and *Watch these talkgroups* alerts when a call starts on one. Voice is never
 decoded, and the frequency and network code stay out of the logs. Receiving radio
 signalling is legal in many places but not all: check the law where you are. With
-more than one SDR scan ticked (radio sweep, ADS-B, P25), the dongle takes turns of
+more than one SDR scan ticked (radio sweep, ADS-B, P25, pagers), the dongle takes turns of
 the length you set.
+
+**Pager messages** (experimental, Settings → *RTL-SDR radio*, off by default): finds
+paging channels and decodes POCSAG (512 / 1200 / 2400 baud) and FLEX pages into
+**Tools → Pager messages**. Pages can hold private or medical details, so they stay in
+the phone's memory: never saved, exported or sent, kept out of the logs, and gone when the
+app closes or you untick the setting. Canada, the United States and many other places
+restrict using or passing on messages you intercept, and some forbid listening at all:
+check the law where you are.
 
 <details>
 <summary><b>How a nearby transmitter is told apart, settings and requested networks</b></summary>
@@ -1230,7 +1239,9 @@ shape is [FlipDeFlock](https://github.com/ReconGrunt/FlipDeFlock)'s IE skeleton 
 so its values match, with its candidate and generic shape lists (GPL-3.0). The ADS-B decoder
 is written from the published format and Junzi Sun's *The 1090 MHz Riddle*, with
 [SkyPulse](https://github.com/MrJohn6774/SkyPulse) (GPL-3.0) and
-[dump1090](https://github.com/antirez/dump1090) (BSD-3-Clause) as references. Two fake-cell
+[dump1090](https://github.com/antirez/dump1090) (BSD-3-Clause) as references. The POCSAG and
+FLEX pager decoders follow [multimon-ng](https://github.com/EliasOenal/multimon-ng) (GPL; see
+`sdr/NOTICE.md`). Two fake-cell
 checks follow [AIMSICD](https://github.com/CellularPrivacy/Android-IMSI-Catcher-Detector) and
 [SnoopSnitch](https://github.com/srlabs/snoopsnitch) (GPL-3.0; ideas only). European V2X (ITS-G5) frames are read the way
 [V2X2MAP](https://github.com/pit711/V2X2MAP) by Peter Holzhauser does (MIT; see

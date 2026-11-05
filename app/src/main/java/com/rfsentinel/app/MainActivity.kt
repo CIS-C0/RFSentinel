@@ -231,10 +231,12 @@ class MainActivity : AppCompatActivity() {
                 menu.add(0, 6, 5, "Aircraft")
                 menu.add(0, 7, 6, "Radio waterfall")
                 menu.add(0, 8, 7, "P25 talkgroups")
+                menu.add(0, 9, 8, "Pager messages")
                 setOnMenuItemClickListener { item ->
                     when (item.itemId) {
                         7 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.WaterfallActivity::class.java))
                         8 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.P25Activity::class.java))
+                        9 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.PagerActivity::class.java))
                         6 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.AircraftActivity::class.java)
                             .putExtra("demo", demoMode))
                         5 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.AntennaCheckActivity::class.java)
@@ -521,6 +523,7 @@ class MainActivity : AppCompatActivity() {
                         when (com.rfsentinel.app.sdr.SdrRadio.mode) {
                             com.rfsentinel.app.sdr.SdrRadio.Mode.ADSB -> ({ com.rfsentinel.app.sdr.SdrRadio.adsbMessages })
                             com.rfsentinel.app.sdr.SdrRadio.Mode.P25 -> ({ com.rfsentinel.app.sdr.SdrRadio.p25Messages })
+                            com.rfsentinel.app.sdr.SdrRadio.Mode.PAGER -> ({ com.rfsentinel.app.sdr.SdrRadio.pagerLog.total })
                             else -> null
                         }, " msg/s")
                 },

@@ -53,26 +53,12 @@ class P25Hunt(private val sdr: SdrDevice, private val log: (String) -> Unit = {}
     /** The control channel heard best here, or null (none on the air, or [stop]). */
     fun hunt(stop: () -> Boolean): Lock? {
         sdr.setSampleRate(P25Demod.SAMPLE_RATE)
-        val found = ArrayList<Candidate>()
-        val iq = ByteArray(XFER * SCAN_READS)
         val plan = plan()
-        var unlocked = 0; var short = 0
-        for (center in plan) {
-            if (stop()) return null
-            if (!sdr.tune(center)) { unlocked++; continue }
-            repeat(sdr.settleReads) { sdr.read(buf) }
-            var got = 0
-            for (i in 0 until SCAN_READS) {
-                val n = sdr.read(buf)
-                if (n <= 0) break
-                System.arraycopy(buf, 0, iq, got, n); got += n
-            }
-            if (got >= 2 * 1024) found += candidates(center, RadioWatch.powerSpectrum(iq, got / 2), sdr.sampleRate) else short++
-        }
-        val ranked = strongest(found)
+        val scan = scan(sdr, plan, stop) ?: return null
+        val ranked = strongest(scan.found)
         val tries = ranked.take(MAX_TRIES)
         // Frequencies and network codes stay off the log (they name the local system); bands and levels say enough.
-        log("P25 scan: ${plan.size} steps, tuner didn't lock $unlocked, no samples $short, ${ranked.size} channels " +
+        log("P25 scan: ${plan.size} steps, tuner didn't lock ${scan.unlocked}, no samples ${scan.short}, ${ranked.size} channels " +
             "${MIN_SNR_DB.toInt()} dB or more above the noise (700 MHz ${ranked.count { it.hz < 800_000_000L }}, " +
             "800 MHz ${ranked.count { it.hz >= 800_000_000L }}), strongest ${tries.joinToString { "%.0f".format(it.snrDb) }} dB")
         tried = 0
@@ -185,8 +171,31 @@ class P25Hunt(private val sdr: SdrDevice, private val log: (String) -> Unit = {}
         /** Tuned centres a little closer than the usable width: every channel is seen twice, once well away from DC. */
         private const val STEP_HZ = 750_000L
 
-        internal fun plan(): List<Long> =
-            BANDS.flatMap { b -> generateSequence(b.first - STEP_HZ / 2) { it + STEP_HZ }.takeWhile { it <= b.last + STEP_HZ / 2 }.toList() }
+        internal fun plan(bands: List<LongRange> = BANDS): List<Long> =
+            bands.flatMap { b -> generateSequence(b.first - STEP_HZ / 2) { it + STEP_HZ }.takeWhile { it <= b.last + STEP_HZ / 2 }.toList() }
+
+        internal class Scan(val found: List<Candidate>, val unlocked: Int, val short: Int)
+
+        /** Looks at each tuned centre of [plan] for channels that are on; null when [stop] said so. */
+        internal fun scan(sdr: SdrDevice, plan: List<Long>, stop: () -> Boolean): Scan? {
+            val buf = ByteArray(XFER)
+            val found = ArrayList<Candidate>()
+            val iq = ByteArray(XFER * SCAN_READS)
+            var unlocked = 0; var short = 0
+            for (center in plan) {
+                if (stop()) return null
+                if (!sdr.tune(center)) { unlocked++; continue }
+                repeat(sdr.settleReads) { sdr.read(buf) }
+                var got = 0
+                for (i in 0 until SCAN_READS) {
+                    val n = sdr.read(buf)
+                    if (n <= 0) break
+                    System.arraycopy(buf, 0, iq, got, n); got += n
+                }
+                if (got >= 2 * 1024) found += candidates(center, RadioWatch.powerSpectrum(iq, got / 2), sdr.sampleRate) else short++
+            }
+            return Scan(found, unlocked, short)
+        }
 
         /** Channel-wide peaks [MIN_SNR_DB] above the noise in one tuned chunk, at their power-weighted centre. */
         internal fun candidates(center: Long, psd: FloatArray, sampleRate: Int): List<Candidate> {

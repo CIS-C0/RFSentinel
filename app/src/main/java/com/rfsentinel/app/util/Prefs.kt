@@ -664,6 +664,9 @@ object Prefs {
     fun sdrP25(context: Context): Boolean = bool(context, "sdr_p25",
         com.rfsentinel.app.oui.OuiWatchlist.getEnabledPresets(context).any { it == "us" || it == "canada" })
     fun setSdrP25(context: Context, v: Boolean) { keepSdrSweep(context); setBool(context, "sdr_p25", v) }
+    /** The SDR decodes pager messages (off by default); they stay in memory ([com.rfsentinel.app.sdr.PagerLog]). */
+    fun sdrPager(context: Context): Boolean = bool(context, "sdr_pager", false)
+    fun setSdrPager(context: Context, v: Boolean) { keepSdrSweep(context); setBool(context, "sdr_pager", v) }
     /** The sweep's default follows the ADS-B and P25 settings: store it before they change, or ticking one would untick it. */
     private fun keepSdrSweep(context: Context) { if (!sp(context).contains("sdr_sweep")) setSdrSweep(context, sdrSweep(context)) }
     /** P25 talkgroups to alert on, "1234 Name" a line ([com.rfsentinel.app.sdr.P25Log.watched]). */

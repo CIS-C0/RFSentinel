@@ -120,6 +120,7 @@
         <activity android:name=".ui.AntennaCheckActivity" android:exported="false" />
         <activity android:name=".ui.AircraftActivity" android:exported="false" />
         <activity android:name=".ui.P25Activity" android:exported="false" />
+        <activity android:name=".ui.PagerActivity" android:exported="false" />
         <activity android:name=".ui.WaterfallActivity" android:exported="false"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize" />
         <activity

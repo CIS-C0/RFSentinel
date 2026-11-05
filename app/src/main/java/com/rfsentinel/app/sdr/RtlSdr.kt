@@ -4,8 +4,7 @@ package com.rfsentinel.app.sdr
  * Userspace driver for RTL2832U "RTL-SDR" dongles with a Rafael Micro R820T / R820T2 /
  * R860 or R828D tuner (RTL-SDR Blog V3 / V4 / V4L, Nooelec NESDR and most generic DVB-T
  * sticks), over Android's USB host API - no root. Receive only: it tunes, sets the gain
- * and reads raw I/Q samples, which RF Sentinel only turns into a power spectrum
- * (nothing is demodulated, decoded or recorded).
+ * and reads raw I/Q samples for the scans in [SdrRadio].
  *
  * Ported from librtlsdr (osmocom rtl-sdr: Steve Markgraf, Dimitri Stolnikov and others;
  * R82xx tuner code by Mauro Carvalho Chehab and Steve Markgraf; RTL-SDR Blog V4 support
