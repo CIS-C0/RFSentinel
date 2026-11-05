@@ -136,7 +136,7 @@ object MeshBle {
     }
 
     private fun send(g: BluetoothGatt, c: BluetoothGattCharacteristic, value: ByteArray): Boolean =
-        if (Build.VERSION.SDK_INT >= 33) g.writeCharacteristic(c, value, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) == 0
+        if (Build.VERSION.SDK_INT >= 33) g.writeCharacteristic(c, value, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) == android.bluetooth.BluetoothStatusCodes.SUCCESS
         else {
             @Suppress("DEPRECATION") run { c.value = value; g.writeCharacteristic(c) }
         }
