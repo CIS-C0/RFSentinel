@@ -164,7 +164,7 @@ class AircraftActivity : AppCompatActivity() {
         /** "alt 1,310 m", or "on the ground" (ADS-B reports the ground as 0 or below). */
         fun altitude(p: PoliceAircraft.Plane): String? = p.altitudeFt?.let {
             if (it <= 0) "on the ground"
-            else if (Units.imperial) String.format(Locale.US, "alt %,d ft", it) else String.format(Locale.US, "alt %,d m", (it * 0.3048).toInt())
+            else "alt ${Units.altitude(it)}"
         }
 
         fun compass(deg: Double) = arrayOf("N", "NE", "E", "SE", "S", "SW", "W", "NW")[((deg + 22.5) / 45).toInt() % 8]

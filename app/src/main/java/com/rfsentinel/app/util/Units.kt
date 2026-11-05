@@ -52,6 +52,10 @@ object Units {
     fun km(km: Int, feet: Boolean = imperial): String =
         if (feet) "${(km * 0.621371).roundToInt()} mi" else "$km km"
 
+    /** An aircraft's altitude from feet: "1,200 ft"; "365 m". */
+    fun altitude(ft: Int, feet: Boolean = imperial): String =
+        if (feet) String.format(Locale.US, "%,d ft", ft) else String.format(Locale.US, "%,d m", (ft * 0.3048).toInt())
+
     /** A speed from metres per second: "36 km/h"; "22 mph". */
     fun speed(ms: Double, feet: Boolean = imperial): String = if (feet) "${(ms * 2.236936).roundToInt()} mph" else "${(ms * 3.6).roundToInt()} km/h"
 }

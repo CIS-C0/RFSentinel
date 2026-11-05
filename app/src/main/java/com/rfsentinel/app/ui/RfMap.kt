@@ -349,7 +349,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
                 "label" to if (hit == null) {
                     if (clear) listOfNotNull(AircraftActivity.name(p), AircraftActivity.altitude(p)).joinToString(" · ") else ""
                 } else listOfNotNull(
-                    hit.label.substringAfter(": ", hit.label).take(28), p.altitudeFt?.takeIf { it > 0 }?.let { "$it ft" }
+                    hit.label.substringAfter(": ", hit.label).take(28), p.altitudeFt?.takeIf { it > 0 }?.let { com.rfsentinel.app.util.Units.altitude(it) }
                 ).joinToString(" · "))
         })
 

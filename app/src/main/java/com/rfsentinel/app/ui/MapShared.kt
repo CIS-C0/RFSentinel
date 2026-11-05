@@ -140,7 +140,7 @@ internal object MapDialogs {
             p.callsign?.let { append("Callsign: $it\n") }
             p.type?.let { append("Type: $it\n") }
             p.owner?.let { append("Owner / operator: $it\n") }
-            p.altitudeFt?.let { append(if (it <= 0) "On the ground\n" else "Altitude: $it ft\n") }
+            p.altitudeFt?.let { append(if (it <= 0) "On the ground\n" else "Altitude: ${com.rfsentinel.app.util.Units.altitude(it)}\n") }
             p.speedKt?.let { append(String.format(Locale.US, "Speed: %.0f kt (%s)\n", it, com.rfsentinel.app.util.Units.speed(it * 0.514444))) }
             p.trackDeg?.let { append(String.format(Locale.US, "Heading: %.0f°\n", it)) }
             me?.let { append("Distance: " + com.rfsentinel.app.util.Units.distance(

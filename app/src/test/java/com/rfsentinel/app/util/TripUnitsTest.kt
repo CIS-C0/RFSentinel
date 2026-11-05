@@ -11,4 +11,10 @@ class TripUnitsTest {
         assertEquals("0.00 mi", Units.trip(0.0, feet = true))
         assertEquals("1.00 mi", Units.trip(1609.344, feet = true))
     }
+
+    @Test
+    fun aircraftAltitudeFollowsTheUnits() {
+        assertEquals("1,200 ft", Units.altitude(1200, feet = true))
+        assertEquals("365 m", Units.altitude(1200, feet = false))
+    }
 }

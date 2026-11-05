@@ -152,7 +152,7 @@ class RFSentinelMediaService : MediaBrowserServiceCompat() {
             .take(3)
             .map { (seen, d) ->
                 seen to listOfNotNull(d?.let { NearbyMapScreen.distanceText(it) },
-                    seen.plane.altitudeFt?.takeIf { it > 0 }?.let { "$it ft" },
+                    seen.plane.altitudeFt?.takeIf { it > 0 }?.let { com.rfsentinel.app.util.Units.altitude(it) },
                     if (seen.plane.hex in heard) "heard by your RTL-SDR" else "online feed").joinToString(" · ")
             }
     }
