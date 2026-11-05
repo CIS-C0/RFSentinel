@@ -28,6 +28,8 @@ object Firmware {
         "6f0e871268f6e4d99196d90d89bcc09fe493d010366260a2cfcaa5dd66095f8c", 26350, "LICENCE.ralink_a_mediatek_company_firmware")
     private val MT7662 = Blob("mt7662.bin", "mediatek/mt7662.bin",
         "f7e52492f58088cae50e51a54cca68e4abc5b74f7d0b6b731dbb4c04465a94b6", 81908, "LICENCE.ralink_a_mediatek_company_firmware")
+    private val MT7610U = Blob("mt7610u.bin", "mediatek/mt7610u.bin",
+        "5a4268e9021bb587426ba624b425f1e660bfc82cd63b36ad3ce6fb9ce6751760", 80288, "LICENCE.ralink_a_mediatek_company_firmware")
     private val MT7961_PATCH = Blob("WIFI_MT7961_patch_mcu_1_2_hdr.bin", "mediatek/WIFI_MT7961_patch_mcu_1_2_hdr.bin",
         "a276c06c2b772adb50b86639d33c82824ff4c21d617feb78caea74c040b873f6", 92192, "LICENCE.mediatek")
     private val MT7961_RAM = Blob("WIFI_RAM_CODE_MT7961_1.bin", "mediatek/WIFI_RAM_CODE_MT7961_1.bin",
@@ -64,12 +66,13 @@ object Firmware {
     )
 
     /** Every file the FOSS build may download. */
-    val ALL = listOf(RT2870, MT7662_PATCH, MT7662, MT7961_PATCH, MT7961_RAM, RTL8822B) + BLUETOOTH
+    val ALL = listOf(RT2870, MT7662_PATCH, MT7662, MT7610U, MT7961_PATCH, MT7961_RAM, RTL8822B) + BLUETOOTH
 
     /** The non-free files a driver needs (none for the drivers that load no firmware or only free files). */
     fun needed(driver: UsbWifi.Driver): List<Blob> = when (driver) {
         UsbWifi.Driver.RT3070 -> listOf(RT2870)
         UsbWifi.Driver.MT7612U -> listOf(MT7662_PATCH, MT7662)
+        UsbWifi.Driver.MT7610U -> listOf(MT7610U)
         UsbWifi.Driver.MT7921U -> listOf(MT7961_PATCH, MT7961_RAM)
         UsbWifi.Driver.RTL88X2BU -> listOf(RTL8822B)
         else -> emptyList()

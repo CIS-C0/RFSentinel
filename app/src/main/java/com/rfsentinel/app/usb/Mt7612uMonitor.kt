@@ -13,6 +13,11 @@ package com.rfsentinel.app.usb
  * with a bad checksum are dropped (a corrupted address would show up as a phantom
  * device), the auto-responder (ACK / CTS) is left off, the ROM patch is skipped when an
  * MT7632 already has it (as the kernel does), and the handshake / PMKID capture was removed.
+ *
+ * MT7610U adapters (one chain, 2.4 + 5 GHz) run here too: same USB transport, firmware upload,
+ * MCU protocol and RX format, with the bring-up and tuning of the Linux mt76x0u driver (run with
+ * [x0], tables in [Mt7610uTables]). There the host programs the radio through the MCU. Left out
+ * of that path: everything for transmitting (TSSI, TX power, beacons) and the auto-responder.
  */
 
 import android.content.Context
@@ -84,6 +89,22 @@ object Mt7612uMonitor {
     /** AUTO_RSP_CFG without the auto-responder (bit 0): the adapter never answers with an ACK or CTS. */
     private const val AUTO_RSP_NO_RESPONDER = 0x12
 
+    // MT7610U (mt76x0u)
+    private const val USB_DMA_CFG = 0x0238; private const val DMA_TX_WL_DROP = 1 shl 16
+    private const val EFUSE_CTRL = 0x0024; private const val EFUSE_DATA = 0x0028
+    private const val CMB_CTRL = 0x0020; private const val COEXCFG3 = 0x004c; private const val CSR_EE_CFG1 = 0x0104
+    private const val WMM_CTRL = 0x0230; private const val RF_MISC = 0x0518
+    private const val TX0_RF_GAIN_CORR = 0x13a0; private const val TX0_RF_GAIN_ATTEN = 0x13a8
+    private const val TX_ALC_CFG_0 = 0x13b0; private const val TX_ALC_CFG_1 = 0x13b4; private const val TX_ALC_VGA3 = 0x13c8
+    private const val BBP_CORE0 = 0x2000; private const val BBP_IBI9 = 0x2124; private const val BBP_AGC8 = 0x2320
+    private const val BBP_TXBE0 = 0x2700; private const val BBP_TXBE5 = 0x2714
+    private const val IVB_SIZE = 0x40; private const val DLM_X0 = 0x80000; private const val FW_URB_X0 = 0x38f8
+    private const val CMD_RANDOM_READ = 10; private const val CMD_RANDOM_WRITE = 12; private const val BW_SETTING = 2
+    private const val RF_MEMMAP = 0x80000000.toInt(); private const val RF_PAIRS_PER_CMD = 24 // MT_INBAND_PACKET_MAX_LEN / 8
+    private const val X0_CAL_R = 1; private const val X0_CAL_RXDCOC = 2; private const val X0_CAL_LC = 3
+    private const val X0_CAL_VCO = 12; private const val X0_CAL_FULL = 0xff
+    private const val RF_G_BAND = 0x100; private const val RF_A_BAND = 0x200
+
     private const val MIN_FRAME = 10; private const val MAX_BAD_LOGS = 12; private const val DEAF_MS = 15_000L
     private const val UNCALIBRATED = " · not calibrated: unplug the adapter and plug it back in"
     private const val FW_ATTEMPTS = 3; private const val CLAIM_WAITS = 10
@@ -96,6 +117,7 @@ object Mt7612uMonitor {
     private const val EE_NIC_CONF_1 = 0x036; private const val EE_NIC_CONF_2 = 0x042; private const val EE_LNA_GAIN = 0x044
     private const val EE_RSSI_OFFSET_2G_0 = 0x046; private const val EE_RSSI_OFFSET_2G_1 = 0x048; private const val EE_RSSI_OFFSET_5G_0 = 0x04a
     private const val EE_XTAL_TRIM_1 = 0x03a; private const val EE_XTAL_TRIM_2 = 0x09e
+    private const val EE_ANTENNA = 0x022; private const val EE_CFG1_INIT = 0x024; private const val EE_RSSI_OFFSET_5G_1 = 0x04c; private const val EE_TSSI_BOUND4 = 0x0da
 
     private const val CMD_FUN_SET_OP = 1; private const val CMD_LOAD_CR = 2; private const val CMD_INIT_GAIN_OP = 3
     private const val CMD_POWER_SAVING_OP = 20; private const val CMD_SWITCH_CHANNEL_OP = 30; private const val CMD_CALIBRATION_OP = 31
@@ -118,6 +140,14 @@ object Mt7612uMonitor {
     @Volatile private var uncalibrated = false
     private var mcuGain = 0
     private var rssiOff2g = 0; private var rssiOff5g = 0; private var lna2g = 0; private var lna5g = 0
+    /** Running an MT7610U ([run]'s x0): its 5 GHz LNA gain per sub-band, EEPROM words, and crystal trim. */
+    private var x0 = false
+    private var tag = "MT7612U"
+    private val lnaX0 = IntArray(3)
+    private var conf0X0 = 0
+    private var freqOffsetX0 = 0
+    private var antCfgX0 = 0 to 0
+    private var antConf2X0 = 0
     /** Chain 1's RSSI offsets (the EEPROM words' high bytes, as mt76x2_read_rx_gain reads them). */
     private var rssiOff2g1 = 0; private var rssiOff5g1 = 0
     private val lastCalMs = HashMap<Int, Long>()
@@ -126,8 +156,9 @@ object Mt7612uMonitor {
     fun abort() { stop = true }
 
     fun run(ctx: Context, device: UsbDevice, chipName: String, onStatus: (String) -> Unit,
-            onFrame: (List<MonitorSighting>) -> Unit) {
+            onFrame: (List<MonitorSighting>) -> Unit, x0: Boolean = false) {
         if (running) return
+        this.x0 = x0; tag = if (x0) "MT7610U" else "MT7612U"
         HOP = UsbWifi.hops(ALL_HOP)
         running = true; stop = false; frames.clear(); lastCalMs.clear(); mcuLogged = 0; ctlErrors = 0; mcuAsked = 0; mcuAnswered = 0; uncalibrated = false
         val mgr = ctx.getSystemService(Context.USB_SERVICE) as UsbManager
@@ -140,8 +171,8 @@ object Mt7612uMonitor {
             var claimed = c.claimInterface(intf, true)
             var waits = 0
             while (!claimed && waits < CLAIM_WAITS && !stop) { sleep(300); waits++; claimed = c.claimInterface(intf, true) }
-            if (!claimed) UsbWifi.log("MT7612U: couldn't claim the USB interface after ${waits * 300} ms (continuing)")
-            else if (waits > 0) UsbWifi.log("MT7612U: USB interface claimed after ${waits * 300} ms")
+            if (!claimed) UsbWifi.log("$tag: couldn't claim the USB interface after ${waits * 300} ms (continuing)")
+            else if (waits > 0) UsbWifi.log("$tag: USB interface claimed after ${waits * 300} ms")
             val bulkIn = ArrayList<UsbEndpoint>(); val bulkOut = ArrayList<UsbEndpoint>()
             for (i in 0 until intf.endpointCount) {
                 val ep = intf.getEndpoint(i)
@@ -149,10 +180,11 @@ object Mt7612uMonitor {
             }
             val rx = bulkIn.getOrNull(0); val cmdOut = bulkOut.getOrNull(0)
             epResp = bulkIn.getOrNull(1)
-            UsbWifi.log("=== MT7612U bring-up (mt76x2u) ===")
-            UsbWifi.log("MT7612U: bulk IN [${bulkIn.joinToString { "0x%02x".format(it.address) }}] OUT [${bulkOut.joinToString { "0x%02x".format(it.address) }}]")
+            UsbWifi.log("=== $tag bring-up (${if (x0) "mt76x0u" else "mt76x2u"}) ===")
+            UsbWifi.log("$tag: bulk IN [${bulkIn.joinToString { "0x%02x".format(it.address) }}] OUT [${bulkOut.joinToString { "0x%02x".format(it.address) }}]")
             if (rx == null || cmdOut == null) { onStatus("$chipName: no RX / command endpoint"); return }
             val t0 = System.currentTimeMillis()
+            if (x0) { runX0(ctx, device, chipName, cmdOut, rx, bulkOut + bulkIn, t0, onFrame, onStatus); return }
 
             // ---- firmware ----
             val ver = regRd(ASIC_VERSION)
@@ -219,7 +251,7 @@ object Mt7612uMonitor {
             onStatus("$chipName · live · 2.4 + 5 GHz monitor" + UNCALIBRATED.takeIf { uncalibrated }.orEmpty())
             rxLoop(chipName, cmdOut, rx, onFrame, onStatus)
         } catch (e: Exception) {
-            UsbWifi.log("MT7612U: bring-up error - ${UsbWifi.describe(e)}")
+            UsbWifi.log("$tag: bring-up error - ${UsbWifi.describe(e)}")
             onStatus("$chipName: error · ${e.message}")
         } finally {
             runCatching { c.close() }
@@ -288,8 +320,8 @@ object Mt7612uMonitor {
                 singleWr(WRITE_FCE, FCE_DMA_ADDR, dstAddr + pos)
                 singleWr(WRITE_FCE, FCE_DMA_LEN, rounded shl 16)
                 if (conn.bulkTransfer(out, buf, buf.size, 1000) >= 0) break
-                if (++tries >= 3) { UsbWifi.log("MT7612U: firmware upload failed at $pos of $dataLen B"); return false }
-                UsbWifi.log("MT7612U: firmware chunk at $pos of $dataLen B not taken - resending")
+                if (++tries >= 3) { UsbWifi.log("$tag: firmware upload failed at $pos of $dataLen B"); return false }
+                UsbWifi.log("$tag: firmware chunk at $pos of $dataLen B not taken - resending")
                 sleep(20)
             }
             regWr(TX_CPU_FROM_FCE_CPU_DESC_IDX, regRd(TX_CPU_FROM_FCE_CPU_DESC_IDX) + 1)
@@ -375,6 +407,7 @@ object Mt7612uMonitor {
 
     /** Hops use the firmware's quick channel switch; the full calibration runs on the first tune and every 30 s per channel. */
     private fun tune(ep: UsbEndpoint, ch: Int, scan: Boolean) {
+        if (x0) { tuneX0(ep, ch, scan); return }
         val is5 = if (ch <= 14) 0 else 1
         if (is5 == 0) { regSet(TX_BAND_CFG, 1 shl 2); regClear(TX_BAND_CFG, 1 shl 1) }
         else { regClear(TX_BAND_CFG, 1 shl 2); regSet(TX_BAND_CFG, 1 shl 1) }
@@ -472,8 +505,13 @@ object Mt7612uMonitor {
 
     private fun reKickRx() {
         regClear(MAC_SYS_CTRL, SYS_CTRL_ENABLE_RX)
-        val v = cfgRd(USB_U3DMA_CFG)
-        cfgWr(USB_U3DMA_CFG, v and DMA_RX_BULK_EN.inv()); cfgWr(USB_U3DMA_CFG, v or DMA_RX_BULK_EN)
+        if (x0) {
+            val v = regRd(USB_DMA_CFG)
+            regWr(USB_DMA_CFG, v and DMA_RX_BULK_EN.inv()); regWr(USB_DMA_CFG, v or DMA_RX_BULK_EN)
+        } else {
+            val v = cfgRd(USB_U3DMA_CFG)
+            cfgWr(USB_U3DMA_CFG, v and DMA_RX_BULK_EN.inv()); cfgWr(USB_U3DMA_CFG, v or DMA_RX_BULK_EN)
+        }
         regSet(MAC_SYS_CTRL, SYS_CTRL_ENABLE_RX)
     }
 
@@ -488,16 +526,16 @@ object Mt7612uMonitor {
                        onFrame: (List<MonitorSighting>) -> Unit, onStatus: (String) -> Unit) {
         val st = RxState()
         val t0 = System.currentTimeMillis(); st.hopAt = t0; st.lastEmit = t0; st.lastRxAt = t0; st.lastCheck = t0
-        val stats = BulkRx.Stats("MT7612U")
-        val total = BulkRx.run("MT7612U", conn, ep, 24, RX_BUF, { stop }, onData@{ b, n ->
+        val stats = BulkRx.Stats(tag)
+        val total = BulkRx.run(tag, conn, ep, 24, RX_BUF, { stop }, onData@{ b, n ->
             stats.transfer(n)
             st.lastRxAt = System.currentTimeMillis()
             stats.sample("$n bytes, DMA header + RXWI", b, 0, DMA_HDR + 16)
             val ch = HOP[st.hopIdx]
             val f = parseRx(b, n, onBad = { crc -> if (crc) stats.badChecksum++ else stats.malformed++ },
-                why = { if (st.badLogged < MAX_BAD_LOGS) { st.badLogged++; UsbWifi.log("MT7612U: transfer dropped - $it") } }) ?: return@onData
+                why = { if (st.badLogged < MAX_BAD_LOGS) { st.badLogged++; UsbWifi.log("$tag: transfer dropped - $it") } }) ?: return@onData
             val rssi = f.rawRssi?.let { if (ch <= 14) it + rssiOff2g - lna2g else it + rssiOff5g - lna5g }
-            val rssi1 = f.rawRssi1?.let { if (ch <= 14) it + rssiOff2g1 - lna2g else it + rssiOff5g1 - lna5g }
+            val rssi1 = f.rawRssi1?.takeUnless { x0 }?.let { if (ch <= 14) it + rssiOff2g1 - lna2g else it + rssiOff5g1 - lna5g } // MT7610U: one chain
             stats.frame(rssi)
             frames.frame(b, f.start, f.end, ch, rssi, pathA = rssi, pathB = rssi1)
         }) { now ->
@@ -511,7 +549,7 @@ object Mt7612uMonitor {
                 st.lastCheck = now
                 // Energy on the air but nothing arriving for a while: restart the USB receive path.
                 if (now - st.lastRxAt > 6000 && regRd(CH_BUSY) > 50000) {
-                    UsbWifi.log("MT7612U: receive stalled (${(now - st.lastRxAt) / 1000} s) - restarting it")
+                    UsbWifi.log("$tag: receive stalled (${(now - st.lastRxAt) / 1000} s) - restarting it")
                     runCatching { reKickRx() }
                     st.lastRxAt = now
                 } else if (now - st.lastRxAt > DEAF_MS) {
@@ -519,7 +557,7 @@ object Mt7612uMonitor {
                     // lost its calibration (seen after a quick restart without a replug). Switch it
                     // back on and fully retune.
                     val sys = regRd(MAC_SYS_CTRL)
-                    if (st.revivals < 5) UsbWifi.log("MT7612U: nothing received for ${(now - st.lastRxAt) / 1000} s (SYS_CTRL 0x%08x) - re-enabling the receiver".format(sys))
+                    if (st.revivals < 5) UsbWifi.log("$tag: nothing received for ${(now - st.lastRxAt) / 1000} s (SYS_CTRL 0x%08x) - re-enabling the receiver".format(sys))
                     st.revivals++
                     runCatching {
                         if (sys and SYS_CTRL_ENABLE_RX == 0) macStart() else reKickRx()
@@ -543,7 +581,7 @@ object Mt7612uMonitor {
             }
         }
         frames.emit(FRESH_MS, onFrame)
-        UsbWifi.log("MT7612U: RX loop stopped ($total B)")
+        UsbWifi.log("$tag: RX loop stopped ($total B)")
     }
 
     /** Where the 802.11 frame sits in a transfer and the radio's raw RSSI per chain (0 and 1, before calibration; null when absent). */
@@ -629,6 +667,332 @@ object Mt7612uMonitor {
         }
         if (failed > 0) UsbWifi.log("MT7612U: $failed of ${EE_SIZE / 4} EEPROM reads failed")
         return ee
+    }
+
+    // ---- MT7610U (mt76x0u): bring-up, in the order of mt76x0u_probe / _init_hardware / _start ----
+
+    private fun runX0(ctx: Context, device: UsbDevice, chipName: String, cmdOut: UsbEndpoint, rx: UsbEndpoint, endpoints: List<UsbEndpoint>,
+                      t0: Long, onFrame: (List<MonitorSighting>) -> Unit, onStatus: (String) -> Unit) {
+        onStatus("$chipName · powering on…")
+        chipOnOffX0(enable = false, reset = false) // otherwise the MCU fails to start on a warm adapter
+        if (!macReadyX0()) { onStatus("$chipName: MAC not ready - unplug the adapter and plug it back in"); return }
+        val ver = regRd(ASIC_VERSION)
+        UsbWifi.log("MT7610U: ASIC_VERSION 0x%08x".format(ver))
+        if (ver ushr 16 != 0x7610) { onStatus("$chipName: this MediaTek chip (%04x) isn't supported yet".format(ver ushr 16)); return }
+        chipOnOffX0(enable = true, reset = true)
+        if (!macReadyX0()) { onStatus("$chipName: MAC not ready - unplug the adapter and plug it back in"); return }
+
+        onStatus("$chipName · loading firmware…")
+        val fw = Firmware.read(ctx, "mt7610u.bin")
+        var loaded = false
+        for (attempt in 1..FW_ATTEMPTS) {
+            if (attempt > 1) {
+                UsbWifi.log("MT7610U: retrying the firmware load (attempt $attempt of $FW_ATTEMPTS)")
+                sleep(1000)
+                chipOnOffX0(enable = true, reset = true)
+            }
+            for (ep in endpoints) clearHalt(ep)
+            if (loadFirmwareX0(cmdOut, fw)) { loaded = true; break }
+        }
+        if (!loaded) { onStatus("$chipName: firmware didn't load - unplug the adapter and plug it back in"); return }
+
+        onStatus("$chipName · starting the radio…")
+        initDmaX0()
+        if (!initHardwareX0(cmdOut)) { onStatus("$chipName: radio didn't start - unplug the adapter and plug it back in"); return }
+        val board = (conf0X0 ushr 12) and 3 // BOARD_TYPE: 1 = 2.4 GHz only, 2 = 5 GHz only
+        val has2 = board != 2 && !(device.vendorId == 0x2357 && device.productId == 0x0105) // Archer T1U: 5 GHz only
+        val has5 = board != 1
+        antSelectX0(has2, has5)
+        rfInitX0(cmdOut)
+        regClear(BBP_AGC0, (1 shl 4) or (1 shl 3)) // RX path: the one chain
+        regClear(BBP_TXBE5, 0x3)
+        regRmw(US_CYC_CFG, 0xff, 0x1e)
+        regWr(TXOP_CTRL_CFG, 0x583f)
+        HOP = HOP.filter { if (it <= 14) has2 else has5 }.toIntArray()
+        if (HOP.isEmpty()) { onStatus("$chipName: this adapter's band is turned off in Settings"); return }
+
+        onStatus("$chipName · tuning and calibrating…")
+        macStart()
+        calibrateX0(cmdOut, HOP[0], powerOn = true)
+        tune(cmdOut, HOP[0], scan = false)
+        UsbWifi.log("MT7610U: started in %d ms - SYS_CTRL 0x%08x STATUS 0x%08x USB_DMA 0x%08x RX_FILTR 0x%08x AUTO_RSP 0x%08x, USB errors %d - monitor live ch %d".format(
+            System.currentTimeMillis() - t0, regRd(MAC_SYS_CTRL), regRd(MAC_STATUS), regRd(USB_DMA_CFG), regRd(RX_FILTR_CFG),
+            regRd(AUTO_RSP_CFG), ctlErrors, HOP[0]))
+        uncalibrated = mcuAsked >= 3 && mcuAnswered == 0
+        onStatus("$chipName · live · monitor" + UNCALIBRATED.takeIf { uncalibrated }.orEmpty())
+        rxLoop(chipName, cmdOut, rx, onFrame, onStatus)
+    }
+
+    private fun macReadyX0() = poll(2500, 5) { regRd(MAC_CSR0).let { it != 0 && it != -1 } }
+
+    /** mt76x0_chip_onoff. */
+    private fun chipOnOffX0(enable: Boolean, reset: Boolean) {
+        var v = regRd(WLAN_FUN_CTRL)
+        if (reset) {
+            v = (v or (0xff shl 24)) and FRC_WL_ANT_SEL.inv() // GPIO_OUT_EN
+            if (v and WLAN_EN != 0) {
+                val resets = (1 shl 3) or WLAN_RESET_RF
+                regWr(WLAN_FUN_CTRL, v or resets); sleep(1)
+                v = v and resets.inv()
+            }
+        }
+        regWr(WLAN_FUN_CTRL, v); sleep(1)
+        v = if (enable) v or WLAN_EN or WLAN_CLK_EN else v and WLAN_EN.inv()
+        regWr(WLAN_FUN_CTRL, v); sleep(1)
+        val locked = (1 shl 22) or (1 shl 23) // XTAL_RDY, PLL_LD
+        if (enable && !poll(2000, 2) { regRd(CMB_CTRL) and locked == locked }) UsbWifi.log("MT7610U: PLL and crystal check failed (continuing)")
+    }
+
+    /** mt76x0u_load_firmware. */
+    private fun loadFirmwareX0(out: UsbEndpoint, fw: ByteArray): Boolean {
+        regWr(USB_DMA_CFG, DMA_RX_BULK_EN or DMA_TX_BULK_EN)
+        if (regRd(MCU_COM_REG0) == 1) { UsbWifi.log("MT7610U: firmware already running"); return true }
+        if (fw.size <= FW_HDR_LEN) return false
+        val ilmLen = le32(fw, 0); val dlmLen = le32(fw, 4)
+        if (ilmLen <= IVB_SIZE || FW_HDR_LEN + ilmLen + dlmLen != fw.size) { UsbWifi.log("MT7610U: firmware file size mismatch"); return false }
+        UsbWifi.log("MT7610U: firmware build '${asciiz(fw, 16, 16)}', ILM $ilmLen B, DLM $dlmLen B")
+        regWr(MAC_SYS_CTRL, 0x2c)
+        regSet(USB_DMA_CFG, DMA_RX_BULK_EN or DMA_TX_BULK_EN or 0x20)
+        vendor(DEV_MODE, OUT_VENDOR, 0x1, null) // firmware reset
+        sleep(6)
+        configureFce()
+        regSet(USB_DMA_CFG, DMA_TX_WL_DROP); regClear(USB_DMA_CFG, DMA_TX_WL_DROP)
+        if (!sendFw(out, fw, FW_HDR_LEN + IVB_SIZE, ilmLen - IVB_SIZE, FW_URB_X0, IVB_SIZE)) return false
+        if (!sendFw(out, fw, FW_HDR_LEN + ilmLen, dlmLen, FW_URB_X0, DLM_X0)) return false
+        vendor(DEV_MODE, OUT_VENDOR, 0x12, fw.copyOfRange(FW_HDR_LEN, FW_HDR_LEN + IVB_SIZE)) // start from the IVB
+        if (!poll(1000, 10) { regRd(MCU_COM_REG0) and 0x1 == 0x1 }) { UsbWifi.log("MT7610U: firmware failed to start"); return false }
+        regWr(FCE_PSE_CTRL, 0x1)
+        UsbWifi.log("MT7610U: firmware running")
+        return true
+    }
+
+    /** mt76x0_init_usb_dma. */
+    private fun initDmaX0() {
+        val v = (regRd(USB_DMA_CFG) or DMA_RX_BULK_EN or DMA_TX_BULK_EN) and DMA_RX_BULK_AGG_EN.inv() // one frame per transfer
+        regWr(USB_DMA_CFG, v)
+        regWr(USB_DMA_CFG, v or DMA_RX_DROP_OR_PAD)
+        regWr(USB_DMA_CFG, v and DMA_RX_DROP_OR_PAD.inv())
+    }
+
+    /** mt76x0_init_hardware up to the EEPROM; its shared key and WCID clearing only matters to a client. */
+    private fun initHardwareX0(ep: UsbEndpoint): Boolean {
+        if (!waitWpdma()) UsbWifi.log("MT7610U: DMA still busy after the firmware (continuing)")
+        if (!macReadyX0()) return false
+        regWr(MAC_SYS_CTRL, SYS_CTRL_RESET_CSR or SYS_CTRL_RESET_BBP); sleep(200)
+        regClear(MAC_SYS_CTRL, SYS_CTRL_RESET_CSR or SYS_CTRL_RESET_BBP)
+        mcuX0(ep, CMD_FUN_SET_OP, leWords(Q_SELECT, 1), false)
+        writeAll(Mt7610uTables.MAC)
+        regClear(MAC_SYS_CTRL, SYS_CTRL_RESET_CSR or SYS_CTRL_RESET_BBP)
+        regSet(EXT_CCA_CFG, 0xf000)
+        regClear(FCE_L2_STUFF, 1 shl 4)
+        regRmw(WMM_CTRL, 0x3ff, 0x201)
+        if (!poll(100, 2) { regRd(MAC_STATUS) and 3 == 0 }) { UsbWifi.log("MT7610U: MAC not idle"); return false }
+        if ((1..20).none { regRd(BBP_CORE0).let { v -> v != 0 && v != -1 } }) { UsbWifi.log("MT7610U: BBP not ready"); return false }
+        writeAll(Mt7610uTables.BBP_INIT); writeAll(Mt7610uTables.BBP_2G); writeAll(Mt7610uTables.BBP_DCOC)
+        val ee = readEfuse()
+        conf0X0 = le16(ee, EE_NIC_CONF_0)
+        calFromEfuse(ee)
+        UsbWifi.log("MT7610U: EFUSE MAC %s:xx:xx:xx, NIC_CONF 0x%04x, rssi_off 2g %d 5g %d, lna 2g %d 5g %s, freq offset %d".format(
+            (0 until 3).joinToString(":") { "%02x".format(ee[EE_MAC_ADDR + it].toInt() and 0xff) },
+            conf0X0, rssiOff2g, rssiOff5g, lna2g, lnaX0.joinToString("/"), freqOffsetX0))
+        antCfgX0 = le16(ee, EE_ANTENNA) to le16(ee, EE_CFG1_INIT)
+        antConf2X0 = le16(ee, EE_NIC_CONF_2)
+        return true
+    }
+
+    private fun writeAll(tab: IntArray) { for (i in tab.indices step 2) regWr(tab[i], tab[i + 1]) }
+
+    /** mt76x02_efuse_read over the 512 B map, 16 B per read: unwritten blocks read as 0xff. */
+    private fun readEfuse(): ByteArray {
+        val ee = ByteArray(EE_SIZE)
+        for (addr in 0 until EE_SIZE step 16) {
+            regWr(EFUSE_CTRL, (regRd(EFUSE_CTRL) and (0x03ff0000 or 0xc0).inv()) or (addr shl 16) or (1 shl 30))
+            if (!poll(1000, 1) { regRd(EFUSE_CTRL) and (1 shl 30) == 0 }) UsbWifi.log("MT7610U: EFUSE read timed out at $addr")
+            if (regRd(EFUSE_CTRL) and 0x3f == 0x3f) ee.fill(0xff.toByte(), addr, addr + 16)
+            else for (i in 0 until 4) putLe32(ee, addr + i * 4, regRd(EFUSE_DATA + i * 4))
+        }
+        return ee
+    }
+
+    /** mt76x0_set_freq_offset and mt76x0_read_rx_gain. */
+    internal fun x0FreqOffset(trim: Int, compensation: Int): Int {
+        val valid = { v: Int -> v != 0 && v != 0xff }
+        val base = if (valid(trim)) trim else 0
+        val c = if (valid(compensation)) compensation else 0
+        val delta = if (c and 0x80 != 0) c and 0x7f else -(c and 0x7f) // mt76x02_sign_extend: the top bit set means positive
+        return (base - delta) and 0xff
+    }
+
+    private fun calFromEfuse(ee: ByteArray) {
+        fun u8(i: Int) = ee[i].toInt() and 0xff
+        fun offset(i: Int) = ee[i].toInt().takeIf { it in -10..10 } ?: 0
+        fun lna(v: Int) = if (v == 0xff) 0 else v.toByte().toInt()
+        freqOffsetX0 = x0FreqOffset(u8(EE_XTAL_TRIM_1), u8(EE_TSSI_BOUND4 + 1))
+        rssiOff2g = offset(EE_RSSI_OFFSET_2G_0); rssiOff5g = offset(EE_RSSI_OFFSET_5G_0)
+        lna2g = lna(u8(EE_LNA_GAIN))
+        val l0 = u8(EE_LNA_GAIN + 1)
+        fun orFirst(v: Int) = if (v != 0 && v != 0xff) v else l0
+        lnaX0[0] = lna(l0); lnaX0[1] = lna(orFirst(u8(EE_RSSI_OFFSET_2G_1 + 1))); lnaX0[2] = lna(orFirst(u8(EE_RSSI_OFFSET_5G_1 + 1)))
+        lna5g = lnaX0[0]
+    }
+
+    /** mt76x0_phy_ant_select. */
+    private fun antSelectX0(has2: Boolean, has5: Boolean) {
+        var ant = antCfgX0.first and ((1 shl 14) or (1 shl 12)).inv()
+        var wlan = regRd(WLAN_FUN_CTRL) and ((1 shl 6) or (1 shl 5)).inv()
+        var coex3 = regRd(COEXCFG3) and (0xf shl 2).inv()
+        if (ant and (1 shl 15) != 0) { // dual antenna
+            val diversity = antConf2X0 and (1 shl 3) == 0 && antConf2X0 and (1 shl 4) != 0
+            if (diversity) ant = ant or (1 shl 12) else coex3 = coex3 or (1 shl 4)
+            coex3 = coex3 or (1 shl 3)
+            if (has2) wlan = wlan or (1 shl 6)
+        } else if (has5) coex3 = coex3 or (1 shl 3) or (1 shl 4)
+        else { wlan = wlan or (1 shl 6); coex3 = coex3 or (1 shl 1) }
+        regWr(WLAN_FUN_CTRL, wlan)
+        regRmw(CMB_CTRL, 0xffff, ant)
+        regRmw(CSR_EE_CFG1, 0xffff, antCfgX0.second)
+        regClear(COEXCFG0, 1 shl 2)
+        regWr(COEXCFG3, coex3)
+    }
+
+    /** mt76x0_phy_rf_init. */
+    private fun rfInitX0(ep: UsbEndpoint) {
+        rfWrAll(ep, Mt7610uTables.RF_CENTRAL); rfWrAll(ep, Mt7610uTables.RF_2G)
+        rfWrAll(ep, Mt7610uTables.RF_5G); rfWrAll(ep, Mt7610uTables.RF_VGA)
+        rfWrAll(ep, Mt7610uTables.RF_BW_INIT)
+        rfWrAll(ep, rfRows(Mt7610uTables.RF_BAND, RF_G_BAND))
+        rfWr(ep, rf(0, 22), minOf(freqOffsetX0, 0xbf))
+        rfRd(ep, rf(0, 22))
+        rfRmw(ep, rf(0, 73), 0, 0x80); rfRmw(ep, rf(0, 73), 0x80, 0); rfRmw(ep, rf(0, 73), 0, 0x80) // DAC reset
+        rfRmw(ep, rf(0, 4), 0, 0x80) // VCO calibration
+    }
+
+    /** mt76x0_phy_set_channel at 20 MHz, without the transmit power. */
+    private fun tuneX0(ep: UsbEndpoint, ch: Int, scan: Boolean) {
+        val f = Mt7610uTables.CHANNELS.firstOrNull { it[0] == ch } ?: return
+        val is5 = ch > 14
+        mcuX0(ep, CMD_FUN_SET_OP, leWords(BW_SETTING, 0), true)
+        regRmw(BBP_CORE1, 0x18, 0)
+        regRmw(BBP_AGC0, 0x7000 or 0x300, 1 shl 12)
+        regRmw(BBP_TXBE0, 0x3, 0)
+        regRmw(TX_BAND_CFG, 0x7, if (is5) 1 shl 1 else 1 shl 2)
+        regRmw(EXT_CCA_CFG, 0xfff, (1 shl 2) or (2 shl 4) or (3 shl 6) or (1 shl 8))
+        // mt76x0_phy_set_band
+        rfWrAll(ep, if (is5) Mt7610uTables.RF_5G else Mt7610uTables.RF_2G)
+        rfWr(ep, rf(5, 0), if (is5) 0x44 else 0x45)
+        rfWr(ep, rf(6, 0), if (is5) 0x45 else 0x44)
+        regWr(TX_ALC_VGA3, if (is5) 0x00000005 else 0x00050007)
+        regWr(TX0_RF_GAIN_CORR, if (is5) 0x01010102 else 0x003E0002)
+        setChanRfX0(ep, f)
+        if (ch == 14) regSet(BBP_CORE1, 0x20) else regClear(BBP_CORE1, 0x20)
+        // mt76x0_read_rx_gain, then mt76x0_phy_set_chan_bbp_params
+        if (is5) lna5g = lnaX0[if (ch <= 64) 0 else if (ch <= 128) 1 else 2]
+        val tab = if (is5) Mt7610uTables.BBP_5G else Mt7610uTables.BBP_2G
+        for (i in tab.indices step 2) regWr(tab[i], if (tab[i] == BBP_AGC8) x0AgcGain(tab[i + 1], if (is5) lna5g else lna2g) else tab[i + 1])
+        rfRmw(ep, rf(0, 4), 0, 0x80) // VCO on
+        // Linux skips calibration only while scanning; a monitor is always hopping, so as on the MT7612U each channel gets it every 30 s.
+        val now = System.currentTimeMillis()
+        if (!scan || now - (lastCalMs[ch] ?: 0L) > CAL_TTL_MS) { calibrateX0(ep, ch, powerOn = false); lastCalMs[ch] = now }
+    }
+
+    /** The AGC value with its gain field (bits 14:8) lowered by twice the LNA gain. */
+    internal fun x0AgcGain(v: Int, lna: Int) = (v and (0x7f shl 8).inv()) or (((((v ushr 8) and 0x7f) - lna * 2) and 0x7f) shl 8)
+
+    /** mt76x0_phy_set_chan_rf_params; [f] is a row of [Mt7610uTables.CHANNELS]. */
+    private fun setChanRfX0(ep: UsbEndpoint, f: IntArray) {
+        val band = f[1]; val sdm = f[20] == 1
+        rfWr(ep, rf(0, 37), f[2]); rfWr(ep, rf(0, 36), f[3]); rfWr(ep, rf(0, 35), f[4])
+        rfWr(ep, rf(0, 34), f[5]); rfWr(ep, rf(0, 33), f[6])
+        rfRmw(ep, rf(0, 32), 0xe0, f[7]); rfRmw(ep, rf(0, 32), 0x1f, f[8])
+        rfRmw(ep, rf(0, 31), 0xe0, f[9]); rfRmw(ep, rf(0, 31), 0x1f, f[10])
+        if (sdm) { rfRmw(ep, rf(0, 30), 0x80, 0); rfRmw(ep, rf(0, 30), 0, 0x80) } else rfRmw(ep, rf(0, 30), 0x80, f[11])
+        rfRmw(ep, rf(0, 30), 0x7c, f[12])
+        rfRmw(ep, rf(0, 30), 0x02, f[13] shl 1)
+        rfWr(ep, rf(0, 29), f[14] and 0xff)
+        rfRmw(ep, rf(0, 30), 0x01, (f[14] ushr 8) and 0x1)
+        rfRmw(ep, rf(0, 28), 0xc0, f[15]); rfRmw(ep, rf(0, 28), 0x30, f[16]); rfRmw(ep, rf(0, 28), 0x0c, f[17])
+        rfWr(ep, rf(0, 26), f[18] and 0xff); rfWr(ep, rf(0, 27), (f[18] ushr 8) and 0xff)
+        rfRmw(ep, rf(0, 28), 0x03, (f[18] ushr 16) and 0x3)
+        rfRmw(ep, rf(0, 24), 0x03, f[19])
+        rfWrAll(ep, rfRows(Mt7610uTables.RF_BW, band, anyBand = true))
+        rfWrAll(ep, rfRows(Mt7610uTables.RF_BAND, band))
+        regClear(RF_MISC, 0xc)
+        val is2 = band and RF_G_BAND != 0
+        if (conf0X0 and (if (is2) 1 shl 8 else 1 shl 9) == 0) { // external PA
+            regSet(RF_MISC, if (is2) 1 shl 3 else 1 shl 2)
+            rfWrAll(ep, rfRows(Mt7610uTables.RF_EXT_PA, band))
+        }
+        regWr(TX0_RF_GAIN_ATTEN, if (is2) 0x63707400 else 0x686A7800)
+        regWr(TX_ALC_CFG_1, regRd(TX_ALC_CFG_1) and (if (is2) 0x896400FF else 0x890400FF).toInt())
+    }
+
+    /** mt76x0_phy_calibrate, without the TSSI step: that one drives the transmit path. */
+    private fun calibrateX0(ep: UsbEndpoint, ch: Int, powerOn: Boolean) {
+        fun cal(id: Int, v: Int) { mcuX0(ep, CMD_CALIBRATION_OP, leWords(id, v), true) }
+        if (powerOn) { cal(X0_CAL_R, 0); cal(X0_CAL_VCO, ch) }
+        val txAlc = regRd(TX_ALC_CFG_0)
+        regWr(TX_ALC_CFG_0, 0); sleep(1)
+        val ibi9 = regRd(BBP_IBI9)
+        regWr(BBP_IBI9, 0xffffff7e.toInt())
+        val is5 = ch > 14
+        cal(X0_CAL_FULL, if (!is5) 0x600 else if (ch < 100) 0x701 else if (ch < 140) 0x801 else 0x901)
+        cal(X0_CAL_LC, if (is5) 1 else 0)
+        sleep(16)
+        regWr(BBP_IBI9, ibi9)
+        regWr(TX_ALC_CFG_0, txAlc)
+        cal(X0_CAL_RXDCOC, 1)
+    }
+
+    private fun rf(bank: Int, reg: Int) = (bank shl 16) or reg
+
+    /** The register, value pairs of a register, band mask, value table that apply to [band]. */
+    private fun rfRows(tab: IntArray, band: Int, anyBand: Boolean = false): IntArray {
+        val out = ArrayList<Int>()
+        for (i in tab.indices step 3) if (tab[i + 1] and band != 0 || anyBand && tab[i + 1] == 0) { out += tab[i]; out += tab[i + 2] }
+        return out.toIntArray()
+    }
+
+    /** mt76x02u_mcu_wr_rp: USB reaches the radio's registers only through the MCU; only the last command waits. */
+    private fun rfWrAll(ep: UsbEndpoint, pairs: IntArray) {
+        var i = 0
+        while (i < pairs.size) {
+            val end = minOf(i + RF_PAIRS_PER_CMD * 2, pairs.size)
+            val m = IntArray(end - i) { k -> if (k % 2 == 0) RF_MEMMAP + pairs[i + k] else pairs[i + k] }
+            mcuX0(ep, CMD_RANDOM_WRITE, leWords(*m), end == pairs.size)
+            i = end
+        }
+    }
+    private fun rfWr(ep: UsbEndpoint, reg: Int, v: Int) = rfWrAll(ep, intArrayOf(reg, v))
+
+    /** The register's value, or -1 when the MCU didn't answer. */
+    private fun rfRd(ep: UsbEndpoint, reg: Int): Int {
+        val r = mcuX0(ep, CMD_RANDOM_READ, leWords(RF_MEMMAP + reg, 0), true) ?: return -1
+        return le32(r, 8) and 0xff // | FCE info | register | value |
+    }
+    private fun rfRmw(ep: UsbEndpoint, reg: Int, mask: Int, v: Int) {
+        val cur = rfRd(ep, reg)
+        if (cur >= 0) rfWr(ep, reg, v or (cur and mask.inv()))
+    }
+
+    /** __mt76x02u_mcu_send_msg: sequence 0 asks for no answer. The answer, or null. */
+    private fun mcuX0(ep: UsbEndpoint, cmd: Int, payload: ByteArray, wait: Boolean): ByteArray? {
+        var s = 0
+        if (wait) { seq = (seq + 1) and 0xf; if (seq == 0) seq = 1; s = seq }
+        val rounded = (payload.size + 3) and 3.inv()
+        val buf = ByteArray(4 + rounded + 4)
+        putLe32(buf, 0, (rounded and 0xffff) or (2 shl 27) or (s shl 16) or (cmd shl 20) or (1 shl 30))
+        System.arraycopy(payload, 0, buf, 4, payload.size)
+        if (conn.bulkTransfer(ep, buf, buf.size, 500) < 0) ctlErrors++
+        if (!wait) return null
+        mcuAsked++
+        val rep = epResp ?: run { sleep(10); return null }
+        val rb = ByteArray(1024)
+        repeat(5) {
+            val n = conn.bulkTransfer(rep, rb, rb.size, 300)
+            if (n >= 4 && (le32(rb, 0) ushr 16) and 0xf == s) { mcuAnswered++; return rb }
+        }
+        if (mcuLogged < 6) { mcuLogged++; UsbWifi.log("MT7610U: MCU cmd $cmd - no answer") }
+        return null
     }
 
     // ---- register access ----

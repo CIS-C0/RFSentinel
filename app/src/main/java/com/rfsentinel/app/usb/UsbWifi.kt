@@ -61,7 +61,7 @@ object UsbWifi {
     internal const val ACTION_PERMISSION = "com.rfsentinel.app.USB_WIFI_PERMISSION"
 
     /** Driver families. */
-    enum class Driver { RTL88XXAU, RTL8812AU, RTL88X2BU, RTL8187, RT3070, RTL8814AU, MT7612U, MT7921U, AR9271 }
+    enum class Driver { RTL88XXAU, RTL8812AU, RTL88X2BU, RTL8187, RT3070, RTL8814AU, MT7612U, MT7610U, MT7921U, AR9271 }
 
     /** A supported adapter: the chip name shown to the user and the driver that runs it. */
     data class Chip(val name: String, val driver: Driver)
@@ -75,6 +75,7 @@ object UsbWifi {
     private val RT53 = Chip("RT5370", Driver.RT3070)
     private val AU14 = Chip("RTL8814AU", Driver.RTL8814AU)
     private val MT = Chip("MT7612U", Driver.MT7612U)
+    private val MT10 = Chip("MT7610U", Driver.MT7610U)
     private val ATH = Chip("AR9271", Driver.AR9271)
     private val MT21 = Chip("MT7921AU", Driver.MT7921U)
 
@@ -131,6 +132,12 @@ object UsbWifi {
         (0x043e to 0x7a22) to RT53, (0x043e to 0x7a42) to RT53, (0x04da to 0x1801) to RT53, (0x04da to 0x1800) to RT53,
         (0x04da to 0x23f6) to RT53, (0x0471 to 0x2104) to RT53, (0x0471 to 0x2180) to RT53, (0x0471 to 0x2181) to RT53,
         (0x0471 to 0x2182) to RT53,
+        (0x148f to 0x7610) to MT10, (0x13b1 to 0x003e) to MT10, (0x0e8d to 0x7610) to MT10, (0x7392 to 0xa711) to MT10,
+        (0x148f to 0x761a) to MT10, (0x148f to 0x760a) to MT10, (0x0b05 to 0x17d1) to MT10, (0x0b05 to 0x17db) to MT10,
+        (0x0df6 to 0x0075) to MT10, (0x2019 to 0xab31) to MT10, (0x2001 to 0x3d02) to MT10, (0x0586 to 0x3425) to MT10,
+        (0x07b8 to 0x7610) to MT10, (0x04bb to 0x0951) to MT10, (0x057c to 0x8502) to MT10, (0x293c to 0x5702) to MT10,
+        (0x20f4 to 0x806b) to MT10, (0x7392 to 0xc711) to MT10, (0x0df6 to 0x0079) to MT10, (0x2357 to 0x0123) to MT10,
+        (0x2357 to 0x010b) to MT10, (0x2357 to 0x0105) to MT10,
         (0x0bda to 0x8813) to AU14, // ALFA AWUS1900
         (0x056e to 0x400b) to AU14, (0x056e to 0x400d) to AU14, (0x0846 to 0x9054) to AU14, // ELECOM, Netgear A7000
         (0x0b05 to 0x1817) to AU14, (0x0b05 to 0x1852) to AU14, (0x0b05 to 0x1853) to AU14, // ASUS USB-AC68
@@ -155,7 +162,7 @@ object UsbWifi {
     /** Known monitor-mode chips without a driver here yet (named in the status so users know why). */
     private val KNOWN = mapOf(
         (0x0bda to 0xc811) to "RTL8811CU / 8821CU", (0x0bda to 0xc820) to "RTL8821CU", (0x0bda to 0xc812) to "RTL8812CU",
-        (0x0cf3 to 0x7010) to "AR7010", (0x0cf3 to 0x7015) to "AR7010", (0x0e8d to 0x7610) to "MT7610U",
+        (0x0cf3 to 0x7010) to "AR7010", (0x0cf3 to 0x7015) to "AR7010",
         (0x148f to 0x3071) to "RT3071", (0x148f to 0x3072) to "RT3072"
     )
 
@@ -404,6 +411,7 @@ object UsbWifi {
                     Driver.RT3070 -> Rt3070Monitor.run(context, d, chip.name, onStatus, onFrames)
                     Driver.RTL8814AU -> Rtl8814auMonitor.run(context, d, chip.name, onStatus, onFrames)
                     Driver.MT7612U -> Mt7612uMonitor.run(context, d, chip.name, onStatus, onFrames)
+                    Driver.MT7610U -> Mt7612uMonitor.run(context, d, chip.name, onStatus, onFrames, x0 = true)
                     Driver.MT7921U -> Mt7921uMonitor.run(context, d, chip.name, onStatus, onFrames)
                     Driver.AR9271 -> Ar9271Monitor.run(context, d, "${chip.name} (experimental)", onStatus, onFrames)
                 }

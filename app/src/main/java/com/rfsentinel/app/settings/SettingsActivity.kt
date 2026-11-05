@@ -788,7 +788,7 @@ class SettingsActivity : AppCompatActivity() {
                 "• USB WiFi adapters in monitor mode: longer range, and they hear devices connected to networks. " +
                 "RTL8811AU / 8821AU (ALFA AWUS036ACS), RTL8812BU / 8822BU, RTL8814AU (AWUS1900), MT7612U (AWUS036ACM), " +
                 "MT7921AU (AWUS036AXML, WiFi 6E: 2.4, 5 and 6 GHz, experimental), " +
-                "RTL8187 (AWUS036H), RT3070 (AWUS036NH / NEH), RT5370 / RT5372 (experimental), AR9271 (AWUS036NHA, experimental).\n\n" +
+                "RTL8187 (AWUS036H), RT3070 (AWUS036NH / NEH), RT5370 / RT5372 (experimental), MT7610U (experimental), AR9271 (AWUS036NHA, experimental).\n\n" +
                 "AWUS036ACS 5 GHz (experimental, off by default): the RTL8811AU / 8821AU also hops 5 GHz channels 36-48 and " +
                 "149-165. Untested on every unit: if it misbehaves, turn it off and send the adapter log. Applies when the adapter is plugged in.\n\n" +
                 "Adapter light: the AWUS036ACS blinks with received traffic; switch it off to keep it dark (for example in a car at night). " +

@@ -268,7 +268,7 @@ Everything the app does, grouped by area.
 <summary><b>Hardware</b></summary>
 
 - ESP32 boards over USB OTG (OUI-Spy, GhostESP, Marauder incl. dual-band ESP32-C5 boards, or through a Flipper Zero) or Bluetooth (OUI-SPY App-Controlled) add their detections and extend range
-- **USB WiFi adapters in monitor mode** over OTG, no root: RTL8811AU / RTL8821AU (e.g. ALFA AWUS036ACS, 2.4 GHz; 5 GHz experimental, Settings → External hardware), **RTL8812AU** (e.g. ALFA AWUS036ACH, 2.4 + 5 GHz, experimental), **RTL8812BU / RTL8822BU** (2.4 + 5 GHz, e.g. TP-Link Archer T3U, Wise Tiger AC1200), **RTL8814AU** (ALFA AWUS1900, 2.4 + 5 GHz), **MT7612U** (ALFA AWUS036ACM, 2.4 + 5 GHz), **MT7921AU** (ALFA AWUS036AXML / AXM, WiFi 6E: 2.4 + 5 + **6 GHz**), **RTL8187** (ALFA AWUS036H), **RT3070** (ALFA AWUS036NH / NEH) and, experimental, **AR9271** (ALFA AWUS036NHA). No Android scan limit, longer range, and **client devices** (laptops, phones, cameras connected to a network) the phone's WiFi scan can't see. Single-antenna dongles are detected and handled automatically
+- **USB WiFi adapters in monitor mode** over OTG, no root: RTL8811AU / RTL8821AU (e.g. ALFA AWUS036ACS, 2.4 GHz; 5 GHz experimental, Settings → External hardware), **RTL8812AU** (e.g. ALFA AWUS036ACH, 2.4 + 5 GHz, experimental), **RTL8812BU / RTL8822BU** (2.4 + 5 GHz, e.g. TP-Link Archer T3U, Wise Tiger AC1200), **RTL8814AU** (ALFA AWUS1900, 2.4 + 5 GHz), **MT7612U** (ALFA AWUS036ACM, 2.4 + 5 GHz), **MT7921AU** (ALFA AWUS036AXML / AXM, WiFi 6E: 2.4 + 5 + **6 GHz**), **RTL8187** (ALFA AWUS036H), **RT3070** (ALFA AWUS036NH / NEH) and, experimental, **AR9271** (ALFA AWUS036NHA), **RT5370 / RT5372** and **MT7610U** (2.4 + 5 GHz). No Android scan limit, longer range, and **client devices** (laptops, phones, cameras connected to a network) the phone's WiFi scan can't see. Single-antenna dongles are detected and handled automatically
 - **Requested networks:** the WiFi names nearby devices ask for (probe requests), from a USB adapter or a Marauder board, in an optional list; **watch** a name to get an alert whenever any device asks for it
 - **USB Bluetooth adapters** as a second Bluetooth LE scanner, no root: the Bluetooth part of an MT7921AU, RTL8821AU or RTL8822BU combo adapter, or a USB Bluetooth dongle (standard controllers, Realtek RTL8761B / 8761C and others), listening only, with LE Coded long range where the chip has it; devices it hears get a **USB BT** badge (Settings → External hardware)
 - **Record frames to .pcap** for Wireshark (Settings → External hardware): every frame a USB WiFi adapter or V2X board hears, with its channel and signal
@@ -689,7 +689,7 @@ Plug a supported USB WiFi adapter into the phone with an OTG cable while
 scanning and allow USB access on the prompt. RF Sentinel drives it directly
 over Android's USB host API (no root, no kernel driver), puts it in
 **receive-only monitor mode** and hops the channels (2.4 GHz on 88xxau, RTL8187,
-RT3070 and AR9271; 2.4 GHz and 5 GHz on 88x2bu, 8814au and MT7612U; 2.4, 5 and 6 GHz on the
+RT3070 and AR9271; 2.4 GHz and 5 GHz on 88x2bu, 8814au, MT7612U and MT7610U; 2.4, 5 and 6 GHz on the
 MT7921AU, 6 GHz on its 15 preferred scanning channels, where access points beacon). Access points
 (beacons, probe responses) and client devices (probe requests, data frames)
 go through RF Sentinel's own rules like everything else, with a purple
@@ -722,14 +722,15 @@ Realtek RTL8822CU / 8852 and Intel dongles aren't supported yet.
 | RTL8187 | 2.4 GHz | - | ALFA AWUS036H, Netgear WG111v2 |
 | RT3070 | 2.4 GHz | - | ALFA AWUS036NH / NEH |
 | RT5370 / RT5372 | 2.4 GHz, experimental | - | Generic Ralink dongles |
+| MT7610U | 2.4 + 5 GHz, experimental | - | TP-Link Archer T2UHP / T1U, Linksys AE6000, ASUS USB-AC51 |
 | AR9271 | 2.4 GHz, experimental | - | ALFA AWUS036NHA, TP-Link TL-WN722N v1 |
 
-Recognised but not supported yet: RTL8811CU / 8821CU / 8812CU, MT7610U, AR7010.
+Recognised but not supported yet: RTL8811CU / 8821CU / 8812CU, AR7010.
 
 <details>
 <summary><b>Receive-only, the adapter log and single-antenna dongles</b></summary>
 
-The adapter never transmits (on the MT7612U and RT3070 even the automatic ACK
+The adapter never transmits (on the MT7612U, MT7610U and RT3070 even the automatic ACK
 replies are switched off).
 Settings → External hardware shows its status, and **Export USB adapter log** saves a text
 file (app and phone version, the USB devices plugged in, the driver log) to
@@ -1139,7 +1140,7 @@ always OpenFreeMap. **full** adds the optional Mapbox map (`./gradlew assembleFu
 Both have the same app ID, so either one replaces the other.
 A build of only foss tasks (or `-Prfs.foss=true`) leaves the full flavor out and never
 declares or contacts Mapbox's Maven server. The foss flavor also leaves out the non-free
-firmware of the RT3070, MT7612U, MT7921AU and RTL8812BU / 8822BU adapters: when one is
+firmware of the RT3070, MT7612U, MT7610U, MT7921AU and RTL8812BU / 8822BU adapters: when one is
 plugged in, the app asks before downloading those exact files once from
 [linux-firmware](https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git)
 (pinned commit, checked against their SHA-256; see `usb/Firmware.kt`).
@@ -1263,11 +1264,11 @@ driver; every transmit path was left out. The RTL8814AU, MT7612U, RT3070 and
 AR9271 drivers and the FREE-WiLi 2 reader are ported from Wardrive Go too
 (checked against and fixed from the Linux rt2800usb, mt76x2u and ath9k_htc
 drivers), and the RTL8187 driver from the Linux rtl8187 driver with Kismet's
-Android PCAP Capture as the USB reference. The MT7921AU (WiFi 6E) driver is ported from
+Android PCAP Capture as the USB reference. The MT7610U path follows the Linux mt76x0u driver. The MT7921AU (WiFi 6E) driver is ported from
 [mt76-usb-macos](https://github.com/Network-Weather/mt76-usb-macos) by Network Weather
 (BSD-3-Clause-Clear), a transcription of the MT7921 path of the Linux mt76 driver
 (openwrt/mt76, MediaTek and the mt76 authors, BSD-3-Clause-Clear); its transmit path was left out. Their firmware (Ralink rt2870.bin,
-MediaTek mt7662 and MT7961, open ath9k_htc) is the unmodified linux-firmware images, with
+MediaTek mt7662, mt7610u and MT7961, open ath9k_htc) is the unmodified linux-firmware images, with
 their licences in `assets/usbwifi/`; see `usb/NOTICE.md`. The map's anchored point layer follows
 Wardrive Go's approach - thank you.
 
