@@ -195,7 +195,8 @@ class SetupActivity : AppCompatActivity() {
             "portugal" to "Portugal - Motorola SIRESP radios of PSP, GNR and INEM",
             "germany" to "Germany - Motorola VB400 body cams, Motorola and Sepura BOS digital radios",
             "spain" to "Spain - Axon body cams of the Policia Nacional, Teltronic radios",
-            "italy" to "Italy - Leonardo / Selex police radios, Selea and Elsag plate readers"
+            "italy" to "Italy - Leonardo / Selex police radios, Selea and Elsag plate readers",
+            "netherlands" to "Netherlands - Zepcam body cams"
         ).forEach { (key, label) ->
             check(label, key in enabled) { on ->
                 if (on) enabled += key else enabled -= key

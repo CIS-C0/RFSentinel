@@ -211,6 +211,7 @@
             <CheckBox style="@style/SettingsControl" android:id="@+id/presetGermany" android:text="Germany" />
             <CheckBox style="@style/SettingsControl" android:id="@+id/presetSpain" android:text="Spain" />
             <CheckBox style="@style/SettingsControl" android:id="@+id/presetItaly" android:text="Italy" />
+            <CheckBox style="@style/SettingsControl" android:id="@+id/presetNetherlands" android:text="Netherlands" />
         </LinearLayout>
 
         <!-- ================= Alerts ================= -->

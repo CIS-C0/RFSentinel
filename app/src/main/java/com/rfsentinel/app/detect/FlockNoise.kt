@@ -6,10 +6,9 @@ package com.rfsentinel.app.detect
  * generic "FS-<hex>" name are shared with speakers, scooters, bulbs and meeting-room boxes:
  *  - a module-prefix match is dropped when the device names itself as something else
  *    (a Flock module has no name or a Flock-style one);
- *  - outside Flock's market (a European preset on, US and Canada off) both are dropped entirely, and so are the
- *    "Possible Flock camera" probe clues (probe shape, module prefix without Flock's element), which ordinary
- *    phones and boards also match.
- * Strong Flock signatures (Penguin / Falcon / Raven names, Flock's own service, the
+ *  - outside Flock's market (a European preset on, United States off) every Flock match is dropped, strong
+ *    signatures included: Flock isn't used there.
+ * In Flock's market, strong signatures (Penguin / Falcon / Raven names, Flock's own service, the
  * battery name, XUNTONG ID) are never touched.
  */
 object FlockNoise {
@@ -24,15 +23,14 @@ object FlockNoise {
     fun isGenericFsName(h: Hit) =
         h.category == Category.ALPR && h.evidence.contains("generic white-label", ignoreCase = true)
 
-    fun isWeakProbe(h: Hit) =
-        h.category == Category.ALPR && h.label.startsWith("Possible Flock camera (probe")
+    private fun isFlock(h: Hit) = h.label.contains("Flock", ignoreCase = true) || isGenericFsName(h)
 
     fun filter(hits: List<Hit>, name: String?, flockRegion: Boolean): List<Hit> {
         val named = name?.trim()?.takeIf { it.isNotEmpty() }
         return hits.filterNot { h ->
             when {
-                isCommunityPrefix(h) -> !flockRegion || (named != null && !FLOCK_NAME.containsMatchIn(named))
-                isGenericFsName(h) || isWeakProbe(h) -> !flockRegion
+                !flockRegion -> isFlock(h)
+                isCommunityPrefix(h) -> named != null && !FLOCK_NAME.containsMatchIn(named)
                 else -> false
             }
         }

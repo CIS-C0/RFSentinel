@@ -391,7 +391,7 @@ object DeviceIntel {
             if (basis == null) basis = "Apple Continuity message"
             type = type ?: when {
                 0x07 in types -> "AirPods / Beats"
-                0x12 in types -> "Apple Find My device (AirTag, iPhone, Mac...)"
+                0x12 in types -> "Apple device with Find My"
                 0x09 in types -> "Apple TV / AirPlay speaker"
                 // Only a Watch reports being on a wrist or offers Magic Switch; only a phone drives,
                 // and only a phone or cellular iPad offers its hotspot.

@@ -1,0 +1,10 @@
+[
+  {
+    "prefix": "48:46:8D",
+    "label": "Zepcam body camera (Dutch maker)",
+    "source": "IEEE MA-L registry (Zepcam B.V.): a dedicated body-worn camera manufacturer for police, security and transit",
+    "confidence": "confirmed",
+    "score": 75,
+    "category": "BODY_CAM"
+  }
+]

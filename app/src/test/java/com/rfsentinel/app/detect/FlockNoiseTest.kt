@@ -23,9 +23,12 @@ class FlockNoiseTest {
     }
 
     @Test
-    fun outsideFlocksMarketOnlyStrongSignaturesCount() {
+    fun outsideFlocksMarketNoFlockMatchCounts() {
         assertTrue(FlockNoise.filter(listOf(liteon, fsName), null, flockRegion = false).isEmpty())
-        assertEquals(listOf(penguin), FlockNoise.filter(listOf(liteon, fsName, penguin), "Penguin-1234567890", false))
+        val raven = Hit(Category.AUDIO_SENSOR, "Flock Raven audio / gunshot sensor", 80, "", "")
+        val axon = Hit(Category.BODY_CAM, "Axon body camera", 75, "", "")
+        assertEquals(listOf(axon), FlockNoise.filter(listOf(liteon, fsName, penguin, raven, axon), "Penguin-1234567890", false))
+        assertEquals(listOf(penguin), FlockNoise.filter(listOf(penguin), "Penguin-1234567890", true))
         assertEquals(1, FlockNoise.filter(listOf(fsName), "FS-ABC123", flockRegion = true).size)
         val shape = Hit(Category.ALPR, "Possible Flock camera (probe shape)", 35, "", "")
         assertTrue(FlockNoise.filter(listOf(shape), null, flockRegion = false).isEmpty())

@@ -49,7 +49,8 @@ class SettingsActivity : AppCompatActivity() {
             "Portugal: Motorola SIRESP radios of PSP, GNR and INEM.\n" +
             "Germany: Motorola VB400 body cams, Motorola and Sepura BOS digital radios.\n" +
             "Spain: Axon body cams of the Policia Nacional, Teltronic radios.\n" +
-            "Italy: Leonardo / Selex police radios, Selea and Elsag plate readers."
+            "Italy: Leonardo / Selex police radios, Selea and Elsag plate readers.\n" +
+            "Netherlands: Zepcam body cams."
         const val WAZE_WARNING_SHORT = "Use at your own risk. Reports come from third-party services RF Sentinel doesn't run or endorse " +
             "(OpenWeb Ninja with your own key, or Waze itself); your account, your responsibility."
         const val WAZE_WARNING = "Waze police reports are read through OpenWeb Ninja's Waze API with your own API key.\n\n" +
@@ -302,7 +303,8 @@ class SettingsActivity : AppCompatActivity() {
     private fun presetSwitches() = mapOf(
         "global" to binding.presetGlobal, "canada" to binding.presetCanada, "us" to binding.presetUs,
         "france" to binding.presetFrance, "uk" to binding.presetUk, "portugal" to binding.presetPortugal,
-        "germany" to binding.presetGermany, "spain" to binding.presetSpain, "italy" to binding.presetItaly
+        "germany" to binding.presetGermany, "spain" to binding.presetSpain, "italy" to binding.presetItaly,
+        "netherlands" to binding.presetNetherlands
     )
 
     /** ESP32 boards on USB (OUI-Spy / GhostESP / Marauder) and an OUI-SPY board over Bluetooth. */
@@ -684,8 +686,9 @@ class SettingsActivity : AppCompatActivity() {
                 "• Germany: Motorola VB400 body cams of several state police forces, Motorola and Sepura BOS digital radios.\n" +
                 "• Spain: Axon body cams of the Policia Nacional, Teltronic TETRA radios.\n" +
                 "• Italy: Leonardo / Selex TETRA radios of the Polizia di Stato, Selea and Elsag plate readers.\n" +
-                "French drone electronic IDs are decoded in every region. With a European preset on (and not US / Canada), " +
-                "the weak Flock clues are ignored: Flock isn't used there."),
+                "• Netherlands: Zepcam body cams.\n" +
+                "French drone electronic IDs are decoded in every region. With a European preset on (and not United States), " +
+                "Flock detection is off: Flock isn't used there."),
         Section("alerts", binding.headerAlerts, binding.sectionAlerts,
             "Threshold: \"Weak\" alerts on every match (more false alarms); \"Strong only\" on near-certain ones.\n\n" +
                 "Vibration: 1 pulse weak, 2 probable, 3 strong.\n\n" +
