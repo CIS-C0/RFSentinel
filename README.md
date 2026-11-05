@@ -268,6 +268,7 @@ Everything the app does, grouped by area.
 <summary><b>Hardware</b></summary>
 
 - ESP32 boards over USB OTG (OUI-Spy, GhostESP, Marauder incl. dual-band ESP32-C5 boards, or through a Flipper Zero) or Bluetooth (OUI-SPY App-Controlled) add their detections and extend range
+- **Mesh radios:** a Meshtastic or MeshCore radio on USB or Bluetooth puts the nodes it hears on the map, read-only (experimental, untested on hardware)
 - **USB WiFi adapters in monitor mode** over OTG, no root: RTL8811AU / RTL8821AU (e.g. ALFA AWUS036ACS, 2.4 GHz; 5 GHz experimental, Settings → External hardware), **RTL8812AU** (e.g. ALFA AWUS036ACH, 2.4 + 5 GHz, experimental), **RTL8812BU / RTL8822BU** (2.4 + 5 GHz, e.g. TP-Link Archer T3U, Wise Tiger AC1200), **RTL8814AU** (ALFA AWUS1900, 2.4 + 5 GHz), **MT7612U** (ALFA AWUS036ACM, 2.4 + 5 GHz), **MT7921AU** (ALFA AWUS036AXML / AXM, WiFi 6E: 2.4 + 5 + **6 GHz**), **RTL8187** (ALFA AWUS036H), **RT3070** (ALFA AWUS036NH / NEH) and, experimental, **AR9271** (ALFA AWUS036NHA), **RT5370 / RT5372** and **MT7610U** (2.4 + 5 GHz). No Android scan limit, longer range, and **client devices** (laptops, phones, cameras connected to a network) the phone's WiFi scan can't see. Single-antenna dongles are detected and handled automatically
 - **Requested networks:** the WiFi names nearby devices ask for (probe requests), from a USB adapter or a Marauder board, in an optional list; **watch** a name to get an alert whenever any device asks for it
 - **USB Bluetooth adapters** as a second Bluetooth LE scanner, no root: the Bluetooth part of an MT7921AU, RTL8821AU or RTL8822BU combo adapter, or a USB Bluetooth dongle (standard controllers, Realtek RTL8761B / 8761C and others), listening only, with LE Coded long range where the chip has it; devices it hears get a **USB BT** badge (Settings → External hardware)
@@ -643,6 +644,7 @@ merges into the list with a blue **ESP32** badge.
 | [GhostESP](https://github.com/GhostESP-Revival/GhostESP) | USB | The WiFi networks it scans, about every 10 s |
 | [FREE-WiLi 2](https://freewili.com) | USB | The WiFi networks its ESP32-C5 scans from its console's WiFi menu (2.4 + 5 GHz) |
 | [ESP32 Marauder](https://github.com/justcallmekoko/ESP32Marauder) | USB, or through a Flipper Zero | WiFi networks and client devices from its passive beacon and probe sniffers, batched every 2 s; on ESP32-C5 boards (Marauder v8, BFFB v2, LilyGo T-Dongle C5, C5 DevKit) both 2.4 and 5 GHz |
+| [Meshtastic](https://meshtastic.org) / [MeshCore](https://meshcore.co.uk) radio | USB, or Bluetooth (Settings → External hardware → Pair mesh radio) | Nodes heard over LoRa, with their name and position; MQTT-only nodes and old list entries are left out. Experimental, untested on hardware |
 
 <details>
 <summary><b>Supported boards, Marauder, Flipper Zero and OUI-SPY setup</b></summary>

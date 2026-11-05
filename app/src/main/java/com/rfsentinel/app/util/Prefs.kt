@@ -487,6 +487,10 @@ object Prefs {
     fun trackerFollowPausedUntil(context: Context): Long = sp(context).getLong("tracker_follow_paused_until", 0L)
     fun setTrackerFollowPausedUntil(context: Context, value: Long) = sp(context).edit { putLong("tracker_follow_paused_until", value) }
     /** Bluetooth address of the OUI-SPY board to connect to while scanning (null = none). */
+    /** The Meshtastic or MeshCore radio paired over Bluetooth for logging its nodes. */
+    fun meshRadio(context: Context): String? = sp(context).getString("mesh_radio", null)
+    fun setMeshRadio(context: Context, address: String?) = sp(context).edit { putString("mesh_radio", address) }
+
     fun ouiSpyBoard(context: Context): String? = sp(context).getString("ouispy_board", null)
     fun setOuiSpyBoard(context: Context, address: String?) = sp(context).edit {
         if (address == null) remove("ouispy_board") else putString("ouispy_board", address)

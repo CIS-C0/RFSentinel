@@ -521,6 +521,57 @@ class SettingsActivity : AppCompatActivity() {
         binding.ouiSpyText.text = if (board == null) "OUI-SPY over Bluetooth: not paired"
         else com.rfsentinel.app.esp.OuiSpyBle.status.ifBlank { "OUI-SPY $board: connects while scanning" }
         binding.ouiSpyButton.text = if (board == null) "Pair OUI-SPY board" else "Change or forget OUI-SPY board"
+        val radio = Prefs.meshRadio(this)
+        binding.meshRadioText.text = if (radio == null) "Mesh radio over Bluetooth: not paired"
+        else com.rfsentinel.app.esp.MeshBle.status.ifBlank { "Mesh radio: connects while scanning" }
+        binding.meshRadioButton.text = if (radio == null) "Pair mesh radio" else "Change or forget mesh radio"
+    }
+
+    private val meshConnectPermission = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted -> if (granted) pairMeshRadio() }
+
+    /** Picks the Meshtastic or MeshCore radio whose heard nodes go on the map. */
+    private fun pairMeshRadio() {
+        if (!com.rfsentinel.app.esp.OuiSpyBle.canConnect(this)) {
+            meshConnectPermission.launch(android.Manifest.permission.BLUETOOTH_CONNECT); return
+        }
+        val looking = MaterialAlertDialogBuilder(this)
+            .setTitle("Looking for mesh radios…")
+            .setMessage("Keep the radio powered and close by. A radio connected to another app doesn't show up.")
+            .setNegativeButton("Cancel", null)
+            .show()
+        com.rfsentinel.app.esp.MeshBle.find(this) { found ->
+            if (!looking.isShowing || isFinishing || isDestroyed) return@find
+            looking.dismiss()
+            val current = Prefs.meshRadio(this)
+            val labels = found.map { "${it.name ?: "Mesh radio"}  (${it.address}, ${it.rssi} dBm)" }.toMutableList()
+            if (current != null) labels += "Forget the paired radio"
+            if (labels.isEmpty()) {
+                MaterialAlertDialogBuilder(this)
+                    .setTitle("No mesh radio found")
+                    .setMessage("Check that it has power, its Bluetooth is on, and the Meshtastic or MeshCore app isn't connected to it.")
+                    .setPositiveButton("Try again") { _, _ -> pairMeshRadio() }
+                    .setNegativeButton("OK", null)
+                    .show()
+                return@find
+            }
+            MaterialAlertDialogBuilder(this)
+                .setTitle("Which mesh radio?")
+                .setItems(labels.toTypedArray()) { _, i ->
+                    if (i < found.size) {
+                        Prefs.setMeshRadio(this, found[i].address)
+                        com.rfsentinel.app.link.MeshNode.pair(this, found[i].address)
+                    } else {
+                        Prefs.setMeshRadio(this, null)
+                        com.rfsentinel.app.esp.MeshBle.stop()
+                    }
+                    updateEspStatus()
+                    if (com.rfsentinel.app.service.ScanForegroundService.isRunning) com.rfsentinel.app.service.ScanForegroundService.start(this)
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
     }
 
     private val ouiSpyConnectPermission = registerForActivityResult(
@@ -789,6 +840,8 @@ class SettingsActivity : AppCompatActivity() {
                 "RTL8811AU / 8821AU (ALFA AWUS036ACS), RTL8812BU / 8822BU, RTL8814AU (AWUS1900), MT7612U (AWUS036ACM), " +
                 "MT7921AU (AWUS036AXML, WiFi 6E: 2.4, 5 and 6 GHz, experimental), " +
                 "RTL8187 (AWUS036H), RT3070 (AWUS036NH / NEH), RT5370 / RT5372 (experimental), MT7610U (experimental), AR9271 (AWUS036NHA, experimental).\n\n" +
+                "• Meshtastic or MeshCore radios, on USB or over Bluetooth (experimental): the nodes they hear land on the map. " +
+                "Read-only, nothing on the radio changes.\n\n" +
                 "AWUS036ACS 5 GHz (experimental, off by default): the RTL8811AU / 8821AU also hops 5 GHz channels 36-48 and " +
                 "149-165. Untested on every unit: if it misbehaves, turn it off and send the adapter log. Applies when the adapter is plugged in.\n\n" +
                 "Adapter light: the AWUS036ACS blinks with received traffic; switch it off to keep it dark (for example in a car at night). " +
@@ -2493,6 +2546,7 @@ class SettingsActivity : AppCompatActivity() {
     override fun onDestroy() {
         com.rfsentinel.app.esp.EspBoards.onStatusChanged = null
         com.rfsentinel.app.esp.OuiSpyBle.onStatusChanged = null
+        com.rfsentinel.app.esp.MeshBle.onStatusChanged = null
         stopObservingPrefetch?.invoke()
         stopObservingDeflock?.invoke()
         super.onDestroy()
@@ -2718,7 +2772,9 @@ class SettingsActivity : AppCompatActivity() {
         updateEspStatus()
         com.rfsentinel.app.esp.EspBoards.onStatusChanged = { runOnUiThread { updateEspStatus() } }
         com.rfsentinel.app.esp.OuiSpyBle.onStatusChanged = { runOnUiThread { updateEspStatus() } }
+        com.rfsentinel.app.esp.MeshBle.onStatusChanged = { runOnUiThread { updateEspStatus() } }
         binding.ouiSpyButton.setOnClickListener { pairOuiSpy() }
+        binding.meshRadioButton.setOnClickListener { pairMeshRadio() }
         binding.ouiSpyEnginesButton.setOnClickListener { chooseOuiSpyEngines() }
         binding.linkButton.setOnClickListener { startActivity(Intent(this, com.rfsentinel.app.ui.SentinelLinkActivity::class.java)) }
         binding.linkSaveSwitch.isChecked = Prefs.saveLinked(this)

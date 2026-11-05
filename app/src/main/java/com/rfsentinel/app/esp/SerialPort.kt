@@ -9,19 +9,22 @@ import android.hardware.usb.UsbInterface
 /** A USB serial line to an ESP32 board (115200 8N1). */
 interface SerialPort {
     fun write(text: String)
+    fun write(bytes: ByteArray)
     /** Bytes read into [buf], 0 on timeout, negative on error. */
     fun read(buf: ByteArray, timeoutMs: Int): Int
     fun close()
 
     /** The USB-serial chips found on ESP32 boards; FREEWILI is the FREE-WiLi 2's console (CDC-ACM). */
-    enum class Chip { NATIVE_USB, CP210X, CH34X, FREEWILI }
+    enum class Chip { NATIVE_USB, CP210X, CH34X, CDC_BRIDGE, FREEWILI }
 
     companion object {
         fun chipOf(vid: Int, pid: Int): Chip? = when {
             vid == 0x303A -> Chip.NATIVE_USB                                    // Espressif native USB (S2, S3, C3, C5, C6...)
+            vid == 0x239A || vid == 0x2886 || vid == 0x2E8A -> Chip.NATIVE_USB  // nRF52 / RP2040 mesh radios (RAK, Heltec T114, T-Echo, Seeed)
             vid == 0x0483 && pid == 0x5740 -> Chip.NATIVE_USB                   // Flipper Zero (USB-UART bridge to its ESP32 board)
             vid == 0x10C4 && pid == 0xEA60 -> Chip.CP210X                       // Silicon Labs CP2102 / CP2104
-            vid == 0x1A86 && pid in setOf(0x7523, 0x5523, 0x55D4) -> Chip.CH34X // WCH CH340 / CH341 / CH9102
+            vid == 0x1A86 && pid in setOf(0x7523, 0x5523) -> Chip.CH34X         // WCH CH340 / CH341
+            vid == 0x1A86 && pid in setOf(0x55D3, 0x55D4) -> Chip.CDC_BRIDGE    // WCH CH343 / CH9102: plain CDC ACM, as Linux drives them
             vid == 0x093C && pid == 0x205A -> Chip.FREEWILI                     // FREE-WiLi 2 console (its ESP32-C5 does WiFi)
             else -> null
         }
@@ -30,7 +33,7 @@ interface SerialPort {
         fun open(conn: UsbDeviceConnection, device: UsbDevice): SerialPort? =
             when (chipOf(device.vendorId, device.productId)) {
                 Chip.NATIVE_USB -> CdcAcmPort(conn, device).takeIf { it.open() }
-                Chip.FREEWILI -> CdcAcmPort(conn, device, raiseDtr = false).takeIf { it.open() }
+                Chip.FREEWILI, Chip.CDC_BRIDGE -> CdcAcmPort(conn, device, raiseDtr = false).takeIf { it.open() } // DTR low: no auto-reset
                 Chip.CP210X -> Cp210xPort(conn, device).takeIf { it.open() }
                 Chip.CH34X -> Ch34xPort(conn, device).takeIf { it.open() }
                 null -> null
@@ -55,10 +58,11 @@ abstract class BulkPort(protected val conn: UsbDeviceConnection) : SerialPort {
         }
     }
 
-    override fun write(text: String) {
+    override fun write(text: String) = write(text.toByteArray())
+
+    override fun write(bytes: ByteArray) {
         val out = epOut ?: return
-        val b = text.toByteArray()
-        conn.bulkTransfer(out, b, b.size, 1000)
+        conn.bulkTransfer(out, bytes, bytes.size, 1000)
     }
 
     override fun read(buf: ByteArray, timeoutMs: Int): Int {

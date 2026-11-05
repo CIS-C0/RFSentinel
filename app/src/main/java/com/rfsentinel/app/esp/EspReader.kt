@@ -1,5 +1,7 @@
 package com.rfsentinel.app.esp
 
+import com.rfsentinel.app.link.MeshProto
+
 /**
  * Reads one ESP32 board until [stop] is called. RF Sentinel only listens and
  * asks read-only questions: OUI-Spy may be sent `CMD:VERSION` and, in
@@ -8,6 +10,7 @@ package com.rfsentinel.app.esp
  * `help` and its passive `sniffbeacon` / `sniffprobe` sniffers; a FREE-WiLi 2 ([freeWili])
  * only gets its console's WiFi-menu keys and its access-point scan. An ESP32-C5 with the
  * V2X2MAP firmware streams on its own and is never sent anything that changes it ([pollV2x]).
+ * A Meshtastic or MeshCore radio is asked for its node list and left listening ([probeMesh]).
  */
 /** V2X frames carry no signal strength (the board sends the frame only); its position is what counts. */
 private const val V2X_NOMINAL_RSSI = -70
@@ -59,10 +62,59 @@ class EspReader(
                 return
             }
             heard += banner
+            // 5. A mesh radio answers only in its own framing.
+            if (probeMesh(buf)) return
+            heard += probeText
         }
-        // 5. OUI-Spy - or a quiet board: Flock-You and Sky Spy say nothing until they find
+        // 6. OUI-Spy - or a quiet board: Flock-You and Sky Spy say nothing until they find
         //    something, so keep listening rather than giving up on it.
         readOuiSpy(heard, buf)
+    }
+
+    /** What a board that isn't a mesh radio said meanwhile: a quiet OUI-Spy's first detection can land here. */
+    private val probeText = StringBuilder()
+
+    private fun meshFrames(frames: MeshFrames, buf: ByteArray, ms: Long, each: (ByteArray) -> Boolean): Boolean {
+        val until = System.currentTimeMillis() + ms
+        while (!stopped && System.currentTimeMillis() < until) {
+            val n = port.read(buf, 300)
+            if (n <= 0) continue
+            if (probeText.length < 16_384) probeText.append(text.decode(buf, n))
+            if (frames.feed(buf, n).map(each).any { it }) return true
+        }
+        return false
+    }
+
+    private fun probeMesh(buf: ByteArray): Boolean {
+        val want = MeshFrames.meshtastic(MeshProto.wantConfig(MeshProto.NODES_ONLY))
+        port.write(want)
+        val log = MeshtasticLog()
+        fun read(f: ByteArray) = runCatching { MeshProto.readFromRadio(f) }.getOrDefault(MeshProto.From.Other)
+        fun take(m: MeshProto.From) {
+            if (m == MeshProto.From.Rebooted) port.write(want)
+            log.feed(m)?.let { onSightings(listOf(it)) }
+        }
+        val frames = MeshFrames(meshtastic = true)
+        if (meshFrames(frames, buf, 2_500) { f -> read(f).also(::take) != MeshProto.From.Other }) {
+            var beat = System.currentTimeMillis()
+            while (!stopped) {
+                meshFrames(frames, buf, 1_000) { f -> take(read(f)); false }
+                onStatus("Meshtastic radio · live · ${log.heard.size} nodes heard")
+                val now = System.currentTimeMillis()
+                if (now - beat > 300_000) { beat = now; port.write(MeshFrames.meshtastic(MeshProto.heartbeat())) }
+            }
+            return true
+        }
+        val core = MeshCoreLog()
+        val replies = MeshFrames(meshtastic = false)
+        port.write(MeshFrames.meshCore(MeshCoreLog.APP_START))
+        if (!meshFrames(replies, buf, 2_500) { MeshCoreLog.isSelfInfo(it) }) return false
+        port.write(MeshFrames.meshCore(MeshCoreLog.GET_CONTACTS))
+        while (!stopped) {
+            meshFrames(replies, buf, 1_000) { f -> core.feed(f)?.let { onSightings(listOf(it)) }; false }
+            onStatus("MeshCore radio · live · ${core.heard.size} nodes heard")
+        }
+        return true
     }
 
     private fun readOuiSpy(already: String, buf: ByteArray) {

@@ -752,6 +752,16 @@
                 android:layout_height="wrap_content"
                 android:text="OUI-SPY engines" />
 
+            <TextView
+                android:id="@+id/meshRadioText"
+                style="@style/SettingsLabel"
+                android:paddingTop="6dp" />
+
+            <Button
+                android:id="@+id/meshRadioButton"
+                style="@style/SettingsTextButton"
+                android:text="Pair mesh radio" />
+
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/ouiSpyPhoneBleSwitch"
                 android:layout_width="match_parent"

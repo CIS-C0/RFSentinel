@@ -467,6 +467,11 @@ class ScanForegroundService : Service() {
                 pipeline.post { list.forEach(::processEsp) }
             }
         } ?: com.rfsentinel.app.esp.OuiSpyBle.stop()
+        // A Meshtastic or MeshCore radio paired over Bluetooth, unless Sentinel Link already holds it (see startMesh).
+        val link = com.rfsentinel.app.link.LinkStore
+        Prefs.meshRadio(this)?.takeUnless { link.meshOn(this) && it.equals(link.meshNode(this), ignoreCase = true) }?.let { addr ->
+            com.rfsentinel.app.esp.MeshBle.start(this, addr) { list -> pipeline.post { list.forEach(::processEsp) } }
+        } ?: com.rfsentinel.app.esp.MeshBle.stop()
         updateLink()
         updateLocationUpdates()
         startHousekeeping()
@@ -1017,6 +1022,8 @@ class ScanForegroundService : Service() {
             meshLastName = 0L
             pipeline.postDelayed(meshFlush, MESH_TICK_MS)
         }
+        val meshLog = com.rfsentinel.app.esp.MeshtasticLog()
+        com.rfsentinel.app.link.MeshNode.heard = { m -> meshLog.feed(m)?.let { s -> pipeline.post { processEsp(s) } } }
         com.rfsentinel.app.link.MeshNode.start(this, node, key) { com.rfsentinel.app.link.PhoneLink.meshIn(it) }
     }
 
@@ -1025,6 +1032,7 @@ class ScanForegroundService : Service() {
         meshOutbox = null
         pipeline.removeCallbacks(meshFlush)
         com.rfsentinel.app.link.MeshNode.stop()
+        com.rfsentinel.app.link.MeshNode.heard = null
     }
 
     /**
@@ -1956,6 +1964,7 @@ class ScanForegroundService : Service() {
         if (onlineWatchLazy.isInitialized()) onlineWatch.stop() // not built just to be stopped
         com.rfsentinel.app.esp.OuiSpyBle.onLiveChanged = null // its stop must not restart the phone's scan here
         com.rfsentinel.app.esp.OuiSpyBle.stop()
+        com.rfsentinel.app.esp.MeshBle.stop()
         stopLink()
         // External hardware is gone with the scan: its "heard by" marks (External filter, badges) go too.
         com.rfsentinel.app.esp.HeardBy.esp.clear()

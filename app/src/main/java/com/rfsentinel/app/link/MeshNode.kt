@@ -56,6 +56,8 @@ object MeshNode {
 
     /** One line for the screens, "" while off. */
     @Volatile var status = ""; private set
+    /** What the node reports, for the map (on this thread). */
+    @Volatile var heard: ((MeshProto.From) -> Unit)? = null
     /** Connected, set up, and the RFSentinel channel in place. */
     @Volatile var ready = false; private set
     @Volatile var lastSent = 0L; private set
@@ -412,6 +414,7 @@ object MeshNode {
     }
 
     private fun handle(m: MeshProto.From) {
+        heard?.invoke(m)
         when (m) {
             is MeshProto.From.MyInfo -> myNode = m.nodeNum
             is MeshProto.From.ChannelInfo -> channels[m.index] = m
@@ -424,7 +427,7 @@ object MeshNode {
             }
             is MeshProto.From.Queue -> if (m.res != 0) Log.i(TAG, "node queue: ${m.res}, ${m.free} free")
             MeshProto.From.Rebooted -> lost("restarted")
-            MeshProto.From.Other -> Unit
+            is MeshProto.From.NodeInfo, MeshProto.From.Other -> Unit
         }
     }
 

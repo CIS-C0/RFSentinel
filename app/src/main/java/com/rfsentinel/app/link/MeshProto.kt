@@ -14,6 +14,10 @@ object MeshProto {
     const val BROADCAST = 0xFFFFFFFFL
     /** want_config_id asking for the node's config and channels without its node list (much shorter). */
     const val CONFIG_ONLY = 69420
+    /** want_config_id asking for the node list without the config. */
+    const val NODES_ONLY = 69421
+    const val PORT_POSITION_APP = 3
+    const val PORT_NODEINFO_APP = 4
     /** Largest payload of one packet (Constants.DATA_PAYLOAD_LEN). */
     const val MAX_PAYLOAD = 233
     const val PRIORITY_BACKGROUND = 10
@@ -25,6 +29,9 @@ object MeshProto {
     // ------------------------------------------------------------------ to the node
 
     fun wantConfig(nonce: Int): ByteArray = W().apply { uint(3, nonce.toLong() and 0xFFFFFFFFL) }.bytes()
+
+    /** Keeps the serial API open: the radio drops a client that's silent for 15 minutes. */
+    fun heartbeat(): ByteArray = W().apply { bytes(7, ByteArray(0)) }.bytes()
 
     /** A MeshPacket for the node to send (ToRadio.packet). */
     fun packet(to: Long, channel: Int, port: Int, payload: ByteArray, id: Long, hopLimit: Int, priority: Int): ByteArray =
@@ -56,7 +63,9 @@ object MeshProto {
         /** LoRaConfig: hop limit (0 = the firmware's default), region (0 = not set: the radio stays off). */
         data class Lora(val hopLimit: Int, val region: Int, val txEnabled: Boolean) : From()
         data class ConfigComplete(val id: Long) : From()
-        class Packet(val from: Long, val to: Long, val channel: Int, val port: Int, val payload: ByteArray, val rxRssi: Int) : From()
+        class Packet(val from: Long, val to: Long, val channel: Int, val port: Int, val payload: ByteArray, val rxRssi: Int, val viaMqtt: Boolean = false) : From()
+        /** An entry of the radio's node list. */
+        class NodeInfo(val num: Long, val name: String, val position: Pair<Double, Double>?, val lastHeard: Long, val viaMqtt: Boolean) : From()
         data class Queue(val res: Int, val free: Int) : From()
         object Rebooted : From()
         object Other : From()
@@ -69,6 +78,7 @@ object MeshProto {
             when {
                 f == 2 && w == 2 -> { out = readPacket(r.bytes()); true }
                 f == 3 && w == 2 -> { out = readMyInfo(r.bytes()); true }
+                f == 4 && w == 2 -> { out = readNode(r.bytes()); true }
                 f == 5 && w == 2 -> { out = readConfig(r.bytes()); true }
                 f == 7 && w == 0 -> { out = From.ConfigComplete(r.varint() and 0xFFFFFFFFL); true }
                 f == 8 && w == 0 -> { if (r.varint() != 0L) out = From.Rebooted; true }
@@ -81,7 +91,7 @@ object MeshProto {
     }
 
     private fun readPacket(b: ByteArray): From {
-        var from = 0L; var to = 0L; var channel = 0; var port = -1; var payload = ByteArray(0); var rssi = 0
+        var from = 0L; var to = 0L; var channel = 0; var port = -1; var payload = ByteArray(0); var rssi = 0; var mqtt = false
         val r = R(b)
         r.fields { f, w ->
             when {
@@ -100,10 +110,55 @@ object MeshProto {
                     true
                 }
                 f == 12 && w == 0 -> { rssi = r.varint().toInt(); true }
+                f == 14 && w == 0 -> { mqtt = r.varint() != 0L; true }
                 else -> false
             }
         }
-        return From.Packet(from, to, channel, port, payload, rssi)
+        return From.Packet(from, to, channel, port, payload, rssi, mqtt)
+    }
+
+    private fun readNode(b: ByteArray): From {
+        var num = 0L; var name = ""; var spot: Pair<Double, Double>? = null; var heard = 0L; var mqtt = false
+        val r = R(b)
+        r.fields { f, w ->
+            when {
+                f == 1 && w == 0 -> { num = r.varint() and 0xFFFFFFFFL; true }
+                f == 2 && w == 2 -> { name = userName(r.bytes()); true }
+                f == 3 && w == 2 -> { spot = position(r.bytes()); true }
+                f == 5 && w == 5 -> { heard = r.fixed32(); true }
+                f == 8 && w == 0 -> { mqtt = r.varint() != 0L; true }
+                else -> false
+            }
+        }
+        return From.NodeInfo(num, name, spot, heard, mqtt)
+    }
+
+    /** A User message's long name, or its short name. */
+    fun userName(b: ByteArray): String {
+        var long = ""; var short = ""
+        val r = R(b)
+        r.fields { f, w ->
+            when {
+                f == 2 && w == 2 -> { long = String(r.bytes(), Charsets.UTF_8); true }
+                f == 3 && w == 2 -> { short = String(r.bytes(), Charsets.UTF_8); true }
+                else -> false
+            }
+        }
+        return long.ifEmpty { short }
+    }
+
+    /** A Position message as latitude to longitude, or null without a fix. */
+    fun position(b: ByteArray): Pair<Double, Double>? {
+        var lat = 0; var lon = 0
+        val r = R(b)
+        r.fields { f, w ->
+            when {
+                f == 1 && w == 5 -> { lat = r.fixed32().toInt(); true }
+                f == 2 && w == 5 -> { lon = r.fixed32().toInt(); true }
+                else -> false
+            }
+        }
+        return if (lat == 0 && lon == 0) null else lat / 1e7 to lon / 1e7
     }
 
     private fun readMyInfo(b: ByteArray): From {

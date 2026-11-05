@@ -22,6 +22,8 @@ class EspReaderTest {
             reply(text.trim())?.let { push(it) }
         }
 
+        override fun write(bytes: ByteArray) {}
+
         override fun read(buf: ByteArray, timeoutMs: Int): Int {
             val b = out.poll() ?: run { Thread.sleep(minOf(timeoutMs, 20).toLong()); return 0 }
             System.arraycopy(b, 0, buf, 0, b.size)
@@ -59,11 +61,20 @@ class EspReaderTest {
     fun aQuietBoardIsKeptAndItsLaterDetectionsAreRead() {
         // Flock-You with nothing around: silent, ignores CMD:VERSION and help.
         val board = FakeBoard("") { null }
-        val (statuses, seen) = runFor(board, 9_500) { b ->
-            Thread { Thread.sleep(8_800); b.push(flockLine) }.start()
+        val (statuses, seen) = runFor(board, 14_500) { b ->
+            Thread { Thread.sleep(13_800); b.push(flockLine) }.start()
         }
         assertEquals(listOf("CMD:VERSION", "help"), board.written.toList())
         assertTrue(statuses.any { it.startsWith("ESP32 connected · waiting for detections") })
+        assertEquals(1, seen.size)
+    }
+
+    @Test
+    fun aDetectionDuringTheMeshRadioProbeIsKept() {
+        val board = FakeBoard("") { null }
+        val (_, seen) = runFor(board, 13_800) { b ->
+            Thread { Thread.sleep(8_800); b.push(flockLine) }.start()
+        }
         assertEquals(1, seen.size)
     }
 

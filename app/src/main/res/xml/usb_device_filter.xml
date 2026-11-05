@@ -244,9 +244,14 @@
     <usb-device vendor-id="6790" product-id="29987" />
     <usb-device vendor-id="6790" product-id="21795" />
     <usb-device vendor-id="6790" product-id="21972" />
+    <usb-device vendor-id="6790" product-id="21971" />
     <usb-device vendor-id="2364" product-id="8282" />
     <!-- Espressif native USB (ESP32-S2, S3, C3, C5, C6...): every product -->
     <usb-device vendor-id="12346" />
+    <!-- nRF52 / RP2040 mesh radios: Adafruit bootloader VID, Seeed, Raspberry Pi -->
+    <usb-device vendor-id="9114" />
+    <usb-device vendor-id="10374" />
+    <usb-device vendor-id="11914" />
     <!-- Any standard USB Bluetooth controller (class e0 / 01 / 01) -->
     <usb-device class="224" subclass="1" protocol="1" />
 </resources>
