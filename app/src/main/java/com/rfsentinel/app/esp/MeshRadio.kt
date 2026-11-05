@@ -77,7 +77,7 @@ class MeshCoreLog(private val nowMs: () -> Long = System::currentTimeMillis) {
         val b = ByteBuffer.wrap(f).order(ByteOrder.LITTLE_ENDIAN)
         val end = (100 until 132).firstOrNull { f[it].toInt() == 0 } ?: 132
         val lat = b.getInt(136); val lon = b.getInt(140)
-        return Contact(String(f, 100, end - 100, Charsets.UTF_8), if (lat == 0 && lon == 0) null else lat / 1e6 to lon / 1e6)
+        return Contact(MeshProto.cleanName(String(f, 100, end - 100, Charsets.UTF_8)), MeshProto.spot(lat / 1e6, lon / 1e6))
     }
 
     private fun sighting(f: ByteArray): EspSighting {

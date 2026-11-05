@@ -144,8 +144,15 @@ object MeshProto {
                 else -> false
             }
         }
-        return long.ifEmpty { short }
+        return cleanName(long.ifEmpty { short })
     }
+
+    /** Node names come off the air: no control characters, and no longer than the firmware allows. */
+    fun cleanName(s: String) = s.filter { !it.isISOControl() }.take(40)
+
+    /** A position off the air, or null when there is no fix or it isn't a place on Earth (the map would refuse it). */
+    fun spot(lat: Double, lon: Double): Pair<Double, Double>? =
+        if ((lat == 0.0 && lon == 0.0) || lat !in -90.0..90.0 || lon !in -180.0..180.0) null else lat to lon
 
     /** A Position message as latitude to longitude, or null without a fix. */
     fun position(b: ByteArray): Pair<Double, Double>? {
@@ -158,7 +165,7 @@ object MeshProto {
                 else -> false
             }
         }
-        return if (lat == 0 && lon == 0) null else lat / 1e7 to lon / 1e7
+        return spot(lat / 1e7, lon / 1e7)
     }
 
     private fun readMyInfo(b: ByteArray): From {

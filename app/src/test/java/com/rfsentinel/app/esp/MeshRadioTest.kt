@@ -81,6 +81,19 @@ class MeshRadioTest {
     }
 
     @Test
+    fun offTheAirValuesAreChecked() {
+        assertNull(MeshProto.spot(214.7, 10.0))
+        assertNull(MeshProto.spot(10.0, -214.7))
+        assertNull(MeshProto.spot(0.0, 0.0))
+        assertEquals(10.5 to -20.5, MeshProto.spot(10.5, -20.5))
+        assertEquals("ab", MeshProto.cleanName("a
+b"))
+        assertEquals(40, MeshProto.cleanName("x".repeat(200)).length)
+        val log = MeshCoreLog { 0 }
+        assertNull(log.feed(contact(0x8A, "Bad", 2_000_000_000, 5))!!.position)
+    }
+
+    @Test
     fun selfInfoAndStartCommand() {
         assertTrue(MeshCoreLog.isSelfInfo(ByteArray(58).also { it[0] = 5 }))
         assertEquals(8 + 11, MeshCoreLog.APP_START.size)
