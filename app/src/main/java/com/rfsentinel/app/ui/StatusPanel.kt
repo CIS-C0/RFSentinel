@@ -79,9 +79,8 @@ class StatusPanel(private val context: Context) {
         }
         root.addView(gps, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = (4 * dp).toInt() })
         root.addView(noteRow, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = (4 * dp).toInt() })
-        root.addView(strip, LinearLayout.LayoutParams(-1, -2))
-        root.addView(cards)
-        root.setPadding(0, 0, 0, (4 * dp).toInt())
+        root.addView(strip, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = (4 * dp).toInt() })
+        root.addView(cards, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = (4 * dp).toInt() })
     }
 
     private fun iconButton(text: String, description: String) = TextView(context).apply {

@@ -76,13 +76,17 @@ class MainPanes(private val activity: AppCompatActivity, private val b: Activity
         mapBorder.setStroke((2 * density).toInt(), accent)
         radarBorder.setStroke(if (several) (2 * density).toInt() else 0, accent)
         b.radarPane.clipToOutline = several
-        val handle = (20 * density).toInt()
+        // Thin in the layout to leave room for the panes; the touch area reaches over their edges, above them.
+        val handle = (24 * density).toInt()
+        val overlap = (-7 * density).toInt()
         for ((h, grip) in listOf(b.handleA to b.gripA, b.handleB to b.gripB)) {
             h.layoutParams = (h.layoutParams as LinearLayout.LayoutParams).apply {
                 width = if (landscape) handle else LinearLayout.LayoutParams.MATCH_PARENT
                 height = if (landscape) LinearLayout.LayoutParams.MATCH_PARENT else handle
                 weight = 0f
+                setMargins(if (landscape) overlap else 0, if (landscape) 0 else overlap, if (landscape) overlap else 0, if (landscape) 0 else overlap)
             }
+            h.elevation = density
             grip.layoutParams = (grip.layoutParams as FrameLayout.LayoutParams).apply {
                 width = ((if (landscape) 5 else 40) * density).toInt()
                 height = ((if (landscape) 40 else 5) * density).toInt()
@@ -93,7 +97,7 @@ class MainPanes(private val activity: AppCompatActivity, private val b: Activity
                 weight = Prefs.paneWeight(activity, p)
                 if (landscape) { width = 0; height = LinearLayout.LayoutParams.MATCH_PARENT }
                 else { width = LinearLayout.LayoutParams.MATCH_PARENT; height = 0 }
-                topMargin = if (!landscape && p != "list" && p == Prefs.PANES.firstOrNull { it in panes }) (6 * density).toInt() else 0
+                topMargin = if (!landscape && p != "list" && p == Prefs.PANES.firstOrNull { it in panes }) (2 * density).toInt() else 0
             }
         }
         b.contentArea.requestLayout()
