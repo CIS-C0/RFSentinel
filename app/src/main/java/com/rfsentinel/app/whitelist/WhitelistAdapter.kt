@@ -25,6 +25,7 @@ class WhitelistAdapter<T>(
         val item = items[position]
         holder.binding.macText.text = title(item)
         holder.binding.noteText.text = subtitle(item)
+        holder.binding.removeButton.contentDescription = "Remove ${title(item)}"
         holder.binding.removeButton.setOnClickListener { onRemove(item) }
         val click = onClick
         holder.binding.root.isClickable = click != null

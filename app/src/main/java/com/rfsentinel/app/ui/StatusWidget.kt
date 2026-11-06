@@ -55,6 +55,7 @@ class StatusWidget : AppWidgetProvider() {
                 if (running) "$devices nearby · $flagged flagged" else "Tap ▶ to start"
             )
             views.setTextViewText(R.id.widgetToggle, if (running) "■" else "▶")
+            views.setContentDescription(R.id.widgetToggle, if (running) "Stop scanning" else "Start scanning")
             views.setOnClickPendingIntent(
                 R.id.widgetToggle,
                 PendingIntent.getBroadcast(
