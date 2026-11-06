@@ -144,7 +144,7 @@ class DeviceHistoryActivity : AppCompatActivity() {
             dialog.dismiss()
             val r = result.getOrNull()
             if (r == null) {
-                val why = (result.exceptionOrNull() as? com.rfsentinel.app.util.DeviceHistoryImport.NotHistory)?.message ?: "Couldn't read that file (${result.exceptionOrNull()?.message ?: "unknown error"})"
+                val why = (result.exceptionOrNull() as? com.rfsentinel.app.util.DeviceHistoryImport.NotHistory)?.message ?: "Couldn't read that file. Choose a device history file exported from RF Sentinel, then try again."
                 MaterialAlertDialogBuilder(this@DeviceHistoryActivity).setTitle("Not imported").setMessage(why).setPositiveButton("OK", null).show()
                 return@launch
             }

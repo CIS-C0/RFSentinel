@@ -1451,7 +1451,8 @@ class MainActivity : AppCompatActivity() {
         try {
             ScanForegroundService.start(this)
         } catch (e: Exception) {
-            binding.statusText.text = "Could not start scanner: ${e.message}"
+            android.util.Log.w("RFSentinel", "Scan didn't start", e)
+            binding.statusText.text = "Couldn't start scanning. Check that Bluetooth and Location are on, then tap Start again."
             return
         }
         binding.root.postDelayed({ updateStatus() }, 500)

@@ -185,7 +185,7 @@ class WazeStatusActivity : AppCompatActivity() {
                 "${String.format(Locale.US, "%.3f", Diagnostics.sentLat)}, ${String.format(Locale.US, "%.3f", Diagnostics.sentLon)} (never your exact position)",
             "Account: " + (if (WazeRtFetcher.hasStoredAccount(this)) "an anonymous account is stored on this phone" else "none yet; one is made on the next check") +
                 " (${WazeRtFetcher.accountsMadeToday(this)} of ${WazeRtFetcher.dailyAccountLimit()} made today)",
-            Diagnostics.lastError.takeIf { it.isNotEmpty() }?.let { "Last problem: $it" }
+            Diagnostics.lastError.takeIf { it.isNotEmpty() }?.let { "Last problem: $it\nIt tries again at the next check." }
         ).joinToString("\n") else listOf(
             "Your API key and a box of about ${Prefs.formatRange(Prefs.wazeReachM(this))} around your position (not rounded)",
             "API key: " + (if (SecureStore.get(this, OnlineWatch.WAZE_KEY_NAME).isNullOrBlank()) "not set" else "set")
@@ -232,7 +232,7 @@ class WazeStatusActivity : AppCompatActivity() {
                 "${String.format(Locale.US, "%.3f", Diagnostics.sentLat)}, ${String.format(Locale.US, "%.3f", Diagnostics.sentLon)} (never your exact position)"
             lines += "Account: " + (if (WazeRtFetcher.hasStoredAccount(this)) "an anonymous account is stored on this phone" else "none yet; one is made on the next check") +
                 " (${WazeRtFetcher.accountsMadeToday(this)} of ${WazeRtFetcher.dailyAccountLimit()} made today)"
-            if (Diagnostics.lastError.isNotEmpty()) lines += "Last problem: ${Diagnostics.lastError}"
+            if (Diagnostics.lastError.isNotEmpty()) lines += "Last problem: ${Diagnostics.lastError}\nIt tries again at the next check."
         } else {
             lines += "Source: OpenWeb Ninja (api.openwebninja.com)"
             lines += "Sent: your API key and a box of about ${Prefs.formatRange(Prefs.wazeReachM(this))} around your position (not rounded)"
