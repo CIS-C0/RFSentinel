@@ -952,7 +952,7 @@ class SettingsActivity : AppCompatActivity() {
                 text = "ⓘ"
                 textSize = 20f
                 setTextColor(s.header.currentTextColor)
-                setPadding((14 * dp).toInt(), (8 * dp).toInt(), (6 * dp).toInt(), (8 * dp).toInt())
+                minWidth = (48 * dp).toInt(); minHeight = (48 * dp).toInt(); gravity = android.view.Gravity.CENTER
                 setBackgroundResource(ripple)
                 contentDescription = "About $title"
                 setOnClickListener {
@@ -1019,7 +1019,7 @@ class SettingsActivity : AppCompatActivity() {
             textSize = 18f
             alpha = 0.7f
             tag = InfoText(text)
-            setPadding((10 * dp).toInt(), (8 * dp).toInt(), (6 * dp).toInt(), (8 * dp).toInt())
+            minWidth = (48 * dp).toInt(); minHeight = (48 * dp).toInt(); gravity = android.view.Gravity.CENTER
             setBackgroundResource(ripple)
             contentDescription = "About ${title()}"
             setOnClickListener { MaterialAlertDialogBuilder(this@SettingsActivity).setTitle(title()).setMessage(text).setPositiveButton("OK", null).show() }
