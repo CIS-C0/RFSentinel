@@ -31,7 +31,7 @@
         android:paddingEnd="3dp"
         android:text="© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors"
         android:textColor="#333333"
-        android:textSize="7sp" />
+        android:textSize="10sp" />
 
     <!-- Status card, with the camera-download progress bar under it -->
     <LinearLayout
