@@ -478,8 +478,12 @@ object DeviceActions {
     /** [ssid]: a WiFi network's name, offered as a choice too (every network of that name, whatever its address). */
     fun whitelist(activity: AppCompatActivity, mac: String, label: String, ssid: String? = null) {
         fun addDevice() = activity.lifecycleScope.launch {
-            AppDatabase.getInstance(activity).whitelistDao().add(WhitelistEntity(mac, label))
-            toast(activity, "Whitelisted $mac")
+            val dao = AppDatabase.getInstance(activity).whitelistDao()
+            val entry = WhitelistEntity(mac, label)
+            dao.add(entry)
+            com.rfsentinel.app.util.Undo.show(activity, "Whitelisted $mac") {
+                activity.lifecycleScope.launch { dao.remove(entry) }
+            }
         }
         val name = ssid?.trim().orEmpty()
         if (name.isEmpty()) {
