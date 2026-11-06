@@ -271,6 +271,9 @@ class MapFragment : Fragment() {
             binding.tracesButton.setTextColor(accent)
             binding.tracesButton.strokeColor = android.content.res.ColorStateList.valueOf(accent)
         }
+        // Long-press names an icon-only button; the ones whose meaning changes update it with their description.
+        for (v in listOf(binding.searchButton, binding.fullscreenButton, binding.mapSettingsButton,
+            binding.themeButton, binding.orientationButton, binding.centerButton)) v.tooltipText = v.contentDescription
         binding.centerButton.setOnClickListener { if (tripId == null) setFollow(true) else centerOnMe() }
         binding.tracesButton.setOnClickListener { startActivity(Intent(act, TripsActivity::class.java)) }
         setupThemeButton()
@@ -569,6 +572,7 @@ class MapFragment : Fragment() {
         binding.themeButton.backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFFFFFFF.toInt())
         binding.themeButton.imageTintList = android.content.res.ColorStateList.valueOf(0xFF0B5C63.toInt())
         binding.themeButton.contentDescription = if (dark) "Dark map (tap for light)" else "Light map (tap for dark)"
+        binding.themeButton.tooltipText = binding.themeButton.contentDescription
     }
 
     // ---- Scale and credit ----------------------------------------------------------------------------
@@ -929,6 +933,7 @@ class MapFragment : Fragment() {
         val on = Prefs.mapImmersive(act)
         b.fullscreenButton.setImageResource(if (on) com.rfsentinel.app.R.drawable.ic_fullscreen_exit else com.rfsentinel.app.R.drawable.ic_fullscreen)
         b.fullscreenButton.contentDescription = if (on) "Show the toolbars again" else "Hide the toolbars (full screen)"
+        b.fullscreenButton.tooltipText = b.fullscreenButton.contentDescription
         act.supportActionBar?.let { if (on) it.hide() else it.show() }
         val bars = androidx.core.view.WindowCompat.getInsetsController(act.window, b.root)
         bars.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -1164,6 +1169,7 @@ class MapFragment : Fragment() {
             heading -> "Map: heading up (tap for the 3D driving view)"
             else -> "Map: north up (tap to turn with your direction)"
         }
+        binding.orientationButton.tooltipText = binding.orientationButton.contentDescription
     }
 
     /** Turns following on (re-centres now and keeps you centred) or off (after you pan). */
@@ -1186,6 +1192,7 @@ class MapFragment : Fragment() {
         binding.centerButton.backgroundTintList = android.content.res.ColorStateList.valueOf(if (on) accent else plain)
         binding.centerButton.imageTintList = android.content.res.ColorStateList.valueOf(if (on) onAccent else 0xFF0B5C63.toInt())
         binding.centerButton.contentDescription = if (on) "Following your position" else "Follow my position"
+        binding.centerButton.tooltipText = binding.centerButton.contentDescription
     }
 
     /** A saved trace: glides to where you are (the map doesn't follow you there). */
