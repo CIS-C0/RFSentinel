@@ -398,6 +398,13 @@ No IEEE block or Bluetooth ID exists for Getac (its blocks are shared with consu
 laptops), Whelen, Feniex, SoundOff or Laser Technology, so they can only be matched by
 names captured in the field.
 
+## Sweden preset (`assets/oui_presets/sweden.json`), researched 2026-11
+
+Vendor and public facts only: the Swedish Police Authority announced 1,000 Axon body cameras in 2019 after an
+18-month field trial, and Rakel, the Swedish public-safety network, is a TETRA network. The Sepura and Airbus blocks
+are the TETRA makers' IEEE blocks and stay at candidate level, like in the global preset. Sensys Traffic is not
+repeated here: it stays in the global preset. Flock detection is off with this preset, as with the other European ones.
+
 ## Canada preset (`assets/oui_presets/canada.json`), researched 2026-09
 
 Built only from public records: police pilot reports, public procurement

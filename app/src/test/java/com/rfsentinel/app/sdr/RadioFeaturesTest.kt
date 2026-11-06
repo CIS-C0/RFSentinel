@@ -87,6 +87,8 @@ class RadioFeaturesTest {
         val details = """<frequencies><item><locationNumber>1</locationNumber><frequency xsi:type="xsd:decimal">155.475</frequency></item>
             <item><frequency>460.125</frequency></item><item><frequency>3.0</frequency></item></frequencies>"""
         assertEquals(listOf(155_475_000L, 460_125_000L), RadioReference.parseFrequencies(details))
+        assertEquals("12-31-2027", RadioReference.parseExpiry("<return><username xsi:type=\"xsd:string\">a</username><subExpireDate xsi:type=\"xsd:string\">12-31-2027</subExpireDate></return>"))
+        assertEquals(null, RadioReference.parseExpiry("<return><subExpireDate xsi:type=\"xsd:string\"></subExpireDate></return>"))
         assertEquals("Invalid Username or Password.", RadioReference.fault(
             "<SOAP-ENV:Fault><faultcode>AUTH</faultcode><faultstring xsi:type=\"xsd:string\">Invalid Username or Password.</faultstring></SOAP-ENV:Fault>"))
         assertNull(RadioReference.fault(prox))

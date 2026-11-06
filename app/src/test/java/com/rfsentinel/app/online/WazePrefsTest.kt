@@ -17,6 +17,20 @@ class WazePrefsTest {
     private val ctx get() = RuntimeEnvironment.getApplication()
 
     @Test
+    fun highwayDistanceFollowsTheNormalOneUntilSet() {
+        Prefs.setWazeAlertM(ctx, 1000)
+        assertEquals(1000, Prefs.wazeFastAlertM(ctx))
+        Prefs.setWazeFastAlertM(ctx, 7500)
+        Prefs.setWazeAlertM(ctx, 500)
+        assertEquals(7500, Prefs.wazeFastAlertM(ctx))
+        assertEquals(7500, Prefs.wazeReachM(ctx)) // wider than the 5 km view range
+        WazeStatus.motion = MotionTracker.State.FAST
+        assertEquals(7500.0, WazeStatus.alertM(ctx), 0.0)
+        WazeStatus.motion = MotionTracker.State.MOVING
+        assertEquals(500.0, WazeStatus.alertM(ctx), 0.0)
+    }
+
+    @Test
     fun defaultsAreTheShippedBehaviour() {
         assertEquals(2000, Prefs.wazeAlertM(ctx))
         assertEquals(5, Prefs.wazeViewKm(ctx))

@@ -212,6 +212,7 @@
             <CheckBox style="@style/SettingsControl" android:id="@+id/presetSpain" android:text="Spain" />
             <CheckBox style="@style/SettingsControl" android:id="@+id/presetItaly" android:text="Italy" />
             <CheckBox style="@style/SettingsControl" android:id="@+id/presetNetherlands" android:text="Netherlands" />
+            <CheckBox style="@style/SettingsControl" android:id="@+id/presetSweden" android:text="Sweden" />
         </LinearLayout>
 
         <!-- ================= Alerts ================= -->
@@ -257,6 +258,11 @@
                 style="@style/SettingsControl"
                 android:id="@+id/radarBeepSwitch"
                 android:text="Radar-detector beeps" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
+                android:id="@+id/usbQuickClearSwitch"
+                android:text="USB WiFi: end alerts out of range" />
 
             <com.google.android.material.switchmaterial.SwitchMaterial
                 style="@style/SettingsControl"

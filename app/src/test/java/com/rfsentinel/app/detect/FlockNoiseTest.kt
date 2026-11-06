@@ -36,6 +36,15 @@ class FlockNoiseTest {
     }
 
     @Test
+    fun flockSwitchOffDropsOnlyFlockPlateCameras() {
+        val raven = Hit(Category.AUDIO_SENSOR, "Flock Raven audio / gunshot sensor", 80, "", "")
+        val other = Hit(Category.ALPR, "Motorola Vigilant plate reader", 70, "", "")
+        val kept = FlockNoise.filter(listOf(fsName, penguin, raven, other), null, flockRegion = true, flockCameras = false)
+        assertEquals(listOf(raven, other), kept)
+        assertEquals(1, FlockNoise.filter(listOf(fsName), "FS-ABC123", flockRegion = true, flockCameras = true).size)
+    }
+
+    @Test
     fun djiOsmoIsAnActionCameraNotADrone() {
         val osmo = SignatureEngine.classify(Advert("4C:43:F6:11:22:33", Advert.Source.BLE, -70, "OsmoNano-AB12"))
         assertTrue(osmo.none { it.category == Category.DRONE })

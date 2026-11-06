@@ -43,6 +43,8 @@ class MainActivity : AppCompatActivity() {
         /** Row id prefix of the live cell tower rows (not devices). */
         private const val CELL_ROW = "cell:"
         private const val WAZE_ROW = "waze:"
+        /** All clear closed with its X: alerts still show, and it comes back when the app restarts. */
+        private var allClearClosed = false
         private const val RADIO_ROW = "radio:"
         private const val AIRCRAFT_ROW = "air:"
         private const val TG_ROW = "tg:"
@@ -911,7 +913,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun currentWaze(now: Long): List<com.rfsentinel.app.online.WazePolice.Shown> {
         if (!ScanForegroundService.isRunning) return emptyList()
-        val alertM = Prefs.wazeAlertM(this).toDouble()
+        val alertM = com.rfsentinel.app.online.WazeStatus.alertM(this)
         return com.rfsentinel.app.online.WazePolice.forList(com.rfsentinel.app.online.WazePolice.latest, alertM,
             Prefs.wazeAheadOnly(this), Prefs.wazeHideOffWay(this)).filter { !hidden(WAZE_ROW + it.report.id, now) }
     }
@@ -1344,6 +1346,7 @@ class MainActivity : AppCompatActivity() {
         val banner = binding.threatBanner
         if (!ScanForegroundService.isRunning && flagged.isEmpty()) {
             banner.visibility = View.GONE
+            showBannerClose(false)
             return
         }
         banner.visibility = View.VISIBLE
@@ -1360,6 +1363,12 @@ class MainActivity : AppCompatActivity() {
                 else -> WEAK_COLOR
             })
             slimBanner(false)
+            showBannerClose(false)
+            return
+        }
+        if (flagged.isEmpty() && allClearClosed) {
+            banner.visibility = View.GONE
+            showBannerClose(false)
             return
         }
         val (color, text) = when {
@@ -1372,6 +1381,18 @@ class MainActivity : AppCompatActivity() {
         banner.text = if (flagged.size > 1 && following == null) "$text  (+${flagged.size - 1} more)" else text
         banner.background.mutate().setTint(color)
         slimBanner(top == null && following == null)
+        showBannerClose(flagged.isEmpty())
+    }
+
+    /** The X on the All clear bar, with room kept for it at the end of the text. */
+    private fun showBannerClose(show: Boolean) {
+        val close = binding.bannerClose
+        if ((close.visibility == View.VISIBLE) == show) return
+        close.visibility = if (show) View.VISIBLE else View.GONE
+        close.setOnClickListener { allClearClosed = true; binding.threatBanner.visibility = View.GONE; showBannerClose(false) }
+        val banner = binding.threatBanner
+        val dp = resources.displayMetrics.density
+        banner.setPaddingRelative(banner.paddingStart, banner.paddingTop, ((if (show) 44 else 12) * dp).toInt(), banner.paddingBottom)
     }
 
     /** Visual style: "All clear" is a slim bar, so the map and list get the room; an alert gets the full size. */
@@ -1382,7 +1403,7 @@ class MainActivity : AppCompatActivity() {
         banner.setTag(R.id.visual_chip_color, slim)
         val dp = resources.displayMetrics.density
         val v = ((if (slim) 2 else 6) * dp).toInt()
-        banner.setPadding((12 * dp).toInt(), v, (12 * dp).toInt(), v)
+        banner.setPaddingRelative((12 * dp).toInt(), v, banner.paddingEnd, v)
         banner.textSize = if (slim) 12f else 14f
     }
 

@@ -24,6 +24,9 @@ object WazeStatus {
     @Volatile var baseS = 0
     @Volatile var everyS = 0
     @Volatile var motion = MotionTracker.State.MOVING
+    /** How close a report must be to alert right now: the highway distance on a fast road. */
+    fun alertM(context: android.content.Context): Double =
+        (if (motion == MotionTracker.State.FAST) Prefs.wazeFastAlertM(context) else Prefs.wazeAlertM(context)).toDouble()
     @Volatile var nextCheckAt = 0L
     @Volatile var lastCheckAt = 0L
     @Volatile var lastCheckMs = 0L
@@ -177,7 +180,7 @@ class WazeWatch(
         if (key.isNullOrBlank()) { OnlineWatch.wazeStatus = "Add your OpenWeb Ninja API key"; return false }
         val me = location() ?: run { OnlineWatch.wazeStatus = "Waiting for a GPS fix"; return false }
         val types = WazePolice.Type.parse(Prefs.wazeTypes(context)).ifEmpty { setOf(WazePolice.Type.POLICE) }
-        val reach = maxOf(Prefs.wazeViewKm(context) * 1000.0, Prefs.wazeAlertM(context).toDouble())
+        val reach = Prefs.wazeReachM(context).toDouble()
         val json = try {
             OnlineWatch.httpGet(WazePolice.url(me.latitude, me.longitude, reach, types), mapOf("x-api-key" to key))
         } catch (e: OnlineWatch.HttpError) {
@@ -210,7 +213,7 @@ class WazeWatch(
     private fun pollDirect(): Boolean {
         val me = location() ?: run { OnlineWatch.wazeStatus = "Waiting for a GPS fix"; return false }
         val types = WazePolice.Type.parse(Prefs.wazeTypes(context)).ifEmpty { setOf(WazePolice.Type.POLICE) }
-        val reach = maxOf(Prefs.wazeViewKm(context) * 1000.0, Prefs.wazeAlertM(context).toDouble())
+        val reach = Prefs.wazeReachM(context).toDouble()
         val alerts = try {
             // A box wider than the view range, so reports ahead of you are already loaded.
             fetcherFor(wazeRegion(me.latitude, me.longitude))
@@ -244,7 +247,8 @@ class WazeWatch(
         // Failing checks for a long while: better to show nothing than reports that may be long gone.
         if (known.isNotEmpty() && now - lastOkAt > staleAfterMs(now)) known = emptyMap()
         val me = location() ?: return
-        val alertM = Prefs.wazeAlertM(context).toDouble()
+        WazeStatus.motion = motion.state(now)
+        val alertM = WazeStatus.alertM(context)
         val viewM = maxOf(Prefs.wazeViewKm(context) * 1000.0, alertM) // never narrower than the alert range
         val aheadOnly = Prefs.wazeAheadOnly(context)
         val approachOn = Prefs.wazeApproach(context)

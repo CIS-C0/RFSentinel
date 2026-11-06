@@ -609,6 +609,7 @@ class ScanForegroundService : Service() {
                 holdAwake()
                 val interval = Prefs.scanIntervalMs(this@ScanForegroundService)
                 com.rfsentinel.app.ui.LiveWindow.wifiScanMs = interval
+                com.rfsentinel.app.ui.LiveWindow.usbQuickClear = Prefs.usbQuickClear(this@ScanForegroundService)
                 com.rfsentinel.app.ui.LiveWindow.wifiScanAt = System.currentTimeMillis()
                 wifiEngine.requestScan()
                 delay(interval)
@@ -1159,7 +1160,7 @@ class ScanForegroundService : Service() {
             probeHits[a.mac]?.takeIf { now - it.first < ESP_HIT_TTL_MS }?.second.orEmpty() +
             extra
         val noAirTags = Prefs.excludeAirTags(this)
-        val kept = DeviceIntel.dropTrainRouter(com.rfsentinel.app.detect.FlockNoise.filter(raw, a.name, OuiWatchlist.flockRegion), a)
+        val kept = DeviceIntel.dropTrainRouter(com.rfsentinel.app.detect.FlockNoise.filter(raw, a.name, OuiWatchlist.flockRegion, Prefs.flockCameras(this)), a)
         // Non-stop probing backs up a fixed-camera match that survived the noise filters (never alone).
         val sifted = kept + listOfNotNull(com.rfsentinel.app.detect.ProbeBehaviour.supportHit(a, kept))
         val (on, off) = sifted.filter { !(noAirTags && SignatureEngine.isAppleFindMy(it)) }
@@ -1225,7 +1226,7 @@ class ScanForegroundService : Service() {
     }
 
     private fun knownAlprActive() = (Prefs.knownAlprAlerts(this) || Prefs.speedCameraAlerts(this)) &&
-        Prefs.categoryEnabled(this, Category.ALPR) && AlprStore.cameras.isNotEmpty()
+        Prefs.mappedCameras(this) && AlprStore.cameras.isNotEmpty()
 
     private fun wantsAlert(kind: com.rfsentinel.app.alpr.KnownCamera.Kind) =
         if (kind == com.rfsentinel.app.alpr.KnownCamera.Kind.ALPR) Prefs.knownAlprAlerts(this) else Prefs.speedCameraAlerts(this)

@@ -90,7 +90,7 @@ class OnlineWatch(
             for (p in planes) {
                 val circling = loiter.update(p, now)
                 val distanceM = PoliceAircraft.distance(p, me.latitude, me.longitude)
-                val hit = PoliceAircraft.classify(p, registry, circling, distanceM)
+                val hit = PoliceAircraft.classify(p, registry, circling, distanceM, alertM = Prefs.aircraftAlertKm(context) * 1000.0)
                 seen += PoliceAircraft.Seen(p, hit)
                 if (hit == null) continue
                 val loud = PoliceAircraft.alerts(hit, distanceM, Prefs.aircraftCircling(context), Prefs.aircraftAlertKm(context) * 1000.0)
@@ -123,7 +123,7 @@ class OnlineWatch(
             for (p in planes) {
                 val circling = loiter.update(p, now)
                 val distanceM = me?.let { PoliceAircraft.distance(p, it.latitude, it.longitude) }
-                val hit = PoliceAircraft.classify(p, registry, circling, distanceM, PoliceAircraft.VIA_LOCAL)
+                val hit = PoliceAircraft.classify(p, registry, circling, distanceM, PoliceAircraft.VIA_LOCAL, Prefs.aircraftAlertKm(context) * 1000.0)
                 seen += PoliceAircraft.Seen(p, hit)
                 if (hit == null) continue
                 val loud = PoliceAircraft.alerts(hit, distanceM, Prefs.aircraftCircling(context), Prefs.aircraftAlertKm(context) * 1000.0)

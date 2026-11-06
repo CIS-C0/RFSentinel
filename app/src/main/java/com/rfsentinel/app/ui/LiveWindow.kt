@@ -14,6 +14,12 @@ object LiveWindow {
     /** A Bluetooth device not heard for this long is out of range (adverts come every second or so). */
     const val BLE_IN_RANGE_MS = 8_000L
 
+    /** A USB adapter repeats a device every 2 s until a sweep and a bit no longer hears it, so a gap this long means gone. */
+    const val USB_GONE_MS = 5_000L
+
+    /** Settings: end a USB-heard device's alert as soon as the adapter loses it (kept current by the scan service). */
+    @Volatile var usbQuickClear = true
+
     /** The WiFi scan interval in use (kept current by the scan service): WiFi devices only refresh once per scan. */
     @Volatile var wifiScanMs = 30_000L
 
@@ -29,11 +35,13 @@ object LiveWindow {
         return (((now - scanAt) / turnMs).mod(1.0) * 360.0 - 90.0).toFloat()
     }
 
-    /** Still being heard: Bluetooth within 8 s, WiFi within one scan round + 10 s. */
+    /** Still being heard: Bluetooth within 8 s, WiFi within one scan round + 10 s, or 5 s from a USB adapter. */
     fun inRange(s: DeviceRegistry.Snapshot, now: Long = System.currentTimeMillis()): Boolean {
         val wifi = Advert.Source.WIFI in s.sources || s.source == Advert.Source.WIFI
-        return now - s.lastSeen <= if (wifi) wifiScanMs + 10_000L else BLE_IN_RANGE_MS
+        return now - s.lastSeen <= if (wifi) wifiWindowMs(HeardBy.usb.recent(s.mac, now)) else BLE_IN_RANGE_MS
     }
+
+    internal fun wifiWindowMs(usbHeard: Boolean) = if (usbHeard && usbQuickClear) USB_GONE_MS else wifiScanMs + 10_000L
 
     /**
      * Flagged (more than a very weak match) AND in range: what drives the live alerts (bubble, banner, radar blips, car

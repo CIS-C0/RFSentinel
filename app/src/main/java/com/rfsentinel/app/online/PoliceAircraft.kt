@@ -103,22 +103,24 @@ object PoliceAircraft {
      * What an aircraft is, or null when it's ordinary traffic. [circling] comes from
      * [LoiterTracker]; [distanceM] is the ground distance from you.
      */
-    fun classify(p: Plane, registry: Map<String, Entry>, circling: Boolean, distanceM: Double?, via: String = VIA_ONLINE): Hit? {
+    fun classify(p: Plane, registry: Map<String, Entry>, circling: Boolean, distanceM: Double?, via: String = VIA_ONLINE, alertM: Double = ALERT_M): Hit? {
         val where = describe(p, distanceM)
+        // One 40 km away is listed, but it isn't overhead.
+        val over = if (distanceM != null && distanceM <= alertM) " overhead" else ""
         registry[p.hex]?.let { e ->
-            return Hit(Category.AIRCRAFT, "Police aircraft overhead: ${titleCase(e.owner)}", if (circling) 90 else 85,
+            return Hit(Category.AIRCRAFT, "Police aircraft$over: ${titleCase(e.owner)}", if (circling) 90 else 85,
                 "${e.registration} (${e.model.ifBlank { p.type ?: "aircraft" }}), registered to ${titleCase(e.owner)}. $where" +
                     if (circling) " It is circling." else "",
                 "FAA / Transport Canada aircraft registry; $via")
         }
         p.owner?.takeIf { LE_OWNER.containsMatchIn(it) }?.let { owner ->
-            return Hit(Category.AIRCRAFT, "Police aircraft overhead: ${titleCase(owner)}", if (circling) 85 else 80,
+            return Hit(Category.AIRCRAFT, "Police aircraft$over: ${titleCase(owner)}", if (circling) 85 else 80,
                 "${p.registration ?: p.hex.uppercase()} (${p.type ?: "aircraft"}), operated by ${titleCase(owner)}. $where" +
                     if (circling) " It is circling." else "",
                 "ADS-B owner / operator (adsb.fi)")
         }
         p.owner?.takeIf { GOV_OWNER.containsMatchIn(it) }?.let { owner ->
-            return Hit(Category.AIRCRAFT, "Government aircraft overhead: ${titleCase(owner)}", if (circling) 85 else 80,
+            return Hit(Category.AIRCRAFT, "Government aircraft$over: ${titleCase(owner)}", if (circling) 85 else 80,
                 "${p.registration ?: p.hex.uppercase()} (${p.type ?: "aircraft"}), operated by ${titleCase(owner)}. $where" +
                     (if (circling) " It is circling." else "") + " A government owner isn't always police - verify.",
                 "ADS-B owner / operator (adsb.fi)")

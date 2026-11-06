@@ -672,7 +672,18 @@ object SdrRadio {
             halted || sdr.lost || away || !keeps(Mode.PAGER)
         }
         val onPage = { page: PagerLog.Page, hz: Long -> pagerLog.add(page, hz, System.currentTimeMillis()) }
+        var next = 0
         while (!stop()) {
+            // Frequencies typed in Settings: listen to those in turn, no scan.
+            val mine = appContext?.let { c -> RadioSettings.targets(com.rfsentinel.app.util.Prefs.pagerFreqs(c)).map { it.freqHz } }.orEmpty()
+            if (mine.isNotEmpty()) {
+                val hz = mine[next++ % mine.size]
+                status = "$deviceLabel · pagers · listening on %.4f MHz".format(java.util.Locale.US, hz / 1e6) + turnNote()
+                val from = System.currentTimeMillis()
+                hunt.listen(hz, stop, onPage)
+                if (System.currentTimeMillis() - from < 1_000L) Thread.sleep(1_000L) // the tuner didn't lock: don't spin
+                continue
+            }
             val known = pagerHz
             if (known == null) status = "$deviceLabel · pagers · looking for a paging channel…" + turnNote()
             val hz = known ?: hunt.hunt(stop, onPage)

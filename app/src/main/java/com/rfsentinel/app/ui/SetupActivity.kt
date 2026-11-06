@@ -196,7 +196,8 @@ class SetupActivity : AppCompatActivity() {
             "germany" to "Germany - Motorola VB400 body cams, Motorola and Sepura BOS digital radios",
             "spain" to "Spain - Axon body cams of the Policia Nacional, Teltronic radios",
             "italy" to "Italy - Leonardo / Selex police radios, Selea and Elsag plate readers",
-            "netherlands" to "Netherlands - Zepcam body cams"
+            "netherlands" to "Netherlands - Zepcam body cams",
+            "sweden" to "Sweden - Axon body cams, Sepura and Airbus Rakel radios"
         ).forEach { (key, label) ->
             check(label, key in enabled) { on ->
                 if (on) enabled += key else enabled -= key

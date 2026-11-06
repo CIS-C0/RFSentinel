@@ -1,0 +1,26 @@
+[
+  {
+    "prefix": "00:25:DF",
+    "label": "Axon body camera (Swedish police)",
+    "source": "IEEE MA-L registry (Axon Enterprise, Inc.); the Swedish Police Authority announced 1,000 Axon body cameras in 2019 after a field trial",
+    "confidence": "confirmed",
+    "score": 75,
+    "category": "BODY_CAM"
+  },
+  {
+    "prefix": "00:1E:96",
+    "label": "Sepura radio (Rakel network)",
+    "source": "IEEE MA-L registry (Sepura Limited); TETRA radios, the technology of the Swedish public-safety network Rakel",
+    "confidence": "candidate",
+    "score": 45,
+    "category": "PUBLIC_SAFETY"
+  },
+  {
+    "prefix": "00:23:B9",
+    "label": "Airbus radio (Rakel network)",
+    "source": "IEEE MA-L registry (Airbus Defence and Space Deutschland GmbH); maker of the TETRA network behind the Swedish public-safety network Rakel",
+    "confidence": "candidate",
+    "score": 40,
+    "category": "PUBLIC_SAFETY"
+  }
+]

@@ -39,7 +39,7 @@ object AmbientThreats {
     ).filter { it.score >= 40 }.maxByOrNull { it.score }
 
     private fun camera(context: Context): Threat? {
-        if (!ScanForegroundService.isRunning || !Prefs.categoryEnabled(context, Category.ALPR)) return null
+        if (!ScanForegroundService.isRunning || !Prefs.mappedCameras(context)) return null
         val loc = ScanForegroundService.lastFix ?: return null
         val cams = AlprStore.cameras.takeIf { it.isNotEmpty() } ?: return null
         val (cam, d) = KnownCameras.near(cams, loc.latitude, loc.longitude, 500.0).firstOrNull { (c, _) ->

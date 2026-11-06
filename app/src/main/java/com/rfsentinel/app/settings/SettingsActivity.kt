@@ -50,7 +50,8 @@ class SettingsActivity : AppCompatActivity() {
             "Germany: Motorola VB400 body cams, Motorola and Sepura BOS digital radios.\n" +
             "Spain: Axon body cams of the Policia Nacional, Teltronic radios.\n" +
             "Italy: Leonardo / Selex police radios, Selea and Elsag plate readers.\n" +
-            "Netherlands: Zepcam body cams."
+            "Netherlands: Zepcam body cams.\n" +
+            "Sweden: Axon body cams of the Swedish police, Sepura and Airbus Rakel radios."
         const val WAZE_WARNING_SHORT = "Use at your own risk. Reports come from third-party services RF Sentinel doesn't run or endorse " +
             "(OpenWeb Ninja with your own key, or Waze itself); your account, your responsibility."
         const val WAZE_WARNING = "Waze police reports are read through OpenWeb Ninja's Waze API with your own API key.\n\n" +
@@ -92,6 +93,8 @@ class SettingsActivity : AppCompatActivity() {
         list += f
     }
     private var airTagSwitch: SwitchMaterial? = null
+    private var flockSwitch: SwitchMaterial? = null
+    private var mappedCamerasSwitch: SwitchMaterial? = null
     private var wazeKeyInput: android.widget.EditText? = null
     private var aircraftStatusText: android.widget.TextView? = null
     private var wazeStatusText: android.widget.TextView? = null
@@ -304,7 +307,8 @@ class SettingsActivity : AppCompatActivity() {
         "global" to binding.presetGlobal, "canada" to binding.presetCanada, "us" to binding.presetUs,
         "france" to binding.presetFrance, "uk" to binding.presetUk, "portugal" to binding.presetPortugal,
         "germany" to binding.presetGermany, "spain" to binding.presetSpain, "italy" to binding.presetItaly,
-        "netherlands" to binding.presetNetherlands
+        "netherlands" to binding.presetNetherlands,
+        "sweden" to binding.presetSweden
     )
 
     /** ESP32 boards on USB (OUI-Spy / GhostESP / Marauder) and an OUI-SPY board over Bluetooth. */
@@ -738,6 +742,7 @@ class SettingsActivity : AppCompatActivity() {
                 "• Spain: Axon body cams of the Policia Nacional, Teltronic TETRA radios.\n" +
                 "• Italy: Leonardo / Selex TETRA radios of the Polizia di Stato, Selea and Elsag plate readers.\n" +
                 "• Netherlands: Zepcam body cams.\n" +
+                "• Sweden: Axon body cams of the Swedish police, Sepura and Airbus Rakel radios.\n" +
                 "French drone electronic IDs are decoded in every region. With a European preset on (and not United States), " +
                 "Flock detection is off: Flock isn't used there."),
         Section("alerts", binding.headerAlerts, binding.sectionAlerts,
@@ -1026,6 +1031,25 @@ class SettingsActivity : AppCompatActivity() {
      * A What to detect row: the label with its ⓘ ([info]) right after the text, then the switch and its ▾ ([fold]).
      * A row with no ▾ keeps the slot empty, so every switch in the list lines up.
      */
+    /** Under plate cameras: Flock on its own, and mapped cameras, which don't depend on the detected ones. */
+    private fun addCameraControls(detected: SwitchMaterial) {
+        flockSwitch = SwitchMaterial(this).apply {
+            text = "Flock cameras"
+            isChecked = Prefs.flockCameras(this@SettingsActivity)
+            isEnabled = detected.isChecked
+        }
+        detected.onToggle { on -> flockSwitch?.isEnabled = on }
+        binding.categoryContainer.addView(detectRow(flockSwitch!!, "Off: detected Flock cameras stop alerting. Other plate cameras still alert.").apply {
+            setPadding((24 * resources.displayMetrics.density).toInt(), 0, 0, 0)
+        })
+        mappedCamerasSwitch = SwitchMaterial(this).apply {
+            text = "Mapped cameras"
+            isChecked = Prefs.mappedCameras(this@SettingsActivity)
+        }
+        binding.categoryContainer.addView(detectRow(mappedCamerasSwitch!!,
+            "Alerts for cameras mapped in OpenStreetMap, whether or not detected cameras are on. Choose which kinds under Known cameras."))
+    }
+
     private fun detectRow(sw: SwitchMaterial, info: String? = null, title: String? = null, fold: View? = null): View {
         val slot = fold ?: foldIcon().apply { visibility = View.INVISIBLE; importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }
         if (info == null) return android.widget.LinearLayout(this).apply {
@@ -1154,6 +1178,7 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.radarTopLabel, "The way you face: the radar turns with the phone, like a compass, so N moves. North: N stays at the top.")
         info(binding.radarDotsLabel, "Most dots have no real direction (one antenna can't tell). Stay in place keeps them still; turn with north moves them with the compass.")
         info(binding.radarBeepSwitch, "Beeps faster as a flagged device gets closer, like a radar detector.")
+        info(binding.usbQuickClearSwitch, "A USB WiFi adapter goes through every channel in seconds. When a sweep no longer hears a device, its alert and beeps end right away instead of after the next phone scan.")
         info(binding.detectorSoundSwitch, "Alerts use radar-detector tones (Ka, K and X) and say \"GPS connected\" when the first GPS fix comes in.")
         info(binding.gpsVoiceSwitch, "With the radar-detector sound: says \"GPS connected\" when the GPS locks, and again when it comes back after losing the fix.")
         info(binding.dedupeLabel, "The same device won't alert again until this many minutes have passed.")
@@ -1561,6 +1586,11 @@ class SettingsActivity : AppCompatActivity() {
                 "Time for ${m.label}")
             ticked to listOf(box.getChildAt(box.childCount - 2), box.getChildAt(box.childCount - 1))
         }
+        val pagerFrom = box.childCount
+        lines("Pager frequencies", "466.075", Prefs.pagerFreqs(this),
+            "Leave empty to scan for paging channels. If you know yours, enter it in MHz, one per line: the SDR listens there and " +
+            "doesn't scan, so a quiet channel isn't missed.") { Prefs.setPagerFreqs(this, it) }
+        val pagerViews = (pagerFrom until box.childCount).map { box.getChildAt(it) }
         lines("Watch these talkgroups", "1234 Sheriff dispatch\n2001", Prefs.p25Talkgroups(this),
             "P25: alerts when a call starts on one of them, and names them on the P25 talkgroups screen. One per line: the " +
             "talkgroup number, with an optional name. 23* watches every talkgroup starting with 23 (2300, 2301, 2307...), and * every " +
@@ -1606,9 +1636,10 @@ class SettingsActivity : AppCompatActivity() {
         val talkgroupViews = (box.childCount - 11 until box.childCount).map { box.getChildAt(it) }
         var sweepViews = emptyList<View>() // the sweep's own settings, below
         showSdrOptions = {
-            val ticked = listOf(sweepBox, adsbBox, p25Box).count { it.isChecked }
+            val ticked = listOf(sweepBox, adsbBox, p25Box, pagerBox).count { it.isChecked }
             turnViews.forEach { (scan, views) -> views.forEach { it.shownIf(ticked > 1 && scan.isChecked) } }
             talkgroupViews.forEach { it.shownIf(p25Box.isChecked) }
+            pagerViews.forEach { it.shownIf(pagerBox.isChecked) }
             sweepViews.forEach { it.shownIf(sweepBox.isChecked) }
         }
         val sweepFrom = box.childCount
@@ -2299,11 +2330,27 @@ class SettingsActivity : AppCompatActivity() {
         val alertNow = Prefs.wazeAlertM(this)
         showAlert(alertNow)
         box.addView(alertText)
+        val fastText = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
+        fun showFast(m: Int) { fastText.text = "On highways, alert within ${Prefs.formatRange(m)}" }
+        lateinit var fastSlider: Slider
         box.addView(slider(0, steps.lastIndex, steps.indexOf(alertNow).coerceAtLeast(0), description = "Waze alert distance",
             format = { Prefs.formatRange(steps[it]) }) {
             Prefs.setWazeAlertM(this, steps[it])
             showAlert(steps[it])
+            // Follows this one until it is set on its own.
+            val fast = Prefs.wazeFastAlertM(this)
+            fastSlider.value = steps.indexOf(fast).coerceAtLeast(0).toFloat()
+            showFast(fast)
         })
+        val fastNow = Prefs.wazeFastAlertM(this)
+        showFast(fastNow)
+        box.addView(infoRow(fastText, "At highway speed a report comes up sooner, so a longer distance gives more warning.", "Highway distance"))
+        fastSlider = slider(0, steps.lastIndex, steps.indexOf(fastNow).coerceAtLeast(0), description = "Waze alert distance on highways",
+            format = { Prefs.formatRange(steps[it]) }) {
+            Prefs.setWazeFastAlertM(this, steps[it])
+            showFast(steps[it])
+        }
+        box.addView(fastSlider)
         val viewText = TextView(this).apply { textSize = 12f; alpha = 0.75f }
         fun showView(km: Int) { viewText.text = "Show reports on the map within ${com.rfsentinel.app.util.Units.km(km)}" }
         showView(Prefs.wazeViewKm(this))
@@ -2674,6 +2721,7 @@ class SettingsActivity : AppCompatActivity() {
                     setPadding((24 * resources.displayMetrics.density).toInt(), 0, 0, 0)
                 })
             }
+            if (c == Category.ALPR) addCameraControls(sw)
             if (c == Category.AIRCRAFT) addAircraftControls(sw)
             if (c == Category.POLICE_REPORT) addWazeControls(sw)
         }
@@ -2706,6 +2754,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.vibrateSwitch.isChecked = Prefs.vibrateEnabled(this)
         setupSnoozeLength()
         binding.radarBeepSwitch.isChecked = Prefs.radarBeep(this)
+        binding.usbQuickClearSwitch.isChecked = Prefs.usbQuickClear(this)
         binding.detectorSoundSwitch.isChecked = Prefs.detectorSound(this)
         binding.startupSweepSwitch.isChecked = Prefs.startupSweep(this)
         binding.gpsVoiceSwitch.isChecked = Prefs.gpsVoice(this)
@@ -3023,6 +3072,8 @@ class SettingsActivity : AppCompatActivity() {
 
         categorySwitches.forEach { (c, sw) -> Prefs.setCategoryEnabled(this, c, sw.isChecked) }
         airTagSwitch?.let { Prefs.setExcludeAirTags(this, it.isChecked) }
+        flockSwitch?.let { Prefs.setFlockCameras(this, it.isChecked) }
+        mappedCamerasSwitch?.let { Prefs.setMappedCameras(this, it.isChecked) }
         wazeKeyInput?.let { input ->
             val key = input.text.toString().trim()
             val name = com.rfsentinel.app.online.OnlineWatch.WAZE_KEY_NAME
@@ -3037,6 +3088,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setRadarNames(this, binding.radarNamesSwitch.isChecked)
         Prefs.setRadarSweepLine(this, binding.radarSweepSwitch.isChecked)
         Prefs.setRadarBeep(this, binding.radarBeepSwitch.isChecked)
+        Prefs.setUsbQuickClear(this, binding.usbQuickClearSwitch.isChecked)
         Prefs.setDetectorSound(this, binding.detectorSoundSwitch.isChecked)
         Prefs.setStartupSweep(this, binding.startupSweepSwitch.isChecked)
         Prefs.setGpsVoice(this, binding.gpsVoiceSwitch.isChecked)

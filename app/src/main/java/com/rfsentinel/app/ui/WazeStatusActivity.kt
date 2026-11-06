@@ -187,7 +187,7 @@ class WazeStatusActivity : AppCompatActivity() {
                 " (${WazeRtFetcher.accountsMadeToday(this)} of ${WazeRtFetcher.dailyAccountLimit()} made today)",
             Diagnostics.lastError.takeIf { it.isNotEmpty() }?.let { "Last problem: $it" }
         ).joinToString("\n") else listOf(
-            "Your API key and a box of about ${Prefs.formatRange(maxOf(Prefs.wazeViewKm(this) * 1000, Prefs.wazeAlertM(this)))} around your position (not rounded)",
+            "Your API key and a box of about ${Prefs.formatRange(Prefs.wazeReachM(this))} around your position (not rounded)",
             "API key: " + (if (SecureStore.get(this, OnlineWatch.WAZE_KEY_NAME).isNullOrBlank()) "not set" else "set")
         ).joinToString("\n")
         v.answer.text = OnlineWatch.wazeStatus.ifEmpty { "No answer yet" }
@@ -235,7 +235,7 @@ class WazeStatusActivity : AppCompatActivity() {
             if (Diagnostics.lastError.isNotEmpty()) lines += "Last problem: ${Diagnostics.lastError}"
         } else {
             lines += "Source: OpenWeb Ninja (api.openwebninja.com)"
-            lines += "Sent: your API key and a box of about ${Prefs.formatRange(maxOf(Prefs.wazeViewKm(this) * 1000, Prefs.wazeAlertM(this)))} around your position (not rounded)"
+            lines += "Sent: your API key and a box of about ${Prefs.formatRange(Prefs.wazeReachM(this))} around your position (not rounded)"
             lines += "API key: " + (if (SecureStore.get(this, OnlineWatch.WAZE_KEY_NAME).isNullOrBlank()) "not set" else "set")
         }
         lines += ""

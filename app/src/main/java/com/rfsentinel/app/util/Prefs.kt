@@ -139,6 +139,14 @@ object Prefs {
         return WAZE_ALERT_STEPS_M.minByOrNull { kotlin.math.abs(it - m) } ?: 2000
     }
     fun setWazeAlertM(context: Context, m: Int) = setInt(context, "waze_alert_m", m)
+    /** The alert distance at highway speed, where reports come up sooner. Follows [wazeAlertM] until set. */
+    fun wazeFastAlertM(context: Context): Int {
+        val m = int(context, "waze_fast_alert_m", wazeAlertM(context))
+        return WAZE_ALERT_STEPS_M.minByOrNull { kotlin.math.abs(it - m) } ?: 2000
+    }
+    fun setWazeFastAlertM(context: Context, m: Int) = setInt(context, "waze_fast_alert_m", m)
+    /** How far around you reports are asked for: the view range or an alert distance, whichever is widest. */
+    fun wazeReachM(context: Context): Int = maxOf(wazeViewKm(context) * 1000, wazeAlertM(context), wazeFastAlertM(context))
     /** "100 m", "750 m", "1.5 km", "10 km". */
     fun formatRange(m: Int): String = if (Units.imperial) Units.length(m.toDouble())
         else if (m < 1000) "$m m" else if (m % 1000 == 0) "${m / 1000} km" else "${m / 1000.0} km"
@@ -269,6 +277,12 @@ object Prefs {
 
     /** Start recording a trace automatically whenever scanning starts. */
     /** Warn when approaching a plate reader mapped in OpenStreetMap (needs downloaded data). */
+    /** Flock plate cameras among the detected ones (What to detect). */
+    fun flockCameras(context: Context): Boolean = bool(context, "flock_cameras", true)
+    fun setFlockCameras(context: Context, value: Boolean) = setBool(context, "flock_cameras", value)
+    /** Alerts for cameras mapped in OpenStreetMap, apart from detected ones. Follows the plate camera switch until set. */
+    fun mappedCameras(context: Context): Boolean = bool(context, "mapped_cameras", categoryEnabled(context, Category.ALPR))
+    fun setMappedCameras(context: Context, value: Boolean) = setBool(context, "mapped_cameras", value)
     fun knownAlprAlerts(context: Context): Boolean = bool(context, "known_alpr_alerts", true)
     fun setKnownAlprAlerts(context: Context, value: Boolean) = setBool(context, "known_alpr_alerts", value)
     /** Warn when approaching a speed or red-light camera mapped in OpenStreetMap. */
@@ -586,6 +600,9 @@ object Prefs {
     /** Radar-detector mode: after a device alert, keep beeping faster as its signal gets stronger. */
     fun radarBeep(context: Context): Boolean = bool(context, "radar_beep", false)
     fun setRadarBeep(context: Context, value: Boolean) = setBool(context, "radar_beep", value)
+    /** A device a USB WiFi adapter stops hearing stops alerting and beeping right away, without waiting for a phone scan. */
+    fun usbQuickClear(context: Context): Boolean = bool(context, "usb_quick_clear", true)
+    fun setUsbQuickClear(context: Context, value: Boolean) = setBool(context, "usb_quick_clear", value)
 
     /** Radar-detector sound style: Ka / K / X style tones, startup sweep, "GPS connected", short voice. */
     fun detectorSound(context: Context): Boolean = bool(context, "detector_sound", false)
@@ -671,6 +688,9 @@ object Prefs {
     /** The SDR decodes pager messages (off by default); they stay in memory ([com.rfsentinel.app.sdr.PagerLog]). */
     fun sdrPager(context: Context): Boolean = bool(context, "sdr_pager", false)
     fun setSdrPager(context: Context, v: Boolean) { keepSdrSweep(context); setBool(context, "sdr_pager", v) }
+    /** Paging frequencies typed by the user, one per line in MHz: listened to instead of scanning for a channel. */
+    fun pagerFreqs(context: Context) = str(context, "pager_freqs")
+    fun setPagerFreqs(context: Context, v: String) = sp(context).edit { putString("pager_freqs", v) }
     /** The sweep's default follows the ADS-B and P25 settings: store it before they change, or ticking one would untick it. */
     private fun keepSdrSweep(context: Context) { if (!sp(context).contains("sdr_sweep")) setSdrSweep(context, sdrSweep(context)) }
     /** P25 talkgroups to alert on, "1234 Name" a line ([com.rfsentinel.app.sdr.P25Log.watched]). */

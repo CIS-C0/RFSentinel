@@ -70,7 +70,8 @@ object RadioReference {
                 }
                 FreqNames.nearby = names
                 lastArea = area; lastAreaAt = System.currentTimeMillis()
-                status = "RadioReference: ${calls.size} licences, ${names.size} frequencies near you"
+                status = if (calls.isEmpty()) "RadioReference: no FCC licences within $RANGE_KM km. It only covers the United States."
+                    else "RadioReference: ${calls.size} licences, ${names.size} frequencies near you"
             }
         } catch (e: Exception) {
             status = "RadioReference: " + (e.message ?: "lookup failed")
@@ -82,8 +83,11 @@ object RadioReference {
     /** Settings "Test login": one small query; returns a human answer. */
     suspend fun test(context: Context): String = withContext(Dispatchers.IO) {
         val a = auth(context) ?: return@withContext "Enter the username, password and developer key first"
-        // Any position checks the login; 0,0 sends nothing about where you are.
-        runCatching { proxCallsigns(a, 0.0, 0.0); "Login works" }.getOrElse { it.message ?: "Failed" }
+        // Its own small call: sends nothing about where you are, and a proximity search can take too long to answer.
+        runCatching {
+            val until = parseExpiry(call("getUserData", "", a))
+            if (until == null) "Login works" else "Login works, subscription until $until"
+        }.getOrElse { it.message ?: "Failed" }
     }
 
     data class Callsign(val callsign: String, val licensee: String, val km: Double)
@@ -121,12 +125,18 @@ object RadioReference {
             val text = stream.use { String(it.readBytes(), Charsets.UTF_8) }
             fault(text)?.let { throw java.io.IOException(it) }
             return text
+        } catch (e: java.net.SocketTimeoutException) {
+            throw java.io.IOException("RadioReference didn't answer in time. Try again.", e)
         } finally {
             conn.disconnect()
         }
     }
 
     // ---- response parsing (pure; unit-tested) ----
+
+    /** When the Premium subscription ends, from a getUserData answer. */
+    fun parseExpiry(xml: String): String? =
+        Regex("<subExpireDate[^>]*>([^<]+)</subExpireDate>").find(xml)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotEmpty() }
 
     /** The faultstring of a SOAP fault, or null. */
     fun fault(xml: String): String? {

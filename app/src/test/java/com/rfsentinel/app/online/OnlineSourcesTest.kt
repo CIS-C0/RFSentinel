@@ -46,6 +46,10 @@ class OnlineSourcesTest {
         assertTrue(gov.label.startsWith("Government aircraft") && PoliceAircraft.alerts(gov, 900.0))
         assertTrue(!PoliceAircraft.alerts(gov, 9000.0) && PoliceAircraft.alerts(gov, 9000.0, alertM = 10_000.0))
         assertTrue(!PoliceAircraft.alerts(gov, 3000.0, alertM = 2_000.0))
+        // Listed from 43 km away, but only "overhead" inside the alert range.
+        val far = PoliceAircraft.classify(sheriff, registry, circling = false, distanceM = 43_000.0, alertM = 5_000.0)!!
+        assertTrue(far.label.startsWith("Police aircraft: "))
+        assertTrue(h1.label.startsWith("Police aircraft overhead: "))
         assertEquals("Police aircraft overhead", com.rfsentinel.app.util.Spoken.aircraft(h1, 300.0, 0.0))
         assertEquals("Police aircraft, 2 kilometers northeast", com.rfsentinel.app.util.Spoken.aircraft(h1, 2000.0, 50.0))
     }
