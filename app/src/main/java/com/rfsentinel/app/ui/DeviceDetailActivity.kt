@@ -311,7 +311,7 @@ class DeviceDetailActivity : AppCompatActivity() {
                     addView(TextView(context).apply {
                         text = k
                         setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                        setTextColor(0xFF888888.toInt())
+                        setTextColor(com.google.android.material.color.MaterialColors.getColor(context, android.R.attr.textColorSecondary, 0xFF888888.toInt()))
                     })
                     addView(TextView(context).apply {
                         text = v

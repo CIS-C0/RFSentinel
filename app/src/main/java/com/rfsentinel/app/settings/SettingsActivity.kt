@@ -2393,7 +2393,7 @@ class SettingsActivity : AppCompatActivity() {
             val steps = if (direct) Prefs.WAZE_DIRECT_INTERVALS_S else Prefs.WAZE_NINJA_INTERVALS_S
             val col = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.VERTICAL }
             val text = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
-            val hint = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.6f }
+            val hint = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
             fun show(sec: Int) {
                 text.text = "Check for new reports every ${Prefs.formatInterval(sec)}"
                 hint.text = when {
