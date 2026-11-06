@@ -208,7 +208,7 @@ Everything the app does, grouped by area.
 - Ordinary devices named precisely: exact AirPods / Beats model, device class, IEEE registrant; decoded Apple Continuity, iBeacon, Eddystone, Fast Pair
 - Editable **watchlist** (exact addresses, prefixes of 24 to 44 bits picked with a slider, name, *name starts with*, vendor and Bluetooth advert-pattern rules; search, export and undo) with Global, Canada, US, France, UK, Portugal, Germany, Spain and Italy presets; per-category on/off switches, and for each category which ways it alerts you (banner, sound, voice, vibration, radar beep)
 - Bluetooth 5 extended advertising and LE Coded (long range) where the phone supports it
-- **I saw it:** on a device's page, tell the app what it is (e.g. pole camera on the bridge) and it learns that device - its exact address, and its Bluetooth advert pattern or WiFi probe fingerprint so it's recognised after its address changes. Patterns many devices share are refused, and a learned pattern only ever counts as probable
+- **Learn device:** on a device's page, tell the app what it is (e.g. pole camera on the bridge) and it learns that device - its exact address, and its Bluetooth advert pattern or WiFi probe fingerprint so it's recognised after its address changes. Patterns many devices share are refused, and a learned pattern only ever counts as probable
 - **Probe-rate clue** (USB WiFi adapter): non-stop wildcard probing from one fixed address backs up a fixed-camera match, shown on the device page
 
 </details>
@@ -411,7 +411,7 @@ signal graph with **Locate** mode (beeps faster as you get closer; it keeps goin
 look at the map, where a live read card shows the signal, rough distance and trend), history, and
 the raw advertisement, plus its **Category**. **Rename** gives the device your own name (shown in the
 list, on the map and in history) and **Add note** keeps a note with it; named or
-noted devices stay in the history. **I saw it** is different: it doesn't just label
+noted devices stay in the history. **Learn device** is different: it doesn't just label
 this device, it adds it to your watchlist with what you say it is (e.g. pole camera
 on the bridge): its exact address and / or its Bluetooth advert pattern or WiFi
 probe fingerprint, so you're alerted the next time it's around, even under a new
