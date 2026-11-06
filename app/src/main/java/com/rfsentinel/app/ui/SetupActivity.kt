@@ -230,11 +230,11 @@ class SetupActivity : AppCompatActivity() {
         }
         binding.page.addView(group)
         switch("Alert sound", Prefs.soundEnabled(this)) { Prefs.setSoundEnabled(this, it) }
-        switch("Vibration (1 pulse weak, 2 probable, 3 strong)", Prefs.vibrateEnabled(this)) { Prefs.setVibrateEnabled(this, it) }
-        switch("Spoken alerts (\"Axon body camera nearby\")", Prefs.voiceEnabled(this)) { Prefs.setVoiceEnabled(this, it) }
-        switch("Short spoken alerts (\"Body cam\", \"Police car\", \"Speed camera, 50\")", Prefs.shortVoice(this)) { Prefs.setShortVoice(this, it) }
-        switch("Floating threat bubble over other apps (Waze, Google Maps...)",
-            Prefs.threatBubble(this) && android.provider.Settings.canDrawOverlays(this)) { on ->
+        switch("Vibration", Prefs.vibrateEnabled(this), "1 pulse weak, 2 probable, 3 strong.") { Prefs.setVibrateEnabled(this, it) }
+        switch("Spoken alerts", Prefs.voiceEnabled(this), "\"Axon body camera nearby\"") { Prefs.setVoiceEnabled(this, it) }
+        switch("Short spoken alerts", Prefs.shortVoice(this), "\"Body cam\", \"Police car\", \"Speed camera, 50\"") { Prefs.setShortVoice(this, it) }
+        switch("Floating threat bubble",
+            Prefs.threatBubble(this) && android.provider.Settings.canDrawOverlays(this), "Over other apps, like Waze or Google Maps.") { on ->
             Prefs.setThreatBubble(this, on)
             if (on && !android.provider.Settings.canDrawOverlays(this)) {
                 // Android asks for "Display over other apps" on its own screen.
@@ -252,8 +252,8 @@ class SetupActivity : AppCompatActivity() {
         val mode = Prefs.screenMode(this)
         listOf(
             Prefs.ScreenMode.ALWAYS_ON to "Always on",
-            Prefs.ScreenMode.ON_WHILE_CHARGING to "On while charging (car, desk) - recommended",
-            Prefs.ScreenMode.NORMAL to "Normal (turns off like other apps)"
+            Prefs.ScreenMode.ON_WHILE_CHARGING to "On while charging",
+            Prefs.ScreenMode.NORMAL to "Normal"
         ).forEach { (value, text) ->
             screen.addView(RadioButton(this).apply {
                 id = View.generateViewId()
@@ -265,6 +265,7 @@ class SetupActivity : AppCompatActivity() {
             })
         }
         binding.page.addView(screen)
+        para("On while charging suits a car or a desk and is recommended. Normal turns off like other apps.", small = true)
     }
 
     private fun location() {
@@ -272,19 +273,19 @@ class SetupActivity : AppCompatActivity() {
         switch("Warn me when a tracker or flagged device keeps moving with me", Prefs.followerAlerts(this)) {
             Prefs.setFollowerAlerts(this, it)
         }
-        switch("Record a GPS trace automatically whenever scanning starts (view it on the map later)", Prefs.autoRecordTrace(this)) {
+        switch("Record a trace whenever scanning starts", Prefs.autoRecordTrace(this), "View it on the map later.") {
             Prefs.setAutoRecordTrace(this, it)
         }
-        switch("Save my GPS position with logged matches (privacy-sensitive)", Prefs.gpsTaggingEnabled(this)) {
+        switch("Save GPS position with matches", Prefs.gpsTaggingEnabled(this), "Privacy-sensitive: the log then shows where you were.") {
             Prefs.setGpsTaggingEnabled(this, it)
         }
         switch("Start scanning automatically when the phone boots", Prefs.autoStartOnBoot(this)) {
             Prefs.setAutoStartOnBoot(this, it)
         }
-        switch("Start scanning in the car (Android Auto; pick your car's Bluetooth later in Settings)", Prefs.carAutoStart(this)) {
+        switch("Start scanning in the car", Prefs.carAutoStart(this), "Android Auto. Pick your car's Bluetooth later in Settings.") {
             Prefs.setCarAutoStart(this, it)
         }
-        switch("Check for updates when the app opens (asks GitHub at most every 6 hours)", Prefs.autoUpdateCheck(this)) {
+        switch("Check for updates on app open", Prefs.autoUpdateCheck(this), "Asks GitHub at most every 6 hours.") {
             Prefs.setAutoUpdateCheck(this, it)
             Prefs.setUpdateCheckAsked(this, true)
         }
@@ -391,13 +392,14 @@ class SetupActivity : AppCompatActivity() {
         })
     }
 
-    private fun switch(text: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    private fun switch(text: String, checked: Boolean, detail: String? = null, onChange: (Boolean) -> Unit) {
         binding.page.addView(SwitchMaterial(this).apply {
             this.text = text
             isChecked = checked
             setPadding(0, (6 * dp).toInt(), 0, (6 * dp).toInt())
             setOnCheckedChangeListener { _, c -> onChange(c) }
         })
+        detail?.let { para(it, small = true) }
     }
 
     private fun check(text: String, checked: Boolean, onChange: (Boolean) -> Unit) {
