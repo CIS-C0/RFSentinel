@@ -38,7 +38,7 @@ object ThemeManager {
             R.style.Theme_RFSentinel_DedSec, true, ThemeHeaderView.Style.GLITCH, "marcus@ctOS-2.0:~$", R.drawable.dedsec_header),
         FSOCIETY("fsociety", "Mr. Robot homage: black & blood red, fsociety poster, a terminal full of quotes from the show",
             R.style.Theme_RFSentinel_Fsociety, true, ThemeHeaderView.Style.FSOCIETY, "root@fsociety:~#", R.drawable.fsociety_header),
-        SYSTEM("System default", "Teal - follows your phone's light / dark setting"),
+        SYSTEM("System default", "Teal, follows your phone's light / dark setting"),
         LIGHT("Light", "Always light", night = false),
         DARK("Dark", "Always dark", night = true),
         MATERIAL_YOU("Material You", "Material 3, coloured from your wallpaper (Android 12+)", R.style.Theme_RFSentinel_MaterialYou),
@@ -54,7 +54,7 @@ object ThemeManager {
             R.style.Theme_RFSentinel_Tactical, true, ThemeHeaderView.Style.STENCIL, "RF-SENTINEL"),
         BLUEPRINT("Blueprint", "White technical drawing on drafting blue, with dimension lines",
             R.style.Theme_RFSentinel_Blueprint, true, ThemeHeaderView.Style.BLUEPRINT, "RF SENTINEL // DWG-001"),
-        PAPER("Paper", "Newspaper ink on newsprint - the most readable theme in bright sunlight",
+        PAPER("Paper", "Newspaper ink on newsprint, the most readable theme in bright sunlight",
             R.style.Theme_RFSentinel_Paper, false, ThemeHeaderView.Style.MASTHEAD, "Front Page"),
         /** A theme made in the theme maker (which one: [custom]); not in the built-in lists. */
         CUSTOM("Custom theme", "Made in the theme maker", R.style.Theme_RFSentinel_Custom)

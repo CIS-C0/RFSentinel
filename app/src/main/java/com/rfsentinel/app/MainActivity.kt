@@ -61,7 +61,7 @@ class MainActivity : AppCompatActivity() {
         /** Radio transmissions stay on the radar this long after they were last heard (the list keeps 5 minutes). */
         private const val RADIO_RADAR_MS = 60_000L
         /** Location off: Android gives the app no Bluetooth or WiFi results. Tapping the warning opens the setting. */
-        private const val LOCATION_OFF = "Location is off - no devices can be seen. Tap to turn it on"
+        private const val LOCATION_OFF = "Location is off, so no devices can be seen. Tap to turn it on"
         private const val REFRESH_MS = 1_000L
         private const val WEAK_COLOR = 0xFFB26A00.toInt()
         private const val WHITELIST_COLOR = 0xFF6B7B80.toInt()
@@ -505,7 +505,7 @@ class MainActivity : AppCompatActivity() {
             val locationOff = running && !locationOn() && !demoMode
             val warning = when {
                 locationOff -> LOCATION_OFF
-                running && !bluetoothOn() && !demoMode -> "Scanning WiFi only - turn on Bluetooth for BLE (picked up automatically)"
+                running && !bluetoothOn() && !demoMode -> "Scanning WiFi only. Turn on Bluetooth to add BLE"
                 else -> listOfNotNull(
                     com.rfsentinel.app.service.CellMonitor.lastAnomaly?.takeIf { now - it.first < 15 * 60_000L }?.second?.title,
                     ScanForegroundService.lastWatchdogRestart?.takeIf { now - it.first < 10 * 60_000L }?.let {
@@ -554,9 +554,9 @@ class MainActivity : AppCompatActivity() {
             else -> { binding.statusText.setOnClickListener(null); binding.statusText.isClickable = false }
         }
         val line: CharSequence = when {
-            !running -> "Idle - tap Start to listen for nearby devices"
+            !running -> "Idle. Tap Start to listen for nearby devices"
             locationOff -> "⚠ $LOCATION_OFF"
-            !bluetoothOn() && !demoMode -> "Scanning WiFi only - turn on Bluetooth for BLE (picked up automatically)"
+            !bluetoothOn() && !demoMode -> "Scanning WiFi only. Turn on Bluetooth to add BLE"
             else -> "Scanning · $deviceCount ${plural(deviceCount, "device", "devices")} nearby" +
                 (if (flaggedCount > 0) " · $flaggedCount flagged" else "") +
                 (com.rfsentinel.app.service.CellMonitor.lastAnomaly
@@ -868,7 +868,7 @@ class MainActivity : AppCompatActivity() {
             filter == com.rfsentinel.app.ui.DeviceFilter.AIRCRAFT ->
                 "No aircraft yet.\nThey come from an RTL-SDR on USB (tick ADS-B aircraft receiver in Settings › RTL-SDR radio), or from the online feeds when that's on in Settings."
             filter == com.rfsentinel.app.ui.DeviceFilter.CELLS ->
-                "No cell towers yet - they're read every 15 s while scanning\n(needs Fake cell tower signs on in Settings › What to detect)."
+                "No cell towers yet. They're read every 15 s while scanning\n(needs Fake cell tower signs on in Settings › What to detect)."
             else -> "No devices match this filter."
         }
     }
@@ -1389,7 +1389,7 @@ class MainActivity : AppCompatActivity() {
         }
         val (color, text) = when {
             following != null -> 0xFFB3261E.toInt() to "⚠ ${following.best!!.label} may be following you"
-            top == null -> 0xFF2E7D32.toInt() to "✓ All clear - no flagged equipment nearby"
+            top == null -> 0xFF2E7D32.toInt() to "✓ All clear: no flagged equipment nearby"
             top.best!!.tier == Tier.STRONG -> 0xFFB3261E.toInt() to "⚠ Strong match nearby: ${top.best!!.label}"
             top.best!!.confidence >= Prefs.alertThreshold(this, top.best!!.category) -> 0xFFC8431A.toInt() to "Probable match nearby: ${top.best!!.label}"
             else -> WEAK_COLOR to "Weak match only (verify): ${top.best!!.label}"
@@ -1471,8 +1471,8 @@ class MainActivity : AppCompatActivity() {
         menu.findItem(R.id.action_mute)?.apply {
             setIcon(when { muted -> R.drawable.ic_car_volume_off; left > 0 -> R.drawable.ic_car_snooze; else -> R.drawable.ic_car_volume })
             title = when {
-                muted -> "Alerts muted - tap for sound"
-                left > 0 -> "Alerts snoozed, $left min left - tap for sound"
+                muted -> "Alerts muted. Tap for sound"
+                left > 0 -> "Alerts snoozed, $left min left. Tap for sound"
                 else -> "Snooze alerts ${Prefs.snoozeMinutes(this@MainActivity)} min"
             }
         }

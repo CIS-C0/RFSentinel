@@ -1529,6 +1529,14 @@ class SettingsActivity : AppCompatActivity() {
             }.also { box.addView(it) }
         }
 
+        // Subheadings: the section is long, and only some of its groups apply at a time.
+        fun heading(title: String) = box.label(title).apply {
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setTextColor(com.rfsentinel.app.ui.ChipStyle.accent(context).first)
+            setPadding(0, dp(18), 0, dp(2))
+        }
+
+        heading("Connection")
         info(box.label("Network SDR"), "Uses an RTL-SDR on another device over WiFi, such as an ESP32 board or a computer running " +
             "rtl_tcp. Enter its address and port; the port is ${com.rfsentinel.app.sdr.RtlTcp.DEFAULT_PORT} if left out. A plugged-in " +
             "USB SDR is used first. Streaming takes about 5 MB/s of WiFi.", "Network SDR")
@@ -1549,7 +1557,7 @@ class SettingsActivity : AppCompatActivity() {
 
         // What the SDR does: any mix; with more than one ticked it takes turns.
         var showSdrOptions: () -> Unit = {}
-        info(box.label("Scan with the SDR"), "Tick what the RTL-SDR or HackRF does while scanning. One SDR hears one thing at a time: " +
+        info(heading("Scan with the SDR"), "Tick what the RTL-SDR or HackRF does while scanning. One SDR hears one thing at a time: " +
             "with more than one ticked it takes turns, and each scan hears nothing while another has its turn. " +
             "Tick only one to give it all the time.", "Scan with the SDR")
         fun scan(t: String, on: Boolean, details: String, save: (Boolean) -> Unit) = android.widget.CheckBox(this).apply {
@@ -1587,10 +1595,13 @@ class SettingsActivity : AppCompatActivity() {
             ticked to listOf(box.getChildAt(box.childCount - 2), box.getChildAt(box.childCount - 1))
         }
         val pagerFrom = box.childCount
+        heading("Pagers")
         lines("Pager frequencies", "466.075", Prefs.pagerFreqs(this),
             "Leave empty to scan for paging channels. If you know yours, enter it in MHz, one per line: the SDR listens there and " +
             "doesn't scan, so a quiet channel isn't missed.") { Prefs.setPagerFreqs(this, it) }
         val pagerViews = (pagerFrom until box.childCount).map { box.getChildAt(it) }
+        val p25From = box.childCount
+        heading("P25")
         lines("Watch these talkgroups", "1234 Sheriff dispatch\n2001", Prefs.p25Talkgroups(this),
             "P25: alerts when a call starts on one of them, and names them on the P25 talkgroups screen. One per line: the " +
             "talkgroup number, with an optional name. 23* watches every talkgroup starting with 23 (2300, 2301, 2307...), and * every " +
@@ -1633,7 +1644,7 @@ class SettingsActivity : AppCompatActivity() {
             "2 minutes each. Watched talkgroups: only those in Watch these talkgroups. Mute on the P25 talkgroups screen pauses it; Hold there (or tapping a talkgroup) plays only that talkgroup and keeps the SDR on P25 until Release. " +
             "Encrypted calls can't be played. Listening to radio calls is not allowed everywhere, and some places forbid it in " +
             "a vehicle: check the law where you are.", "Listen to P25 voice"))
-        val talkgroupViews = (box.childCount - 11 until box.childCount).map { box.getChildAt(it) }
+        val talkgroupViews = (p25From until box.childCount).map { box.getChildAt(it) }
         var sweepViews = emptyList<View>() // the sweep's own settings, below
         showSdrOptions = {
             val ticked = listOf(sweepBox, adsbBox, p25Box, pagerBox).count { it.isChecked }
@@ -1643,6 +1654,7 @@ class SettingsActivity : AppCompatActivity() {
             sweepViews.forEach { it.shownIf(sweepBox.isChecked) }
         }
         val sweepFrom = box.childCount
+        heading("Radio sweep")
         slider(com.rfsentinel.app.sdr.RadioWatch.MIN_SNR_SETTING, com.rfsentinel.app.sdr.RadioWatch.MAX_SNR_SETTING, Prefs.radioMinSnr(this),
             { "Sensitivity: $it dB above the noise" }) {
             Prefs.setRadioMinSnr(this, it)
@@ -1682,7 +1694,7 @@ class SettingsActivity : AppCompatActivity() {
         sweepViews = (sweepFrom until box.childCount).map(box::getChildAt)
         showSdrOptions()
 
-        box.label("Frequency names")
+        heading("Frequency names")
         freqListText = box.label("", small = true)
         com.rfsentinel.app.sdr.FreqNames.load(this)
         updateFreqListText()
@@ -1714,6 +1726,7 @@ class SettingsActivity : AppCompatActivity() {
             }
         }, android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT))
 
+        heading("RadioReference")
         val rrSwitch = box.toggle("Name hits from RadioReference", Prefs.radioReferenceOn(this),
             "Names a hit from RadioReference's database. Needs your own RadioReference Premium login and developer key, stored encrypted on this phone.") {
             Prefs.setRadioReferenceOn(this, it)

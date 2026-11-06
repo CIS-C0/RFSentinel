@@ -174,17 +174,17 @@ class DeviceDetailActivity : AppCompatActivity() {
         // Header
         if (whitelisted) {
             binding.tagText.visibility = View.VISIBLE
-            binding.tagText.text = "WHITELISTED - trusted"
-            binding.tagText.setBackgroundColor(0xFF6B7B80.toInt())
+            binding.tagText.text = "WHITELISTED · trusted"
+            binding.tagText.background.mutate().setTint(0xFF6B7B80.toInt())
         } else if (best != null) {
             binding.tagText.visibility = View.VISIBLE
             binding.tagText.text = "${best.category.shortTag} · ${best.tier.label} ${best.confidence}%"
-            binding.tagText.setBackgroundColor(ThemeManager.ink(this, if (best.tier == Tier.WEAK) 0xFFB26A00.toInt() else best.category.colorArgb))
+            binding.tagText.background.mutate().setTint(ThemeManager.ink(this, if (best.tier == Tier.WEAK) 0xFFB26A00.toInt() else best.category.colorArgb))
         } else if (s == null && pastBest != null) {
             val h = pastBest
             binding.tagText.visibility = View.VISIBLE
             binding.tagText.text = "${h.category.shortTag} · ${h.tier.label} ${h.confidence}%"
-            binding.tagText.setBackgroundColor(ThemeManager.ink(this, if (h.tier == Tier.WEAK) 0xFFB26A00.toInt() else h.category.colorArgb))
+            binding.tagText.background.mutate().setTint(ThemeManager.ink(this, if (h.tier == Tier.WEAK) 0xFFB26A00.toInt() else h.category.colorArgb))
         } else {
             binding.tagText.visibility = View.GONE
         }

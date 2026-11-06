@@ -157,7 +157,7 @@ object CarUi {
         }
         return when {
             following != null -> DANGER_COLOR to "${following.best!!.label} may be following you"
-            top == null -> CLEAR_COLOR to "All clear - no flagged equipment"
+            top == null -> CLEAR_COLOR to "All clear: no flagged equipment"
             top.best!!.tier == Tier.STRONG -> DANGER_COLOR to "Strong match: ${top.best!!.label}"
             top.best!!.confidence >= threshold -> Category.BODY_CAM.colorArgb to "Probable: ${top.best!!.label}"
             else -> WEAK_COLOR to "Weak match (verify): ${top.best!!.label}"

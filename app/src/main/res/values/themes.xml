@@ -3,6 +3,7 @@
          for their titles and MainActivity's overflow menu.
          Light / Dark / System all use this theme; ThemeManager forces the night mode. -->
     <style name="Theme.RFSentinel" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        <item name="textAppearanceButton">@style/TextAppearance.RFSentinel.Button</item>
         <item name="colorPrimary">@color/brand_primary</item>
         <item name="colorPrimaryVariant">@color/brand_primary_dark</item>
         <item name="colorOnPrimary">@android:color/white</item>
@@ -400,6 +401,11 @@
     <style name="SettingsOutlinedButton" parent="Widget.MaterialComponents.Button.OutlinedButton">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
+    </style>
+
+    <style name="TextAppearance.RFSentinel.Button" parent="TextAppearance.MaterialComponents.Button">
+        <item name="android:textAllCaps">false</item>
+        <item name="android:letterSpacing">0</item>
     </style>
 
     <style name="SettingsHeader" parent="SettingsControl">

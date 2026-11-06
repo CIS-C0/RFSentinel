@@ -101,6 +101,7 @@ class DeviceAdapter(
     inner class VH(val binding: ItemDeviceBinding) : RecyclerView.ViewHolder(binding.root) {
         private var animator: ValueAnimator? = null
         private var animColor = 0
+        val metaColors = binding.metaText.textColors
 
         init {
             binding.root.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
@@ -164,7 +165,7 @@ class DeviceAdapter(
         if (row.tag != null) {
             b.tagText.visibility = View.VISIBLE
             b.tagText.text = row.tag
-            b.tagText.setBackgroundColor(row.tagColor)
+            b.tagText.background.mutate().setTint(row.tagColor)
         } else {
             b.tagText.visibility = View.GONE
         }
@@ -172,6 +173,8 @@ class DeviceAdapter(
         b.titleText.setTypeface(b.titleText.typeface, if (row.bold) Typeface.BOLD else Typeface.NORMAL)
         b.macText.text = row.subtitle
         b.metaText.text = metaWithBadges(row)
+        // Grey is hard to read on an alert's colour.
+        b.metaText.setTextColor(if (row.highlight != null) b.macText.textColors else holder.metaColors)
         val conf = row.confidence
         b.confidenceBar.visibility = if (visual && conf != null) View.VISIBLE else View.GONE
         if (visual && conf != null) b.confidenceBar.set(conf / 100f, row.tagColor)
