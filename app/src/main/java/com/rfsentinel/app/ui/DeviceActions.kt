@@ -128,7 +128,7 @@ object DeviceActions {
         }
         if (com.rfsentinel.app.data.FalseAlerts.contains(activity, mac)) items += "Remove from false alerts" to { unmarkFalseAlert(activity, mac) }
         else if (snap?.best != null) items += "False alert..." to { markFalseAlert(activity, mac) }
-        items += "I saw it: learn this device..." to { learn(activity, mac) }
+        items += "Learn this device..." to { learn(activity, mac) }
         if (snap?.advert != null && snap.best == null) {
             items += "Report unknown device..." to { reportUnknown(activity, mac) }
         }
@@ -365,7 +365,7 @@ object DeviceActions {
         })
         val category = snap?.best?.category?.takeIf { it != com.rfsentinel.app.detect.Category.CUSTOM }
         MaterialAlertDialogBuilder(activity)
-            .setTitle("I saw it")
+            .setTitle("Learn this device")
             .setView(ScrollView(activity).apply { addView(box) })
             .setPositiveButton("Learn") { _, _ ->
                 val chosen = options.filterIndexed { i, _ -> boxes[i].isEnabled && boxes[i].isChecked }
