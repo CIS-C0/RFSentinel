@@ -135,6 +135,8 @@ class DeviceAdapter(
                     repeatCount = ValueAnimator.INFINITE
                     addUpdateListener { binding.root.setBackgroundColor(it.animatedValue as Int) }
                     start()
+                    // All rows on one beat: the same kind of alert is the same shade at any moment.
+                    currentPlayTime = android.os.SystemClock.uptimeMillis() % (2 * duration)
                 }
             } else {
                 stopFlash()
@@ -171,10 +173,14 @@ class DeviceAdapter(
         }
         b.titleText.text = row.title
         b.titleText.setTypeface(b.titleText.typeface, if (row.bold) Typeface.BOLD else Typeface.NORMAL)
-        b.macText.text = row.subtitle
+        // Only an address is monospaced: names and distances read as normal text.
+        b.macText.text = if (row.subtitle.startsWith(row.mac)) android.text.SpannableString(row.subtitle).apply {
+            setSpan(android.text.style.TypefaceSpan("monospace"), 0, row.mac.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        } else row.subtitle
         b.metaText.text = metaWithBadges(row)
         // Grey is hard to read on an alert's colour.
         b.metaText.setTextColor(if (row.highlight != null) b.macText.textColors else holder.metaColors)
+        b.signalText.setTextColor(if (row.highlight != null) b.macText.textColors else holder.metaColors)
         val conf = row.confidence
         b.confidenceBar.visibility = if (visual && conf != null) View.VISIBLE else View.GONE
         if (visual && conf != null) b.confidenceBar.set(conf / 100f, row.tagColor)

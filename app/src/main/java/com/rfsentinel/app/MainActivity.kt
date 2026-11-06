@@ -819,19 +819,24 @@ class MainActivity : AppCompatActivity() {
             val radio = radioRows(now, Prefs.alertThreshold(this, Category.RADIO))
             val talkgroups = talkgroupRows(now, Prefs.alertThreshold(this, Category.RADIO))
             val air = aircraftRows(now, Prefs.alertThreshold(this, Category.AIRCRAFT))
-            // Waze reports, radios on the air and aircraft that meet the alert threshold flash at the very top;
+            // Waze reports, radios on the air and aircraft that meet the alert threshold rank with the flagged devices;
             // the rest follow the devices.
             val (urgent, quiet) = waze.partition { it.flashing }
             val (radioLive, radioOld) = radio.partition { it.flashing }
             val (tgLive, tgOld) = talkgroups.partition { it.flashing || it.mac == TG_ROW + com.rfsentinel.app.sdr.SdrRadio.p25Hold }
             val (airUrgent, airQuiet) = air.partition { it.flashing }
+            // Under the default sort; another Sort by keeps its own order for the devices.
+            fun ranked(rows: List<DeviceRow>) = if (com.rfsentinel.app.ui.DeviceOrder.sort(this) != com.rfsentinel.app.ui.DeviceOrder.Sort.ALERTS) rows
+                else rows.sortedWith(compareByDescending<DeviceRow> { it.tag?.startsWith("FOLLOWING") == true }.thenByDescending { it.confidence ?: 0 })
             // Alerting devices from your own watchlist entries go above all of them.
             fun mine(s: DeviceRegistry.Snapshot) = com.rfsentinel.app.ui.LiveWindow.alerting(s, now) &&
                 s.hits.any { it.source == com.rfsentinel.app.oui.OuiEntry.YOURS }
             if (com.rfsentinel.app.ui.DeviceOrder.group(this) == com.rfsentinel.app.ui.DeviceOrder.Group.NONE) {
                 val (yours, devices) = sections.flatMap { it.items }.partition(::mine)
-                submitRows(yours.map { toRow(it, now, threshold) } + airUrgent + tgLive + radioLive + urgent + devices.map { toRow(it, now, threshold) } +
-                    airQuiet + tgOld + radioOld + cells + quiet)
+                val (alerting, others) = devices.partition { it.best != null && !WhitelistCache.contains(it.mac) }
+                submitRows(yours.map { toRow(it, now, threshold) } +
+                    ranked(airUrgent + tgLive + radioLive + urgent + alerting.map { toRow(it, now, threshold) }) +
+                    others.map { toRow(it, now, threshold) } + airQuiet + tgOld + radioOld + cells + quiet)
             } else {
                 // Grouped: everything the list shows has a group, not only Bluetooth and WiFi devices. What's
                 // urgent (Waze, radio, aircraft) joins the flagged devices in Alerts, at the top.
@@ -840,8 +845,8 @@ class MainActivity : AppCompatActivity() {
                 val alerts = com.rfsentinel.app.ui.DeviceOrder.ALERTS
                 val (yours, flagged) = sections.filter { it.header == alerts }.flatMap { it.items }.partition(::mine)
                 submitRows(
-                    block(alerts, alerts, yours.map { toRow(it, now, threshold) } + airUrgent + tgLive + radioLive + urgent +
-                        flagged.map { toRow(it, now, threshold) }) +
+                    block(alerts, alerts, yours.map { toRow(it, now, threshold) } +
+                        ranked(airUrgent + tgLive + radioLive + urgent + flagged.map { toRow(it, now, threshold) })) +
                         sections.filter { it.header != alerts }.flatMap { sec -> block(sec.header.orEmpty(), sec.header.orEmpty(), sec.items.map { toRow(it, now, threshold) }) } +
                         block("x:aircraft", "Aircraft", airQuiet) + block("x:talkgroups", "Talkgroups", tgOld) +
                         block("x:radio", "Radio transmissions", radioOld) +
@@ -953,7 +958,7 @@ class MainActivity : AppCompatActivity() {
                     subtitle = com.rfsentinel.app.online.WazePolice.relativeText(w.where, w.trend) + if (off) " · not on your way" else "",
                     meta = "Reported $ago" + listOfNotNull(w.report.street, w.report.city).joinToString(", ").takeIf { it.isNotEmpty() }?.let { " · $it" }.orEmpty() +
                         (if (w.report.thumbsUp > 0) " · ${w.report.thumbsUp} confirmed" else ""),
-                    tag = "WAZE · ${w.hit.tier.label.lowercase()} ${w.hit.confidence}%",
+                    tag = com.rfsentinel.app.ui.DeviceRows.matchTag("WAZE", w.hit.confidence),
                     tagColor = w.report.type.color,
                     highlight = if (urgent) w.report.type.color else null,
                     flashing = urgent,
@@ -978,8 +983,9 @@ class MainActivity : AppCompatActivity() {
             .filter { r -> query.isBlank() || listOfNotNull(r.mhz, r.name, r.bandLabel).any { it.contains(query.trim(), ignoreCase = true) } }
             .map { r ->
                 val live = now - r.lastSeen <= RADIO_LIVE_MS
-                // Dismissed (swiped left): listed, but quiet.
-                val urgent = live && r.confidence >= threshold && !hidden(RADIO_ROW + r.freqHz, now)
+                // Muted or dismissed (swiped left): listed, but quiet.
+                val muted = com.rfsentinel.app.data.AlertMutes.isMuted(this, RADIO_ROW + r.freqHz, now)
+                val urgent = live && r.confidence >= threshold && !muted
                 val ago = (now - r.lastSeen) / 1000
                 val trend = when (r.trend) {
                     com.rfsentinel.app.sdr.RadioLog.Trend.CLOSER -> "getting closer ↑"
@@ -990,14 +996,16 @@ class MainActivity : AppCompatActivity() {
                     mac = RADIO_ROW + r.freqHz,
                     title = "Radio ${r.mhz} MHz" + (r.name?.let { " · $it" } ?: ""),
                     subtitle = listOfNotNull("${r.snrDb} dB above the noise (peak ${r.peakSnrDb})", trend, r.bandLabel).joinToString(" · "),
-                    meta = (if (ago < 3) "On the air now" else "Last heard ${ago}s ago") +
+                    meta = (if (ago < 3) "On the air now" else "Last heard ${com.rfsentinel.app.ui.DeviceRows.ago(ago)}") +
                         " · first ${java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(r.firstSeen))}",
-                    tag = "RADIO · ${r.confidence}%",
+                    tag = com.rfsentinel.app.ui.DeviceRows.matchTag("RADIO", r.confidence),
                     tagColor = color,
                     highlight = if (urgent) color else null,
                     flashing = urgent,
                     bold = live,
-                    confidence = r.confidence
+                    confidence = r.confidence,
+                    canMute = true,
+                    muted = muted
                 )
             }
     }
@@ -1037,8 +1045,8 @@ class MainActivity : AppCompatActivity() {
                 title = title,
                 subtitle = listOfNotNull(r.lastSource?.let { "Radio $it keyed up" }, "${r.calls} call" + (if (r.calls == 1) "" else "s"),
                     "EMERGENCY".takeIf { r.emergency }, "encrypted".takeIf { r.encrypted }).joinToString(" · "),
-                meta = if (ago < 3) "Call going on" else "Last call ${ago}s ago",
-                tag = (if (near) "P25 NEAR" else "P25") + " · $confidence%",
+                meta = if (ago < 3) "Call going on" else "Last call ${com.rfsentinel.app.ui.DeviceRows.ago(ago)}",
+                tag = com.rfsentinel.app.ui.DeviceRows.matchTag(if (near) "P25 NEAR" else "P25", confidence),
                 tagColor = color,
                 highlight = if (urgent) color else null,
                 flashing = urgent,
@@ -1106,7 +1114,8 @@ class MainActivity : AppCompatActivity() {
             .map { (s, d) ->
                 val p = s.plane
                 val hit = s.hit
-                val urgent = hit != null && hit.confidence >= threshold
+                val muted = hit != null && com.rfsentinel.app.data.AlertMutes.isMuted(this, AIRCRAFT_ROW + p.hex, now)
+                val urgent = hit != null && hit.confidence >= threshold && !muted
                 val where = d?.let { m -> com.rfsentinel.app.util.Units.distance(m) +
                     me?.let { " " + air.compass(air.bearing(it.first, it.second, p.lat, p.lon)) }.orEmpty() }
                 DeviceRow(
@@ -1115,12 +1124,14 @@ class MainActivity : AppCompatActivity() {
                     subtitle = listOfNotNull(where, air.altitude(p), p.speedKt?.let { String.format(java.util.Locale.US, "%.0f kt", it) })
                         .joinToString(" · "),
                     meta = listOfNotNull(p.type, p.owner, p.registration?.takeIf { it != air.name(p) }).joinToString(" · ").ifEmpty { p.hex.uppercase() },
-                    tag = if (hit != null) "AIRCRAFT · ${hit.confidence}%" else "AIRCRAFT",
+                    tag = if (hit != null) com.rfsentinel.app.ui.DeviceRows.matchTag("AIRCRAFT", hit.confidence) else "AIRCRAFT",
                     tagColor = color,
                     highlight = if (urgent) color else null,
                     flashing = urgent,
                     bold = hit != null,
-                    confidence = hit?.confidence
+                    confidence = hit?.confidence,
+                    canMute = hit != null,
+                    muted = muted
                 )
             }
     }
@@ -1145,9 +1156,9 @@ class MainActivity : AppCompatActivity() {
                     subtitle = listOfNotNull(
                         if (c.mcc != null || c.mnc != null) "${c.mcc ?: "?"}-${c.mnc ?: "?"}" else null,
                         c.area?.let { "$area $it" }, c.cellId?.let { "Cell $it" }, c.pci?.let { "PCI $it" }
-                    ).joinToString("  ·  ").ifEmpty { "No IDs reported" },
+                    ).joinToString(" · ").ifEmpty { "No IDs reported" },
                     meta = (if (c.registered) "Serving your phone" else "Neighbour cell") +
-                        (c.dbm?.let { " · $it dBm" } ?: "") + " · " + (if (ageSec < 2) "now" else "${ageSec}s ago"),
+                        (c.dbm?.let { " · $it dBm" } ?: "") + " · " + com.rfsentinel.app.ui.DeviceRows.ago(ageSec),
                     tag = if (c.registered) "CELL · serving" else "CELL",
                     tagColor = 0xFF5E35B1.toInt(),
                     highlight = null, flashing = false, bold = c.registered,
@@ -1301,7 +1312,7 @@ class MainActivity : AppCompatActivity() {
         val alert = best != null && !whitelisted
         val muted = alert && com.rfsentinel.app.data.AlertMutes.isMuted(this, s.mac, now)
         val ageSec = (now - s.lastSeen) / 1000
-        val age = if (ageSec < 2) "now" else "${ageSec}s ago"
+        val age = com.rfsentinel.app.ui.DeviceRows.ago(ageSec)
         val badges = buildList {
             if (s.following) add("FOLLOWING")
             if (Favorites.contains(s.mac)) add("★")
@@ -1311,7 +1322,7 @@ class MainActivity : AppCompatActivity() {
         val tag = when {
             whitelisted -> "WHITELISTED"
             best != null -> (if (s.following) "FOLLOWING · " else "") +
-                "${best.category.shortTag} · ${best.tier.label} ${best.confidence}%"
+                com.rfsentinel.app.ui.DeviceRows.matchTag(best.category.shortTag, best.confidence)
             else -> radioTag(s)
         }
         val alias = com.rfsentinel.app.data.DeviceNames.of(s.mac)
@@ -1319,8 +1330,8 @@ class MainActivity : AppCompatActivity() {
         return DeviceRow(
             mac = s.mac,
             title = alias ?: best?.label ?: s.name ?: s.deviceType,
-            subtitle = s.mac + "  ·  " + (s.vendor ?: s.addressType.label),
-            meta = listOf(
+            subtitle = s.mac + " · " + (s.vendor ?: s.addressType.label),
+            meta = (listOf(
                 // Under your own name, what it's heard as comes first.
                 if (alias != null) best?.label ?: s.name?.let { "\"$it\"" } ?: s.deviceType
                 else if (best != null && s.name != null) "\"${s.name}\"" else s.deviceType,
@@ -1329,7 +1340,7 @@ class MainActivity : AppCompatActivity() {
                 if (tag == radioTag(s)) null else s.sources.joinToString("+") { if (it == Advert.Source.BLE) "BLE" else "WiFi" },
                 "${ProximityUtil.band(s.rssi)} ${s.rssi} dBm ${DeviceIntel.formatDistance(s.distanceM)}",
                 age
-            ).filterNotNull().joinToString(" · ") + if (badges.isNotEmpty()) "  " + badges.joinToString(" ") else "",
+            ) + badges).filterNotNull().joinToString(" · "),
             tag = tag,
             tagColor = when {
                 whitelisted -> com.rfsentinel.app.ui.ThemeManager.ink(this, WHITELIST_COLOR)

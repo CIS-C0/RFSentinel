@@ -170,7 +170,7 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
          * The main screen's chip order: the counts worth a glance first (flagged, then what's heard on each
          * radio), so they fit without scrolling; the narrower filters after them.
          */
-        val MAIN_ORDER = listOf(ALL, FLAGGED, BLE, WIFI, CELLS, TRACKERS, DRONES, AIRCRAFT, RADIO, TALKGROUPS, WAZE, EXTERNAL, SENTINELS, FAVORITES, NEW) + KINDS + OTHER
+        val MAIN_ORDER = listOf(ALL, FLAGGED, BLE, WIFI, CELLS, TRACKERS, DRONES, AIRCRAFT, RADIO, TALKGROUPS, WAZE, EXTERNAL, SENTINELS, FAVORITES, NEW, CAMERAS) + (KINDS - CAMERAS) + OTHER
 
         /** The chips of a saved snapshot or trace: the main screen's, less those that only mean something live. */
         val SAVED_ORDER = MAIN_ORDER.filterNot { it.liveOnly }

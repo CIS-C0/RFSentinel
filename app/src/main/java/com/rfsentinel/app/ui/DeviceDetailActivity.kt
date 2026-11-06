@@ -181,20 +181,20 @@ class DeviceDetailActivity : AppCompatActivity() {
         // Header
         if (whitelisted) {
             binding.tagText.visibility = View.VISIBLE
-            binding.tagText.text = "WHITELISTED · trusted"
+            binding.tagText.text = "WHITELISTED"
             binding.tagText.background.mutate().setTint(0xFF6B7B80.toInt())
         } else if (best != null) {
             binding.tagText.visibility = View.VISIBLE
-            binding.tagText.text = "${best.category.shortTag} · ${best.tier.label} ${best.confidence}%"
+            binding.tagText.text = DeviceRows.matchTag(best.category.shortTag, best.confidence)
             binding.tagText.background.mutate().setTint(ThemeManager.ink(this, if (best.tier == Tier.WEAK) 0xFFB26A00.toInt() else best.category.colorArgb))
         } else if (s == null && pastBest != null) {
             val h = pastBest
             binding.tagText.visibility = View.VISIBLE
-            binding.tagText.text = "${h.category.shortTag} · ${h.tier.label} ${h.confidence}%"
+            binding.tagText.text = DeviceRows.matchTag(h.category.shortTag, h.confidence)
             binding.tagText.background.mutate().setTint(ThemeManager.ink(this, if (h.tier == Tier.WEAK) 0xFFB26A00.toInt() else h.category.colorArgb))
         } else if (s != null) {
             binding.tagText.visibility = View.VISIBLE
-            binding.tagText.text = "Not flagged"
+            binding.tagText.text = "NOT FLAGGED"
             binding.tagText.background.mutate().setTint(0xFF6B7B80.toInt())
         } else {
             binding.tagText.visibility = View.GONE
@@ -205,8 +205,8 @@ class DeviceDetailActivity : AppCompatActivity() {
         binding.titleText.text = alias ?: heardAs
         binding.subtitleText.text = buildSpannedString {
             if (alias != null) append("$heardAs\n")
-            (s?.vendor ?: known?.vendor ?: VendorDb.macVendor(mac))?.let { append("$it\n") }
             color(secondaryText) { inSpans(TypefaceSpan("monospace")) { append(mac) } }
+            (s?.vendor ?: known?.vendor ?: VendorDb.macVendor(mac))?.let { append("\n$it") }
         }
         val note = known?.note?.takeIf { it.isNotBlank() }
         binding.noteText.visibility = if (note != null) View.VISIBLE else View.GONE
@@ -495,11 +495,7 @@ class DeviceDetailActivity : AppCompatActivity() {
         input.requestFocus()
     }
 
-    private fun ago(ms: Long) = when {
-        ms < 2000 -> "just now"
-        ms < 60_000 -> "${ms / 1000}s ago"
-        else -> "${ms / 60_000} min ago"
-    }
+    private fun ago(ms: Long) = DeviceRows.ago(ms / 1000)
 
     // ---- Actions --------------------------------------------------------------
 

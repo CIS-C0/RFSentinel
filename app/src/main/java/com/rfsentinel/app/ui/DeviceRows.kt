@@ -20,6 +20,16 @@ object DeviceRows {
     const val WEAK_COLOR = 0xFFB26A00.toInt()
     const val WHITELIST_COLOR = 0xFF6B7B80.toInt()
 
+    /** A match's tag, the same on every kind of row: "BODY CAM · strong 90%". */
+    fun matchTag(name: String, confidence: Int) = "$name · ${Tier.of(confidence).label} $confidence%"
+
+    /** How long ago, the same on every row. */
+    fun ago(sec: Long) = when {
+        sec < 2 -> "now"
+        sec < 60 -> "${sec}s ago"
+        else -> "${sec / 60} min ago"
+    }
+
     /** An ordinary (not flagged) row's tag: the radios it was heard on. */
     fun radioTag(sources: Set<Advert.Source>): String = when {
         Advert.Source.BLE in sources && Advert.Source.WIFI in sources -> "BLUETOOTH + WIFI"
@@ -47,21 +57,21 @@ object DeviceRows {
         val alias = DeviceNames.of(d.mac)
         val tag = when {
             whitelisted -> "WHITELISTED"
-            category != null -> "${category.shortTag} · ${tier.label} ${d.confidence}%"
+            category != null -> matchTag(category.shortTag, d.confidence)
             else -> radioTag(sources)
         }
         val badges = buildList { if (Favorites.contains(d.mac)) add("★") }
         return DeviceRow(
             mac = d.mac,
             title = alias ?: label,
-            subtitle = d.mac + (d.vendor?.let { "  ·  $it" } ?: ""),
-            meta = listOfNotNull(
+            subtitle = d.mac + (d.vendor?.let { " · $it" } ?: ""),
+            meta = (listOfNotNull(
                 if (alias != null) label
                 else if (category != null && d.name != null && d.name != label) "\"${d.name}\"" else type?.takeIf { it != label },
                 if (category != null) sources.joinToString("+") { if (it == Advert.Source.BLE) "BLE" else "WiFi" }.ifEmpty { null } else null,
                 "${ProximityUtil.band(d.bestRssi)} ${d.bestRssi} dBm",
                 timeFmt.format(Date(d.firstSeen)) + "–" + timeFmt.format(Date(d.lastSeen))
-            ).joinToString(" · ") + if (badges.isNotEmpty()) "  " + badges.joinToString(" ") else "",
+            ) + badges).joinToString(" · "),
             tag = tag,
             tagColor = when {
                 whitelisted -> ThemeManager.ink(context, WHITELIST_COLOR)
