@@ -185,7 +185,7 @@ class NavSearchActivity : AppCompatActivity() {
             var waited = 0
             while (!along && me == null && waited < 10_000) { delay(250); waited += 250 }
             val here = me
-            if (!along && here == null) { setNote("Can't tell where you are yet - is location on?"); return@launch }
+            if (!along && here == null) { setNote("Can't find your position yet. Turn on Location, then try again."); return@launch }
             val found = attempt {
                 withContext(Dispatchers.IO) {
                     // The public servers are sometimes overloaded: after half a minute say so, rather than wait on.
@@ -204,7 +204,7 @@ class NavSearchActivity : AppCompatActivity() {
                 else { note.visibility = View.GONE; hits.take(25).forEach { list.addView(hitRow(it)) } }
             }.onFailure {
                 setNote(if (it is ServersBusy || it.message?.contains("busy") == true)
-                    "OpenStreetMap's servers are busy right now - try again in a moment." else "Search failed - ${it.message ?: "no connection?"}")
+                    "OpenStreetMap's servers are busy right now - try again in a moment." else "Search failed. Check your connection, then try again.")
             }
         }
     }
@@ -340,7 +340,7 @@ class NavSearchActivity : AppCompatActivity() {
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                showPlaces(q, own, carry, "Search failed - no connection? The search key tries again.", canSubmit = true)
+                showPlaces(q, own, carry, "Search failed. Check your connection, then search again.", canSubmit = true)
             }
         }
     }
