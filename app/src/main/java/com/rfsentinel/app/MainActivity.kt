@@ -285,6 +285,7 @@ class MainActivity : AppCompatActivity() {
                 com.rfsentinel.app.ui.DemoData.populate(anchor)
                 com.rfsentinel.app.ui.DemoData.seedAlerts(this@MainActivity, anchor)
                 anchor?.let { com.rfsentinel.app.ui.DemoData.seedHistory(this@MainActivity, it) }
+                com.rfsentinel.app.ui.DemoData.stayHeard(anchor)
             }
             // Made-up aircraft drifting around, for the list, the map and its Aircraft filter.
             lifecycleScope.launch {

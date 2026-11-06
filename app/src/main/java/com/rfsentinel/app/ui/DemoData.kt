@@ -141,27 +141,39 @@ object DemoData {
         DeviceRegistry.startSession()
         val now = System.currentTimeMillis()
         // 45 s of history so the signal graphs, radar and co-location analysis have data.
-        for (s in 45 downTo 0) {
-            val t = now - s * 1000L
-            devices.forEachIndexed { i, (make, base, group) ->
-                // The group rises and falls together; everything else moves out of step with it.
-                val wobble = if (group) 7 * sin(s / 4.0) else -6 * sin(s / 4.0 + i * 0.3)
-                val a = make(base + wobble.toInt(), t)
-                val vendor = VendorDb.macVendor(a.mac) ?: a.manufacturerData.keys.firstNotNullOfOrNull { VendorDb.company(it) }
-                val raw = SignatureEngine.classify(a) +
-                    OuiWatchlist.hits(a.mac, a.name, listOfNotNull(vendor)) + OuiWatchlist.advertHits(a) +
-                    listOfNotNull(DeviceRegistry.clusterHit(a.mac, t))
-                val rid = if (a.mac == DEMO_DRONE && anchor != null) demoRemoteId(anchor, s) else null
-                // Made-up spots around you within real Bluetooth / WiFi range (5-60 m),
-                // so the map shows the devices too.
-                val spot = anchor?.let {
-                    val angle = Math.toRadians(i * 137.5)
-                    val m = 5.0 + (i * 17 % 56)
-                    DeviceRegistry.GeoSample(t, it.first + m / 111_000.0 * kotlin.math.cos(angle),
-                        it.second + m / (111_000.0 * kotlin.math.cos(Math.toRadians(it.first))) * kotlin.math.sin(angle))
-                }
-                DeviceRegistry.report(a, EvidenceFusion.fuse(raw), DeviceIntel.identify(a, VendorDb.macVendor(a.mac)), vendor, rid, spot, t)
+        for (s in 45 downTo 0) hear(anchor, s, now - s * 1000L)
+    }
+
+    /** Keeps the demo devices heard, so they stay in the list while the demo is open. */
+    suspend fun stayHeard(anchor: Pair<Double, Double>?) {
+        var s = 0
+        while (true) {
+            kotlinx.coroutines.delay(2_000L)
+            s -= 2
+            hear(anchor, s, System.currentTimeMillis())
+        }
+    }
+
+    /** One sighting of every demo device at time [t]; [s]: seconds before the demo's start. */
+    private fun hear(anchor: Pair<Double, Double>?, s: Int, t: Long) {
+        devices.forEachIndexed { i, (make, base, group) ->
+            // The group rises and falls together; everything else moves out of step with it.
+            val wobble = if (group) 7 * sin(s / 4.0) else -6 * sin(s / 4.0 + i * 0.3)
+            val a = make(base + wobble.toInt(), t)
+            val vendor = VendorDb.macVendor(a.mac) ?: a.manufacturerData.keys.firstNotNullOfOrNull { VendorDb.company(it) }
+            val raw = SignatureEngine.classify(a) +
+                OuiWatchlist.hits(a.mac, a.name, listOfNotNull(vendor)) + OuiWatchlist.advertHits(a) +
+                listOfNotNull(DeviceRegistry.clusterHit(a.mac, t))
+            val rid = if (a.mac == DEMO_DRONE && anchor != null) demoRemoteId(anchor, maxOf(s, 0)) else null
+            // Made-up spots around you within real Bluetooth / WiFi range (5-60 m),
+            // so the map shows the devices too.
+            val spot = anchor?.let {
+                val angle = Math.toRadians(i * 137.5)
+                val m = 5.0 + (i * 17 % 56)
+                DeviceRegistry.GeoSample(t, it.first + m / 111_000.0 * kotlin.math.cos(angle),
+                    it.second + m / (111_000.0 * kotlin.math.cos(Math.toRadians(it.first))) * kotlin.math.sin(angle))
             }
+            DeviceRegistry.report(a, EvidenceFusion.fuse(raw), DeviceIntel.identify(a, VendorDb.macVendor(a.mac)), vendor, rid, spot, t)
         }
     }
 
