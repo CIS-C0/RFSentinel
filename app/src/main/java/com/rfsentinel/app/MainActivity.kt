@@ -869,11 +869,11 @@ class MainActivity : AppCompatActivity() {
             filter == com.rfsentinel.app.ui.DeviceFilter.WAZE ->
                 "No Waze reports in range.\nTurn on Waze police reports in Settings and keep scanning."
             filter == com.rfsentinel.app.ui.DeviceFilter.RADIO ->
-                "No radio transmissions heard in the last 5 minutes.\nNeeds an RTL-SDR on USB, Two-way radio on in Settings › What to detect, and Radio activity sweep ticked in Settings › RTL-SDR radio."
+                "No radio transmissions heard in the last 5 minutes.\nNeeds an RTL-SDR on USB. Set it up in Settings › RTL-SDR radio."
             filter == com.rfsentinel.app.ui.DeviceFilter.TALKGROUPS ->
-                "No talkgroups in the last 5 minutes.\nLists the ones in Watch these talkgroups (Settings › RTL-SDR radio) and any whose radio keyed up close to you, with P25 control channel ticked there."
+                "No talkgroups in the last 5 minutes.\nNeeds an RTL-SDR on USB with P25 control channel on in Settings › RTL-SDR radio."
             filter == com.rfsentinel.app.ui.DeviceFilter.AIRCRAFT ->
-                "No aircraft yet.\nThey come from an RTL-SDR on USB (tick ADS-B aircraft receiver in Settings › RTL-SDR radio), or from the online feeds when that's on in Settings."
+                "No aircraft yet.\nNeeds an RTL-SDR on USB, or the online feeds. Both are in Settings."
             filter == com.rfsentinel.app.ui.DeviceFilter.CELLS ->
                 "No cell towers yet. They're read every 15 s while scanning\n(needs Fake cell tower signs on in Settings › What to detect)."
             else -> "No devices match this filter."
