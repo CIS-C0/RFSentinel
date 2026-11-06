@@ -213,7 +213,8 @@ class DeviceAdapter(
         fun groupHeader(parent: ViewGroup): TextView = TextView(parent.context).apply {
             val dp = resources.displayMetrics.density
             layoutParams = RecyclerView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            setPaddingRelative((12 * dp).toInt(), (6 * dp).toInt(), (12 * dp).toInt(), (4 * dp).toInt())
+            setPaddingRelative((12 * dp).toInt(), (4 * dp).toInt(), (12 * dp).toInt(), (1 * dp).toInt())
+            includeFontPadding = false
             textSize = 14f
             setTypeface(typeface, Typeface.BOLD)
             val tv = android.util.TypedValue()
