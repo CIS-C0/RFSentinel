@@ -61,9 +61,8 @@
             android:layout_marginBottom="4dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Hide banner"
-            android:paddingVertical="3dp"
-            android:scaleType="centerInside"
-            android:src="@drawable/ic_nav_close"
+            android:scaleType="center"
+            android:src="@drawable/ic_banner_close"
             android:visibility="gone" />
     </FrameLayout>
 
