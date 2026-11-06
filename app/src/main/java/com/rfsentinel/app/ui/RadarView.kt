@@ -274,7 +274,8 @@ class RadarView @JvmOverloads constructor(
         val footer = footer(width - 16 * density, now)
         canvas.drawText(footer, 8 * density, height - 8 * density, textPaint)
 
-        if (isShown) postInvalidateOnAnimation()
+        // About 30 frames a second: the sweep looks the same, and a 120 Hz screen draws a quarter as often.
+        if (isShown) postInvalidateDelayed(FRAME_MS)
     }
 
     /** Alert names (and distance + direction when located) beside their blip, flipped left near the right edge;
@@ -345,6 +346,7 @@ class RadarView @JvmOverloads constructor(
 
     private companion object {
         const val SAMPLE_MS = 50L
+        const val FRAME_MS = 33L
         /** Faster than a brisk walk (m/s): driving. */
         const val WALK_MS = 3f
     }

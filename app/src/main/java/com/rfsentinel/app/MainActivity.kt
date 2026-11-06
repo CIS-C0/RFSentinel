@@ -748,12 +748,13 @@ class MainActivity : AppCompatActivity() {
 
         // Live counts on the chips ("Trackers 2"); empty filters stay unlabelled.
         val visualChips = com.rfsentinel.app.ui.VisualMode.on(this, com.rfsentinel.app.ui.VisualMode.Screen.STATUS)
+        val aircraft = currentAircraft(now)
         for ((f, chip) in filterChips) {
             val n = when (f) {
                 com.rfsentinel.app.ui.DeviceFilter.CELLS -> liveCellCount(now)
                 com.rfsentinel.app.ui.DeviceFilter.WAZE -> currentWaze(now).size
-                com.rfsentinel.app.ui.DeviceFilter.AIRCRAFT -> currentAircraft(now).size
-                com.rfsentinel.app.ui.DeviceFilter.FLAGGED -> all.count { f.matches(it) } + currentAircraft(now).count { it.hit != null }
+                com.rfsentinel.app.ui.DeviceFilter.AIRCRAFT -> aircraft.size
+                com.rfsentinel.app.ui.DeviceFilter.FLAGGED -> all.count { f.matches(it) } + aircraft.count { it.hit != null }
                 com.rfsentinel.app.ui.DeviceFilter.RADIO -> if (ScanForegroundService.isRunning) com.rfsentinel.app.sdr.RadioLog.current(now).size else 0
                 com.rfsentinel.app.ui.DeviceFilter.TALKGROUPS -> currentTalkgroups(now).size
                 else -> all.count { f.matches(it) }

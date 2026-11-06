@@ -60,7 +60,8 @@ class RFSentinelApp : Application() {
         appScope.launch { com.rfsentinel.app.util.UpdateInstaller.cleanUp(this@RFSentinelApp) }
         // A fresh process means no camera download is running: drop any leftover progress.
         NotificationHelper.clearStaleCameraDownload(this)
-        OuiWatchlist.load(this)
+        // Off the main thread: the scanner loads it itself before it starts, so nothing waits on this one.
+        appScope.launch(Dispatchers.IO) { OuiWatchlist.load(this@RFSentinelApp) }
         WhitelistCache.start(this, appScope)
         appScope.launch(Dispatchers.IO) { com.rfsentinel.app.data.TrackerMutes.load(this@RFSentinelApp) }
         appScope.launch(Dispatchers.IO) { com.rfsentinel.app.data.TrustedNetworks.load(this@RFSentinelApp) }
