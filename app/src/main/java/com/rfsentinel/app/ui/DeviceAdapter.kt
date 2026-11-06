@@ -190,7 +190,8 @@ class DeviceAdapter(
             b.muteButton.imageTintList = android.content.res.ColorStateList.valueOf(
                 if (row.muted) ChipStyle.accent(b.root.context).first else ChipStyle.onSurface(b.root.context))
             b.muteButton.alpha = if (row.muted) 1f else 0.6f
-            b.muteButton.contentDescription = if (row.muted) "Unmute this device's alerts" else "Mute this device's alerts"
+            b.muteButton.contentDescription = if (row.muted) "Unmute ${row.title}"
+                else "Mute ${row.title} for 30 minutes. Long-press to mute until turned back on."
             b.muteButton.setOnClickListener { mute(row, false) }
             b.muteButton.setOnLongClickListener { mute(row, true); true }
         }
