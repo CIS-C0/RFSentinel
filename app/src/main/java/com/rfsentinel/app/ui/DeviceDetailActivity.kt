@@ -185,7 +185,7 @@ class DeviceDetailActivity : AppCompatActivity() {
             binding.tagText.background.mutate().setTint(0xFF6B7B80.toInt())
         } else if (best != null) {
             binding.tagText.visibility = View.VISIBLE
-            binding.tagText.text = DeviceRows.matchTag(best.category.shortTag, best.confidence)
+            binding.tagText.text = (if (s.following) "FOLLOWING · " else "") + DeviceRows.matchTag(best.category.shortTag, best.confidence)
             binding.tagText.background.mutate().setTint(ThemeManager.ink(this, if (best.tier == Tier.WEAK) 0xFFB26A00.toInt() else best.category.colorArgb))
         } else if (s == null && pastBest != null) {
             val h = pastBest
