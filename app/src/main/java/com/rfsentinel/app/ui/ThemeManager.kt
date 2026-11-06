@@ -110,10 +110,6 @@ object ThemeManager {
         return if (c != null) c.title?.takeIf { it.isNotBlank() } else current(context).appTitle
     }
 
-    /** True once the user has picked a theme (the setup wizard requires one). */
-    fun isChosen(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).contains(KEY)
-
     fun set(context: Context, theme: AppTheme) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString(KEY, theme.name) }
         applyNightMode(theme, custom(context))

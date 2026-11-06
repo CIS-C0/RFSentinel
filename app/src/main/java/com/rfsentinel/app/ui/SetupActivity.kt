@@ -113,8 +113,6 @@ class SetupActivity : AppCompatActivity() {
             STEPS - 1 -> "Finish"
             else -> "Next"
         }
-        // No theme is preselected: the user picks one before moving on.
-        binding.nextButton.isEnabled = step != 1 || ThemeManager.isChosen(this)
         binding.page.removeAllViews()
         stopObservingPrefetch?.invoke(); stopObservingPrefetch = null
         when (step) {
@@ -143,28 +141,24 @@ class SetupActivity : AppCompatActivity() {
     }
 
     private fun theme() {
-        header("Pick a look", "Tap a theme to preview it right away. Pick one to continue.")
-        val chosen = ThemeManager.isChosen(this)
+        header("Pick a look", "Tap a theme to preview it right away.")
         val current = ThemeManager.current(this)
         val custom = ThemeManager.custom(this)
         ThemeManager.builtIn.forEach { t ->
             val note = if (t == ThemeManager.AppTheme.MATERIAL_YOU && !ThemeManager.isDynamicColorAvailable)
                 " (this phone: standard Material 3 colours)" else ""
-            card(t.title, t.description + note, selected = chosen && t == current) {
-                val restyle = t != ThemeManager.current(this)
-                if (restyle || !ThemeManager.isChosen(this)) {
+            card(t.title, t.description + note, selected = t == current) {
+                if (t != ThemeManager.current(this)) {
                     ThemeManager.set(this, t)
-                    if (restyle) {
-                        resumeStep = step
-                        resumeScroll = binding.pageScroll.scrollY
-                        recreate() // restyles this screen; the step is kept
-                    } else render()
+                    resumeStep = step
+                    resumeScroll = binding.pageScroll.scrollY
+                    recreate() // restyles this screen; the step is kept
                 }
             }
         }
         CustomThemes.all(this).forEach { c ->
-            card(c.name, "Your own theme", selected = chosen && current == ThemeManager.AppTheme.CUSTOM && custom?.id == c.id) {
-                if (!(ThemeManager.current(this) == ThemeManager.AppTheme.CUSTOM && ThemeManager.custom(this)?.id == c.id) || !ThemeManager.isChosen(this)) {
+            card(c.name, "Your own theme", selected = current == ThemeManager.AppTheme.CUSTOM && custom?.id == c.id) {
+                if (!(ThemeManager.current(this) == ThemeManager.AppTheme.CUSTOM && ThemeManager.custom(this)?.id == c.id)) {
                     ThemeManager.setCustom(this, c.id)
                     resumeStep = step
                     resumeScroll = binding.pageScroll.scrollY
