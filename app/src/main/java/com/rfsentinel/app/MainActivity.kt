@@ -554,6 +554,7 @@ class MainActivity : AppCompatActivity() {
             running && (bluetoothOn() || demoMode) && hardware.size > 1 -> binding.statusText.setOnClickListener { hardwareOpen = !hardwareOpen; updateStatus() }
             else -> { binding.statusText.setOnClickListener(null); binding.statusText.isClickable = false }
         }
+        binding.statusText.minHeight = if (binding.statusText.hasOnClickListeners()) (48 * resources.displayMetrics.density).toInt() else 0
         val line: CharSequence = when {
             !running -> "Idle. Tap Start to listen for nearby devices"
             locationOff -> "⚠ $LOCATION_OFF"

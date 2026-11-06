@@ -70,6 +70,8 @@
         android:id="@+id/statusText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:background="?attr/selectableItemBackground"
+        android:gravity="center_vertical"
         android:paddingBottom="4dp"
         android:text="Idle"
         android:textSize="@dimen/text_subtitle" />
