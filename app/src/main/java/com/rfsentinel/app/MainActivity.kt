@@ -1380,11 +1380,11 @@ class MainActivity : AppCompatActivity() {
         }
         if (ambient != null) {
             banner.text = "⚠ ${ambient.label}"
-            banner.background.mutate().setTint(when {
+            banner.background.mutate().setTint(com.rfsentinel.app.ui.ThemeManager.ink(this, when {
                 ambient.score >= 85 -> 0xFFB3261E.toInt()
                 ambient.score >= threshold -> 0xFFC8431A.toInt()
                 else -> WEAK_COLOR
-            })
+            }))
             slimBanner(false)
             showBannerClose(true)
             return
@@ -1402,7 +1402,7 @@ class MainActivity : AppCompatActivity() {
             else -> WEAK_COLOR to "Weak match only (verify): ${top.best!!.label}"
         }
         banner.text = if (flagged.size > 1 && following == null) "$text  (+${flagged.size - 1} more)" else text
-        banner.background.mutate().setTint(color)
+        banner.background.mutate().setTint(com.rfsentinel.app.ui.ThemeManager.ink(this, color))
         slimBanner(top == null && following == null)
         showBannerClose(true)
     }
