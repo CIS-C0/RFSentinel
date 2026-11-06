@@ -850,6 +850,13 @@ class MainActivity : AppCompatActivity() {
         }
         binding.emptyState.visibility = if (visible.isEmpty() && (!panes.listShown || shownCells == 0) &&
             (!panes.radarShown || radioBlips == 0)) View.VISIBLE else View.GONE
+        // Once, with the first device listed: nothing else on screen shows that long-press exists.
+        if (visible.isNotEmpty() && panes.listShown && !Prefs.listTipShown(this)) {
+            Prefs.setListTipShown(this, true)
+            com.google.android.material.snackbar.Snackbar.make(binding.root,
+                "Tap a device for details. Long-press it for watchlist, whitelist and favorite.", 8000)
+                .setAction("OK") {}.show()
+        }
         // A filter that hides everything heard: one tap back to the full list.
         binding.showAllButton.visibility =
             if (filter != com.rfsentinel.app.ui.DeviceFilter.ALL && all.isNotEmpty()) View.VISIBLE else View.GONE

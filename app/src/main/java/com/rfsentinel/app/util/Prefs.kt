@@ -370,6 +370,8 @@ object Prefs {
     fun updatePrereleases(context: Context): Boolean = bool(context, "update_prereleases", false)
     fun setUpdatePrereleases(context: Context, value: Boolean) = setBool(context, "update_prereleases", value)
     /** Whether you were asked (once) if the app may check for updates; until then it never checks on its own. */
+    fun listTipShown(context: Context): Boolean = bool(context, "list_tip_shown", false)
+    fun setListTipShown(context: Context, value: Boolean) = setBool(context, "list_tip_shown", value)
     fun updateCheckAsked(context: Context): Boolean = bool(context, "update_check_asked", false)
     fun setUpdateCheckAsked(context: Context, value: Boolean) = setBool(context, "update_check_asked", value)
     fun lastUpdateCheck(context: Context): Long = sp(context).getLong("last_update_check", 0L)
