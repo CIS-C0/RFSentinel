@@ -207,6 +207,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.startStopButton.addOnLayoutChangeListener { _, l, _, r, _, ol, _, or, _ -> if (r - l != or - ol) fitStartButton() }
         binding.startStopButton.setOnClickListener {
+            it.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
             if (ScanForegroundService.isRunning) stopScanning() else requestPermissionsAndStart()
         }
         com.rfsentinel.app.ui.ChipStyle.accent(this).let { (accent, onAccent) ->

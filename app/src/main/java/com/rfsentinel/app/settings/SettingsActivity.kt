@@ -676,10 +676,23 @@ class SettingsActivity : AppCompatActivity() {
 
     private val sectionUi = mutableListOf<SectionUi>()
 
+    private val sectionIcons = mapOf(
+        "general" to R.drawable.ic_settings, "appearance" to R.drawable.ic_set_palette, "detect" to R.drawable.ic_set_visibility,
+        "scanning" to R.drawable.ic_tile_scan, "autostart" to R.drawable.ic_set_power, "follow" to R.drawable.ic_set_people,
+        "cameras" to R.drawable.ic_set_camera, "cell" to R.drawable.ic_car_tower, "alerts" to R.drawable.ic_set_bell,
+        "voice" to R.drawable.ic_car_voice, "overlay" to R.drawable.ic_set_overlay, "map" to R.drawable.ic_map,
+        "radar" to R.drawable.ic_radar, "navigation" to R.drawable.ic_nav_navigation, "location" to R.drawable.ic_nav_place,
+        "hardware" to R.drawable.ic_car_usb, "radio" to R.drawable.ic_set_antenna, "link" to R.drawable.ic_set_link,
+        "data" to R.drawable.ic_set_storage, "more" to R.drawable.ic_set_info
+    )
+
     private fun sections() = listOf(
         Section("general", binding.headerGeneral, binding.sectionGeneral,
             "Setup wizard: walks through the permissions and main choices again.\n\n" +
                 "Update check: asks GitHub at most every 6 hours and only speaks up when a new version is out.\n\n" +
+                "Check for updates: asks GitHub for a newer version now. \"Install now\" downloads it and installs it over this " +
+                "one (Android asks you once to allow RF Sentinel to install apps, then shows its own Update card). History and " +
+                "settings are kept, and scanning stops while it installs.\n\n" +
                 "Discreet mode: hides details on the lock screen and in notifications.\n\n" +
                 "Screen: \"On while charging\" suits a car or a desk; \"Normal\" turns off like other apps.\n\n" +
                 "Screen rotation: phones like the Pixel never auto-rotate upside down. \"Auto-rotate, upside down too\" turns " +
@@ -690,21 +703,6 @@ class SettingsActivity : AppCompatActivity() {
         Section("appearance", binding.headerAppearance, binding.sectionAppearance,
             "Banner image: shown above the animated header in the styled themes (Night Drive, Synthwave...); " +
                 "in DedSec and fsociety it replaces the poster. The image is copied privately into the app."),
-        Section("scanning", binding.headerScanning, binding.sectionScanning,
-            "Bluetooth intensity: Battery saver misses short broadcasts.\n\n" +
-                "WiFi interval: Android allows about one WiFi scan per 30 s unless \"Wi-Fi scan throttling\" " +
-                "is turned off in Developer options; then down to 5 s works, at some battery cost.\n\n" +
-                "Background scanning: lets the scan keep running with the screen off.\n\n" +
-                "Remove from the list: how long an ordinary device stays in the list and radar once it stops being heard (default 30 s Bluetooth, 60 s WiFi). Flagged devices follow these too; favourite and following devices stay 3 minutes. " +
-                "Hide trusted devices: whitelisted devices are left out of the list and radar (they stay in the history). " +
-                "All can go down to 5 s (WiFi only when \"Wi-Fi scan throttling\" is off in Developer options). " +
-                "External hardware: devices heard only by an ESP32 board or a USB WiFi adapter."),
-        Section("autostart", binding.headerAutoStart, binding.sectionAutoStart,
-            "When the phone starts: begins scanning after a reboot.\n\n" +
-                "In the car: starts scanning when the phone connects to your car's Bluetooth and stops when you leave. " +
-                "Android Auto also starts it when RF Sentinel opens on the car screen.\n\n" +
-                "Record a trace in the car: records a GPS trace from the moment the phone connects to your car until you leave, " +
-                "then saves it with your other traces."),
         Section("detect", binding.headerDetect, binding.sectionDetect,
             "Each type of equipment can be turned on or off. Network / home cameras are off by default (many false alarms).\n\n" +
                 "GPS / satellite checks cover every system the phone hears: GPS, GLONASS, Galileo, BeiDou, QZSS and NavIC.\n\n" +
@@ -745,6 +743,42 @@ class SettingsActivity : AppCompatActivity() {
                 "• Sweden: Axon body cams of the Swedish police, Sepura and Airbus Rakel radios.\n" +
                 "French drone electronic IDs are decoded in every region. With a European preset on (and not United States), " +
                 "Flock detection is off: Flock isn't used there."),
+        Section("scanning", binding.headerScanning, binding.sectionScanning,
+            "Bluetooth intensity: Battery saver misses short broadcasts.\n\n" +
+                "WiFi interval: Android allows about one WiFi scan per 30 s unless \"Wi-Fi scan throttling\" " +
+                "is turned off in Developer options; then down to 5 s works, at some battery cost.\n\n" +
+                "Background scanning: lets the scan keep running with the screen off.\n\n" +
+                "Remove from the list: how long an ordinary device stays in the list and radar once it stops being heard (default 30 s Bluetooth, 60 s WiFi). Flagged devices follow these too; favourite and following devices stay 3 minutes. " +
+                "Hide trusted devices: whitelisted devices are left out of the list and radar (they stay in the history). " +
+                "All can go down to 5 s (WiFi only when \"Wi-Fi scan throttling\" is off in Developer options). " +
+                "External hardware: devices heard only by an ESP32 board or a USB WiFi adapter."),
+        Section("autostart", binding.headerAutoStart, binding.sectionAutoStart,
+            "When the phone starts: begins scanning after a reboot.\n\n" +
+                "In the car: starts scanning when the phone connects to your car's Bluetooth and stops when you leave. " +
+                "Android Auto also starts it when RF Sentinel opens on the car screen.\n\n" +
+                "Record a trace in the car: records a GPS trace from the moment the phone connects to your car until you leave, " +
+                "then saves it with your other traces."),
+        Section("follow", binding.headerFollow, binding.sectionFollow,
+            "Warns when a tracker or flagged device keeps moving with you for at least the time and distance set here.\n\n" +
+                "Your own tag: long-press it in the list > Ignore this tracker."),
+        Section("cameras", binding.headerCameras, binding.sectionCameras,
+            "Plate-reader and speed / red-light camera positions come from OpenStreetMap.\n\n" +
+                "Download automatically: fetches the cameras of the map area you look at (the Overpass server sees that area, like map tiles).\n\n" +
+                "Download around me: saves the cameras within the radius for offline use. Larger areas take longer and use more data.\n\n" +
+                "US & Canada: every plate reader in DeFlock's hourly OpenStreetMap snapshot " +
+                "(cdn.deflock.me sees only the download, not your position); refreshes weekly on Wi-Fi.\n\n" +
+                "To silence one camera: tap it on the map > Ignore alerts.\n\n" +
+                "CCTV cameras: ordinary surveillance cameras volunteers mapped in OpenStreetMap (street, shop, building cameras). " +
+                "Everything within the download radius around you is fetched in the background; they show from city zoom, with a " +
+                "shaded area where their direction is mapped when you zoom in close. Most are wired, so the scan can't detect them. " +
+                "Public ones by default; private outdoor and indoor ones on request. Map only, no alerts.\n\n" +
+                "Delete downloaded cameras: removes the saved plate, speed, red-light and CCTV cameras (they download again as you use the map)."),
+        Section("cell", binding.headerCell, binding.sectionCell,
+            "Tower change alerts are frequent while driving; most useful when parked.\n\n" +
+                "Turning off \"Allow 2G\" (Android 12+) is the strongest protection against fake towers: " +
+                "2G has no network authentication, which is what IMSI catchers exploit.\n\n" +
+                "Android 15+ (e.g. Pixel 8+) can itself warn you when a network asks for your SIM's identity or turns " +
+                "encryption off: Security & privacy > More security & privacy > Cellular security > Network notifications."),
         Section("alerts", binding.headerAlerts, binding.sectionAlerts,
             "Threshold: \"Weak\" alerts on every match (more false alarms); \"Strong only\" on near-certain ones.\n\n" +
                 "Vibration: 1 pulse weak, 2 probable, 3 strong.\n\n" +
@@ -768,33 +802,6 @@ class SettingsActivity : AppCompatActivity() {
                 "Bubble: each new alert shows what was detected in a small card beside it for a few seconds.\n\n" +
                 "Mini map: the devices around you, like the app's map. Drag to move, pinch to zoom, " +
                 "corner handle to resize, tap to open the full map."),
-        Section("follow", binding.headerFollow, binding.sectionFollow,
-            "Warns when a tracker or flagged device keeps moving with you for at least the time and distance set here.\n\n" +
-                "Your own tag: long-press it in the list > Ignore this tracker."),
-        Section("navigation", binding.headerNav, binding.sectionNav,
-            "Turn-by-turn directions: the search button on the map finds a place (or long-press the map), shows up to three " +
-                "routes with the time each takes, and guides you with a banner, lane arrows and spoken directions.\n\n" +
-                "Spoken directions play through the navigation voice (music dips under them, as in Maps) and follow the voice " +
-                "speed and loudness chosen under Alerts. They are separate from the alert mute and snooze.\n\n" +
-                "Network use: routes come from Valhalla on the OpenStreetMap Germany server and places from Photon (komoot), and OpenStreetMap's Nominatim too for a search you submit. They " +
-                "see what you search for, where you start, stop and finish, and your IP address - never what you scan. Nothing is " +
-                "asked until you search, long-press the map or start a route; search sends your position rounded to about 1 km.\n\n" +
-                "Looking for petrol, charging, food and the like asks OpenStreetMap's Overpass servers (as the camera downloads do): " +
-                "your position rounded to about 1 km, or the road ahead as points rounded to about 200 m.\n\n" +
-                "Avoiding speed cameras and plate readers: the route server is asked for the route again with the road of each " +
-                "camera on it left out (a few times), so it also sees those places on your route - nothing else about the cameras " +
-                "or what you scan.\n\n" +
-                "Not included: live traffic (the arrival time starts from the route's usual driving time and then follows how you really " +
-                "drive), speed limits and offline routes.\n\n" +
-                "Home, Work, starred and recent places are kept on this phone only."),
-        Section("radar", binding.headerRadar, binding.sectionRadar,
-            "The radar on the main screen: closer to the centre = stronger signal.\n\n" +
-                "Top of the radar: the way you face (it turns with the phone, from the compass, set right by the GPS while you " +
-                "drive) or north.\n\n" +
-                "Dots without a direction: a phone can't tell which way a signal comes from, so most dots sit at a made-up " +
-                "angle. They can stay put on screen, or turn with north like the dots whose direction is known.\n\n" +
-                "Directions on the radar: alerts that broadcast their position or were pinpointed, and the device you " +
-                "locate once a turn with the phone on your chest has found its side."),
         Section("map", binding.headerMap, binding.sectionMap,
             "What the map shows.\n\n" +
                 "Plate, speed and red-light cameras: from OpenStreetMap (Known cameras has the downloads, warnings and CCTV).\n\n" +
@@ -820,24 +827,38 @@ class SettingsActivity : AppCompatActivity() {
                 "Map provider: OpenFreeMap (OpenStreetMap data, free, no account) or Mapbox (Mapbox's own map: 3D buildings, " +
                 "day and night light). Mapbox loads its map from Mapbox's servers, which see the area you look at, like any " +
                 "online map; its usage statistics are switched off. The floating mini map always uses OpenFreeMap."),
-        Section("cameras", binding.headerCameras, binding.sectionCameras,
-            "Plate-reader and speed / red-light camera positions come from OpenStreetMap.\n\n" +
-                "Download automatically: fetches the cameras of the map area you look at (the Overpass server sees that area, like map tiles).\n\n" +
-                "Download around me: saves the cameras within the radius for offline use. Larger areas take longer and use more data.\n\n" +
-                "US & Canada: every plate reader in DeFlock's hourly OpenStreetMap snapshot " +
-                "(cdn.deflock.me sees only the download, not your position); refreshes weekly on Wi-Fi.\n\n" +
-                "To silence one camera: tap it on the map > Ignore alerts.\n\n" +
-                "CCTV cameras: ordinary surveillance cameras volunteers mapped in OpenStreetMap (street, shop, building cameras). " +
-                "Everything within the download radius around you is fetched in the background; they show from city zoom, with a " +
-                "shaded area where their direction is mapped when you zoom in close. Most are wired, so the scan can't detect them. " +
-                "Public ones by default; private outdoor and indoor ones on request. Map only, no alerts.\n\n" +
-                "Delete downloaded cameras: removes the saved plate, speed, red-light and CCTV cameras (they download again as you use the map)."),
-        Section("cell", binding.headerCell, binding.sectionCell,
-            "Tower change alerts are frequent while driving; most useful when parked.\n\n" +
-                "Turning off \"Allow 2G\" (Android 12+) is the strongest protection against fake towers: " +
-                "2G has no network authentication, which is what IMSI catchers exploit.\n\n" +
-                "Android 15+ (e.g. Pixel 8+) can itself warn you when a network asks for your SIM's identity or turns " +
-                "encryption off: Security & privacy > More security & privacy > Cellular security > Network notifications."),
+        Section("radar", binding.headerRadar, binding.sectionRadar,
+            "The radar on the main screen: closer to the centre = stronger signal.\n\n" +
+                "Top of the radar: the way you face (it turns with the phone, from the compass, set right by the GPS while you " +
+                "drive) or north.\n\n" +
+                "Dots without a direction: a phone can't tell which way a signal comes from, so most dots sit at a made-up " +
+                "angle. They can stay put on screen, or turn with north like the dots whose direction is known.\n\n" +
+                "Directions on the radar: alerts that broadcast their position or were pinpointed, and the device you " +
+                "locate once a turn with the phone on your chest has found its side."),
+        Section("navigation", binding.headerNav, binding.sectionNav,
+            "Turn-by-turn directions: the search button on the map finds a place (or long-press the map), shows up to three " +
+                "routes with the time each takes, and guides you with a banner, lane arrows and spoken directions.\n\n" +
+                "Spoken directions play through the navigation voice (music dips under them, as in Maps) and follow the voice " +
+                "speed and loudness chosen under Alerts. They are separate from the alert mute and snooze.\n\n" +
+                "Network use: routes come from Valhalla on the OpenStreetMap Germany server and places from Photon (komoot), and OpenStreetMap's Nominatim too for a search you submit. They " +
+                "see what you search for, where you start, stop and finish, and your IP address - never what you scan. Nothing is " +
+                "asked until you search, long-press the map or start a route; search sends your position rounded to about 1 km.\n\n" +
+                "Looking for petrol, charging, food and the like asks OpenStreetMap's Overpass servers (as the camera downloads do): " +
+                "your position rounded to about 1 km, or the road ahead as points rounded to about 200 m.\n\n" +
+                "Avoiding speed cameras and plate readers: the route server is asked for the route again with the road of each " +
+                "camera on it left out (a few times), so it also sees those places on your route - nothing else about the cameras " +
+                "or what you scan.\n\n" +
+                "Not included: live traffic (the arrival time starts from the route's usual driving time and then follows how you really " +
+                "drive), speed limits and offline routes.\n\n" +
+                "Home, Work, starred and recent places are kept on this phone only."),
+        Section("location", binding.headerLocation, binding.sectionLocation,
+            "Traces: records your route while scanning. Recorded traces lists them, to view on the map.\n\n" +
+                "Saving the GPS position with matches is privacy-sensitive: the log then shows where you were. It also lets the map remember where it last looked, so it can open there before the GPS answers.\n\n" +
+                "Pinpoint flagged devices: while a flagged device is in range, the GPS reads your position every second and " +
+                "its signal is measured at every spot you pass. Once you've passed it from more than one side (around the block), " +
+                "the map puts it where it most likely is, with a circle it is very likely in. Driving one straight road can't tell " +
+                "which side it's on: the circle then covers both. Works for devices that stay put; one that moves with you isn't " +
+                "pinned. Kept in memory, not in the history. Uses more battery while a flagged device is around."),
         Section("hardware", binding.headerHardware, binding.sectionHardware,
             "Plug these in with an OTG cable while scanning:\n\n" +
                 "• ESP32 boards with OUI-Spy, GhostESP or Marauder firmware (also through a Flipper Zero), FREE-WiLi 2.\n\n" +
@@ -868,15 +889,6 @@ class SettingsActivity : AppCompatActivity() {
                 "position, with an alert when their light bar or siren is on, or when they warn that they're approaching. " +
                 "Ordinary cars are counted, not listed. North America uses a different V2X radio (C-V2X) that this board can't hear. " +
                 "Receiving V2X may fall under telecom or privacy law where you are."),
-        Section("link", binding.headerLink, binding.sectionLink,
-            "Link RF Sentinel phones near each other over Bluetooth: every linked phone shows the same devices on its list, " +
-                "radar and map, whichever phone heard them first - including what each phone's ESP32 board, USB WiFi adapter " +
-                "or RTL-SDR hears. Alerts sound on every phone and say which Sentinel heard the device.\n\n" +
-                "Linking: tap \"Link up a Sentinel\" on one phone and \"Join a Sentinel\" on the other, then check that both " +
-                "screens show the same 6 digits. Three or more phones: link each new one to any phone of the group.\n\n" +
-                "Works while scanning, up to about 50-100 m between phones (Bluetooth range); a phone in reach of two others " +
-                "passes on what it hears. Everything sent is encrypted for the phones of the group only. No internet, no account, " +
-                "and no Android Bluetooth pairing."),
         Section("radio", binding.headerRadio, binding.sectionRadio,
             "An RTL-SDR dongle or a HackRF on USB notices two-way radios transmitting nearby, from signal strength only - nothing is " +
                 "decoded or recorded. Needs Two-way radio on (What to detect).\n\n" +
@@ -896,14 +908,15 @@ class SettingsActivity : AppCompatActivity() {
                 "or let RadioReference name the FCC licences near you (US): needs your own RadioReference Premium login and a " +
                 "RadioReference developer key; your position rounded to ~1 km is sent to RadioReference, at most once a day per area.\n\n" +
                 "Changes apply from the next sweep while scanning."),
-        Section("location", binding.headerLocation, binding.sectionLocation,
-            "Traces: records your route while scanning, to view on the map.\n\n" +
-                "Saving the GPS position with matches is privacy-sensitive: the log then shows where you were. It also lets the map remember where it last looked, so it can open there before the GPS answers.\n\n" +
-                "Pinpoint flagged devices: while a flagged device is in range, the GPS reads your position every second and " +
-                "its signal is measured at every spot you pass. Once you've passed it from more than one side (around the block), " +
-                "the map puts it where it most likely is, with a circle it is very likely in. Driving one straight road can't tell " +
-                "which side it's on: the circle then covers both. Works for devices that stay put; one that moves with you isn't " +
-                "pinned. Kept in memory, not in the history. Uses more battery while a flagged device is around."),
+        Section("link", binding.headerLink, binding.sectionLink,
+            "Link RF Sentinel phones near each other over Bluetooth: every linked phone shows the same devices on its list, " +
+                "radar and map, whichever phone heard them first - including what each phone's ESP32 board, USB WiFi adapter " +
+                "or RTL-SDR hears. Alerts sound on every phone and say which Sentinel heard the device.\n\n" +
+                "Linking: tap \"Link up a Sentinel\" on one phone and \"Join a Sentinel\" on the other, then check that both " +
+                "screens show the same 6 digits. Three or more phones: link each new one to any phone of the group.\n\n" +
+                "Works while scanning, up to about 50-100 m between phones (Bluetooth range); a phone in reach of two others " +
+                "passes on what it hears. Everything sent is encrypted for the phones of the group only. No internet, no account, " +
+                "and no Android Bluetooth pairing."),
         Section("data", binding.headerData, binding.sectionData,
             "Everything stays on this phone. History older than the set number of days is deleted (0 keeps it forever).\n\n" +
                 "Live export (off by default): while scanning, rewrites three files every 30 s in the folder you choose - " +
@@ -915,9 +928,6 @@ class SettingsActivity : AppCompatActivity() {
         Section("more", binding.headerMore, binding.sectionMore,
             "Watchlist & rules: the vendor prefixes and rules that flag a device; add your own.\n\n" +
                 "Whitelist: devices you trust, never flagged.\n\n" +
-                "Check for updates: asks GitHub for a newer version now. \"Install now\" downloads it and installs it over this " +
-                "one (Android asks you once to allow RF Sentinel to install apps, then shows its own Update card). History and " +
-                "settings are kept, and scanning stops while it installs.\n\n" +
                 "About & sources: version, licence, where the signatures come from, and the app's limits.\n\n" +
                 "Crash log: if RF Sentinel ever closes unexpectedly, what went wrong is saved on this phone (never sent " +
                 "automatically). Export it to send to the developer; the app also offers this the next time it opens.")
@@ -954,6 +964,11 @@ class SettingsActivity : AppCompatActivity() {
                 orientation = android.widget.LinearLayout.HORIZONTAL
                 gravity = android.view.Gravity.CENTER_VERTICAL
                 setBackgroundResource(ripple)
+                addView(android.widget.ImageView(this@SettingsActivity).apply {
+                    setImageResource(sectionIcons.getValue(s.key))
+                    imageTintList = android.content.res.ColorStateList.valueOf(s.header.currentTextColor)
+                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                }, android.widget.LinearLayout.LayoutParams((20 * dp).toInt(), (20 * dp).toInt()).apply { marginEnd = (10 * dp).toInt() })
                 addView(s.header)
                 addView(info)
             }
