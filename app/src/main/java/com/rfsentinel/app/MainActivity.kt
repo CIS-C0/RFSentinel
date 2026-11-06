@@ -593,9 +593,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * "Start" / "Stop" with its icon when both fit; with less room the icon goes and the word stays. When
-     * even the word would be cut off (large text, a narrow window, the view buttons beside it) the word goes
-     * and the icon stays on its own: a play triangle to start, a stop square to stop (the colour and the
+     * "Start" / "Stop" with its icon when both fit. Otherwise (large text, a narrow window, the view buttons
+     * beside it) the word goes, never cut off, and the icon stays on its own: a play triangle to start, a stop square to stop (the colour and the
      * description say the same), centred in the button with no side padding so the icon is never clipped.
      */
     private var startIconPadding = -1
@@ -626,7 +625,6 @@ class MainActivity : AppCompatActivity() {
         val textW = b.paint.measureText(drawn) * 1.1f + 6 * d
         val iconW = (b.iconSize.takeIf { it > 0 } ?: (24 * d).toInt()) + startIconPadding
         if (textW + iconW <= room) withWord()
-        else if (textW <= room) { withWord(); b.icon = null }
         else {
             // The icon alone, in the middle of the button: "text start" gravity centres the icon with its text, here an
             // invisible zero-width one (with no text at all the button keeps the icon at its start).
