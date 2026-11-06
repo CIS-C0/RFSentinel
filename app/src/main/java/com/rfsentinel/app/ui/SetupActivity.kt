@@ -133,8 +133,11 @@ class SetupActivity : AppCompatActivity() {
         header("Welcome to RF Sentinel", "A quick setup - about a minute. You can change everything later in Settings.")
         para("RF Sentinel listens - passively - to the Bluetooth and WiFi signals devices around you already broadcast, and flags equipment such as body cameras, license-plate cameras, drones, trackers following you and camera glasses.")
         bullet("It never transmits to, connects to or interferes with any device.")
-        val cameras = if (com.rfsentinel.app.BuildConfig.FLAVOR == "foss") "only once you allow it" else "can be turned off in Settings"
-        bullet("Scans, detections and history stay on this phone. Internet is only used for OpenStreetMap maps (including known plate, speed and red-light camera locations for the area you look at - $cameras - and destination search and routes when you navigate, on the phone or in Android Auto) and GitHub when you check for updates. Police aircraft and Waze reports are optional online sources, off until you turn them on in Settings.")
+        val cameras = if (com.rfsentinel.app.BuildConfig.FLAVOR == "foss") "Only once you allow it." else "You can turn this off in Settings."
+        bullet("Scans, detections and history stay on this phone.")
+        bullet("Internet is only used for OpenStreetMap maps, for destination search and routes when you navigate, on the phone or in Android Auto, and for GitHub when you check for updates.")
+        bullet("Known plate, speed and red-light camera locations come from OpenStreetMap for the area you look at. $cameras")
+        bullet("Police aircraft and Waze reports are optional online sources, off until you turn them on in Settings.")
         bullet("A match means a device with that signature is nearby - not proof of who is there.")
         para("Check your local laws before use. This is not legal advice.", small = true)
     }
