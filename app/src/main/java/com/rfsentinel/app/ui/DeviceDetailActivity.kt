@@ -4,12 +4,19 @@ import android.content.Intent
 import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
+import android.text.SpannableStringBuilder
+import android.text.style.TypefaceSpan
 import android.util.TypedValue
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.text.bold
+import androidx.core.text.buildSpannedString
+import androidx.core.text.color
+import androidx.core.text.inSpans
+import androidx.core.text.scale
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -185,6 +192,10 @@ class DeviceDetailActivity : AppCompatActivity() {
             binding.tagText.visibility = View.VISIBLE
             binding.tagText.text = "${h.category.shortTag} · ${h.tier.label} ${h.confidence}%"
             binding.tagText.background.mutate().setTint(ThemeManager.ink(this, if (h.tier == Tier.WEAK) 0xFFB26A00.toInt() else h.category.colorArgb))
+        } else if (s != null) {
+            binding.tagText.visibility = View.VISIBLE
+            binding.tagText.text = "Not flagged"
+            binding.tagText.background.mutate().setTint(0xFF6B7B80.toInt())
         } else {
             binding.tagText.visibility = View.GONE
         }
@@ -192,17 +203,25 @@ class DeviceDetailActivity : AppCompatActivity() {
         val alias = DeviceNames.of(mac)
         // Your own name in place of what it's heard as; that stays on the line below.
         binding.titleText.text = alias ?: heardAs
-        binding.subtitleText.text = (if (alias != null) "$heardAs\n" else "") +
-            mac + ((s?.vendor ?: known?.vendor ?: VendorDb.macVendor(mac))?.let { "\n$it" } ?: "")
+        binding.subtitleText.text = buildSpannedString {
+            if (alias != null) append("$heardAs\n")
+            (s?.vendor ?: known?.vendor ?: VendorDb.macVendor(mac))?.let { append("$it\n") }
+            color(secondaryText) { inSpans(TypefaceSpan("monospace")) { append(mac) } }
+        }
         val note = known?.note?.takeIf { it.isNotBlank() }
         binding.noteText.visibility = if (note != null) View.VISIBLE else View.GONE
         binding.noteText.text = note?.let { "\uD83D\uDCDD $it" }
-        binding.presenceText.text = when {
-            liveMac != mac && live != null -> "In range under its new address $liveMac (it changed its address) · heard ${ago(now - live.lastSeen)}"
-            s == null -> "Not in range right now" + (known?.let { " · last heard ${dateFmt.format(Date(it.lastSeen))}" } ?: "") +
-                (last?.takeIf { it.following }?.let { "\n⚠ Was moving with you" } ?: "")
-            s.following -> "⚠ Has been moving with you"
-            else -> "In range · heard ${ago(now - s.lastSeen)} · ${s.sightings} packets received"
+        binding.presenceText.text = buildSpannedString {
+            when {
+                liveMac != mac && live != null -> { lead("In range under a new address"); append(" · heard ${ago(now - live.lastSeen)}") }
+                s == null -> {
+                    lead("Not in range right now")
+                    known?.let { append(" · last heard ${dateFmt.format(Date(it.lastSeen))}") }
+                    if (last?.following == true) { append("\n"); lead("⚠ Was moving with you", warning) }
+                }
+                s.following -> { lead("⚠ Has been moving with you", warning); append(" · heard ${ago(now - s.lastSeen)}") }
+                else -> { lead("In range"); append(" · heard ${ago(now - s.lastSeen)} · ${s.sightings} packets") }
+            }
         }
 
         // Visual style: the dial and ring take the place of the big number.
@@ -217,16 +236,16 @@ class DeviceDetailActivity : AppCompatActivity() {
 
         // Live signal (from the newest address when it rotated)
         if (live != null) {
-            binding.rssiText.text = "${live.rssi}"
+            binding.rssiText.text = buildSpannedString { append("${live.rssi}"); scale(0.4f) { append(" dBm") } }
             val trendDir = LiveRead.trend(live)
             val trend = if (live.history.size < 2) "" else when (trendDir) {
-                1 -> "  ↑ getting closer"; -1 -> "  ↓ moving away"; else -> "  → steady"
+                1 -> " · ↑ getting closer"; -1 -> " · ↓ moving away"; else -> " · → steady"
             }
             binding.gauge.set(live.rssi, live.bestRssi, trendDir)
-            binding.rssiDetail.text = (if (visual) "${ProximityUtil.band(live.rssi)}\n" else "dBm · ${ProximityUtil.band(live.rssi)} $trend\n") +
+            binding.rssiDetail.text = signalLines(ProximityUtil.band(live.rssi) + if (visual) "" else trend,
                 "${DeviceIntel.formatDistance(live.distanceM)} (rough) · best ${live.bestRssi} dBm" +
-                (if (liveMac != mac) "\nNow heard as $liveMac" else "") +
-                (if (locatingThis()) LiveRead.sweepText()?.let { "\n$it" }.orEmpty() else "")
+                    (if (liveMac != mac) "\nNow heard as $liveMac" else "") +
+                    (if (locatingThis()) LiveRead.sweepText()?.let { "\n$it" }.orEmpty() else ""))
             binding.graph.setSamples(live.history)
             binding.locateButton.isEnabled = true
             binding.locateButton.text = if (locatingThis()) "Stop" else "Locate"
@@ -234,10 +253,9 @@ class DeviceDetailActivity : AppCompatActivity() {
             binding.rssiText.text = "--"
             binding.gauge.set(null, null, 0)
             // As last heard: its last reading, best and the signal graph then.
-            binding.rssiDetail.text = "Not currently heard" + (last?.let {
-                "\nLast ${it.rssi} dBm · ${ProximityUtil.band(it.rssi)}\n" +
-                    "${DeviceIntel.formatDistance(it.distanceM)} (rough) · best ${it.bestRssi} dBm"
-            } ?: "")
+            binding.rssiDetail.text = if (last == null) signalLines("Not currently heard", null) else
+                signalLines("Last ${last.rssi} dBm · ${ProximityUtil.band(last.rssi)}",
+                    "${DeviceIntel.formatDistance(last.distanceM)} (rough) · best ${last.bestRssi} dBm")
             binding.graph.setSamples(last?.samples.orEmpty())
             binding.locateButton.isEnabled = false
             stopLocate()
@@ -272,13 +290,27 @@ class DeviceDetailActivity : AppCompatActivity() {
         }
     }
 
+    private val primaryText by lazy { com.google.android.material.color.MaterialColors.getColor(this, android.R.attr.textColorPrimary, 0xFF888888.toInt()) }
+    private val secondaryText by lazy { com.google.android.material.color.MaterialColors.getColor(this, android.R.attr.textColorSecondary, 0xFF888888.toInt()) }
+    private val warning by lazy { ThemeManager.ink(this, 0xFFD32F2F.toInt()) }
+
+    /** The part of a line to catch on a quick look. */
+    private fun SpannableStringBuilder.lead(text: String, ink: Int = primaryText) = bold { color(ink) { append(text) } }
+
+    /** How close it is on a line that stands out, the numbers quieter below it. */
+    private fun signalLines(main: String, more: String?) = buildSpannedString {
+        scale(1.15f) { lead(main) }
+        more?.let { color(secondaryText) { append("\n$it") } }
+    }
+
     private fun buildSections(s: DeviceRegistry.Snapshot?): List<DeviceSection> {
         val last = savedNow(s) ?: return DeviceSections.build(this, mac, s, known, pastMatches, pastHits)
         // Not heard now: its page as last heard, with the saved record and match history as they are now.
         return last.sections.map { (title, rows) ->
             when (title) {
-                DeviceSections.FLAGGED -> DeviceSections.WAS_FLAGGED to
-                    if (last.hits.isEmpty() && pastHits.isNotEmpty()) DeviceSections.pastMatchRows(pastMatches, pastHits) else rows
+                DeviceSections.FLAGGED, DeviceSections.NOT_FLAGGED ->
+                    if (last.hits.isEmpty() && pastHits.isEmpty()) DeviceSections.NOT_FLAGGED to rows
+                    else DeviceSections.WAS_FLAGGED to if (last.hits.isEmpty()) DeviceSections.pastMatchRows(pastMatches, pastHits) else rows
                 DeviceSections.HISTORY -> title to listOf(
                     "Last heard" to dateFmt.format(Date(last.firstSeen)) + " - " + timeFmt.format(Date(last.at)) +
                         " · ${last.sightings} packets received"
@@ -310,8 +342,11 @@ class DeviceDetailActivity : AppCompatActivity() {
                     setPadding(0, (3 * dp).toInt(), 0, (3 * dp).toInt())
                     addView(TextView(context).apply {
                         text = k
-                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                        setTextColor(com.google.android.material.color.MaterialColors.getColor(context, android.R.attr.textColorSecondary, 0xFF888888.toInt()))
+                        // What it matched is the headline of its rows.
+                        val match = k.startsWith("●")
+                        if (match) setTypeface(typeface, Typeface.BOLD)
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, if (match) 14f else 12f)
+                        setTextColor(if (match) primaryText else secondaryText)
                     })
                     addView(TextView(context).apply {
                         text = v
@@ -460,7 +495,11 @@ class DeviceDetailActivity : AppCompatActivity() {
         input.requestFocus()
     }
 
-    private fun ago(ms: Long) = if (ms < 2000) "just now" else "${ms / 1000}s ago"
+    private fun ago(ms: Long) = when {
+        ms < 2000 -> "just now"
+        ms < 60_000 -> "${ms / 1000}s ago"
+        else -> "${ms / 60_000} min ago"
+    }
 
     // ---- Actions --------------------------------------------------------------
 

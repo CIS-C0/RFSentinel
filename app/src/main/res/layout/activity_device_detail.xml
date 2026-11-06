@@ -37,7 +37,6 @@
             android:id="@+id/subtitleText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:fontFamily="monospace"
             android:textIsSelectable="true"
             android:textSize="@dimen/text_body" />
 
@@ -47,7 +46,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:textColor="?android:attr/textColorSecondary"
-            android:textSize="@dimen/text_caption" />
+            android:textSize="@dimen/text_body" />
 
         <!-- Your own note on the device: tap to edit -->
         <TextView

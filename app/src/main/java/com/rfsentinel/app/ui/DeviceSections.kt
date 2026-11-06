@@ -27,6 +27,7 @@ typealias DeviceSection = Pair<String, List<Pair<String, String>>>
 object DeviceSections {
 
     const val FLAGGED = "Why it's flagged"
+    const val NOT_FLAGGED = "Not flagged"
     const val WAS_FLAGGED = "Why it was flagged"
     const val HISTORY = "History"
     const val RAW = "Raw advertisement"
@@ -51,10 +52,10 @@ object DeviceSections {
         if (s == null && pastHits.isNotEmpty()) {
             out += WAS_FLAGGED to pastMatchRows(pastMatches, pastHits)
         } else if (s != null) {
-            out += FLAGGED to if (s.hits.isEmpty()) {
-                listOf("Result" to "Not flagged - no watchlist entry or equipment signature matched.")
+            out += if (s.hits.isEmpty()) {
+                NOT_FLAGGED to listOf("Result" to "No watchlist entry or equipment signature matched.")
             } else {
-                s.hits.flatMap { h ->
+                FLAGGED to s.hits.flatMap { h ->
                     listOf(
                         "● ${h.label}" to "${h.category.title} · ${h.tier.label} (${h.confidence}%)",
                         "   Evidence" to h.evidence,
