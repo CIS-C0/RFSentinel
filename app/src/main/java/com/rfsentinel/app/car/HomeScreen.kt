@@ -96,7 +96,7 @@ class HomeScreen(carContext: CarContext) : LiveScreen(carContext) {
             icon = R.drawable.ic_car_navigate, browsable = true) {
             screenManager.push(if (m.liveMap) LiveMapScreen(carContext) else DevicesMapScreen(carContext))
         }
-        rows += row("Nearby devices (${m.devices})", "Flagged, trackers, drones, favorites, new, external...",
+        rows += row("Nearby devices (${m.devices})", "Flagged, trackers, drones and more",
             icon = R.drawable.ic_car_drone, browsable = true) { screenManager.push(NearbyDevicesScreen(carContext)) }
         if (m.camera == null && m.cellSummary != null) {
             rows += row("Cell towers", m.cellSummary, icon = R.drawable.ic_car_tower, browsable = true) {
@@ -120,7 +120,7 @@ class HomeScreen(carContext: CarContext) : LiveScreen(carContext) {
             if (nowMuted) com.rfsentinel.app.util.Voice.silence()
             Prefs.setAlertsMuted(carContext, nowMuted)
             if (!nowMuted) Prefs.setAlertsSnoozedUntil(carContext, 0L)
-            toast(if (nowMuted) "Alert sound muted" else "Alert sound on - plays through the car speakers")
+            toast(if (nowMuted) "Alert sound muted" else "Alert sound on. Plays through the car speakers.")
             invalidate()
         }
         return listTemplate("RF Sentinel", shown, header = Action.APP_ICON,
