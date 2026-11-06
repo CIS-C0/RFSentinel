@@ -125,6 +125,8 @@ class TripsActivity : AppCompatActivity() {
         val mine = all.filter { it.snapshot == snapshots }
         val list = mine.filter { q.isEmpty() || it.name.contains(q, ignoreCase = true) }
         adapter.submitList(list)
+        binding.searchLayout.helperText = if (list.isEmpty()) null
+            else (if (snapshots) "Tap to see its list." else "Tap to view it on the map.") + " Long-press to export, rename or delete."
         binding.emptyText.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
         binding.emptyText.text = when {
             mine.isNotEmpty() -> "Nothing matches."
