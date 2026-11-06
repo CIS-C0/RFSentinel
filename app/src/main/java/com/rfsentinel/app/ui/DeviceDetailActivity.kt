@@ -220,7 +220,7 @@ class DeviceDetailActivity : AppCompatActivity() {
                     if (last?.following == true) { append("\n"); lead("⚠ Was moving with you", warning) }
                 }
                 s.following -> { lead("⚠ Has been moving with you", warning); append(" · heard ${ago(now - s.lastSeen)}") }
-                else -> { lead("In range"); append(" · heard ${ago(now - s.lastSeen)} · ${s.sightings} packets") }
+                else -> { lead("In range"); append(" · heard ${ago(now - s.lastSeen)} · ${s.sightings} " + if (s.sightings == 1) "packet" else "packets") }
             }
         }
 
