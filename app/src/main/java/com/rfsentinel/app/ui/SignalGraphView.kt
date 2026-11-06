@@ -57,17 +57,20 @@ class SignalGraphView @JvmOverloads constructor(
             canvas.drawLine(left, yy, right, yy, gridPaint)
             canvas.drawText("$level", 2 * density, yy + 4 * density, textPaint)
         }
-        canvas.drawText("5 min ago", left, height - 2 * density, textPaint)
+        val now = System.currentTimeMillis()
+        val visible = samples.filter { now - it.time <= windowMs }
+        // Only as far back as it has been heard, in whole minutes: a device just heard fills the graph too.
+        val minutes = (((now - (visible.firstOrNull()?.time ?: now)) + 59_999) / 60_000).coerceIn(1, windowMs / 60_000)
+        val shownMs = minutes * 60_000
+        canvas.drawText("$minutes min ago", left, height - 2 * density, textPaint)
         val nowLabel = "now"
         canvas.drawText(nowLabel, right - textPaint.measureText(nowLabel), height - 2 * density, textPaint)
 
-        val now = System.currentTimeMillis()
-        val visible = samples.filter { now - it.time <= windowMs }
         if (visible.size < 2) {
             canvas.drawText("Collecting signal samples...", left + 8 * density, (top + bottom) / 2, textPaint)
             return
         }
-        fun x(time: Long) = left + (right - left) * (1f - (now - time).toFloat() / windowMs)
+        fun x(time: Long) = left + (right - left) * (1f - (now - time).toFloat() / shownMs)
         line.reset()
         fill.reset()
         visible.forEachIndexed { i, s ->
