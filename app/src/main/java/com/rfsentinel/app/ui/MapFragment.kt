@@ -1409,7 +1409,7 @@ class MapFragment : Fragment() {
         val dismissable = (showRec || downloadShown) && binding.statusText.visibility == View.VISIBLE
         binding.statusDismiss.visibility = if (dismissable) View.VISIBLE else View.GONE
         binding.statusText.setPaddingRelative(binding.statusText.paddingStart, binding.statusText.paddingTop,
-            ((if (dismissable) 40 else 12) * resources.displayMetrics.density).toInt(), binding.statusText.paddingBottom)
+            ((if (dismissable) 48 else 12) * resources.displayMetrics.density).toInt(), binding.statusText.paddingBottom)
         updateGauge()
         binding.statusText.background.mutate().setTint(if (showRec) 0xFFB3261E.toInt() else 0xCC0B5C63.toInt())
     }

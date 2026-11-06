@@ -93,8 +93,8 @@
 
                 <ImageButton
                     android:id="@+id/navMute"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Mute directions"
                     app:tint="#FFFFFF" />
@@ -165,12 +165,12 @@
             <!-- Hides the recording banner (the trace keeps recording; the record button still shows it). -->
             <ImageButton
                 android:id="@+id/statusDismiss"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:layout_gravity="top|end"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="Hide the recording banner"
-                android:padding="10dp"
+                android:padding="14dp"
                 android:scaleType="fitCenter"
                 android:src="@drawable/ic_nav_close"
                 android:visibility="gone"
@@ -275,8 +275,8 @@
 
             <ImageButton
                 android:id="@+id/alertClose"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:layout_marginStart="4dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="Dismiss"
@@ -397,8 +397,8 @@
 
             <ImageButton
                 android:id="@+id/navCardRename"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="Rename"
                 android:src="@drawable/ic_nav_edit"
@@ -406,15 +406,15 @@
 
             <ImageButton
                 android:id="@+id/navCardStar"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="Star this place" />
 
             <ImageButton
                 android:id="@+id/navCardClose"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="Close"
                 android:src="@drawable/ic_nav_close" />
