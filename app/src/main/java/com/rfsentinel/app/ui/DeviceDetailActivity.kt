@@ -320,25 +320,46 @@ class DeviceDetailActivity : AppCompatActivity() {
         }
     }
 
+    /** Sections folded on this page: the raw bytes until asked for. */
+    private val folded = mutableSetOf(DeviceSections.RAW)
+
     private fun renderSections(sections: List<DeviceSection>) {
         val container = binding.sections
         container.removeAllViews()
         val dp = resources.displayMetrics.density
         val hits = DeviceRegistry.get(mac)?.hits ?: saved?.hits.orEmpty()
+        val ripple = TypedValue().also { theme.resolveAttribute(android.R.attr.selectableItemBackground, it, true) }.resourceId
         for ((title, rows) in sections) {
+            val open = title !in folded
+            container.addView(View(this).apply {
+                setBackgroundColor(com.google.android.material.color.MaterialColors.getColor(context, com.google.android.material.R.attr.colorOnSurface, 0xFF888888.toInt()))
+                alpha = 0.08f
+            }, LinearLayout.LayoutParams(-1, dp.toInt().coerceAtLeast(1)).apply { topMargin = (8 * dp).toInt() })
+            // Folds like the sections in Settings.
             container.addView(TextView(this).apply {
-                text = title
+                text = (if (open) "▾  " else "▸  ") + title
+                contentDescription = "$title, ${if (open) "expanded" else "collapsed"}"
                 setTypeface(typeface, Typeface.BOLD)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-                setPadding(0, (18 * dp).toInt(), 0, (4 * dp).toInt())
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                minHeight = (48 * dp).toInt()
+                setBackgroundResource(ripple)
+                setOnClickListener {
+                    if (!folded.remove(title)) folded += title
+                    renderSections(sections)
+                }
             })
+            if (!open) continue
             if (visual && (title == DeviceSections.FLAGGED || title == DeviceSections.WAS_FLAGGED) && hits.isNotEmpty()) {
                 hits.forEach { container.addView(hitCard(it)) }
                 continue
             }
+            // Facts as a two-column table; a match's reasons and raw bytes need the whole width.
+            val table = title != DeviceSections.RAW && title != DeviceSections.FLAGGED &&
+                title != DeviceSections.WAS_FLAGGED && title != DeviceSections.NOT_FLAGGED
             for ((k, v) in rows) {
                 container.addView(LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL
+                    orientation = if (table) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
                     setPadding(0, (3 * dp).toInt(), 0, (3 * dp).toInt())
                     addView(TextView(context).apply {
                         text = k
@@ -347,13 +368,13 @@ class DeviceDetailActivity : AppCompatActivity() {
                         if (match) setTypeface(typeface, Typeface.BOLD)
                         setTextSize(TypedValue.COMPLEX_UNIT_SP, if (match) 14f else 12f)
                         setTextColor(if (match) primaryText else secondaryText)
-                    })
+                    }, if (table) LinearLayout.LayoutParams(0, -2, 2f).apply { marginEnd = (8 * dp).toInt() } else LinearLayout.LayoutParams(-1, -2))
                     addView(TextView(context).apply {
                         text = v
                         setTextIsSelectable(true)
                         setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                         if (title == DeviceSections.RAW) typeface = Typeface.MONOSPACE
-                    })
+                    }, if (table) LinearLayout.LayoutParams(0, -2, 3f) else LinearLayout.LayoutParams(-1, -2))
                 })
             }
             if (title.startsWith("Drone")) addDroneButtons(container)
