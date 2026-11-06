@@ -60,7 +60,7 @@
             android:layout_gravity="end"
             android:layout_marginBottom="4dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Hide all clear"
+            android:contentDescription="Hide banner"
             android:paddingVertical="3dp"
             android:scaleType="centerInside"
             android:src="@drawable/ic_nav_close"

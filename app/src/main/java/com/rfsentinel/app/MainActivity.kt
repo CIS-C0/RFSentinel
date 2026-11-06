@@ -45,6 +45,8 @@ class MainActivity : AppCompatActivity() {
         private const val WAZE_ROW = "waze:"
         /** All clear closed with its X: alerts still show, and it comes back when the app restarts. */
         private var allClearClosed = false
+        /** Alerts hidden with the banner's X: a new one, or one coming back, shows the banner again. */
+        private var closedAlerts = emptySet<String>()
         private const val RADIO_ROW = "radio:"
         private const val AIRCRAFT_ROW = "air:"
         private const val TG_ROW = "tg:"
@@ -1343,6 +1345,8 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    private var bannerAlerts = emptySet<String>()
+
     private fun updateBanner(flagged: List<DeviceRegistry.Snapshot>, threshold: Int) {
         val banner = binding.threatBanner
         if (!ScanForegroundService.isRunning && flagged.isEmpty()) {
@@ -1354,8 +1358,19 @@ class MainActivity : AppCompatActivity() {
         val following = flagged.firstOrNull { it.following }
         val top = flagged.maxByOrNull { it.best!!.confidence }
         // A camera close by, a police aircraft or a Waze report, when it outranks the devices.
-        val ambient = com.rfsentinel.app.online.AmbientThreats.top(this)
-            ?.takeIf { following == null && it.score > (top?.best?.confidence ?: 0) }
+        val nearby = com.rfsentinel.app.online.AmbientThreats.top(this)
+        val ambient = nearby?.takeIf { following == null && it.score > (top?.best?.confidence ?: 0) }
+        bannerAlerts = buildSet {
+            flagged.forEach { add(it.mac); if (it.following) add("following:${it.mac}") }
+            // The label without its changing distance.
+            nearby?.let { add(it.label.filterNot(Char::isDigit)) }
+        }
+        closedAlerts = closedAlerts intersect bannerAlerts
+        if (bannerAlerts.isNotEmpty() && closedAlerts.containsAll(bannerAlerts)) {
+            banner.visibility = View.GONE
+            showBannerClose(false)
+            return
+        }
         if (ambient != null) {
             banner.text = "⚠ ${ambient.label}"
             banner.background.mutate().setTint(when {
@@ -1364,7 +1379,7 @@ class MainActivity : AppCompatActivity() {
                 else -> WEAK_COLOR
             })
             slimBanner(false)
-            showBannerClose(false)
+            showBannerClose(true)
             return
         }
         if (flagged.isEmpty() && allClearClosed) {
@@ -1382,15 +1397,19 @@ class MainActivity : AppCompatActivity() {
         banner.text = if (flagged.size > 1 && following == null) "$text  (+${flagged.size - 1} more)" else text
         banner.background.mutate().setTint(color)
         slimBanner(top == null && following == null)
-        showBannerClose(flagged.isEmpty())
+        showBannerClose(true)
     }
 
-    /** The X on the All clear bar, with room kept for it at the end of the text. */
+    /** The X on the banner, with room kept for it at the end of the text. Alerts still sound and stay in the list. */
     private fun showBannerClose(show: Boolean) {
         val close = binding.bannerClose
         if ((close.visibility == View.VISIBLE) == show) return
         close.visibility = if (show) View.VISIBLE else View.GONE
-        close.setOnClickListener { allClearClosed = true; binding.threatBanner.visibility = View.GONE; showBannerClose(false) }
+        close.setOnClickListener {
+            if (bannerAlerts.isEmpty()) allClearClosed = true else closedAlerts = bannerAlerts
+            binding.threatBanner.visibility = View.GONE
+            showBannerClose(false)
+        }
         val banner = binding.threatBanner
         val dp = resources.displayMetrics.density
         banner.setPaddingRelative(banner.paddingStart, banner.paddingTop, ((if (show) 44 else 12) * dp).toInt(), banner.paddingBottom)
