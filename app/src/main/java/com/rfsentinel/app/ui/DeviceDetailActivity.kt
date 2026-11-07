@@ -331,16 +331,15 @@ class DeviceDetailActivity : AppCompatActivity() {
         val ripple = TypedValue().also { theme.resolveAttribute(android.R.attr.selectableItemBackground, it, true) }.resourceId
         for ((title, rows) in sections) {
             val open = title !in folded
-            container.addView(View(this).apply {
-                setBackgroundColor(com.google.android.material.color.MaterialColors.getColor(context, com.google.android.material.R.attr.colorOnSurface, 0xFF888888.toInt()))
-                alpha = 0.08f
-            }, LinearLayout.LayoutParams(-1, dp.toInt().coerceAtLeast(1)).apply { topMargin = (8 * dp).toInt() })
+            container.addHairline((8 * dp).toInt())
             // Folds like the sections in Settings.
             container.addView(TextView(this).apply {
                 text = (if (open) "▾  " else "▸  ") + title
                 contentDescription = "$title, ${if (open) "expanded" else "collapsed"}"
                 setTypeface(typeface, Typeface.BOLD)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                // The accent of the list's group headers and the Settings sections.
+                setTextColor(com.google.android.material.color.MaterialColors.getColor(context, com.google.android.material.R.attr.colorSecondary, primaryText))
                 gravity = android.view.Gravity.CENTER_VERTICAL
                 minHeight = (48 * dp).toInt()
                 setBackgroundResource(ripple)
@@ -357,14 +356,18 @@ class DeviceDetailActivity : AppCompatActivity() {
             // Facts as a two-column table; a match's reasons and raw bytes need the whole width.
             val table = title != DeviceSections.RAW && title != DeviceSections.FLAGGED &&
                 title != DeviceSections.WAS_FLAGGED && title != DeviceSections.NOT_FLAGGED
-            for ((k, v) in rows) {
+            val rowPad = ((if (table) 5 else 3) * dp).toInt()
+            for ((i, row) in rows.withIndex()) {
+                val (k, v) = row
+                // What it matched is the headline of its rows.
+                val match = k.startsWith("●")
+                // A line under every fact ties its value to its label across the gap between the columns.
+                if (i > 0 && (table || match)) container.addHairline()
                 container.addView(LinearLayout(this).apply {
                     orientation = if (table) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
-                    setPadding(0, (3 * dp).toInt(), 0, (3 * dp).toInt())
+                    setPadding(0, rowPad, 0, rowPad)
                     addView(TextView(context).apply {
                         text = k
-                        // What it matched is the headline of its rows.
-                        val match = k.startsWith("●")
                         if (match) setTypeface(typeface, Typeface.BOLD)
                         setTextSize(TypedValue.COMPLEX_UNIT_SP, if (match) 14f else 12f)
                         setTextColor(if (match) primaryText else secondaryText)
@@ -373,7 +376,10 @@ class DeviceDetailActivity : AppCompatActivity() {
                         text = v
                         setTextIsSelectable(true)
                         setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                        setTextColor(primaryText)
+                        // Grey labels, heavier values: the eye lands on the facts. Weight 500 needs Android 9.
                         if (title == DeviceSections.RAW) typeface = Typeface.MONOSPACE
+                        else if (android.os.Build.VERSION.SDK_INT >= 28) typeface = Typeface.create(typeface, 500, false)
                     }, if (table) LinearLayout.LayoutParams(0, -2, 3f) else LinearLayout.LayoutParams(-1, -2))
                 })
             }
@@ -384,6 +390,11 @@ class DeviceDetailActivity : AppCompatActivity() {
             container.addView(mapButton("Show last logged location on map", tagged.latitude!!, tagged.longitude!!, "Logged match"))
         }
     }
+
+    private fun LinearLayout.addHairline(marginTop: Int = 0) = addView(View(context).apply {
+        setBackgroundColor(com.google.android.material.color.MaterialColors.getColor(context, com.google.android.material.R.attr.colorOnSurface, 0xFF888888.toInt()))
+        alpha = 0.12f
+    }, LinearLayout.LayoutParams(-1, resources.displayMetrics.density.toInt().coerceAtLeast(1)).apply { topMargin = marginTop })
 
     /** Visual style: one card per match, with its confidence as a bar and what it rests on as chips. */
     private fun hitCard(h: com.rfsentinel.app.detect.Hit): View {
