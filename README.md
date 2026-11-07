@@ -44,28 +44,28 @@
 
 <table align="center">
 <tr>
-<td align="center" width="50%"><img src="docs/screenshots/demo-walkthrough.gif" width="300" alt="RF Sentinel walkthrough: live list of flagged devices, why an Axon body camera is flagged, the radar, the map pane and the full-screen 3D driving map (DedSec theme, demo data)" /></td>
-<td align="center" width="50%"><img src="docs/screenshots/mapbox-3d.gif" width="300" alt="Mapbox 3D map: list and map side by side while driving, then the full-screen 3D view with buildings and a 3D car turning with the road (Dark theme, demo data)" /></td>
+<td align="center" width="50%"><img src="docs/screenshots/demo-walkthrough.gif" width="300" alt="RF Sentinel walkthrough: live list of flagged devices, why an Axon body camera is flagged, the radar, the map pane and the full-screen 3D driving map (demo data)" /></td>
+<td align="center" width="50%"><img src="docs/screenshots/mapbox-3d.gif" width="300" alt="Mapbox 3D map: list and map side by side while driving, the full-screen 3D view with buildings and a 3D car, then device details from the list and the radar (demo data)" /></td>
 </tr>
 <tr>
-<td align="center"><sub><b>Main features in 40 seconds</b><br/>live list · why it's flagged · radar · 3D driving map</sub></td>
-<td align="center"><sub><b>3D driving view</b><br/>list + map split, then full screen (Mapbox map: Settings → Map → Map provider)</sub></td>
+<td align="center"><sub><b>Main features in 30 seconds</b><br/>live list · why it's flagged · radar · 3D driving map</sub></td>
+<td align="center"><sub><b>3D driving view</b><br/>list + map split, full screen, details and radar (Mapbox map: Settings → Map → Map provider)</sub></td>
 </tr>
 </table>
 
 <p align="center">
-  <img src="docs/screenshots/main-fsociety.jpg" width="200" alt="Main screen with the live list and the map together (fsociety theme, demo data)" />
+  <img src="docs/screenshots/main.jpg" width="200" alt="Main screen with the live list (demo data)" />
   &nbsp;
-  <img src="docs/screenshots/details-night-drive.jpg" width="200" alt="Device details: why an Axon body camera is flagged, with evidence and sources (Night Drive theme, demo data)" />
+  <img src="docs/screenshots/details.jpg" width="200" alt="Device details: why an Axon body camera is flagged, with evidence and sources (demo data)" />
   &nbsp;
-  <img src="docs/screenshots/map-3d-synthwave.jpg" width="200" alt="Full-screen 3D map with the car, flagged devices and known cameras (Synthwave theme, demo data)" />
+  <img src="docs/screenshots/map-3d.jpg" width="200" alt="Full-screen 3D map with the car, flagged devices and known cameras (demo data)" />
 </p>
 <p align="center">
-  <img src="docs/screenshots/split-map-dark.jpg" width="200" alt="Split view: map above the live list (Dark theme, demo data)" />
+  <img src="docs/screenshots/split-map.jpg" width="200" alt="Split view: map above the live list (demo data)" />
   &nbsp;
-  <img src="docs/screenshots/split-radar-dark.jpg" width="200" alt="Split view: radar above the live list (Dark theme, demo data)" />
+  <img src="docs/screenshots/split-radar.jpg" width="200" alt="Split view: radar above the live list (demo data)" />
 </p>
-<p align="center"><sub>List + map (fsociety) · why a device is flagged (Night Drive) · 3D map (Synthwave) · map and radar split views (Dark). Demo data only.<br/><a href="#themes">All 13 themes</a> · <a href="#android-auto">Android Auto</a></sub></p>
+<p align="center"><sub>Live list · why a device is flagged · 3D map · map and radar split views. Demo data only.<br/><a href="#themes">All 13 themes</a> · <a href="#android-auto">Android Auto</a></sub></p>
 
 <p align="center">
   <a href="https://github.com/CIS-C0/RFSentinel/"><img src="docs/star-banner.svg" width="560" alt="Like RF Sentinel? Give it a star on GitHub - it's free, takes one click and helps others find it" /></a>
@@ -728,6 +728,8 @@ Realtek RTL8822CU / 8852 and Intel dongles aren't supported yet.
 | AR9271 | 2.4 GHz, experimental | - | ALFA AWUS036NHA, TP-Link TL-WN722N v1 |
 
 Recognised but not supported yet: RTL8811CU / 8821CU / 8812CU, AR7010.
+
+Confirmed working by testers: MT7921AU WiFi and Bluetooth, an RTL8761BU USB Bluetooth dongle and an RTL-SDR; OUI-SPY App-Controlled connects over Bluetooth.
 
 <details>
 <summary><b>Receive-only, the adapter log and single-antenna dongles</b></summary>

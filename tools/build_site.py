@@ -213,7 +213,7 @@ def build():
                 "codeRepository": REPO,
                 "programmingLanguage": "Kotlin",
                 "image": BASE + "assets/og.png",
-                "screenshot": BASE + "screenshots/list-dedsec.jpg",
+                "screenshot": BASE + "screenshots/main.jpg",
                 "softwareVersion": app_version(),
                 "dateModified": last_changed(os.path.join(ROOT, "app", "build.gradle.kts"), today),
                 "author": {"@type": "Organization", "name": "CIS-C0", "url": "https://github.com/CIS-C0"},
