@@ -1772,6 +1772,10 @@ class SettingsActivity : AppCompatActivity() {
             "Watches 380-385 MHz, where emergency-service TETRA handsets transmit in Europe and many other countries. " +
             "A handset sends short time-slot bursts; that rhythm marks it as a TETRA radio. Energy only: TETRA is encrypted " +
             "and nothing is decoded. On by default when the phone's region is in Europe.") { Prefs.setRadioTetraOn(this, it) }
+        box.toggle("Detect DMR radios", Prefs.radioDmrOn(this),
+            "Experimental. On the VHF and UHF bands, marks a handset sending DMR's 60 ms time-slot bursts. Energy only, nothing " +
+            "decoded. Businesses use DMR too, and a P25 Phase 2 radio looks the same, so it is a weak sign on its own. " +
+            "NXDN has no time slots and can't be told apart. Adds time to each sweep.") { Prefs.setRadioDmrOn(this, it) }
         slider(0, 20, Prefs.radioTrendDb(this), { if (it == 0) "Closer / moving away: off" else "Say \"getting closer\" / \"moving away\" when the signal changes by $it dB" }) {
             Prefs.setRadioTrendDb(this, it)
         }

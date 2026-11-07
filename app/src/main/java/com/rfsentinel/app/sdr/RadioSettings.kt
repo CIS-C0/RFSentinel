@@ -30,7 +30,8 @@ object RadioSettings {
                 (if (Prefs.radioTetraOn(context)) listOf(RadioWatch.TETRA_BAND) else emptyList()),
             excluded = ranges(Prefs.radioExcluded(context)).map { it.first },
             targets = targets(Prefs.radioTargets(context)),
-            minSnrDb = Prefs.radioMinSnr(context)
+            minSnrDb = Prefs.radioMinSnr(context),
+            dmr = Prefs.radioDmrOn(context)
         )
     }
 

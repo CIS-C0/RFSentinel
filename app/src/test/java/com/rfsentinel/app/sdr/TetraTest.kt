@@ -87,6 +87,53 @@ class TetraTest {
         assertTrue(RadioWatch.isTdma(FloatArray(32) { if (it in 5..11) 40f else 0f }, 2.0))
     }
 
+    // ---- DMR: the same check on the shared bands, in its own rhythm --------------------------------
+
+    private val uhf = 460_000_000L
+
+    /** A learned watch of the UHF band; a tone at [radio] lands 212.5 kHz above [uhf]. */
+    private fun uhfWatch(dmr: Boolean): Pair<RadioWatch, Long> {
+        val w = RadioWatch()
+        w.config = RadioWatch.Config(bands = listOf(RadioWatch.BANDS[3]), dmr = dmr)
+        var t = 0L
+        repeat(8) { s ->
+            val b = RadioWatch.burstSpectrum(iq(null, seed = s), count, rate)
+            w.analyze(uhf, b.psd, rate, t, b); w.sweepDone(); t += 2_500
+        }
+        return w to t
+    }
+
+    /** One 27.5 ms burst per 60 ms frame, starting [start] ms in. */
+    private fun dmrBurst(start: Double) = { t: Double -> ((t - start) % 60.0 + 60.0) % 60.0 < 27.5 }
+
+    @Test
+    fun aDmrHandsetsBurstsAreMarkedWhereverTheyFallInTheChunk() {
+        for (start in listOf(0.0, 12.0, 25.0, 40.0, 50.0)) {
+            val (w, t) = uhfWatch(dmr = true)
+            val b = RadioWatch.burstSpectrum(iq(radio, on = dmrBurst(start)), count, rate)
+            val ev = w.analyze(uhf, b.psd, rate, t, b)
+            assertTrue("burst at $start ms: $ev", ev.isNotEmpty() && ev.all { it.tdma })
+            assertEquals("DMR", ev.first().slots)
+            assertTrue(ev.all { it.confidence <= 55 }) // still a shared band: a weak sign
+        }
+    }
+
+    @Test
+    fun aRepeaterThatStaysOnIsNotDmr() {
+        val (w, t) = uhfWatch(dmr = true)
+        val b = RadioWatch.burstSpectrum(iq(radio), count, rate)
+        val ev = w.analyze(uhf, b.psd, rate, t, b)
+        assertTrue(ev.isNotEmpty() && ev.none { it.tdma })
+        assertTrue(ev.all { it.slots == null })
+    }
+
+    @Test
+    fun withTheSettingOffNothingIsMarked() {
+        val (w, t) = uhfWatch(dmr = false)
+        val b = RadioWatch.burstSpectrum(iq(radio, on = dmrBurst(10.0)), count, rate)
+        assertTrue(w.analyze(uhf, b.psd, rate, t, b).none { it.tdma })
+    }
+
     @Test
     fun theBandIsOnlyTheHandsetSide() {
         val b = RadioWatch.TETRA_BAND

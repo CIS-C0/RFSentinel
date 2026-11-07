@@ -648,6 +648,9 @@ object Prefs {
     /** Also sweep the cellular UPLINK bands for a transmitter travelling near you (experimental, off by default). */
     fun radioCellOn(context: Context): Boolean = bool(context, "radio_cell_on", false)
     fun setRadioCellOn(context: Context, value: Boolean) = setBool(context, "radio_cell_on", value)
+    /** Also look for DMR handsets' time slots on the shared bands (experimental, off by default: sweeps take longer). */
+    fun radioDmrOn(context: Context): Boolean = bool(context, "radio_dmr_on", false)
+    fun setRadioDmrOn(context: Context, value: Boolean) = setBool(context, "radio_dmr_on", value)
     /** Also sweep the TETRA handset band (380-385 MHz); on by default where the phone's region uses TETRA. */
     fun radioTetraOn(context: Context): Boolean = bool(context, "radio_tetra_on", tetraRegion(java.util.Locale.getDefault().country))
     fun setRadioTetraOn(context: Context, value: Boolean) = setBool(context, "radio_tetra_on", value)

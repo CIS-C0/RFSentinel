@@ -1602,7 +1602,8 @@ class ScanForegroundService : Service() {
                 else "Emergency-service TETRA handsets transmit on this band, but this signal had no TETRA time slots; a weak sign on its own."
                 com.rfsentinel.app.sdr.RadioWatch.Kind.TARGET -> "One of the frequencies you watch (Settings > RTL-SDR radio)."
                 com.rfsentinel.app.sdr.RadioWatch.Kind.CUSTOM -> "A band you added in Settings > RTL-SDR radio."
-                else -> "Police use this band, but so do businesses, schools and transit; a weak sign on its own."
+                else -> (if (e.tdma) "It came in time-slot bursts like a DMR handset's (a P25 Phase 2 radio looks the same). Nothing decoded. " else "") +
+                    "Police use this band, but so do businesses, schools and transit; a weak sign on its own."
             }
         val cellDetail = heardBy + "A cellular transmitter is on the air nearby on ${e.mhz} MHz (${e.band.label}), " +
             "${e.snrDb} dB above the quiet level - $near. Something is transmitting on the phone / modem side of an " +
@@ -1612,16 +1613,16 @@ class ScanForegroundService : Service() {
         val label = when {
             cell -> "Cellular transmitter nearby (LTE uplink)"
             name != null -> "Radio transmitting: $name"
-            e.tdma -> "TETRA radio transmitting nearby"
+            e.tdma -> "${e.slots} radio transmitting nearby"
             else -> "Two-way radio transmitting nearby"
         } + (via?.let { " · via $it" } ?: "")
         val hit = Hit(Category.RADIO, label, e.confidence, if (cell) cellDetail else detail,
-            if (e.tdma) "SDR signal strength and TETRA burst timing (no decoding)" else "SDR signal strength (no decoding)")
+            if (e.tdma) "SDR signal strength and ${e.slots} burst timing (no decoding)" else "SDR signal strength (no decoding)")
         // Spoken: the frequency (and its name) when that's on, else the short phrase.
         val spoken = when {
             cell -> "Cellular transmitter nearby"
-            Prefs.radioSpeakFreq(this) -> (if (e.tdma) "TETRA radio " else "Radio ") + spokenMhz(e.freqHz) + (name?.let { ", $it" } ?: "")
-            e.tdma -> "TETRA radio nearby"
+            Prefs.radioSpeakFreq(this) -> (if (e.tdma) "${e.slots} radio " else "Radio ") + spokenMhz(e.freqHz) + (name?.let { ", $it" } ?: "")
+            e.tdma -> "${e.slots} radio nearby"
             else -> "Radio transmitting nearby"
         } + (via?.let { ", via $it" } ?: "")
         radioDetection(hit, "RADIO " + e.mhz + " MHz", e.snrDb, now, "radio:" + e.freqHz, spoken, e.confidence >= threshold, via)

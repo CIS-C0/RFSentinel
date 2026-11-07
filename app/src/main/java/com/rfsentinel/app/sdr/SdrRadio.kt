@@ -36,7 +36,7 @@ object SdrRadio {
     /** For continuous decoding: one read is ~33 ms of samples; Android before 9 caps a transfer at 16 KB. */
     private val STREAM_XFER = if (android.os.Build.VERSION.SDK_INT >= 28) 131_072 else XFER
     private const val READS_PER_CHUNK = 8     // ~32 ms of samples per tuned chunk
-    private const val TETRA_READS = 16        // ~64 ms: more than one TETRA frame, so a radio's slot is always in it
+    private const val SLOT_READS = 16         // ~64 ms: more than one TETRA or DMR frame, so a radio's slot is always in it
     private const val STALL_CHUNKS = 8        // chunks in a row without samples before the stream is restarted
     private const val ADSB_GAIN_TENTHS_DB = 496 // the tuner's most: aircraft are far and faint
     private const val ADSB_PUSH_MS = 2_000L
@@ -427,7 +427,7 @@ object SdrRadio {
             ", reporting from ${cfg.minSnrDb} dB, USB errors ${sdr.ctlErrors}")
         logPlan()
         val buf = ByteArray(XFER)
-        val iq = ByteArray(XFER * maxOf(READS_PER_CHUNK, TETRA_READS))
+        val iq = ByteArray(XFER * maxOf(READS_PER_CHUNK, SLOT_READS))
         var lastLog = 0L; var sweepStart = System.currentTimeMillis(); var sweepMs = 0L
         var events = 0; var unlocked = 0; var readErrors = 0; var failedChunks = 0
         var lastCheck = System.currentTimeMillis()
@@ -445,10 +445,10 @@ object SdrRadio {
                 }
                 if (!sdr.tune(center)) { unlocked++; skipped(); continue }
                 repeat(sdr.settleReads) { sdr.read(buf) }
-                // TETRA chunks also keep the power in 2 ms steps, to see a radio's 14 ms time-slot bursts.
-                val tetra = cfg.bands.any { it.kind == RadioWatch.Kind.TETRA && RadioWatch.covers(it, center) }
+                // TETRA and DMR chunks also keep the power in 2 ms steps, to see a radio's time-slot bursts.
+                val slotted = cfg.bands.any { cfg.slotted(it) && RadioWatch.covers(it, center) }
                 var got = 0
-                for (i in 0 until if (tetra) TETRA_READS else READS_PER_CHUNK) {
+                for (i in 0 until if (slotted) SLOT_READS else READS_PER_CHUNK) {
                     val n = sdr.read(buf)
                     if (n <= 0) { readErrors++; break }
                     System.arraycopy(buf, 0, iq, got, n); got += n
@@ -463,7 +463,7 @@ object SdrRadio {
                     continue
                 }
                 failedChunks = 0
-                val bursts = if (tetra) RadioWatch.burstSpectrum(iq, got / 2, sdr.sampleRate) else null
+                val bursts = if (slotted) RadioWatch.burstSpectrum(iq, got / 2, sdr.sampleRate) else null
                 val psd = bursts?.psd ?: RadioWatch.powerSpectrum(iq, got / 2)
                 if (SdrWaterfall.listening) row += SdrWaterfall.segment(center, psd, sdr.sampleRate, RadioWatch.USABLE_HZ,
                     cfg.bands.firstOrNull { RadioWatch.covers(it, center) }?.label)
@@ -471,7 +471,7 @@ object SdrRadio {
                     if (!e.repeat) {
                         events++
                         UsbWifi.log("$deviceLabel: transmission ${e.mhz} MHz, ${e.snrDb} dB above the noise (${e.band.label})" +
-                            if (e.tdma) ", TETRA time slots" else "")
+                            (e.slots?.let { ", $it time slots" } ?: ""))
                     }
                     onEvent?.invoke(e)
                 }

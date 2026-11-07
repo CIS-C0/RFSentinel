@@ -23,6 +23,10 @@ import kotlin.math.sin
  * handsets transmitting on 380-385 MHz. A TETRA handset sends in time slots: a ~14 ms burst every
  * ~57 ms frame. On that band the power is also kept in 2 ms steps ([Bursts]) and a burst rhythm
  * marks the signal as a TETRA radio. Still energy only - TETRA can't and won't be decoded here.
+ *
+ * A DMR handset does the same in its own rhythm: a 27.5 ms burst every 60 ms frame, so with [Config.dmr] the
+ * shared bands get that check too. A repeater fills both slots and stays on, so only handsets show it; P25
+ * Phase 2 keeps the same time. NXDN has no time slots, so it stays a plain transmission.
  */
 class RadioWatch {
 
@@ -40,17 +44,24 @@ class RadioWatch {
         val excluded: List<LongRange> = emptyList(),
         val targets: List<Target> = emptyList(),
         /** A transmission counts from this many dB above the noise (lower = more sensitive). */
-        val minSnrDb: Int = DEFAULT_MIN_SNR
-    )
+        val minSnrDb: Int = DEFAULT_MIN_SNR,
+        /** Also look for DMR time slots on the shared bands (each chunk then takes twice as long). */
+        val dmr: Boolean = false
+    ) {
+        /** Whether [band] gets the time-slot check. */
+        fun slotted(band: Band) = band.kind == Kind.TETRA || (dmr && band.kind == Kind.SHARED)
+    }
 
     /**
      * A strong transmission on a normally quiet channel. [repeat]: the same channel again within
      * [REPEAT_MS] - not a new alert, but it keeps the live list and the closer / farther trend current.
-     * [tdma]: it came in TETRA-like time-slot bursts.
+     * [tdma]: it came in time-slot bursts, named by [slots].
      */
     data class Event(val freqHz: Long, val snrDb: Int, val band: Band, val confidence: Int,
                      val target: Target? = null, val repeat: Boolean = false, val tdma: Boolean = false) {
         val mhz: String get() = "%.4f".format(java.util.Locale.US, freqHz / 1e6)
+        /** The radio system its time slots point to; null without them. */
+        val slots: String? get() = if (!tdma) null else if (band.kind == Kind.TETRA) "TETRA" else "DMR"
     }
 
     @Volatile var config = Config()
@@ -84,7 +95,7 @@ class RadioWatch {
     /**
      * One tuned chunk: [psdDb] is the averaged power spectrum (FFT-shifted, DC in the middle)
      * at [centerHz] and [sampleRate]. Returns the transmissions worth reporting. [bursts]: the
-     * same samples in time steps, for the TETRA band's time-slot check.
+     * same samples in time steps, for the time-slot check.
      */
     fun analyze(centerHz: Long, psdDb: FloatArray, sampleRate: Int, now: Long, bursts: Bursts? = null): List<Event> {
         val n = psdDb.size
@@ -106,7 +117,7 @@ class RadioWatch {
                     for (k in mid - half..mid + half) if (k in 0 until n && psdDb[k] > p) p = psdDb[k]
                     var snr = (p - floor).roundToInt()
                     var tdma = false
-                    if (band.kind == Kind.TETRA && bursts != null && bursts.groups.isNotEmpty()) {
+                    if (cfg.slotted(band) && bursts != null && bursts.groups.isNotEmpty()) {
                         // A burst is only on part of the time: its own level, not the average, is the signal.
                         val levels = FloatArray(bursts.groups.size) { g ->
                             var q = -200f
@@ -114,7 +125,9 @@ class RadioWatch {
                             q - floor
                         }
                         snr = maxOf(snr, levels.max().roundToInt())
-                        tdma = isTdma(levels, bursts.groupMs, activeDb(cfg.minSnrDb))
+                        val active = activeDb(cfg.minSnrDb)
+                        tdma = if (band.kind == Kind.TETRA) isTdma(levels, bursts.groupMs, active)
+                               else isTdma(levels, bursts.groupMs, active, DMR_BURST_MS, DMR_FRAME_MS, slots = 1)
                     }
                     val ch = channels.getOrPut(f) { Channel() }
                     val active = snr >= ACTIVE_DB
@@ -269,16 +282,21 @@ class RadioWatch {
         /** A TETRA slot: ~14.2 ms on air in a ~56.7 ms frame. */
         private const val SLOT_MS = 14.17
         private const val FRAME_MS = 56.67
+        /** A DMR handset: 27.5 ms on air in a 60 ms frame. */
+        private const val DMR_BURST_MS = 27.5
+        private const val DMR_FRAME_MS = 60.0
         /** Time step of [burstSpectrum]: short enough to see a slot's edges. */
         private const val GROUP_MS = 2.0
 
         /**
          * Time-slot bursts in one channel's level over time ([levels], dB above the noise, one per
          * [groupMs]): on for about one TETRA slot at a time, and truly off in between - not a carrier
-         * that stays on, and not noise. Also true for 2 slots of a frame, as a data call may use.
+         * that stays on, and not noise. Also true for up to [slots] slots of a frame, as a TETRA data call may use.
+         * shortcut: one window holds one burst, so a short data burst can pass too; compare windows if that shows up.
          */
-        fun isTdma(levels: FloatArray, groupMs: Double, active: Int = ACTIVE_DB): Boolean {
-            if (levels.size * groupMs < FRAME_MS * 0.9) return false
+        fun isTdma(levels: FloatArray, groupMs: Double, active: Int = ACTIVE_DB, slotMs: Double = SLOT_MS,
+                   frameMs: Double = FRAME_MS, slots: Int = 2): Boolean {
+            if (levels.size * groupMs < frameMs * 0.9) return false
             val peak = levels.max()
             if (peak < active + 6) return false
             val on = BooleanArray(levels.size) { levels[it] >= peak - 10 && levels[it] >= active }
@@ -289,7 +307,7 @@ class RadioWatch {
             }
             val longestMs = longest * groupMs
             return runs >= 1 && quiet >= levels.size / 3 &&
-                longestMs >= SLOT_MS * 0.5 && longestMs <= 2 * SLOT_MS + 2 * groupMs &&
+                longestMs >= slotMs * 0.5 && longestMs <= slots * slotMs + 2 * groupMs &&
                 on.count { it } <= levels.size * 0.6
         }
 
