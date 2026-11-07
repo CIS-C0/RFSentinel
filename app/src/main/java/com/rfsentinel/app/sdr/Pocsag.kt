@@ -59,6 +59,8 @@ class Pocsag(private val baud: Int, private val onPage: (PagerLog.Page) -> Unit)
 
     /** Batches that ended in a sync or held a page: a real POCSAG signal. */
     var batches = 0; private set
+    /** Frame syncs found, whatever followed them. */
+    var syncs = 0; private set
 
     private var reg = 0
     private var synced = false
@@ -76,7 +78,7 @@ class Pocsag(private val baud: Int, private val onPage: (PagerLog.Page) -> Unit)
         if (!synced) {
             val d = bitCount(reg xor SYNC)
             if (d <= SYNC_ERRORS || d >= 32 - SYNC_ERRORS) {
-                synced = true; inverted = d > SYNC_ERRORS
+                synced = true; inverted = d > SYNC_ERRORS; syncs++
                 bits = 0; at = 0; bad = 0
             }
             return

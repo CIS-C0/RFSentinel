@@ -2,6 +2,7 @@ package com.rfsentinel.app.sdr
 
 import kotlin.math.PI
 import kotlin.math.atan2
+import kotlin.math.log10
 
 /**
  * Pager messages, first stage: the SDR's raw I/Q to pages. Picks the channel [offsetHz] from the tuned centre (mixed and
@@ -28,6 +29,14 @@ class PagerDemod(offsetHz: Long, speeds: Set<Int> = SPEEDS, onPage: (PagerLog.Pa
     /** POCSAG batches and FLEX frames that checked out: the channel really carries pages. */
     val frames get() = flex.frames + pocsag.sumOf { it.decoder.batches }
 
+    /** Frame syncs, good page or not: a channel with these is paging, whatever became of the pages. */
+    val syncs get() = flex.syncs + pocsag.sumOf { it.decoder.syncs }
+
+    /** How far the channel's loudest 50 ms stood above its quietest, in dB: high when a transmitter came on. */
+    val riseDb get() = if (quietest > 0 && loudest > 0) 10 * log10(loudest / quietest) else 0.0
+    private var blockSum = 0.0; private var blockN = 0; private var blocks = 0
+    private var quietest = 0.0; private var loudest = 0.0
+
     private val firR = DoubleArray(TAPS.size); private val firI = DoubleArray(TAPS.size); private var firAt = 0
     private var lastR = 0.0; private var lastI = 0.0
     private val box = DoubleArray(BOX); private var boxAt = 0; private var boxSum = 0.0
@@ -41,6 +50,14 @@ class PagerDemod(offsetHz: Long, speeds: Set<Int> = SPEEDS, onPage: (PagerLog.Pa
         var yr = 0.0; var yi = 0.0; var j = firAt
         for (t in TAPS) { yr += t * firR[j]; yi += t * firI[j]; if (--j < 0) j = TAPS.size - 1 }
         if (++firAt == TAPS.size) firAt = 0
+        blockSum += yr * yr + yi * yi
+        if (++blockN == BLOCK) {
+            if (blocks++ > 0) { // the first still holds the filter's empty start
+                quietest = if (quietest == 0.0) blockSum else minOf(quietest, blockSum)
+                loudest = maxOf(loudest, blockSum)
+            }
+            blockSum = 0.0; blockN = 0
+        }
         val hz = atan2(yi * lastR - yr * lastI, yr * lastR + yi * lastI) * RATE / (2 * PI)
         lastR = yr; lastI = yi
         // Smoothed, or noise on the discriminator makes false zero crossings for the symbol clocks.
@@ -59,6 +76,7 @@ class PagerDemod(offsetHz: Long, speeds: Set<Int> = SPEEDS, onPage: (PagerLog.Pa
         private const val CLOCK_RATE = 0.05
         private const val BOX = 6
         private const val DC_SAMPLES = 2_400.0    // 50 ms
+        private const val BLOCK = 2_400           // 50 ms
         /** Up to ±4.8 kHz deviation, plus the signal's own width. */
         private val TAPS = P25Demod.lowPass(8_000.0)
     }

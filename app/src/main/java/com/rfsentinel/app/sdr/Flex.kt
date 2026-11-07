@@ -44,6 +44,8 @@ class Flex(sampleRate: Int, private val onPage: (PagerLog.Page) -> Unit) {
 
     /** Frame headers that passed their checks: a real FLEX signal, even with no page in it. */
     var frames = 0; private set
+    /** Frame syncs found, whatever followed them. */
+    var syncs = 0; private set
 
     private val clock = SymbolClock(sampleRate, HEADER_BAUD)
     private val zeroSamples = sampleRate * ZERO_S
@@ -107,7 +109,7 @@ class Flex(sampleRate: Int, private val onPage: (PagerLog.Page) -> Unit) {
         when (state) {
             State.SYNC1 -> {
                 val code = sync(raw)
-                if (code != 0 && mode(code)) state = State.FIW
+                if (code != 0 && mode(code)) { syncs++; state = State.FIW }
                 fiwCount = 0; fiw = 0
             }
             State.FIW -> {

@@ -1,6 +1,7 @@
 package com.rfsentinel.app.sdr
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -326,7 +327,27 @@ class PagerTest {
         dongle.stall = 9 // the settle read takes one, then one stall's worth
         hunt.listen(929_612_500L, { dongle.reads > 20 }) { _, _ -> }
         assertEquals(listOf(true, false), stalls)
-        assertEquals(1, logs.size)
+        assertEquals(1, logs.count { !it.startsWith("Pager listen") })
+    }
+
+    @Test fun `the listen counters show syncs and a transmitter coming on`() {
+        val words = pocsag(listOf(1234567 to listOf(address(1234567, 1)))).take(17)
+        val iq = pocsagSignal(1200, words).iq(OFFSET + CARRIER_ERROR_HZ)
+        val d = PagerDemod(OFFSET) { }
+        val silence = ByteArray(768_000) { 128.toByte() } // 200 ms
+        d.feed(silence, silence.size / 2)
+        assertEquals(0, d.syncs)
+        d.feed(iq, iq.size / 2)
+        assertEquals(1, d.syncs)
+        assertTrue("rose ${d.riseDb} dB", d.riseDb > 10)
+    }
+
+    @Test fun `a typed frequency logs its counters, and they name no frequency`() {
+        val dongle = FakeDongle(929_612_500L, Fsk())
+        val logs = ArrayList<String>()
+        PagerHunt(dongle, log = { logs += it }).listen(929_612_500L, { dongle.reads > 20 }) { _, _ -> }
+        val line = logs.single { it.startsWith("Pager listen") }
+        assertFalse(line, "929612500" in line || "929.6" in line)
     }
 
     @Test fun `a lone batch counts as a frame, so the hunt stays on a channel of short pages`() {

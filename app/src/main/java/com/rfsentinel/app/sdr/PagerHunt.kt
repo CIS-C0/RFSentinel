@@ -53,6 +53,7 @@ class PagerHunt(
         repeat(sdr.settleReads) { sdr.read(buf) }
         val demod = PagerDemod(OFFSET_HZ, speeds()) { onPage(it, hz) }
         var samples = 0L; var lastGood = 0L; var seen = 0; var fails = 0
+        val began = System.nanoTime()
         while (!stop()) {
             val n = sdr.read(buf)
             if (n <= 0) {
@@ -73,6 +74,10 @@ class PagerHunt(
             }
             if (samples - lastGood > quietS * P25Demod.SAMPLE_RATE) break
         }
+        // Counts and levels only. Under 100%: the dongle dropped samples. A rise with no syncs: a signal that isn't paging, or won't decode.
+        val secs = (System.nanoTime() - began) / 1e9
+        if (samples > 0) log("Pager listen: %.0f s, %.0f%% of the samples, channel rose %.0f dB, %d syncs, %d frames".format(
+            java.util.Locale.US, secs, samples * 100 / (secs * P25Demod.SAMPLE_RATE), demod.riseDb, demod.syncs, demod.frames))
         return seen > 0
     }
 
