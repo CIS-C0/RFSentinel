@@ -47,10 +47,33 @@ class RFSentinelApp : Application() {
         val types = androidx.core.view.WindowInsetsCompat.Type.systemBars()
         if (com.rfsentinel.app.util.Prefs.fullscreen(a)) {
             bars.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            if (fullscreenWindows.add(a)) {
+                // Older Android versions bring the bars back after a dialog or the notification shade.
+                a.window.decorView.viewTreeObserver.addOnWindowFocusChangeListener { if (it) applyFullscreen(a) }
+                useCameraStrip(a)
+            }
             bars.hide(types)
-            // Older Android versions bring the bars back after a dialog or the notification shade.
-            if (fullscreenWindows.add(a)) a.window.decorView.viewTreeObserver.addOnWindowFocusChangeListener { if (it) applyFullscreen(a) }
         } else if (fullscreenWindows.remove(a)) bars.show(types)
+    }
+
+    /**
+     * Without this the status bar's strip stays empty: the app keeps clear of the camera. A hole in the middle of the top
+     * edge falls between the action bar's title and its buttons, so the bar can go up around it. Screens without an
+     * action bar, and holes in a corner where they would cover a button, keep the strip.
+     */
+    private fun useCameraStrip(a: android.app.Activity) {
+        if (android.os.Build.VERSION.SDK_INT < 30) return
+        val frame = a.findViewById<android.view.View>(androidx.appcompat.R.id.decor_content_parent)?.parent as? android.view.View ?: return
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(frame) { _, insets ->
+            val width = a.resources.displayMetrics.widthPixels
+            val top = insets.displayCutout?.boundingRects.orEmpty().filter { it.top == 0 }
+            if (com.rfsentinel.app.util.Prefs.fullscreen(a) && top.isNotEmpty() && top.all { it.left > width / 3 && it.right < width * 2 / 3 }) {
+                val cutout = androidx.core.view.WindowInsetsCompat.Type.displayCutout()
+                val now = insets.getInsets(cutout)
+                androidx.core.view.WindowInsetsCompat.Builder(insets)
+                    .setInsets(cutout, androidx.core.graphics.Insets.of(now.left, 0, now.right, now.bottom)).build()
+            } else insets
+        }
     }
 
     override fun onCreate() {
