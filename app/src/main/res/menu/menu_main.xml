@@ -17,6 +17,8 @@
         android:icon="@drawable/ic_settings"
         android:title="Settings"
         app:showAsAction="always" />
+    <!-- In the overflow: a fourth icon would reach the camera hole and cost Fullscreen its top strip. -->
+    <item android:id="@+id/action_fullscreen" android:title="Fullscreen" android:checkable="true" app:showAsAction="never" />
     <item android:id="@+id/action_waze_now" android:title="Check Waze now" app:showAsAction="never" />
     <item android:id="@+id/action_waze_status" android:title="Waze status" app:showAsAction="never" />
     <item android:id="@+id/action_watchlist" android:title="Watchlist" app:showAsAction="never" />
