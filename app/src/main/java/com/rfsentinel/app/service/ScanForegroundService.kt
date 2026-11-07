@@ -1987,6 +1987,7 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.sdr.SdrRadio.stop(this)
         // Its hooks point into this service: cleared, so a stopped scan isn't kept in memory by them.
         com.rfsentinel.app.sdr.SdrRadio.onAircraft = null
+        com.rfsentinel.app.sdr.SdrRadio.onPagerPage = null
         com.rfsentinel.app.sdr.SdrRadio.location = null
         if (gnssWatching) { GnssWatch.stop(this, gnssListener); gnssWatching = false }
         if (onlineWatchLazy.isInitialized()) onlineWatch.stop() // not built just to be stopped
