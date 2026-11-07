@@ -136,7 +136,12 @@ class P25Hunt(private val sdr: SdrDevice, private val log: (String) -> Unit = {}
                 continue
             }
             val n = sdr.read(buf)
-            if (n <= 0) { st.stalls++; if (++fails % STALL_READS == 0) sdr.resetBuffer(); continue }
+            if (n <= 0) {
+                st.stalls++
+                if (++fails % STALL_READS == 0) sdr.resetBuffer()
+                if (fails >= STALL_READS * 4) { report("samples stopped"); return true } // a dead stream never reaches LOST_S
+                continue
+            }
             fails = 0
             demod.feed(buf, n / 2); samples += n / 2
             if (samples - lastGood > LOST_S * P25Demod.SAMPLE_RATE) {

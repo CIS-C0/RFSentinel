@@ -31,6 +31,7 @@ object SdrRadio {
     private const val GAIN_TENTHS_DB = 297
     private const val NET = "net:"             // runningDevice of a network SDR
     private const val NET_RETRY_MS = 10_000L
+    private const val ERROR_RETRY_MS = 30_000L
     private const val XFER = 16_384           // bytes per USB read (8192 samples)
     /** For continuous decoding: one read is ~33 ms of samples; Android before 9 caps a transfer at 16 KB. */
     private val STREAM_XFER = if (android.os.Build.VERSION.SDK_INT >= 28) 131_072 else XFER
@@ -302,6 +303,7 @@ object SdrRadio {
                 } else if (failure != null) {
                     UsbWifi.log("$deviceLabel stopped: ${UsbWifi.describe(failure)}")
                     status = "$deviceLabel error: ${failure.message}"
+                    appContext?.let { main.postDelayed({ if (receiver != null) connect(it) }, ERROR_RETRY_MS) }
                 }
             }
         }, "rtl-sdr")

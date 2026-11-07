@@ -312,6 +312,13 @@ class PagerTest {
         assertTrue(pages.any { it.text == "Found you" })
     }
 
+    @Test fun `listen gives up on a stream that stays dead`() {
+        val dongle = FakeDongle(929_612_500L, Fsk())
+        dongle.stall = Int.MAX_VALUE
+        val hunt = PagerHunt(dongle, log = {})
+        assertTrue("left by itself, not by the test's stop", hunt.listen(929_612_500L, { dongle.reads > 1000 }) { _, _ -> })
+    }
+
     @Test fun `listen reports a stall and when the samples come back`() {
         val dongle = FakeDongle(929_612_500L, Fsk())
         val stalls = ArrayList<Boolean>(); val logs = ArrayList<String>()

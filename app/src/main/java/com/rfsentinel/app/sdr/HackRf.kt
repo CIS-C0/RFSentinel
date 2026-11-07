@@ -27,6 +27,9 @@ class HackRf(private val conn: UsbDeviceConnection, private val device: UsbDevic
     private var intf: UsbInterface? = null
     private var rx: UsbEndpoint? = null
     private var ctlFailRun = 0
+    /** Running at twice [sampleRate]: see [setSampleRate]. */
+    private var paired = false
+    private var wide = ByteArray(0)
 
     override fun open(): Boolean {
         val i = (0 until device.interfaceCount).map { device.getInterface(it) }.firstOrNull { f ->
@@ -57,13 +60,18 @@ class HackRf(private val conn: UsbDeviceConnection, private val device: UsbDevic
         intf?.let { runCatching { conn.releaseInterface(it) } }
     }
 
-    /** Sample rate in Hz (2 - 20 MS/s), with the baseband filter set to the narrowest that passes it. */
+    /**
+     * Sample rate in Hz, with the baseband filter set to the narrowest that passes it. The chip's floor
+     * is 2 MS/s: a lower rate (P25 and pagers want 1.92) runs at twice that and [read] averages pairs.
+     */
     override fun setSampleRate(rate: Int) {
-        val r = rate.coerceIn(2_000_000, 20_000_000)
+        val low = rate < 2_000_000
+        val r = (if (low) rate * 2 else rate).coerceIn(2_000_000, 20_000_000)
+        val out = if (low) r / 2 else r
         val p = ByteArray(8)
         le32(p, 0, r); le32(p, 4, 1) // freq_hz, divider
-        if (ctlOutData(SAMPLE_RATE_SET, 0, 0, p) == p.size) sampleRate = r
-        val bw = FILTERS.lastOrNull { it <= r * 3 / 4 } ?: FILTERS.first()
+        if (ctlOutData(SAMPLE_RATE_SET, 0, 0, p) == p.size) { sampleRate = out; paired = low }
+        val bw = FILTERS.lastOrNull { it <= out * 3 / 4 } ?: FILTERS.first()
         ctlOut(BASEBAND_FILTER_BANDWIDTH_SET, bw and 0xffff, bw ushr 16)
     }
 
@@ -92,7 +100,13 @@ class HackRf(private val conn: UsbDeviceConnection, private val device: UsbDevic
     }
 
     override fun read(buf: ByteArray, len: Int): Int {
-        val n = conn.bulkTransfer(rx ?: return -1, buf, len, 1000)
+        val ep = rx ?: return -1
+        if (paired) {
+            if (wide.size < len * 2) wide = ByteArray(len * 2)
+            val n = conn.bulkTransfer(ep, wide, len * 2, 1000)
+            return if (n <= 0) n else averagePairs(wide, n, buf)
+        }
+        val n = conn.bulkTransfer(ep, buf, len, 1000)
         for (k in 0 until n) buf[k] = (buf[k].toInt() xor 0x80).toByte()
         return n
     }
@@ -118,6 +132,17 @@ class HackRf(private val conn: UsbDeviceConnection, private val device: UsbDevic
         /** HackRF One, Jawbreaker and rad1o (Great Scott Gadgets' USB vendor ID). */
         private val IDS = setOf(0x1d50 to 0x6089, 0x1d50 to 0x604b, 0x1d50 to 0xcc15)
         fun isHackRf(vid: Int, pid: Int) = (vid to pid) in IDS
+
+        /** Halves the rate of [n] bytes of signed I/Q into [dst] as unsigned I/Q; returns the bytes written. */
+        internal fun averagePairs(src: ByteArray, n: Int, dst: ByteArray): Int {
+            val out = n / 4 * 2
+            for (k in 0 until out step 2) {
+                val s = k * 2
+                dst[k] = (((src[s] + src[s + 2]) shr 1) xor 0x80).toByte()
+                dst[k + 1] = (((src[s + 1] + src[s + 3]) shr 1) xor 0x80).toByte()
+            }
+            return out
+        }
 
         const val MIN_HZ = 1_000_000L
         const val MAX_HZ = 6_000_000_000L

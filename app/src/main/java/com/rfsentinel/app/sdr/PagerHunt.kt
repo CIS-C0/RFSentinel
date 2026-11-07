@@ -61,6 +61,7 @@ class PagerHunt(
                     onStall(true)
                     sdr.resetBuffer()
                 }
+                if (fails >= (if (once) STALL_READS else STALL_READS * 4)) break // a dead stream never reaches quietS
                 continue
             }
             if (fails >= STALL_READS) onStall(false)
