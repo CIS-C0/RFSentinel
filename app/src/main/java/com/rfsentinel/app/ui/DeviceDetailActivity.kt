@@ -81,7 +81,7 @@ class DeviceDetailActivity : AppCompatActivity() {
         setContentView(binding.root)
         binding.root.applySystemBarInsets()
         mac = intent.getStringExtra(EXTRA_MAC) ?: run { finish(); return }
-        title = "Device details"
+        title = "Details" // short: stays clear of a camera hole in Fullscreen
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         radioHz = radioHz(mac)
