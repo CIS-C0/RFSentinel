@@ -86,7 +86,7 @@ object MeshNode {
     private var myNode = 0L
     private var hopLimit = 3
     private var region = -1
-    private var txEnabled = true
+    @Volatile private var txEnabled = true
     private val channels = HashMap<Int, MeshProto.From.ChannelInfo>()
     /** The node's slot RF Sentinel sends on (1-7), -1 until set up. */
     @Volatile var channelIndex = -1; private set
@@ -142,9 +142,15 @@ object MeshNode {
         setStatus("")
     }
 
+    /**
+     * Whether [send] would go out: asked before taking devices from the outbox, which counts them as sent.
+     * shortcut: a full write queue (a stalled node) still drops the packet, its devices repeat on their timer.
+     */
+    val canSend get() = ready && channelIndex >= 0 && txEnabled
+
     /** Sends one RF Sentinel payload on the RFSentinel channel; false when the node isn't ready. */
     fun send(payload: ByteArray, urgent: Boolean): Boolean {
-        if (!ready) return false
+        if (!canSend) return false
         h.post {
             if (!ready || channelIndex < 0 || !txEnabled) return@post
             if (ops.count { it is Op.Write } >= MAX_QUEUED) return@post

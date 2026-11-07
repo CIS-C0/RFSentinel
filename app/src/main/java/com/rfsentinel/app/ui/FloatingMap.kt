@@ -97,7 +97,10 @@ object FloatingMap {
                cameras: List<Cam> = emptyList()) = main.post {
         val app = context.applicationContext
         if (!canShow(app)) { removeNow(app); return@post }
-        if (root == null) add(app) ?: return@post
+        if (root == null) {
+            if (System.currentTimeMillis() - addFailedAt < ADD_RETRY_MS) return@post
+            add(app) ?: return@post
+        }
         border?.setStroke(dp(app, 3f), level.color)
         badge?.apply {
             text = if (flagged == 0) "✓" else if (flagged > 99) "99+" else flagged.toString()
@@ -133,6 +136,8 @@ object FloatingMap {
     }
 
     private const val CAMS = "fm-cams"; private const val DOTS = "fm-dots"; private const val ME = "fm-me"
+    private const val ADD_RETRY_MS = 60_000L
+    private var addFailedAt = 0L
 
     fun hide(context: Context) = main.post { removeNow(context.applicationContext) }
 
@@ -321,12 +326,16 @@ object FloatingMap {
         }
 
         return runCatching {
+            ScanForegroundService.mapShown(context) // first: the failure path below takes it back
             wm.addView(frame, lp)
             m.onStart(); m.onResume()
             root = frame; view = m; badge = count; waiting = wait; mapLp = lp
-            ScanForegroundService.mapShown(context)
             live = LiveReadOverlay(context) { lp, h -> placeLive(context, lp, h) }.also { it.start() }
             frame
+        }.onFailure {
+            // The map engine is up by now and would otherwise leak, with its crash guard left armed.
+            root = frame; view = m; addFailedAt = System.currentTimeMillis()
+            removeNow(context)
         }.getOrNull()
     }
 

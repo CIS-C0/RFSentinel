@@ -95,6 +95,9 @@ class SettingsActivity : AppCompatActivity() {
     private var airTagSwitch: SwitchMaterial? = null
     private var flockSwitch: SwitchMaterial? = null
     private var mappedCamerasSwitch: SwitchMaterial? = null
+    /** What a switch last held. A default that follows another setting is written only once you move the switch. */
+    private val switchWas = HashMap<SwitchMaterial, Boolean>()
+    private fun moved(sw: SwitchMaterial) = switchWas.put(sw, sw.isChecked) != sw.isChecked
     private var wazeKeyInput: android.widget.EditText? = null
     private var aircraftStatusText: android.widget.TextView? = null
     private var wazeStatusText: android.widget.TextView? = null
@@ -924,7 +927,7 @@ class SettingsActivity : AppCompatActivity() {
                 "rfsentinel_live_matches.csv, rfsentinel_live_matches.kml and rfsentinel_live.geojson (devices on the map and " +
                 "your position) - so another mapping app can show them close to live. Anything that can read that folder can read them.\n\n" +
                 "Forget device history: new / returning status, detect counts and the cell towers remembered for the " +
-                "fake-cell checks start over. Favorites are kept.\n\n" +
+                "fake-cell checks start over. Favorites and devices you named or noted are kept.\n\n" +
                 "Changes on this screen are saved automatically."),
         Section("more", binding.headerMore, binding.sectionMore,
             "Watchlist & rules: the vendor prefixes and rules that flag a device; add your own.\n\n" +
@@ -1061,6 +1064,7 @@ class SettingsActivity : AppCompatActivity() {
         mappedCamerasSwitch = SwitchMaterial(this).apply {
             text = "Mapped cameras"
             isChecked = Prefs.mappedCameras(this@SettingsActivity)
+            switchWas[this] = isChecked
         }
         binding.categoryContainer.addView(detectRow(mappedCamerasSwitch!!,
             "Alerts for cameras mapped in OpenStreetMap, whether or not detected cameras are on. Choose which kinds under Known cameras."))
@@ -1218,7 +1222,7 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.ouiSpyRelaySwitch, "Every device the OUI-SPY board hears comes into the list, not just its own matches.")
         info(binding.ouiSpyEnginesButton, "Which of the board's detection engines run: Flock BLE and Flock WiFi (Flock Safety " +
             "cameras), Sky Spy (drones) and Detector. Where there are no Flock cameras, turn the two Flock engines off. " +
-            "RF Sentinel's own checks are set under Categories.")
+            "RF Sentinel's own checks are set under What to detect.")
         info(binding.ouiSpyPhoneBleSwitch, "Off: while the OUI-SPY board is connected and live, the phone's own Bluetooth scan " +
             "pauses and the board does the Bluetooth scanning (it hears farther, and faster). It comes back on its own if the " +
             "board drops out. Turn on Relay everything too, or only the board's engine matches come in.")
@@ -2803,6 +2807,7 @@ class SettingsActivity : AppCompatActivity() {
             val fold = foldIcon()
             binding.categoryContainer.addView(detectRow(sw, details.ifEmpty { null }, short, fold))
             categorySwitches[c] = sw
+            switchWas[sw] = sw.isChecked
             addCategoryAlertChips(c, sw, fold)
             if (c == Category.TRACKER) {
                 airTagSwitch = SwitchMaterial(this).apply {
@@ -3047,7 +3052,7 @@ class SettingsActivity : AppCompatActivity() {
             Toast.makeText(this, "Crash log cleared", Toast.LENGTH_SHORT).show()
         }
         binding.forgetHistoryButton.setOnClickListener {
-            confirm("Forget device history?", "New/returning status, detect counts and the cell towers remembered for the fake-cell checks start over. Favorites are kept.") {
+            confirm("Forget device history?", "New/returning status, detect counts and the cell towers remembered for the fake-cell checks start over. Favorites and devices you named or noted are kept.") {
                 lifecycleScope.launch {
                     AppDatabase.getInstance(this@SettingsActivity).knownDeviceDao().clearNonFavorites()
                     AppDatabase.getInstance(this@SettingsActivity).deviceDetailsDao().pruneOrphans()
@@ -3169,10 +3174,10 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setCarAutoRecord(this, binding.carRecordSwitch.isChecked)
         Prefs.setCarMusic(this, binding.carMusicSwitch.isChecked)
 
-        categorySwitches.forEach { (c, sw) -> Prefs.setCategoryEnabled(this, c, sw.isChecked) }
+        categorySwitches.forEach { (c, sw) -> if (c != Category.MOBILE_PRINTER || moved(sw)) Prefs.setCategoryEnabled(this, c, sw.isChecked) }
         airTagSwitch?.let { Prefs.setExcludeAirTags(this, it.isChecked) }
         flockSwitch?.let { Prefs.setFlockCameras(this, it.isChecked) }
-        mappedCamerasSwitch?.let { Prefs.setMappedCameras(this, it.isChecked) }
+        mappedCamerasSwitch?.let { if (moved(it)) Prefs.setMappedCameras(this, it.isChecked) }
         wazeKeyInput?.let { input ->
             val key = input.text.toString().trim()
             val name = com.rfsentinel.app.online.OnlineWatch.WAZE_KEY_NAME

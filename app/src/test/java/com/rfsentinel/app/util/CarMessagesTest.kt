@@ -14,6 +14,8 @@ class CarMessagesTest {
         assertEquals(CarMessages.Command.MUTE, CarMessages.command("Snooze alerts."))
         assertEquals(CarMessages.Command.IGNORE, CarMessages.command("ignore it"))
         assertEquals(CarMessages.Command.NONE, CarMessages.command("ok thanks"))
+        assertEquals(CarMessages.Command.NONE, CarMessages.command("don't mute"))
+        assertEquals(CarMessages.Command.NONE, CarMessages.command("do not ignore that"))
         assertEquals(CarMessages.Command.NONE, CarMessages.command(null))
         assertEquals(CarMessages.Command.NONE, CarMessages.command("muted")) // whole words only
     }

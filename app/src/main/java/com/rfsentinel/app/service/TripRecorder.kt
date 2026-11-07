@@ -12,6 +12,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import androidx.room.withTransaction
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -253,10 +254,24 @@ object TripRecorder {
             totalPoints = points.size
             distance = distanceM
         }
-        val dao = AppDatabase.getInstance(context).tripDao()
-        if (newPoints.isNotEmpty()) dao.insertPoints(newPoints)
-        if (changed.isNotEmpty()) changed.chunked(300).forEach { dao.upsertDevices(it) }
-        if (newPings.isNotEmpty()) newPings.chunked(500).forEach { dao.insertPings(it) }
+        val db = AppDatabase.getInstance(context)
+        val dao = db.tripDao()
+        try {
+            // One transaction: after a failure nothing was written, so all of it can go back without duplicates.
+            db.withTransaction {
+                if (newPoints.isNotEmpty()) dao.insertPoints(newPoints)
+                if (changed.isNotEmpty()) changed.chunked(300).forEach { dao.upsertDevices(it) }
+                if (newPings.isNotEmpty()) newPings.chunked(500).forEach { dao.insertPings(it) }
+            }
+        } catch (e: Exception) {
+            synchronized(this) {
+                if (activeTripId == id) {
+                    pendingPoints.addAll(0, newPoints); pendingPings.addAll(0, newPings)
+                    changed.forEach { dirty += it.mac }
+                }
+            }
+            throw e
+        }
         // Stopped while writing: the trip's final totals come from persist (which waits for this), not from here.
         if (activeTripId != id) return@withLock
         evictIdle(System.currentTimeMillis())

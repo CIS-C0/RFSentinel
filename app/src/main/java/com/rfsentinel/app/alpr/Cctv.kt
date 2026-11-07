@@ -302,7 +302,7 @@ object CctvStore {
         }
     }
 
-    private fun withTmp(target: File, write: (File) -> Unit) {
+    internal fun withTmp(target: File, write: (File) -> Unit) {
         val tmp = File(target.parentFile, target.name + ".tmp")
         write(tmp)
         if (!tmp.renameTo(target)) { target.delete(); tmp.renameTo(target) }

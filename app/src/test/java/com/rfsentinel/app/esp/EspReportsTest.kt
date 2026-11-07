@@ -97,6 +97,13 @@ class EspReportsTest {
     }
 
     @Test
+    fun aGarbledNumberIsDroppedNotACrash() {
+        assertNull(MarauderReports.parse("-60 Ch: 99999999999 02:11:22:33:44:55 ESSID: x"))
+        assertNull(MarauderReports.parse("-99999999999 Ch: 1 02:11:22:33:44:55 ESSID: x"))
+        assertNull(MarauderReports.parse("-60 Ch: 99999999999 Client: 02:11:22:33:44:55 Requesting: x"))
+    }
+
+    @Test
     fun flipperZeroIsASerialBoard() {
         assertEquals(SerialPort.Chip.NATIVE_USB, SerialPort.chipOf(0x0483, 0x5740))
     }

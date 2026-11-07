@@ -8,7 +8,6 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import com.rfsentinel.app.R
-import com.rfsentinel.app.car.CarUi
 import com.rfsentinel.app.databinding.ActivityMapBinding
 import com.rfsentinel.app.detect.Category
 import com.rfsentinel.app.detect.DeviceIntel
@@ -133,7 +132,7 @@ internal class AlertCardController(
     /** "Strong match · 2 more flagged nearby". */
     private fun footerOf(c: AlertCards.Card): String {
         val tier = Tier.of(c.confidence).label.substringBefore(" -").replaceFirstChar { it.uppercase() } + " match"
-        val others = DeviceRegistry.snapshot().count { CarUi.isFlagged(it) && !it.mac.equals(c.mac, ignoreCase = true) }
+        val others = DeviceRegistry.snapshot().count { LiveWindow.alerting(it) && !it.mac.equals(c.mac, ignoreCase = true) }
         return listOfNotNull(tier, others.takeIf { it > 0 }?.let { "$it more flagged nearby" }).joinToString(" · ")
     }
 

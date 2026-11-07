@@ -125,8 +125,8 @@ object RoadTiles {
         while (i < geom.size) {
             val cmd = (geom[i] and 7).toInt(); val count = (geom[i] ushr 3).toInt(); i++
             if (cmd == 1) flush()
-            if (cmd == 1 || cmd == 2) repeat(count) {
-                if (i + 1 >= geom.size) return@repeat
+            if (cmd == 1 || cmd == 2) for (k in 0 until count) {
+                if (i + 1 >= geom.size) break // a broken tile's count can be huge
                 x += Pb.zigzag(geom[i]); y += Pb.zigzag(geom[i + 1]); i += 2
                 val (la, lo) = toLatLon(t, x.toDouble(), y.toDouble(), extent)
                 lat += la; lon += lo

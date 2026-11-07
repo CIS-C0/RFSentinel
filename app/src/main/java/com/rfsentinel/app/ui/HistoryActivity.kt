@@ -222,12 +222,12 @@ class HistoryActivity : AppCompatActivity() {
         }
         binding.detailText.text = when {
             device && positioned.isEmpty() -> "No position saved for it in this period. Spots come from this session's scanning, " +
-                "recorded traces and logged matches (Settings > Location > Save GPS position with logged matches)."
+                "recorded traces and logged matches (Settings > Location & traces > Save GPS position with matches)."
             device -> "Each dot is where your phone was when it heard it (not the device's own position). " +
                 "Dots of one encounter are linked in time order; tap one for its time."
             events.isEmpty() -> "Scan with alerts on, or record traces, to build your history."
             positioned.isEmpty() -> "Top: " + top() +
-                "\nNot on the map: turn on Settings > Location > Save GPS position with logged matches, or record traces."
+                "\nNot on the map: turn on Settings > Location & traces > Save GPS position with matches, or record traces."
             positioned.size < events.size -> "Top: " + top() + "\n${positioned.size} with a position shown on the map."
             else -> "Top: " + top()
         }

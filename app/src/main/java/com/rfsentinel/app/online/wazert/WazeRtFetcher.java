@@ -267,13 +267,18 @@ public final class WazeRtFetcher {
         }
 
         long sessionBefore = session.currentServerSessionId();
-        WazeProto.Batch handshake = prepareWithRetry(lat, lon);
+        WazeProto.Batch handshake;
+        try {
+            handshake = prepareWithRetry(lat, lon);
+        } finally {
+            // A login refused right after registering still used up one of today's accounts.
+            if (wasUnregistered && session.getCredentials() != null) noteRegistration();
+        }
 
         // Credentials exist now: persist immediately so a failure in the box loop
         // below cannot lose a freshly minted account and force a wasteful
         // re-register on the next poll.
         if (wasUnregistered) {
-            noteRegistration();
             saveAccount(session.getCredentials(), session.getDevice());
             Log.i(TAG, "Registered a new anonymous Waze account");
         }

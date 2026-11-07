@@ -416,7 +416,8 @@ object UsbWifi {
                     Driver.AR9271 -> Ar9271Monitor.run(context, d, "${chip.name} (experimental)", onStatus, onFrames)
                 }
             }.onFailure { log("Driver stopped: ${describe(it)}"); status = "USB WiFi adapter error: ${it.message}" }
-            synchronized(this) { if (runningDevice == d.deviceName) { runningDevice = null; runningChip = null } }
+            // By thread, not name: a replug reuses the name, and a stopped run ending late must not clear the new one.
+            synchronized(this) { if (thread === Thread.currentThread()) { runningDevice = null; runningChip = null } }
         }, "usb-wifi").also { it.start() }
     }
 

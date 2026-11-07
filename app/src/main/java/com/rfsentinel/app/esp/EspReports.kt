@@ -189,17 +189,17 @@ object MarauderReports {
     fun parse(line: String): EspSighting? {
         val t = ANSI.replace(line, "").trimEnd('\r', ' ')
         BEACON.find(t)?.let { m ->
-            val ch = m.groupValues[2].toInt()
+            val ch = m.groupValues[2].toIntOrNull() ?: return null
             return EspSighting(
-                mac = m.groupValues[3].uppercase(), rssi = m.groupValues[1].toInt(), ble = false,
+                mac = m.groupValues[3].uppercase(), rssi = m.groupValues[1].toIntOrNull() ?: return null, ble = false,
                 name = m.groupValues[4].trim().takeIf { it.isNotEmpty() && it.any { c -> c.code >= 0x20 } },
                 frequencyMhz = frequencyOf(ch)
             )
         }
         PROBE.find(t)?.let { m ->
             return EspSighting(
-                mac = m.groupValues[3].uppercase(), rssi = m.groupValues[1].toInt(), ble = false,
-                frequencyMhz = frequencyOf(m.groupValues[2].toInt()), client = true,
+                mac = m.groupValues[3].uppercase(), rssi = m.groupValues[1].toIntOrNull() ?: return null, ble = false,
+                frequencyMhz = frequencyOf(m.groupValues[2].toIntOrNull() ?: return null), client = true,
                 probedSsids = listOfNotNull(m.groupValues[4].trim().takeIf { com.rfsentinel.app.usb.MonitorFrames.validSsid(it) })
             )
         }

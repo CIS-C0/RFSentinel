@@ -38,8 +38,8 @@ object TrustedNetworks {
 
     @Volatile var rules: List<Rule> = emptyList()
         private set
-    /** Access points heard with a matching SSID (an address that later broadcasts another name drops out). */
-    private val trusted = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    /** Access points heard with a matching SSID, by address (an address that later broadcasts another name drops out). */
+    private val trusted = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     fun matches(rules: List<Rule>, ssid: String?): Boolean {
         val name = ssid?.trim().orEmpty()
@@ -47,7 +47,10 @@ object TrustedNetworks {
         return rules.any { it.matches(name) }
     }
 
-    fun contains(mac: String): Boolean = mac in trusted
+    fun contains(mac: String): Boolean = trusted.containsKey(mac)
+
+    /** The name [mac] was trusted under: it may be out of range now, or hidden. */
+    fun ssidOf(mac: String): String? = trusted[mac]
 
     /** The rule that trusts this network name, if any. */
     fun ruleFor(ssid: String?): Rule? = rules.firstOrNull { matches(listOf(it), ssid) }
@@ -55,7 +58,7 @@ object TrustedNetworks {
     /** A WiFi access point was heard: trusted while its SSID matches (a hidden SSID keeps what it had). */
     fun onSeen(mac: String, ssid: String?) {
         if (ssid.isNullOrBlank()) return
-        if (matches(rules, ssid)) trusted.add(mac) else trusted.remove(mac)
+        if (matches(rules, ssid)) trusted[mac] = ssid else trusted.remove(mac)
     }
 
     fun load(context: Context) {
@@ -84,8 +87,9 @@ object TrustedNetworks {
     /** The rules changed: the networks in range are trusted (or not) at once, not at their next beacon. */
     private fun recheck() {
         val now = rules
-        val caught = DeviceRegistry.snapshot().filter { it.source == com.rfsentinel.app.detect.Advert.Source.WIFI && matches(now, it.name) }.map { it.mac }
-        trusted.retainAll(caught.toSet())
-        trusted.addAll(caught)
+        val caught = DeviceRegistry.snapshot().filter { it.source == com.rfsentinel.app.detect.Advert.Source.WIFI && matches(now, it.name) }
+            .associate { it.mac to it.name.orEmpty() }
+        trusted.keys.retainAll(caught.keys)
+        trusted.putAll(caught)
     }
 }

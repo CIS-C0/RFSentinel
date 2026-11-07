@@ -32,8 +32,14 @@ object Spoken {
         }
     }
 
-    /** A distance said aloud: "300 meters" (to the nearest 50), "1 kilometer", "1.2 kilometers". */
-    fun distanceWords(m: Double): String {
+    /** A distance said aloud: "300 meters" (to the nearest 50), "1 kilometer", "1.2 kilometers"; "500 feet", "1.2 miles". */
+    fun distanceWords(m: Double, feet: Boolean = Units.imperial): String {
+        if (feet) {
+            val ft = Math.round(m * 3.28084 / 100.0) * 100
+            if (ft < 1000) return "${ft.coerceAtLeast(100)} feet"
+            val mi = Math.round(m / 160.9344) / 10.0
+            return if (mi == Math.floor(mi)) "${mi.toLong()} mile${if (mi == 1.0) "" else "s"}" else "$mi miles"
+        }
         val r = Math.round(m / 50.0) * 50
         if (r < 1000) return "${r.coerceAtLeast(50)} meters"
         val km = Math.round(m / 100.0) / 10.0

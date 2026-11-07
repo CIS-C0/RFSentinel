@@ -205,13 +205,13 @@ object AlprStore {
             synchronized(this@AlprStore) {
                 val inBox = { c: KnownCamera -> c.lat in south..north && c.lon in west..east }
                 val merged = cameras.filterNot(inBox) + found
-                file(context).writeText(gson.toJson(merged))
+                CctvStore.withTmp(file(context)) { it.writeText(gson.toJson(merged)) }
                 cameras = merged
                 val now = System.currentTimeMillis()
                 val area = CameraArea(south, west, north, east, now)
                 // Long-stale areas only cost space (their cameras stay cached for offline warnings).
                 areas = areas.filterNot { area.contains(it) || now - it.time > 4 * REFRESH_MS } + area
-                runCatching { areasFile(context).writeText(gson.toJson(areas)) }
+                runCatching { CctvStore.withTmp(areasFile(context)) { it.writeText(gson.toJson(areas)) } }
             }
             found.size
         }
@@ -319,7 +319,7 @@ object AlprStore {
         synchronized(this) {
             load(context)
             val merged = mergeCameras(cameras, boxes, found)
-            file(context).writeText(gson.toJson(merged))
+            CctvStore.withTmp(file(context)) { it.writeText(gson.toJson(merged)) }
             cameras = merged
         }
     }

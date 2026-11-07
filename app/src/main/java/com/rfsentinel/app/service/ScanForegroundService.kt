@@ -1048,7 +1048,7 @@ class ScanForegroundService : Service() {
             val box = meshOutbox ?: return
             pipeline.postDelayed(this, MESH_TICK_MS)
             val node = com.rfsentinel.app.link.MeshNode
-            if (!node.ready) return
+            if (!node.canSend) return
             val ctx = this@ScanForegroundService
             val link = com.rfsentinel.app.link.LinkStore
             val now = System.currentTimeMillis()
@@ -1141,7 +1141,7 @@ class ScanForegroundService : Service() {
     }
 
     private fun classify(a: Advert, now: Long, extra: List<Hit> = emptyList()): Classified {
-        val macVendor = VendorDb.macVendor(a.mac)
+        val macVendor = if (a.randomBle) null else VendorDb.macVendor(a.mac)
         val identity = DeviceIntel.identify(a, macVendor)
         val companyVendors = a.manufacturerData.keys.mapNotNull { VendorDb.company(it) }
         val vendor = macVendor ?: companyVendors.firstOrNull()
@@ -2025,6 +2025,7 @@ class ScanForegroundService : Service() {
         }
         wakeLock?.let { if (it.isHeld) it.release() }
         Prefs.setStartedByCar(this, false)
+        lastFix = null // only true while scanning: kept, it would pass for your position hours later
         isRunning = false
         refreshTile()
         StatusWidget.updateAll(this)

@@ -28,4 +28,14 @@ class UpdateAndSpokenTest {
         assertEquals("Police gear", Spoken.shortWord(hit(Category.PUBLIC_SAFETY, "Motorola Solutions equipment")))
         Category.entries.forEach { c -> assertTrue(Spoken.shortWord(hit(c, "x")).split(' ').size <= 2) }
     }
+
+    @Test
+    fun distancesAreSaidInFeetAndMilesToo() {
+        assertEquals("100 feet", Spoken.distanceWords(10.0, feet = true))
+        assertEquals("500 feet", Spoken.distanceWords(150.0, feet = true))
+        assertEquals("0.2 miles", Spoken.distanceWords(300.0, feet = true))
+        assertEquals("1 mile", Spoken.distanceWords(1609.0, feet = true))
+        assertEquals("1.2 miles", Spoken.distanceWords(1931.0, feet = true))
+        assertEquals("2 miles", Spoken.distanceWords(3219.0, feet = true))
+    }
 }

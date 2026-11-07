@@ -41,6 +41,7 @@ object CarMessages {
     internal fun command(reply: String?): Command {
         val words = reply.orEmpty().lowercase().split(Regex("[^a-z]+")).toSet()
         return when {
+            words.any { it in setOf("don", "dont", "not", "never") } -> Command.NONE // the split leaves "don" of a contraction
             words.any { it in setOf("mute", "silence", "quiet", "snooze", "stop", "shut") } -> Command.MUTE
             "ignore" in words -> Command.IGNORE
             else -> Command.NONE

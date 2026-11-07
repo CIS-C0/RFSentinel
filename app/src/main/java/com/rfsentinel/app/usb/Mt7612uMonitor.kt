@@ -137,6 +137,7 @@ object Mt7612uMonitor {
      */
     private var mcuAsked = 0
     private var mcuAnswered = 0
+    private var mcuMissed = 0
     @Volatile private var uncalibrated = false
     private var mcuGain = 0
     private var rssiOff2g = 0; private var rssiOff5g = 0; private var lna2g = 0; private var lna5g = 0
@@ -160,7 +161,7 @@ object Mt7612uMonitor {
         if (running) return
         this.x0 = x0; tag = if (x0) "MT7610U" else "MT7612U"
         HOP = UsbWifi.hops(ALL_HOP)
-        running = true; stop = false; frames.clear(); lastCalMs.clear(); mcuLogged = 0; ctlErrors = 0; mcuAsked = 0; mcuAnswered = 0; uncalibrated = false
+        running = true; stop = false; frames.clear(); lastCalMs.clear(); mcuLogged = 0; ctlErrors = 0; mcuAsked = 0; mcuMissed = 0; mcuAnswered = 0; uncalibrated = false
         val mgr = ctx.getSystemService(Context.USB_SERVICE) as UsbManager
         val c = mgr.openDevice(device) ?: run { onStatus("$chipName: couldn't reopen adapter"); running = false; return }
         conn = c
@@ -987,10 +988,13 @@ object Mt7612uMonitor {
         mcuAsked++
         val rep = epResp ?: run { sleep(10); return null }
         val rb = ByteArray(1024)
-        repeat(5) {
-            val n = conn.bulkTransfer(rep, rb, rb.size, 300)
-            if (n >= 4 && (le32(rb, 0) ushr 16) and 0xf == s) { mcuAnswered++; return rb }
+        // An MCU that has stopped answering gets one short look: 1.5 s per command adds up to minutes of bring-up.
+        val silent = mcuMissed >= 3
+        repeat(if (silent) 1 else 5) {
+            val n = conn.bulkTransfer(rep, rb, rb.size, if (silent) 20 else 300)
+            if (n >= 4 && (le32(rb, 0) ushr 16) and 0xf == s) { mcuAnswered++; mcuMissed = 0; return rb }
         }
+        mcuMissed++
         if (mcuLogged < 6) { mcuLogged++; UsbWifi.log("MT7610U: MCU cmd $cmd - no answer") }
         return null
     }

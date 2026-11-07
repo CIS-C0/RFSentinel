@@ -337,6 +337,25 @@ class NavQaTest {
     }
 
     @Test
+    fun aStopAddedWhileARouteIsBeingPlannedIsNotLost() {
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val asked = ArrayList<List<Place>>()
+        Navigator.planner = { _, _, _, _, via -> asked += via; gate.await(); listOf(northRoad(2)) }
+        begin(northRoad(2))
+        Navigator.changeOptions(ctx, Valhalla.Options(avoidFerries = true))
+        idle()
+        val stop = Place("Cafe", "2 Main Street", lat(1000.0), lon0)
+        Navigator.addStop(ctx, stop)
+        idle()
+        assertEquals("it waits for the plan in progress", 1, asked.size)
+        gate.complete(Unit)
+        idle()
+        assertEquals(listOf(emptyList(), listOf(stop)), asked)
+        assertEquals(listOf(stop), Navigator.stops)
+        Navigator.remember(ctx, Valhalla.Options())
+    }
+
+    @Test
     fun changingOptionsOnTheTripMenuIsRememberedToo() {
         Navigator.remember(ctx, Valhalla.Options())
         Navigator.planner = { _, _, _, _, _ -> plannerCalls++; listOf(northRoad(2)) }

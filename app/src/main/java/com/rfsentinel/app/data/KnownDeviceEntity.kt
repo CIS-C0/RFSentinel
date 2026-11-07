@@ -132,6 +132,8 @@ interface KnownDeviceDao {
         AND (alias IS NULL OR alias = '') AND (note IS NULL OR note = '')""")
     suspend fun prune(before: Long): Int
 
-    @Query("DELETE FROM known_devices WHERE favorite = 0")
+    /** Forget all but favorites and the devices you named or wrote a note on. */
+    @Query("""DELETE FROM known_devices WHERE favorite = 0
+        AND (alias IS NULL OR alias = '') AND (note IS NULL OR note = '')""")
     suspend fun clearNonFavorites()
 }

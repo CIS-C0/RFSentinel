@@ -744,14 +744,14 @@ class MainActivity : AppCompatActivity() {
         adapter.visual = com.rfsentinel.app.ui.VisualMode.on(this, com.rfsentinel.app.ui.VisualMode.Screen.DEVICE_LIST)
         // The banner and radar alert only for flagged devices still in range.
         val flagged = all.filter { com.rfsentinel.app.ui.LiveWindow.alerting(it, now) }
-        // The status's count is the Flagged chip's (the banner and radar still alert only for those in range).
-        flaggedCount = all.count { com.rfsentinel.app.ui.DeviceFilter.FLAGGED.matches(it) }
+        // The status's count is the Flagged chip's, aircraft included (the banner and radar still alert only for those in range).
+        val aircraft = currentAircraft(now)
+        flaggedCount = all.count { com.rfsentinel.app.ui.DeviceFilter.FLAGGED.matches(it) } + aircraft.count { it.hit != null }
         updateBanner(flagged, threshold)
         updateStatus()
 
         // Live counts on the chips ("Trackers 2"); empty filters stay unlabelled.
         val visualChips = com.rfsentinel.app.ui.VisualMode.on(this, com.rfsentinel.app.ui.VisualMode.Screen.STATUS)
-        val aircraft = currentAircraft(now)
         for ((f, chip) in filterChips) {
             val n = when (f) {
                 com.rfsentinel.app.ui.DeviceFilter.CELLS -> liveCellCount(now)

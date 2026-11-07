@@ -122,6 +122,8 @@ object Navigator {
     private var lastReroute = 0L
     private var legNow = 0
     private var rerouting = false
+    /** A stop or options you asked for while a route was being planned: they run when it finishes. */
+    private val waiting = ArrayDeque<() -> Unit>()
     /** Failed attempts at a new route in a row (offline...): the wait before the next one grows. */
     private var rerouteFailures = 0
     private var saidRerouting = false
@@ -199,7 +201,7 @@ object Navigator {
         generation++
         prompts = Prompts(NavFormat.miles(app))
         offRouteSince = 0L; wrongWaySince = 0L; lastReroute = clock()
-        legNow = 0; rerouting = false; status = null
+        legNow = 0; rerouting = false; waiting.clear(); status = null
         rerouteFailures = 0; saidRerouting = false; stoppedNearEndSince = 0L; lastFixAt = 0L
         state = null
         pace = 1.0; paceFromAlong = null; stillSince = 0L; parkedMs = 0L
@@ -229,7 +231,7 @@ object Navigator {
     fun stop() {
         appContext?.let { listen(it, false); NavigationService.stop(it) }
         generation++
-        destination = null; route = null; state = null; status = null; stops = emptyList(); rerouting = false; limits = null
+        destination = null; route = null; state = null; status = null; stops = emptyList(); rerouting = false; waiting.clear(); limits = null
         lastFix = null // a fix kept after the trip would stand in for a newer position later (the car screens take the newest of two)
         changed()
     }
@@ -238,9 +240,11 @@ object Navigator {
     fun addStop(context: Context, stop: Place) {
         val dest = destination ?: return
         val from = lastFix ?: return
+        val app = context.applicationContext
         status = "Adding stop..."
         changed()
-        replan(context.applicationContext, from, dest, stops + stop, then = { stops = it })
+        if (rerouting) { waiting += { addStop(app, stop) }; return }
+        replan(app, from, dest, stops + stop, then = { stops = it })
     }
 
     /** Plans again from where you are with other route options (avoid tolls, highways or ferries). */
@@ -249,9 +253,11 @@ object Navigator {
         val from = lastFix ?: return
         status = "Re-routing..."
         options = newOptions
-        remember(context.applicationContext, newOptions)
+        val app = context.applicationContext
+        remember(app, newOptions)
         changed()
-        replan(context.applicationContext, from, dest, stops)
+        if (rerouting) { waiting += { changeOptions(app, newOptions) }; return }
+        replan(app, from, dest, stops)
     }
 
     private fun replan(app: Context, from: Location, dest: Place, via: List<Place>, then: ((List<Place>) -> Unit)? = null) {
@@ -271,7 +277,10 @@ object Navigator {
                         status = "No new route (${failureText(it)}) - keeping the old one"
                     }
                 }
-            if (gen == generation) rerouting = false
+            if (gen == generation) {
+                rerouting = false
+                waiting.removeFirstOrNull()?.invoke()
+            }
             changed()
         }
     }
