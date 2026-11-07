@@ -23,6 +23,14 @@ object DeviceRows {
     /** A match's tag, the same on every kind of row: "BODY CAM · strong 90%". */
     fun matchTag(name: String, confidence: Int) = "$name · ${Tier.of(confidence).label} $confidence%"
 
+    /** The network name a flagged router's row shows next to its address, or null for every other row. */
+    fun routerSsid(flagged: Boolean, sources: Set<Advert.Source>, name: String?, type: String?): String? =
+        name?.takeIf { flagged && Advert.Source.WIFI in sources && type != null && DeviceIntel.isRouter(type) }
+
+    /** A row's second line: the address, then [ssid] when it has one, then [vendor]. */
+    fun subtitle(mac: String, ssid: String?, vendor: String?) =
+        listOfNotNull(mac, ssid?.let { "\"$it\"" }, vendor).joinToString(" · ")
+
     /** How long ago, the same on every row. */
     fun ago(sec: Long) = when {
         sec < 2 -> "now"
@@ -61,12 +69,14 @@ object DeviceRows {
             else -> radioTag(sources)
         }
         val badges = buildList { if (Favorites.contains(d.mac)) add("★") }
+        val ssid = routerSsid(category != null, sources, d.name, type)
         return DeviceRow(
             mac = d.mac,
             title = alias ?: label,
-            subtitle = d.mac + (d.vendor?.let { " · $it" } ?: ""),
+            subtitle = subtitle(d.mac, ssid, d.vendor),
             meta = (listOfNotNull(
                 if (alias != null) label
+                else if (ssid != null) null
                 else if (category != null && d.name != null && d.name != label) "\"${d.name}\"" else type?.takeIf { it != label },
                 if (category != null) sources.joinToString("+") { if (it == Advert.Source.BLE) "BLE" else "WiFi" }.ifEmpty { null } else null,
                 "${ProximityUtil.band(d.bestRssi)} ${d.bestRssi} dBm",

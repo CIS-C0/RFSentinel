@@ -1327,13 +1327,15 @@ class MainActivity : AppCompatActivity() {
         }
         val alias = com.rfsentinel.app.data.DeviceNames.of(s.mac)
         val lookalike = com.rfsentinel.app.data.DeviceNames.lookalike(s.mac, DeviceRegistry.fingerprintOf(s.mac))
+        val ssid = com.rfsentinel.app.ui.DeviceRows.routerSsid(best != null, s.sources, s.name, s.deviceType)
         return DeviceRow(
             mac = s.mac,
             title = alias ?: best?.label ?: s.name ?: s.deviceType,
-            subtitle = s.mac + " · " + (s.vendor ?: s.addressType.label),
+            subtitle = com.rfsentinel.app.ui.DeviceRows.subtitle(s.mac, ssid, s.vendor ?: s.addressType.label),
             meta = (listOf(
                 // Under your own name, what it's heard as comes first.
                 if (alias != null) best?.label ?: s.name?.let { "\"$it\"" } ?: s.deviceType
+                else if (ssid != null) null
                 else if (best != null && s.name != null) "\"${s.name}\"" else s.deviceType,
                 lookalike?.let { "like your \"$it\"" },
                 // Ordinary rows name the radio in their tag; flagged ones keep it here.
