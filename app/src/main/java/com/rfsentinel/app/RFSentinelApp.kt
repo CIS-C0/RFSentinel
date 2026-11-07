@@ -38,6 +38,21 @@ class RFSentinelApp : Application() {
         if (a.requestedOrientation != wanted) a.requestedOrientation = wanted
     }
 
+    /** Windows with the bars hidden by the setting. Only these get them back, so the map's own full screen is left alone. */
+    private val fullscreenWindows = java.util.Collections.newSetFromMap(java.util.WeakHashMap<android.app.Activity, Boolean>())
+
+    /** Settings > General > Fullscreen: no status or navigation bar; a swipe from the edge shows them for a moment. */
+    fun applyFullscreen(a: android.app.Activity) {
+        val bars = androidx.core.view.WindowCompat.getInsetsController(a.window, a.window.decorView)
+        val types = androidx.core.view.WindowInsetsCompat.Type.systemBars()
+        if (com.rfsentinel.app.util.Prefs.fullscreen(a)) {
+            bars.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            bars.hide(types)
+            // Older Android versions bring the bars back after a dialog or the notification shade.
+            if (fullscreenWindows.add(a)) a.window.decorView.viewTreeObserver.addOnWindowFocusChangeListener { if (it) applyFullscreen(a) }
+        } else if (fullscreenWindows.remove(a)) bars.show(types)
+    }
+
     override fun onCreate() {
         super.onCreate()
         com.rfsentinel.app.util.CrashLog.install(this)
@@ -49,7 +64,7 @@ class RFSentinelApp : Application() {
             override fun onActivityStarted(a: android.app.Activity) { visibleActivities++ }
             override fun onActivityStopped(a: android.app.Activity) { visibleActivities = (visibleActivities - 1).coerceAtLeast(0) }
             override fun onActivityCreated(a: android.app.Activity, b: android.os.Bundle?) = applyOrientation(a)
-            override fun onActivityResumed(a: android.app.Activity) = applyOrientation(a)
+            override fun onActivityResumed(a: android.app.Activity) { applyOrientation(a); applyFullscreen(a) }
             override fun onActivityPaused(a: android.app.Activity) {}
             override fun onActivitySaveInstanceState(a: android.app.Activity, b: android.os.Bundle) {}
             override fun onActivityDestroyed(a: android.app.Activity) {}

@@ -40,6 +40,11 @@
                 android:id="@+id/discreetSwitch"
                 android:text="Discreet mode" />
 
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
+                android:id="@+id/fullscreenSwitch"
+                android:text="Fullscreen" />
+
             <TextView android:id="@+id/screenLabel" style="@style/SettingsLabel" android:text="Screen while the app is open" />
 
             <RadioGroup

@@ -937,7 +937,7 @@ class MapFragment : Fragment() {
         act.supportActionBar?.let { if (on) it.hide() else it.show() }
         val bars = androidx.core.view.WindowCompat.getInsetsController(act.window, b.root)
         bars.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        if (on) bars.hide(WindowInsetsCompat.Type.systemBars()) else bars.show(WindowInsetsCompat.Type.systemBars())
+        if (on || Prefs.fullscreen(act)) bars.hide(WindowInsetsCompat.Type.systemBars()) else bars.show(WindowInsetsCompat.Type.systemBars())
         b.mapFilterScroll.visibility = if (on) View.GONE else View.VISIBLE
         b.controls.visibility = if (on || Navigator.active) View.GONE else View.VISIBLE
         layoutBottomInset()

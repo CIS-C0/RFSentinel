@@ -272,6 +272,9 @@ object Prefs {
             ?: if (bool(context, "upside_down", false)) Rotation.UPSIDE_DOWN else Rotation.NORMAL
     fun setRotation(context: Context, value: Rotation) = sp(context).edit { putString("rotation_mode", value.name) }
 
+    fun fullscreen(context: Context): Boolean = bool(context, "fullscreen", false)
+    fun setFullscreen(context: Context, value: Boolean) = setBool(context, "fullscreen", value)
+
     fun followerAlerts(context: Context): Boolean = bool(context, "follower_alerts", true)
     fun setFollowerAlerts(context: Context, value: Boolean) = setBool(context, "follower_alerts", value)
 

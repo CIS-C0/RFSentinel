@@ -694,6 +694,7 @@ class SettingsActivity : AppCompatActivity() {
                 "one (Android asks you once to allow RF Sentinel to install apps, then shows its own Update card). History and " +
                 "settings are kept, and scanning stops while it installs.\n\n" +
                 "Discreet mode: hides details on the lock screen and in notifications.\n\n" +
+                "Fullscreen: hides the status bar and Android's navigation bar for more room.\n\n" +
                 "Screen: \"On while charging\" suits a car or a desk; \"Normal\" turns off like other apps.\n\n" +
                 "Screen rotation: phones like the Pixel never auto-rotate upside down. \"Auto-rotate, upside down too\" turns " +
                 "the app whichever way the phone is held, upside down included (rotation lock still applies); \"Always upside down\" " +
@@ -1169,6 +1170,7 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.prereleaseSwitch, "Update checks also offer prerelease builds: test versions published on GitHub before " +
             "a full release, with the newest features and more bugs. Off: only full releases are offered.")
         info(binding.discreetSwitch, "Hides what was detected on the lock screen and in notifications.")
+        info(binding.fullscreenSwitch, "Hides the status bar and Android's navigation bar for more room. Swipe from the edge of the screen to see them for a moment.")
         info(binding.screenLabel, "Always on: the screen never turns off while RF Sentinel is open.\n\nOn while charging: stays on in the car or on a desk (recommended).\n\nNormal: turns off like any other app.")
         info(binding.rotationLabel, "Normal follows the phone's auto-rotate.\n\nAuto-rotate, upside down too: also turns upside down, which phones like the Pixel never do on their own.\n\nAlways upside down: the USB-C port at the top, for an antenna or adapter plugged in.")
         info(binding.bannerLabel, "A picture across the header of the styled themes (a logo or artwork you own). Your custom themes have their own banner, set in the theme maker.")
@@ -2802,6 +2804,11 @@ class SettingsActivity : AppCompatActivity() {
         binding.shortVoiceSwitch.isChecked = Prefs.shortVoice(this)
         setupVoiceControls()
         binding.discreetSwitch.isChecked = Prefs.discreetMode(this)
+        binding.fullscreenSwitch.isChecked = Prefs.fullscreen(this)
+        binding.fullscreenSwitch.setOnCheckedChangeListener { _, on ->
+            Prefs.setFullscreen(this, on)
+            (application as com.rfsentinel.app.RFSentinelApp).applyFullscreen(this) // right away
+        }
         binding.rotationGroup.checkIndex(Prefs.rotation(this).ordinal)
         binding.rotationGroup.setOnCheckedChangeListener { group, _ ->
             Prefs.Rotation.entries.getOrNull(group.checkedIndex)?.let { Prefs.setRotation(this, it) }
