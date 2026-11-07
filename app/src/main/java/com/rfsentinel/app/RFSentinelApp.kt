@@ -1,5 +1,7 @@
 package com.rfsentinel.app
 
+import androidx.core.view.children
+import androidx.core.view.isVisible
 import android.app.Application
 import android.util.Log
 import com.rfsentinel.app.car.CarState
@@ -57,22 +59,36 @@ class RFSentinelApp : Application() {
     }
 
     /**
-     * Without this the status bar's strip stays empty: the app keeps clear of the camera. A hole in the middle of the top
-     * edge falls between the action bar's title and its buttons, so the bar can go up around it. Screens without an
-     * action bar, and holes in a corner where they would cover a button, keep the strip.
+     * Without this the status bar's strip stays empty: the app keeps clear of the camera. When nothing in the action bar
+     * touches the hole (a short title, the buttons further right) the bar goes up around it, so this is decided again
+     * whenever the bar is laid out. Screens without an action bar keep the strip.
      */
     private fun useCameraStrip(a: android.app.Activity) {
         if (android.os.Build.VERSION.SDK_INT < 30) return
         val frame = a.findViewById<android.view.View>(androidx.appcompat.R.id.decor_content_parent)?.parent as? android.view.View ?: return
+        val bar = a.findViewById<android.view.ViewGroup>(androidx.appcompat.R.id.action_bar) ?: return
+        val iconInset = (12 * a.resources.displayMetrics.density).toInt() // only a button's icon has to stay out of the hole
+        var clear = false
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(frame) { _, insets ->
-            val width = a.resources.displayMetrics.widthPixels
-            val top = insets.displayCutout?.boundingRects.orEmpty().filter { it.top == 0 }
-            if (com.rfsentinel.app.util.Prefs.fullscreen(a) && top.isNotEmpty() && top.all { it.left > width / 3 && it.right < width * 2 / 3 }) {
+            if (clear && com.rfsentinel.app.util.Prefs.fullscreen(a)) {
                 val cutout = androidx.core.view.WindowInsetsCompat.Type.displayCutout()
                 val now = insets.getInsets(cutout)
                 androidx.core.view.WindowInsetsCompat.Builder(insets)
                     .setInsets(cutout, androidx.core.graphics.Insets.of(now.left, 0, now.right, now.bottom)).build()
             } else insets
+        }
+        bar.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            val holes = frame.rootWindowInsets?.displayCutout?.boundingRects.orEmpty().filter { it.top == 0 }
+            val free = holes.isNotEmpty() && holes.none { h ->
+                bar.children.any {
+                    val inset = if (it is androidx.appcompat.widget.ActionMenuView) iconInset else 0
+                    it.isVisible && it.left + inset < h.right && it.right - inset > h.left
+                }
+            }
+            if (free != clear) {
+                clear = free
+                bar.post { frame.requestApplyInsets() }
+            }
         }
     }
 
