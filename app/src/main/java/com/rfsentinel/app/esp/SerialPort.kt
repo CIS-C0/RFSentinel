@@ -67,7 +67,11 @@ abstract class BulkPort(protected val conn: UsbDeviceConnection) : SerialPort {
 
     override fun read(buf: ByteArray, timeoutMs: Int): Int {
         val inp = epIn ?: return -1
-        return conn.bulkTransfer(inp, buf, buf.size, timeoutMs).coerceAtLeast(0)
+        val began = android.os.SystemClock.elapsedRealtime()
+        val n = conn.bulkTransfer(inp, buf, buf.size, timeoutMs)
+        // A quiet port fails after the timeout, a broken one at once: a poll loop must not spin on it.
+        if (n < 0 && android.os.SystemClock.elapsedRealtime() - began < timeoutMs / 2) android.os.SystemClock.sleep(50)
+        return n.coerceAtLeast(0)
     }
 
     override fun close() {

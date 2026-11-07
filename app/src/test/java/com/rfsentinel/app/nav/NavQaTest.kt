@@ -411,7 +411,8 @@ class NavQaTest {
         begin(northRoad(2))
         assertTrue(Navigator.active)
         val started = startedServices()
-        assertTrue("guidance service started: $started", started.any { it.endsWith("NavigationService") })
+        // Without the permission the location service can't go foreground, and Android kills the app for trying.
+        assertFalse("nor the guidance service: $started", started.any { it.endsWith("NavigationService") })
         assertFalse("the scan was not: $started", started.any { it.endsWith("ScanForegroundService") })
     }
 
@@ -422,6 +423,7 @@ class NavQaTest {
         begin(northRoad(2))
         val started = startedServices()
         assertTrue("scan service started: $started", started.any { it.endsWith("ScanForegroundService") })
+        assertTrue("guidance service started: $started", started.any { it.endsWith("NavigationService") })
     }
 
     @Test

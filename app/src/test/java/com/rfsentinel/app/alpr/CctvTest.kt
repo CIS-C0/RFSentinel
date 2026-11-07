@@ -62,4 +62,18 @@ class CctvTest {
         assertTrue(n - s >= 0.02)
         assertTrue(Cctv.query(s, w, n, e).contains("\"surveillance:type\"=\"camera\""))
     }
+
+    @Test
+    fun overTheCapTheOldestAreaGoesWithItsCameras() {
+        fun cam(id: String, lat: Double) = CctvCamera(id, lat, 0.5, null, null, null, null, null, null, null, null)
+        val old = CameraArea(0.0, 0.0, 1.0, 1.0, 1); val mid = CameraArea(2.0, 0.0, 3.0, 1.0, 2); val new = CameraArea(4.0, 0.0, 5.0, 1.0, 3)
+        val all = listOf(cam("new", 4.5), cam("mid", 2.5), cam("old", 0.5))
+
+        val (cams, areas) = CctvStore.capped(all, listOf(old, mid, new), max = 2)
+        assertEquals(listOf("new", "mid"), cams.map { it.osmId })
+        assertEquals(listOf(mid, new), areas) // the dropped area can be downloaded again
+
+        assertEquals(all to listOf(old, new), CctvStore.capped(all, listOf(old, new), max = 3)) // under the cap nothing moves
+        assertEquals(listOf("new"), CctvStore.capped(all, listOf(old, mid, new), max = 1).first.map { it.osmId })
+    }
 }

@@ -22,6 +22,9 @@ object ExportText {
     /** Characters that make a spreadsheet treat a cell as a formula (CSV/formula injection). */
     private val FORMULA_START = charArrayOf('=', '+', '-', '@', '\t', '\r')
 
+    /** A field as it was before [csv] protected it. */
+    internal fun unprotect(s: String) = if (s.length > 1 && s[0] == '\'' && s[1] in FORMULA_START) s.substring(1) else s
+
     /**
      * A quoted CSV field (RFC 4180). A value that a spreadsheet would run as a
      * formula gets a leading apostrophe, so it is shown as text instead

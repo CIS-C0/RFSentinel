@@ -75,7 +75,7 @@ object TripRecorder {
     fun flaggedCount() = devices.values.count { it.flagged } + evictedFlagged.size
 
     /** Starts a new trip. Returns its id. */
-    suspend fun start(context: Context, name: String? = null): Long {
+    suspend fun start(context: Context, name: String? = null): Long = writing.withLock { // two callers at once: one trip
         activeTripId?.let { return it }
         val now = System.currentTimeMillis()
         val label = name ?: ("Trace " + SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(now)))
@@ -91,7 +91,7 @@ object TripRecorder {
             startedAt = now
             activeTripId = id
         }
-        return id
+        id
     }
 
     /** What's left to write for a trip that was just stopped (see [detach]). */

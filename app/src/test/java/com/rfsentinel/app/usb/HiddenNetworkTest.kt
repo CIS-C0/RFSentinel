@@ -36,6 +36,17 @@ class HiddenNetworkTest {
     }
 
     @Test
+    fun onlyTheClientOfADeauthIsCountedAsOne() {
+        val t = MonitorFrames()
+        val fromAp = mgmt(0xC0, laptop, ap, ap, 2, "")
+        t.frame(fromAp, 0, fromAp.size, 36, -60, 0)
+        assertTrue(t.drain(10, 5000).none { it.mac == ap })
+        val fromClient = mgmt(0xC0, ap, laptop, ap, 2, "")
+        t.frame(fromClient, 0, fromClient.size, 36, -60, 20)
+        assertEquals(ap, t.drain(30, 5000).single { it.mac == laptop }.bssid)
+    }
+
+    @Test
     fun associationRequestRevealsItEvenBeforeTheBeacon() {
         val t = MonitorFrames()
         val assoc = mgmt(0x00, ap, laptop, ap, 4, "Axon12-5g")

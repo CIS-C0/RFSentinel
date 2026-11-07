@@ -63,7 +63,7 @@ class OuiListActivity : AppCompatActivity() {
         })
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
-        binding.searchInput.doAfterTextChanged { refresh() }
+        binding.searchInput.doAfterTextChanged { filter() }
 
         val types = RuleType.entries
         binding.ruleType.setAdapter(android.widget.ArrayAdapter(this, android.R.layout.simple_list_item_1, types.map { it.label }))
@@ -129,6 +129,11 @@ class OuiListActivity : AppCompatActivity() {
 
     private fun refresh() {
         OuiWatchlist.load(this)
+        filter()
+    }
+
+    /** Only redraws: a reload counts as a change and has the whole scan classified again. */
+    private fun filter() {
         val all = OuiWatchlist.allEntries()
         // The search box: the rule, its label or where it came from (also an address typed without colons).
         val q = binding.searchInput.text?.toString()?.trim().orEmpty()

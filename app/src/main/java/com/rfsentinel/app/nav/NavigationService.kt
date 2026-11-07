@@ -14,6 +14,7 @@ import androidx.core.content.ContextCompat
 import com.rfsentinel.app.R
 import com.rfsentinel.app.ui.MapActivity
 import com.rfsentinel.app.util.NotificationHelper
+import com.rfsentinel.app.util.Permissions
 import java.text.DateFormat
 import java.util.Date
 
@@ -29,6 +30,8 @@ class NavigationService : Service() {
         const val NOTIFICATION_ID = 7
 
         fun start(context: Context) {
+            // A location service can't go foreground without the permission, and Android then kills the app.
+            if (!Permissions.granted(context, android.Manifest.permission.ACCESS_FINE_LOCATION)) return
             // Not allowed to start from the background on newer Android: guidance still runs, just without the notification.
             runCatching { ContextCompat.startForegroundService(context, Intent(context, NavigationService::class.java)) }
         }

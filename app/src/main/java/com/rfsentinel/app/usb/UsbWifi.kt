@@ -415,7 +415,11 @@ object UsbWifi {
                     Driver.MT7921U -> Mt7921uMonitor.run(context, d, chip.name, onStatus, onFrames)
                     Driver.AR9271 -> Ar9271Monitor.run(context, d, "${chip.name} (experimental)", onStatus, onFrames)
                 }
-            }.onFailure { log("Driver stopped: ${describe(it)}"); status = "USB WiFi adapter error: ${it.message}" }
+            }.onFailure {
+                log("Driver stopped: ${describe(it)}"); status = "USB WiFi adapter error: ${it.message}"
+                // The firmware file vanished or failed to load after the check above: offer the download again.
+                if (Firmware.missing(context, chip.driver).isNotEmpty()) { firmwareNeeded = chip; FirmwarePrompt.notify(context, chip.name) }
+            }
             // By thread, not name: a replug reuses the name, and a stopped run ending late must not clear the new one.
             synchronized(this) { if (thread === Thread.currentThread()) { runningDevice = null; runningChip = null } }
         }, "usb-wifi").also { it.start() }

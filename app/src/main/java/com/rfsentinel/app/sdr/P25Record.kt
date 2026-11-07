@@ -22,8 +22,8 @@ object P25Record {
     /** Recordings kept; the oldest go first. */
     const val KEEP = 20
     private const val DIR = "p25rec"
-    /** 8-bit samples summed [P25Demod.DECIM] at a time reach ±5100: this fills 16 bits without clipping. */
-    private const val SCALE = 6.0
+    /** 8-bit samples summed [P25Demod.DECIM] at a time reach ±5100, and ±7200 once mixed: this fills 16 bits without clipping. */
+    private const val SCALE = 4.5
 
     /** Mixes [offsetHz] down to 0 and integrates-and-dumps to [RATE], collecting 16-bit I/Q pairs, or handing each to [onSample]. */
     class Baseband(val offsetHz: Long, sampleRate: Int = P25Demod.SAMPLE_RATE, private val onSample: ((Double, Double) -> Unit)? = null) {

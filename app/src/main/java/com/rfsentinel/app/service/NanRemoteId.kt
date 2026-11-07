@@ -75,6 +75,7 @@ class NanRemoteId(private val context: Context, private val onAdvert: (Advert) -
             mgr.attach(object : AttachCallback() {
                 override fun onAttached(s: WifiAwareSession) {
                     if (!running) { s.close(); return }
+                    close() // a second attach must not leave the first session open
                     session = s
                     subscribe(s)
                 }

@@ -1,6 +1,7 @@
 package com.rfsentinel.app.online
 
 import android.content.Context
+import com.rfsentinel.app.util.DeviceHistoryImport
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -20,6 +21,7 @@ object RoadTiles {
     private const val TILEJSON = "https://tiles.openfreemap.org/planet"
     private const val MEMORY_TILES = 24
     private const val DISK_TILES = 400
+    private const val MAX_TILE_BYTES = 64L * 1024 * 1024
 
     /** One road line: points as latitude / longitude, OpenMapTiles attributes. */
     class Road(val lat: DoubleArray, val lon: DoubleArray, val cls: String, val oneway: Int, val brunnel: String?, val layer: Int)
@@ -215,9 +217,9 @@ object RoadTiles {
         try {
             if (c.responseCode != 200) null
             else c.inputStream.use { s ->
-                val b = s.readBytes()
+                val b = DeviceHistoryImport.Limited(s, MAX_TILE_BYTES).readBytes()
                 // Served plain; gzip only if a server ever sends it without saying so.
-                if (b.size > 2 && b[0] == 0x1f.toByte() && b[1] == 0x8b.toByte()) java.util.zip.GZIPInputStream(b.inputStream()).readBytes() else b
+                if (b.size > 2 && b[0] == 0x1f.toByte() && b[1] == 0x8b.toByte()) DeviceHistoryImport.Limited(java.util.zip.GZIPInputStream(b.inputStream()), MAX_TILE_BYTES).readBytes() else b
             }
         } finally { c.disconnect() }
     }.getOrNull()

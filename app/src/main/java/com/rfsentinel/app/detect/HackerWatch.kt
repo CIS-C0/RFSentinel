@@ -162,14 +162,16 @@ object HackerWatch {
 
     // ---- evil twin ------------------------------------------------------------------------
 
-    private class Ap(val bssid: String, var secured: Boolean)
+    private class Ap(val bssid: String, var secured: Boolean, var seen: Long)
     private val bySsid = LinkedHashMap<String, MutableList<Ap>>()
     private val twinsFlagged = HashSet<String>()
+    private const val TWIN_WINDOW_MS = 5 * 60_000L
 
     /**
      * Same network name from two different makers' hardware that disagree on security (one
      * open, one protected): one of them isn't what it claims to be. Mesh nodes and dual-band
      * boxes share a maker and are never flagged. Only sightings that read the security (phone scan, USB adapter).
+     * Both copies must be on air within [TWIN_WINDOW_MS]: the same name elsewhere hours ago is another network.
      */
     @Synchronized
     fun evilTwin(a: Advert): Hit? {
@@ -180,10 +182,10 @@ object HackerWatch {
         val secured = Regex("WPA|WEP|RSN|SAE|OWE").containsMatchIn(w.capabilities)
         val list = bySsid.getOrPut(ssid) { ArrayList() }
         if (bySsid.size > 400) bySsid.remove(bySsid.keys.first())
-        list.firstOrNull { it.bssid == a.mac }?.let { it.secured = secured; return null }
+        list.firstOrNull { it.bssid == a.mac }?.let { it.secured = secured; it.seen = a.timestamp; return null }
         if (list.size >= 64) list.removeAt(0) // a hotspot chain ("xfinitywifi") has thousands of access points
-        val rogue = list.any { !sameMaker(it.bssid, a.mac) && it.secured != secured }
-        list += Ap(a.mac, secured)
+        val rogue = list.any { a.timestamp - it.seen < TWIN_WINDOW_MS && !sameMaker(it.bssid, a.mac) && it.secured != secured }
+        list += Ap(a.mac, secured, a.timestamp)
         if (!rogue || !twinsFlagged.add(ssid + "|" + a.mac)) return null
         return Hit(Category.HACKER, "Possible evil twin WiFi network", 60,
             "\"$ssid\" is broadcast by two different makers' hardware, one ${if (secured) "protected" else "OPEN"} and one " +

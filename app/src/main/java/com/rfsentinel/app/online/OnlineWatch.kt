@@ -185,7 +185,7 @@ class OnlineWatch(
             }
             try {
                 if (c.responseCode != 200) throw HttpError(c.responseCode)
-                return c.inputStream.bufferedReader().use { it.readText() }
+                return com.rfsentinel.app.util.DeviceHistoryImport.Limited(c.inputStream, 32L * 1024 * 1024).bufferedReader().use { it.readText() }
             } finally {
                 c.disconnect()
             }

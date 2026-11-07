@@ -154,7 +154,7 @@ object DeviceHistoryImport {
         if (!it.hasNext()) throw NotHistory("That file is empty")
         val header = it.next().map { h -> h.trim().lowercase(Locale.US).removePrefix(BOM) }
         if ("mac" !in header) throw NotHistory("That isn't a device history file (no \"mac\" column)")
-        fun col(r: List<String>, vararg names: String) = names.firstNotNullOfOrNull { n -> header.indexOf(n).takeIf { i -> i >= 0 } }?.let { i -> r.getOrNull(i) }
+        fun col(r: List<String>, vararg names: String) = names.firstNotNullOfOrNull { n -> header.indexOf(n).takeIf { i -> i >= 0 } }?.let { i -> r.getOrNull(i)?.let(ExportText::unprotect) }
         while (it.hasNext()) {
             val r = it.next()
             if (r.all { f -> f.isBlank() }) continue

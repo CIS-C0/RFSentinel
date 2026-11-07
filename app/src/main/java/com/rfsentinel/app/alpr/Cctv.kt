@@ -290,8 +290,19 @@ object CctvStore {
     @Synchronized
     private fun mergeInMemory(area: CameraArea, found: List<CctvCamera>) {
         val outside = cameras.filterNot { it.lat in area.south..area.north && it.lon in area.west..area.east }
-        cameras = (found + outside).distinctBy { it.osmId }.take(MAX_CAMERAS)
-        areas = (areas.filterNot { area.contains(it) } + area).takeLast(600)
+        val (kept, keptAreas) = capped((found + outside).distinctBy { it.osmId }, areas.filterNot { area.contains(it) } + area, MAX_CAMERAS)
+        cameras = kept
+        areas = keptAreas.takeLast(600)
+    }
+
+    /** Over [max], the oldest areas go with their cameras: an area still listed would never be downloaded again. */
+    internal fun capped(all: List<CctvCamera>, areas: List<CameraArea>, max: Int): Pair<List<CctvCamera>, List<CameraArea>> {
+        var kept = all; var left = areas
+        while (kept.size > max && left.size > 1) {
+            left = left.drop((left.size / 4).coerceAtLeast(1))
+            kept = kept.filter { c -> left.any { it.contains(c.lat, c.lon, c.lat, c.lon) } }
+        }
+        return kept.take(max) to left
     }
 
     @Synchronized

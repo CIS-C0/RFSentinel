@@ -93,16 +93,21 @@ object ProbeLog {
                 val list: List<ProbeBook.Network> = gson.fromJson(f.readText(), object : TypeToken<List<ProbeBook.Network>>() {}.type)
                 book.restore(list.orEmpty())
             }
-        }
+        }.onFailure { keepBad(context, FILE) }
         runCatching {
             val f = File(context.filesDir, DEVICES_FILE)
             if (f.exists()) {
                 val list: List<ProbeBook.Device> = gson.fromJson(f.readText(), object : TypeToken<List<ProbeBook.Device>>() {}.type)
                 book.restoreDevices(list.orEmpty())
             }
-        }
+        }.onFailure { keepBad(context, DEVICES_FILE) }
         // Lists saved before devices were kept (or a device file lost) still show who asked.
         if (book.backfillDevices()) dirty = true
+    }
+
+    /** The next save overwrites a file that wouldn't load: a copy keeps what it held. */
+    private fun keepBad(context: Context, name: String) {
+        runCatching { File(context.filesDir, name).copyTo(File(context.filesDir, "$name.bad"), overwrite = true) }
     }
 
     private fun save(context: Context, now: Long = System.currentTimeMillis()) {

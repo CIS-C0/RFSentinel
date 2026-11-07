@@ -144,7 +144,8 @@ class MonitorFrames {
                     // A device joining a network names it in its (re)association request: that
                     // also reveals a hidden network's name.
                     if (sub == 0 || sub == 2) revealFromAssociation(b, d + 24 + (if (sub == 0) 4 else 10), end, mac(b, a3))
-                    if (captureClients) touch(a2, ap = false)?.let { it.bssid = mac(b, a3) }
+                    // Sender and network the same: the access point itself (deauth, auth reply), not a client.
+                    if (captureClients && mac(b, a2) != mac(b, a3)) touch(a2, ap = false)?.let { it.bssid = mac(b, a3) }
                 }
             }
             2 -> {

@@ -320,7 +320,7 @@ object UsbBluetooth {
         }
     }
 
-    private val partial = HashMap<String, ByteArray>()
+    private val partial = LinkedHashMap<String, ByteArray>()
 
     /** LE Advertising Report (0x02) and LE Extended Advertising Report (0x0D) events into reports. */
     internal fun parse(e: ByteArray): List<Report> {
@@ -359,8 +359,10 @@ object UsbBluetooth {
                 val key = addr.joinToString("") { "%02x".format(it) } + addrType
                 val status = (type shr 5) and 0x3
                 partial.remove(key)?.let { data = it + data }
-                if (status == 1) { if (data.size < 1650) partial[key] = data; continue }
-                if (partial.size > 64) partial.clear()
+                if (status == 1) {
+                    if (data.size < 1650) { if (partial.size >= 64) partial.remove(partial.keys.first()); partial[key] = data }
+                    continue
+                }
                 val legacy = type and 0x10 != 0
                 val phy = when {
                     primary == 3 -> "LE Coded (long range)"

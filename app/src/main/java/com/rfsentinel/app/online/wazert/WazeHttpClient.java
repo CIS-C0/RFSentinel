@@ -112,12 +112,17 @@ class WazeHttpClient {
         }
     }
 
+    private static final int MAX_BODY = 16 * 1024 * 1024;
+
     private static byte[] readAll(InputStream in) throws IOException {
         try (InputStream s = in) {
             ByteArrayOutputStream bos = new ByteArrayOutputStream(8192);
             byte[] buf = new byte[8192];
             int n;
-            while ((n = s.read(buf)) != -1) bos.write(buf, 0, n);
+            while ((n = s.read(buf)) != -1) {
+                bos.write(buf, 0, n);
+                if (bos.size() > MAX_BODY) throw new IOException("Response too large");
+            }
             return bos.toByteArray();
         }
     }

@@ -1342,7 +1342,16 @@ class ScanForegroundService : Service() {
 
     /** Merges this session's sightings into known_devices (throttled, batched). */
     private suspend fun flushHistory() {
-        takeHistory()?.let { writeHistory(it) }
+        val since = lastHistoryFlush
+        val batch = takeHistory() ?: return
+        try {
+            writeHistory(batch)
+        } catch (e: Exception) {
+            // Taking the batch moved the clock on: without this, what failed would never be written.
+            lastHistoryFlush = since
+            batch.details.forEach { detailsSaved.remove(it.mac) }
+            throw e
+        }
     }
 
     private suspend fun writeHistory(batch: HistoryBatch) {

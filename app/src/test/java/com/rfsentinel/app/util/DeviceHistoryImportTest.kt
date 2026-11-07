@@ -125,4 +125,12 @@ class DeviceHistoryImportTest {
         assertTrue(e is DeviceHistoryImport.NotHistory)
         assertTrue(DeviceHistoryImport.fileName(0L).startsWith("rf_sentinel_device_history_"))
     }
+
+    @Test fun `a name the export protected with an apostrophe comes back as it was`() {
+        val name = "=Hot-Spot"
+        run("mac,name,note\nAA:BB:CC:00:00:01,${ExportText.csv(name)},${ExportText.csv("it's fine")}\n")
+        val d = runBlocking { db.knownDeviceDao().get("AA:BB:CC:00:00:01") }
+        assertEquals(name, d?.name)
+        assertEquals("it's fine", d?.note)
+    }
 }

@@ -69,6 +69,8 @@ object PhoneLink {
     private const val IDLE_TIMEOUT_MS = 60_000L
     private const val KEEPALIVE_MS = 20_000L
     private const val SEND_STUCK_MS = 15_000L
+    /** Refused writes in a row, 100 ms apart, before the link is dropped. */
+    private const val WRITE_RETRIES = 600
     private const val RETRY_MS = 30_000L
     /** A Sentinel with a lower id connects to us; after this long without a link we connect ourselves. */
     private const val WAIT_FOR_LOWER_MS = 45_000L
@@ -467,6 +469,7 @@ object PhoneLink {
         var queuedBytes = 0
         var busy = false
         var busySince = 0L
+        var refused = 0
         var closeWhenDrained = false
         val createdAt = SystemClock.elapsedRealtime()
         var lastRx = createdAt
@@ -632,6 +635,9 @@ object PhoneLink {
             l.queuedBytes -= next.size
             l.busy = true
             l.busySince = SystemClock.elapsedRealtime()
+            l.refused = 0
+        } else if (++l.refused >= WRITE_RETRIES) {
+            close(l) // the stack refuses every write: without this the link retries for ever
         } else {
             h.postDelayed({ pump(l) }, 100L)
         }

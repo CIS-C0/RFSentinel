@@ -30,14 +30,28 @@ internal object BulkRx {
         if (!async) {
             UsbWifi.log("$tag: async RX unavailable (${reqs.size}/$count) - synchronous RX")
             reqs.forEach { runCatching { it.cancel() }; runCatching { it.close() } }
-            return runSync(conn, ep, size, stopped, onData, onTick, syncTimeoutMs)
+            return runSync(tag, conn, ep, size, stopped, onData, onTick, syncTimeoutMs)
         }
         UsbWifi.log("$tag: async RX live - $count buffers in flight")
         val scratch = ByteArray(size)
         val guard = EmptyGuard(tag)
         var total = 0L
+        /** Buffers whose request could not be replaced yet: each one lost would cut the receive rate for good. */
+        val dead = HashSet<Int>()
+        fun replace(idx: Int): Boolean {
+            val nr = UsbRequest()
+            val queued = runCatching {
+                if (!nr.initialize(conn, ep)) return@runCatching false
+                nr.clientData = idx
+                buffers[idx].clear()
+                nr.queue(buffers[idx])
+            }.getOrDefault(false)
+            if (queued) reqs[idx] = nr else runCatching { nr.close() }
+            return queued
+        }
         try {
             while (!stopped()) {
+                dead.removeAll { replace(it) }
                 val req = try { conn.requestWait(100L) } catch (_: TimeoutException) { null }
                 if (req != null) {
                     val idx = req.clientData as? Int ?: -1
@@ -48,13 +62,7 @@ internal object BulkRx {
                         b.clear()
                         if (!runCatching { req.queue(b) }.getOrDefault(false)) {
                             runCatching { req.close() }
-                            val nr = UsbRequest()
-                            val queued = runCatching {
-                                if (!nr.initialize(conn, ep)) return@runCatching false
-                                nr.clientData = idx
-                                nr.queue(b)
-                            }.getOrDefault(false)
-                            if (queued) reqs[idx] = nr else runCatching { nr.close() }
+                            if (!replace(idx)) dead += idx
                         }
                         if (n in 1..size) { total += n; guard.data(); runCatching { onData(scratch, n) } } else guard.empty()
                     }
@@ -67,13 +75,16 @@ internal object BulkRx {
         return total
     }
 
-    private fun runSync(conn: UsbDeviceConnection, ep: UsbEndpoint, size: Int, stopped: () -> Boolean,
+    private fun runSync(tag: String, conn: UsbDeviceConnection, ep: UsbEndpoint, size: Int, stopped: () -> Boolean,
                         onData: (ByteArray, Int) -> Unit, onTick: (Long) -> Unit, timeoutMs: Int): Long {
         val buf = ByteArray(size)
+        val guard = EmptyGuard(tag)
         var total = 0L
         while (!stopped()) {
+            val began = System.currentTimeMillis()
             val n = conn.bulkTransfer(ep, buf, size, timeoutMs)
-            if (n > 0) { total += n; runCatching { onData(buf, n) } }
+            if (n > 0) { total += n; guard.data(); runCatching { onData(buf, n) } }
+            else if (System.currentTimeMillis() - began < timeoutMs / 2) guard.empty() // a quiet channel takes the whole timeout
             onTick(System.currentTimeMillis())
         }
         return total

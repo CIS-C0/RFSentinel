@@ -22,9 +22,12 @@ object FalseAlerts {
     @Volatile private var entries: List<Entry>? = null
 
     @Synchronized
-    fun all(context: Context): List<Entry> = entries ?: runCatching {
-        gson.fromJson<List<Entry>>(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null), type)
-    }.getOrNull().orEmpty().also { entries = it }
+    fun all(context: Context): List<Entry> = entries ?: context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).let { p ->
+        val raw = p.getString(KEY, null)
+        // The next save overwrites a list that wouldn't load: a copy keeps what it held.
+        runCatching { gson.fromJson<List<Entry>>(raw, type) }.onFailure { p.edit().putString(KEY + "_bad", raw).apply() }
+            .getOrNull().orEmpty().also { entries = it }
+    }
 
     fun contains(context: Context, mac: String) = all(context).any { it.match.mac == mac }
 

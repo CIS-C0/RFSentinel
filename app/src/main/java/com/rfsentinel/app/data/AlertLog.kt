@@ -51,10 +51,11 @@ object AlertLog {
     private fun list(context: Context?): MutableList<Entry> {
         entries?.let { return it }
         val loaded: List<Entry> = context?.let { c ->
-            runCatching {
-                c.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null)
-                    ?.let { gson.fromJson<List<Entry>>(it, listType) }
-            }.getOrNull()
+            val p = c.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val raw = p.getString(KEY, null)
+            // The next save overwrites a list that wouldn't load: a copy keeps what it held.
+            runCatching { raw?.let { gson.fromJson<List<Entry>>(it, listType) } }
+                .onFailure { p.edit().putString(KEY + "_bad", raw).apply() }.getOrNull()
         }.orEmpty()
         return ArrayList(loaded.filterNotNull()).also { entries = it }
     }

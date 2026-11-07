@@ -2129,7 +2129,7 @@ class SettingsActivity : AppCompatActivity() {
             binding.map3dTiltText.text = "3D view angle: ${t.toInt()}° · $what"
         }
         val t = Prefs.map3dTilt(this)
-        binding.map3dTiltSlider.value = t.toFloat(); show(t)
+        binding.map3dTiltSlider.value = (Math.round(t / 5) * 5).toFloat(); show(t) // the slider crashes on a value off its step
         binding.map3dTiltSlider.setLabelFormatter { "${it.toInt()}°" }
         binding.map3dTiltSlider.addOnChangeListener { _, v, fromUser ->
             if (!fromUser) return@addOnChangeListener
@@ -2992,7 +2992,7 @@ class SettingsActivity : AppCompatActivity() {
             binding.cameraRadiusText.text = "Download radius: ${com.rfsentinel.app.util.Units.km(km)}"
             binding.prefetchCamerasButton.text = "Download cameras around me"
         }
-        Prefs.cameraRadiusKm(this).let { km -> binding.cameraRadiusSlider.value = km.toFloat(); showRadius(km) }
+        Prefs.cameraRadiusKm(this).let { km -> binding.cameraRadiusSlider.value = ((km + 5) / 10 * 10).coerceIn(10, 200).toFloat(); showRadius(km) }
         binding.cameraRadiusSlider.setLabelFormatter { com.rfsentinel.app.util.Units.km(it.toInt()) }
         binding.cameraRadiusSlider.addOnChangeListener { _, value, fromUser ->
             if (!fromUser) return@addOnChangeListener
