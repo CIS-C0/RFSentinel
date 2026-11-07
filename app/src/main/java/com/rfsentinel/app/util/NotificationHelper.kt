@@ -182,14 +182,17 @@ object NotificationHelper {
         /** An internet alert's key ("air:..." aircraft, "waze:..." report): tapping opens the map on it ([lat] / [lon] where it was). */
         online: String? = null,
         /** False: only logged (its category's banner is turned off). */
-        banner: Boolean = true
+        banner: Boolean = true,
+        /** Shown in place of the evidence on this notification only, never logged (a page's text). */
+        shown: String? = null
     ) {
         recordAlert(context, key, null, hit, null, false, lat, lon, card = banner)
         if (!banner) return
+        val evidence = shown ?: hit.evidence
         val discreet = Prefs.discreetMode(context)
         com.rfsentinel.app.ui.ThreatBubble.popup(context, if (discreet) "New alert" else hit.label,
             if (discreet) null else hit.category.shortTag, hit.category.colorArgb)
-        if (toCar(context, if (discreet) "New alert" else "${hit.label}. ${hit.evidence}", null)) return
+        if (toCar(context, if (discreet) "New alert" else "${hit.label}. $evidence", null)) return
         val open = PendingIntent.getActivity(
             context, key.hashCode(),
             (online?.let { com.rfsentinel.app.ui.MapActivity.onlineIntent(context, it, lat, lon) } ?: Intent(context, target))
@@ -198,8 +201,8 @@ object NotificationHelper {
         )
         val builder = NotificationCompat.Builder(context, CHANNEL_ALERTS)
             .setContentTitle(if (discreet) "RF Sentinel" else hit.label)
-            .setContentText(if (discreet) "New alert - tap to view" else hit.evidence)
-            .setStyle(if (discreet) null else NotificationCompat.BigTextStyle().bigText(hit.evidence))
+            .setContentText(if (discreet) "New alert - tap to view" else evidence)
+            .setStyle(if (discreet) null else NotificationCompat.BigTextStyle().bigText(evidence))
             .setSmallIcon(R.drawable.ic_tile_scan)
             .setColor(hit.category.colorArgb)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -213,7 +216,7 @@ object NotificationHelper {
             .extend(
                 CarAppExtender.Builder()
                     .setContentTitle(if (discreet) "RF Sentinel" else hit.label)
-                    .setContentText(if (discreet) "New alert" else hit.evidence)
+                    .setContentText(if (discreet) "New alert" else evidence)
                     .setSmallIcon(R.drawable.ic_tile_scan)
                     .setImportance(NotificationManagerCompat.IMPORTANCE_HIGH)
                     .addAction(R.drawable.ic_car_volume_off, "Mute ${Prefs.snoozeMinutes(context)} min",

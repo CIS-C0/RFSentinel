@@ -74,7 +74,7 @@ object RadioReference {
                     else "RadioReference: ${calls.size} licences, ${names.size} frequencies near you"
             }
         } catch (e: Exception) {
-            status = "RadioReference: " + (e.message ?: "lookup failed")
+            status = "RadioReference: " + (e.message ?: "lookup failed").removePrefix("RadioReference ")
         } finally {
             busy = false
         }

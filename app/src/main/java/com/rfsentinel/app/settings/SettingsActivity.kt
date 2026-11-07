@@ -1518,6 +1518,29 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    private var pagerFreqField: android.widget.EditText? = null
+
+    /** Adds a file's frequencies to the Pager frequencies list: a CSV as for the frequency list, or the lines Export writes. */
+    private val pagerImport = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        lifecycleScope.launch {
+            val text = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching { contentResolver.openInputStream(uri)?.use { com.rfsentinel.app.sdr.FreqNames.readLimited(it) } }.getOrNull().orEmpty()
+            }
+            val (merged, added, _) = com.rfsentinel.app.sdr.RadioSettings.addPagerFile(Prefs.pagerFreqs(this@SettingsActivity), text)
+            if (added > 0) pagerFreqField?.setText(merged)
+            Toast.makeText(this@SettingsActivity, if (added > 0) "$added frequencies added" else "No new frequencies in that file", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private val pagerExport = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        if (uri == null) return@registerForActivityResult
+        val ok = runCatching {
+            contentResolver.openOutputStream(uri, "wt")!!.use { it.write(Prefs.pagerFreqs(this).toByteArray(Charsets.UTF_8)) }
+        }.isSuccess
+        Toast.makeText(this, if (ok) "Pager frequencies saved" else "Couldn't write the file", Toast.LENGTH_LONG).show()
+    }
+
     private var freqListText: android.widget.TextView? = null
 
     private fun updateFreqListText() {
@@ -1613,9 +1636,50 @@ class SettingsActivity : AppCompatActivity() {
         }
         val pagerFrom = box.childCount
         heading("Pagers")
-        lines("Pager frequencies", "466.075", Prefs.pagerFreqs(this),
-            "Leave empty to scan for paging channels. If you know yours, enter it in MHz, one per line: the SDR listens there and " +
-            "doesn't scan, so a quiet channel isn't missed.") { Prefs.setPagerFreqs(this, it) }
+        pagerFreqField = lines("Pager frequencies", "466.075 Fire dispatch", Prefs.pagerFreqs(this),
+            "Leave empty to scan for paging channels. If you know yours, enter it in MHz with an optional name, one per line: the SDR " +
+            "listens there and doesn't scan, so a quiet channel isn't missed. With two or more, the Pager messages screen gets a " +
+            "button for each, to stay on one.") { Prefs.setPagerFreqs(this, it) }
+        box.addView(android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            addView(com.google.android.material.button.MaterialButton(this@SettingsActivity, null,
+                android.R.attr.borderlessButtonStyle).apply {
+                text = "Import"
+                setOnClickListener { pagerImport.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel", "*/*")) }
+            })
+            addView(com.google.android.material.button.MaterialButton(this@SettingsActivity, null,
+                android.R.attr.borderlessButtonStyle).apply {
+                text = "Export"
+                setOnClickListener { pagerExport.launch("pager-frequencies.txt") }
+            })
+        })
+        info(box.label("POCSAG speeds"), "Which POCSAG speeds to decode. Fewer use less battery. FLEX is always decoded.", "POCSAG speeds")
+        box.addView(com.google.android.material.chip.ChipGroup(this).apply {
+            chipSpacingHorizontal = dp(6); chipSpacingVertical = 0
+            var now = Prefs.pagerSpeeds(this@SettingsActivity)
+            com.rfsentinel.app.sdr.PagerDemod.SPEEDS.forEach { speed ->
+                addView(com.rfsentinel.app.ui.FitChip(this@SettingsActivity).apply {
+                    text = "$speed"; isCheckable = true
+                    com.rfsentinel.app.ui.ChipStyle.apply(this)
+                    isChecked = speed in now
+                    contentDescription = "POCSAG $speed baud"
+                    setOnClickListener {
+                        now = if (isChecked) now + speed else now - speed
+                        Prefs.setPagerSpeeds(this@SettingsActivity, now)
+                    }
+                })
+            }
+        })
+        lines("Watch these pagers", "1234567 Station 4\ncardiac arrest", Prefs.pagerWatch(this),
+            "Alerts when a page matches. One per line: a capcode, also called a RIC, with an optional name, or words to find in the " +
+            "page. A line starting with a number is a capcode. One alert a minute at most for each line.") { Prefs.setPagerWatch(this, it) }
+        lines("Ignore these pagers", "1234567", Prefs.pagerIgnore(this),
+            "Pages to these capcodes, one per line, are dropped: no list entry, no alert.") { Prefs.setPagerIgnore(this, it) }
+        info(box.label("Pager alerts"), "How a watched page reaches you. Untick Sound and Voice for silent alerts.", "Pager alerts")
+        box.addView(alertKindChips(Prefs.pagerAlertsOff(this), false, "pager watches") { Prefs.setPagerAlertsOff(this, it) })
+        scan("Show page text in alerts", Prefs.pagerAlertText(this),
+            "Off: the alert only says a page matched, and you read it in Tools › Pager messages. On: the page's text is also on the " +
+            "notification, and in Android Auto when connected. It is still never saved or spoken.") { Prefs.setPagerAlertText(this, it) }
         val pagerViews = (pagerFrom until box.childCount).map { box.getChildAt(it) }
         val p25From = box.childCount
         heading("P25")

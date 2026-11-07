@@ -276,7 +276,7 @@ Everything the app does, grouped by area.
 - The ALFA AWUS036ACS's light blinks with received traffic (Settings → External hardware switches it off, for the adapters whose light the app can control)
 - RTL-SDR and HackRF transmissions show on the **radar** too, for a minute after they were last heard
 - **P25 control channel** (experimental, RTL-SDR): finds the trunked-radio control channel and lists which talkgroups get a channel and when (Tools → P25 talkgroups), with alerts for talkgroups you watch. Signalling only, voice is never decoded. With more than one SDR scan ticked (radio sweep, ADS-B, P25) the dongle takes turns
-- **Pager messages** (experimental, RTL-SDR or HackRF, off by default): decodes POCSAG and FLEX pages (Tools → Pager messages), kept in memory only
+- **Pager messages** (experimental, RTL-SDR or HackRF, off by default): decodes POCSAG and FLEX pages (Tools → Pager messages), kept in memory only, with alerts for capcodes and words you watch, ignored capcodes and named channels
 - **More from every frame:** WPS maker / model / device name, a **probe fingerprint** that survives MAC randomization (watchable: "every device of this type"), and the real name of **hidden networks** when a device joins them
 
 </details>
@@ -783,7 +783,10 @@ the length you set.
 paging channels and decodes POCSAG (512 / 1200 / 2400 baud) and FLEX pages into
 **Tools → Pager messages**. Pages can hold private or medical details, so they stay in
 the phone's memory: never saved, exported or sent, kept out of the logs, and gone when the
-app closes or you untick the setting. Canada, the United States and many other places
+app closes or you untick the setting. Settings can alert on the capcodes (RICs) and words
+you watch, with the page's text left out of the alert unless you turn it on, drop the
+capcodes you ignore, and pick the POCSAG speeds. Name your channels to switch between them
+in one tap on the messages screen, and import or export the list. Canada, the United States and many other places
 restrict using or passing on messages you intercept, and some forbid listening at all:
 check the law where you are.
 

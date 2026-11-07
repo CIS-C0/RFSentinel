@@ -696,6 +696,28 @@ object Prefs {
     /** Paging frequencies typed by the user, one per line in MHz: listened to instead of scanning for a channel. */
     fun pagerFreqs(context: Context) = str(context, "pager_freqs")
     fun setPagerFreqs(context: Context, v: String) = sp(context).edit { putString("pager_freqs", v) }
+    /** The channel picked on the Pager messages screen, in Hz; 0 listens to all of [pagerFreqs]. */
+    fun pagerChannel(context: Context): Long = sp(context).getLong("pager_channel", 0L)
+    fun setPagerChannel(context: Context, hz: Long) = sp(context).edit { putLong("pager_channel", hz) }
+    /** The POCSAG speeds to decode; all by default. */
+    fun pagerSpeeds(context: Context): Set<Int> = sp(context).getString("pager_speeds", null)
+        ?.split(",")?.mapNotNull { it.toIntOrNull() }?.toSet() ?: com.rfsentinel.app.sdr.PagerDemod.SPEEDS
+    fun setPagerSpeeds(context: Context, v: Set<Int>) = sp(context).edit { putString("pager_speeds", v.joinToString(",")) }
+    /** Capcodes and words that alert ([com.rfsentinel.app.sdr.PagerRules]). */
+    fun pagerWatch(context: Context) = str(context, "pager_watch")
+    fun setPagerWatch(context: Context, v: String) = sp(context).edit { putString("pager_watch", v) }
+    /** Capcodes whose pages are dropped. */
+    fun pagerIgnore(context: Context) = str(context, "pager_ignore")
+    fun setPagerIgnore(context: Context, v: String) = sp(context).edit { putString("pager_ignore", v) }
+    /** Page text in watch alerts: off by default, pages can hold private details. */
+    fun pagerAlertText(context: Context): Boolean = bool(context, "pager_alert_text", false)
+    fun setPagerAlertText(context: Context, v: Boolean) = setBool(context, "pager_alert_text", v)
+    /** The ways pager watch alerts don't alert you; none by default. */
+    fun pagerAlertsOff(context: Context): Set<com.rfsentinel.app.data.AlertKind> =
+        com.rfsentinel.app.data.AlertKind.parse(sp(context).getString("pager_alerts_off", null))
+    fun setPagerAlertsOff(context: Context, off: Set<com.rfsentinel.app.data.AlertKind>) = sp(context).edit {
+        com.rfsentinel.app.data.AlertKind.format(off)?.let { putString("pager_alerts_off", it) } ?: remove("pager_alerts_off")
+    }
     /** The sweep's default follows the ADS-B and P25 settings: store it before they change, or ticking one would untick it. */
     private fun keepSdrSweep(context: Context) { if (!sp(context).contains("sdr_sweep")) setSdrSweep(context, sdrSweep(context)) }
     /** P25 talkgroups to alert on, "1234 Name" a line ([com.rfsentinel.app.sdr.P25Log.watched]). */

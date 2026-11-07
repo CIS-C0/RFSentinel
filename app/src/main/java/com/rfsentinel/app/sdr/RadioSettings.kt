@@ -35,6 +35,7 @@ object RadioSettings {
     }
 
     private val RANGE = Regex("""^\s*(\d{2,4}(?:[.,]\d+)?)\s*(?:-|–|to)\s*(\d{2,4}(?:[.,]\d+)?)\s*(?:mhz)?\s*(.*)$""", RegexOption.IGNORE_CASE)
+    private val PLAIN_LINE = Regex("""^\s*\d{2,4}(?:\.\d+)?(?:\s|$)""")
     private val FREQ = Regex("""^\s*(\d{2,4}(?:[.,]\d+)?)\s*(?:mhz)?\s*[,;:\-]?\s*(.*)$""", RegexOption.IGNORE_CASE)
 
     private fun mhzToHz(s: String): Long? = s.replace(',', '.').toDoubleOrNull()?.let { (it * 1_000_000).toLong() }
@@ -67,6 +68,12 @@ object RadioSettings {
         val hz = mhzToHz(m.groupValues[1])?.takeIf { it in MIN_HZ..MAX_HZ } ?: return@mapNotNull null
         RadioWatch.Target(hz, m.groupValues[2].trim().ifEmpty { "%.4f MHz".format(java.util.Locale.US, hz / 1e6) })
     }.distinctBy { it.freqHz }.take(MAX_TARGETS)
+
+    /** [addTargets] from a file's text: a CSV, or plain "466.075 Fire dispatch" lines. */
+    fun addPagerFile(current: String, text: String): Triple<String, Int, Int> {
+        val plain = text.lines().filter { it.isNotBlank() }.all { PLAIN_LINE.containsMatchIn(it) }
+        return addTargets(current, if (plain) targets(text).map { FreqNames.Name(it.freqHz, it.label, "") } else FreqNames.parseCsv(text, ""))
+    }
 
     /** [current] watched lines plus [names], up to the limit: the new text, how many were added, how many did not fit. */
     fun addTargets(current: String, names: List<FreqNames.Name>): Triple<String, Int, Int> {

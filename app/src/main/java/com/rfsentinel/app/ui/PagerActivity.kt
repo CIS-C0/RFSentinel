@@ -7,9 +7,12 @@ import android.view.View
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
+import com.google.android.material.chip.Chip
 import com.rfsentinel.app.databinding.ActivityLogBinding
 import com.rfsentinel.app.sdr.PagerLog
+import com.rfsentinel.app.sdr.RadioSettings
 import com.rfsentinel.app.sdr.SdrRadio
+import com.rfsentinel.app.util.Prefs
 import java.util.Locale
 
 /**
@@ -20,6 +23,7 @@ class PagerActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLogBinding
     private var rows: List<PagerLog.Row> = emptyList()
+    private var channels: Map<Long, String> = emptyMap()
     private val header by lazy {
         TextView(this).apply {
             textSize = 12f; alpha = 0.8f
@@ -31,7 +35,7 @@ class PagerActivity : AppCompatActivity() {
         labelText.text = "Capcode ${r.page.capcode}  ·  ${r.page.protocol}"
         macText.text = r.page.text.ifEmpty { "Tone only: no message" }
         metaText.text = listOfNotNull(
-            String.format(Locale.US, "%.4f MHz", r.hz / 1e6),
+            channels[r.hz] ?: String.format(Locale.US, "%.4f MHz", r.hz / 1e6),
             "cut off".takeIf { r.page.partial },
             DateUtils.getRelativeTimeSpanString(r.at, System.currentTimeMillis(), DateUtils.SECOND_IN_MILLIS)
         ).joinToString(" · ")
@@ -43,6 +47,30 @@ class PagerActivity : AppCompatActivity() {
         binding.searchInput.doAfterTextChanged { refresh() }
         binding.root.addView(header, 2)
         refreshWhileStarted(1_000) { refresh() }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        buildChips()
+    }
+
+    /** One tap to stay on a channel typed in Settings; All goes through them in turn. */
+    private fun buildChips() {
+        val list = RadioSettings.targets(Prefs.pagerFreqs(this))
+        channels = list.associate { it.freqHz to it.label }
+        binding.filterChips.removeAllViews()
+        if (list.size < 2) return
+        val on = Prefs.pagerChannel(this).takeIf { it in channels } ?: 0L
+        fun add(label: String, hz: Long) {
+            binding.filterChips.addView(Chip(this, null, com.google.android.material.R.attr.chipStyle).apply {
+                id = View.generateViewId(); text = label; isCheckable = true; isCheckedIconVisible = false
+                ChipStyle.apply(this)
+                isChecked = hz == on
+                setOnClickListener { Prefs.setPagerChannel(context, hz); SdrRadio.pagerChannel = hz }
+            })
+        }
+        add("All", 0L)
+        list.forEach { add(it.label, it.freqHz) }
     }
 
     override fun onSupportNavigateUp(): Boolean { finish(); return true }

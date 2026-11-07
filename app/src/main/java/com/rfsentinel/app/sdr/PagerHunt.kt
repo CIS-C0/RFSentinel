@@ -6,7 +6,7 @@ package com.rfsentinel.app.sdr
  * stays until nothing has decoded for [QUIET_S]. Paging transmitters can be silent between pages, so a channel missed now
  * shows up on a later look. Frequencies, capcodes and text stay off the log: counts and levels only.
  */
-class PagerHunt(private val sdr: SdrDevice, private val log: (String) -> Unit = {}) {
+class PagerHunt(private val sdr: SdrDevice, private val speeds: () -> Set<Int> = { PagerDemod.SPEEDS }, private val log: (String) -> Unit = {}) {
 
     /** Channels listened to in the last hunt, for the log. */
     var tried = 0; private set
@@ -45,7 +45,7 @@ class PagerHunt(private val sdr: SdrDevice, private val log: (String) -> Unit = 
         if (!sdr.tune(hz - OFFSET_HZ)) { log("Pager: the tuner didn't lock"); return false }
         sdr.resetBuffer()
         repeat(sdr.settleReads) { sdr.read(buf) }
-        val demod = PagerDemod(OFFSET_HZ) { onPage(it, hz) }
+        val demod = PagerDemod(OFFSET_HZ, speeds()) { onPage(it, hz) }
         var samples = 0L; var lastGood = 0L; var seen = 0; var fails = 0
         while (!stop()) {
             val n = sdr.read(buf)

@@ -2,7 +2,8 @@ package com.rfsentinel.app.sdr
 
 /**
  * Pages heard this session (the Pager messages screen). In memory only, on purpose: pages can hold private or medical
- * details, so they are never saved, exported or sent, and go when the app closes or the setting is turned off.
+ * details, so they are never saved, exported or sent, and go when the app closes or the setting is turned off. The one
+ * exception is the user's: Show page text in alerts puts a watched page on its notification.
  */
 class PagerLog {
 

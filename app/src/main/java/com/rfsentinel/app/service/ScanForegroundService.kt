@@ -75,6 +75,7 @@ class ScanForegroundService : Service() {
         private const val RADAR_HOLD_MS = 120_000L
         /** A watched talkgroup's call: the user asked for it, like a watched frequency. */
         const val P25_CONFIDENCE = 70
+        private const val PAGER_ALERT_GAP_MS = 60_000L
         /** A talkgroup's radio heard on the site's input, [snr] dB above the noise ([min]: the radio threshold): near you. */
         fun p25InputConfidence(snr: Int, min: Int) = if (snr >= min + 10) 75 else 60
         /** A talkgroup much busier than usual: probable, not certain (an event, a shift change, a drill). */
@@ -449,6 +450,8 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.sdr.SdrRadio.p25Listen = com.rfsentinel.app.sdr.SdrRadio.Listen.entries[Prefs.p25Listen(this)]
         com.rfsentinel.app.sdr.SdrRadio.p25Watched = com.rfsentinel.app.sdr.P25Log.watched(Prefs.p25Talkgroups(this))
         com.rfsentinel.app.sdr.SdrRadio.p25Mute = Prefs.p25Mute(this)
+        com.rfsentinel.app.sdr.SdrRadio.pagerChannel = Prefs.pagerChannel(this)
+        com.rfsentinel.app.sdr.SdrRadio.onPagerPage = { page -> pipeline.post { onPagerPage(page) } }
         com.rfsentinel.app.sdr.SdrRadio.onP25Input = { call, hz, snr -> pipeline.post { onP25Input(call, hz, snr) } }
         com.rfsentinel.app.sdr.SdrRadio.location = { (lastLocation ?: lastFix)?.let { it.latitude to it.longitude } }
         com.rfsentinel.app.sdr.SdrRadio.onAircraft = { planes, unlocated -> onlineWatch.localAircraft(planes, unlocated) }
@@ -1645,6 +1648,30 @@ class ScanForegroundService : Service() {
         val hit = Hit(Category.RADIO, "Talkgroup active: $called", P25_CONFIDENCE, detail, "P25 control channel (signalling only, no voice)")
         radioDetection(hit, "P25 TG $tg", 0, System.currentTimeMillis(), "p25:$tg", "Talkgroup $called active",
             P25_CONFIDENCE >= Prefs.alertThreshold(this, Category.RADIO), talkgroup = true)
+    }
+
+    private val pagerAlertAt = HashMap<String, Long>()
+
+    /**
+     * A page matching the watch list (Settings > RTL-SDR radio). Stays out of the detection history, and its text out of
+     * the alert log: pages are memory only. Paging networks repeat a page, so one watch alerts once per [PAGER_ALERT_GAP_MS].
+     */
+    private fun onPagerPage(page: com.rfsentinel.app.sdr.PagerLog.Page) {
+        if (!Prefs.categoryEnabled(this, Category.RADIO)) return
+        val rules = com.rfsentinel.app.sdr.PagerRules
+        val watch = rules.match(rules.watches(Prefs.pagerWatch(this)), page) ?: return
+        val key = "pager:" + (watch.capcode ?: watch.words)
+        val now = System.currentTimeMillis()
+        if (now - (pagerAlertAt[key] ?: 0L) < PAGER_ALERT_GAP_MS) return
+        if (P25_CONFIDENCE < Prefs.alertThreshold(this, Category.RADIO) || com.rfsentinel.app.data.AlertMutes.isMuted(this, key, now)) return
+        pagerAlertAt[key] = now
+        val called = watch.name.ifEmpty { "capcode ${watch.capcode}" }
+        val hit = Hit(Category.RADIO, "Pager watch: $called", P25_CONFIDENCE,
+            "A page matched your watch. Read it in Tools › Pager messages.", "Pager messages")
+        val off = alertsOff(hit.category) + Prefs.pagerAlertsOff(this)
+        NotificationHelper.sendMapAlert(this, key, hit, com.rfsentinel.app.ui.PagerActivity::class.java, banner = AlertKind.BANNER !in off,
+            shown = page.text.takeIf { it.isNotEmpty() && Prefs.pagerAlertText(this) })
+        AlertPlayer.play(this, hit.tier, "Pager watch $called", off = off)
     }
 
     /** A call's radio heard strongly on the site's input: it is keying up close to you. */

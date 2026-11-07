@@ -8,7 +8,7 @@ import kotlin.math.atan2
  * cut to 48 kS/s as for P25), FM-demodulates it and hands it to POCSAG at its three speeds and to FLEX at once: a
  * channel doesn't say which it is. Pure (no Android): unit-tested on a synthetic signal.
  */
-class PagerDemod(offsetHz: Long, onPage: (PagerLog.Page) -> Unit) {
+class PagerDemod(offsetHz: Long, speeds: Set<Int> = SPEEDS, onPage: (PagerLog.Page) -> Unit) {
 
     private class PocsagRx(baud: Int, onPage: (PagerLog.Page) -> Unit) {
         val decoder = Pocsag(baud, onPage)
@@ -21,7 +21,7 @@ class PagerDemod(offsetHz: Long, onPage: (PagerLog.Page) -> Unit) {
         }
     }
 
-    private val pocsag = listOf(512, 1200, 2400).map { PocsagRx(it, onPage) }
+    private val pocsag = speeds.map { PocsagRx(it, onPage) }
     private val flex = Flex(RATE, onPage)
     private val baseband = P25Record.Baseband(offsetHz, onSample = ::channelSample)
 
@@ -53,6 +53,8 @@ class PagerDemod(offsetHz: Long, onPage: (PagerLog.Page) -> Unit) {
     }
 
     companion object {
+        /** The POCSAG speeds in use around the world. */
+        val SPEEDS = setOf(512, 1200, 2400)
         private const val RATE = P25Demod.CHANNEL_RATE
         private const val CLOCK_RATE = 0.05
         private const val BOX = 6

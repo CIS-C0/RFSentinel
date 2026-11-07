@@ -102,6 +102,10 @@ object SdrRadio {
     val pagerLog = PagerLog()
     /** The paging channel to go back to on its next turn. */
     private var pagerHz: Long? = null
+    /** The Pager messages screen's chosen channel in Hz; 0 for all of them. */
+    @Volatile var pagerChannel = 0L
+    /** A page that wasn't ignored, for the watch alerts. */
+    @Volatile var onPagerPage: ((PagerLog.Page) -> Unit)? = null
     /** A call started on this talkgroup (the service alerts on watched ones). */
     @Volatile var onP25Call: ((Int) -> Unit)? = null
     /** Settings › RTL-SDR radio: after a call starts, briefly listen where its radio transmits (the site's input). */
@@ -664,23 +668,33 @@ object SdrRadio {
     private fun runPager(sdr: SdrDevice, name: String) {
         sdr.setGain(GAIN_TENTHS_DB)
         sdr.resetBuffer()
-        val hunt = PagerHunt(sdr) { UsbWifi.log("$deviceLabel: $it") }
+        val hunt = PagerHunt(sdr, { appContext?.let { com.rfsentinel.app.util.Prefs.pagerSpeeds(it) } ?: PagerDemod.SPEEDS }) {
+            UsbWifi.log("$deviceLabel: $it")
+        }
         var lastCheck = System.currentTimeMillis(); var away = false
         val stop = {
             val now = System.currentTimeMillis()
             if (now - lastCheck >= 2_000L) { lastCheck = now; away = gone(name) }
             halted || sdr.lost || away || !keeps(Mode.PAGER)
         }
-        val onPage = { page: PagerLog.Page, hz: Long -> pagerLog.add(page, hz, System.currentTimeMillis()) }
+        val onPage = { page: PagerLog.Page, hz: Long ->
+            val ignored = appContext?.let { page.capcode in PagerRules.ignored(com.rfsentinel.app.util.Prefs.pagerIgnore(it)) } == true
+            if (!ignored) {
+                pagerLog.add(page, hz, System.currentTimeMillis())
+                onPagerPage?.invoke(page)
+            }
+        }
         var next = 0
         while (!stop()) {
             // Frequencies typed in Settings: listen to those in turn, no scan.
-            val mine = appContext?.let { c -> RadioSettings.targets(com.rfsentinel.app.util.Prefs.pagerFreqs(c)).map { it.freqHz } }.orEmpty()
+            val typed = appContext?.let { c -> RadioSettings.targets(com.rfsentinel.app.util.Prefs.pagerFreqs(c)).map { it.freqHz } }.orEmpty()
+            val picked = pagerChannel
+            val mine = typed.filter { it == picked }.ifEmpty { typed }
             if (mine.isNotEmpty()) {
                 val hz = mine[next++ % mine.size]
                 status = "$deviceLabel · pagers · listening on %.4f MHz".format(java.util.Locale.US, hz / 1e6) + turnNote()
                 val from = System.currentTimeMillis()
-                hunt.listen(hz, stop, onPage)
+                hunt.listen(hz, { stop() || pagerChannel != picked }, onPage)
                 if (System.currentTimeMillis() - from < 1_000L) Thread.sleep(1_000L) // the tuner didn't lock: don't spin
                 continue
             }
