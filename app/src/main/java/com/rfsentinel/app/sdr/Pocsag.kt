@@ -57,7 +57,7 @@ internal fun pageText(codes: List<Int>): String = buildString {
  */
 class Pocsag(private val baud: Int, private val onPage: (PagerLog.Page) -> Unit) {
 
-    /** Batches that ended in a sync: a real POCSAG signal, even with no page in them. */
+    /** Batches that ended in a sync or held a page: a real POCSAG signal. */
     var batches = 0; private set
 
     private var reg = 0
@@ -88,8 +88,10 @@ class Pocsag(private val baud: Int, private val onPage: (PagerLog.Page) -> Unit)
 
     private fun word(w: Int) {
         if (at == BATCH) {
-            if (bitCount(w xor SYNC) <= SYNC_ERRORS) { batches++; at = 0; bad = 0 }
-            else { end(false); synced = false }
+            val sync = bitCount(w xor SYNC) <= SYNC_ERRORS
+            if (sync) { at = 0; bad = 0 } else { end(false); synced = false }
+            // A short page is one batch with no sync after it, but it passed the same checks as any page shown.
+            if (sync || pending.isNotEmpty()) batches++
             pending.forEach(onPage); pending.clear()
             return
         }

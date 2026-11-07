@@ -6,12 +6,18 @@ package com.rfsentinel.app.sdr
  * stays until nothing has decoded for [QUIET_S]. Paging transmitters can be silent between pages, so a channel missed now
  * shows up on a later look. Frequencies, capcodes and text stay off the log: counts and levels only.
  */
-class PagerHunt(private val sdr: SdrDevice, private val speeds: () -> Set<Int> = { PagerDemod.SPEEDS }, private val log: (String) -> Unit = {}) {
+class PagerHunt(
+    private val sdr: SdrDevice,
+    private val speeds: () -> Set<Int> = { PagerDemod.SPEEDS },
+    xfer: Int = XFER,
+    private val onStall: (Boolean) -> Unit = {},
+    private val log: (String) -> Unit = {},
+) {
 
     /** Channels listened to in the last hunt, for the log. */
     var tried = 0; private set
 
-    private val buf = ByteArray(XFER)
+    private val buf = ByteArray(xfer)
 
     /** The first paging channel that decodes, strongest first, or null. Pages heard on the way go to [onPage]. */
     fun hunt(stop: () -> Boolean, onPage: (PagerLog.Page, Long) -> Unit): Long? {
@@ -49,7 +55,15 @@ class PagerHunt(private val sdr: SdrDevice, private val speeds: () -> Set<Int> =
         var samples = 0L; var lastGood = 0L; var seen = 0; var fails = 0
         while (!stop()) {
             val n = sdr.read(buf)
-            if (n <= 0) { if (++fails % STALL_READS == 0) sdr.resetBuffer(); continue }
+            if (n <= 0) {
+                if (++fails % STALL_READS == 0) {
+                    if (fails <= STALL_READS * 3) log("Pager: no samples for $fails reads in a row - restarting the stream")
+                    onStall(true)
+                    sdr.resetBuffer()
+                }
+                continue
+            }
+            if (fails >= STALL_READS) onStall(false)
             fails = 0
             demod.feed(buf, n / 2); samples += n / 2
             if (demod.frames > seen) {

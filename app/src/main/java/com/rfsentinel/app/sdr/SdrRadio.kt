@@ -32,6 +32,8 @@ object SdrRadio {
     private const val NET = "net:"             // runningDevice of a network SDR
     private const val NET_RETRY_MS = 10_000L
     private const val XFER = 16_384           // bytes per USB read (8192 samples)
+    /** For continuous decoding: one read is ~33 ms of samples; Android before 9 caps a transfer at 16 KB. */
+    private val STREAM_XFER = if (android.os.Build.VERSION.SDK_INT >= 28) 131_072 else XFER
     private const val READS_PER_CHUNK = 8     // ~32 ms of samples per tuned chunk
     private const val TETRA_READS = 16        // ~64 ms: more than one TETRA frame, so a radio's slot is always in it
     private const val STALL_CHUNKS = 8        // chunks in a row without samples before the stream is restarted
@@ -357,8 +359,7 @@ object SdrRadio {
         sdr.resetBuffer()
         UsbWifi.log("$deviceLabel: ADS-B receiver on 1090 MHz, ${sdr.sampleRate} S/s, gain ${ADSB_GAIN_TENTHS_DB / 10.0} dB")
         status = "$deviceLabel · ADS-B · listening on 1090 MHz…" + turnNote()
-        // One read is ~33 ms of samples; Android before 9 caps a transfer at 16 KB.
-        val xfer = if (android.os.Build.VERSION.SDK_INT >= 28) 131_072 else XFER
+        val xfer = STREAM_XFER
         val buf = ByteArray(xfer)
         val mag = IntArray(xfer / 2 + 2 * ModeS.OVERLAP)
         var have = 0
@@ -668,7 +669,11 @@ object SdrRadio {
     private fun runPager(sdr: SdrDevice, name: String) {
         sdr.setGain(GAIN_TENTHS_DB)
         sdr.resetBuffer()
-        val hunt = PagerHunt(sdr, { appContext?.let { com.rfsentinel.app.util.Prefs.pagerSpeeds(it) } ?: PagerDemod.SPEEDS }) {
+        var shown = ""
+        fun show(text: String) { shown = text; status = text }
+        val hunt = PagerHunt(sdr, { appContext?.let { com.rfsentinel.app.util.Prefs.pagerSpeeds(it) } ?: PagerDemod.SPEEDS }, STREAM_XFER, { stalled ->
+            status = if (stalled) "$deviceLabel · pagers · no samples from the SDR · restarting it" + turnNote() else shown
+        }) {
             UsbWifi.log("$deviceLabel: $it")
         }
         var lastCheck = System.currentTimeMillis(); var away = false
@@ -692,24 +697,24 @@ object SdrRadio {
             val mine = typed.filter { it == picked }.ifEmpty { typed }
             if (mine.isNotEmpty()) {
                 val hz = mine[next++ % mine.size]
-                status = "$deviceLabel · pagers · listening on %.4f MHz".format(java.util.Locale.US, hz / 1e6) + turnNote()
+                show("$deviceLabel · pagers · listening on %.4f MHz".format(java.util.Locale.US, hz / 1e6) + turnNote())
                 val from = System.currentTimeMillis()
                 hunt.listen(hz, { stop() || pagerChannel != picked }, onPage)
                 if (System.currentTimeMillis() - from < 1_000L) Thread.sleep(1_000L) // the tuner didn't lock: don't spin
                 continue
             }
             val known = pagerHz
-            if (known == null) status = "$deviceLabel · pagers · looking for a paging channel…" + turnNote()
+            if (known == null) show("$deviceLabel · pagers · looking for a paging channel…" + turnNote())
             val hz = known ?: hunt.hunt(stop, onPage)
             if (hz == null) {
                 if (stop()) break
-                status = "$deviceLabel · pagers · nothing decoding here · looking again shortly" + turnNote()
+                show("$deviceLabel · pagers · nothing decoding here · looking again shortly" + turnNote())
                 val until = System.currentTimeMillis() + PAGER_RETRY_MS
                 while (!stop() && System.currentTimeMillis() < until) Thread.sleep(200)
                 continue
             }
             pagerHz = hz
-            status = "$deviceLabel · pagers · listening on %.4f MHz".format(java.util.Locale.US, hz / 1e6) + turnNote()
+            show("$deviceLabel · pagers · listening on %.4f MHz".format(java.util.Locale.US, hz / 1e6) + turnNote())
             val before = pagerLog.total
             val quiet = hunt.listen(hz, stop, onPage)
             if (quiet) pagerHz = null

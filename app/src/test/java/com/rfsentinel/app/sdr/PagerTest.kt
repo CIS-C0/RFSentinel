@@ -270,6 +270,8 @@ class PagerTest {
         override val tunerWriteFails = 0
         override val settleReads = 1
         var reads = 0
+        /** The next reads that fail. */
+        var stall = 0
         private var tuned = 0L
         private var iq = ByteArray(0)
         private var at = 0
@@ -288,6 +290,7 @@ class PagerTest {
         override fun resetBuffer() {}
         override fun read(buf: ByteArray, len: Int): Int {
             reads++
+            if (stall > 0) { stall--; return -1 }
             for (k in 0 until len) {
                 buf[k] = if (iq.isEmpty()) (127.5 + rnd.nextGaussian() * 3).roundToInt().coerceIn(0, 255).toByte() else iq[at]
                 if (iq.isNotEmpty()) at = (at + 1) % iq.size
@@ -307,6 +310,23 @@ class PagerTest {
         val until = dongle.reads + 1_000
         assertEquals(false, hunt.listen(hz, { dongle.reads > until }) { p, _ -> pages += p })
         assertTrue(pages.any { it.text == "Found you" })
+    }
+
+    @Test fun `listen reports a stall and when the samples come back`() {
+        val dongle = FakeDongle(929_612_500L, Fsk())
+        val stalls = ArrayList<Boolean>(); val logs = ArrayList<String>()
+        val hunt = PagerHunt(dongle, onStall = { stalls += it }, log = { logs += it })
+        dongle.stall = 9 // the settle read takes one, then one stall's worth
+        hunt.listen(929_612_500L, { dongle.reads > 20 }) { _, _ -> }
+        assertEquals(listOf(true, false), stalls)
+        assertEquals(1, logs.size)
+    }
+
+    @Test fun `a lone batch counts as a frame, so the hunt stays on a channel of short pages`() {
+        val words = pocsag(listOf(1234567 to listOf(address(1234567, 1)))).take(17)
+        val (pages, frames) = decode(pocsagSignal(1200, words).iq(OFFSET + CARRIER_ERROR_HZ))
+        assertEquals(listOf(PagerLog.Page("POCSAG 1200", 1234567, PagerLog.Kind.TONE, "")), pages)
+        assertEquals(1, frames)
     }
 
     @Test fun `nothing on the air means the hunt gives up`() {
