@@ -270,7 +270,7 @@ class PagerTest {
         override val lost = false
         override val tunerWriteFails = 0
         override val settleReads = 1
-        var reads = 0
+        @Volatile var reads = 0
         /** The next reads that fail. */
         var stall = 0
         private var tuned = 0L
