@@ -170,6 +170,14 @@ class DetectionTest {
         assertEquals(72, best(ble(mfg = mapOf(0x058E to "xxMETA_RB_GLASSxx".toByteArray())))?.confidence)
     }
 
+    @Test
+    fun theTrackerStandardFlagsOnlyASeparatedTag() {
+        val uuid = Advert.uuid16(0xFCB2)
+        assertEquals(Category.TRACKER, best(ble(data = mapOf(uuid to bytes(0x01, 0x00))))?.category)
+        assertNull(best(ble(data = mapOf(uuid to bytes(0x01, 0x01))))) // near its owner
+        assertNull(best(ble(data = mapOf(uuid to bytes(0x01)))))       // cut short
+    }
+
     // ---- Drones ----------------------------------------------------------------
 
     @Test
@@ -178,6 +186,7 @@ class DetectionTest {
         assertEquals(Category.DRONE, best(ble(mac = "EC:5B:CD:E1:23:45"))?.category) // Autel MA-M EC:5B:CD:E
         assertNull(best(ble(mac = "EC:5B:CD:01:23:45")))                            // same 24 bits, other /28 block
         assertNull(best(ble(mac = "62:60:1F:12:34:56")))                            // locally administered
+        assertNull(best(Advert("60:60:1F:12:34:56", Advert.Source.BLE, -60, null, addressType = AddressType.RESOLVABLE_PRIVATE))) // only looks like DJI's block
     }
 
     @Test

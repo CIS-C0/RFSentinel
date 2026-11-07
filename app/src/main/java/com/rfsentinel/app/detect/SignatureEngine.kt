@@ -25,11 +25,11 @@ object SignatureEngine {
     fun isAppleFindMy(hit: Hit) = hit.category == Category.TRACKER && hit.label.startsWith("Apple Find My")
 
     /**
-     * A tracker match whose tag says by itself that it's away from its owner (Apple Find My, Google Find Hub
-     * "separated" frames). Other tags (Tile, SmartTag, Chipolo...) don't, so the owner is inferred instead
+     * A tracker match whose tag says by itself that it's away from its owner (Apple Find My, Google Find Hub,
+     * unwanted-tracker standard "separated" frames). Other tags (Tile, SmartTag, Chipolo...) don't, so the owner is inferred instead
      * ([com.rfsentinel.app.service.DeviceRegistry.ownerPhone]).
      */
-    fun reportsOwnerState(hit: Hit) = isAppleFindMy(hit) || hit.label.startsWith("Google Find Hub")
+    fun reportsOwnerState(hit: Hit) = isAppleFindMy(hit) || hit.label.startsWith("Google Find Hub") || hit.label == DULT_LABEL
 
 
     private const val ACAB = "all-cameras-are-beacons signature reference (Apache-2.0)"
@@ -107,6 +107,8 @@ object SignatureEngine {
     )
     private const val UUID_REMOTE_ID = 0xFFFA      // ASTM Remote ID (SIG SDO UUID)
     private const val UUID_SMARTTAG = 0xFD5A       // Samsung Electronics
+    private const val UUID_DULT = 0xFCB2           // IETF unwanted-tracker standard: network ID, then the near-owner bit
+    private const val DULT_LABEL = "Location tracker away from its owner"
     private const val UUID_SMARTTAG_SETUP = 0xFD59 // Samsung Electronics (a SmartTag not yet registered)
     private const val UUID_TILE = 0xFEED           // Tile, Inc.
     private const val UUID_CHIPOLO = 0xFE33        // CHIPOLO d.o.o. (as AirGuard, SEEMOO / TU Darmstadt, Apache-2.0)
@@ -371,6 +373,13 @@ object SignatureEngine {
                     "Google Find Hub Network Accessory Spec; $ACAB")
             }
         }
+        a.serviceData[Advert.uuid16(UUID_DULT)]?.let { d ->
+            if (d.size >= 2 && Bytes.u8(d, 1) and 1 == 0) {
+                hits += Hit(Category.TRACKER, DULT_LABEL, 70,
+                    "Unwanted-tracker standard frame on UUID 0xFCB2, near-owner bit clear (separated state)",
+                    "IETF draft-ietf-dult-accessory-protocol-01")
+            }
+        }
         val smartTag = a.serviceData[Advert.uuid16(UUID_SMARTTAG)]?.takeIf { it.isNotEmpty() }
         if (smartTag != null) {
             hits += Hit(Category.TRACKER, "Samsung SmartTag", 55,
@@ -632,7 +641,7 @@ object SignatureEngine {
     private val DJI_HANDHELD = Regex("^(dji ?)?(osmo|om ?\\d|rs ?\\d|ronin|mic\\b|mic ?(mini|\\d))", RegexOption.IGNORE_CASE)
 
     private fun droneByPrefix(a: Advert): Hit? {
-        if (isLocallyAdministered(a.mac)) return null
+        if (a.randomBle || isLocallyAdministered(a.mac)) return null
         if (a.name?.trim()?.let { DJI_HANDHELD.containsMatchIn(it) } == true) return null
         val (prefix, vendor) = DRONE_PREFIXES.match(a.mac) ?: return null
         return Hit(Category.DRONE, "$vendor equipment (drone or controller)", 60,

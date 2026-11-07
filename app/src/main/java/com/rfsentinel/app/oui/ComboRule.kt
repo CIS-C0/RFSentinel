@@ -80,6 +80,8 @@ data class ComboRule(val conditions: List<Cond>) {
     companion object {
         const val PREFIX = "all:"
         const val SEP = " & "
+        /** Only an ampersand before a condition splits: "vendor~AT&T" is one condition. */
+        private val NEXT_COND = Regex("""&(?=\s*(?:noname|vendor~|name\^|name~|band=|probe=|type~|rssi>=))""", RegexOption.IGNORE_CASE)
         val BANDS = linkedMapOf("2.4" to "2.4 GHz", "5" to "5 GHz", "6" to "6 GHz", "bt" to "Bluetooth")
 
         /** The band of a WiFi channel ([mhz]) or Bluetooth. */
@@ -94,7 +96,7 @@ data class ComboRule(val conditions: List<Cond>) {
         /** The rule in [key], or null when it isn't one or a condition can't be read. */
         fun parse(key: String): ComboRule? {
             if (!key.startsWith(PREFIX, ignoreCase = true)) return null
-            val parts = key.substring(PREFIX.length).split("&").map { it.trim() }.filter { it.isNotEmpty() }
+            val parts = key.substring(PREFIX.length).split(NEXT_COND).map { it.trim() }.filter { it.isNotEmpty() }
             val conds = parts.map { p ->
                 fun after(op: String) = p.substringAfter(op).trim().takeIf { it.isNotEmpty() }
                 when {

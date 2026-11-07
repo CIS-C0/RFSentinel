@@ -94,7 +94,7 @@ object HackerWatch {
             return Hit(Category.OTHER_CAMERA, label, 65, "${if (a.source == Advert.Source.WIFI) "WiFi network" else "Advertised name"} " +
                 "\"$name\" (the camera's default name - names can be changed)", "Manufacturer defaults")
         }
-        OTHER_CAMERA_PREFIXES[prefix]?.let { label ->
+        OTHER_CAMERA_PREFIXES[prefix]?.takeUnless { a.randomBle }?.let { label ->
             return Hit(Category.OTHER_CAMERA, label, 75, "Address in the registered block ${prefix.chunked(2).joinToString(":")} " +
                 "(${VendorDb.macVendor(a.mac) ?: label})", reg)
         }
@@ -273,7 +273,7 @@ object HackerWatch {
 
     /**
      * Which finding network a tracker advert belongs to, or null. Only adverts no phone sends:
-     * Apple's separated Find My frame, Google Find Hub frames, Samsung SmartTag and Tile services.
+     * Apple's separated Find My frame, Google Find Hub frames, Samsung SmartTag and Tile services, the IETF tracker standard.
      */
     internal fun trackerNetwork(a: Advert): String? {
         if (a.source != Advert.Source.BLE) return null
@@ -282,6 +282,7 @@ object HackerWatch {
         val shorts = a.serviceData.keys.mapNotNull { Advert.shortOf(it) }
         if (shorts.any { it == 0xFD5A || it == 0xFD59 }) return "Samsung SmartTag"
         if (shorts.any { it == 0xFEED || it == 0xFEEC }) return "Tile"
+        if (0xFCB2 in shorts) return "Tracker standard"
         return null
     }
 

@@ -59,6 +59,12 @@ class Advert(
     )
 
     val isBle get() = source == Source.BLE
+    /**
+     * The radio reported a random address: its first bytes only look like a maker's block.
+     * shortcut: Android 14 and older don't report the type, so a random address can still read as a maker there; nothing to upgrade to.
+     */
+    val randomBle get() = addressType == AddressType.RANDOM_STATIC || addressType == AddressType.RESOLVABLE_PRIVATE ||
+        addressType == AddressType.NON_RESOLVABLE
     val isWifi get() = source == Source.WIFI
 
     companion object {

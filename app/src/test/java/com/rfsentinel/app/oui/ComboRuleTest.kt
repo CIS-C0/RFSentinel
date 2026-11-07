@@ -45,6 +45,13 @@ class ComboRuleTest {
     }
 
     @Test
+    fun anAmpersandInsideAValueStaysThere() {
+        val rule = ComboRule.parse("all:vendor~AT&T & noname")!!
+        assertEquals(2, rule.conditions.size)
+        assertEquals("all:vendor~AT&T & noname", rule.key)
+    }
+
+    @Test
     fun bands() {
         assertEquals("bt", ComboRule.band(true, null))
         assertEquals("2.4", ComboRule.band(false, 2437))

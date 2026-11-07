@@ -433,6 +433,11 @@ object DeviceIntel {
             }
             if (frame != null) { facts += "Google 0xFEAA frame" to frame; decide(frame, "Google 0xFEAA frame") }
         }
+        a.serviceData[Advert.uuid16(0xFCB2)]?.takeIf { it.size >= 2 }?.let { d ->
+            val state = if (Bytes.u8(d, 1) and 1 == 0) "Separated from owner" else "Near its owner"
+            facts += "Tracker standard state" to state
+            decide("Location tracker", "Tracker standard frame 0xFCB2")
+        }
 
         // GAP appearance (AD 0x19): the device's own statement of what it is.
         AdStructure.parse(a.rawBytes).firstOrNull { it.type == 0x19 && it.data.size >= 2 }?.let {
