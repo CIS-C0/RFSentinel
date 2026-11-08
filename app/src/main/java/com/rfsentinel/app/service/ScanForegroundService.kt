@@ -801,6 +801,9 @@ class ScanForegroundService : Service() {
         } else {
             prev
         }
+        // Whitelist rules (Ignore all like this...) look at its matches: before anything asks whether it's whitelisted.
+        if (com.rfsentinel.app.data.TrustRules.rules.isNotEmpty())
+            com.rfsentinel.app.data.TrustRules.onSeen(com.rfsentinel.app.data.TrustRules.factsOf(mac, a.name, c.vendor, c.hits, a))
 
         // Place devices only with a fresh, precise fix: a stale or WiFi/cell-based one
         // (often 100 m+ off) would put the dot far from where the device really was.

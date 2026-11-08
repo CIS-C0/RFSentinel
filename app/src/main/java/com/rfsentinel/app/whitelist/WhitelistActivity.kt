@@ -11,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.data.AppDatabase
+import com.rfsentinel.app.data.TrustRules
 import com.rfsentinel.app.data.TrustedNetworks
 import com.rfsentinel.app.data.WhitelistEntity
 import com.rfsentinel.app.databinding.ActivityWhitelistBinding
@@ -26,6 +27,10 @@ class WhitelistActivity : AppCompatActivity() {
     private lateinit var networkAdapter: WhitelistAdapter<TrustedNetworks.Rule>
     /** The Match dropdown's choice. */
     private var match = TrustedNetworks.Match.STARTS
+    private val rules = mutableListOf<TrustRules.Rule>()
+    private lateinit var ruleAdapter: WhitelistAdapter<TrustRules.Rule>
+    /** The Rule dropdown's choice. */
+    private var ruleKind = TrustRules.Kind.LABEL
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,7 +77,65 @@ class WhitelistActivity : AppCompatActivity() {
                 }
         }
 
+        setupRules(savedInstanceState)
         setupNetworks(savedInstanceState)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::ruleAdapter.isInitialized) showRules() // devices trusted now change while away
+    }
+
+    private fun setupRules(savedInstanceState: Bundle?) {
+        val choices = TrustRules.Kind.entries
+        binding.ruleKind.setAdapter(ArrayAdapter(this, android.R.layout.simple_list_item_1, choices.map { it.label }))
+        binding.ruleKind.setOnItemClickListener { _, _, position, _ -> setRuleKind(choices[position]) }
+        setRuleKind(savedInstanceState?.getInt(STATE_RULE)?.let { choices.getOrNull(it) } ?: TrustRules.Kind.LABEL)
+
+        ruleAdapter = WhitelistAdapter(rules, { it.describe }, { r ->
+            val n = TrustRules.count(r)
+            listOfNotNull(r.noteText.takeIf { it.isNotEmpty() && !r.describe.contains(it) },
+                if (n == 0) "None in range now" else "$n in range now").joinToString(" · ")
+        }) { rule ->
+            TrustRules.remove(this, rule)
+            showRules()
+            com.rfsentinel.app.util.Undo.show(this, "Removed ${rule.describe}") { TrustRules.add(this, rule); showRules() }
+        }
+        binding.ruleList.layoutManager = LinearLayoutManager(this)
+        binding.ruleList.adapter = ruleAdapter
+
+        binding.addRuleButton.setOnClickListener {
+            var text = binding.ruleInput.text.toString().trim()
+            if (text.isEmpty()) { binding.ruleInput.error = "Type what to match"; return@setOnClickListener }
+            if (ruleKind == TrustRules.Kind.PREFIX) {
+                text = MacUtil.normalize(text)
+                if (!MacUtil.isValidPrefix(text)) { binding.ruleInput.error = "Format: AA:BB:CC, 6 to 11 digits"; return@setOnClickListener }
+            }
+            TrustRules.add(this, TrustRules.Rule(ruleKind, text))
+            binding.ruleInput.text?.clear()
+            showRules()
+        }
+        showRules()
+    }
+
+    private fun setRuleKind(k: TrustRules.Kind) {
+        ruleKind = k
+        binding.ruleKind.setText(k.label, false) // false: keep every choice in the list
+        binding.ruleInput.hint = when (k) {
+            TrustRules.Kind.LABEL -> "What it is matched as, e.g. Zebra printer"
+            TrustRules.Kind.PREFIX -> "Start of the address, e.g. AC:23:3F"
+            TrustRules.Kind.STARTS -> "Start of the device name"
+            TrustRules.Kind.CONTAINS -> "Part of the device name"
+            TrustRules.Kind.VENDOR -> "Part of the maker's name, e.g. Zebra"
+            TrustRules.Kind.ADVERT -> "Advert pattern, from a device's details"
+            TrustRules.Kind.FINGERPRINT -> "Probe fingerprint, from a device's details"
+        }
+    }
+
+    private fun showRules() {
+        rules.clear()
+        rules.addAll(TrustRules.rules)
+        ruleAdapter.notifyDataSetChanged()
     }
 
     private fun setupNetworks(savedInstanceState: Bundle?) {
@@ -150,9 +213,11 @@ class WhitelistActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putInt(STATE_MATCH, match.ordinal)
+        outState.putInt(STATE_RULE, ruleKind.ordinal)
     }
 
     private companion object {
         const val STATE_MATCH = "networkMatch"
+        const val STATE_RULE = "ruleKind"
     }
 }

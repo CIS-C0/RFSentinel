@@ -16,6 +16,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.BuildConfig
 import com.rfsentinel.app.data.AppDatabase
 import com.rfsentinel.app.data.Favorites
+import com.rfsentinel.app.data.TrustRules
 import com.rfsentinel.app.data.TrustedNetworks
 import com.rfsentinel.app.data.WhitelistCache
 import com.rfsentinel.app.data.WhitelistEntity
@@ -109,8 +110,10 @@ object DeviceActions {
             addToWatchlist(activity, mac, snap?.name, snap?.advert?.isWifi == true)
         }
         val trustedName = !whitelisted && TrustedNetworks.contains(mac)
+        val trustRule = if (whitelisted) null else TrustRules.ruleOf(mac)
         when {
             trustedName -> items += "Remove network name from whitelist" to { untrustNetwork(activity, ssidOf(snap)) }
+            trustRule != null -> items += "Remove whitelist rule: ${trustRule.describe}" to { untrustRule(activity, trustRule) }
             ignoredTracker -> items += "Stop ignoring this tracker" to {
                 com.rfsentinel.app.data.TrackerMutes.unmute(activity, mac)
                 toast(activity, "Tracker no longer ignored")
@@ -120,6 +123,8 @@ object DeviceActions {
                 if (whitelisted) unwhitelist(activity, mac) else whitelist(activity, mac, snap?.best?.label ?: snap?.name ?: "", ssidOf(snap))
             }
         }
+        val best = snap?.best
+        if (best != null && !WhitelistCache.contains(mac)) items += "Ignore all like this (${best.label})" to { ignoreAllLikeThis(activity, mac) }
         items += (if (favorite) "Remove from favorites" else "Add to favorites ★") to {
             activity.lifecycleScope.launch {
                 Favorites.set(activity, mac, !favorite, snap?.name, snap?.vendor, snap?.deviceType)
@@ -475,60 +480,128 @@ object DeviceActions {
             .show()
     }
 
-    /** [ssid]: a WiFi network's name, offered as a choice too (every network of that name, whatever its address). */
+    /**
+     * Whitelist one device, or every device like it: the watchlist's ways the other way round (same match, maker,
+     * address prefix, name, Bluetooth advert pattern, probe fingerprint; [TrustRules]). [ssid]: a WiFi network's name,
+     * kept with the network names ([TrustedNetworks]).
+     */
     fun whitelist(activity: AppCompatActivity, mac: String, label: String, ssid: String? = null) {
-        fun addDevice() = activity.lifecycleScope.launch {
-            val dao = AppDatabase.getInstance(activity).whitelistDao()
-            val entry = WhitelistEntity(mac, label)
-            dao.add(entry)
-            com.rfsentinel.app.util.Undo.show(activity, "Whitelisted $mac") {
-                activity.lifecycleScope.launch { dao.remove(entry) }
-            }
-        }
-        val name = ssid?.trim().orEmpty()
-        if (name.isEmpty()) {
-            MaterialAlertDialogBuilder(activity)
-                .setTitle("Whitelist this device?")
-                .setMessage("$mac\n$label\n\nIt will be marked trusted and never logged, flashed or alerted on.")
-                .setPositiveButton("Whitelist") { _, _ -> addDevice() }
-                .setNegativeButton("Cancel", null)
-                .show()
-            return
-        }
-        // A network on many vehicles (a bus fleet's routers) has a new address on each: the start of its name
-        // catches them all ("SchoolBus-123" -> "SchoolBus-"), as on the watchlist.
+        val snap = DeviceRegistry.get(mac)
+        val wifiName = ssid?.trim().orEmpty()
+        val nameText = wifiName.ifEmpty { snap?.name?.trim().orEmpty() }
+        val best = snap?.best
+        val vendor = snap?.vendor?.trim()?.takeIf { it.isNotEmpty() }
+        val advKey = snap?.advert?.takeIf { it.isBle }?.let { com.rfsentinel.app.detect.AdvertFingerprint.key(it) }
+        val fp = com.rfsentinel.app.usb.ProbeIntel.of(mac)?.fingerprint
         val pad = (20 * activity.resources.displayMetrics.density).toInt()
-        val device = android.widget.RadioButton(activity).apply { id = View.generateViewId(); text = "Only this device ($mac)" }
-        val starts = android.widget.RadioButton(activity).apply { id = View.generateViewId(); text = "Every network whose name (SSID) starts with:" }
-        val startInput = EditText(activity).apply {
-            setText(name); setSelection(name.length); visibility = View.GONE
+        fun radio(t: String) = android.widget.RadioButton(activity).apply { id = View.generateViewId(); text = t }
+        fun input(t: String) = EditText(activity).apply {
+            setText(t); setSelection(t.length); visibility = View.GONE
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
         }
+        val device = radio("Only this device ($mac)")
+        val like = best?.let { radio("Ignore all like this: every device matched as \"${it.label}\"") }
+        val maker = vendor?.let { radio("Every device made by $it") }
+        // A random (private) address has no real maker prefix.
+        var digits = com.rfsentinel.app.detect.VendorDb.blockDigits(mac) ?: 6
+        val prefix = if (MacUtil.isRandomized(mac)) null else radio("")
+        fun showPrefix() { prefix?.text = "Every device whose address starts with ${MacUtil.prefix(mac, digits)} (${digits * 4} bits)" }
+        showPrefix()
+        val slider = prefix?.let {
+            com.google.android.material.slider.Slider(activity).apply {
+                valueFrom = 24f; valueTo = 44f; stepSize = 4f; value = (digits * 4f).coerceIn(24f, 44f); visibility = View.GONE
+                setLabelFormatter { "${it.toInt()} bits" }
+                addOnChangeListener { _, v, _ -> digits = v.toInt() / 4; showPrefix() }
+            }
+        }
+        val what = if (wifiName.isNotEmpty()) "network whose name (SSID)" else "device whose name"
+        val starts = nameText.takeIf { it.isNotEmpty() }?.let { radio("Every $what starts with:") }
+        val startInput = starts?.let { input(nameText) }
+        val contains = nameText.takeIf { it.isNotEmpty() }?.let { radio("Every $what contains:") }
+        val containsInput = contains?.let { input(nameText) }
+        val pattern = advKey?.let { radio("Every Bluetooth device with the same advert pattern ($it)") }
+        val type = fp?.let { radio("Every device of this type (probe fingerprint $it)") }
+        val warning = TextView(activity).apply {
+            visibility = View.GONE; setPadding(0, pad / 2, 0, 0)
+            text = if (best?.category == com.rfsentinel.app.detect.Category.PUBLIC_SAFETY)
+                "Careful: police and emergency equipment matching this won't alert you any more, even ones you have never seen."
+            else "Every matching device is trusted from now on, even ones you have never seen. Remove it under Whitelist > Rules."
+        }
+        val extras = listOf(prefix to slider, starts to startInput, contains to containsInput)
         val group = android.widget.RadioGroup(activity).apply {
-            addView(device); addView(starts); check(device.id)
+            listOfNotNull(device, like, maker, prefix, slider, starts, startInput, contains, containsInput, pattern, type).forEach { addView(it) }
+            check(device.id)
             setOnCheckedChangeListener { _, id ->
-                startInput.visibility = if (id == starts.id) View.VISIBLE else View.GONE
-                if (id == starts.id) startInput.requestFocus()
+                extras.forEach { (r, v) -> v?.visibility = if (r != null && r.id == id) View.VISIBLE else View.GONE }
+                warning.visibility = if (id == device.id) View.GONE else View.VISIBLE
+                extras.firstOrNull { (r, _) -> r != null && r.id == id }?.second?.takeIf { it is EditText }?.requestFocus()
             }
         }
         val box = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad / 2, pad, 0)
             addView(TextView(activity).apply { text = "Trusted, never logged, flashed or alerted on." })
-            addView(group); addView(startInput)
+            addView(group); addView(warning)
         }
         MaterialAlertDialogBuilder(activity)
             .setTitle("Whitelist")
-            .setView(box)
+            .setView(ScrollView(activity).apply { addView(box) })
             .setPositiveButton("Whitelist") { _, _ ->
-                if (group.checkedRadioButtonId != starts.id) { addDevice(); return@setPositiveButton }
-                val start = startInput.text.toString().trim()
-                if (start.isEmpty()) { toast(activity, "Not whitelisted: enter the start of the name"); return@setPositiveButton }
-                TrustedNetworks.save(activity, TrustedNetworks.Rule(start, TrustedNetworks.Match.STARTS))
-                toast(activity, "Networks starting with $start are whitelisted")
+                fun typed(e: EditText?) = e?.text?.toString()?.trim().orEmpty()
+                fun byName(match: TrustedNetworks.Match, kind: TrustRules.Kind, text: String) {
+                    if (text.isEmpty()) { toast(activity, "Not whitelisted: enter part of the name"); return }
+                    if (wifiName.isEmpty()) { trustRule(activity, TrustRules.Rule(kind, text, label)); return }
+                    val rule = TrustedNetworks.Rule(text, match)
+                    TrustedNetworks.save(activity, rule)
+                    com.rfsentinel.app.util.Undo.show(activity, "Whitelisted networks: ${rule.label} $text") { TrustedNetworks.remove(activity, rule) }
+                }
+                val id = group.checkedRadioButtonId
+                when {
+                    like != null && best != null && id == like.id -> trustRule(activity, TrustRules.Rule(TrustRules.Kind.LABEL, best.label, label))
+                    maker != null && vendor != null && id == maker.id -> trustRule(activity, TrustRules.Rule(TrustRules.Kind.VENDOR, vendor, label))
+                    prefix != null && id == prefix.id -> trustRule(activity, TrustRules.Rule(TrustRules.Kind.PREFIX, MacUtil.prefix(mac, digits), label))
+                    starts != null && id == starts.id -> byName(TrustedNetworks.Match.STARTS, TrustRules.Kind.STARTS, typed(startInput))
+                    contains != null && id == contains.id -> byName(TrustedNetworks.Match.CONTAINS, TrustRules.Kind.CONTAINS, typed(containsInput))
+                    pattern != null && advKey != null && id == pattern.id -> trustRule(activity, TrustRules.Rule(TrustRules.Kind.ADVERT, advKey, label))
+                    type != null && fp != null && id == type.id -> trustRule(activity, TrustRules.Rule(TrustRules.Kind.FINGERPRINT, fp, label))
+                    else -> activity.lifecycleScope.launch {
+                        val dao = AppDatabase.getInstance(activity).whitelistDao()
+                        val entry = WhitelistEntity(mac, label)
+                        dao.add(entry)
+                        com.rfsentinel.app.util.Undo.show(activity, "Whitelisted $mac") {
+                            activity.lifecycleScope.launch { dao.remove(entry) }
+                        }
+                    }
+                }
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    /** One tap from the long-press menu: whitelisting one Zebra printer this way hides every Zebra printer. */
+    fun ignoreAllLikeThis(activity: AppCompatActivity, mac: String) {
+        val best = DeviceRegistry.get(mac)?.best ?: return
+        val police = best.category == com.rfsentinel.app.detect.Category.PUBLIC_SAFETY
+        MaterialAlertDialogBuilder(activity)
+            .setTitle("Ignore all like this?")
+            .setMessage("Every device matched as \"${best.label}\" will be trusted: never logged, flashed or alerted on, " +
+                "even ones you have never seen." +
+                (if (police) "\n\nCareful: this is police or emergency equipment." else "") +
+                "\n\nUndo it under Whitelist > Rules.")
+            .setPositiveButton("Ignore all") { _, _ -> trustRule(activity, TrustRules.Rule(TrustRules.Kind.LABEL, best.label, best.label)) }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    fun trustRule(activity: AppCompatActivity, rule: TrustRules.Rule) {
+        TrustRules.add(activity, rule)
+        com.rfsentinel.app.util.Undo.show(activity, "Whitelisted: ${rule.describe}") { TrustRules.remove(activity, rule) }
+    }
+
+    /** The device is trusted by a whitelist rule: that rule comes off (with Undo). */
+    fun untrustRule(activity: AppCompatActivity, rule: TrustRules.Rule) {
+        TrustRules.remove(activity, rule)
+        com.rfsentinel.app.util.Undo.show(activity, "Removed rule: ${rule.describe}") { TrustRules.add(activity, rule) }
     }
 
     /** The device is trusted by its network name: that name comes off the whitelist (with Undo). */
