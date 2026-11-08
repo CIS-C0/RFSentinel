@@ -45,6 +45,9 @@ object Prefs {
     fun bleExtendedRunning(context: Context): Boolean = bool(context, "ble_ext_running", false)
     fun setBleExtendedRunning(context: Context, v: Boolean) = setBool(context, "ble_ext_running", v)
     fun setBleScanMode(context: Context, value: Int) = setInt(context, "ble_scan_mode", value)
+    /** Lighter Bluetooth scan while Bluetooth audio (headphones, car, speaker) is connected, so music doesn't stutter. */
+    fun bleEaseForAudio(context: Context) = bool(context, "ble_ease_audio", false)
+    fun setBleEaseForAudio(context: Context, on: Boolean) = setBool(context, "ble_ease_audio", on)
 
     fun autoStartOnBoot(context: Context): Boolean = bool(context, "auto_start_boot", false)
     fun setAutoStartOnBoot(context: Context, value: Boolean) = setBool(context, "auto_start_boot", value)

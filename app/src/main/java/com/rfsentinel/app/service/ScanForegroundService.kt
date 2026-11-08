@@ -566,7 +566,29 @@ class ScanForegroundService : Service() {
 
     // Exact addresses only: a name rule can be 17 characters long too.
     private fun bleWatched() = OuiWatchlist.allEntries().filter { it.isCustom && com.rfsentinel.app.util.MacUtil.isValidMac(it.prefix) }.map { it.prefix }
-    private fun bleSettingsKey() = "${Prefs.bleScanMode(this)}|${bleWatched()}"
+    private fun bleSettingsKey() = "${bleMode()}|${bleEased()}|${bleWatched()}"
+
+    /** Settings › Ease off for Bluetooth audio, with headphones, a car or a speaker connected. */
+    private fun bleEased(): Boolean {
+        if (!Prefs.bleEaseForAudio(this)) return false
+        val am = getSystemService(AUDIO_SERVICE) as? android.media.AudioManager ?: return false
+        val bt = setOf(android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+            android.media.AudioDeviceInfo.TYPE_HEARING_AID, android.media.AudioDeviceInfo.TYPE_BLE_HEADSET,
+            android.media.AudioDeviceInfo.TYPE_BLE_SPEAKER, android.media.AudioDeviceInfo.TYPE_BLE_BROADCAST)
+        return am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).any { it.type in bt }
+    }
+
+    /** Maximum drops to Balanced while eased; Balanced and Battery saver stay as they are. */
+    private fun bleMode(): Int = Prefs.bleScanMode(this).let {
+        if (it == android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_LATENCY && bleEased()) android.bluetooth.le.ScanSettings.SCAN_MODE_BALANCED else it
+    }
+
+    /** Bluetooth audio coming and going re-checks the scan (restarted only when easing changes it). */
+    private val audioDevices = object : android.media.AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(added: Array<out android.media.AudioDeviceInfo>) { if (isRunning) applyBle() }
+        override fun onAudioDevicesRemoved(removed: Array<out android.media.AudioDeviceInfo>) { if (isRunning) applyBle() }
+    }
+    private var audioDevicesWatched = false
     /** [bleSettingsKey] of the running scan. */
     private var bleStartedWith = ""
 
@@ -576,6 +598,12 @@ class ScanForegroundService : Service() {
      */
     private fun applyBle() {
         val toBoard = !Prefs.ouiSpyPhoneBle(this) && Prefs.ouiSpyBoard(this) != null && com.rfsentinel.app.esp.OuiSpyBle.live
+        if (Prefs.bleEaseForAudio(this) != audioDevicesWatched) {
+            val am = getSystemService(AUDIO_SERVICE) as android.media.AudioManager
+            if (audioDevicesWatched) am.unregisterAudioDeviceCallback(audioDevices)
+            else am.registerAudioDeviceCallback(audioDevices, android.os.Handler(Looper.getMainLooper()))
+            audioDevicesWatched = !audioDevicesWatched
+        }
         if (Prefs.bleEnabled(this) && !toBoard) {
             if (!bleEngine.isScanning() || bleSettingsKey() != bleStartedWith) { bleEngine.stop(); startBle() }
         } else stopBle()
@@ -585,7 +613,7 @@ class ScanForegroundService : Service() {
         bleStartedAt = System.currentTimeMillis()
         val watched = bleWatched()
         bleStartedWith = bleSettingsKey()
-        bleEngine.start(Prefs.bleScanMode(this), watched)
+        bleEngine.start(bleMode(), watched, bleEased())
         bleRestartJob?.cancel()
         bleRestartJob = serviceScope.launch {
             while (isActive) {
@@ -593,7 +621,7 @@ class ScanForegroundService : Service() {
                 bleEngine.stop()
                 delay(1_000)
                 bleStartedAt = System.currentTimeMillis()
-                bleEngine.start(Prefs.bleScanMode(this@ScanForegroundService), watched)
+                bleEngine.start(bleMode(), watched, bleEased())
             }
         }
     }
@@ -2036,6 +2064,10 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.usb.ProbeIntel.clear()
         com.rfsentinel.app.data.ProbeLog.flush(this)
         nanRemoteId?.stop()
+        if (audioDevicesWatched) {
+            (getSystemService(AUDIO_SERVICE) as android.media.AudioManager).unregisterAudioDeviceCallback(audioDevices)
+            audioDevicesWatched = false
+        }
         bleEngine.stop()
         wifiEngine.stop()
         if (btStateReceiverRegistered) {

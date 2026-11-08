@@ -70,9 +70,10 @@ class BleScanEngine(
     /**
      * @param scanMode a ScanSettings.SCAN_MODE_* constant
      * @param watchedMacs exact-device watchlist addresses to keep watching with the screen off
+     * @param eased no long-range (LE Coded) scan: it takes the most radio time from Bluetooth audio
      */
     @SuppressLint("MissingPermission")
-    fun start(scanMode: Int, watchedMacs: List<String>) {
+    fun start(scanMode: Int, watchedMacs: List<String>, eased: Boolean = false) {
         if (scanning) return
         // A previous unfiltered scan may have failed on its own while the filtered one kept running.
         stop()
@@ -94,7 +95,7 @@ class BleScanEngine(
             .setNumOfMatches(ScanSettings.MATCH_NUM_ONE_ADVERTISEMENT)
             .apply {
                 // Extended advertising (BT5) and LE Coded (long-range) PHY where the radio supports it.
-                if (extended) setLegacy(false).setPhy(ScanSettings.PHY_LE_ALL_SUPPORTED)
+                if (extended) setLegacy(false).setPhy(if (eased) android.bluetooth.BluetoothDevice.PHY_LE_1M else ScanSettings.PHY_LE_ALL_SUPPORTED)
             }.build()
         fun begin(): Boolean = try {
             scanner?.startScan(null, settings(scanMode), callback); true

@@ -1186,6 +1186,7 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.batteryButton, "Opens Android's battery settings: set RF Sentinel to Unrestricted so scanning keeps going with the screen off.")
         info(binding.carAutoSwitch, "Starts scanning when the phone connects to your car's Bluetooth or Android Auto, and stops when you leave.")
         info(binding.carRecordSwitch, "Records a GPS trace when the phone connects to your car's Bluetooth or Android Auto, and saves it when you leave. Starts scanning too if it isn't running. A trace you started yourself is never stopped.")
+        info(binding.bleEaseSwitch, "While headphones, a car or a speaker plays over Bluetooth, the scan drops from Maximum to Balanced and stops listening for long-range devices, so the music doesn't cut out. It catches a few fewer faint devices meanwhile, and goes back as soon as the audio disconnects.")
         info(binding.carMusicSwitch, "When the phone connects to your car's Bluetooth, starts the music app you choose and presses Play, even if the app isn't open. Android doesn't let an app open another app's screen in the background, so its screen stays closed.")
         info(binding.presetLabel, PRESETS_INFO)
         info(binding.thresholdLabel, "Weak: every match, more false alarms.\n\nProbable: recommended.\n\nStrong only: the fewest alerts.\n\n" +
@@ -2754,6 +2755,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.wifiSwitch.isChecked = Prefs.wifiEnabled(this)
         binding.wifiBandGroup.checkIndex(Prefs.wifiBand(this).ordinal)
         binding.scanModeGroup.checkIndex(SCAN_MODES.indexOf(Prefs.bleScanMode(this)).coerceAtLeast(0))
+        binding.bleEaseSwitch.isChecked = Prefs.bleEaseForAudio(this)
         binding.intervalInput.setText((Prefs.scanIntervalMs(this) / 1000).toString())
         binding.wifiThrottleButton.setOnClickListener { openWifiThrottleSetting() }
         binding.disable2gButton.setOnClickListener {
@@ -3174,6 +3176,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setWifiEnabled(this, binding.wifiSwitch.isChecked)
         Prefs.setWifiBand(this, Prefs.WifiBand.entries.getOrElse(binding.wifiBandGroup.checkedIndex) { Prefs.WifiBand.ALL })
         Prefs.setBleScanMode(this, SCAN_MODES.getOrElse(binding.scanModeGroup.checkedIndex) { ScanSettings.SCAN_MODE_LOW_LATENCY })
+        Prefs.setBleEaseForAudio(this, binding.bleEaseSwitch.isChecked)
         val intervalSec = binding.intervalInput.text.toString().toLongOrNull() ?: 30L
         Prefs.setScanIntervalMs(this, intervalSec.coerceAtLeast(5) * 1000L)
         Prefs.setAutoStartOnBoot(this, binding.bootSwitch.isChecked)

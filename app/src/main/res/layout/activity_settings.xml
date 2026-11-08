@@ -150,6 +150,11 @@
                 <RadioButton style="@style/SettingsControl" android:id="@+id/scanModeLowPower" android:text="Battery saver" />
             </RadioGroup>
 
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
+                android:id="@+id/bleEaseSwitch"
+                android:text="Ease off for Bluetooth audio" />
+
             <TextView android:id="@+id/intervalLabel" style="@style/SettingsLabel" android:text="WiFi scan interval" />
 
             <EditText
