@@ -62,6 +62,8 @@ object MeshNode {
     @Volatile var ready = false; private set
     @Volatile var lastSent = 0L; private set
     @Volatile var lastHeard = 0L; private set
+    /** Any packet from another node, on any channel: the node hears the mesh at all. */
+    @Volatile var lastAnyHeard = 0L; private set
     private val listeners = CopyOnWriteArrayList<() -> Unit>()
     fun addListener(l: () -> Unit) { listeners += l }
     fun removeListener(l: () -> Unit) { listeners -= l }
@@ -429,10 +431,13 @@ object MeshNode {
             is MeshProto.From.ExtNotif -> extNotif = m
             is MeshProto.From.Lora -> { hopLimit = if (m.hopLimit in 1..7) m.hopLimit else 3; region = m.region; txEnabled = m.txEnabled }
             is MeshProto.From.ConfigComplete -> configDone()
-            is MeshProto.From.Packet -> if (m.port == MeshProto.PORT_PRIVATE_APP && (channelIndex < 0 || m.channel == channelIndex)) {
-                lastHeard = System.currentTimeMillis()
-                onPacket?.invoke(m.payload)
-                changed()
+            is MeshProto.From.Packet -> {
+                if (m.from != myNode) lastAnyHeard = System.currentTimeMillis()
+                if (m.port == MeshProto.PORT_PRIVATE_APP && (channelIndex < 0 || m.channel == channelIndex)) {
+                    lastHeard = System.currentTimeMillis()
+                    onPacket?.invoke(m.payload)
+                    changed()
+                }
             }
             is MeshProto.From.Queue -> if (m.res != 0) Log.i(TAG, "node queue: ${m.res}, ${m.free} free")
             MeshProto.From.Rebooted -> lost("restarted")

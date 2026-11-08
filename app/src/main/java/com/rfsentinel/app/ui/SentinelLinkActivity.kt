@@ -430,7 +430,9 @@ class SentinelLinkActivity : AppCompatActivity() {
             else -> MeshNode.status.ifBlank { "Starting…" } +
                 (MeshNode.lastSent.takeIf { it > 0 }?.let { " · sent " + DateUtils.getRelativeTimeSpanString(it, System.currentTimeMillis(), DateUtils.SECOND_IN_MILLIS) } ?: "") +
                 // Heard: an RF Sentinel packet came in on the channel (sent but never heard: the other node isn't reached).
-                (MeshNode.lastHeard.takeIf { it > 0 }?.let { " · heard " + DateUtils.getRelativeTimeSpanString(it, System.currentTimeMillis(), DateUtils.SECOND_IN_MILLIS) } ?: if (MeshNode.canSend) " · nothing heard yet" else "")
+                (MeshNode.lastHeard.takeIf { it > 0 }?.let { " · heard " + DateUtils.getRelativeTimeSpanString(it, System.currentTimeMillis(), DateUtils.SECOND_IN_MILLIS) } ?: if (!MeshNode.canSend) "" else if (MeshNode.lastAnyHeard > 0) " · nothing from the group yet (the node hears other traffic)" else " · nothing heard yet") +
+                (PhoneLink.meshForeign.takeIf { it > 0 }?.let { " · $it from another group or version" } ?: "") +
+                (PhoneLink.meshStale.takeIf { it > 0 }?.let { " · $it too old (check the phones' clocks)" } ?: "")
         }
 
         list.removeAllViews()

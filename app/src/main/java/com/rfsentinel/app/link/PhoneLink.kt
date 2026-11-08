@@ -130,6 +130,9 @@ object PhoneLink {
     /** When each Sentinel was last heard over the mesh (Meshtastic node), and through the internet relay (MQTT). */
     val lastHeardMesh = ConcurrentHashMap<Long, Long>()
     val lastHeardNet = ConcurrentHashMap<Long, Long>()
+    /** Mesh packets that came in but were dropped: not this group's (or another version), or sent too long ago. */
+    @Volatile var meshForeign = 0; private set
+    @Volatile var meshStale = 0; private set
 
     private val listeners = CopyOnWriteArraySet<() -> Unit>()
     fun addListener(l: () -> Unit) { listeners += l }
@@ -798,11 +801,11 @@ object PhoneLink {
     fun meshIn(payload: ByteArray, viaNet: Boolean = false) = h.post {
         if (onBatch == null) return@post
         val key = meshKey ?: return@post
-        val m = MeshCodec.open(key, payload) ?: return@post
+        val m = MeshCodec.open(key, payload) ?: run { meshForeign++; changed(); return@post }
         if (m.origin == myId) return@post
         val now = System.currentTimeMillis()
         // Kept from being replayed much later (phones' clocks are close enough).
-        if (kotlin.math.abs(now - m.time) > MESH_MAX_SKEW_MS) return@post
+        if (kotlin.math.abs(now - m.time) > MESH_MAX_SKEW_MS) { meshStale++; changed(); return@post }
         val c = ctx ?: return@post
         m.name?.let { if (LinkStore.addMembers(c, listOf(LinkCodec.Member(m.origin, it)))) names = LinkStore.members(c).associate { x -> x.id to x.name } }
         lastHeard[m.origin] = now
