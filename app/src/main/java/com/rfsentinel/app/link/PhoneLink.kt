@@ -136,8 +136,11 @@ object PhoneLink {
     fun removeListener(l: () -> Unit) { listeners -= l }
     private fun changed() = main.post { listeners.forEach { it() } }
 
-    /** What another Sentinel heard ([LinkCodec.Batch]) and that Sentinel's name; called on the link thread. */
-    @Volatile private var onBatch: ((LinkCodec.Batch, String) -> Unit)? = null
+    /** How a batch came: straight over Bluetooth, through the Meshtastic node, or through the internet relay (MQTT). */
+    enum class Path { BLUETOOTH, MESH, NET }
+
+    /** What another Sentinel heard ([LinkCodec.Batch]), that Sentinel's name and how it came; called on the link thread. */
+    @Volatile private var onBatch: ((LinkCodec.Batch, String, Path) -> Unit)? = null
 
     fun canUse(context: Context) = Build.VERSION.SDK_INT < 31 ||
         (Permissions.granted(context, android.Manifest.permission.BLUETOOTH_CONNECT) &&
@@ -147,8 +150,18 @@ object PhoneLink {
 
     // ---------------------------------------------------------------- sharing (the scan service)
 
-    /** Starts sharing with the group (scanning started with a group and sharing on). */
-    fun start(context: Context, batches: (LinkCodec.Batch, String) -> Unit) {
+    /** Takes in what the group sends over the mesh or the internet relay, with Bluetooth sharing on or off. */
+    fun listen(context: Context, batches: (LinkCodec.Batch, String, Path) -> Unit) = h.post {
+        ctx = context.applicationContext
+        onBatch = batches
+        loadGroup()
+    }
+
+    /** Nothing takes in batches any more (the scan stopped, or every way of linking is off). */
+    fun unlisten() = h.post { onBatch = null }
+
+    /** Starts sharing with the group over Bluetooth (scanning started with a group and sharing on). */
+    fun start(context: Context, batches: (LinkCodec.Batch, String, Path) -> Unit) {
         h.post {
             ctx = context.applicationContext
             onBatch = batches
@@ -165,7 +178,6 @@ object PhoneLink {
     fun stop() = h.post {
         if (!sharing) return@post
         sharing = false
-        onBatch = null
         links.filter { !it.pairing }.forEach { close(it) }
         refreshAdvert()
         maybeStopServer()
@@ -766,7 +778,7 @@ object PhoneLink {
         if (b.origin == myId || !seen.first(b.origin, b.seq)) return
         lastHeard[b.origin] = System.currentTimeMillis()
         l.peer?.id?.let { lastHeard[it] = System.currentTimeMillis() }
-        onBatch?.invoke(b, nameOf(b.origin))
+        onBatch?.invoke(b, nameOf(b.origin), Path.BLUETOOTH)
         relay(b, l)
     }
 
@@ -784,7 +796,7 @@ object PhoneLink {
      * to the Sentinels linked here over Bluetooth (each one shows it once, whichever way it arrives first).
      */
     fun meshIn(payload: ByteArray, viaNet: Boolean = false) = h.post {
-        if (!sharing) return@post
+        if (onBatch == null) return@post
         val key = meshKey ?: return@post
         val m = MeshCodec.open(key, payload) ?: return@post
         if (m.origin == myId) return@post
@@ -797,7 +809,7 @@ object PhoneLink {
         (if (viaNet) lastHeardNet else lastHeardMesh)[m.origin] = now
         val b = MeshCodec.toBatch(m)
         if (seen.first(b.origin, b.seq)) {
-            onBatch?.invoke(b, nameOf(b.origin))
+            onBatch?.invoke(b, nameOf(b.origin), if (viaNet) Path.NET else Path.MESH)
             relay(b, null)
         }
         changed()

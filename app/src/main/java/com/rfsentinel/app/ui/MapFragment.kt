@@ -596,6 +596,7 @@ class MapFragment : Fragment() {
             b.osmCredit.translationX = brandW * d - b.osmCredit.left
             b.osmCredit.translationY = (y + (rowH - b.osmCredit.height) / 2).toFloat()
             b.scaleBar.translationY = (y + maxOf(rowH, b.osmCredit.height) + gap / 2).toFloat()
+            placeGauge()
             return
         }
         b.scaleBar.translationY = y.toFloat()
@@ -605,7 +606,12 @@ class MapFragment : Fragment() {
         b.osmCredit.translationX = if (atEnd && b.osmCredit.width > 0) (b.root.width - b.osmCredit.width - b.osmCredit.left - gap).toFloat() else 0f
         // Mapbox's logo and info button just under the credit line.
         engine?.placeBranding(y + scaleH + b.osmCredit.height + gap / 2, atEnd)
+        placeGauge()
     }
+
+    /** The CCTV line on one short line for the small pane: "CCTV 7/8 · 60 found". */
+    private fun shortCctv(line: String) =
+        line.replace("CCTV: downloading around you, ", "CCTV ").replace(" areas, ", " · ").replace(" area, ", " · ")
 
     private fun updateScale() {
         val m = map ?: return
@@ -900,7 +906,10 @@ class MapFragment : Fragment() {
         }
         val row = b.compactControls
         if (row.visibility == View.VISIBLE && row.height > 0) top = minOf(top, row.top + row.translationY)
-        g.translationY = -(b.root.height - top + 8 * d)
+        // Never over the scale and the credit line at the top left: a short pane gives up the gap above the buttons first.
+        val below = listOf(b.osmCredit, b.scaleBar).filter { it.visibility == View.VISIBLE && it.height > 0 }
+            .maxOfOrNull { it.top + it.translationY + it.height + 4 * d } ?: 0f
+        g.translationY = maxOf(-(b.root.height - top + 8 * d), below - g.top)
     }
 
     // ---- Hiding the bars -------------------------------------------------------------------------------
@@ -1409,8 +1418,12 @@ class MapFragment : Fragment() {
             embedded -> null
             else -> "Scanning · ${drawn.size} on map" + if (filter != DeviceFilter.ALL) " (${filter.label} only)" else ""
         }
-        val text = listOfNotNull(status, cctv).joinToString("\n")
+        // The small pane has no height to spare (scale, credit, speed and buttons share it): one short line each.
+        val lines = listOfNotNull(status, cctv?.let { if (embedded) shortCctv(it) else it })
+        val text = lines.joinToString("\n")
         binding.statusText.text = text
+        binding.statusText.maxLines = if (embedded) lines.size.coerceAtLeast(1) else Int.MAX_VALUE
+        binding.statusText.ellipsize = if (embedded) android.text.TextUtils.TruncateAt.END else null
         binding.statusText.visibility = if (text.isEmpty() || (immersive && !Navigator.active)) View.GONE else View.VISIBLE
         downloadShown = download != null || cctv != null
         val dismissable = (showRec || downloadShown) && binding.statusText.visibility == View.VISIBLE

@@ -52,7 +52,7 @@ class PagerHunt(
         sdr.resetBuffer()
         repeat(sdr.settleReads) { sdr.read(buf) }
         val demod = PagerDemod(OFFSET_HZ, speeds()) { onPage(it, hz) }
-        var samples = 0L; var lastGood = 0L; var seen = 0; var fails = 0
+        var samples = 0L; var lastGood = 0L; var seen = 0; var fails = 0; var lastRow = 0L
         val began = System.nanoTime()
         val ahead = ReadAhead(sdr, buf.size)
         try { while (!stop()) {
@@ -69,6 +69,15 @@ class PagerHunt(
             if (fails >= STALL_READS) onStall(false)
             fails = 0
             demod.feed(buf, n / 2); samples += n / 2
+            // The waterfall screen open: a row of the channel now and then (one small FFT, well under a read's time).
+            SdrWaterfall.listener?.let { l ->
+                val now = System.currentTimeMillis()
+                if (now - lastRow >= ROW_MS && n >= 2 * 1024) {
+                    lastRow = now
+                    val rate = P25Demod.SAMPLE_RATE.toInt()
+                    l(SdrWaterfall.Row(listOf(SdrWaterfall.segment(hz - OFFSET_HZ, RadioWatch.powerSpectrum(buf, n / 2), rate, rate * 0.45, null)), tuned = true, at = now))
+                }
+            }
             if (demod.frames > seen) {
                 seen = demod.frames; lastGood = samples
                 if (once) break
@@ -93,5 +102,6 @@ class PagerHunt(
         /** Under the shortest turn: a channel gone silent must be noticed within a turn, not start over each time. */
         const val QUIET_S = 25.0
         private const val STALL_READS = 8
+        private const val ROW_MS = 100L
     }
 }

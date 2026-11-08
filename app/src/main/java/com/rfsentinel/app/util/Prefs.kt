@@ -349,6 +349,13 @@ object Prefs {
     fun setAircraftCircling(context: Context, v: Boolean) = setBool(context, "aircraft_circling", v)
 
     /** How close a police or government aircraft has to be to alert. */
+    /** Seconds between two asks to the online ADS-B feeds. */
+    fun aircraftPollSec(context: Context): Int = int(context, "aircraft_poll_sec", 60).coerceIn(AIRCRAFT_POLL_MIN, AIRCRAFT_POLL_MAX)
+    fun setAircraftPollSec(context: Context, s: Int) = setInt(context, "aircraft_poll_sec", s.coerceIn(AIRCRAFT_POLL_MIN, AIRCRAFT_POLL_MAX))
+    // The feeds are free community services: 10 s keeps well under their rate limits.
+    const val AIRCRAFT_POLL_MIN = 10
+    const val AIRCRAFT_POLL_MAX = 120
+
     fun aircraftAlertKm(context: Context): Int = int(context, "aircraft_alert_km", 5).coerceIn(1, 20)
     fun setAircraftAlertKm(context: Context, km: Int) = setInt(context, "aircraft_alert_km", km.coerceIn(1, 20))
 
@@ -702,6 +709,9 @@ object Prefs {
     /** The channel picked on the Pager messages screen, in Hz; 0 listens to all of [pagerFreqs]. */
     fun pagerChannel(context: Context): Long = sp(context).getLong("pager_channel", 0L)
     fun setPagerChannel(context: Context, hz: Long) = sp(context).edit { putLong("pager_channel", hz) }
+    /** Pager messages screen: tone-only pages (no text) left out of the list, only counted. */
+    fun pagerHideTone(context: Context) = bool(context, "pager_hide_tone", false)
+    fun setPagerHideTone(context: Context, v: Boolean) = setBool(context, "pager_hide_tone", v)
     /** The POCSAG speeds to decode; all by default. */
     fun pagerSpeeds(context: Context): Set<Int> = sp(context).getString("pager_speeds", null)
         ?.split(",")?.mapNotNull { it.toIntOrNull() }?.toSet() ?: com.rfsentinel.app.sdr.PagerDemod.SPEEDS

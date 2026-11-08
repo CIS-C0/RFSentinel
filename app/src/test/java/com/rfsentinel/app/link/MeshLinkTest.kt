@@ -169,4 +169,34 @@ class MeshLinkTest {
         // Not heard for a while: not sent.
         assertTrue(box.take(63_000 + MeshOutbox.FRESH_MS + 1, MeshCodec.MAX_BODY).isEmpty())
     }
+
+    @Test
+    fun silencingTheBuzzerKeepsTheNodesOtherAlertSettings() {
+        // FromRadio.moduleConfig (9) > ModuleConfig.external_notification (3): enabled, output_ms 1000, use_pwm, alert_message_buzzer.
+        val ext = byteArrayOf(0x08, 0x01, 0x10, 0xE8.toByte(), 0x07, 0x38, 0x01, 0x58, 0x01)
+        val module = byteArrayOf(0x1A, ext.size.toByte()) + ext
+        val read = MeshProto.readFromRadio(byteArrayOf(0x4A, module.size.toByte()) + module) as MeshProto.From.ExtNotif
+        assertTrue(read.enabled)
+        assertEquals(mapOf(1 to 1L, 2 to 1000L, 7 to 1L, 11 to 1L), read.fields)
+
+        // AdminMessage.set_module_config (35) with the same settings, enabled left out (off).
+        val admin = MeshProto.setExtNotif(read.fields!!, enabled = false)
+        val r = MeshProto.R(admin)
+        var back: MeshProto.From? = null
+        r.fields { f, w -> if (f == 35 && w == 2) { back = MeshProto.readModuleConfig(r.bytes()); true } else false }
+        val off = back as MeshProto.From.ExtNotif
+        assertFalse(off.enabled)
+        assertEquals(mapOf(2 to 1000L, 7 to 1L, 11 to 1L), off.fields)
+        assertTrue((MeshProto.readModuleConfig(MeshProto.R(MeshProto.setExtNotif(off.fields!!, enabled = true)).let { rr ->
+            var b = ByteArray(0); rr.fields { f, w -> if (f == 35 && w == 2) { b = rr.bytes(); true } else false }; b
+        }) as MeshProto.From.ExtNotif).enabled)
+    }
+
+    @Test
+    fun aBuzzerSettingThatIsntAVarintIsLeftAlone() {
+        // A length-delimited field 20 (a future firmware's): not written back.
+        val ext = byteArrayOf(0x08, 0x01, 0xA2.toByte(), 0x01, 0x01, 0x41)
+        val module = byteArrayOf(0x1A, ext.size.toByte()) + ext
+        assertNull((MeshProto.readModuleConfig(module) as MeshProto.From.ExtNotif).fields)
+    }
 }

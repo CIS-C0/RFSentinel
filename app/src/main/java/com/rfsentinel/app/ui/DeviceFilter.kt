@@ -34,8 +34,10 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
     AIRCRAFT("Aircraft", liveOnly = true),
     /** Heard by external hardware: an ESP32 board (USB or OUI-SPY over Bluetooth) or a USB WiFi adapter. */
     EXTERNAL("External", liveOnly = true),
-    /** Heard by a linked Sentinel (Sentinel Link). */
+    /** Heard by a linked Sentinel over Bluetooth (Sentinel Link). */
     SENTINELS("Sentinels", liveOnly = true),
+    /** Heard by a Sentinel far away, over a Meshtastic node or the internet relay. */
+    MESH("Mesh", liveOnly = true),
     // Kinds of device, from what identified them (see DeviceIntel).
     VEHICLES("Vehicles"),
     PHONES("Phones"),
@@ -95,7 +97,8 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         CELLS, WAZE, RADIO, TALKGROUPS, AIRCRAFT -> false
         EXTERNAL -> com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac) || com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac) ||
             com.rfsentinel.app.esp.HeardBy.usbBt.recent(s.mac)
-        SENTINELS -> com.rfsentinel.app.esp.HeardBy.peer.recent(s.mac)
+        SENTINELS -> com.rfsentinel.app.esp.HeardBy.peerBluetooth.recent(s.mac)
+        MESH -> com.rfsentinel.app.esp.HeardBy.peerMesh.recent(s.mac)
         FAVORITES -> Favorites.contains(s.mac)
         BLE -> Advert.Source.BLE in s.sources
         WIFI -> Advert.Source.WIFI in s.sources
@@ -170,7 +173,7 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
          * The main screen's chip order: the counts worth a glance first (flagged, then what's heard on each
          * radio), so they fit without scrolling; the narrower filters after them.
          */
-        val MAIN_ORDER = listOf(ALL, FLAGGED, BLE, WIFI, CELLS, TRACKERS, DRONES, AIRCRAFT, RADIO, TALKGROUPS, WAZE, EXTERNAL, SENTINELS, FAVORITES, NEW, CAMERAS) + (KINDS - CAMERAS) + OTHER
+        val MAIN_ORDER = listOf(ALL, FLAGGED, BLE, WIFI, CELLS, TRACKERS, DRONES, AIRCRAFT, RADIO, TALKGROUPS, WAZE, EXTERNAL, SENTINELS, MESH, FAVORITES, NEW, CAMERAS) + (KINDS - CAMERAS) + OTHER
 
         /** The chips of a saved snapshot or trace: the main screen's, less those that only mean something live. */
         val SAVED_ORDER = MAIN_ORDER.filterNot { it.liveOnly }

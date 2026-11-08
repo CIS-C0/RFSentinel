@@ -88,6 +88,8 @@ object MeshNode {
     private var region = -1
     @Volatile private var txEnabled = true
     private val channels = HashMap<Int, MeshProto.From.ChannelInfo>()
+    /** The node's buzzer / LED alert settings from this connection's config download. */
+    private var extNotif: MeshProto.From.ExtNotif? = null
     /** The node's slot RF Sentinel sends on (1-7), -1 until set up. */
     @Volatile var channelIndex = -1; private set
     private var channelTries = 0
@@ -237,7 +239,7 @@ object MeshNode {
         toRadio = null; fromRadio = null
         ops.clear(); inFlight = null; ioReady = false; busyTries = 0
         draining = false; drainAgain = false
-        channels.clear(); channelIndex = -1; myNode = 0L; setupProblem = null
+        channels.clear(); channelIndex = -1; myNode = 0L; setupProblem = null; extNotif = null
         if (ready) { ready = false; changed() }
     }
 
@@ -424,6 +426,7 @@ object MeshNode {
         when (m) {
             is MeshProto.From.MyInfo -> myNode = m.nodeNum
             is MeshProto.From.ChannelInfo -> channels[m.index] = m
+            is MeshProto.From.ExtNotif -> extNotif = m
             is MeshProto.From.Lora -> { hopLimit = if (m.hopLimit in 1..7) m.hopLimit else 3; region = m.region; txEnabled = m.txEnabled }
             is MeshProto.From.ConfigComplete -> configDone()
             is MeshProto.From.Packet -> if (m.port == MeshProto.PORT_PRIVATE_APP && (channelIndex < 0 || m.channel == channelIndex)) {
@@ -451,6 +454,7 @@ object MeshNode {
             ready = true
             retryMs = RETRY_MIN_MS
             setStatus(if (!txEnabled) "Meshtastic node: its LoRa transmit is off" else "Meshtastic node · channel ${ours.index}, encrypted")
+            applyQuiet()
             return
         }
         if (channelTries >= 2 || myNode == 0L) {
@@ -473,6 +477,32 @@ object MeshNode {
             MeshProto.setChannel(slot, MeshCodec.CHANNEL_NAME, psk), packetId(), 0, MeshProto.PRIORITY_RELIABLE)))
         val g = gatt
         h.postDelayed({ if (gatt === g && g != null && !ready) askConfig() }, 3_000L)
+    }
+
+    /** The Sentinel Link screen's "Silence the node's buzzer" changed: done now if the node is connected, else when it is. */
+    fun quietChanged() = h.post { if (ready) applyQuiet() }
+
+    /**
+     * Silenced: the node's external notification (its buzzer, vibration and LED alerts) is turned off, remembering it was
+     * on; not silenced any more: turned back on, only if RF Sentinel turned it off. Every other setting is written back as
+     * read. The node saves it and may restart (it reconnects).
+     */
+    private fun applyQuiet() {
+        val c = ctx ?: return
+        val node = address ?: return
+        val e = extNotif ?: return
+        val fields = e.fields ?: return
+        if (myNode == 0L) return
+        val quiet = LinkStore.meshQuiet(c)
+        val turnOn = when {
+            quiet && e.enabled -> { LinkStore.setMeshBuzzerWasOn(c, node, true); false }
+            !quiet && !e.enabled && LinkStore.meshBuzzerWasOn(c, node) -> { LinkStore.setMeshBuzzerWasOn(c, node, false); true }
+            else -> return
+        }
+        extNotif = MeshProto.From.ExtNotif(fields + (MeshProto.EXTNOTIF_ENABLED to if (turnOn) 1L else 0L))
+        Log.i(TAG, "external notification ${if (turnOn) "back on" else "off"}")
+        enqueue(Op.Write(MeshProto.packet(myNode, 0, MeshProto.PORT_ADMIN_APP,
+            MeshProto.setExtNotif(fields, turnOn), packetId(), 0, MeshProto.PRIORITY_RELIABLE)))
     }
 
     private fun stuck(why: String) {

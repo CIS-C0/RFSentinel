@@ -56,7 +56,7 @@ class OnlineWatch(
         val wantAir = Prefs.categoryEnabled(context, Category.AIRCRAFT) && Prefs.aircraftOnline(context)
         if (wantAir && aircraftJob?.isActive != true) {
             aircraftJob = scope.launch(Dispatchers.IO) {
-                while (isActive) { runCatching { pollAircraft() }.onFailure { aircraftStatus = "Error: ${it.message}" }; delay(AIRCRAFT_MS) }
+                while (isActive) { runCatching { pollAircraft() }.onFailure { aircraftStatus = "Error: ${it.message}" }; delay(Prefs.aircraftPollSec(context) * 1000L) }
             }
         } else if (!wantAir) {
             aircraftJob?.cancel(); aircraftJob = null; AmbientThreats.aircraft = null
@@ -168,6 +168,7 @@ class OnlineWatch(
 
     companion object {
         const val WAZE_KEY_NAME = "openwebninja_api_key"
+        /** How long the receiver's own aircraft threat holds before a weaker one replaces it. */
         private const val AIRCRAFT_MS = 60_000L
         private const val AIRCRAFT_REPEAT_MS = 20 * 60_000L
 

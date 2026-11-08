@@ -33,7 +33,7 @@ object LinkStore {
 
     fun me(c: Context) = LinkCodec.Member(myId(c), myName(c))
 
-    /** Sharing on (Sentinel Link screen); a group alone doesn't start the radio. */
+    /** Sharing over Bluetooth on (Sentinel Link screen); a group alone doesn't start the radio. */
     fun enabled(c: Context) = sp(c).getBoolean("enabled", true)
     fun setEnabled(c: Context, on: Boolean) = sp(c).edit { putBoolean("enabled", on) }
 
@@ -93,9 +93,13 @@ object LinkStore {
         return changed
     }
 
+    /** Alerts (sound, voice, notification) for what comes this way; listed and logged either way. */
+    fun alerts(c: Context, path: PhoneLink.Path) = sp(c).getBoolean("alerts_" + path.name.lowercase(), true)
+    fun setAlerts(c: Context, path: PhoneLink.Path, on: Boolean) = sp(c).edit { putBoolean("alerts_" + path.name.lowercase(), on) }
+
     // ---- Meshtastic node
 
-    /** Sentinel Link also goes over a Meshtastic node (off until turned on). */
+    /** Sentinel Link goes over a Meshtastic node, with or without Bluetooth sharing (off until turned on). */
     fun meshOn(c: Context) = sp(c).getBoolean("mesh_on", false)
     fun setMeshOn(c: Context, on: Boolean) = sp(c).edit { putBoolean("mesh_on", on) }
     /** The node's Bluetooth address and name, null until one is chosen. */
@@ -103,6 +107,14 @@ object LinkStore {
     fun meshNodeName(c: Context): String? = sp(c).getString("mesh_node_name", null)
     fun setMeshNode(c: Context, address: String, name: String) =
         sp(c).edit { putString("mesh_node", address); putString("mesh_node_name", name.take(40)) }
+    /** The node's buzzer and alert LED silenced while RF Sentinel uses it (its external notification turned off). */
+    fun meshQuiet(c: Context) = sp(c).getBoolean("mesh_quiet", false)
+    fun setMeshQuiet(c: Context, on: Boolean) = sp(c).edit { putBoolean("mesh_quiet", on) }
+    /** RF Sentinel turned the external notification of node [address] off: turned back on when silencing stops. */
+    fun meshBuzzerWasOn(c: Context, address: String) = sp(c).getBoolean("mesh_buzzer_was_on_$address", false)
+    fun setMeshBuzzerWasOn(c: Context, address: String, on: Boolean) = sp(c).edit {
+        if (on) putBoolean("mesh_buzzer_was_on_$address", true) else remove("mesh_buzzer_was_on_$address")
+    }
     /** Seconds between two packets (watchlist matches can go sooner). */
     fun meshIntervalSec(c: Context) = sp(c).getInt("mesh_interval", 60).coerceIn(MESH_INTERVAL_MIN, MESH_INTERVAL_MAX)
     fun setMeshIntervalSec(c: Context, s: Int) = sp(c).edit { putInt("mesh_interval", s) }
@@ -122,7 +134,7 @@ object LinkStore {
 
     // ---- Internet relay (MQTT)
 
-    /** Sentinel Link also goes through an MQTT broker (off until turned on). */
+    /** Sentinel Link goes through an MQTT broker, with or without Bluetooth sharing (off until turned on). */
     fun mqttOn(c: Context) = sp(c).getBoolean("mqtt_on", false)
     fun setMqttOn(c: Context, on: Boolean) = sp(c).edit { putBoolean("mqtt_on", on) }
     /** "mqtts://host:8883" as typed, "" until set. */

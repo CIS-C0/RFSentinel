@@ -74,7 +74,8 @@ class SentinelLinkActivity : AppCompatActivity() {
             setLineSpacing(0f, 1.2f)
             text = "Link RF Sentinel phones near each other over Bluetooth: each one shows the same devices on its list, " +
                 "radar and map - with what any phone's external hardware hears - whichever phone heard them first. " +
-                "Linked phones share while they scan."
+                "Linked phones share while they scan. A Meshtastic node and an internet relay below reach Sentinels " +
+                "further away, each on its own switch, with Bluetooth sharing on or off."
         }
         status = TextView(this).apply { textSize = 14f; setTypeface(typeface, Typeface.BOLD); setPadding(0, pad(12), 0, 0) }
 
@@ -86,7 +87,7 @@ class SentinelLinkActivity : AppCompatActivity() {
             setOnEditorActionListener { v, _, _ -> saveName(v.text.toString()); v.clearFocus(); false }
         }
         share = SwitchMaterial(this).apply {
-            text = "Share with linked Sentinels"
+            text = "Share over Bluetooth"
             isChecked = LinkStore.enabled(this@SentinelLinkActivity)
             setOnCheckedChangeListener { _, on ->
                 LinkStore.setEnabled(this@SentinelLinkActivity, on)
@@ -119,7 +120,7 @@ class SentinelLinkActivity : AppCompatActivity() {
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad(16), pad(16), pad(16), pad(16))
-            addView(intro); addView(status); addView(nameLabel); addView(name); addView(share)
+            addView(intro); addView(status); addView(nameLabel); addView(name); addView(share); addView(alertSwitch(PhoneLink.Path.BLUETOOTH))
             addView(hostButton); addView(joinButton); addView(listHeader); addView(list); addView(meshSection); addView(mqttSection); addView(leave)
         }
         val scroll = ScrollView(this).apply { addView(column) }
@@ -177,6 +178,20 @@ class SentinelLinkActivity : AppCompatActivity() {
             setOnClickListener { LinkStore.meshNode(this@SentinelLinkActivity)?.let { pairMeshNode(it) } }
         }
         val choose = button("Choose a node") { chooseNode() }
+        val quiet = SwitchMaterial(this).apply {
+            text = "Silence the node's buzzer"
+            isChecked = LinkStore.meshQuiet(this@SentinelLinkActivity)
+            setOnCheckedChangeListener { _, on ->
+                LinkStore.setMeshQuiet(this@SentinelLinkActivity, on)
+                MeshNode.quietChanged()
+            }
+            setPadding(0, pad(8), 0, 0)
+        }
+        val quietAbout = TextView(this).apply {
+            textSize = 13f; alpha = 0.75f
+            text = "Turns off the node's external notification (buzzer, vibration and LED alerts); every other setting stays. " +
+                "Switched back on when you turn this off. The node may restart once."
+        }
         val intervalLabel = TextView(this).apply { textSize = 14f; setPadding(0, pad(12), 0, 0) }
         fun showInterval(s: Int) { intervalLabel.text = "Send a packet every $s s - watchlist matches sooner" }
         val step = 15
@@ -226,8 +241,8 @@ class SentinelLinkActivity : AppCompatActivity() {
         showHops(hops.value.toInt())
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(header); addView(about); addView(meshSwitch); addView(meshNodeText); addView(meshStatus)
-            addView(choose); addView(slotButton); addView(intervalLabel); addView(interval); addView(hopsLabel); addView(hops)
+            addView(header); addView(about); addView(meshSwitch); addView(alertSwitch(PhoneLink.Path.MESH)); addView(meshNodeText); addView(meshStatus)
+            addView(choose); addView(quiet); addView(quietAbout); addView(slotButton); addView(intervalLabel); addView(interval); addView(hopsLabel); addView(hops)
             setPadding(0, 0, 0, pad(12))
         }
     }
@@ -296,11 +311,19 @@ class SentinelLinkActivity : AppCompatActivity() {
         mqttStatus = TextView(this).apply { textSize = 14f; setPadding(0, pad(8), 0, 0) }
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(header); addView(about); addView(switch)
+            addView(header); addView(about); addView(switch); addView(alertSwitch(PhoneLink.Path.NET))
             views.forEach { addView(it) }
             addView(checkCert); addView(mqttStatus)
             setPadding(0, 0, 0, pad(12))
         }
+    }
+
+    /** Alerts for what comes this way, so the mesh can stay quiet while Sentinels nearby still alert (or the reverse). */
+    private fun alertSwitch(path: PhoneLink.Path) = SwitchMaterial(this).apply {
+        text = "Alert for what they hear"
+        isChecked = LinkStore.alerts(this@SentinelLinkActivity, path)
+        setOnCheckedChangeListener { _, on -> LinkStore.setAlerts(this@SentinelLinkActivity, path, on) }
+        setPadding(0, pad(4), 0, pad(8))
     }
 
     /** Lists the Meshtastic nodes nearby; the one tapped is paired (Android asks for its PIN) and used. */
@@ -383,7 +406,7 @@ class SentinelLinkActivity : AppCompatActivity() {
         val grouped = LinkStore.hasGroup(this)
         status.text = when {
             !grouped -> "Not linked yet"
-            !LinkStore.enabled(this) -> "Sharing off"
+            !LinkStore.enabled(this) -> "Bluetooth sharing off"
             !ScanForegroundService.isRunning -> "Links while scanning - start a scan to share"
             else -> PhoneLink.status.ifBlank { "Starting…" }
         }
@@ -395,7 +418,7 @@ class SentinelLinkActivity : AppCompatActivity() {
             !LinkStore.mqttOn(this) -> "Off"
             LinkStore.mqttBroker(this).isBlank() -> "Set the broker"
             MqttRelay.parse(LinkStore.mqttBroker(this)) == null -> "Not a broker address: mqtts://host or mqtt://host:port"
-            !ScanForegroundService.isRunning || !LinkStore.enabled(this) -> "Starts with sharing, while scanning"
+            !ScanForegroundService.isRunning -> "Starts while scanning"
             else -> MqttRelay.status.ifBlank { "Starting…" } +
                 (MqttRelay.lastSent.takeIf { it > 0 }?.let { " · sent " + DateUtils.getRelativeTimeSpanString(it, System.currentTimeMillis(), DateUtils.SECOND_IN_MILLIS) } ?: "")
         }
@@ -403,7 +426,7 @@ class SentinelLinkActivity : AppCompatActivity() {
         meshStatus.text = when {
             !LinkStore.meshOn(this) -> "Off"
             LinkStore.meshNode(this) == null -> "Choose a node"
-            !ScanForegroundService.isRunning || !LinkStore.enabled(this) -> "Starts with sharing, while scanning"
+            !ScanForegroundService.isRunning -> "Starts while scanning"
             else -> MeshNode.status.ifBlank { "Starting…" } +
                 (MeshNode.lastSent.takeIf { it > 0 }?.let { " · sent " + DateUtils.getRelativeTimeSpanString(it, System.currentTimeMillis(), DateUtils.SECOND_IN_MILLIS) } ?: "")
         }

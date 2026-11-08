@@ -55,6 +55,22 @@ object MeshProto {
         }
     }.bytes()
 
+    /**
+     * AdminMessage.set_module_config with ModuleConfig.external_notification: the node's own settings as read
+     * ([From.ExtNotif]), only "enabled" changed. Every field is a varint; zeros are proto3 defaults, left out.
+     */
+    fun setExtNotif(fields: Map<Int, Long>, enabled: Boolean): ByteArray = W().apply {
+        msg(35) {
+            msg(3) {
+                (fields + (EXTNOTIF_ENABLED to if (enabled) 1L else 0L)).toSortedMap()
+                    .forEach { (f, v) -> if (v != 0L) uint(f, v) }
+            }
+        }
+    }.bytes()
+
+    /** ExternalNotificationConfig.enabled (module_config.proto). */
+    const val EXTNOTIF_ENABLED = 1
+
     // ------------------------------------------------------------------ from the node
 
     sealed class From {
@@ -67,6 +83,11 @@ object MeshProto {
         /** An entry of the radio's node list. */
         class NodeInfo(val num: Long, val name: String, val position: Pair<Double, Double>?, val lastHeard: Long, val viaMqtt: Boolean) : From()
         data class Queue(val res: Int, val free: Int) : From()
+        /** The external notification (buzzer, LED) settings, field to value; null when a field isn't a varint
+         *  (a newer firmware's): then they can't be written back unchanged, so they're left alone. */
+        class ExtNotif(val fields: Map<Int, Long>?) : From() {
+            val enabled get() = fields?.get(EXTNOTIF_ENABLED)?.let { it != 0L } == true
+        }
         object Rebooted : From()
         object Other : From()
     }
@@ -82,6 +103,7 @@ object MeshProto {
                 f == 5 && w == 2 -> { out = readConfig(r.bytes()); true }
                 f == 7 && w == 0 -> { out = From.ConfigComplete(r.varint() and 0xFFFFFFFFL); true }
                 f == 8 && w == 0 -> { if (r.varint() != 0L) out = From.Rebooted; true }
+                f == 9 && w == 2 -> { out = readModuleConfig(r.bytes()); true }
                 f == 10 && w == 2 -> { out = readChannel(r.bytes()); true }
                 f == 11 && w == 2 -> { out = readQueue(r.bytes()); true }
                 else -> false
@@ -173,6 +195,23 @@ object MeshProto {
         val r = R(b)
         r.fields { f, w -> if (f == 1 && w == 0) { num = r.varint() and 0xFFFFFFFFL; true } else false }
         return From.MyInfo(num)
+    }
+
+    /** ModuleConfig: only external_notification (3) is read. */
+    internal fun readModuleConfig(b: ByteArray): From {
+        var out: From = From.Other
+        val r = R(b)
+        r.fields { f, w ->
+            if (f == 3 && w == 2) {
+                val e = R(r.bytes())
+                val fields = HashMap<Int, Long>()
+                var plain = true
+                e.fields { ef, ew -> if (ew == 0) { fields[ef] = e.varint(); true } else { plain = false; false } }
+                out = From.ExtNotif(if (plain) fields else null)
+                true
+            } else false
+        }
+        return out
     }
 
     private fun readConfig(b: ByteArray): From {

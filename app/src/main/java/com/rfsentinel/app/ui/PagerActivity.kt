@@ -3,6 +3,8 @@ package com.rfsentinel.app.ui
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.text.format.DateUtils
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -75,17 +77,42 @@ class PagerActivity : AppCompatActivity() {
 
     override fun onSupportNavigateUp(): Boolean { finish(); return true }
 
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menu.add(Menu.NONE, MENU_HIDE_TONE, Menu.NONE, "Hide tone-only pages").apply {
+            isCheckable = true; isChecked = Prefs.pagerHideTone(this@PagerActivity)
+        }
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId != MENU_HIDE_TONE) return super.onOptionsItemSelected(item)
+        item.isChecked = !item.isChecked
+        Prefs.setPagerHideTone(this, item.isChecked)
+        refresh()
+        return true
+    }
+
+    private companion object { const val MENU_HIDE_TONE = 1 }
+
     @SuppressLint("NotifyDataSetChanged")
     private fun refresh() {
         val q = binding.searchInput.text?.toString()?.trim().orEmpty()
-        rows = SdrRadio.pagerLog.rows().filter { r ->
-            q.isEmpty() || r.page.text.contains(q, ignoreCase = true) || r.page.capcode.toString().contains(q)
+        val all = SdrRadio.pagerLog.rows()
+        // Hidden, still counted: they show the channel is decoding.
+        val hideTone = Prefs.pagerHideTone(this)
+        val tones = if (hideTone) all.count { it.page.text.isBlank() } else 0
+        rows = all.filter { r ->
+            !(hideTone && r.page.text.isBlank()) &&
+                (q.isEmpty() || r.page.text.contains(q, ignoreCase = true) || r.page.capcode.toString().contains(q))
         }
-        header.text = SdrRadio.status.ifBlank { "No SDR running" } + "\nKept in memory only, until the app closes: at most ${PagerLog.MAX} pages."
+        header.text = SdrRadio.status.ifBlank { "No SDR running" } +
+            (if (tones > 0) "\n$tones tone-only page${if (tones == 1) "" else "s"} hidden" else "") +
+            "\nKept in memory only, until the app closes: at most ${PagerLog.MAX} pages."
         adapter.notifyDataSetChanged()
         val empty = when {
             rows.isNotEmpty() -> null
             q.isNotEmpty() -> "Nothing matches."
+            tones > 0 -> "Only tone-only pages so far: the channel is decoding."
             SdrRadio.Mode.PAGER !in SdrRadio.modes -> "Pager messages is off.\nTick it in Settings › RTL-SDR radio. It runs while scanning, with an RTL-SDR or HackRF plugged in."
             else -> "No pages heard yet.\nThey show up here as a paging channel is decoded."
         }

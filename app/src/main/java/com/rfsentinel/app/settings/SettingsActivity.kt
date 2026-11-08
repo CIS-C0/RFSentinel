@@ -474,7 +474,7 @@ class SettingsActivity : AppCompatActivity() {
         val n = link.members(this).size
         binding.linkStatusText.text = when {
             !link.hasGroup(this) -> "Not linked to other phones"
-            !link.enabled(this) -> "Sharing off"
+            !link.enabled(this) -> "Bluetooth sharing off"
             else -> com.rfsentinel.app.link.PhoneLink.status.ifBlank {
                 "$n Sentinel${if (n == 1) "" else "s"} in the group · links while scanning"
             }
@@ -2370,23 +2370,24 @@ class SettingsActivity : AppCompatActivity() {
         box.addView(detectRow(SwitchMaterial(this).apply {
             text = "Online aircraft feeds"; isChecked = Prefs.aircraftOnline(this@SettingsActivity)
             setOnCheckedChangeListener { _, v -> Prefs.setAircraftOnline(this@SettingsActivity, v) }
-        }, "Asks adsb.fi / adsb.lol every minute for aircraft near a position rounded to about 1 km. Turn off to use only " +
+        }, "Asks adsb.fi / adsb.lol for aircraft near a position rounded to about 1 km. Turn off to use only " +
             "the aircraft your RTL-SDR hears itself (Settings › RTL-SDR radio › ADS-B aircraft receiver): nothing leaves the phone."))
         box.addView(detectRow(SwitchMaterial(this).apply {
             text = "Alert for circling aircraft"; isChecked = Prefs.aircraftCircling(this@SettingsActivity)
             setOnCheckedChangeListener { _, v -> Prefs.setAircraftCircling(this@SettingsActivity, v) }
         }, "Police and government aircraft within the alert distance always alert. Turn this on to also hear about any other aircraft " +
             "circling within it (news, training, survey and unlisted police flights orbit too). Off: they're only listed and logged."))
-        fun kmSlider(label: String, about: String, km: Int, from: Int, to: Int, step: Int, save: (Int) -> Unit) {
+        fun kmSlider(label: String, about: String, km: Int, from: Int, to: Int, step: Int,
+                     format: (Int) -> String = { com.rfsentinel.app.util.Units.km(it) }, save: (Int) -> Unit) {
             val text = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
-            fun show(v: Int) { text.text = "$label ${com.rfsentinel.app.util.Units.km(v)}" }
+            fun show(v: Int) { text.text = "$label ${format(v)}" }
             show(km)
             box.addView(text)
             box.addView(com.google.android.material.slider.Slider(this).apply {
                 valueFrom = from.toFloat(); valueTo = to.toFloat(); stepSize = step.toFloat()
                 value = (km - km % step).coerceIn(from, to).toFloat()
                 contentDescription = about
-                setLabelFormatter { com.rfsentinel.app.util.Units.km(it.toInt()) }
+                setLabelFormatter { format(it.toInt()) }
                 addOnChangeListener { _, v, fromUser ->
                     if (!fromUser) return@addOnChangeListener
                     save(v.toInt())
@@ -2400,6 +2401,8 @@ class SettingsActivity : AppCompatActivity() {
         kmSlider("Look for aircraft within", "Aircraft search radius in kilometres", Prefs.aircraftRadiusKm(this), 10, 50, 5) {
             Prefs.setAircraftRadiusKm(this, it)
         }
+        kmSlider("Refresh online aircraft every", "Online aircraft refresh in seconds", Prefs.aircraftPollSec(this),
+            Prefs.AIRCRAFT_POLL_MIN, Prefs.AIRCRAFT_POLL_MAX, 5, { "$it s" }) { Prefs.setAircraftPollSec(this, it) }
         aircraftStatusText = android.widget.TextView(this).apply { textSize = 12f; alpha = 0.75f }
         box.addView(aircraftStatusText)
         showNote(aircraftStatusText, com.rfsentinel.app.online.OnlineWatch.aircraftStatus)

@@ -744,10 +744,10 @@ class ScanForegroundService : Service() {
 
     /**
      * @param via the linked Sentinel that heard it (Sentinel Link), with [peerAt] where that Sentinel was;
-     * null for what this phone and its hardware heard.
+     * null for what this phone and its hardware heard. [quiet]: listed and logged, no alert (Sentinel Link screen).
      */
     private fun process(a: Advert, reportedRemoteId: RemoteId.Info? = null, broadcast: DeviceRegistry.GeoSample? = null,
-                        via: String? = null, peerAt: Location? = null, toMesh: Boolean = via == null) {
+                        via: String? = null, peerAt: Location? = null, toMesh: Boolean = via == null, quiet: Boolean = false) {
         val now = a.timestamp
         val mac = a.mac
         if (OuiWatchlist.version != watchlistVersion) recheckWatchlist(now)
@@ -806,7 +806,7 @@ class ScanForegroundService : Service() {
         if (!com.rfsentinel.app.detect.FixedRouter.quiet(mac, c.hits, Prefs.alertThreshold(this, best.category))) noteLocating(mac)
 
         maybeLog(a, best, c.vendor, loc, now, via)
-        maybeAlert(a, best, c.hits, now, via)
+        if (!quiet) maybeAlert(a, best, c.hits, now, via)
         // Following is about this phone: a device near another Sentinel isn't following it.
         if (via != null) return
 
@@ -935,17 +935,26 @@ class ScanForegroundService : Service() {
         }
     }
 
-    /** Sentinel Link runs with the scan when this phone is in a group and sharing is on. */
+    private val onBatch: (LinkCodec.Batch, String, com.rfsentinel.app.link.PhoneLink.Path) -> Unit =
+        { b, name, path -> pipeline.post { onPeerBatch(b, name, path) } }
+
+    /**
+     * Sentinel Link runs with the scan when this phone is in a group: over Bluetooth while sharing is on, over the
+     * Meshtastic node and the internet relay while each is on - each one without the others.
+     */
     private fun updateLink() {
         val link = com.rfsentinel.app.link.LinkStore
-        if (!link.hasGroup(this) || !link.enabled(this)) { stopLink(); return }
-        if (linkOutbox == null) {
-            linkOutbox = LinkOutbox(link.myId(this))
-            pipeline.postDelayed(linkFlush, LINK_FLUSH_MS)
-        }
-        com.rfsentinel.app.link.PhoneLink.start(this) { b, name -> pipeline.post { onPeerBatch(b, name) } }
+        if (link.hasGroup(this) && link.enabled(this)) {
+            if (linkOutbox == null) {
+                linkOutbox = LinkOutbox(link.myId(this))
+                pipeline.postDelayed(linkFlush, LINK_FLUSH_MS)
+            }
+            com.rfsentinel.app.link.PhoneLink.start(this, onBatch)
+        } else stopBluetoothLink()
         updateMesh()
         updateMqtt()
+        if (linkOutbox == null && meshOutbox == null && mqttOutbox == null) com.rfsentinel.app.link.PhoneLink.unlisten()
+        else com.rfsentinel.app.link.PhoneLink.listen(this, onBatch)
     }
 
     /** What goes out through the MQTT broker (null while it's off). */
@@ -953,13 +962,13 @@ class ScanForegroundService : Service() {
     private var mqttLastSend = 0L
     private var mqttLastName = 0L
 
-    /** The internet relay runs with Sentinel Link when it's turned on and a broker is set. */
+    /** The internet relay runs while it's turned on and a broker is set (Bluetooth sharing on or off). */
     private fun updateMqtt() {
         val link = com.rfsentinel.app.link.LinkStore
         val relay = com.rfsentinel.app.link.MqttRelay
         val broker = relay.parse(link.mqttBroker(this))
         val key = link.groupKey(this)
-        if (linkOutbox == null || !link.mqttOn(this) || broker == null || key == null) { stopMqtt(); return }
+        if (!link.mqttOn(this) || broker == null || key == null) { stopMqtt(); return }
         if (mqttOutbox == null) {
             mqttOutbox = com.rfsentinel.app.link.MeshOutbox()
             mqttLastSend = 0L
@@ -1014,12 +1023,12 @@ class ScanForegroundService : Service() {
     private var meshLastSend = 0L
     private var meshLastName = 0L
 
-    /** The Meshtastic node runs with Sentinel Link when it's turned on and chosen. */
+    /** The Meshtastic node runs while it's turned on and chosen (Bluetooth sharing on or off). */
     private fun updateMesh() {
         val link = com.rfsentinel.app.link.LinkStore
         val node = link.meshNode(this)
         val key = link.groupKey(this)
-        if (linkOutbox == null || !link.meshOn(this) || node == null || key == null) { stopMesh(); return }
+        if (!link.meshOn(this) || node == null || key == null) { stopMesh(); return }
         if (meshOutbox == null) {
             meshOutbox = com.rfsentinel.app.link.MeshOutbox()
             meshLastSend = 0L
@@ -1075,11 +1084,18 @@ class ScanForegroundService : Service() {
     private fun stopLink() {
         stopMesh()
         stopMqtt()
+        stopBluetoothLink()
+        com.rfsentinel.app.link.PhoneLink.unlisten()
+        com.rfsentinel.app.esp.HeardBy.peer.clear()
+        com.rfsentinel.app.esp.HeardBy.peerMesh.clear()
+    }
+
+    private fun stopBluetoothLink() {
         if (linkOutbox == null) return
         linkOutbox = null
         pipeline.removeCallbacks(linkFlush)
         com.rfsentinel.app.link.PhoneLink.stop()
-        com.rfsentinel.app.esp.HeardBy.peer.clear()
+        com.rfsentinel.app.esp.HeardBy.peerBluetooth.clear()
     }
 
     /**
@@ -1087,9 +1103,16 @@ class ScanForegroundService : Service() {
      * phone isn't hearing itself goes through the same pipeline (list, radar, map, alerts) placed where that
      * Sentinel was.
      */
-    private fun onPeerBatch(b: LinkCodec.Batch, via: String) {
-        if (linkOutbox == null) return
+    private fun onPeerBatch(b: LinkCodec.Batch, name: String, path: com.rfsentinel.app.link.PhoneLink.Path) {
+        if (linkOutbox == null && meshOutbox == null && mqttOutbox == null) return
         val now = System.currentTimeMillis()
+        val via = when (path) {
+            com.rfsentinel.app.link.PhoneLink.Path.BLUETOOTH -> name
+            com.rfsentinel.app.link.PhoneLink.Path.MESH -> "$name · mesh"
+            com.rfsentinel.app.link.PhoneLink.Path.NET -> "$name · internet"
+        }
+        val byMesh = path != com.rfsentinel.app.link.PhoneLink.Path.BLUETOOTH
+        val quiet = !com.rfsentinel.app.link.LinkStore.alerts(this, path)
         // Phones' clocks differ: ages are kept, times are this phone's.
         val shift = now - b.time
         val at = if (b.lat.isNaN() || b.lon.isNaN()) null else Location("sentinel-link").apply {
@@ -1100,6 +1123,7 @@ class ScanForegroundService : Service() {
             val mac = s.advert.mac
             val a = LinkCodec.rebased(s.advert, (s.advert.timestamp + shift).coerceAtMost(now))
             heardBy.peer.mark(mac, via, now)
+            (if (byMesh) heardBy.peerMesh else heardBy.peerBluetooth).mark(mac, now)
             if (s.hits.isNotEmpty()) {
                 espHits[mac] = now to s.hits
                 classified.remove(mac)
@@ -1111,14 +1135,14 @@ class ScanForegroundService : Service() {
             if (heardBy.phone.within(mac, HEARD_HERE_MS, now) || heardBy.esp.within(mac, HEARD_HERE_MS, now) ||
                 heardBy.usb.within(mac, HEARD_HERE_MS, now) || heardBy.usbBt.within(mac, HEARD_HERE_MS, now)) continue
             // Heard by a Sentinel linked here over Bluetooth: this phone's node passes it on to the mesh.
-            process(a, via = via, peerAt = at, toMesh = b.hops == 0)
+            process(a, via = via, peerAt = at, toMesh = b.hops == 0, quiet = quiet)
         }
         for (r in b.radios) {
             val kind = runCatching { com.rfsentinel.app.sdr.RadioWatch.Kind.valueOf(r.kind) }
                 .getOrDefault(com.rfsentinel.app.sdr.RadioWatch.Kind.SHARED)
             onRadio(com.rfsentinel.app.sdr.RadioWatch.Event(r.freqHz, r.snrDb,
                 com.rfsentinel.app.sdr.RadioWatch.Band(r.bandLabel, r.bandStartHz, r.bandEndHz, kind), r.confidence,
-                r.targetLabel?.let { com.rfsentinel.app.sdr.RadioWatch.Target(r.freqHz, it) }, r.repeat, r.tdma), via)
+                r.targetLabel?.let { com.rfsentinel.app.sdr.RadioWatch.Target(r.freqHz, it) }, r.repeat, r.tdma), via, quiet)
         }
     }
 
@@ -1570,7 +1594,7 @@ class ScanForegroundService : Service() {
      * an RTL-SDR ([com.rfsentinel.app.sdr.RadioWatch]): logged, and an alert when it clears
      * the alert threshold. Only signal strength is known - nothing that was said.
      */
-    private fun onRadio(e: com.rfsentinel.app.sdr.RadioWatch.Event, via: String? = null) {
+    private fun onRadio(e: com.rfsentinel.app.sdr.RadioWatch.Event, via: String? = null, quiet: Boolean = false) {
         val now = System.currentTimeMillis()
         if (via == null) linkOutbox?.addRadio(LinkCodec.Radio(e.freqHz, e.snrDb, e.band.label, e.band.startHz, e.band.endHz,
             e.band.kind.name, e.confidence, e.target?.label, e.repeat, e.tdma, now))
@@ -1625,7 +1649,7 @@ class ScanForegroundService : Service() {
             e.tdma -> "${e.slots} radio nearby"
             else -> "Radio transmitting nearby"
         } + (via?.let { ", via $it" } ?: "")
-        radioDetection(hit, "RADIO " + e.mhz + " MHz", e.snrDb, now, "radio:" + e.freqHz, spoken, e.confidence >= threshold, via)
+        radioDetection(hit, "RADIO " + e.mhz + " MHz", e.snrDb, now, "radio:" + e.freqHz, spoken, e.confidence >= threshold && !quiet, via)
     }
 
     /** A radio [hit] into the detection history (tagged with where you are), and alerted when [alert]. [talkgroup]: a P25

@@ -65,8 +65,11 @@ object HeardBy {
     /** A USB Bluetooth adapter (dongle, or the Bluetooth half of a combo adapter). */
     val usbBt = RecentMacs()
     val phone = RecentMacs()
-    /** Another Sentinel (Sentinel Link). */
+    /** Another Sentinel (Sentinel Link), whichever way it came. */
     val peer = PeerMacs()
+    /** ...over Bluetooth, and over a Meshtastic node or the internet relay: their own filter chips. */
+    val peerBluetooth = RecentMacs()
+    val peerMesh = RecentMacs()
 
     /** This phone or its own hardware heard [mac] recently. */
     fun ownRecent(mac: String) = phone.recent(mac) || esp.recent(mac) || usb.recent(mac) || usbBt.recent(mac)
