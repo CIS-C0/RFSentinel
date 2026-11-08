@@ -56,6 +56,8 @@ object LiveWindow {
         val wifi = Advert.Source.WIFI in s.sources || s.source == Advert.Source.WIFI
         // A flagged device never leaves the list while it still alerts (bubble, banner, beeps).
         if (s.best != null && inRange(s, now)) return true
+        // Heard over the mesh: stays until the sender repeats it (see HeardBy.peerMesh).
+        if (HeardBy.peerMesh.recent(s.mac, now)) return true
         val phoneMs = if (wifi) wifiMs else bleMs
         // Heard by an ESP32 board, a USB adapter or a linked Sentinel: its own time, or the longer one when the
         // phone hears it too.

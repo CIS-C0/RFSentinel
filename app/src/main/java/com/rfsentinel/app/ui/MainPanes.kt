@@ -32,7 +32,10 @@ class MainPanes(private val activity: AppCompatActivity, private val b: Activity
     val radarShown get() = "radar" in panes
     val listShown get() = "list" in panes
 
-    private companion object { const val MAP_TAG = "main_map" }
+    private companion object {
+        const val MAP_TAG = "main_map"
+        const val MAP_FLOOR_DP = 140
+    }
 
     init {
         val radius = 16f * density
@@ -96,7 +99,8 @@ class MainPanes(private val activity: AppCompatActivity, private val b: Activity
             viewOf(p).layoutParams = (viewOf(p).layoutParams as LinearLayout.LayoutParams).apply {
                 weight = Prefs.paneWeight(activity, p)
                 if (landscape) { width = 0; height = LinearLayout.LayoutParams.MATCH_PARENT }
-                else { width = LinearLayout.LayoutParams.MATCH_PARENT; height = 0 }
+                // The map keeps a floor (its buttons, status line and credit need it); the weights share the rest.
+                else { width = LinearLayout.LayoutParams.MATCH_PARENT; height = if (p == "map") mapFloor else 0 }
                 topMargin = if (!landscape && p != "list" && p == Prefs.PANES.firstOrNull { it in panes }) (2 * density).toInt() else 0
             }
         }
@@ -109,6 +113,9 @@ class MainPanes(private val activity: AppCompatActivity, private val b: Activity
         "radar" -> b.radarPane
         else -> b.listFrame
     }
+
+    /** The small map's least height, above its share by weight. */
+    private val mapFloor get() = (MAP_FLOOR_DP * density).toInt()
 
     /** The first handle sits after the map: it joins the map to whatever comes next. */
     private fun pairA(): Pair<String, String> = "map" to (if (radarShown) "radar" else "list")
@@ -155,7 +162,8 @@ class MainPanes(private val activity: AppCompatActivity, private val b: Activity
                     val to = if (landscape) end[0] + after.width else end[1] + after.height
                     if (to > from) {
                         val pos = (if (landscape) e.rawX else e.rawY) - from
-                        val f = (pos / (to - from)).coerceIn(0.15f, 0.85f)
+                        val floor = if (!landscape && p == "map") mapFloor else 0
+                        val f = ((pos - floor) / (to - from - floor)).coerceIn(0.15f, 0.85f)
                         val total = Prefs.paneWeight(activity, p).let { if (first + second > 0) first + second else it + Prefs.paneWeight(activity, q) }
                         first = total * f; second = total * (1 - f)
                         (before.layoutParams as LinearLayout.LayoutParams).weight = first

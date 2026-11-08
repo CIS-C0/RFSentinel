@@ -380,7 +380,7 @@ object DeviceRegistry {
     /** Light snapshots for the live list; pruned first. */
     fun snapshot(now: Long = System.currentTimeMillis()): List<Snapshot> {
         // Per key and atomic with report's lookup: a device heard right now is never dropped mid-update.
-        for (mac in tracks.keys) tracks.computeIfPresent(mac) { _, t -> t.takeIf { now - maxOf(t.lastSeen, t.touchedAt) <= PRUNE_AFTER_MS } }
+        for (mac in tracks.keys) tracks.computeIfPresent(mac) { _, t -> t.takeIf { now - maxOf(t.lastSeen, t.touchedAt) <= PRUNE_AFTER_MS || com.rfsentinel.app.esp.HeardBy.peerMesh.recent(mac, now) } }
         return tracks.values.map { t -> synchronized(t) { snap(t, full = false) } }
     }
 

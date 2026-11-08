@@ -6,19 +6,19 @@ import java.util.concurrent.ConcurrentHashMap
  * Which radio heard a device recently: an ESP32 board (USB or OUI-SPY over
  * Bluetooth), the phone's own chips and/or a linked Sentinel, so the list can badge and filter them.
  */
-class RecentMacs {
+class RecentMacs(private val windowMs: Long = HeardBy.WINDOW_MS) {
     private val last = ConcurrentHashMap<String, Long>()
 
     fun mark(mac: String, now: Long = System.currentTimeMillis()) {
         last[mac.uppercase()] = now
         // A monitor-mode adapter hears thousands of addresses that are never looked up again.
-        if (last.size > MAX_MACS) last.entries.removeAll { now - it.value >= HeardBy.WINDOW_MS }
+        if (last.size > MAX_MACS) last.entries.removeAll { now - it.value >= windowMs }
     }
 
     fun recent(mac: String, now: Long = System.currentTimeMillis()): Boolean {
         val key = mac.uppercase()
         val t = last[key] ?: return false
-        if (now - t < HeardBy.WINDOW_MS) return true
+        if (now - t < windowMs) return true
         last.remove(key, t)
         return false
     }
@@ -69,7 +69,9 @@ object HeardBy {
     val peer = PeerMacs()
     /** ...over Bluetooth, and over a Meshtastic node or the internet relay: their own filter chips. */
     val peerBluetooth = RecentMacs()
-    val peerMesh = RecentMacs()
+    /** Kept until the sender's next resend at the latest ([com.rfsentinel.app.link.MeshOutbox.repeatMs]): LoRa repeats a device only every 15 minutes. */
+    val peerMesh = RecentMacs(MESH_HOLD_MS)
+    const val MESH_HOLD_MS = 16 * 60_000L
 
     /** This phone or its own hardware heard [mac] recently. */
     fun ownRecent(mac: String) = phone.recent(mac) || esp.recent(mac) || usb.recent(mac) || usbBt.recent(mac)

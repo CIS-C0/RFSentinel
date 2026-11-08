@@ -283,9 +283,10 @@ class MapFragment : Fragment() {
         if (!embedded) setupImmersiveButton()
         binding.bottomPanel.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> fitSideButtonsSoon() }
         // The scale and the map credit sit just under the status banner, or at the very top when there is none.
-        binding.statusBox.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> placeScaleBar() }
-        // Wider than tall: the round buttons become a row and the turn banner leaves them the right side.
-        if (!embedded) binding.root.addOnLayoutChangeListener { _, l, t, r, bt, ol, ot, or, ob -> if (r - l != or - ol || bt - t != ob - ot) fitSideButtonsSoon() }
+        binding.statusBox.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> placeScaleBar(); if (embedded) fitSideButtonsSoon() }
+        // Wider than tall: the round buttons become a row and the turn banner leaves them the right side. The small pane
+        // resized: its side buttons fit again under the status line.
+        binding.root.addOnLayoutChangeListener { _, l, t, r, bt, ol, ot, or, ob -> if (r - l != or - ol || bt - t != ob - ot) fitSideButtonsSoon() }
 
         createEngine(savedInstanceState, null)
         if (tripId == null) {
@@ -684,12 +685,23 @@ class MapFragment : Fragment() {
         val d = resources.displayMetrics.density
         val panel = listOf(b.navCard, b.navBar).firstOrNull { it.visibility == View.VISIBLE }
         var hide = emptyList<View>()
+        val fab = 56 * d // a button and its margin
+        if (panel == null && b.statusText.visibility == View.VISIBLE && b.statusBox.height > 0) {
+            // The status line at the top of a short pane: the column of buttons under it gives way, the compass first.
+            val top = b.statusBox.top + b.statusBox.translationY + b.statusBox.height + 4 * d
+            val rowLift = if (rowCrowdsSideButtons()) b.compactControls.height + 8 * d else 0f
+            val room = b.root.height - 8 * d - rowLift - top
+            hide = when {
+                2 * fab <= room -> emptyList()
+                fab <= room -> listOf(b.orientationButton)
+                else -> listOf(b.orientationButton, b.centerButton)
+            }
+        }
         if (panel != null) {
             panel.measure(View.MeasureSpec.makeMeasureSpec(b.root.width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
             // The turn banner (and the credit under it) take the top of the pane while guiding.
             val top = if (b.navBanner.visibility == View.VISIBLE) b.statusBox.bottom + b.statusBox.translationY + 8 * d else 0f
             val room = b.root.height - 8 * d - top
-            val fab = 56 * d // a button and its margin
             // The round buttons ride above the arrival bar (the card hides them) and, when they are too wide to sit
             // beside the compass and follow buttons, those rise above them.
             val rowLift = if (rowCrowdsSideButtons()) b.compactControls.height + 8 * d else 0f
@@ -851,6 +863,16 @@ class MapFragment : Fragment() {
         val lp = b.centerButton.layoutParams as? android.widget.LinearLayout.LayoutParams ?: return
         val want = (8 * d).toInt() + lift
         if (lp.bottomMargin != want) { lp.bottomMargin = want; b.centerButton.layoutParams = lp }
+    }
+
+    /** The status line of [lines] lines would reach down to the small pane's row of round buttons. */
+    private fun rowCrowdsStatus(lines: Int): Boolean {
+        val b = _binding ?: return false
+        val row = b.compactControls
+        if (row.visibility != View.VISIBLE || row.height == 0 || b.root.height == 0) return false
+        val t = b.statusText
+        val bottom = b.statusBox.top + b.statusBox.translationY + t.paddingTop + t.paddingBottom + t.lineHeight * lines.coerceAtLeast(1)
+        return bottom + 4 * resources.displayMetrics.density > row.top + row.translationY
     }
 
     /** The row of round buttons is too long to sit beside the compass and follow buttons (worked out from sizes alone). */
@@ -1424,7 +1446,9 @@ class MapFragment : Fragment() {
         binding.statusText.text = text
         binding.statusText.maxLines = if (embedded) lines.size.coerceAtLeast(1) else Int.MAX_VALUE
         binding.statusText.ellipsize = if (embedded) android.text.TextUtils.TruncateAt.END else null
-        binding.statusText.visibility = if (text.isEmpty() || (immersive && !Navigator.active)) View.GONE else View.VISIBLE
+        // A small pane dragged very short: the round buttons stay usable, the status line gives way.
+        val noRoom = embedded && rowCrowdsStatus(lines.size)
+        binding.statusText.visibility = if (text.isEmpty() || noRoom || (immersive && !Navigator.active)) View.GONE else View.VISIBLE
         downloadShown = download != null || cctv != null
         val dismissable = (showRec || downloadShown) && binding.statusText.visibility == View.VISIBLE
         binding.statusDismiss.visibility = if (dismissable) View.VISIBLE else View.GONE

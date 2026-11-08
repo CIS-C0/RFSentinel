@@ -22,4 +22,13 @@ class HeardByTest {
         assertTrue(HeardBy.esp.recent("AA:BB:CC:00:00:01", now = 5_000))
         assertFalse(HeardBy.phone.recent("AA:BB:CC:00:00:01", now = 5_000))
     }
+
+    @Test
+    fun meshDevicesStayUntilTheSenderRepeatsThem() {
+        HeardBy.peerMesh.clear()
+        HeardBy.peerMesh.mark("AA:BB:CC:00:00:02", now = 0)
+        // Ordinary devices go out again every 15 minutes: still listed just before the next one.
+        assertTrue(HeardBy.peerMesh.recent("AA:BB:CC:00:00:02", now = com.rfsentinel.app.link.MeshOutbox.repeatMs(0)))
+        assertFalse(HeardBy.peerMesh.recent("AA:BB:CC:00:00:02", now = HeardBy.MESH_HOLD_MS))
+    }
 }

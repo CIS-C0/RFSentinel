@@ -428,7 +428,9 @@ class SentinelLinkActivity : AppCompatActivity() {
             LinkStore.meshNode(this) == null -> "Choose a node"
             !ScanForegroundService.isRunning -> "Starts while scanning"
             else -> MeshNode.status.ifBlank { "Starting…" } +
-                (MeshNode.lastSent.takeIf { it > 0 }?.let { " · sent " + DateUtils.getRelativeTimeSpanString(it, System.currentTimeMillis(), DateUtils.SECOND_IN_MILLIS) } ?: "")
+                (MeshNode.lastSent.takeIf { it > 0 }?.let { " · sent " + DateUtils.getRelativeTimeSpanString(it, System.currentTimeMillis(), DateUtils.SECOND_IN_MILLIS) } ?: "") +
+                // Heard: an RF Sentinel packet came in on the channel (sent but never heard: the other node isn't reached).
+                (MeshNode.lastHeard.takeIf { it > 0 }?.let { " · heard " + DateUtils.getRelativeTimeSpanString(it, System.currentTimeMillis(), DateUtils.SECOND_IN_MILLIS) } ?: if (MeshNode.canSend) " · nothing heard yet" else "")
         }
 
         list.removeAllViews()
@@ -447,7 +449,11 @@ class SentinelLinkActivity : AppCompatActivity() {
             val overMesh = PhoneLink.lastHeardMesh[m.id]
             val overNet = PhoneLink.lastHeardNet[m.id]
             val detail = when {
-                linked.containsKey(m.id) -> "Linked now"
+                // The mesh too, so it can be checked with both phones side by side.
+                linked.containsKey(m.id) -> "Linked now" + listOfNotNull(
+                    overMesh?.let { " · over the mesh " + DateUtils.getRelativeTimeSpanString(it, now, DateUtils.MINUTE_IN_MILLIS) },
+                    overNet?.let { " · over the internet relay " + DateUtils.getRelativeTimeSpanString(it, now, DateUtils.MINUTE_IN_MILLIS) }
+                ).joinToString("")
                 overMesh != null && overMesh == heard ->
                     "Over the mesh · last heard " + DateUtils.getRelativeTimeSpanString(overMesh, now, DateUtils.MINUTE_IN_MILLIS)
                 overNet != null && overNet == heard ->
