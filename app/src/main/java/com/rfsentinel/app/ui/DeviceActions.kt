@@ -123,7 +123,7 @@ object DeviceActions {
                 if (whitelisted) unwhitelist(activity, mac) else whitelist(activity, mac, snap?.best?.label ?: snap?.name ?: "", ssidOf(snap))
             }
         }
-        val best = snap?.best
+        val best = TrustRules.likeHit(snap?.hits)
         if (best != null && !WhitelistCache.contains(mac)) items += "Ignore all like this (${best.label})" to { ignoreAllLikeThis(activity, mac) }
         items += (if (favorite) "Remove from favorites" else "Add to favorites ★") to {
             activity.lifecycleScope.launch {
@@ -489,7 +489,7 @@ object DeviceActions {
         val snap = DeviceRegistry.get(mac)
         val wifiName = ssid?.trim().orEmpty()
         val nameText = wifiName.ifEmpty { snap?.name?.trim().orEmpty() }
-        val best = snap?.best
+        val best = TrustRules.likeHit(snap?.hits)
         val vendor = snap?.vendor?.trim()?.takeIf { it.isNotEmpty() }
         val advKey = snap?.advert?.takeIf { it.isBle }?.let { com.rfsentinel.app.detect.AdvertFingerprint.key(it) }
         val fp = com.rfsentinel.app.usb.ProbeIntel.of(mac)?.fingerprint
@@ -580,7 +580,7 @@ object DeviceActions {
 
     /** One tap from the long-press menu: whitelisting one Zebra printer this way hides every Zebra printer. */
     fun ignoreAllLikeThis(activity: AppCompatActivity, mac: String) {
-        val best = DeviceRegistry.get(mac)?.best ?: return
+        val best = TrustRules.likeHit(DeviceRegistry.get(mac)?.hits) ?: return
         val police = best.category == com.rfsentinel.app.detect.Category.PUBLIC_SAFETY
         MaterialAlertDialogBuilder(activity)
             .setTitle("Ignore all like this?")

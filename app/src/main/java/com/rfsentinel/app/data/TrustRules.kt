@@ -84,6 +84,9 @@ object TrustRules {
         if (r != null) trusted[f.mac] = r else trusted.remove(f.mac)
     }
 
+    /** The match "Ignore all like this" uses: not the co-location one, whose label holds a changing count. */
+    fun likeHit(hits: List<Hit>?): Hit? = hits?.firstOrNull { it.source != com.rfsentinel.app.detect.PatrolCluster.SOURCE }
+
     fun factsOf(mac: String, name: String?, vendor: String?, hits: List<Hit>, advert: com.rfsentinel.app.detect.Advert?) =
         Facts(mac, name, vendor, hits.map { it.label },
             { advert?.takeIf { it.isBle }?.let { com.rfsentinel.app.detect.AdvertFingerprint.key(it) } },

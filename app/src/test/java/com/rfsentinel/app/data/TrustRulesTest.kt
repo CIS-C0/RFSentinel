@@ -38,6 +38,15 @@ class TrustRulesTest {
     }
 
     @Test
+    fun ignoreAllLikeThisSkipsTheGroupMatchWhoseLabelHoldsACount() {
+        val group = com.rfsentinel.app.detect.Hit(com.rfsentinel.app.detect.Category.PUBLIC_SAFETY,
+            "Two-way radio in a possible police vehicle (3 kinds of gear together)", 82, "", com.rfsentinel.app.detect.PatrolCluster.SOURCE)
+        val radio = com.rfsentinel.app.detect.Hit(com.rfsentinel.app.detect.Category.PUBLIC_SAFETY, "Two-way radio", 40, "", "OUI")
+        assertEquals(radio, TrustRules.likeHit(listOf(group, radio)))
+        assertNull(TrustRules.likeHit(listOf(group)))
+    }
+
+    @Test
     fun aPrefixShorterThanAMakerBlockNeverMatches() {
         assertFalse(TrustRules.matches(Rule(Kind.PREFIX, "AC:23"), printer(mac = "AC:23:3F:12:34:56")))
     }
