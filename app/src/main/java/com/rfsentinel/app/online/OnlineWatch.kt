@@ -51,16 +51,19 @@ class OnlineWatch(
     private val lastAircraftHit = HashMap<String, Long>()
     private val waze = WazeWatch(context, scope, location, onAlert, onCallout)
 
+    /** Aircraft wanted: the category is on and Sentinel Link's "Show only the other Sentinels" is off. */
+    private fun airOn() = Prefs.categoryEnabled(context, Category.AIRCRAFT) && !com.rfsentinel.app.link.LinkStore.ownSensorsOff(context)
+
     /** Starts or stops each source to match Settings (call on every scan (re)start and when Settings closes). */
     fun sync() {
-        val wantAir = Prefs.categoryEnabled(context, Category.AIRCRAFT) && Prefs.aircraftOnline(context)
+        val wantAir = airOn() && Prefs.aircraftOnline(context)
         if (wantAir && aircraftJob?.isActive != true) {
             aircraftJob = scope.launch(Dispatchers.IO) {
                 while (isActive) { runCatching { pollAircraft() }.onFailure { aircraftStatus = "Error: ${it.message}" }; delay(Prefs.aircraftPollSec(context) * 1000L) }
             }
         } else if (!wantAir) {
             aircraftJob?.cancel(); aircraftJob = null; AmbientThreats.aircraft = null
-            aircraftStatus = if (Prefs.categoryEnabled(context, Category.AIRCRAFT)) "Online feeds off: only aircraft your RTL-SDR hears" else ""
+            aircraftStatus = if (airOn()) "Online feeds off: only aircraft your RTL-SDR hears" else ""
             PoliceAircraft.latest = emptyList()
         }
         waze.sync()
@@ -114,7 +117,7 @@ class OnlineWatch(
      */
     fun localAircraft(planes: List<PoliceAircraft.Plane>, unlocated: List<String>) {
         val now = System.currentTimeMillis()
-        if (!Prefs.categoryEnabled(context, Category.AIRCRAFT)) { PoliceAircraft.local = emptyList(); return }
+        if (!airOn()) { PoliceAircraft.local = emptyList(); return }
         val registry = PoliceAircraft.load(context)
         val me = location()
         val seen = ArrayList<PoliceAircraft.Seen>(planes.size)

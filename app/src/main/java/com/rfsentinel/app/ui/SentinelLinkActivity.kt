@@ -42,6 +42,9 @@ class SentinelLinkActivity : AppCompatActivity() {
 
     private lateinit var status: TextView
     private lateinit var share: SwitchMaterial
+    private lateinit var watchOnlyBox: LinearLayout
+    /** Whether the running scan last had this phone's own scans off; joining or leaving a group changes it too. */
+    private var ownOffApplied: Boolean? = null
     private lateinit var list: LinearLayout
     private lateinit var leave: MaterialButton
     private lateinit var meshSection: LinearLayout
@@ -97,6 +100,24 @@ class SentinelLinkActivity : AppCompatActivity() {
             setPadding(0, pad(8), 0, pad(8))
         }
 
+        val watchOnly = SwitchMaterial(this).apply {
+            text = "Show only the other Sentinels"
+            isChecked = LinkStore.watchOnly(this@SentinelLinkActivity)
+            setOnCheckedChangeListener { _, on ->
+                LinkStore.setWatchOnly(this@SentinelLinkActivity, on)
+                refresh()
+            }
+            setPadding(0, pad(8), 0, 0)
+        }
+        val watchOnlyAbout = TextView(this).apply {
+            textSize = 13f; alpha = 0.75f
+            text = "While this phone is in a group, it stops its own Bluetooth, WiFi, cell tower, GPS spoofing and drone checks and the " +
+                "online aircraft and Waze feeds: you only see what the other Sentinels send. Your Settings stay as they are. " +
+                "Hardware plugged into this phone keeps working."
+        }
+
+        watchOnlyBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; addView(watchOnly); addView(watchOnlyAbout) }
+
         fun button(label: String, onClick: () -> Unit) = MaterialButton(this).apply {
             text = label
             setOnClickListener { onClick() }
@@ -121,6 +142,7 @@ class SentinelLinkActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             setPadding(pad(16), pad(16), pad(16), pad(16))
             addView(intro); addView(status); addView(nameLabel); addView(name); addView(share); addView(alertSwitch(PhoneLink.Path.BLUETOOTH))
+            addView(watchOnlyBox)
             addView(hostButton); addView(joinButton); addView(listHeader); addView(list); addView(meshSection); addView(mqttSection); addView(leave)
         }
         val scroll = ScrollView(this).apply { addView(column) }
@@ -403,6 +425,9 @@ class SentinelLinkActivity : AppCompatActivity() {
 
     private fun refresh() {
         if (isFinishing) return
+        val ownOff = LinkStore.ownSensorsOff(this)
+        if (ownOffApplied != null && ownOff != ownOffApplied && ScanForegroundService.isRunning) ScanForegroundService.start(this)
+        ownOffApplied = ownOff
         val grouped = LinkStore.hasGroup(this)
         status.text = when {
             !grouped -> "Not linked yet"
@@ -411,6 +436,7 @@ class SentinelLinkActivity : AppCompatActivity() {
             else -> PhoneLink.status.ifBlank { "Starting…" }
         }
         share.visibility = if (grouped) View.VISIBLE else View.GONE
+        watchOnlyBox.visibility = if (grouped) View.VISIBLE else View.GONE
         leave.visibility = if (grouped) View.VISIBLE else View.GONE
         meshSection.visibility = if (grouped) View.VISIBLE else View.GONE
         mqttSection.visibility = if (grouped) View.VISIBLE else View.GONE

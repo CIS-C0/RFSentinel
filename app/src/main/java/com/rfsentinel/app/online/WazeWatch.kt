@@ -85,7 +85,8 @@ class WazeWatch(
 
     /** Starts or stops the checks to match Settings (call on every scan (re)start and when Settings closes). */
     fun sync() {
-        val want = Prefs.categoryEnabled(context, Category.POLICE_REPORT) && Prefs.wazeReady(context)
+        val want = Prefs.categoryEnabled(context, Category.POLICE_REPORT) && Prefs.wazeReady(context) &&
+            !com.rfsentinel.app.link.LinkStore.ownSensorsOff(context)
         val wantDirect = Prefs.wazeBackend(context) == Prefs.WAZE_DIRECT
         // A new or changed key, or a switch of backend, is tried right away, not at the next round.
         val key = if (wantDirect) "direct" else SecureStore.get(context, OnlineWatch.WAZE_KEY_NAME)

@@ -326,7 +326,7 @@ class ScanForegroundService : Service() {
                     // Off and straight back on during an extended scan: Android restarting its crashed Bluetooth.
                     if (System.currentTimeMillis() - btDroppedAt < BT_RESTART_MS) BleScanEngine.strike(context, "Bluetooth restarted")
                     btDroppedAt = 0L
-                    if (Prefs.bleEnabled(context)) startBle()
+                    if (bleWanted()) startBle()
                 }
                 BluetoothAdapter.STATE_TURNING_OFF, BluetoothAdapter.STATE_OFF -> {
                     if (bleEngine.extended) btDroppedAt = System.currentTimeMillis()
@@ -422,8 +422,8 @@ class ScanForegroundService : Service() {
         // its settings changed: Android silently stops delivering to an app that starts more than 5 scans in 30 s
         // (each start here is two), and a car start, Android Auto and Record trace can each send a start command.
         applyBle()
-        if (Prefs.wifiEnabled(this)) startWifiPolling() else stopWifiPolling()
-        if (Prefs.categoryEnabled(this, Category.DRONE) && NanRemoteId.supported(this) && nearbyWifiAllowed()) {
+        if (wifiWanted()) startWifiPolling() else stopWifiPolling()
+        if (ownOn() && Prefs.categoryEnabled(this, Category.DRONE) && NanRemoteId.supported(this) && nearbyWifiAllowed()) {
             if (nanRemoteId == null) nanRemoteId = NanRemoteId(this) { a -> pipeline.post { processPhone(a) } }.also { it.start() }
         } else { nanRemoteId?.stop(); nanRemoteId = null }
         // ESP32 boards on USB (OUI-Spy / GhostESP / Marauder): their reports join the same pipeline.
@@ -596,6 +596,11 @@ class ScanForegroundService : Service() {
      * The phone's Bluetooth scan on or off as Settings say. With "Phone Bluetooth scan with OUI-SPY" off it pauses
      * while the OUI-SPY board is live (the board hears farther) and comes back as soon as the board drops out.
      */
+    // Sentinel Link's "Show only the other Sentinels" turns the phone's own scans off without touching Settings.
+    private fun ownOn() = !com.rfsentinel.app.link.LinkStore.ownSensorsOff(this)
+    private fun bleWanted() = Prefs.bleEnabled(this) && ownOn()
+    private fun wifiWanted() = Prefs.wifiEnabled(this) && ownOn()
+
     private fun applyBle() {
         val toBoard = !Prefs.ouiSpyPhoneBle(this) && Prefs.ouiSpyBoard(this) != null && com.rfsentinel.app.esp.OuiSpyBle.live
         if (Prefs.bleEaseForAudio(this) != audioDevicesWatched) {
@@ -604,7 +609,7 @@ class ScanForegroundService : Service() {
             else am.registerAudioDeviceCallback(audioDevices, android.os.Handler(Looper.getMainLooper()))
             audioDevicesWatched = !audioDevicesWatched
         }
-        if (Prefs.bleEnabled(this) && !toBoard) {
+        if (bleWanted() && !toBoard) {
             if (!bleEngine.isScanning() || bleSettingsKey() != bleStartedWith) { bleEngine.stop(); startBle() }
         } else stopBle()
     }
@@ -1530,7 +1535,7 @@ class ScanForegroundService : Service() {
         val adapterOn = runCatching {
             (getSystemService(BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager).adapter?.isEnabled == true
         }.getOrDefault(false)
-        if (interactive && adapterOn && Prefs.bleEnabled(this) &&
+        if (interactive && adapterOn && bleWanted() &&
             now - maxOf(lastBleResultAt, bleStartedAt) > bleSilenceMs
         ) {
             Log.w(TAG, "Watchdog: no Bluetooth results for ${(now - maxOf(lastBleResultAt, bleStartedAt)) / 1000} s - restarting the scan")
@@ -1543,7 +1548,7 @@ class ScanForegroundService : Service() {
         val count = bleResults.getAndSet(0)
         val span = now - rateTickAt
         rateTickAt = now
-        val bleRunning = adapterOn && Prefs.bleEnabled(this) && bleEngine.isScanning()
+        val bleRunning = adapterOn && bleWanted() && bleEngine.isScanning()
         var restarted = bleWatchdogRestartAt == now
         if (interactive && wasInteractive && bleRunning && !restarted) {
             if (bleRate.tick(count, span, now)) {
@@ -1566,7 +1571,7 @@ class ScanForegroundService : Service() {
         wasInteractive = interactive
         val wifiOn = runCatching { (applicationContext.getSystemService(WIFI_SERVICE) as android.net.wifi.WifiManager).isScanAlwaysAvailable ||
             (applicationContext.getSystemService(WIFI_SERVICE) as android.net.wifi.WifiManager).isWifiEnabled }.getOrDefault(false)
-        if (wifiOn && Prefs.wifiEnabled(this) &&
+        if (wifiOn && wifiWanted() &&
             now - maxOf(lastWifiResultAt, wifiStartedAt) > maxOf(wifiSilenceMs, 4 * Prefs.scanIntervalMs(this))
         ) {
             Log.w(TAG, "Watchdog: no WiFi results - restarting the WiFi scan")
@@ -1583,7 +1588,7 @@ class ScanForegroundService : Service() {
      */
     private fun startCellChecks() {
         cellJob?.cancel()
-        if (!Prefs.categoryEnabled(this, Category.CELL_ANOMALY) || !hasFineLocation()) return
+        if (!ownOn() || !Prefs.categoryEnabled(this, Category.CELL_ANOMALY) || !hasFineLocation()) return
         val monitor = cellMonitor ?: CellMonitor(this).also { cellMonitor = it }
         cellJob = serviceScope.launch {
             while (isActive) {
@@ -1853,7 +1858,7 @@ class ScanForegroundService : Service() {
      * whenever GPS is on (map, traces, camera warnings); it doesn't turn GPS on itself.
      */
     private fun startGnssChecks() {
-        val want = Prefs.categoryEnabled(this, Category.GNSS) && hasFineLocation()
+        val want = ownOn() && Prefs.categoryEnabled(this, Category.GNSS) && hasFineLocation()
         if (want && !gnssWatching) { GnssWatch.start(this, gnssListener); gnssWatching = true }
         else if (!want && gnssWatching) { GnssWatch.stop(this, gnssListener); gnssWatching = false }
     }

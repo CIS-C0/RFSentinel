@@ -37,6 +37,12 @@ object LinkStore {
     fun enabled(c: Context) = sp(c).getBoolean("enabled", true)
     fun setEnabled(c: Context, on: Boolean) = sp(c).edit { putBoolean("enabled", on) }
 
+    /** "Show only the other Sentinels" switch (Sentinel Link screen). */
+    fun watchOnly(c: Context) = sp(c).getBoolean("watch_only", false)
+    fun setWatchOnly(c: Context, on: Boolean) = sp(c).edit { putBoolean("watch_only", on) }
+    /** This phone's own scans and online feeds are off: the switch is on and the phone is in a group. */
+    fun ownSensorsOff(c: Context) = watchOnly(c) && hasGroup(c)
+
     fun groupKey(c: Context): ByteArray? {
         cachedKey?.let { return it }
         val k = SecureStore.get(c, KEY_NAME)?.let { runCatching { Base64.decode(it, Base64.NO_WRAP) }.getOrNull() }
