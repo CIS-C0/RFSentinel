@@ -316,7 +316,7 @@ object NotificationHelper {
             else -> "Nearby: ${hit.label}"
         }
         val snap = com.rfsentinel.app.service.DeviceRegistry.get(mac)
-        if (toCar(context, if (discreet) "New alert" else carMessageText(title, hit, rssi, snap?.distanceM), mac)) return
+        if (toCar(context, if (discreet) "New alert" else carMessageText(title, hit, rssi, snap?.distanceM?.takeUnless { it.isNaN() }), mac)) return
         val others = com.rfsentinel.app.service.DeviceRegistry.snapshot()
             .count { it.mac != mac && com.rfsentinel.app.ui.DeviceColors.isFlagged(it) }
         val text = "${hit.category.title} · ${hit.tier.label} (${hit.confidence}%) · $rssi dBm" +
@@ -352,7 +352,7 @@ object NotificationHelper {
             .extend(
                 CarAppExtender.Builder()
                     .setContentTitle(if (discreet) "RF Sentinel" else title)
-                    .setContentText(if (discreet) "New alert" else carAlertText(hit, rssi, snap?.distanceM, others))
+                    .setContentText(if (discreet) "New alert" else carAlertText(hit, rssi, snap?.distanceM?.takeUnless { it.isNaN() }, others))
                     .setSmallIcon(R.drawable.ic_tile_scan)
                     .setImportance(NotificationManagerCompat.IMPORTANCE_HIGH)
                     .setContentIntent(

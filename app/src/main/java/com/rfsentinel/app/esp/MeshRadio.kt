@@ -14,6 +14,13 @@ private const val MAX_FRAME = 512
 private fun nodeMac(kind: Int, id: ByteArray) =
     (listOf(0x06, kind) + id.take(4).map { it.toInt() and 0xFF }).joinToString(":") { "%02X".format(it) }
 
+/**
+ * A Meshtastic / MeshCore node a mesh radio heard over LoRa ([MeshtasticLog] / [MeshCoreLog] give it this made-up
+ * address and name): it can be kilometres away, so its signal says nothing about distance.
+ */
+fun isLoRaNode(mac: String, name: String?) = name != null &&
+    (mac.startsWith("06:4D:") && name.startsWith("Meshtastic: ") || mac.startsWith("06:43:") && name.startsWith("MeshCore: "))
+
 /** What a Meshtastic radio tells its phone, as sightings: only nodes it heard over LoRa, never over MQTT. */
 class MeshtasticLog(private val nowS: () -> Long = { System.currentTimeMillis() / 1000 }) {
     private var me = 0L

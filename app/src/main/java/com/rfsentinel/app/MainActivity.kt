@@ -891,7 +891,8 @@ class MainActivity : AppCompatActivity() {
      * under the All filter. Read every 15 s while scanning; tap opens Tools > Cell towers.
      */
     /** The radio tag on ordinary rows, like the purple CELL tag on cell towers. */
-    private fun radioTag(s: DeviceRegistry.Snapshot): String = com.rfsentinel.app.ui.DeviceRows.radioTag(s.sources)
+    private fun radioTag(s: DeviceRegistry.Snapshot): String =
+        com.rfsentinel.app.ui.DeviceRows.radioTag(s.sources, com.rfsentinel.app.esp.isLoRaNode(s.mac, s.name))
 
     private fun radioColor(s: DeviceRegistry.Snapshot): Int = com.rfsentinel.app.ui.DeviceRows.radioColor(s.sources)
 
@@ -1340,7 +1341,7 @@ class MainActivity : AppCompatActivity() {
                 lookalike?.let { "like your \"$it\"" },
                 // Ordinary rows name the radio in their tag; flagged ones keep it here.
                 if (tag == radioTag(s)) null else s.sources.joinToString("+") { if (it == Advert.Source.BLE) "BLE" else "WiFi" },
-                "${ProximityUtil.band(s.rssi)} ${s.rssi} dBm ${DeviceIntel.formatDistance(s.distanceM)}",
+                "${ProximityUtil.band(s.rssi)} ${s.rssi} dBm" + (s.distanceM.takeUnless { it.isNaN() }?.let { " " + DeviceIntel.formatDistance(it) }.orEmpty()),
                 age
             ) + badges).filterNotNull().joinToString(" · "),
             tag = tag,

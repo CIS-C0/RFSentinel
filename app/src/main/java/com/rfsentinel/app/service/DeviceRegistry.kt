@@ -46,6 +46,8 @@ object DeviceRegistry {
     /** Weight of each new RSSI reading (0..1): 0.3 settles in about a second of adverts. */
     private const val RSSI_SMOOTHING = 0.3
     private const val SMOOTH_RESET_MS = 10_000L
+    /** Heard by this phone this recently: its own distance wins over one from another Sentinel's report. */
+    private const val LOCAL_HOLD_MS = 5 * 60_000L
     /** A client heard talking to a network within this long still counts as connected to it. */
     private const val CONNECTED_MS = 5 * 60_000L
     private const val ROTATION_WINDOW_MS = 30_000L
@@ -113,6 +115,8 @@ object DeviceRegistry {
         var smoothRssi = Double.NaN
         var bestRssi = -127
         var distance = 0.0
+        /** Last heard by this phone itself (not through another Sentinel). */
+        var localAt = 0L
         val firstSeen = now
         /** Heard since (the earlier address's time when linked after an address change): for follow detection. */
         var since = now
@@ -170,7 +174,13 @@ object DeviceRegistry {
         remoteId: RemoteId.Info?,
         location: GeoSample?,
         now: Long = System.currentTimeMillis(),
-        broadcast: GeoSample? = null
+        broadcast: GeoSample? = null,
+        /** Where this phone is, for the distance to a LoRa node or to the Sentinel that heard it. */
+        here: GeoSample? = null,
+        /** A Meshtastic / MeshCore node heard over LoRa ([com.rfsentinel.app.esp.isLoRaNode]): its signal says nothing about distance. */
+        lora: Boolean = false,
+        /** Heard by another Sentinel, which was at [location]. */
+        via: Boolean = false
     ): Boolean {
         var isFirst = false
         val t = tracks.compute(a.mac) { _, old -> (old ?: Track(a.mac, now).also { isFirst = true }).also { it.touchedAt = now } }!!
@@ -197,7 +207,16 @@ object DeviceRegistry {
             t.rssi = t.smoothRssi.roundToInt()
             if (location != null && (a.rssi >= t.bestRssi || t.bestPosition == null)) t.bestPosition = location
             if (a.rssi > t.bestRssi) t.bestRssi = a.rssi
-            t.distance = DeviceIntel.distanceMeters(a, t.smoothRssi)
+            // By GPS where the signal says nothing about how far it is from here; NaN when unknown.
+            fun from(p: GeoSample?) = if (p != null && here != null) metersBetween(here.lat, here.lon, p.lat, p.lon) else Double.NaN
+            t.distance = when {
+                via && now - t.localAt < LOCAL_HOLD_MS -> t.distance // heard here too: this phone's own distance
+                lora && via -> Double.NaN                             // the other Sentinel doesn't send the node's position
+                lora -> from(t.broadcast)                             // the position the node shares
+                via -> from(location)                                 // near the Sentinel that heard it
+                else -> DeviceIntel.distanceMeters(a, t.smoothRssi)
+            }
+            if (!via) t.localAt = now
             t.lastSeen = now
             t.sightings++
             if (t.history.isEmpty() || now - t.history.last.time >= HISTORY_MIN_SPACING_MS) {

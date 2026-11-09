@@ -85,7 +85,7 @@ object LastHeard {
 
     fun toJson(v: Saved): String = JSONObject().apply {
         put("at", v.at); put("firstSeen", v.firstSeen); put("rssi", v.rssi); put("bestRssi", v.bestRssi)
-        put("distanceM", v.distanceM); put("sightings", v.sightings); put("following", v.following)
+        if (!v.distanceM.isNaN()) put("distanceM", v.distanceM); put("sightings", v.sightings); put("following", v.following)
         put("hits", JSONArray().apply {
             v.hits.forEach { h ->
                 put(JSONObject().put("category", h.category.name).put("label", h.label).put("confidence", h.confidence)
@@ -112,7 +112,7 @@ object LastHeard {
         val at = o.getLong("at")
         Saved(
             at = at, firstSeen = o.optLong("firstSeen", at), rssi = o.optInt("rssi", -127), bestRssi = o.optInt("bestRssi", -127),
-            distanceM = o.optDouble("distanceM", 0.0), sightings = o.optInt("sightings"), following = o.optBoolean("following"),
+            distanceM = o.optDouble("distanceM", Double.NaN), sightings = o.optInt("sightings"), following = o.optBoolean("following"),
             hits = o.optJSONArray("hits")?.let { a ->
                 (0 until a.length()).map { i ->
                     val h = a.getJSONObject(i)

@@ -747,7 +747,7 @@ object DeviceIntel {
     fun length(m: Double, feet: Boolean = imperial): String = com.rfsentinel.app.util.Units.length(m, feet)
     fun speed(ms: Double, feet: Boolean = imperial): String = com.rfsentinel.app.util.Units.speed(ms, feet)
 
-    fun formatDistance(m: Double, feet: Boolean): String = if (!feet) when {
+    fun formatDistance(m: Double, feet: Boolean): String = if (m.isNaN()) "distance unknown" else if (!feet) when {
         m < 1 -> "< 1 m"
         m < 10 -> "~${m.roundToInt()} m"
         else -> "~${(m / 5).roundToInt() * 5} m"

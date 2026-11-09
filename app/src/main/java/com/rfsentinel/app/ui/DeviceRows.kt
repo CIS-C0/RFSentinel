@@ -39,7 +39,8 @@ object DeviceRows {
     }
 
     /** An ordinary (not flagged) row's tag: the radios it was heard on. */
-    fun radioTag(sources: Set<Advert.Source>): String = when {
+    fun radioTag(sources: Set<Advert.Source>, lora: Boolean = false): String = when {
+        lora -> "LORA"
         Advert.Source.BLE in sources && Advert.Source.WIFI in sources -> "BLUETOOTH + WIFI"
         Advert.Source.WIFI in sources -> "WIFI"
         else -> "BLUETOOTH"

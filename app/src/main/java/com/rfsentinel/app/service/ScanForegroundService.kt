@@ -812,10 +812,13 @@ class ScanForegroundService : Service() {
 
         // Place devices only with a fresh, precise fix: a stale or WiFi/cell-based one
         // (often 100 m+ off) would put the dot far from where the device really was.
-        val loc = if (via != null) peerAt else lastLocation?.takeIf { usableForPlacing(it) }
+        val lora = com.rfsentinel.app.esp.isLoRaNode(mac, a.name)
+        // A LoRa node can be kilometres away: never placed where this phone (or the Sentinel that heard it) was.
+        val loc = if (lora) null else if (via != null) peerAt else lastLocation?.takeIf { usableForPlacing(it) }
         // Heard by another Sentinel: placed where that Sentinel was.
         val geo = if (via != null) loc?.let { DeviceRegistry.GeoSample(now, it.latitude, it.longitude) } else loc?.let { placeNow(it, now) }
-        val isFirst = DeviceRegistry.report(a, c.hits, c.identity, c.vendor, remoteId, geo, now, broadcast)
+        val here = lastLocation?.let { DeviceRegistry.GeoSample(now, it.latitude, it.longitude) }
+        val isFirst = DeviceRegistry.report(a, c.hits, c.identity, c.vendor, remoteId, geo, now, broadcast, here, lora, via != null)
         if (isFirst) serviceScope.launch { loadHistory(mac) }
         // Over the mesh too (Meshtastic node): not the user's own whitelisted devices.
         if (toMesh && !WhitelistCache.contains(mac)) { meshOutbox?.add(a, c.hits, now); mqttOutbox?.add(a, c.hits, now) }

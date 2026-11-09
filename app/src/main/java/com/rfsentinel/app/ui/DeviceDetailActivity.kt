@@ -61,6 +61,12 @@ class DeviceDetailActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityDeviceDetailBinding
     private lateinit var mac: String
+
+    /** A LoRa node's distance comes from the GPS position it shares; any other device's is a rough signal estimate. */
+    private fun distanceLine(m: Double): String =
+        if (m.isNaN() || com.rfsentinel.app.esp.isLoRaNode(mac, DeviceRegistry.get(mac)?.name))
+            if (m.isNaN()) "Distance unknown: no GPS position shared" else DeviceIntel.formatDistance(m) + " by GPS"
+        else DeviceIntel.formatDistance(m) + " (rough)"
     private var sectionsKey = ""
     private var known: KnownDeviceEntity? = null
     /** The saved record's type as this version names it. */
@@ -244,7 +250,7 @@ class DeviceDetailActivity : AppCompatActivity() {
             }
             binding.gauge.set(live.rssi, live.bestRssi, trendDir)
             binding.rssiDetail.text = signalLines(ProximityUtil.band(live.rssi) + if (visual) "" else trend,
-                "${DeviceIntel.formatDistance(live.distanceM)} (rough) · best ${live.bestRssi} dBm" +
+                "${distanceLine(live.distanceM)} · best ${live.bestRssi} dBm" +
                     (if (liveMac != mac) "\nNow heard as $liveMac" else "") +
                     (if (locatingThis()) LiveRead.sweepText()?.let { "\n$it" }.orEmpty() else ""))
             binding.graph.setSamples(live.history)
@@ -256,7 +262,7 @@ class DeviceDetailActivity : AppCompatActivity() {
             // As last heard: its last reading, best and the signal graph then.
             binding.rssiDetail.text = if (last == null) signalLines("Not currently heard", null) else
                 signalLines("Last ${last.rssi} dBm · ${ProximityUtil.band(last.rssi)}",
-                    "${DeviceIntel.formatDistance(last.distanceM)} (rough) · best ${last.bestRssi} dBm")
+                    "${distanceLine(last.distanceM)} · best ${last.bestRssi} dBm")
             binding.graph.setSamples(last?.samples.orEmpty())
             binding.locateButton.isEnabled = false
             stopLocate()

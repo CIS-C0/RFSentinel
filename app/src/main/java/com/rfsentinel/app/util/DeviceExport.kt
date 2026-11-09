@@ -48,7 +48,7 @@ object DeviceExport {
                 .append(s.sources.joinToString("+")).append(',')
                 .append(s.rssi).append(',')
                 .append(s.bestRssi).append(',')
-                .append(String.format(Locale.US, "%.1f", s.distanceM)).append(',')
+                .append(if (s.distanceM.isNaN()) "" else String.format(Locale.US, "%.1f", s.distanceM)).append(',')
                 .append(local(s.firstSeen)).append(',')
                 .append(local(s.lastSeen)).append(',')
                 .append(s.sightings).append(',')
