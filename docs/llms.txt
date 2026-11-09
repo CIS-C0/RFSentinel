@@ -27,6 +27,7 @@ Sentinel Link: RF Sentinel phones linked with a 6-digit code share their detecti
 - [AirTag and tracker detection](https://cis-c0.github.io/RFSentinel/tracker-detector.html)
 - [Remote ID drone detector](https://cis-c0.github.io/RFSentinel/drone-detector.html)
 - [Smart glasses detector](https://cis-c0.github.io/RFSentinel/smart-glasses-detector.html)
+- [Sentinel Link troubleshooting](https://cis-c0.github.io/RFSentinel/sentinel-link-troubleshooting.html): linking phones over Bluetooth, Meshtastic LoRa nodes and an MQTT relay; every status line, why only some devices arrive, radio checks
 - [Compared with other tools](https://cis-c0.github.io/RFSentinel/alternatives.html): Flock You, OUI-Spy / OUI-APEX, Wardrive Go, Fieldwatch, SØPHIA, Flock-You for Android, AirGuard, BLE Radar, Rayhunter, WiGLE
 - [Free SØPHIA alternative](https://cis-c0.github.io/RFSentinel/sophia-alternative.html)
 - [Android Auto](https://cis-c0.github.io/RFSentinel/android-auto.html)

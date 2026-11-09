@@ -1,0 +1,167 @@
+<!--META {"title": "Sentinel Link & Meshtastic troubleshooting | RF Sentinel", "description": "Fix RF Sentinel's Sentinel Link between phones: Bluetooth link, Meshtastic LoRa nodes and the MQTT internet relay. What every status line means, why only some devices arrive, and how to check two Meshtastic nodes can hear each other.", "nav": "guides", "crumb": "Sentinel Link troubleshooting"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / sentinel-link-troubleshooting</p>
+  <h1>Sentinel Link &amp; Meshtastic troubleshooting</h1>
+  <p class="lead">Sentinel Link shares what one phone detects with the others in its group, over Bluetooth nearby, Meshtastic LoRa nodes far away, or an MQTT broker over the internet. When devices don't show up on the other phone, the status lines on the Sentinel Link screen say where it stops. This page goes through each one.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="qa.html#sentinel-link">Set up Sentinel Link</a>
+  </div>
+</div>
+
+<h2 id="start">Start here</h2>
+<ol>
+<li><b>Same version on every phone.</b> Update all of them to the latest release. Mesh packets from a different packet version are counted as "from another group or version" and dropped. Mesh devices staying listed until the next resend needs 2.40.1 or later on the phone that receives them.</li>
+<li><b>A scan must run on every phone.</b> Sentinel Link only shares while scanning ("Links while scanning - start a scan to share", "Starts while scanning").</li>
+<li><b>Open the Sentinel Link screen on both phones</b> (Settings → Sentinel Link → Open Sentinel Link) and read the status under each section: the top line for Bluetooth, the line under <b>Meshtastic node</b>, the line under <b>Internet relay</b>. Compare the two phones: the tables below say what each line means.</li>
+<li><b>Know where each row on the list comes from</b> (<a href="#chips">below</a>): not everything on the watching phone comes from the other phone.</li>
+</ol>
+
+<h2 id="chips">What the list shows, and from where</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>On the list</th><th>Comes from</th></tr></thead>
+<tbody>
+<tr><td><b>VIA</b> badge with a phone's name</td><td>Another phone of the group heard it.</td></tr>
+<tr><td><b>Sentinels</b> chip</td><td>Devices from phones linked over <b>Bluetooth</b>.</td></tr>
+<tr><td><b>Mesh</b> chip</td><td>Devices from phones reached over <b>Meshtastic</b> or the <b>internet relay</b>.</td></tr>
+<tr><td><b>External</b> chip, ESP32 / USB badges</td><td>This phone's own hardware. A Meshtastic node also reports the other Meshtastic nodes it hears over the air, including strangers' nodes miles away. Those are not from your other phone.</td></tr>
+<tr><td><b>Cells</b>, <b>Aircraft</b></td><td>This phone's own cell modem and the online aircraft feeds. Never shared over Sentinel Link.</td></tr>
+</tbody></table></div>
+<p>To see only what the other phones send, turn on <b>Show only the other Sentinels</b> on the watching phone's Sentinel Link screen. While it's in a group, that phone stops its own Bluetooth, WiFi, cell tower, GPS spoofing and drone checks and the online aircraft and Waze feeds; your Settings stay as they are. Hardware plugged into it keeps working. Leave this switch <b>off on the phone that does the detecting</b>, or it has nothing to share.</p>
+<p class="small">The distance shown for a device heard by a Meshtastic node is a Bluetooth estimate and means nothing for LoRa.</p>
+
+<h2 id="bluetooth">Bluetooth link (phones nearby)</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Status</th><th>What it means / what to do</th></tr></thead>
+<tbody>
+<tr><td>Not linked yet</td><td>This phone isn't in a group. Tap <b>Link up a Sentinel</b> on one phone and <b>Join a Sentinel</b> on the other, close together, and confirm the same 6-digit code on both.</td></tr>
+<tr><td>Different codes on the two phones</td><td>Tap Cancel on both and start again. A different code means the two phones didn't talk to each other directly.</td></tr>
+<tr><td>Bluetooth sharing off</td><td>"Share over Bluetooth" is off. The Meshtastic and internet relay paths still work without it.</td></tr>
+<tr><td>Sentinel Link · waiting for Sentinels</td><td>Sharing, but no linked phone is in Bluetooth range (about 10 to 30 m, less through walls). Normal when the other phone is far away and you use Meshtastic or the relay instead; turn "Share over Bluetooth" off to hide it.</td></tr>
+<tr><td>Sentinel Link · N Sentinels linked</td><td>Working. Their devices show with VIA and under the <b>Sentinels</b> chip.</td></tr>
+<tr><td>Sentinel Link: allow "Nearby devices" to link Sentinels</td><td>Android → Apps → RF Sentinel → Permissions → Nearby devices → Allow.</td></tr>
+<tr><td>Sentinel Link: Bluetooth is off</td><td>Turn the phone's Bluetooth on. It is also how the phone talks to its Meshtastic node, so turning Bluetooth off cuts the mesh too.</td></tr>
+<tr><td>Sentinel Link: Bluetooth link failed to start</td><td>Turn Bluetooth off and on, then stop and start the scan.</td></tr>
+</tbody></table></div>
+
+<h2 id="node">Meshtastic node: connecting</h2>
+<p>Each phone needs its own Meshtastic node (a LoRa board with the official firmware), paired over Bluetooth. A node serves one app at a time: while RF Sentinel uses it, the Meshtastic app on that phone can't, and the other way round.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Status under Meshtastic node</th><th>What it means / what to do</th></tr></thead>
+<tbody>
+<tr><td>Off / Choose a node</td><td>Turn on <b>Use a Meshtastic node</b> and tap <b>Choose a node</b>.</td></tr>
+<tr><td>Starts while scanning</td><td>Start a scan.</td></tr>
+<tr><td>not paired - tap here to pair</td><td>Tap the line. Android asks for a PIN: it's on the node's screen, or <code>123456</code>.</td></tr>
+<tr><td>pairing - enter the PIN Android asks for</td><td>Finish the PIN prompt in Android's notification or dialog.</td></tr>
+<tr><td>allow "Nearby devices" / Bluetooth is off</td><td>As for the Bluetooth link above.</td></tr>
+<tr><td>choose the node again</td><td>The saved node is gone (unpaired or reset). Tap <b>Choose a node</b>.</td></tr>
+<tr><td>connecting… / can't connect / no answer - retrying / stopped answering - retrying</td><td>Close the Meshtastic app (it may hold the node), keep the node powered and within a few metres, and make sure it isn't connected to another phone. It retries by itself.</td></tr>
+<tr><td>not a Meshtastic node</td><td>The board chosen doesn't run Meshtastic's firmware. Choose the right one.</td></tr>
+<tr><td>restarted - retrying</td><td>The node rebooted (it can happen once after changing its settings). Wait.</td></tr>
+<tr><td>set its LoRa region in the Meshtastic app first</td><td>A new node has no region and won't transmit. Stop the scan, set the region in the Meshtastic app (Settings → LoRa → Region), then start the scan again.</td></tr>
+<tr><td>its LoRa transmit is off</td><td>Turn "Transmit enabled" back on in the Meshtastic app (Settings → LoRa).</td></tr>
+<tr><td>no free channel - free one in the Meshtastic app</td><td>Channel slots 1 to 7 are all in use. RF Sentinel only takes an empty slot or its own RFSentinel channel; delete a channel you don't need.</td></tr>
+<tr><td>channel N is in use - pick another slot</td><td>The slot chosen under <b>Channel slot</b> holds a channel you set up. Pick another slot or "automatic".</td></tr>
+<tr><td>couldn't add the RFSentinel channel</td><td>The node refused the change. Restart the node, then the scan.</td></tr>
+<tr><td>channel N, encrypted</td><td>Connected and ready. Now see <a href="#mesh">whether packets get through</a>.</td></tr>
+</tbody></table></div>
+
+<h2 id="mesh">Meshtastic: nothing arrives on the other phone</h2>
+<p>Once connected, the node line adds "sent X ago" when this phone hands a packet to its node, and what the node has received. Read it on <b>both</b> phones:</p>
+<div class="table-wrap"><table>
+<thead><tr><th>The line says</th><th>Where it stops</th></tr></thead>
+<tbody>
+<tr><td>· nothing heard yet</td><td>This node hasn't received <b>any</b> packet from any other node since it connected. Its radio isn't reaching the mesh: see <a href="#radio">the radio checks</a>.</td></tr>
+<tr><td>· nothing from the group yet (the node hears other traffic)</td><td>The node's radio works (it hears other nodes) but nothing from your other phone's node arrives. Check the <b>other</b> node's line, then <a href="#radio">the radio checks</a> on both nodes.</td></tr>
+<tr><td>· heard X ago</td><td>Packets from the group arrive. If devices are still missing, see <a href="#partial">only some devices arrive</a>.</td></tr>
+<tr><td>· N from another group or version</td><td>Packets on the RFSentinel channel that this phone can't open: the phones aren't in the same group, or they run different versions. Update both; if it keeps counting, leave the group on one phone and join again from the other (Bluetooth, close together).</td></tr>
+<tr><td>· N too old (check the phones' clocks)</td><td>Packets more than 15 minutes off this phone's clock are refused (so they can't be replayed). Set both phones to automatic date and time.</td></tr>
+</tbody></table></div>
+<p>"Sent" means the phone handed the packet to its node over Bluetooth. Whether the node transmits it, and whether the other node hears it, is up to the radios.</p>
+
+<h2 id="radio">Meshtastic: radio checks</h2>
+<p>Stop the scan in RF Sentinel on both phones (or turn off "Use a Meshtastic node"), open the Meshtastic app, and compare the two nodes:</p>
+<ol>
+<li><b>Antenna</b> screwed on firmly. A node without its antenna barely hears anything, and transmitting without one can damage the radio.</li>
+<li><b>Settings → LoRa:</b> same <b>Region</b>, same <b>Modem preset</b> (for example Long Range - Fast), same <b>Frequency slot</b>, and transmit enabled. Nodes with a different preset or slot are on another frequency or speed and never hear each other.</li>
+<li><b>Primary channel</b> (channel 0): same name and key on both. With the frequency slot at 0, Meshtastic picks the frequency from the primary channel's name, so a renamed primary channel moves the node to another frequency. RF Sentinel never touches channel 0.</li>
+<li><b>Do they see each other?</b> Each node should list the other in the node list with a recent "heard" time and a signal reading. Send a text from one to the other on the primary channel. If that fails, RF Sentinel can't get through either: it's the radios, the settings or the distance.</li>
+<li><b>Not too close, not too far.</b> Two nodes side by side (under a metre) can overload each other's receivers: keep them a few metres apart. Far apart, LoRa range depends on height and terrain; a node indoors or in a pocket reaches much less.</li>
+<li><b>Hops</b> (Sentinel Link screen): 1 means only nodes in range of yours pass it on. If your nodes only reach each other through other nodes, raise it to the number of hops between them.</li>
+</ol>
+<p>When the text gets through, start RF Sentinel again on both phones. Within a minute the line should change to "heard X ago".</p>
+
+<h2 id="partial">Meshtastic: only some devices arrive</h2>
+<p>LoRa is slow. Each packet is at most 233 bytes and carries the phone's position and as many devices as fit: about 6 to 19, fewer with long names or matches. One packet goes out per interval (60 s by default, 15 s at the fastest on the <b>Send a packet every</b> slider). Devices take turns:</p>
+<ul>
+<li><b>Watchlist matches</b> first, within about 20 s, then every minute while heard.</li>
+<li><b>Flagged devices</b> next, every 3 minutes.</li>
+<li><b>Everything else</b> once, then every 15 minutes, newest first. 40 ordinary devices take a few packets, so a few minutes at the default interval.</li>
+<li>Only devices the sending phone heard in the <b>last 2 minutes</b> go out. Whitelisted (trusted) devices are never sent.</li>
+<li>The receiving phone keeps a device heard over the mesh for 16 minutes, until the sender's next repeat (2.40.1 and later). Older versions dropped it after about a minute, so only the last packet or two showed.</li>
+</ul>
+<p>If devices still go missing:</p>
+<ul>
+<li><b>Keep the sending phone's screen on</b>, RF Sentinel open. With the screen off, Android allows an app only a few WiFi scans an hour, so the sender hears few networks and has little to send. Bluetooth is limited too.</li>
+<li><b>Lower the interval</b> on the sending phone (15 s sends 4 times more than the default). More packets use more air time, which a busy public mesh shares with everyone.</li>
+<li><b>Check the sending phone has the devices</b>: its own list should show them, and "Show only the other Sentinels" must be off there.</li>
+</ul>
+
+<h2 id="relay">Internet relay (MQTT)</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Status under Internet relay</th><th>What it means / what to do</th></tr></thead>
+<tbody>
+<tr><td>Off</td><td>Turn on <b>Use an MQTT broker</b> on every phone of the group.</td></tr>
+<tr><td>Set the broker</td><td>Enter the broker's address, the same on every phone.</td></tr>
+<tr><td>Not a broker address</td><td>Write it as <code>mqtts://host</code> (encrypted, port 8883) or <code>mqtt://host:port</code>.</td></tr>
+<tr><td>Starts while scanning</td><td>Start a scan.</td></tr>
+<tr><td>Connecting to HOST…</td><td>Wait; if it stays there, the phone has no internet or the broker is down.</td></tr>
+<tr><td>Can't reach HOST - …, retrying</td><td>Wrong host or port, the broker is down, or the network blocks the port. With <code>mqtts://</code> and <b>Check the certificate</b> on, a self-signed certificate is refused: use a real certificate, or turn the check off only on a broker you run yourself.</td></tr>
+<tr><td>The broker refused the username or password</td><td>Fix the username and password on that phone.</td></tr>
+<tr><td>The broker refused the connection (code N)</td><td>The broker turned the client away for another reason (see its log).</td></tr>
+<tr><td>Connected to HOST</td><td>Working. Devices from the relay show with VIA and under the <b>Mesh</b> chip. Packets are encrypted with the group's key: the broker only sees encrypted data.</td></tr>
+</tbody></table></div>
+
+<h2 id="qa">Q&amp;A</h2>
+
+<details class="faq" id="mesh-sent-not-received">
+<summary>RF Sentinel says "sent" over Meshtastic but the other phone shows nothing. Why?</summary>
+<div>
+<p>"Sent" only means the phone handed the packet to its own node. Read the node line on the receiving phone: "nothing heard yet" means its node hears no LoRa traffic at all, "nothing from the group yet" means it hears other nodes but not yours. In both cases the two nodes aren't reaching each other: check the antennas, that both use the same region, modem preset, frequency slot and primary channel, and send a text between them in the Meshtastic app (<a href="#radio">radio checks</a>).</p>
+</div>
+</details>
+
+<details class="faq" id="mesh-only-some">
+<summary>Why do only a few of the other phone's devices come through Meshtastic?</summary>
+<div>
+<p>LoRa carries one small packet per interval (60 s by default), so devices take turns: watchlist matches, then flagged devices, then everything else, once and again every 15 minutes. Only devices heard in the last 2 minutes are sent, and a sending phone with its screen off scans WiFi only a few times an hour. Update both phones to 2.40.1 or later (devices then stay listed until the next resend), keep the sender's screen on, and lower the interval to 15 s (<a href="#partial">details</a>).</p>
+</div>
+</details>
+
+<details class="faq" id="mesh-strange-nodes">
+<summary>Why does RF Sentinel list Meshtastic nodes I don't own?</summary>
+<div>
+<p>Your Meshtastic node reports the other nodes it hears over the air, and RF Sentinel lists them as external hardware (ESP32 badge, <b>External</b> chip), like any other radio around you. They can be miles away. They don't come from your other phone; those show with a VIA badge under the <b>Mesh</b> chip.</p>
+</div>
+</details>
+
+<details class="faq" id="show-only-other-phone">
+<summary>How do I see only what the other phone detects?</summary>
+<div>
+<p>On the watching phone, open Settings → Sentinel Link → Open Sentinel Link and turn on <b>Show only the other Sentinels</b>. It turns off that phone's own scans and online feeds while it's in a group, without changing your Settings. Hardware plugged into it keeps working. Leave the switch off on the phone that does the detecting.</p>
+</div>
+</details>
+
+<details class="faq" id="waiting-for-sentinels">
+<summary>Sentinel Link says "waiting for Sentinels". Is something wrong?</summary>
+<div>
+<p>No. It means Bluetooth sharing is on but no linked phone is in Bluetooth range. If the other phone is far away and you use Meshtastic or the internet relay, turn "Share over Bluetooth" off; the other paths keep working.</p>
+</div>
+</details>
+
+<details class="faq" id="mesh-clock">
+<summary>What does "too old (check the phones' clocks)" mean?</summary>
+<div>
+<p>Mesh packets carry the time they were sent. A packet more than 15 minutes off the receiving phone's clock is refused, so an old packet can't be replayed. Set both phones to automatic date and time.</p>
+</div>
+</details>
