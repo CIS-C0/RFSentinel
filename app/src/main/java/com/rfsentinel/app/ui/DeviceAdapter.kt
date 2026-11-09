@@ -65,12 +65,7 @@ private fun metaWithBadges(row: DeviceRow): CharSequence {
     val sb = android.text.SpannableStringBuilder(row.meta)
     fun badge(label: String, color: Int) {
         sb.append("  ")
-        val start = sb.length
-        sb.append(" ").append(label).append(" ")
-        val end = sb.length
-        sb.setSpan(android.text.style.BackgroundColorSpan(color), start, end, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        sb.setSpan(android.text.style.ForegroundColorSpan(Color.WHITE), start, end, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        sb.setSpan(android.text.style.StyleSpan(Typeface.BOLD), start, end, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        appendBadge(sb, label, color)
     }
     if (row.heardByEsp) badge("ESP32", ESP_BADGE)
     if (row.heardByUsb) badge("USB WIFI", USB_BADGE)
@@ -79,6 +74,16 @@ private fun metaWithBadges(row: DeviceRow): CharSequence {
     row.heardByPeer?.let { badge("VIA " + it.uppercase(), PEER_BADGE) }
     row.badges.forEach { (label, color) -> badge(label, color) }
     return sb
+}
+
+/** A small white-on-[color] box ("ESP32", or the tag in a smaller row's title). */
+private fun appendBadge(sb: android.text.SpannableStringBuilder, label: String, color: Int) {
+    val start = sb.length
+    sb.append(" ").append(label).append(" ")
+    val end = sb.length
+    sb.setSpan(android.text.style.BackgroundColorSpan(color), start, end, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    sb.setSpan(android.text.style.ForegroundColorSpan(Color.WHITE), start, end, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    sb.setSpan(android.text.style.StyleSpan(Typeface.BOLD), start, end, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
 }
 
 class DeviceAdapter(
@@ -93,6 +98,11 @@ class DeviceAdapter(
     var visual = false
         set(v) { if (field != v) { field = v; notifyDataSetChanged() } }
 
+    /** Settings › Appearance › List size. A row with an alert colour ([DeviceRow.highlight]) stays Regular. */
+    @android.annotation.SuppressLint("NotifyDataSetChanged")
+    var size = com.rfsentinel.app.util.Prefs.ListSize.REGULAR
+        set(v) { if (field != v) { field = v; notifyDataSetChanged() } }
+
     object Diff : DiffUtil.ItemCallback<DeviceRow>() {
         override fun areItemsTheSame(a: DeviceRow, b: DeviceRow) = a.mac == b.mac
         override fun areContentsTheSame(a: DeviceRow, b: DeviceRow) = a == b
@@ -102,6 +112,37 @@ class DeviceAdapter(
         private var animator: ValueAnimator? = null
         private var animColor = 0
         val metaColors = binding.metaText.textColors
+        /** The size this row's views are set up for: changing it re-lays the row out, so only when it changes. */
+        var shownSize: com.rfsentinel.app.util.Prefs.ListSize? = null
+
+        fun applySize(s: com.rfsentinel.app.util.Prefs.ListSize) {
+            if (shownSize == s) return
+            shownSize = s
+            val small = s != com.rfsentinel.app.util.Prefs.ListSize.REGULAR
+            val dense = s == com.rfsentinel.app.util.Prefs.ListSize.DENSE
+            val res = binding.root.resources
+            val dp = res.displayMetrics.density
+            val pad = ((if (dense) 3 else if (small) 5 else 10) * dp).toInt()
+            binding.rowBox.setPaddingRelative(binding.rowBox.paddingStart, pad, binding.rowBox.paddingEnd, pad)
+            // A row stays a comfortable touch target at any size.
+            binding.rowBox.minimumHeight = (48 * dp).toInt()
+            fun TextView.size(regular: Int, smallSp: Float, lines: Int) {
+                if (small) setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, smallSp)
+                else setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, res.getDimension(regular))
+                includeFontPadding = !small
+                maxLines = if (small) lines else Int.MAX_VALUE
+                ellipsize = if (small) android.text.TextUtils.TruncateAt.END else null
+            }
+            binding.titleText.size(com.rfsentinel.app.R.dimen.text_subtitle, 14f, 1)
+            binding.macText.size(com.rfsentinel.app.R.dimen.text_body, 13f, 1)
+            binding.metaText.size(com.rfsentinel.app.R.dimen.text_caption, 12f, if (dense) 1 else 2)
+            binding.macText.visibility = if (dense) View.GONE else View.VISIBLE
+            (binding.confidenceBar.layoutParams as ViewGroup.MarginLayoutParams).bottomMargin = ((if (small) 3 else 5) * dp).toInt()
+            binding.signalBars.layoutParams = binding.signalBars.layoutParams.apply {
+                width = ((if (small) 22 else 28) * dp).toInt(); height = ((if (small) 17 else 22) * dp).toInt()
+            }
+            binding.rowBox.requestLayout()
+        }
 
         init {
             binding.root.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
@@ -129,14 +170,13 @@ class DeviceAdapter(
                 if (animator?.isRunning == true && animColor == color) return
                 stopFlash()
                 animColor = color
-                animator = ValueAnimator.ofArgb(low, high).apply {
-                    duration = 450
-                    repeatMode = ValueAnimator.REVERSE
+                // The animator only ticks frames; the shade comes from the frame clock, so every row is on one beat
+                // however late its first frame came (a seek before it was lost on a busy frame: aircraft rows lagged).
+                animator = ValueAnimator.ofFloat(0f, 1f).apply {
+                    duration = 2 * FLASH_MS
                     repeatCount = ValueAnimator.INFINITE
-                    addUpdateListener { binding.root.setBackgroundColor(it.animatedValue as Int) }
+                    addUpdateListener { binding.root.setBackgroundColor(flashColor(low, high, android.view.animation.AnimationUtils.currentAnimationTimeMillis())) }
                     start()
-                    // All rows on one beat: the same kind of alert is the same shade at any moment.
-                    currentPlayTime = android.os.SystemClock.uptimeMillis() % (2 * duration)
                 }
             } else {
                 stopFlash()
@@ -164,27 +204,43 @@ class DeviceAdapter(
         if (holder is HeaderVH) { holder.text.text = row.title; return }
         holder as VH
         val b = holder.binding
-        if (row.tag != null) {
+        // Alerting rows stay full size, so they stand out among smaller ones.
+        val rowSize = if (row.highlight != null) com.rfsentinel.app.util.Prefs.ListSize.REGULAR else size
+        val small = rowSize != com.rfsentinel.app.util.Prefs.ListSize.REGULAR
+        val dense = rowSize == com.rfsentinel.app.util.Prefs.ListSize.DENSE
+        holder.applySize(rowSize)
+        if (row.tag != null && !small) {
             b.tagText.visibility = View.VISIBLE
             b.tagText.text = row.tag
             b.tagText.background.mutate().setTint(row.tagColor)
         } else {
             b.tagText.visibility = View.GONE
         }
-        b.titleText.text = row.title
+        // Smaller rows: the tag goes in front of the title instead of on a line of its own.
+        b.titleText.text = if (row.tag != null && small)
+            android.text.SpannableStringBuilder().also { appendBadge(it, row.tag, row.tagColor); it.append("  ").append(row.title) }
+        else row.title
         b.titleText.setTypeface(b.titleText.typeface, if (row.bold) Typeface.BOLD else Typeface.NORMAL)
         // Only an address is monospaced: names and distances read as normal text.
-        b.macText.text = if (row.subtitle.startsWith(row.mac)) android.text.SpannableString(row.subtitle).apply {
+        val subtitle: CharSequence = if (row.subtitle.startsWith(row.mac)) android.text.SpannableString(row.subtitle).apply {
             setSpan(android.text.style.TypefaceSpan("monospace"), 0, row.mac.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         } else row.subtitle
-        b.metaText.text = metaWithBadges(row)
+        b.macText.text = subtitle
+        val meta = metaWithBadges(row)
+        // Dense: the address and the details share one line.
+        b.metaText.text = if (dense && subtitle.isNotBlank() && meta.isNotBlank())
+            android.text.SpannableStringBuilder(subtitle).append("  ·  ").append(meta)
+        else if (dense && subtitle.isNotBlank()) subtitle
+        else meta
         // Grey is hard to read on an alert's colour.
         b.metaText.setTextColor(if (row.highlight != null) b.macText.textColors else holder.metaColors)
         b.signalText.setTextColor(if (row.highlight != null) b.macText.textColors else holder.metaColors)
         val conf = row.confidence
-        b.confidenceBar.visibility = if (visual && conf != null) View.VISIBLE else View.GONE
-        if (visual && conf != null) b.confidenceBar.set(conf / 100f, row.tagColor)
+        // Dense: the tag already says the confidence, and the bars the signal without the number.
+        b.confidenceBar.visibility = if (visual && conf != null && !dense) View.VISIBLE else View.GONE
+        if (visual && conf != null && !dense) b.confidenceBar.set(conf / 100f, row.tagColor)
         b.signalBox.visibility = if (visual && row.rssi != null) View.VISIBLE else View.GONE
+        b.signalText.visibility = if (dense) View.GONE else View.VISIBLE
         if (visual && row.rssi != null) {
             b.signalBars.set(row.rssi + row.barBoost)
             b.signalText.text = "${row.rssi}"
@@ -214,6 +270,16 @@ class DeviceAdapter(
     companion object {
         private const val DEVICE = 0
         private const val HEADER = 1
+        /** Half a flash: [low] to high, then back. */
+        internal const val FLASH_MS = 450L
+        private val flashCurve = android.view.animation.AccelerateDecelerateInterpolator()
+
+        /** A flashing row's shade at [timeMs]: the same for every row at the same moment. */
+        internal fun flashColor(low: Int, high: Int, timeMs: Long): Int {
+            val t = (timeMs % (2 * FLASH_MS)).toFloat()
+            val f = if (t < FLASH_MS) t / FLASH_MS else (2 * FLASH_MS - t) / FLASH_MS
+            return android.animation.ArgbEvaluator().evaluate(flashCurve.getInterpolation(f), low, high) as Int
+        }
 
         /** The header row of a group, shared with the snapshot list so both look the same. */
         fun groupHeader(parent: ViewGroup): TextView = TextView(parent.context).apply {

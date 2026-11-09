@@ -99,6 +99,17 @@
                     android:layout_weight="1"
                     android:text="Remove image" />
             </LinearLayout>
+
+            <TextView android:id="@+id/listSizeLabel" style="@style/SettingsLabel" android:text="List size" />
+
+            <RadioGroup
+                style="@style/SettingsControl"
+                android:id="@+id/listSizeGroup">
+
+                <RadioButton style="@style/SettingsControl" android:id="@+id/listSizeRegular" android:text="Regular" />
+                <RadioButton style="@style/SettingsControl" android:id="@+id/listSizeCompact" android:text="Compact" />
+                <RadioButton style="@style/SettingsControl" android:id="@+id/listSizeDense" android:text="Dense" />
+            </RadioGroup>
         </LinearLayout>
 
         <!-- ================= What to detect ================= -->

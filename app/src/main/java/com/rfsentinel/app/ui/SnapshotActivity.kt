@@ -105,6 +105,7 @@ class SnapshotActivity : AppCompatActivity() {
                 .thenByDescending { it.rssi }
         )
         adapter.visual = VisualMode.on(this, VisualMode.Screen.DEVICE_LIST)
+        adapter.size = com.rfsentinel.app.util.Prefs.listSize(this)
         adapter.submitList(sections.flatMap { sec ->
             listOfNotNull(sec.header?.let { DeviceRow.header(it, DeviceOrder.headerLabel(sec)) }) + sec.items.map { DeviceRows.saved(this, it) }
         })

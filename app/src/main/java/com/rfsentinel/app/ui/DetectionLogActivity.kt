@@ -53,6 +53,7 @@ class DetectionLogActivity : AppCompatActivity() {
                         else DeviceActions.unmarkFalseAlert(this, d.mac) { buildChips(); search(now = true) }
                     }.show()
             })
+        adapter.size = com.rfsentinel.app.util.Prefs.listSize(this)
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
         binding.searchInput.doAfterTextChanged { search(now = false) }

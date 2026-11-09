@@ -1224,6 +1224,9 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.fullscreenSwitch, "Hides the status bar and Android's navigation bar for more room. Swipe from the edge of the screen to see them for a moment.")
         info(binding.screenLabel, "Always on: the screen never turns off while RF Sentinel is open.\n\nOn while charging: stays on in the car or on a desk (recommended).\n\nNormal: turns off like any other app.")
         info(binding.rotationLabel, "Normal follows the phone's auto-rotate.\n\nAuto-rotate, upside down too: also turns upside down, which phones like the Pixel never do on their own.\n\nAlways upside down: the USB-C port at the top, for an antenna or adapter plugged in.")
+        info(binding.listSizeLabel, "How much each row of the device list and History takes.\n\nRegular: every line, as before.\n\n" +
+            "Compact: smaller text and spacing, about a third more rows.\n\nDense: two lines a row, the address and details " +
+            "on one line, for the most rows.\n\nRows that are alerting always stay Regular, so they stand out.")
         info(binding.bannerLabel, "A picture across the header of the styled themes (a logo or artwork you own). Your custom themes have their own banner, set in the theme maker.")
         info(binding.hideTrustedSwitch, "Devices on your whitelist are left off the list and radar.")
         info(binding.wifiBandLabel, "The channels a USB WiFi adapter hops. 5 and 6 GHz only gives those channels more listening time (police in-car networks are usually on 5 GHz). Adapters that only do 2.4 GHz keep scanning 2.4 GHz.\n\nThe phone's own WiFi always shows every band. An adapter picks up a change when it next starts.")
@@ -2942,6 +2945,10 @@ class SettingsActivity : AppCompatActivity() {
         binding.fullscreenSwitch.setOnCheckedChangeListener { _, on ->
             Prefs.setFullscreen(this, on)
             (application as com.rfsentinel.app.RFSentinelApp).applyFullscreen(this) // right away
+        }
+        binding.listSizeGroup.checkIndex(Prefs.listSize(this).ordinal)
+        binding.listSizeGroup.setOnCheckedChangeListener { group, _ ->
+            Prefs.ListSize.entries.getOrNull(group.checkedIndex)?.let { Prefs.setListSize(this, it) }
         }
         binding.rotationGroup.checkIndex(Prefs.rotation(this).ordinal)
         binding.rotationGroup.setOnCheckedChangeListener { group, _ ->

@@ -743,6 +743,7 @@ class MainActivity : AppCompatActivity() {
         binding.refreshSwipe.isEnabled = panes.listShown
         deviceCount = all.size
         adapter.visual = com.rfsentinel.app.ui.VisualMode.on(this, com.rfsentinel.app.ui.VisualMode.Screen.DEVICE_LIST)
+        adapter.size = Prefs.listSize(this)
         // The banner and radar alert only for flagged devices still in range.
         val flagged = all.filter { com.rfsentinel.app.ui.LiveWindow.alerting(it, now) }
         // The status's count is the Flagged chip's, aircraft included (the banner and radar still alert only for those in range).
@@ -953,13 +954,14 @@ class MainActivity : AppCompatActivity() {
                 val muted = com.rfsentinel.app.data.AlertMutes.isMuted(this, WAZE_ROW + w.report.id, now)
                 val urgent = w.level != com.rfsentinel.app.online.WazePolice.Level.LOG &&
                     w.hit.confidence >= threshold && !off && !muted
-                val ago = w.report.publishedMs?.let { "${((now - it) / 60_000).coerceAtLeast(0)} min ago" } ?: "just now"
                 DeviceRow(
                     mac = WAZE_ROW + w.report.id,
                     title = w.hit.label,
-                    subtitle = com.rfsentinel.app.online.WazePolice.relativeText(w.where, w.trend) + if (off) " · not on your way" else "",
-                    meta = "Reported $ago" + listOfNotNull(w.report.street, w.report.city).joinToString(", ").takeIf { it.isNotEmpty() }?.let { " · $it" }.orEmpty() +
-                        (if (w.report.thumbsUp > 0) " · ${w.report.thumbsUp} confirmed" else ""),
+                    // Where it is, then how long ago and how many reports, on the same line so they're seen at a glance.
+                    subtitle = com.rfsentinel.app.online.WazePolice.relativeText(w.where, w.trend) + " · " +
+                        com.rfsentinel.app.online.WazePolice.reportsText(w.report, now),
+                    meta = listOfNotNull(listOfNotNull(w.report.street, w.report.city).joinToString(", ").ifEmpty { null },
+                        "not on your way".takeIf { off }).joinToString(" · "),
                     tag = com.rfsentinel.app.ui.DeviceRows.matchTag("WAZE", w.hit.confidence),
                     tagColor = w.report.type.color,
                     highlight = if (urgent) w.report.type.color else null,
