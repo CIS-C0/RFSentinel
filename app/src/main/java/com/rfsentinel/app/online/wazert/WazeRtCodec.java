@@ -206,7 +206,8 @@ final class WazeRtCodec {
                 if (s != null && !s.isEmpty())  street = s;
                 if (ci2 != null && !ci2.isEmpty()) city = ci2;
             }
-            long pubMillis = reportTime > 0 ? reportTime * 1000L : System.currentTimeMillis();
+            // 0 = unknown: "now" here made every refresh read "0 min ago".
+            long pubMillis = reportTime > 0 ? reportTime * 1000L : 0L;
 
             out.add(new WazeAlert(ra.getAlertUuid(), ra.getId(), type, subtype,
                     lon, lat, magvar, pubMillis, thumbs, street, city));

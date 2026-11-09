@@ -307,6 +307,22 @@ object WazePolice {
         return (byDistance - decay + trust).toInt().coerceIn(0, 100)
     }
 
+    /**
+     * For a list row: how long ago it was reported (left out when Waze didn't say) and how many reports it has,
+     * the first one plus each driver who confirmed it: "12 min ago · 3 reports".
+     */
+    fun reportsText(r: Report, now: Long): String {
+        val age = r.publishedMs?.let { ((now - it) / 60_000).coerceAtLeast(0) }?.let { m ->
+            when {
+                m < 1 -> "just now"
+                m < 60 -> "$m min ago"
+                else -> "${m / 60} h ${m % 60} min ago"
+            }
+        }
+        val n = 1 + r.thumbsUp.coerceAtLeast(0)
+        return listOfNotNull(age, "$n report" + if (n == 1) "" else "s").joinToString(" · ")
+    }
+
     /** A police alert from the direct (Waze app protocol) backend. Its thumbs-up count is the crowd-trust signal. */
     internal fun fromDirect(a: WazeRtFetcher.PoliceAlert) = Report(
         id = a.uuid, lat = a.lat, lon = a.lon,

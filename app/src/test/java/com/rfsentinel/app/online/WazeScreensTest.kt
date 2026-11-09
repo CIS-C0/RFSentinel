@@ -135,7 +135,7 @@ class WazeScreensTest {
         val first = rows.first { !it.header }
         assertTrue(rows.indexOf(first) <= 1 && (rows.indexOf(first) == 0 || rows[0].title.startsWith("Alerts")))
         assertEquals("Police reported on Waze", first.title)
-        assertEquals("120 m N · ahead · closing in", first.subtitle)
+        assertEquals("120 m N · ahead · closing in · 1 report", first.subtitle)
         assertTrue("flashing: it is above the alert threshold", first.flashing)
         activity.finish()
     }
