@@ -23,6 +23,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "site", "pages")
 OUT = os.path.join(ROOT, "docs")
 BASE = "https://cis-c0.github.io/RFSentinel/"
+# Hand-written home pages in docs/<code>/ (not built here); the English home links to them.
+LANGS = [("fr", "Français"), ("es", "Español"), ("de", "Deutsch")]
 REPO = "https://github.com/CIS-C0/RFSentinel"
 RELEASES = REPO + "/releases/latest"
 DISCORD = "https://discord.gg/NDTjn8HMGq"
@@ -62,7 +64,7 @@ TEMPLATE = """<!doctype html>
 <title>{title}</title>
 <meta name="description" content="{description}">
 <link rel="canonical" href="{url}">
-<meta name="robots" content="{robots}">
+{alternates}<meta name="robots" content="{robots}">
 <meta name="theme-color" content="#050507">
 <meta property="og:type" content="{og_type}">
 <meta property="og:site_name" content="RF Sentinel">
@@ -127,7 +129,7 @@ TEMPLATE = """<!doctype html>
         </ul>
       </div>
     </div>
-    <p class="legal">RF Sentinel is free software under the GNU GPL v3.0. Copyright © 2026 CIS-C0.
+{languages}    <p class="legal">RF Sentinel is free software under the GNU GPL v3.0. Copyright © 2026 CIS-C0.
     Receive-only: it transmits nothing, and a detection is a signature match, not proof of who is present. Check your local laws.
     Not affiliated with any company or product named on this site; names are used only to describe compatibility and detection.
     No cookies, no analytics, no trackers on this site.</p>
@@ -260,6 +262,10 @@ def build():
             jsonld=jsonld, nav="".join(nav), guides=guides, body=body.strip(),
             discord=DISCORD, repo=REPO, releases=RELEASES,
             discord_svg=DISCORD_SVG, github_svg=GITHUB_SVG,
+            alternates="".join(f'<link rel="alternate" hreflang="{c}" href="{BASE}{p}">\n'
+                               for c, p in [("en", "")] + [(c, c + "/") for c, _ in LANGS] + [("x-default", "")]) if slug == "index" else "",
+            languages=('    <p class="small">' + " · ".join(f'<a href="{c}/" hreflang="{c}" lang="{c}">{n}</a>' for c, n in LANGS)
+                       + "</p>\n") if slug == "index" else "",
         )
         # Internal links must exist (pages, anchors on pages, or files in docs/).
         for href in re.findall(r'(?:href|src)="([^"]+)"', page):
@@ -282,6 +288,8 @@ def build():
             prio = "1.0" if slug == "index" else ("0.9" if slug == "qa" else "0.8")
             sitemap.append(f"  <url><loc>{url}</loc><lastmod>{last_changed(os.path.join(SRC, name), today)}</lastmod><priority>{prio}</priority></url>")
 
+    for c, _ in LANGS:
+        sitemap.append(f"  <url><loc>{BASE}{c}/</loc><lastmod>{last_changed(os.path.join(OUT, c, 'index.html'), today)}</lastmod><priority>0.8</priority></url>")
     xml = ('<?xml version="1.0" encoding="UTF-8"?>\n'
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
            + "\n".join(sitemap) + "\n</urlset>\n")
