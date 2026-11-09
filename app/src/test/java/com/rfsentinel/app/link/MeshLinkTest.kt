@@ -199,4 +199,21 @@ class MeshLinkTest {
         val module = byteArrayOf(0x1A, ext.size.toByte()) + ext
         assertNull((MeshProto.readModuleConfig(module) as MeshProto.From.ExtNotif).fields)
     }
+
+    @Test
+    fun fortyWifiNetworksAllReachTheOtherPhoneWithinAFewPackets() {
+        val key = MeshCodec.messageKey(ByteArray(32) { 7 })
+        val box = MeshOutbox()
+        val got = HashSet<String>()
+        // Made-up networks, heard on every WiFi scan (30 s apart); one packet a minute.
+        for (sec in 0..480 step 30) {
+            val now = 1_700_000_000_000L + sec * 1000L
+            for (n in 0 until 40) box.add(Advert("02:00:00:00:00:%02X".format(n), Advert.Source.WIFI, -70, name = "Network-%02d".format(n), timestamp = now), emptyList(), now)
+            if (sec % 60 != 0) continue
+            val devices = box.take(now, MeshCodec.MAX_BODY - MeshCodec.baseSize(true, "Phone"))
+            val m = MeshCodec.open(key, MeshCodec.seal(key, 1L, sec, now, 45.0, -73.0, "Phone", devices))!!
+            m.devices.forEach { assertEquals(Advert.Source.WIFI, it.source); got += it.mac }
+        }
+        assertEquals(40, got.size)
+    }
 }
