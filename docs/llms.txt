@@ -33,6 +33,9 @@ Sentinel Link: RF Sentinel phones linked with a 6-digit code share their detecti
 - [Free SØPHIA alternative](https://cis-c0.github.io/RFSentinel/sophia-alternative.html)
 - [Android Auto](https://cis-c0.github.io/RFSentinel/android-auto.html)
 - [External hardware](https://cis-c0.github.io/RFSentinel/hardware.html): ESP32 boards, USB WiFi and Bluetooth adapters, RTL-SDR / HackRF, Meshtastic
+- [RTL-SDR guide](https://cis-c0.github.io/RFSentinel/sdr-guide.html): step by step with an RTL-SDR or HackRF: radio sweep, ADS-B aircraft, P25 talkgroups and voice, pager messages, every status line
+- [Fewer false alerts](https://cis-c0.github.io/RFSentinel/tuning-guide.html): alert threshold, whitelist rules, Ignore all like this, ignoring your own tracker, false alerts, list timers
+- [Hardware logs](https://cis-c0.github.io/RFSentinel/hardware.html#logs): each piece of hardware and each Sentinel Link path keeps its own privacy-safe log; export one, or all in one file
 - [Hardware internals](https://cis-c0.github.io/RFSentinel/hardware-technical.html): how the RTL-SDR / HackRF / rtl_tcp drivers, radio sweep, P25 control channel and voice, ADS-B, USB WiFi monitor mode, USB Bluetooth, ESP32 protocols, V2X and Sentinel Link work, with their thresholds
 - [Install](https://cis-c0.github.io/RFSentinel/install.html)
 

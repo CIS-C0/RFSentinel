@@ -86,6 +86,24 @@
 <h2 id="meshtastic">Meshtastic</h2>
 <p>A Meshtastic LoRa node paired over Bluetooth lets <a href="qa.html#sentinel-link">Sentinel Link</a> phones far apart share detections on a private channel (<a href="sentinel-link-setup.html">setup</a>, <a href="hardware-technical.html#link">details</a>, <a href="sentinel-link-troubleshooting.html">troubleshooting</a>). Not yet tested on real hardware.</p>
 
+<h2 id="logs">Hardware logs</h2>
+<p>Each piece of hardware keeps its own log on the phone: what it did, step by step, so a problem can be found without the developer having the same hardware. Nothing leaves the phone unless you share it.</p>
+<table>
+<tr><th>Log</th><th>What it records</th></tr>
+<tr><td>USB WiFi adapter</td><td>Driver start-up, firmware, channel hopping, frames received, recoveries.</td></tr>
+<tr><td>USB Bluetooth adapter</td><td>Start-up, firmware, advertising reports per minute.</td></tr>
+<tr><td>RTL-SDR / HackRF</td><td>Plug-in, which scan has its turn, P25 and pager searches, stalls and restarts, Network SDR connection.</td></tr>
+<tr><td>ESP32 board</td><td>Serial port opened, which firmware answered, status changes, why it stopped.</td></tr>
+<tr><td>Mesh radio (Meshtastic / MeshCore)</td><td>The node-list radio over Bluetooth: connecting, live, out of reach.</td></tr>
+<tr><td>OUI-SPY over Bluetooth</td><td>Connection states, setup, failed commands.</td></tr>
+<tr><td>Sentinel Link Meshtastic node</td><td>Pairing, reading its settings, the RFSentinel channel, and every 10 minutes: packets sent, received from other Sentinels, other mesh packets, dropped and unreadable.</td></tr>
+<tr><td>Sentinel Link Bluetooth</td><td>Waiting or linked, advertising failures, bad messages.</td></tr>
+<tr><td>Sentinel Link internet relay</td><td>Connecting, connected, refused or unreachable, without the broker's name or any IP address.</td></tr>
+</table>
+<p><b>To send one:</b> Settings &rarr; External hardware &rarr; <b>Export a hardware log</b>, pick it (an empty one is marked "empty"), and share the text file by email, messages or Drive. <b>Export all hardware logs</b> puts every log that has something in it into one file: the easiest choice when you're not sure which part is failing. Each export starts with the app version, the phone model, the hardware's status at that moment and, for USB hardware, the USB devices plugged in.</p>
+<p><b>What's never in them:</b> nearby devices' addresses or names, network names, your position, or the relay server's name. Each log keeps about 1 MB on the phone, plus the one before it. A crash has its own log: Settings &rarr; Lists, tools &amp; about &rarr; <b>Export crash log</b>.</p>
+<p>Attach the file to a <a href="https://github.com/CIS-C0/RFSentinel/issues">GitHub issue</a> with the hardware's model and what you expected to happen.</p>
+
 <h2 id="faq-esp">Questions</h2>
 <details class="faq" id="q-esp-board">
 <summary>Which ESP32 board should I buy?</summary>
