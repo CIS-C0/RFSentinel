@@ -755,7 +755,8 @@ class SettingsActivity : AppCompatActivity() {
                 "Remove from the list: how long an ordinary device stays in the list and radar once it stops being heard (default 30 s Bluetooth, 60 s WiFi). Flagged devices follow these too; favourite and following devices stay 3 minutes. " +
                 "Hide trusted devices: whitelisted devices are left out of the list and radar (they stay in the history). " +
                 "All can go down to 5 s (WiFi only when \"Wi-Fi scan throttling\" is off in Developer options). " +
-                "External hardware: devices heard only by an ESP32 board or a USB WiFi adapter."),
+                "External hardware: devices heard only by an ESP32 board or a USB WiFi adapter. " +
+                "Other Sentinels: devices sent over the Meshtastic mesh or the internet relay (default 16 min, until they're sent again)."),
         Section("autostart", binding.headerAutoStart, binding.sectionAutoStart,
             "When the phone starts: begins scanning after a reboot.\n\n" +
                 "In the car: starts scanning when the phone connects to your car's Bluetooth and stops when you leave. " +

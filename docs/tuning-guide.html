@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fewer false alerts: tuning RF Sentinel | RF Sentinel</title>
+<meta name="description" content="Cut false alerts in RF Sentinel: alert threshold, whitelist rules, Ignore all like this, ignoring your own tracker, marking false alerts, and how long devices stay on the list.">
+<link rel="canonical" href="https://cis-c0.github.io/RFSentinel/tuning-guide.html">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#050507">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="RF Sentinel">
+<meta property="og:title" content="Fewer false alerts: tuning RF Sentinel | RF Sentinel">
+<meta property="og:description" content="Cut false alerts in RF Sentinel: alert threshold, whitelist rules, Ignore all like this, ignoring your own tracker, marking false alerts, and how long devices stay on the list.">
+<meta property="og:url" content="https://cis-c0.github.io/RFSentinel/tuning-guide.html">
+<meta property="og:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="RF Sentinel - BLE and WiFi police scanner for Android">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Fewer false alerts: tuning RF Sentinel | RF Sentinel">
+<meta name="twitter:description" content="Cut false alerts in RF Sentinel: alert threshold, whitelist rules, Ignore all like this, ignoring your own tracker, marking false alerts, and how long devices stay on the list.">
+<meta name="twitter:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="assets/style.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "Tuning guide", "item": "https://cis-c0.github.io/RFSentinel/tuning-guide.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Can I whitelist a police device that's always parked near my home?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, with \"Only this device\". Avoid \"Ignore all like this\" for police or emergency equipment: it would also silence every other one, everywhere. The app warns you before saving such a rule."}}, {"@type": "Question", "name": "I whitelisted a phone and it came back. Why?", "acceptedAnswer": {"@type": "Answer", "text": "Most phones change their Bluetooth and WiFi address every few minutes or hours. A new address is a new device. Use a wider rule if one fits (same name, same advert pattern), or leave ordinary phones alone: they don't alert unless they match something."}}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="favicon.svg" alt="" width="28" height="28">RF<span>_</span>SENTINEL</a>
+    <nav class="nav" aria-label="Main"><a href="./">Home</a><a href="how-it-works.html">How it works</a><a href="police-detector.html" aria-current="page">Guides</a><a href="install.html">Install</a><a href="android-auto.html">Android Auto</a><a href="hardware.html">Hardware</a><a href="qa.html">Q&amp;A</a></nav>
+    <div class="social">
+      <a class="icon-btn discord" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span class="lbl">Discord</span></a>
+      <a class="icon-btn github" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg><span class="lbl">GitHub</span></a>
+    </div>
+  </div>
+</header>
+<main id="main" class="wrap">
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / tuning-guide</p>
+  <h1>Fewer false alerts</h1>
+  <p class="lead">RF Sentinel errs on the side of warning you. A few minutes of tuning keeps the alerts that matter and silences your own devices, your neighbour's printer and the bus stop's screens. Everything here can be undone.</p>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/CIS-C0/RFSentinel/releases/latest" data-apk><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Download APK <span data-version></span></a>
+    <a class="btn" href="qa.html">Q&amp;A</a>
+  </div>
+</div>
+
+<h2 id="order">Where to start</h2>
+<ol>
+<li><b>Turn off what you don't need</b>: Settings → What to detect. Each kind of equipment has its own switch. Network / home cameras are off by default because they alert everywhere.</li>
+<li><b>Raise the threshold</b>: Settings → Alerts → "Alert for matches that are at least": <b>Weak</b> alerts on every match, <b>Probable</b> on most, <b>Strong only</b> on near-certain ones. Matches below it still show on the list, flagged, without the alert.</li>
+<li><b>Silence one device or one kind</b> from the list: long-press the row (<a href="#long-press">below</a>).</li>
+<li><b>Space out repeats</b>: Settings → Alerts → "Re-alert the same device after".</li>
+</ol>
+
+<h2 id="long-press">Long-press a device</h2>
+<p>Long-press any row on the list for these. Each one shows an Undo right away.</p>
+<table>
+<tr><th>Choice</th><th>Use it for</th></tr>
+<tr><td><b>Whitelist (trust &amp; ignore)</b></td><td>Your own devices and fixed things you know. Trusted devices are never logged, flashed or alerted on. The dialog asks how wide: only this device, every device by the same maker, every address starting the same way, every name starting with or containing a text (handy for a whole network's access points), the same Bluetooth advert pattern, or the same probe fingerprint.</td></tr>
+<tr><td><b>Ignore all like this</b></td><td>Every device matched as the same thing (for example every "Zebra printer"), even ones you haven't met yet. It warns you when the match is police or emergency equipment.</td></tr>
+<tr><td><b>Ignore this tracker…</b></td><td>Your own AirTag or tag. Its address changes about once a day, so it can't be whitelisted: choose "It's mine" (the app follows it across address changes, best effort), "today only", or pause all tracker follow warnings for 24 h. Only ignore a tag you know: a hidden tracker would stay silent too.</td></tr>
+<tr><td><b>False alert…</b></td><td>A match that's wrong. Its alerts are muted, and it's saved under History → False alerts with an optional note on what it really is, so you can export it and help fix the signature.</td></tr>
+<tr><td><b>Add to favorites ★</b></td><td>Devices you want to keep an eye on: they stay on the list longer.</td></tr>
+</table>
+<p>A whitelisted device still shows on the list by default. To leave them off the list and radar too: Settings → Scanning → <b>Hide trusted devices</b> (they stay in the history).</p>
+
+<h2 id="undo">Changing your mind</h2>
+<ul>
+<li><b>Whitelist and rules</b>: Settings → Lists, tools &amp; about → <b>Whitelist</b>. "Ignore all like this" rules are under Rules.</li>
+<li><b>Network names</b> you whitelisted: Settings → Lists, tools &amp; about → <b>Ignored network names</b>.</li>
+<li><b>Ignored trackers</b>: Settings → Trackers &amp; followers → <b>Clear ignored trackers</b>, or long-press the tracker → Stop ignoring this tracker.</li>
+<li><b>False alerts</b>: long-press the device → Remove from false alerts, or open History → False alerts.</li>
+</ul>
+
+<h2 id="followers">Follow warnings</h2>
+<p>Settings → <b>Trackers &amp; followers</b> → "Warn when a device moves with me", for at least a time and over a distance you set. In a car, a short time warns about every device stuck in the same traffic; a longer one (and a longer distance) keeps only what really follows you.</p>
+
+<h2 id="list-time">How long devices stay on the list</h2>
+<p>Settings → <b>Scanning</b> has one slider per source: how long a device stays on the list and radar after it was last heard.</p>
+<table>
+<tr><th>Slider</th><th>Default</th><th>Notes</th></tr>
+<tr><td>Bluetooth</td><td>30 s</td><td>Down to 5 s.</td></tr>
+<tr><td>WiFi</td><td>60 s</td><td>Below 30 s only with "Wi-Fi scan throttling" off in Android's Developer options.</td></tr>
+<tr><td>External hardware</td><td>60 s</td><td>Devices heard only by an ESP32 board or a USB WiFi adapter.</td></tr>
+<tr><td>Other Sentinels</td><td>16 min</td><td>Devices another phone sent over Meshtastic or the internet relay. The sender repeats each one about every 15 minutes, so a shorter time empties the list between repeats. A device this phone hears itself follows its own slider.</td></tr>
+</table>
+<p>Favourite and following devices stay 3 minutes. A flagged device stays as long as it's in range and alerting.</p>
+
+<h2 id="sound">Quieter alerts, same detection</h2>
+<ul>
+<li>Settings → Alerts: alert sound, volume and which audio stream it plays on, vibration (1 pulse weak, 2 probable, 3 strong), and the optional radar-detector beeps.</li>
+<li>Settings → Voice: what gets spoken, and how short.</li>
+<li>P25 and pager alerts each have their own Sound / Voice chips in Settings → RTL-SDR radio (<a href="sdr-guide.html">RTL-SDR guide</a>).</li>
+<li>Waze reports: Settings → What to detect → the alert distance, and "Only alert for reports ahead" while you drive.</li>
+</ul>
+
+<h2 id="faq-tuning">Q&amp;A</h2>
+<details class="faq" id="q-tuning-police">
+<summary>Can I whitelist a police device that's always parked near my home?</summary>
+<div>
+<p>Yes, with "Only this device". Avoid "Ignore all like this" for police or emergency equipment: it would also silence every other one, everywhere. The app warns you before saving such a rule.</p>
+</div>
+</details>
+
+<details class="faq" id="q-tuning-random">
+<summary>I whitelisted a phone and it came back. Why?</summary>
+<div>
+<p>Most phones change their Bluetooth and WiFi address every few minutes or hours. A new address is a new device. Use a wider rule if one fits (same name, same advert pattern), or leave ordinary phones alone: they don't alert unless they match something.</p>
+</div>
+</details>
+<section class="community" aria-label="Community">
+  <a class="dc" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span><strong>Join the Discord</strong>Help, ideas, new signatures, field captures and ESP32 builds.</span></a>
+  <a class="gh" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg><span><strong>CIS-C0/RFSentinel on GitHub</strong>Source code, releases, issues. A star helps others find it.</span></a>
+</section>
+</main>
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <p class="foot-title">RF Sentinel</p>
+        <ul>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/releases/latest">Download the APK</a></li>
+          <li><a href="install.html">Install &amp; update</a></li>
+          <li><a href="how-it-works.html">How detection works</a></li>
+          <li><a href="qa.html">Q&amp;A</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="foot-title">Guides</p>
+        <ul><li><a href="what-is-rf-sentinel.html">What is RF Sentinel?</a></li><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="sentinel-link-setup.html">Sentinel Link setup</a></li><li><a href="sentinel-link-troubleshooting.html">Sentinel Link troubleshooting</a></li><li><a href="sdr-guide.html">RTL-SDR guide</a></li><li><a href="tuning-guide.html">Fewer false alerts</a></li><li><a href="alternatives.html">Compared with other tools</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li></ul>
+      </div>
+      <div>
+        <p class="foot-title">Community</p>
+        <ul>
+          <li><a href="https://discord.gg/NDTjn8HMGq" rel="noopener">Discord server</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel" rel="noopener">GitHub repository</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/issues" rel="noopener">Issues &amp; device reports</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/blob/main/docs/SIGNATURES.md" rel="noopener">Signature reference</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="legal">RF Sentinel is free software under the GNU GPL v3.0. Copyright © 2026 CIS-C0.
+    Receive-only: it transmits nothing, and a detection is a signature match, not proof of who is present. Check your local laws.
+    Not affiliated with any company or product named on this site; names are used only to describe compatibility and detection.
+    No cookies, no analytics, no trackers on this site.</p>
+  </div>
+</footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

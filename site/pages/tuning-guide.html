@@ -1,0 +1,75 @@
+<!--META {"title": "Fewer false alerts: tuning RF Sentinel | RF Sentinel", "description": "Cut false alerts in RF Sentinel: alert threshold, whitelist rules, Ignore all like this, ignoring your own tracker, marking false alerts, and how long devices stay on the list.", "nav": "guides", "crumb": "Tuning guide"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / tuning-guide</p>
+  <h1>Fewer false alerts</h1>
+  <p class="lead">RF Sentinel errs on the side of warning you. A few minutes of tuning keeps the alerts that matter and silences your own devices, your neighbour's printer and the bus stop's screens. Everything here can be undone.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="qa.html">Q&amp;A</a>
+  </div>
+</div>
+
+<h2 id="order">Where to start</h2>
+<ol>
+<li><b>Turn off what you don't need</b>: Settings → What to detect. Each kind of equipment has its own switch. Network / home cameras are off by default because they alert everywhere.</li>
+<li><b>Raise the threshold</b>: Settings → Alerts → "Alert for matches that are at least": <b>Weak</b> alerts on every match, <b>Probable</b> on most, <b>Strong only</b> on near-certain ones. Matches below it still show on the list, flagged, without the alert.</li>
+<li><b>Silence one device or one kind</b> from the list: long-press the row (<a href="#long-press">below</a>).</li>
+<li><b>Space out repeats</b>: Settings → Alerts → "Re-alert the same device after".</li>
+</ol>
+
+<h2 id="long-press">Long-press a device</h2>
+<p>Long-press any row on the list for these. Each one shows an Undo right away.</p>
+<table>
+<tr><th>Choice</th><th>Use it for</th></tr>
+<tr><td><b>Whitelist (trust &amp; ignore)</b></td><td>Your own devices and fixed things you know. Trusted devices are never logged, flashed or alerted on. The dialog asks how wide: only this device, every device by the same maker, every address starting the same way, every name starting with or containing a text (handy for a whole network's access points), the same Bluetooth advert pattern, or the same probe fingerprint.</td></tr>
+<tr><td><b>Ignore all like this</b></td><td>Every device matched as the same thing (for example every "Zebra printer"), even ones you haven't met yet. It warns you when the match is police or emergency equipment.</td></tr>
+<tr><td><b>Ignore this tracker…</b></td><td>Your own AirTag or tag. Its address changes about once a day, so it can't be whitelisted: choose "It's mine" (the app follows it across address changes, best effort), "today only", or pause all tracker follow warnings for 24 h. Only ignore a tag you know: a hidden tracker would stay silent too.</td></tr>
+<tr><td><b>False alert…</b></td><td>A match that's wrong. Its alerts are muted, and it's saved under History → False alerts with an optional note on what it really is, so you can export it and help fix the signature.</td></tr>
+<tr><td><b>Add to favorites ★</b></td><td>Devices you want to keep an eye on: they stay on the list longer.</td></tr>
+</table>
+<p>A whitelisted device still shows on the list by default. To leave them off the list and radar too: Settings → Scanning → <b>Hide trusted devices</b> (they stay in the history).</p>
+
+<h2 id="undo">Changing your mind</h2>
+<ul>
+<li><b>Whitelist and rules</b>: Settings → Lists, tools &amp; about → <b>Whitelist</b>. "Ignore all like this" rules are under Rules.</li>
+<li><b>Network names</b> you whitelisted: Settings → Lists, tools &amp; about → <b>Ignored network names</b>.</li>
+<li><b>Ignored trackers</b>: Settings → Trackers &amp; followers → <b>Clear ignored trackers</b>, or long-press the tracker → Stop ignoring this tracker.</li>
+<li><b>False alerts</b>: long-press the device → Remove from false alerts, or open History → False alerts.</li>
+</ul>
+
+<h2 id="followers">Follow warnings</h2>
+<p>Settings → <b>Trackers &amp; followers</b> → "Warn when a device moves with me", for at least a time and over a distance you set. In a car, a short time warns about every device stuck in the same traffic; a longer one (and a longer distance) keeps only what really follows you.</p>
+
+<h2 id="list-time">How long devices stay on the list</h2>
+<p>Settings → <b>Scanning</b> has one slider per source: how long a device stays on the list and radar after it was last heard.</p>
+<table>
+<tr><th>Slider</th><th>Default</th><th>Notes</th></tr>
+<tr><td>Bluetooth</td><td>30 s</td><td>Down to 5 s.</td></tr>
+<tr><td>WiFi</td><td>60 s</td><td>Below 30 s only with "Wi-Fi scan throttling" off in Android's Developer options.</td></tr>
+<tr><td>External hardware</td><td>60 s</td><td>Devices heard only by an ESP32 board or a USB WiFi adapter.</td></tr>
+<tr><td>Other Sentinels</td><td>16 min</td><td>Devices another phone sent over Meshtastic or the internet relay. The sender repeats each one about every 15 minutes, so a shorter time empties the list between repeats. A device this phone hears itself follows its own slider.</td></tr>
+</table>
+<p>Favourite and following devices stay 3 minutes. A flagged device stays as long as it's in range and alerting.</p>
+
+<h2 id="sound">Quieter alerts, same detection</h2>
+<ul>
+<li>Settings → Alerts: alert sound, volume and which audio stream it plays on, vibration (1 pulse weak, 2 probable, 3 strong), and the optional radar-detector beeps.</li>
+<li>Settings → Voice: what gets spoken, and how short.</li>
+<li>P25 and pager alerts each have their own Sound / Voice chips in Settings → RTL-SDR radio (<a href="sdr-guide.html">RTL-SDR guide</a>).</li>
+<li>Waze reports: Settings → What to detect → the alert distance, and "Only alert for reports ahead" while you drive.</li>
+</ul>
+
+<h2 id="faq-tuning">Q&amp;A</h2>
+<details class="faq" id="q-tuning-police">
+<summary>Can I whitelist a police device that's always parked near my home?</summary>
+<div>
+<p>Yes, with "Only this device". Avoid "Ignore all like this" for police or emergency equipment: it would also silence every other one, everywhere. The app warns you before saving such a rule.</p>
+</div>
+</details>
+
+<details class="faq" id="q-tuning-random">
+<summary>I whitelisted a phone and it came back. Why?</summary>
+<div>
+<p>Most phones change their Bluetooth and WiFi address every few minutes or hours. A new address is a new device. Use a wider rule if one fits (same name, same advert pattern), or leave ordinary phones alone: they don't alert unless they match something.</p>
+</div>
+</details>

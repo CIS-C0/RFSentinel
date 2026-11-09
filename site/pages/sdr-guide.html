@@ -1,0 +1,126 @@
+<!--META {"title": "RTL-SDR guide: radio sweep, ADS-B, P25 and pagers | RF Sentinel", "description": "Step by step: plug an RTL-SDR or HackRF into your Android phone and use it with RF Sentinel. Radio activity sweep, ADS-B aircraft without internet, P25 talkgroups and voice, pager messages, and what each status line means.", "nav": "guides", "crumb": "RTL-SDR guide"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / sdr-guide</p>
+  <h1>RTL-SDR guide</h1>
+  <p class="lead">An RTL-SDR dongle or a HackRF One on the phone's USB port lets RF Sentinel hear radios the phone can't: two-way radios transmitting nearby, aircraft on 1090 MHz, P25 trunked-radio signalling and pager messages. This page goes from plugging it in to reading each screen.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="hardware-technical.html#sdr">How the decoding works</a>
+  </div>
+</div>
+
+<h2 id="need">What you need</h2>
+<ul>
+<li><b>An SDR:</b> an RTL-SDR with an R820T, R820T2, R860 or R828D tuner (RTL-SDR Blog V3 or V4, for example), or a HackRF One (receive only, its transmitter stays off). An RTL-SDR does everything here; a HackRF costs more and adds nothing.</li>
+<li><b>A USB-C OTG adapter or cable</b> if the dongle has a USB-A plug. A short cable keeps the dongle's noise away from the phone.</li>
+<li><b>An antenna for what you want to hear.</b> The stock telescopic antenna works for the radio sweep. For aircraft, a 1090 MHz antenna hears much farther (the stock one about 50 km).</li>
+<li><b>No dongle on the phone?</b> An RTL-SDR plugged into a computer on your WiFi works too: run <code>rtl_tcp -a 0.0.0.0</code> on it and enter its address under Settings → RTL-SDR radio → <b>Network SDR</b> (port 1234 if left out). It streams about 5 MB/s, and rtl_tcp has no password: only on a network you trust. A USB SDR plugged into the phone is used first.</li>
+</ul>
+
+<h2 id="plug-in">1. Plug it in</h2>
+<ol>
+<li>Start a scan in RF Sentinel, then plug the SDR in.</li>
+<li>Android asks to allow USB access: allow it. Tick "always" so it doesn't ask again.</li>
+<li>Check the status line under Settings → <b>External hardware</b>. It reads like "RTL-SDR · starting…", then names what it's doing. With more than one SDR plugged in, pick which one to use there.</li>
+<li>The USB port at the top suits a dongle: Settings → General → Screen rotation → <b>Always upside down</b> turns the app around.</li>
+</ol>
+
+<h2 id="choose">2. Choose what it does</h2>
+<p>Settings → <b>RTL-SDR radio</b> → <b>Scan with the SDR</b>. Tick any mix:</p>
+<table>
+<tr><th>Scan</th><th>What it does</th><th>Also needs</th></tr>
+<tr><td>Radio activity sweep</td><td>Sweeps the two-way radio bands and reports strong transmissions near you. Signal strength only, nothing is decoded.</td><td>What to detect → Two-way radio</td></tr>
+<tr><td>ADS-B aircraft receiver</td><td>Hears aircraft on 1090 MHz and checks them against the police and government aircraft list, with no internet.</td><td>What to detect → Police / government aircraft</td></tr>
+<tr><td>P25 control channel (experimental)</td><td>Finds a P25 trunked system's control channel (700 / 800 MHz, United States and Canada) and shows which talkgroups get a call, and when.</td><td>What to detect → Two-way radio</td></tr>
+<tr><td>Pager messages (experimental)</td><td>Finds paging channels and decodes POCSAG and FLEX pages.</td><td>What to detect → Two-way radio</td></tr>
+</table>
+<p><b>One SDR hears one thing at a time.</b> With more than one ticked, it takes turns (60 s each by default, 30 to 300 s, set per scan under each one's "Time for" slider), and each scan hears nothing while another has its turn. Tick only one to give it all the time. "idle: no scan ticked" in the status means nothing is ticked.</p>
+<p>Receiving radio signalling, pages or calls is legal in many places but not all, and some places forbid it in a vehicle or forbid passing on what you hear. Check the law where you are.</p>
+
+<h2 id="sweep">3. Radio activity sweep</h2>
+<p>Alerts say "Radio transmitting nearby". The settings under <b>Radio sweep</b> tune it:</p>
+<ul>
+<li><b>Sensitivity</b> (default 30 dB above the noise): lower hears farther, with more false alarms. Below about 10 dB the noise itself sets off alerts: only for testing how far a known radio carries.</li>
+<li><b>Bands to sweep</b>: untick the bands you don't care about to sweep faster. <b>Your own bands</b> adds ranges in MHz ("380-400 TETRA").</li>
+<li><b>Never report these ranges</b>: a busy business band or your own radio that keeps alerting.</li>
+<li><b>Watch these frequencies</b>: always reported when active, whatever the sensitivity ("154.4300 County fire dispatch").</li>
+<li><b>Frequency names</b>: import a CSV (a RadioReference export, CHIRP or any file with a frequency and a name column) so hits are named. In the US, RadioReference can also name nearby FCC licences with your own Premium login and developer key.</li>
+<li><b>Detect TETRA radios</b> (on by default in Europe), <b>DMR radios</b> and <b>cellular transmitters</b> (experimental) look for each one's burst rhythm or uplink energy. Each is a weak sign on its own.</li>
+</ul>
+<p><b>Tools → Radio waterfall</b> shows each sweep as a row; zoom into a few channels for a live view. The sweep and ADS-B pause while it's open.</p>
+
+<h2 id="adsb">4. ADS-B aircraft</h2>
+<ol>
+<li>Turn on What to detect → <b>Police / government aircraft overhead</b>, then tick <b>ADS-B aircraft receiver</b>.</li>
+<li>The status reads "ADS-B · listening on 1090 MHz…", then "N aircraft heard, N with a position".</li>
+<li>Open <b>Tools → Aircraft</b>. The sources line shows how many came from your SDR and how many from the online feeds. With the SDR working you can turn the online feeds off and send nothing to anyone.</li>
+</ol>
+<p>"the tuner didn't lock on 1090 MHz": unplug and plug the dongle back in. Few aircraft heard: put the antenna higher and clear of the car's roof, or use a 1090 MHz antenna.</p>
+
+<h2 id="p25">5. P25 talkgroups</h2>
+<ol>
+<li>Tick <b>P25 control channel</b> (on by default when your region is the United States or Canada).</li>
+<li>The status reads "P25 · looking for a control channel…". It sweeps 769-775 and 851-869 MHz and keeps the first channel whose messages check out. No calibration needed.</li>
+<li>Once found: "P25 · control channel … · N messages". Open <b>Tools → P25 talkgroups</b> to see which talkgroups get calls, live, and History for the past days.</li>
+</ol>
+<p>"no control channel heard here · looking again shortly": there is no 700 / 800 MHz P25 system in range, or the antenna can't hear it. Systems on VHF or UHF aren't searched.</p>
+<h3 id="p25-settings">P25 settings</h3>
+<ul>
+<li><b>Watch these talkgroups</b>: one per line, number and optional name ("1234 Sheriff dispatch"). <code>23*</code> watches every talkgroup starting with 23, <code>*</code> all of them. A watched talkgroup alerts when a call starts.</li>
+<li><b>Talkgroup alerts</b>: untick Voice or Sound so alerts don't talk over P25 voice.</li>
+<li><b>Keep the P25 call log</b>: days of calls kept on the phone (about 1 MB per busy day) for History and Export. 0 keeps nothing.</li>
+<li><b>Alert on unusual talkgroup activity</b>: a talkgroup three times busier than usual for that hour. Needs a few days of call log first.</li>
+<li><b>Listen for radios keying up nearby</b>: a strong signal where a call's radio transmits means that radio is close to you, not just on the system.</li>
+</ul>
+<h3 id="p25-voice">Listening to P25 voice (experimental)</h3>
+<p><b>Listen to P25 voice</b>: Off, Watched talkgroups, or All clear calls. Clear (not encrypted) calls play through the speaker, headphones or car, one call at a time, up to 2 minutes each. Encrypted calls can't be played. On the P25 talkgroups screen, <b>Mute</b> pauses it, and <b>Hold</b> (or tapping a talkgroup) plays only that talkgroup until <b>Release</b>. While a call plays, the SDR is off the control channel and misses its messages.</p>
+<p>A call that sounds wrong? Tick <b>Record P25 voice calls</b>: the next clear calls are saved as raw radio files (about 1 MB each, the last ones kept), and <b>Share P25 recordings</b> sends them to the developer to fix the decoder.</p>
+
+<h2 id="pagers">6. Pager messages</h2>
+<ol>
+<li>Tick <b>Pager messages</b>. The status reads "pagers · looking for a paging channel…".</li>
+<li>If you know your paging frequency, enter it under <b>Pager frequencies</b> ("466.075 Fire dispatch"): the SDR stays there instead of searching, so a quiet channel isn't missed. With two or more, the Pager messages screen gets a button for each.</li>
+<li>Read pages in <b>Tools → Pager messages</b>. They stay in the phone's memory only: never saved, exported or sent, and gone when the app closes.</li>
+</ol>
+<ul>
+<li><b>Watch these pagers</b>: a capcode (a line starting with a number) or words in the page text. One alert a minute at most per line.</li>
+<li><b>Ignore these pagers</b>: capcodes dropped with no list entry and no alert.</li>
+<li><b>Show page text in alerts</b>: off by default; pages can hold private or medical details.</li>
+</ul>
+
+<h2 id="status">What the status line means</h2>
+<table>
+<tr><th>Status</th><th>What to do</th></tr>
+<tr><td>… found - allow USB access on the prompt</td><td>Allow it on Android's prompt. No prompt? Unplug and plug it back in.</td></tr>
+<tr><td>couldn't open it</td><td>Another app may hold the dongle: close it, then replug.</td></tr>
+<tr><td>idle: no scan ticked</td><td>Tick a scan in Settings → RTL-SDR radio.</td></tr>
+<tr><td>unplugged or not answering</td><td>Check the OTG cable and replug. The status clears after 15 s once it's gone.</td></tr>
+<tr><td>can't reach it (Network SDR)</td><td>Check rtl_tcp runs with <code>-a 0.0.0.0</code> and that the phone is on the same WiFi. It retries every 10 s.</td></tr>
+<tr><td>waterfall … radio watch paused</td><td>Normal while Tools → Radio waterfall is open.</td></tr>
+<tr><td>no samples from the SDR · restarting it</td><td>The dongle stalled; the app restarts it. Often it's weak USB power: try a powered hub or a shorter cable.</td></tr>
+</table>
+
+<h2 id="log">Something not working? Send the log</h2>
+<p>Settings → External hardware → <b>Export USB adapter log</b> saves what the SDR (and any USB WiFi adapter, ESP32 board, Meshtastic node or Sentinel Link) did: start-up, turns, errors and restarts. It holds no nearby device's address or network name. Attach it to a <a href="https://github.com/CIS-C0/RFSentinel/issues">GitHub issue</a> with your dongle's model and what you expected.</p>
+
+<h2 id="faq-sdr">Q&amp;A</h2>
+<details class="faq" id="q-sdr-guide-listen">
+<summary>Does the radio sweep listen to calls?</summary>
+<div>
+<p>No. It measures how much energy each channel carries. Only the experimental Listen to P25 voice option plays audio, and only unencrypted P25 calls.</p>
+</div>
+</details>
+
+<details class="faq" id="q-sdr-guide-both">
+<summary>Can I use ADS-B and the sweep at the same time?</summary>
+<div>
+<p>With one SDR, they take turns. Two SDRs don't split the work yet: one is used, picked under External hardware.</p>
+</div>
+</details>
+
+<details class="faq" id="q-sdr-guide-battery">
+<summary>How much battery does it use?</summary>
+<div>
+<p>The dongle is powered by the phone, so the battery drains faster than with the phone alone. In a car, keep the phone charging.</p>
+</div>
+</details>
