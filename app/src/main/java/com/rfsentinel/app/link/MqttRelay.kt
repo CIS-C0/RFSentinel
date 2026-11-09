@@ -61,7 +61,12 @@ object MqttRelay {
     fun addListener(l: () -> Unit) { listeners += l }
     fun removeListener(l: () -> Unit) { listeners -= l }
     private fun changed() = main.post { listeners.forEach { it() } }
-    private fun setStatus(s: String) { if (s != status) { status = s; changed() } }
+    private fun setStatus(s: String) {
+        if (s == status) return
+        // The log never names the broker (it may be the user's own server).
+        com.rfsentinel.app.usb.UsbWifi.logStatus("Internet relay", if (s.isEmpty()) "" else "Internet relay: " + com.rfsentinel.app.usb.UsbWifi.redact(s, config?.broker?.host))
+        status = s; changed()
+    }
 
     private data class Config(val broker: Broker, val user: String?, val password: String?, val topic: String, val checkCert: Boolean)
 

@@ -59,7 +59,7 @@ object MeshBle {
 
     @Volatile var status = ""; private set
     var onStatusChanged: (() -> Unit)? = null
-    private fun setStatus(s: String) { status = s; onStatusChanged?.invoke() }
+    private fun setStatus(s: String) { com.rfsentinel.app.usb.UsbWifi.logStatus("Mesh radio", s); status = s; onStatusChanged?.invoke() }
 
     class Found(val address: String, val name: String?, val rssi: Int)
 
@@ -79,7 +79,7 @@ object MeshBle {
         }
         val filters = listOf(MeshNode.SERVICE, NUS).map { ScanFilter.Builder().setServiceUuid(ParcelUuid(it)).build() }
         val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).setReportDelay(0).build()
-        try { scanner.startScan(filters, settings, cb) } catch (e: Exception) { Log.w(TAG, "search failed", e); done(emptyList()); return }
+        try { scanner.startScan(filters, settings, cb) } catch (e: Exception) { Log.w(TAG, "search failed", e); com.rfsentinel.app.usb.UsbWifi.log("Mesh radio: Bluetooth search failed: ${com.rfsentinel.app.usb.UsbWifi.describe(e)}"); done(emptyList()); return }
         main.postDelayed({
             runCatching { scanner.stopScan(cb) }
             done(seen.values.sortedByDescending { it.rssi })

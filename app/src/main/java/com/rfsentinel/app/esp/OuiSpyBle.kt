@@ -67,7 +67,7 @@ object OuiSpyBle {
         private set
     var onStatusChanged: (() -> Unit)? = null
 
-    private fun setStatus(s: String) { status = s; onStatusChanged?.invoke() }
+    private fun setStatus(s: String) { com.rfsentinel.app.usb.UsbWifi.logStatus("OUI-SPY", s); status = s; onStatusChanged?.invoke() }
 
     fun canConnect(context: Context) = Build.VERSION.SDK_INT < 31 ||
         Permissions.granted(context, android.Manifest.permission.BLUETOOTH_CONNECT)
@@ -99,7 +99,7 @@ object OuiSpyBle {
         val filters = listOf(ScanFilter.Builder().setServiceUuid(ParcelUuid(OuiSpyBleProtocol.SERVICE)).build())
         // Legacy, active, fastest: the scan response with the name comes along.
         val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).setReportDelay(0).build()
-        try { scanner.startScan(filters, settings, cb) } catch (e: Exception) { Log.w(TAG, "OUI-SPY search failed", e); done(emptyList()); return }
+        try { scanner.startScan(filters, settings, cb) } catch (e: Exception) { Log.w(TAG, "OUI-SPY search failed", e); com.rfsentinel.app.usb.UsbWifi.log("OUI-SPY: Bluetooth search failed: ${com.rfsentinel.app.usb.UsbWifi.describe(e)}"); done(emptyList()); return }
         finder.postDelayed({
             runCatching { scanner.stopScan(cb) }
             done(seen.values.sortedByDescending { it.rssi })
@@ -219,6 +219,7 @@ object OuiSpyBle {
         @SuppressLint("MissingPermission")
         override fun onConnectionStateChange(g: BluetoothGatt, st: Int, newState: Int) {
             Log.i(TAG, "connection state $newState (status $st)")
+            com.rfsentinel.app.usb.UsbWifi.log("OUI-SPY: Bluetooth state $newState (status $st)")
             main.post {
                 if (g !== gatt) return@post
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
@@ -250,6 +251,7 @@ object OuiSpyBle {
         @SuppressLint("MissingPermission")
         override fun onMtuChanged(g: BluetoothGatt, mtu: Int, st: Int) {
             Log.i(TAG, "mtu $mtu (status $st)")
+            com.rfsentinel.app.usb.UsbWifi.log("OUI-SPY: MTU $mtu (status $st)")
             main.post { if (g === gatt) discover(g) }
         }
 
@@ -291,7 +293,7 @@ object OuiSpyBle {
         override fun onCharacteristicWrite(g: BluetoothGatt, c: BluetoothGattCharacteristic, st: Int) {
             main.post {
                 if (g !== gatt) return@post
-                if (st != BluetoothGatt.GATT_SUCCESS) Log.w(TAG, "engine write failed: $st")
+                if (st != BluetoothGatt.GATT_SUCCESS) { Log.w(TAG, "engine write failed: $st"); com.rfsentinel.app.usb.UsbWifi.log("OUI-SPY: command write failed ($st)") }
                 else Log.i(TAG, "engine command sent")
                 writeNext(g)
             }

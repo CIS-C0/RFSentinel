@@ -221,6 +221,25 @@ object UsbWifi {
         }
     }
 
+    private val lastStatus = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /**
+     * [who]'s status line for this log, once per change: numbers in it (counts, levels) don't count as a change, so a
+     * live count doesn't fill the log. An empty status logs "[who]: stopped" once.
+     */
+    fun logStatus(who: String, s: String) {
+        val shape = s.replace(Regex("\\d+"), "#")
+        val before = lastStatus.put(who, shape)
+        if (before == shape || (s.isEmpty() && before == null)) return
+        log(s.ifEmpty { "$who: stopped" })
+    }
+
+    /** [text] without a server's name or any IP address in it, for the log. */
+    fun redact(text: String, host: String?): String =
+        (if (host.isNullOrEmpty()) text else text.replace(host, "the server"))
+            .replace(Regex("\\b\\d{1,3}(\\.\\d{1,3}){3}\\b"), "an IP address")
+            .replace(Regex("\\[?[0-9a-fA-F]{0,4}(:[0-9a-fA-F]{0,4}){2,7}\\]?"), "an IP address")
+
     /** An error for the log: its type, message and where it happened. */
     fun describe(e: Throwable): String =
         "${e.javaClass.simpleName}: ${e.message}" + (e.stackTrace.firstOrNull()?.let { " (${it.fileName}:${it.lineNumber})" } ?: "")
