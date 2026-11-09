@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sentinel Link setup: share detections between phones | RF Sentinel</title>
+<meta name="description" content="Set up RF Sentinel&#x27;s Sentinel Link step by step: link phones over Bluetooth, reach phones kilometres away with Meshtastic LoRa nodes, or anywhere through your own MQTT broker.">
+<link rel="canonical" href="https://cis-c0.github.io/RFSentinel/sentinel-link-setup.html">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#050507">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="RF Sentinel">
+<meta property="og:title" content="Sentinel Link setup: share detections between phones | RF Sentinel">
+<meta property="og:description" content="Set up RF Sentinel&#x27;s Sentinel Link step by step: link phones over Bluetooth, reach phones kilometres away with Meshtastic LoRa nodes, or anywhere through your own MQTT broker.">
+<meta property="og:url" content="https://cis-c0.github.io/RFSentinel/sentinel-link-setup.html">
+<meta property="og:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="RF Sentinel - BLE and WiFi police scanner for Android">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Sentinel Link setup: share detections between phones | RF Sentinel">
+<meta name="twitter:description" content="Set up RF Sentinel&#x27;s Sentinel Link step by step: link phones over Bluetooth, reach phones kilometres away with Meshtastic LoRa nodes, or anywhere through your own MQTT broker.">
+<meta name="twitter:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="assets/style.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "Sentinel Link setup", "item": "https://cis-c0.github.io/RFSentinel/sentinel-link-setup.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does Sentinel Link need the internet?", "acceptedAnswer": {"@type": "Answer", "text": "No. Bluetooth and Meshtastic work without any network. Only the internet relay uses mobile data, and only if you turn it on."}}, {"@type": "Question", "name": "How many phones can be in a group?", "acceptedAnswer": {"@type": "Answer", "text": "Any number: each new phone joins from any phone already in the group, with the 6-digit code. Over Meshtastic, every extra phone adds packets to the same slow channel, so keep the interval at the default or longer with many phones."}}, {"@type": "Question", "name": "Can two phones share one Meshtastic node?", "acceptedAnswer": {"@type": "Answer", "text": "No. A node talks to one phone at a time over Bluetooth. Each phone that sends or receives over the mesh needs its own node."}}, {"@type": "Question", "name": "Is it safe to use Sentinel Link on a public Meshtastic mesh?", "acceptedAnswer": {"@type": "Answer", "text": "Other nodes can relay your packets, but they're encrypted twice, by the RFSentinel channel's key and by the group's key, both made from a key only your phones have. They do see that a node is sending, and when. Your packets also use shared air time, so don't set the interval shorter than you need."}}, {"@type": "Question", "name": "Can I use a public MQTT broker?", "acceptedAnswer": {"@type": "Answer", "text": "It works, since everything is encrypted before it leaves the phone, but the broker's owner sees your IP address and when you send, and a public broker can go down or drop clients. Your own broker is better."}}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="favicon.svg" alt="" width="28" height="28">RF<span>_</span>SENTINEL</a>
+    <nav class="nav" aria-label="Main"><a href="./">Home</a><a href="how-it-works.html">How it works</a><a href="police-detector.html" aria-current="page">Guides</a><a href="install.html">Install</a><a href="android-auto.html">Android Auto</a><a href="hardware.html">Hardware</a><a href="qa.html">Q&amp;A</a></nav>
+    <div class="social">
+      <a class="icon-btn discord" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span class="lbl">Discord</span></a>
+      <a class="icon-btn github" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg><span class="lbl">GitHub</span></a>
+    </div>
+  </div>
+</header>
+<main id="main" class="wrap">
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / sentinel-link-setup</p>
+  <h1>Sentinel Link setup</h1>
+  <p class="lead">Sentinel Link lets RF Sentinel phones share what they detect: each phone of a group shows the devices the others hear on its list, radar and map, marked <b>VIA</b> with the phone's name. Phones reach each other three ways, and you can use any mix of them.</p>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/CIS-C0/RFSentinel/releases/latest" data-apk><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Download APK <span data-version></span></a>
+    <a class="btn" href="sentinel-link-troubleshooting.html">Troubleshooting</a>
+  </div>
+</div>
+
+<div class="table-wrap"><table>
+<thead><tr><th>Path</th><th>Reach</th><th>Needs</th><th>Speed</th></tr></thead>
+<tbody>
+<tr><td><a href="#bluetooth">Bluetooth</a></td><td>About 10 to 30 m</td><td>Nothing extra</td><td>Everything, right away</td></tr>
+<tr><td><a href="#meshtastic">Meshtastic</a></td><td>Kilometres, more through other nodes</td><td>One Meshtastic LoRa node per phone</td><td>A few devices per packet, one packet a minute by default</td></tr>
+<tr><td><a href="#relay">Internet relay</a></td><td>Anywhere with mobile data</td><td>An MQTT broker, ideally your own</td><td>Up to 8 packets every 5 s</td></tr>
+</tbody></table></div>
+<p>Every path needs the phones to be <b>linked into a group</b> first (step 1). All of them only share while a scan runs, and everything is encrypted with the group's key.</p>
+
+<h2 id="link">1. Link the phones (once)</h2>
+<ol>
+<li>Install the same RF Sentinel version on every phone.</li>
+<li>On each phone: Settings → <b>Sentinel Link</b> → Open Sentinel Link, and fill in <b>This phone's name</b>. It's the name the others see next to VIA and in "via NAME" alerts.</li>
+<li>Put the two phones side by side. Tap <b>Link up a Sentinel</b> on one and <b>Join a Sentinel</b> on the other. Allow "Nearby devices" if Android asks.</li>
+<li>Both screens show a 6-digit code. Same code on both: tap <b>Confirm</b> on both. Different code: Cancel on both and start again.</li>
+<li>A third phone joins the same way, from any phone already in the group.</li>
+</ol>
+<p>The phones agree on the group's key through that code; a phone that wasn't there can't read the group. To leave, tap <b>Leave the group</b>: that phone forgets the key and stops sharing.</p>
+
+<h2 id="bluetooth">2. Bluetooth (phones nearby)</h2>
+<p>On by default once linked (<b>Share over Bluetooth</b>). Start a scan on both phones: the status reads "Sentinel Link · 1 Sentinel linked" when they're in range, and they find each other again by themselves after going out of range. Their devices show under the <b>Sentinels</b> chip.</p>
+<p>For phones that are always far apart, turn <b>Share over Bluetooth</b> off and use one of the paths below, so the status doesn't sit on "waiting for Sentinels".</p>
+
+<h2 id="meshtastic">3. Meshtastic (phones kilometres apart)</h2>
+<h3>What you need</h3>
+<ul>
+<li><b>One node per phone</b>: a LoRa board running the official <a href="https://meshtastic.org" rel="noopener">Meshtastic</a> firmware, for example a Heltec V3, a LilyGO T-Beam, or a Seeed XIAO ESP32S3 with its Wio-SX1262 LoRa board. A plain ESP32 has no LoRa radio.</li>
+<li><b>Its antenna</b>, always screwed on before the node is powered.</li>
+</ul>
+
+<h3>Prepare each node in the Meshtastic app</h3>
+<ol>
+<li>Flash the official firmware if the board doesn't have it (Meshtastic's web flasher).</li>
+<li>Connect to it with the Meshtastic app and set <b>Settings → LoRa → Region</b> to your country's region. A node without a region doesn't transmit.</li>
+<li>Give <b>both nodes the same</b> modem preset (the default, Long Range - Fast, is fine), the same frequency slot and the same primary channel (channel 0). Leaving every node on the defaults does all of that.</li>
+<li>Check they hear each other: each node should list the other in its node list, and a text sent from one reaches the other.</li>
+<li><b>Disconnect the Meshtastic app</b> from the node: a node serves one app at a time.</li>
+</ol>
+
+<h3>Connect the node to RF Sentinel</h3>
+<ol>
+<li>Sentinel Link screen → <b>Meshtastic node</b> → turn on <b>Use a Meshtastic node</b>.</li>
+<li>Tap <b>Choose a node</b> and pick yours from the list. If Android asks for a PIN, it's on the node's screen, or <code>123456</code>.</li>
+<li>Start a scan. The status goes through "reading its settings…" and "adding the RFSentinel channel…" to <b>"Meshtastic node · channel N, encrypted"</b>.</li>
+<li>Do the same on the other phone with its own node.</li>
+</ol>
+<p>RF Sentinel adds a private channel named <b>RFSentinel</b> to an empty slot (1 to 7) of the node, with a key made from the group's key. It never sends on the primary channel 0 or a channel you set up, and never to Meshtastic's MQTT. Strangers' nodes may relay your packets but only see encrypted bytes. Within a minute of both phones scanning, the node line reads "heard X ago".</p>
+
+<h3>Settings on the Sentinel Link screen</h3>
+<div class="table-wrap"><table>
+<thead><tr><th>Setting</th><th>What it does</th></tr></thead>
+<tbody>
+<tr><td>Alert for what they hear</td><td>Alerts for devices that arrive this way. Each path has its own switch, so the mesh can stay quiet while nearby phones still alert, or the reverse.</td></tr>
+<tr><td>Send a packet every</td><td>15 s to 5 min, 60 s by default. Watchlist matches go out sooner anyway. Shorter sends more devices but uses more air time on a mesh others share.</td></tr>
+<tr><td>Hops</td><td>1 by default: only nodes in range of yours pass it on. Raise it when your nodes reach each other only through other nodes (at most your node's own hop limit).</td></tr>
+<tr><td>Channel slot on the node</td><td>Automatic takes the first empty slot. Pick a slot only if you want the channel in a particular place; a slot holding another channel is never changed.</td></tr>
+<tr><td>Silence the node's buzzer</td><td>Turns off the node's buzzer, vibration and LED alerts; switched back on when you turn this off. The node may restart once.</td></tr>
+</tbody></table></div>
+
+<h3>What gets through</h3>
+<p>A LoRa packet holds about 6 to 19 devices. Watchlist matches go first (within about 20 s, then every minute while heard), flagged devices every 3 minutes, everything else once and again every 15 minutes. Only devices heard in the last 2 minutes are sent, and whitelisted devices never. The receiving phone keeps them listed for 16 minutes. For the most complete picture, keep the sending phone's screen on: with the screen off Android allows only a few WiFi scans an hour.</p>
+
+<h2 id="relay">4. Internet relay (phones anywhere)</h2>
+<p>Every phone of the group connects to the same MQTT broker. Packets are encrypted with the group's key before they leave the phone and go on a topic made from that key, so the broker only sees encrypted bytes, your IP address and when you send. It uses a few small packets a minute of mobile data and carries far more than LoRa: up to 8 packets every 5 seconds.</p>
+<ol>
+<li>Sentinel Link screen → <b>Internet relay</b> → turn on <b>Use an MQTT broker</b>.</li>
+<li><b>Broker</b>: <code>mqtts://broker.example.com</code> (encrypted, port 8883 unless you add one) or <code>mqtt://host:port</code> (unencrypted: the username and password travel in clear, so only on a network you trust).</li>
+<li><b>Username</b> and <b>Password</b> if the broker asks for them.</li>
+<li><b>Check the certificate</b>: leave on. Turn it off only for your own broker with a self-signed certificate.</li>
+<li>Same broker on every phone, then start a scan: the status reads <b>"Connected to HOST"</b>. Devices from the relay show under the <b>Mesh</b> chip.</li>
+</ol>
+
+<h3>Running your own broker</h3>
+<p>Any MQTT 3.1.1 broker works. With <a href="https://mosquitto.org" rel="noopener">Mosquitto</a> on a server you control, a minimal setup with a password and a TLS certificate (for example from Let's Encrypt) looks like this:</p>
+<pre><code># /etc/mosquitto/conf.d/rfsentinel.conf
+listener 8883
+certfile /etc/letsencrypt/live/broker.example.com/fullchain.pem
+keyfile /etc/letsencrypt/live/broker.example.com/privkey.pem
+allow_anonymous false
+password_file /etc/mosquitto/passwd</code></pre>
+<p>Create the user with <code>mosquitto_passwd -c /etc/mosquitto/passwd sentinel</code>, open port 8883 in the firewall, restart Mosquitto, and enter <code>mqtts://broker.example.com</code> with that username and password on every phone.</p>
+
+<h2 id="watch">5. A phone that only watches</h2>
+<p>A phone left in the car or at home can show only what the others send: on its Sentinel Link screen, turn on <b>Show only the other Sentinels</b>. While it's in a group it stops its own Bluetooth, WiFi, cell tower, GPS spoofing and drone checks and the online aircraft and Waze feeds; your Settings stay as they are, and hardware plugged into it keeps working. Leave it off on the phones that do the detecting.</p>
+
+<h2 id="check">6. Check it works</h2>
+<ul>
+<li><b>Members list</b> on the Sentinel Link screen: each Sentinel shows how it's reached, "Linked now", "Over the mesh · last heard X ago" or "Over the internet relay · last heard X ago".</li>
+<li><b>Main list</b>: rows from other phones carry a VIA badge with their name; the <b>Sentinels</b> chip filters Bluetooth ones, the <b>Mesh</b> chip mesh and relay ones.</li>
+<li>Something stuck? Every status line and its fix is in <a href="sentinel-link-troubleshooting.html">Sentinel Link troubleshooting</a>.</li>
+</ul>
+
+<h2 id="qa">Q&amp;A</h2>
+
+<details class="faq" id="setup-need-internet">
+<summary>Does Sentinel Link need the internet?</summary>
+<div><p>No. Bluetooth and Meshtastic work without any network. Only the internet relay uses mobile data, and only if you turn it on.</p></div>
+</details>
+
+<details class="faq" id="setup-how-many">
+<summary>How many phones can be in a group?</summary>
+<div><p>Any number: each new phone joins from any phone already in the group, with the 6-digit code. Over Meshtastic, every extra phone adds packets to the same slow channel, so keep the interval at the default or longer with many phones.</p></div>
+</details>
+
+<details class="faq" id="setup-one-node">
+<summary>Can two phones share one Meshtastic node?</summary>
+<div><p>No. A node talks to one phone at a time over Bluetooth. Each phone that sends or receives over the mesh needs its own node.</p></div>
+</details>
+
+<details class="faq" id="setup-public-mesh">
+<summary>Is it safe to use Sentinel Link on a public Meshtastic mesh?</summary>
+<div><p>Other nodes can relay your packets, but they're encrypted twice, by the RFSentinel channel's key and by the group's key, both made from a key only your phones have. They do see that a node is sending, and when. Your packets also use shared air time, so don't set the interval shorter than you need.</p></div>
+</details>
+
+<details class="faq" id="setup-public-broker">
+<summary>Can I use a public MQTT broker?</summary>
+<div><p>It works, since everything is encrypted before it leaves the phone, but the broker's owner sees your IP address and when you send, and a public broker can go down or drop clients. Your own broker is better.</p></div>
+</details>
+<section class="community" aria-label="Community">
+  <a class="dc" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span><strong>Join the Discord</strong>Help, ideas, new signatures, field captures and ESP32 builds.</span></a>
+  <a class="gh" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg><span><strong>CIS-C0/RFSentinel on GitHub</strong>Source code, releases, issues. A star helps others find it.</span></a>
+</section>
+</main>
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <p class="foot-title">RF Sentinel</p>
+        <ul>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/releases/latest">Download the APK</a></li>
+          <li><a href="install.html">Install &amp; update</a></li>
+          <li><a href="how-it-works.html">How detection works</a></li>
+          <li><a href="qa.html">Q&amp;A</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="foot-title">Guides</p>
+        <ul><li><a href="what-is-rf-sentinel.html">What is RF Sentinel?</a></li><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="sentinel-link-setup.html">Sentinel Link setup</a></li><li><a href="sentinel-link-troubleshooting.html">Sentinel Link troubleshooting</a></li><li><a href="alternatives.html">Compared with other tools</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li></ul>
+      </div>
+      <div>
+        <p class="foot-title">Community</p>
+        <ul>
+          <li><a href="https://discord.gg/NDTjn8HMGq" rel="noopener">Discord server</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel" rel="noopener">GitHub repository</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/issues" rel="noopener">Issues &amp; device reports</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/blob/main/docs/SIGNATURES.md" rel="noopener">Signature reference</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="legal">RF Sentinel is free software under the GNU GPL v3.0. Copyright © 2026 CIS-C0.
+    Receive-only: it transmits nothing, and a detection is a signature match, not proof of who is present. Check your local laws.
+    Not affiliated with any company or product named on this site; names are used only to describe compatibility and detection.
+    No cookies, no analytics, no trackers on this site.</p>
+  </div>
+</footer>
+<script src="assets/site.js"></script>
+</body>
+</html>
