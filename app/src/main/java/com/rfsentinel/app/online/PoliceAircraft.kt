@@ -243,13 +243,26 @@ object PoliceAircraft {
     @Volatile var local: List<Seen> = emptyList()
     @Volatile var localAt = 0L
 
-    /** The aircraft to draw: heard by the RTL-SDR and from the online feeds, while fresh; the RTL-SDR's are newer. */
-    fun all(now: Long = System.currentTimeMillis()): List<Seen> {
+    /** Aircraft the other Sentinels sent: ICAO address to (when it arrived, as checked here). */
+    val shared = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Seen>>()
+    const val SHARED_MS = 5 * 60_000L
+
+    /** This phone's own aircraft, heard by the RTL-SDR and from the online feeds, while fresh; the RTL-SDR's are newer. */
+    fun own(now: Long = System.currentTimeMillis()): List<Seen> {
         val mine = if (now - localAt <= 30_000L) local else emptyList()
         val online = if (now - latestAt <= 3 * 60_000L) latest else emptyList()
         if (mine.isEmpty()) return online
         val heard = mine.mapTo(HashSet()) { it.plane.hex }
         return mine + online.filter { it.plane.hex !in heard }
+    }
+
+    /** The aircraft to draw: this phone's own, then those the other Sentinels sent that it doesn't have. */
+    fun all(now: Long = System.currentTimeMillis()): List<Seen> {
+        val own = own(now)
+        if (shared.isEmpty()) return own
+        shared.entries.removeIf { now - it.value.first > SHARED_MS }
+        val heard = own.mapTo(HashSet()) { it.plane.hex }
+        return own + shared.values.map { it.second }.filter { it.plane.hex !in heard }
     }
 
     /** Aircraft [hex] (ICAO address) as the map draws it, or null. */

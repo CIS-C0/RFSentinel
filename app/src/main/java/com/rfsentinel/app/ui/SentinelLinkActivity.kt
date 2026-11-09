@@ -112,8 +112,8 @@ class SentinelLinkActivity : AppCompatActivity() {
         val watchOnlyAbout = TextView(this).apply {
             textSize = 13f; alpha = 0.75f
             text = "While this phone is in a group, it stops its own Bluetooth, WiFi, cell tower, GPS spoofing and drone checks and the " +
-                "online aircraft and Waze feeds: you only see what the other Sentinels send. Your Settings stay as they are. " +
-                "Hardware plugged into this phone keeps working."
+                "online aircraft and Waze feeds, and sends nothing to the others: you only see what the other Sentinels send. " +
+                "Your Settings stay as they are. Hardware plugged into this phone still shows here."
         }
 
         watchOnlyBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; addView(watchOnly); addView(watchOnlyAbout) }

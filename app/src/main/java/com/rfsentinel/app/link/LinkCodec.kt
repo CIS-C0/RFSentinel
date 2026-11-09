@@ -4,6 +4,7 @@ import com.rfsentinel.app.detect.AddressType
 import com.rfsentinel.app.detect.Advert
 import com.rfsentinel.app.detect.Category
 import com.rfsentinel.app.detect.Hit
+import com.rfsentinel.app.online.PoliceAircraft
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
@@ -68,8 +69,10 @@ object LinkCodec {
         /** Where the Sentinel that heard these was (NaN when it had no fix). */
         val lat: Double, val lon: Double,
         val sightings: List<Sighting>, val radios: List<Radio>,
+        /** Aircraft that Sentinel has (its RTL-SDR, its online feeds). */
+        val planes: List<PoliceAircraft.Plane> = emptyList(),
     ) {
-        fun relayed() = Batch(origin, seq, hops + 1, time, lat, lon, sightings, radios)
+        fun relayed() = Batch(origin, seq, hops + 1, time, lat, lon, sightings, radios, planes)
     }
 
     const val MAX_HOPS = 2
@@ -134,6 +137,14 @@ object LinkCodec {
                 o.writeUTF(r.kind); o.writeByte(r.confidence); o.optUtf(r.targetLabel); o.writeBoolean(r.repeat); o.writeBoolean(r.tdma)
                 o.writeInt((b.time - r.time).toInt())
             }
+            // Last, so older versions read the batch and ignore them.
+            o.writeShort(b.planes.size)
+            b.planes.forEach { p ->
+                o.writeUTF(p.hex); o.optUtf(p.callsign); o.optUtf(p.registration); o.optUtf(p.type); o.optUtf(p.owner)
+                o.writeDouble(p.lat); o.writeDouble(p.lon)
+                o.writeInt(p.altitudeFt ?: Int.MIN_VALUE); o.writeDouble(p.speedKt ?: Double.NaN); o.writeDouble(p.trackDeg ?: Double.NaN)
+                o.writeBoolean(p.military)
+            }
         }
         return byteArrayOf(BATCH.toByte()) + body.toByteArray()
     }
@@ -148,7 +159,15 @@ object LinkCodec {
                 Radio(i.readLong(), i.readShort().toInt(), i.readUTF(), i.readLong(), i.readLong(), i.readUTF(), i.readUnsignedByte(),
                     i.optUtf(), i.readBoolean(), i.readBoolean(), time - i.readInt())
             }
-            Batch(origin, seq, hops, time, lat, lon, sightings, radios)
+            // An older version's batch ends here.
+            val planes = runCatching {
+                List(i.readUnsignedShort()) {
+                    PoliceAircraft.Plane(i.readUTF(), i.optUtf(), i.optUtf(), i.optUtf(), i.optUtf(), i.readDouble(), i.readDouble(),
+                        i.readInt().takeIf { it != Int.MIN_VALUE }, i.readDouble().takeUnless { it.isNaN() },
+                        i.readDouble().takeUnless { it.isNaN() }, i.readBoolean())
+                }
+            }.getOrDefault(emptyList())
+            Batch(origin, seq, hops, time, lat, lon, sightings, radios, planes)
         }
     }.getOrNull()
 

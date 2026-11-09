@@ -146,6 +146,9 @@ class ScanForegroundService : Service() {
         private const val MQTT_PRESENCE_MS = 60_000L
         /** Packets per tick at most: a burst of new devices goes out over a few ticks. */
         private const val MQTT_MAX_PACKETS = 8
+        private const val MQTT_PLANES_MS = 10_000L
+        private const val MQTT_PLANE_PACKETS = 4
+        private const val LINK_PLANES_MS = 5_000L
         /** A network fix this soon after a raw GPS fix is ignored. */
         private const val RAW_GPS_PREFERRED_MS = 10_000L
         private const val PLACING_MAX_ACCURACY_M = 50f
@@ -600,6 +603,8 @@ class ScanForegroundService : Service() {
     private fun ownOn() = !com.rfsentinel.app.link.LinkStore.ownSensorsOff(this)
     private fun bleWanted() = Prefs.bleEnabled(this) && ownOn()
     private fun wifiWanted() = Prefs.wifiEnabled(this) && ownOn()
+    // ...and makes it send nothing either, so its own node's LoRa neighbours and plugged-in hardware stay off the others' lists.
+    private fun sharing() = ownOn()
 
     private fun applyBle() {
         val toBoard = !Prefs.ouiSpyPhoneBle(this) && Prefs.ouiSpyBoard(this) != null && com.rfsentinel.app.esp.OuiSpyBle.live
@@ -771,7 +776,7 @@ class ScanForegroundService : Service() {
     /** Something the phone's own Bluetooth or Wi-Fi chip heard. */
     private fun processPhone(a: Advert) {
         com.rfsentinel.app.esp.HeardBy.phone.mark(a.mac)
-        linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_PHONE, a))
+        if (sharing()) linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_PHONE, a))
         process(a)
     }
 
@@ -821,7 +826,7 @@ class ScanForegroundService : Service() {
         val isFirst = DeviceRegistry.report(a, c.hits, c.identity, c.vendor, remoteId, geo, now, broadcast, here, lora, via != null)
         if (isFirst) serviceScope.launch { loadHistory(mac) }
         // Over the mesh too (Meshtastic node): not the user's own whitelisted devices.
-        if (toMesh && !WhitelistCache.contains(mac)) { meshOutbox?.add(a, c.hits, now); mqttOutbox?.add(a, c.hits, now) }
+        if (toMesh && sharing() && !WhitelistCache.contains(mac)) { meshOutbox?.add(a, c.hits, now); mqttOutbox?.add(a, c.hits, now) }
         if (TripRecorder.isRecording) {
             TripRecorder.onDevice(
                 mac, a.rssi, a.source.name,
@@ -925,7 +930,7 @@ class ScanForegroundService : Service() {
                 upSince = m.upSince, dataBytes = m.dataBytes),
             timestamp = now
         )
-        linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_USB, a, probed = m.probedSsids, fingerprint = m.fingerprint, hidden = m.hiddenNetwork))
+        if (sharing()) linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_USB, a, probed = m.probedSsids, fingerprint = m.fingerprint, hidden = m.hiddenNetwork))
         process(a, null)
     }
 
@@ -934,7 +939,7 @@ class ScanForegroundService : Service() {
         val a = AdvertFactory.fromHci(r)
         com.rfsentinel.app.esp.HeardBy.usbBt.mark(a.mac, a.timestamp)
         com.rfsentinel.app.usb.AntennaCheck.heardBt(a.mac, a.name, a.rssi, a.timestamp)
-        linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_PHONE, a))
+        if (sharing()) linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_PHONE, a))
         process(a)
     }
 
@@ -955,7 +960,7 @@ class ScanForegroundService : Service() {
             mac = e.mac, source = Advert.Source.WIFI, rssi = e.rssi, name = e.name,
             wifi = Advert.WifiInfo(e.frequencyMhz, e.capabilities, null, emptyList(), client = e.client), timestamp = now
         )
-        linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_ESP, advert, hits = e.hits, probed = e.probedSsids))
+        if (sharing()) linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_ESP, advert, hits = e.hits, probed = e.probedSsids))
         process(advert, e.remoteId, e.position?.let { DeviceRegistry.GeoSample(now, it.first, it.second) })
     }
 
@@ -963,11 +968,25 @@ class ScanForegroundService : Service() {
 
     /** What this phone heard, waiting to go to the linked Sentinels (null while Sentinel Link is off). */
     @Volatile private var linkOutbox: LinkOutbox? = null
+    private var linkPlanesAt = 0L
+
+    /** This phone's own aircraft to share: police and government first, then the nearest. */
+    private fun planesToShare(now: Long, lat: Double, lon: Double): List<com.rfsentinel.app.online.PoliceAircraft.Plane> {
+        if (!sharing()) return emptyList()
+        val air = com.rfsentinel.app.online.PoliceAircraft
+        return air.own(now).sortedWith(compareBy<com.rfsentinel.app.online.PoliceAircraft.Seen>({ it.hit == null }, { if (lat.isNaN()) 0.0 else air.distance(it.plane, lat, lon) }))
+            .map { it.plane }
+    }
 
     private val linkFlush = object : Runnable {
         override fun run() {
             val box = linkOutbox ?: return
             val loc = lastLocation?.takeIf { usableForPlacing(it) }
+            val now = System.currentTimeMillis()
+            if (now - linkPlanesAt >= LINK_PLANES_MS && sharing()) {
+                linkPlanesAt = now
+                box.setPlanes(com.rfsentinel.app.online.PoliceAircraft.own(now).map { it.plane })
+            }
             box.drain(System.currentTimeMillis(), loc?.latitude ?: Double.NaN, loc?.longitude ?: Double.NaN)
                 ?.let { com.rfsentinel.app.link.PhoneLink.send(it) }
             pipeline.postDelayed(this, LINK_FLUSH_MS)
@@ -1043,6 +1062,16 @@ class ScanForegroundService : Service() {
             val lat = loc?.latitude ?: Double.NaN
             val lon = loc?.longitude ?: Double.NaN
             val codec = com.rfsentinel.app.link.MeshCodec
+            if (now - mqttPlanesAt >= MQTT_PLANES_MS) {
+                mqttPlanesAt = now
+                var planes = planesToShare(now, lat, lon)
+                for (i in 0 until MQTT_PLANE_PACKETS) {
+                    val part = codec.fit(planes, codec.MAX_BODY - codec.baseSize(!lat.isNaN(), null))
+                    if (part.isEmpty()) break
+                    if (!relay.send(codec.sealAircraft(codec.messageKey(key), link.myId(ctx), link.nextMeshCounter(ctx), now, lat, lon, null, part))) break
+                    planes = planes.drop(part.size)
+                }
+            }
             var presence = now - mqttLastSend >= MQTT_PRESENCE_MS
             repeat(MQTT_MAX_PACKETS) {
                 val name = if (now - mqttLastName >= MESH_NAME_MS) link.myName(ctx) else null
@@ -1060,6 +1089,8 @@ class ScanForegroundService : Service() {
     /** What goes out over the Meshtastic node (null while it's off). */
     @Volatile private var meshOutbox: com.rfsentinel.app.link.MeshOutbox? = null
     private var meshLastSend = 0L
+    private var meshPlanesAt = 0L
+    private var mqttPlanesAt = 0L
     private var meshLastName = 0L
 
     /** The Meshtastic node runs while it's turned on and chosen (Bluetooth sharing on or off). */
@@ -1103,13 +1134,22 @@ class ScanForegroundService : Service() {
             val since = now - meshLastSend
             val urgent = box.urgent(now)
             val presence = since >= MESH_PRESENCE_MS
-            if (since < link.meshIntervalSec(ctx) * 1000L && !(urgent && since >= MESH_MIN_GAP_MS) && !presence) return
-            val key = link.groupKey(ctx) ?: return
+            val interval = link.meshIntervalSec(ctx) * 1000L
             val loc = lastLocation?.takeIf { usableForPlacing(it) }
             val lat = loc?.latitude ?: Double.NaN
             val lon = loc?.longitude ?: Double.NaN
-            val name = if (now - meshLastName >= MESH_NAME_MS) link.myName(ctx) else null
             val codec = com.rfsentinel.app.link.MeshCodec
+            // Aircraft: one packet of their own at the same pace, police first; the devices' packet follows a tick later.
+            if (!urgent && now - meshPlanesAt >= interval && since >= MESH_TICK_MS) {
+                meshPlanesAt = now
+                val planes = codec.fit(planesToShare(now, lat, lon), codec.MAX_BODY - codec.baseSize(!lat.isNaN(), null))
+                val key = link.groupKey(ctx) ?: return
+                if (planes.isNotEmpty() &&
+                    node.send(codec.sealAircraft(codec.messageKey(key), link.myId(ctx), link.nextMeshCounter(ctx), now, lat, lon, null, planes), false)) return
+            }
+            if (since < interval && !(urgent && since >= MESH_MIN_GAP_MS) && !presence) return
+            val key = link.groupKey(ctx) ?: return
+            val name = if (now - meshLastName >= MESH_NAME_MS) link.myName(ctx) else null
             val devices = box.take(now, codec.MAX_BODY - codec.baseSize(!lat.isNaN(), name))
             if (devices.isEmpty() && !presence) return
             val bytes = codec.seal(codec.messageKey(key), link.myId(ctx), link.nextMeshCounter(ctx), now, lat, lon, name, devices)
@@ -1127,6 +1167,7 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.link.PhoneLink.unlisten()
         com.rfsentinel.app.esp.HeardBy.peer.clear()
         com.rfsentinel.app.esp.HeardBy.peerMesh.clear()
+        com.rfsentinel.app.online.PoliceAircraft.shared.clear()
     }
 
     private fun stopBluetoothLink() {
@@ -1176,6 +1217,7 @@ class ScanForegroundService : Service() {
             // Heard by a Sentinel linked here over Bluetooth: this phone's node passes it on to the mesh.
             process(a, via = via, peerAt = at, toMesh = b.hops == 0, quiet = quiet)
         }
+        if (b.planes.isNotEmpty()) onlineWatch.sharedAircraft(b.planes, via, quiet)
         for (r in b.radios) {
             val kind = runCatching { com.rfsentinel.app.sdr.RadioWatch.Kind.valueOf(r.kind) }
                 .getOrDefault(com.rfsentinel.app.sdr.RadioWatch.Kind.SHARED)
@@ -1635,7 +1677,7 @@ class ScanForegroundService : Service() {
      */
     private fun onRadio(e: com.rfsentinel.app.sdr.RadioWatch.Event, via: String? = null, quiet: Boolean = false) {
         val now = System.currentTimeMillis()
-        if (via == null) linkOutbox?.addRadio(LinkCodec.Radio(e.freqHz, e.snrDb, e.band.label, e.band.startHz, e.band.endHz,
+        if (via == null && sharing()) linkOutbox?.addRadio(LinkCodec.Radio(e.freqHz, e.snrDb, e.band.label, e.band.startHz, e.band.endHz,
             e.band.kind.name, e.confidence, e.target?.label, e.repeat, e.tdma, now))
         if (!Prefs.categoryEnabled(this, Category.RADIO)) return
         // Who uses this frequency: a watched frequency's own label, the imported list, or RadioReference.

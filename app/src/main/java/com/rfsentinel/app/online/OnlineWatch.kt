@@ -149,6 +149,37 @@ class OnlineWatch(
     }
 
     /**
+     * Aircraft another Sentinel sent over Sentinel Link: checked here like this phone's own (distance from here), so a
+     * phone that only watches still lists and alerts for them. [quiet]: that path's alerts are off, they're only logged.
+     */
+    fun sharedAircraft(planes: List<PoliceAircraft.Plane>, via: String, quiet: Boolean) {
+        if (planes.isEmpty() || !Prefs.categoryEnabled(context, Category.AIRCRAFT)) return
+        val now = System.currentTimeMillis()
+        val registry = PoliceAircraft.load(context)
+        val me = location()
+        val alertM = Prefs.aircraftAlertKm(context) * 1000.0
+        var best: Hit? = null
+        synchronized(loiter) {
+            for (p in planes) {
+                val circling = loiter.update(p, now)
+                val distanceM = me?.let { PoliceAircraft.distance(p, it.latitude, it.longitude) }
+                val hit = PoliceAircraft.classify(p, registry, circling, distanceM, "ADS-B shared by $via", alertM)
+                PoliceAircraft.shared[p.hex] = now to PoliceAircraft.Seen(p, hit)
+                if (hit == null) continue
+                val loud = !quiet && PoliceAircraft.alerts(hit, distanceM, Prefs.aircraftCircling(context), alertM)
+                if (loud && (best == null || hit.confidence > best!!.confidence)) best = hit
+                reportAircraft(hit, p.hex, p.lat, p.lon, loud, now, said(hit, distanceM, me, p))
+            }
+            loiter.prune(now)
+        }
+        best?.let { best ->
+            val cur = AmbientThreats.aircraft
+            if (cur == null || now - cur.first > AIRCRAFT_MS || best.confidence >= cur.second.score)
+                AmbientThreats.aircraft = now to AmbientThreats.Threat(best.confidence, best.label, Category.AIRCRAFT)
+        }
+    }
+
+    /**
      * Logs an aircraft hit once per aircraft per 20 minutes; [loud] (strong and close, [PoliceAircraft.alerts]) also
      * alerts, once more when one that was only logged comes close. Called with [loiter] held.
      */

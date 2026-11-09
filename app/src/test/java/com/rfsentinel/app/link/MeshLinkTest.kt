@@ -4,6 +4,7 @@ import android.app.Application
 import com.rfsentinel.app.detect.Advert
 import com.rfsentinel.app.detect.Category
 import com.rfsentinel.app.detect.Hit
+import com.rfsentinel.app.online.PoliceAircraft
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -215,5 +216,41 @@ class MeshLinkTest {
             m.devices.forEach { assertEquals(Advert.Source.WIFI, it.source); got += it.mac }
         }
         assertEquals(40, got.size)
+    }
+
+    @Test
+    fun aircraftGoOverTheMeshAndBluetoothAndOlderBatchesStillRead() {
+        val key = MeshCodec.messageKey(LinkCrypto.random(32))
+        val police = PoliceAircraft.Plane("a1b2c3", "N123PD", "N123PD", "B407", "County Sheriff Office", 10.51234, -20.54321,
+            1_450, 95.0, 271.0, false)
+        val plain = PoliceAircraft.Plane("0f00ff", null, null, null, null, 10.6, -20.6, null, null, null, true)
+        val odd = PoliceAircraft.Plane("~12345", null, null, null, null, 10.6, -20.6, null, null, null, false) // not an ICAO address
+        val fits = MeshCodec.fit(listOf(police, odd, plain), MeshCodec.MAX_BODY)
+        assertEquals(listOf(police, plain), fits)
+        val sealed = MeshCodec.sealAircraft(key, 9L, 4, 1_700_000_000_000L, 10.5, -20.5, null, fits)
+        assertTrue(sealed.size <= MeshProto.MAX_PAYLOAD)
+        val m = MeshCodec.open(key, sealed)!!
+        assertTrue(m.devices.isEmpty())
+        assertEquals(2, m.planes.size)
+        val p = m.planes[0]
+        assertEquals("a1b2c3", p.hex); assertEquals("N123PD", p.callsign); assertEquals("B407", p.type)
+        assertEquals("County Sheriff Office", p.owner); assertEquals(10.51234, p.lat, 1e-5); assertEquals(-20.54321, p.lon, 1e-5)
+        assertEquals(1_450, p.altitudeFt); assertEquals(95.0, p.speedKt!!, 0.5); assertEquals(271.0, p.trackDeg!!, 1.5)
+        assertEquals(plain, m.planes[1])
+        assertEquals(m.planes, MeshCodec.toBatch(m).planes)
+        // Many aircraft: one packet holds the first that fit.
+        val many = List(40) { police.copy(hex = "%06x".format(it)) }
+        assertTrue(MeshCodec.fit(many, MeshCodec.MAX_BODY).size in 2 until 40)
+        assertTrue(MeshCodec.sealAircraft(key, 9L, 5, 1_700_000_000_000L, 10.5, -20.5, "Pixel", many).size <= MeshProto.MAX_PAYLOAD)
+
+        // Bluetooth: they ride at the end of a batch, and a batch from an older version (no aircraft) still reads.
+        val b = LinkCodec.Batch(1L, 2, 0, 1_000_000L, 10.5, -20.5, emptyList(), emptyList(), listOf(police, plain))
+        assertEquals(listOf(police, plain), LinkCodec.readBatch(LinkCodec.batch(b))!!.planes)
+        val older = LinkCodec.batch(LinkCodec.Batch(1L, 3, 0, 1_000_000L, 10.5, -20.5, emptyList(), emptyList()))
+        val cut = java.io.ByteArrayOutputStream().also { out ->
+            java.util.zip.DeflaterOutputStream(out).use { it.write(java.util.zip.InflaterInputStream(older.inputStream(1, older.size - 1)).readBytes().dropLast(2).toByteArray()) }
+        }.toByteArray()
+        val r = LinkCodec.readBatch(byteArrayOf(LinkCodec.BATCH.toByte()) + cut)!!
+        assertEquals(3, r.seq); assertTrue(r.planes.isEmpty())
     }
 }

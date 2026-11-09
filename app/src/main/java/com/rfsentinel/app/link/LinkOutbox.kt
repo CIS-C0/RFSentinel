@@ -10,6 +10,7 @@ class LinkOutbox(private val myId: Long) {
     private val lastSent = HashMap<String, Sent>()
     private val sightings = LinkedHashMap<String, LinkCodec.Sighting>()
     private val radios = ArrayList<LinkCodec.Radio>()
+    private var planes: List<com.rfsentinel.app.online.PoliceAircraft.Plane> = emptyList()
     // Starts at the clock (seconds), so a restarted Sentinel's batches never repeat numbers the others already saw.
     private var seq = (System.currentTimeMillis() / 1000).toInt()
 
@@ -28,20 +29,25 @@ class LinkOutbox(private val myId: Long) {
     @Synchronized
     fun addRadio(r: LinkCodec.Radio) { if (radios.size < MAX_RADIOS) radios += r }
 
+    /** The aircraft this Sentinel has now, sent with the next batch. */
+    @Synchronized
+    fun setPlanes(list: List<com.rfsentinel.app.online.PoliceAircraft.Plane>) { planes = list }
+
     /** The batch to send now, or null when nothing new was heard. */
     @Synchronized
     fun drain(now: Long, lat: Double, lon: Double): LinkCodec.Batch? {
-        if (sightings.isEmpty() && radios.isEmpty()) return null
+        if (sightings.isEmpty() && radios.isEmpty() && planes.isEmpty()) return null
         val list = sightings.values.take(MAX_PER_BATCH)
         val keys = sightings.keys.take(MAX_PER_BATCH)
         keys.forEach { sightings.remove(it) }
-        val b = LinkCodec.Batch(myId, ++seq, 0, now, lat, lon, list, radios.toList())
+        val b = LinkCodec.Batch(myId, ++seq, 0, now, lat, lon, list, radios.toList(), planes)
         radios.clear()
+        planes = emptyList()
         return b
     }
 
     @Synchronized
-    fun clear() { lastSent.clear(); sightings.clear(); radios.clear() }
+    fun clear() { lastSent.clear(); sightings.clear(); radios.clear(); planes = emptyList() }
 
     companion object {
         const val REPEAT_MS = 3_000L

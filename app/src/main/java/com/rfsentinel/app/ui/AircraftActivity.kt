@@ -107,7 +107,9 @@ class AircraftActivity : AppCompatActivity() {
             val now = System.currentTimeMillis()
             val mine = if (now - PoliceAircraft.localAt <= 30_000L) PoliceAircraft.local.size else 0
             val online = if (now - PoliceAircraft.latestAt <= 3 * 60_000L) PoliceAircraft.latest.size else 0
+            val linked = PoliceAircraft.shared.values.count { now - it.first <= PoliceAircraft.SHARED_MS }
             sources.text = if (demo) "Demo aircraft" else "RTL-SDR: $mine · online feeds: $online" +
+                (if (linked > 0) " · other Sentinels: $linked" else "") +
                 if (list.any { it.distanceKm == null }) " · ${list.count { it.distanceKm == null }} not placed (no position yet)" else ""
             // The RTL-SDR's receiver: messages decoded per second over the last minute.
             val adsb = SdrRadio.mode == SdrRadio.Mode.ADSB
