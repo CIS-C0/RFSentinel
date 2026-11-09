@@ -584,13 +584,23 @@ class MainActivity : AppCompatActivity() {
     private var hardwareOpen = false
 
     /**
-     * The GPS dot goes in the title bar under the app's name, so it takes no row of its own. A styled header hides
-     * that title: then it's returned, for the status.
+     * The GPS dot goes in the title bar, small, right of the app's name, so it takes no row of its own. A styled
+     * header hides that title: then it's returned, for the status.
      */
     private fun gpsInTitleBar(line: CharSequence?): CharSequence? {
         val bar = supportActionBar
         val titled = bar != null && bar.displayOptions and androidx.appcompat.app.ActionBar.DISPLAY_SHOW_TITLE != 0
-        bar?.subtitle = if (titled) line else null
+        if (bar != null) {
+            bar.subtitle = null
+            // [title] stays the app's name: only the bar's copy gets the GPS after it.
+            val shown: CharSequence = if (titled && line != null) android.text.SpannableStringBuilder(title).append("   ").also {
+                val start = it.length
+                it.append(line)
+                it.setSpan(android.text.style.RelativeSizeSpan(0.65f), start, it.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            } else title
+            // Every refresh, like the subtitle was: the dot's colour can change while the text stays the same.
+            bar.title = shown
+        }
         return if (titled) null else line
     }
 
