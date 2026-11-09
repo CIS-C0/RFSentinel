@@ -2237,6 +2237,8 @@ class SettingsActivity : AppCompatActivity() {
             label: (Int) -> String, from: Int, to: Int, value: Int,
             info: String = "How long a device stays in the list and radar after it was last heard. " +
                 "Flagged, favourite and following devices always stay 3 minutes.",
+            step: Int = 5,
+            unit: (Int) -> String = { "$it s" },
             save: (Int) -> Unit
         ): Pair<com.google.android.material.slider.Slider, android.widget.TextView> {
             val text = android.widget.TextView(this).apply {
@@ -2246,9 +2248,9 @@ class SettingsActivity : AppCompatActivity() {
             }
             binding.sectionScanning.addView(infoRow(text, info, "Out of range"))
             val s = com.google.android.material.slider.Slider(this).apply {
-                valueFrom = from.toFloat(); valueTo = to.toFloat(); stepSize = 5f
-                this.value = (value - value % 5).coerceIn(from, to).toFloat()
-                setLabelFormatter { "${it.toInt()} s" }
+                valueFrom = from.toFloat(); valueTo = to.toFloat(); stepSize = step.toFloat()
+                this.value = (value - value % step).coerceIn(from, to).toFloat()
+                setLabelFormatter { unit(it.toInt()) }
                 contentDescription = label(value)
                 addOnChangeListener { _, v, fromUser ->
                     if (!fromUser) return@addOnChangeListener
@@ -2269,6 +2271,13 @@ class SettingsActivity : AppCompatActivity() {
             "How long a device heard only by an ESP32 board or a USB WiFi adapter stays in the list and radar after it " +
                 "was last heard. Flagged, favourite and following devices always stay 3 minutes.") {
             Prefs.setLiveExternalSec(this, it)
+        }
+        val meshTime = { sec: Int -> if (sec < 60) "$sec s" else if (sec % 60 == 0) "${sec / 60} min" else "${sec / 60} min ${sec % 60} s" }
+        slider({ "Other Sentinels: off the list after ${meshTime(it)}" }, 30, 960, Prefs.liveMeshSec(this),
+            "How long a device another Sentinel sent over the Meshtastic mesh or the internet relay stays in the list and " +
+                "radar after it arrived. The sender repeats each device about every 15 minutes, so a shorter time empties " +
+                "the list between repeats. Flagged, favourite and following devices stay longer.", 30, meshTime) {
+            Prefs.setLiveMeshSec(this, it)
         }
     }
 

@@ -730,10 +730,11 @@ class MainActivity : AppCompatActivity() {
         val bleMs = Prefs.liveBleSec(this) * 1000L
         val wifiMs = Prefs.liveWifiSec(this) * 1000L
         val externalMs = Prefs.liveExternalSec(this) * 1000L
+        val meshMs = Prefs.liveMeshSec(this) * 1000L
         // Settings > Scanning: trusted (whitelisted) devices can be left out of the list and radar.
         val hideTrusted = Prefs.hideWhitelisted(this)
         val live = DeviceRegistry.snapshot(now).filter {
-            com.rfsentinel.app.ui.LiveWindow.keep(it, now, bleMs, wifiMs, externalMs) && !(hideTrusted && WhitelistCache.contains(it.mac))
+            com.rfsentinel.app.ui.LiveWindow.keep(it, now, bleMs, wifiMs, externalMs, meshMs) && !(hideTrusted && WhitelistCache.contains(it.mac))
         }
         if (!ScanForegroundService.isRunning) unhideAll() // stopped from the notification, tile or car too
         // Devices swiped left ([hideRow]) are listed as ordinary ones (no flag, banner or radar alert). Waze, aircraft, radio: see their rows.
@@ -1355,7 +1356,7 @@ class MainActivity : AppCompatActivity() {
             flashing = alert && !muted && com.rfsentinel.app.ui.LiveWindow.inRange(s, now) &&
                 (s.following || (best!!.confidence >= Prefs.alertThreshold(this, best.category) && best.category != Category.TRACKER)),
             bold = alert,
-            heardByEsp = com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac, now),
+            heardByEsp = com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac, now) && !com.rfsentinel.app.esp.isLoRaNode(s.mac, s.name),
             heardByUsb = com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac, now),
             heardByUsbBt = com.rfsentinel.app.esp.HeardBy.usbBt.recent(s.mac, now),
             heardByPhone = com.rfsentinel.app.esp.HeardBy.phone.recent(s.mac, now),

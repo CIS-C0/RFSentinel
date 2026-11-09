@@ -51,13 +51,19 @@ object LiveWindow {
     fun alerting(s: DeviceRegistry.Snapshot, now: Long = System.currentTimeMillis()): Boolean =
         s.best?.listOnly == false && !com.rfsentinel.app.data.WhitelistCache.contains(s.mac) && inRange(s, now)
 
-    fun keep(s: DeviceRegistry.Snapshot, now: Long, bleMs: Long, wifiMs: Long, externalMs: Long = wifiMs): Boolean {
+    fun keep(s: DeviceRegistry.Snapshot, now: Long, bleMs: Long, wifiMs: Long, externalMs: Long = wifiMs,
+             meshMs: Long = HeardBy.MESH_HOLD_MS): Boolean {
         if (s.following || s.known?.favorite == true) return true
         val wifi = Advert.Source.WIFI in s.sources || s.source == Advert.Source.WIFI
         // A flagged device never leaves the list while it still alerts (bubble, banner, beeps).
         if (s.best != null && inRange(s, now)) return true
-        // Heard over the mesh: stays until the sender repeats it (see HeardBy.peerMesh).
-        if (HeardBy.peerMesh.recent(s.mac, now)) return true
+        // Heard over the mesh: its own time (Settings), by default until the sender repeats it (see HeardBy.peerMesh).
+        if (HeardBy.peerMesh.recent(s.mac, now)) {
+            if (HeardBy.peerMesh.within(s.mac, meshMs, now)) return true
+            val alsoHere = HeardBy.phone.recent(s.mac, now) || HeardBy.esp.recent(s.mac, now) ||
+                HeardBy.usb.recent(s.mac, now) || HeardBy.usbBt.recent(s.mac, now)
+            if (!alsoHere) return false
+        }
         val phoneMs = if (wifi) wifiMs else bleMs
         // Heard by an ESP32 board, a USB adapter or a linked Sentinel: its own time, or the longer one when the
         // phone hears it too.

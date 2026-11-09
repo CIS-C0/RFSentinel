@@ -18,6 +18,7 @@ object MeshProto {
     const val NODES_ONLY = 69421
     const val PORT_POSITION_APP = 3
     const val PORT_NODEINFO_APP = 4
+    const val PORT_TELEMETRY_APP = 67
     /** Largest payload of one packet (Constants.DATA_PAYLOAD_LEN). */
     const val MAX_PAYLOAD = 233
     const val PRIORITY_BACKGROUND = 10
@@ -79,9 +80,12 @@ object MeshProto {
         /** LoRaConfig: hop limit (0 = the firmware's default), region (0 = not set: the radio stays off). */
         data class Lora(val hopLimit: Int, val region: Int, val txEnabled: Boolean) : From()
         data class ConfigComplete(val id: Long) : From()
-        class Packet(val from: Long, val to: Long, val channel: Int, val port: Int, val payload: ByteArray, val rxRssi: Int, val viaMqtt: Boolean = false) : From()
+        /** [hops]: how many nodes passed it on (null when the sender's firmware doesn't say). */
+        class Packet(val from: Long, val to: Long, val channel: Int, val port: Int, val payload: ByteArray, val rxRssi: Int, val viaMqtt: Boolean = false,
+                     val snr: Float? = null, val hops: Int? = null) : From()
         /** An entry of the radio's node list. */
-        class NodeInfo(val num: Long, val name: String, val position: Pair<Double, Double>?, val lastHeard: Long, val viaMqtt: Boolean) : From()
+        class NodeInfo(val num: Long, val name: String, val position: Pair<Double, Double>?, val lastHeard: Long, val viaMqtt: Boolean,
+                       val snr: Float? = null, val hops: Int? = null, val metrics: Metrics? = null) : From()
         data class Queue(val res: Int, val free: Int) : From()
         /** The external notification (buzzer, LED) settings, field to value; null when a field isn't a varint
          *  (a newer firmware's): then they can't be written back unchanged, so they're left alone. */
@@ -114,6 +118,7 @@ object MeshProto {
 
     private fun readPacket(b: ByteArray): From {
         var from = 0L; var to = 0L; var channel = 0; var port = -1; var payload = ByteArray(0); var rssi = 0; var mqtt = false
+        var snr: Float? = null; var hopLimit = 0; var hopStart = 0
         val r = R(b)
         r.fields { f, w ->
             when {
@@ -131,28 +136,92 @@ object MeshProto {
                     }
                     true
                 }
+                f == 8 && w == 5 -> { snr = r.float(); true }
+                f == 9 && w == 0 -> { hopLimit = r.varint().toInt(); true }
                 f == 12 && w == 0 -> { rssi = r.varint().toInt(); true }
                 f == 14 && w == 0 -> { mqtt = r.varint() != 0L; true }
+                f == 15 && w == 0 -> { hopStart = r.varint().toInt(); true }
                 else -> false
             }
         }
-        return From.Packet(from, to, channel, port, payload, rssi, mqtt)
+        val hops = (hopStart - hopLimit).takeIf { hopStart > 0 && it >= 0 }
+        return From.Packet(from, to, channel, port, payload, rssi, mqtt, snr, hops)
     }
 
     private fun readNode(b: ByteArray): From {
         var num = 0L; var name = ""; var spot: Pair<Double, Double>? = null; var heard = 0L; var mqtt = false
+        var snr: Float? = null; var hops: Int? = null; var metrics: Metrics? = null
         val r = R(b)
         r.fields { f, w ->
             when {
                 f == 1 && w == 0 -> { num = r.varint() and 0xFFFFFFFFL; true }
                 f == 2 && w == 2 -> { name = userName(r.bytes()); true }
                 f == 3 && w == 2 -> { spot = position(r.bytes()); true }
+                f == 4 && w == 5 -> { snr = r.float(); true }
                 f == 5 && w == 5 -> { heard = r.fixed32(); true }
+                f == 6 && w == 2 -> { metrics = deviceMetrics(r.bytes()); true }
                 f == 8 && w == 0 -> { mqtt = r.varint() != 0L; true }
+                f == 9 && w == 0 -> { hops = r.varint().toInt(); true }
                 else -> false
             }
         }
-        return From.NodeInfo(num, name, spot, heard, mqtt)
+        return From.NodeInfo(num, name, spot, heard, mqtt, snr, hops, metrics)
+    }
+
+    /**
+     * What a node reports about itself (telemetry.proto). Battery 101 means it runs on outside power. Only the fields
+     * it sent are set.
+     */
+    data class Metrics(
+        val battery: Int? = null, val voltage: Float? = null, val channelUtil: Float? = null, val airUtilTx: Float? = null,
+        val uptimeS: Long? = null, val temperatureC: Float? = null, val humidity: Float? = null, val pressureHpa: Float? = null,
+    ) {
+        /** These, updated with what [newer] has. */
+        fun with(newer: Metrics) = Metrics(newer.battery ?: battery, newer.voltage ?: voltage, newer.channelUtil ?: channelUtil,
+            newer.airUtilTx ?: airUtilTx, newer.uptimeS ?: uptimeS, newer.temperatureC ?: temperatureC, newer.humidity ?: humidity,
+            newer.pressureHpa ?: pressureHpa)
+    }
+
+    /** DeviceMetrics: battery, voltage, channel use, its own air time, uptime. */
+    fun deviceMetrics(b: ByteArray): Metrics {
+        var m = Metrics()
+        val r = R(b)
+        r.fields { f, w ->
+            when {
+                f == 1 && w == 0 -> { m = m.copy(battery = r.varint().toInt()); true }
+                f == 2 && w == 5 -> { m = m.copy(voltage = r.float()); true }
+                f == 3 && w == 5 -> { m = m.copy(channelUtil = r.float()); true }
+                f == 4 && w == 5 -> { m = m.copy(airUtilTx = r.float()); true }
+                f == 5 && w == 0 -> { m = m.copy(uptimeS = r.varint() and 0xFFFFFFFFL); true }
+                else -> false
+            }
+        }
+        return m
+    }
+
+    /** A TELEMETRY_APP payload: device metrics and / or environment metrics (temperature, humidity, pressure). */
+    fun telemetry(b: ByteArray): Metrics {
+        var m = Metrics()
+        val r = R(b)
+        r.fields { f, w ->
+            when {
+                f == 2 && w == 2 -> { m = m.with(deviceMetrics(r.bytes())); true }
+                f == 3 && w == 2 -> {
+                    val e = R(r.bytes())
+                    e.fields { ef, ew ->
+                        when {
+                            ef == 1 && ew == 5 -> { m = m.copy(temperatureC = e.float()); true }
+                            ef == 2 && ew == 5 -> { m = m.copy(humidity = e.float()); true }
+                            ef == 3 && ew == 5 -> { m = m.copy(pressureHpa = e.float()); true }
+                            else -> false
+                        }
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
+        return m
     }
 
     /** A User message's long name, or its short name. */
@@ -319,6 +388,7 @@ object MeshProto {
             pos += 4
             return v
         }
+        fun float(): Float = Float.fromBits(fixed32().toInt())
         fun bytes(): ByteArray {
             val n = varint()
             require(n >= 0 && pos + n <= b.size) { "short bytes" }

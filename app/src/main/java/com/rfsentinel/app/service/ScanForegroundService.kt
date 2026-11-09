@@ -1289,7 +1289,7 @@ class ScanForegroundService : Service() {
         logDetection(a.mac, a.source.name, best, now, loc?.latitude, loc?.longitude,
             rssi = a.rssi, vendor = vendor, deviceName = a.name,
             radio = com.rfsentinel.app.detect.DeviceIntel.radioSummary(a),
-            heardBy = via?.let { "via $it" } ?: com.rfsentinel.app.esp.HeardBy.own(a.mac, a.source))
+            heardBy = via?.let { "via $it" } ?: com.rfsentinel.app.esp.HeardBy.own(a.mac, a.source, a.name))
     }
 
     private fun logDetection(

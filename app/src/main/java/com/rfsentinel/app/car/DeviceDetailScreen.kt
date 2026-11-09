@@ -160,7 +160,7 @@ class DeviceDetailScreen(carContext: CarContext, private val mac: String) : Live
                 !com.rfsentinel.app.esp.HeardBy.usb.recent(mac) && !com.rfsentinel.app.esp.HeardBy.usbBt.recent(mac) &&
                 !com.rfsentinel.app.esp.HeardBy.peer.recent(mac)))
             "phone " + if (s.source == com.rfsentinel.app.detect.Advert.Source.WIFI) "WiFi" else "Bluetooth" else null,
-        if (com.rfsentinel.app.esp.HeardBy.esp.recent(mac)) "ESP32" else null,
+        if (com.rfsentinel.app.esp.HeardBy.esp.recent(mac)) if (com.rfsentinel.app.esp.isLoRaNode(mac, s.name)) "Mesh node" else "ESP32" else null,
         if (com.rfsentinel.app.esp.HeardBy.usb.recent(mac)) "USB WiFi" else null,
         if (com.rfsentinel.app.esp.HeardBy.usbBt.recent(mac)) "USB Bluetooth" else null,
         com.rfsentinel.app.esp.HeardBy.peer.via(mac)?.let { "Sentinel $it" }

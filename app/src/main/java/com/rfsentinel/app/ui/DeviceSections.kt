@@ -25,6 +25,35 @@ typealias DeviceSection = Pair<String, List<Pair<String, String>>>
  * so a device no longer in range shows the same details as when it was.
  */
 object DeviceSections {
+    /** A LoRa node's telemetry and how its last packet came in; only what it sent. */
+    internal fun nodeRows(n: com.rfsentinel.app.esp.NodeStats, now: Long = System.currentTimeMillis(),
+                          imperial: Boolean = com.rfsentinel.app.util.Units.imperial): List<Pair<String, String>> {
+        val m = n.metrics
+        val out = mutableListOf<Pair<String, String>>()
+        m.battery?.let { out += "Battery" to if (it > 100) "On outside power" else "$it%" }
+        m.voltage?.takeIf { it > 0f }?.let { out += "Voltage" to String.format("%.2f V", it) }
+        n.snr?.let { out += "Signal to noise" to String.format("%.1f dB", it) }
+        n.hops?.let { out += "Hops" to if (it == 0) "Heard directly" else "Passed on by $it node" + if (it > 1) "s" else "" }
+        m.channelUtil?.let { c ->
+            out += "Channel use" to String.format("%.1f%%", c) + (m.airUtilTx?.let { String.format(" · its own sends %.1f%%", it) } ?: "")
+        }
+        m.uptimeS?.let { u ->
+            out += "Up for" to when {
+                u >= 86_400 -> "${u / 86_400} d ${u % 86_400 / 3_600} h"
+                u >= 3_600 -> "${u / 3_600} h ${u % 3_600 / 60} min"
+                else -> "${u / 60} min"
+            }
+        }
+        m.temperatureC?.let { out += "Temperature" to if (imperial) String.format("%.1f °F", it * 9 / 5 + 32) else String.format("%.1f °C", it) }
+        m.humidity?.let { out += "Humidity" to String.format("%.0f%%", it) }
+        m.pressureHpa?.let { out += "Air pressure" to String.format("%.0f hPa", it) }
+        if (out.isNotEmpty()) {
+            val min = (now - n.at) / 60_000
+            out += "Node report" to if (min < 1) "Just now" else "$min min ago"
+        }
+        return out
+    }
+
 
     const val FLAGGED = "Why it's flagged"
     const val NOT_FLAGGED = "Not flagged"
@@ -87,7 +116,7 @@ object DeviceSections {
             id += "Trackability" to s.addressType.trackability(known?.firstSeen, known?.lastSeen, known?.sessions ?: 0,
                 DeviceRegistry.linkedFrom(mac) != null)
             id += "Radio" to s.sources.joinToString(" + ") { if (it == Advert.Source.BLE) "Bluetooth LE" else "WiFi" }
-            id += "Heard by" to com.rfsentinel.app.esp.HeardBy.tag(mac, s.source)
+            id += "Heard by" to com.rfsentinel.app.esp.HeardBy.tag(mac, s.source, s.name)
         }
         a?.connectable?.let { id += "Connectable" to if (it) "Yes (accepts connections)" else "No (broadcast only)" }
         a?.phy?.let { id += "PHY" to it }
@@ -105,6 +134,8 @@ object DeviceSections {
                     id += "With its owner" to "Moved with $phone at every place: most likely that phone owner's tag, so it doesn't alert as following you"
                 }
             }
+        // A Meshtastic node's own report (telemetry) and how the radio heard it.
+        com.rfsentinel.app.esp.LoRaStats.of(mac)?.let { id += nodeRows(it) }
         // Heard by a USB WiFi adapter / Marauder board: its WPS block, fingerprint, network requests.
         com.rfsentinel.app.usb.ProbeIntel.of(mac)?.let { r ->
             if (r.hidden) id += "Hidden network" to (s?.name?.let { "Its name, \"$it\", was revealed by a device joining or asking for it" }

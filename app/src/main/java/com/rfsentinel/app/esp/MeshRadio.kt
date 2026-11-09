@@ -21,6 +21,22 @@ private fun nodeMac(kind: Int, id: ByteArray) =
 fun isLoRaNode(mac: String, name: String?) = name != null &&
     (mac.startsWith("06:4D:") && name.startsWith("Meshtastic: ") || mac.startsWith("06:43:") && name.startsWith("MeshCore: "))
 
+/** What a Meshtastic node last said about itself, and how the radio heard it: shown on its details page. */
+data class NodeStats(val metrics: MeshProto.Metrics = MeshProto.Metrics(), val snr: Float? = null, val hops: Int? = null, val at: Long = 0)
+
+/** Each LoRa node's [NodeStats], by its made-up address. */
+object LoRaStats {
+    private val byMac = java.util.concurrent.ConcurrentHashMap<String, NodeStats>()
+    fun of(mac: String): NodeStats? = byMac[mac.uppercase()]
+    fun note(mac: String, metrics: MeshProto.Metrics?, snr: Float?, hops: Int?, now: Long) {
+        if (metrics == null && snr == null && hops == null) return
+        byMac.merge(mac.uppercase(), NodeStats(metrics ?: MeshProto.Metrics(), snr, hops, now)) { old, new ->
+            NodeStats(metrics?.let { old.metrics.with(it) } ?: old.metrics, snr ?: old.snr, hops ?: old.hops, now)
+        }
+    }
+    fun clear() = byMac.clear()
+}
+
 /** What a Meshtastic radio tells its phone, as sightings: only nodes it heard over LoRa, never over MQTT. */
 class MeshtasticLog(private val nowS: () -> Long = { System.currentTimeMillis() / 1000 }) {
     private var me = 0L
@@ -34,7 +50,10 @@ class MeshtasticLog(private val nowS: () -> Long = { System.currentTimeMillis() 
             is MeshProto.From.NodeInfo -> {
                 if (m.name.isNotEmpty()) names[m.num] = m.name
                 m.position?.let { spots[m.num] = it }
-                if (m.num != me && !m.viaMqtt && nowS() - m.lastHeard < RECENT_S) return sighting(m.num, NOMINAL_RSSI)
+                if (m.num != me && !m.viaMqtt && nowS() - m.lastHeard < RECENT_S) {
+                    LoRaStats.note(mac(m.num), m.metrics, m.snr, m.hops, nowS() * 1000)
+                    return sighting(m.num, NOMINAL_RSSI)
+                }
             }
             is MeshProto.From.Packet -> {
                 if (m.from == 0L || m.from == me || m.viaMqtt) return null
@@ -42,6 +61,8 @@ class MeshtasticLog(private val nowS: () -> Long = { System.currentTimeMillis() 
                     MeshProto.PORT_NODEINFO_APP -> MeshProto.userName(m.payload).takeIf { it.isNotEmpty() }?.let { names[m.from] = it }
                     MeshProto.PORT_POSITION_APP -> MeshProto.position(m.payload)?.let { spots[m.from] = it }
                 }
+                val metrics = if (m.port == MeshProto.PORT_TELEMETRY_APP) runCatching { MeshProto.telemetry(m.payload) }.getOrNull() else null
+                LoRaStats.note(mac(m.from), metrics, m.snr, m.hops, nowS() * 1000)
                 return sighting(m.from, m.rxRssi.takeIf { it != 0 } ?: NOMINAL_RSSI)
             }
             else -> Unit
@@ -49,10 +70,11 @@ class MeshtasticLog(private val nowS: () -> Long = { System.currentTimeMillis() 
         return null
     }
 
+    private fun mac(num: Long) = nodeMac(0x4D, ByteArray(4) { (num ushr (24 - 8 * it)).toByte() })
+
     private fun sighting(num: Long, rssi: Int): EspSighting {
         heard += num
-        val id = ByteArray(4) { (num ushr (24 - 8 * it)).toByte() }
-        return EspSighting(nodeMac(0x4D, id), rssi, ble = true, name = "Meshtastic: ${names[num] ?: "!%08x".format(num)}", position = spots[num])
+        return EspSighting(mac(num), rssi, ble = true, name = "Meshtastic: ${names[num] ?: "!%08x".format(num)}", position = spots[num])
     }
 }
 

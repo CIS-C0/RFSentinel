@@ -46,6 +46,7 @@ class DeviceListScreen(carContext: CarContext, private val filter: DeviceFilter)
             DeviceFilter.EXTERNAL -> "Heard by external hardware"
             DeviceFilter.SENTINELS -> "Heard by linked Sentinels"
             DeviceFilter.MESH -> "Heard over the mesh"
+            DeviceFilter.LORA -> "LoRa nodes"
             else -> f.label
         }
 
@@ -58,6 +59,7 @@ class DeviceListScreen(carContext: CarContext, private val filter: DeviceFilter)
             f == DeviceFilter.EXTERNAL -> "Nothing from an ESP32 board or USB WiFi adapter - see More > Hardware"
             f == DeviceFilter.SENTINELS -> "Nothing from linked Sentinels - link phones in Settings > Sentinel Link"
             f == DeviceFilter.MESH -> "Nothing over the mesh or internet relay - see Settings > Sentinel Link"
+            f == DeviceFilter.LORA -> "No LoRa nodes - a Meshtastic or MeshCore node lists the ones it hears"
             f == DeviceFilter.ALL -> "Listening... no devices heard yet"
             else -> "Nothing here right now"
         }

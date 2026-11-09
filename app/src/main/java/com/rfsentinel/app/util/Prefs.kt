@@ -320,6 +320,9 @@ object Prefs {
     /** How long a device heard only by external hardware (ESP32 board, USB WiFi adapter) stays in the list and radar. */
     fun liveExternalSec(context: Context): Int = int(context, "live_external_sec", 60).coerceIn(5, 180)
     fun setLiveExternalSec(context: Context, sec: Int) = setInt(context, "live_external_sec", sec.coerceIn(5, 180))
+    /** How long a device another Sentinel sent over the mesh or the internet relay stays listed (16 min: until it's repeated). */
+    fun liveMeshSec(context: Context): Int = int(context, "live_mesh_sec", 960).coerceIn(30, 960)
+    fun setLiveMeshSec(context: Context, sec: Int) = setInt(context, "live_mesh_sec", sec.coerceIn(30, 960))
 
     /** Police aircraft from the online ADS-B feeds; off leaves only the RTL-SDR's own receiver (on by default). */
     fun aircraftOnline(context: Context): Boolean = bool(context, "aircraft_online", true)

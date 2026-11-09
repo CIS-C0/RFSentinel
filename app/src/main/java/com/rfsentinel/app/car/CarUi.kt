@@ -95,7 +95,7 @@ object CarUi {
     }
 
     /** Which radio heard it: an ESP32 board, a USB WiFi or Bluetooth adapter, a linked Sentinel, or the phone (Bluetooth / WiFi). */
-    fun sourceTag(s: DeviceRegistry.Snapshot): String = com.rfsentinel.app.esp.HeardBy.tag(s.mac, s.source)
+    fun sourceTag(s: DeviceRegistry.Snapshot): String = com.rfsentinel.app.esp.HeardBy.tag(s.mac, s.source, s.name)
 
     /** Which radio heard it first (the line above can be cut off), then signal, distance and age. */
     fun signalLine(s: DeviceRegistry.Snapshot, now: Long = System.currentTimeMillis()): String =

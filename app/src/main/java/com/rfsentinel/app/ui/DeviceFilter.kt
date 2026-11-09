@@ -38,6 +38,8 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
     SENTINELS("Sentinels", liveOnly = true),
     /** Heard by a Sentinel far away, over a Meshtastic node or the internet relay. */
     MESH("Mesh", liveOnly = true),
+    /** Meshtastic / MeshCore nodes a mesh radio heard over LoRa (on the map where they share a GPS position). */
+    LORA("LoRa"),
     // Kinds of device, from what identified them (see DeviceIntel).
     VEHICLES("Vehicles"),
     PHONES("Phones"),
@@ -99,6 +101,7 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
             com.rfsentinel.app.esp.HeardBy.usbBt.recent(s.mac)
         SENTINELS -> com.rfsentinel.app.esp.HeardBy.peerBluetooth.recent(s.mac)
         MESH -> com.rfsentinel.app.esp.HeardBy.peerMesh.recent(s.mac)
+        LORA -> com.rfsentinel.app.esp.isLoRaNode(s.mac, s.name)
         FAVORITES -> Favorites.contains(s.mac)
         BLE -> Advert.Source.BLE in s.sources
         WIFI -> Advert.Source.WIFI in s.sources
@@ -173,7 +176,7 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
          * The main screen's chip order: the counts worth a glance first (flagged, then what's heard on each
          * radio), so they fit without scrolling; the narrower filters after them.
          */
-        val MAIN_ORDER = listOf(ALL, FLAGGED, BLE, WIFI, CELLS, TRACKERS, DRONES, AIRCRAFT, RADIO, TALKGROUPS, WAZE, EXTERNAL, SENTINELS, MESH, FAVORITES, NEW, CAMERAS) + (KINDS - CAMERAS) + OTHER
+        val MAIN_ORDER = listOf(ALL, FLAGGED, BLE, WIFI, CELLS, TRACKERS, DRONES, AIRCRAFT, RADIO, TALKGROUPS, WAZE, EXTERNAL, SENTINELS, MESH, LORA, FAVORITES, NEW, CAMERAS) + (KINDS - CAMERAS) + OTHER
 
         /** The chips of a saved snapshot or trace: the main screen's, less those that only mean something live. */
         val SAVED_ORDER = MAIN_ORDER.filterNot { it.liveOnly }
