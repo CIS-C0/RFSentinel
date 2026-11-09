@@ -383,25 +383,70 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * The USB WiFi adapter log as a .txt file to send (email, messages, Drive...): app and
-     * phone, the USB devices plugged in, and the driver log - for testers without adb.
-     */
-    private fun exportUsbWifiLog() {
+    /** Each hardware log's status now, for its export (no broker name or IP address). */
+    private fun hwStatus(log: com.rfsentinel.app.util.HwLog): String {
+        val l = com.rfsentinel.app.util.HwLogs
+        return when (log) {
+            l.usbWifi -> com.rfsentinel.app.usb.UsbWifi.status
+            l.usbBt -> com.rfsentinel.app.usb.UsbBluetooth.status
+            l.sdr -> com.rfsentinel.app.sdr.SdrRadio.status
+            l.esp -> com.rfsentinel.app.esp.EspBoards.status
+            l.meshRadio -> com.rfsentinel.app.esp.MeshBle.status
+            l.ouiSpy -> com.rfsentinel.app.esp.OuiSpyBle.status
+            l.meshNode -> com.rfsentinel.app.link.MeshNode.status
+            l.link -> com.rfsentinel.app.link.PhoneLink.status
+            l.relay -> com.rfsentinel.app.link.MqttRelay.safeStatus
+            else -> ""
+        }
+    }
+
+    /** [log]'s export: plugged-in USB devices too for the hardware on USB. */
+    private fun hwReport(log: com.rfsentinel.app.util.HwLog): String {
+        val l = com.rfsentinel.app.util.HwLogs
+        val usb = log in listOf(l.usbWifi, l.usbBt, l.sdr, l.esp)
+        return log.report(this, hwStatus(log), if (usb) com.rfsentinel.app.usb.UsbWifi.usbDevices(this) else null)
+    }
+
+    /** External hardware › Export a hardware log: pick one; each piece of hardware has its own log. */
+    private fun pickHardwareLog() {
+        val logs = com.rfsentinel.app.util.HwLogs.all
+        val names = logs.map { if (it.isEmpty(this)) "${it.title} · empty" else it.title }.toTypedArray()
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("Export a hardware log")
+            .setItems(names) { _, i ->
+                val log = logs[i]
+                shareLog(log.file.removeSuffix(".log"), "RF Sentinel ${log.title} log") { hwReport(log) }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    /** External hardware › Export all hardware logs: every log in one file, the ones with something in them. */
+    private fun exportAllHardwareLogs() = shareLog("hardware", "RF Sentinel hardware logs") {
+        val logs = com.rfsentinel.app.util.HwLogs.all
+        val used = logs.filterNot { it.isEmpty(this) }
+        val sb = StringBuilder("RF Sentinel - all hardware logs\n")
+        sb.append("Empty: ${logs.filter { it.isEmpty(this) }.joinToString { it.title }.ifEmpty { "none" }}\n")
+        for (log in used) sb.append("\n").append("=".repeat(60)).append("\n").append(hwReport(log))
+        sb.toString()
+    }
+
+    /** Writes [text] to a .txt file and offers to send it (email, messages, Drive...): for testers without adb. */
+    private fun shareLog(name: String, subject: String, text: () -> String) {
         lifecycleScope.launch {
             val uri = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 runCatching {
                     val dir = java.io.File(cacheDir, "exports").apply { mkdirs() }
-                    val file = java.io.File(dir, "rfsentinel-usb-wifi-log-${com.rfsentinel.app.util.Exporter.stamp()}.txt")
-                    file.writeText(com.rfsentinel.app.usb.UsbWifi.report(this@SettingsActivity))
+                    val file = java.io.File(dir, "rfsentinel-$name-log-${com.rfsentinel.app.util.Exporter.stamp()}.txt")
+                    file.writeText(text())
                     androidx.core.content.FileProvider.getUriForFile(this@SettingsActivity, "$packageName.fileprovider", file)
                 }.getOrNull()
             }
             if (uri == null) { Toast.makeText(this@SettingsActivity, "Couldn't create the log file", Toast.LENGTH_SHORT).show(); return@launch }
             startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
                 .putExtra(Intent.EXTRA_STREAM, uri)
-                .putExtra(Intent.EXTRA_SUBJECT, "RF Sentinel USB WiFi adapter log")
-                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Export adapter log"))
+                .putExtra(Intent.EXTRA_SUBJECT, subject)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Export log"))
         }
     }
 
@@ -874,7 +919,7 @@ class SettingsActivity : AppCompatActivity() {
                 "• Meshtastic or MeshCore radios, on USB or over Bluetooth (experimental): the nodes they hear land on the map. " +
                 "Read-only, nothing on the radio changes.\n\n" +
                 "AWUS036ACS 5 GHz (experimental, off by default): the RTL8811AU / 8821AU also hops 5 GHz channels 36-48 and " +
-                "149-165. Untested on every unit: if it misbehaves, turn it off and send the adapter log. Applies when the adapter is plugged in.\n\n" +
+                "149-165. Untested on every unit: if it misbehaves, turn it off and send the USB WiFi adapter log. Applies when the adapter is plugged in.\n\n" +
                 "Adapter light: the AWUS036ACS blinks with received traffic; switch it off to keep it dark (for example in a car at night). " +
                 "Only adapters whose light the app can control have this option (the RTL8811AU / 8821AU); the others keep their own behaviour. " +
                 "Applies at once.\n\n" +
@@ -882,7 +927,8 @@ class SettingsActivity : AppCompatActivity() {
                 "The HackRF is only ever used to receive.\n\n" +
                 "OUI-SPY over Bluetooth needs its App-Controlled firmware. Relay mode passes on every network and device it hears " +
                 "so RF Sentinel's own lists check them (the board also sends standard Wi-Fi scan probes).\n\n" +
-                "Adapter not working? Export its log and send it to the developer.\n\n" +
+                "Hardware not working? Export its log (each piece of hardware and Sentinel Link has its own), or all of them in " +
+                "one file, and send it to the developer.\n\n" +
                 "WiFi deauth attacks (with Hacking tools on): the USB WiFi adapter counts the frames that knock devices off a " +
                 "network; a flood (a jammer, an ESP32 deauther, a Flipper WiFi board, a WiFi Pineapple) raises an alert. " +
                 "Protected (802.11w) frames are ignored, and a normal network never sends enough.\n\n" +
@@ -2951,7 +2997,8 @@ class SettingsActivity : AppCompatActivity() {
         binding.linkButton.setOnClickListener { startActivity(Intent(this, com.rfsentinel.app.ui.SentinelLinkActivity::class.java)) }
         binding.linkSaveSwitch.isChecked = Prefs.saveLinked(this)
         binding.linkSaveSwitch.setOnCheckedChangeListener { _, on -> Prefs.setSaveLinked(this, on) }
-        binding.usbWifiLogButton.setOnClickListener { exportUsbWifiLog() }
+        binding.usbWifiLogButton.setOnClickListener { pickHardwareLog() }
+        binding.allLogsButton.setOnClickListener { exportAllHardwareLogs() }
         // FOSS build: an adapter waiting for its chip firmware asks to download it.
         binding.usbWifiText.setOnClickListener { com.rfsentinel.app.usb.FirmwarePrompt.show(this) { updateEspStatus() } }
         binding.usbBtText.setOnClickListener { com.rfsentinel.app.usb.FirmwarePrompt.show(this) { updateEspStatus() } }

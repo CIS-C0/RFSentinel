@@ -8,13 +8,12 @@ import android.content.IntentFilter
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import androidx.core.content.ContextCompat
-import com.rfsentinel.app.usb.UsbWifi
 
 /**
  * An RTL-SDR dongle or a HackRF ([SdrDevice]) on an OTG cable, used while scanning as a receive-only radio-activity
  * detector ([RadioWatch]): it sweeps the public-safety bands and reports strong
- * transmissions nearby. Only signal strength per channel is measured. Its log goes into
- * the USB adapter log (Settings → Export USB WiFi adapter log).
+ * transmissions nearby. Only signal strength per channel is measured. It has its own
+ * log ([com.rfsentinel.app.util.HwLogs.sdr], Settings → External hardware → Export a hardware log).
  *
  * Or an ADS-B receiver on 1090 MHz ([ModeS], [AdsbTracker]): aircraft heard directly, no internet
  * needed, handed to [onAircraft] every few seconds. Or it finds and follows a P25 trunked-radio
@@ -227,12 +226,12 @@ object SdrRadio {
             if (name.startsWith(NET)) {
                 if (d == null) return
                 // A plugged-in SDR takes over from the network one.
-                UsbWifi.log("$deviceLabel: a USB SDR is plugged in - using it instead")
+                com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: a USB SDR is plugged in - using it instead")
                 halt("")
             } else {
                 if (!gone(name)) return
                 // Unplugged without the system saying so: let that one go so the dongle can start again.
-                UsbWifi.log("$deviceLabel: $name is gone - starting over")
+                com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: $name is gone - starting over")
                 halt("")
             }
         }
@@ -246,7 +245,7 @@ object SdrRadio {
         }
         deviceLabel = labelOf(d)
         if (!mgr.hasPermission(d)) {
-            UsbWifi.log("%04x:%04x ($deviceLabel) plugged in - asking for USB access".format(d.vendorId, d.productId))
+            com.rfsentinel.app.util.HwLogs.sdr.log("%04x:%04x ($deviceLabel) plugged in - asking for USB access".format(d.vendorId, d.productId))
             status = "$deviceLabel found - allow USB access on the prompt"
             if (!ask) return
             val pi = PendingIntent.getBroadcast(context, 2, Intent(ACTION_PERMISSION).setPackage(context.packageName), PendingIntent.FLAG_MUTABLE)
@@ -255,14 +254,14 @@ object SdrRadio {
         }
         val conn = mgr.openDevice(d) ?: run { status = "$deviceLabel: couldn't open it"; return }
         launch(d.deviceName, "%04x:%04x".format(d.vendorId, d.productId), { conn.close() }) {
-            if (HackRf.isHackRf(d.vendorId, d.productId)) HackRf(conn, d, UsbWifi::log) else RtlSdr(conn, d, UsbWifi::log)
+            if (HackRf.isHackRf(d.vendorId, d.productId)) HackRf(conn, d, com.rfsentinel.app.util.HwLogs.sdr::log) else RtlSdr(conn, d, com.rfsentinel.app.util.HwLogs.sdr::log)
         }
     }
 
     /** Settings › Network SDR: an rtl_tcp server, used while no USB SDR is plugged in. */
     private fun connectNet(host: String, port: Int) {
         deviceLabel = "Network SDR · $host"
-        launch("$NET$host:$port", "$host:$port", {}) { RtlTcp(host, port, UsbWifi::log) }
+        launch("$NET$host:$port", "$host:$port", {}) { RtlTcp(host, port, com.rfsentinel.app.util.HwLogs.sdr::log) }
     }
 
     /** Settings › Network SDR changed: a moment after the typing stops, drop the old server and try the new one. */
@@ -295,13 +294,13 @@ object SdrRadio {
                 runningDevice = null
                 // Never leave the last "live" line behind: unplugged, failed, or just stopped answering.
                 if (gone(name) || result.getOrNull() == true) {
-                    UsbWifi.log("$deviceLabel: ${if (net) "can't reach it" else "unplugged or not answering"}")
+                    com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: ${if (net) "can't reach it" else "unplugged or not answering"}")
                     status = if (net) "$deviceLabel: can't connect, retrying" else UNPLUGGED
                     if (!net) clearUnpluggedSoon()
                     // Plugged back in (it gets a new name), only stuck, or the network server may be back: try again shortly.
                     appContext?.let { main.postDelayed({ if (receiver != null) connect(it) }, if (net) NET_RETRY_MS else 3_000L) }
                 } else if (failure != null) {
-                    UsbWifi.log("$deviceLabel stopped: ${UsbWifi.describe(failure)}")
+                    com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel stopped: ${com.rfsentinel.app.util.HwLog.describe(failure)}")
                     status = "$deviceLabel error: ${failure.message}"
                     appContext?.let { main.postDelayed({ if (receiver != null) connect(it) }, ERROR_RETRY_MS) }
                 }
@@ -313,7 +312,7 @@ object SdrRadio {
 
     /** Reads until stopped; true when it ended because the dongle went away (unplugged or not answering). */
     private fun run(sdr: SdrDevice, name: String, intro: String): Boolean {
-        UsbWifi.log("=== $deviceLabel radio activity watch ($intro) ===")
+        com.rfsentinel.app.util.HwLogs.sdr.log("=== $deviceLabel radio activity watch ($intro) ===")
         if (!sdr.open()) {
             if (sdr.lost || gone(name)) return true
             status = if (sdr is HackRf) "HackRF: couldn't start it (see the USB log)"
@@ -333,7 +332,7 @@ object SdrRadio {
                 Thread.sleep(500); continue
             }
             val turn = turnMs[m] ?: 60_000L
-            if (active.size > 1) UsbWifi.log("$deviceLabel: turn: ${m.label} for ${turn / 1000} s")
+            if (active.size > 1) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: turn: ${m.label} for ${turn / 1000} s")
             mode = m; turnEnd = System.currentTimeMillis() + turn
             when (m) {
                 Mode.SWEEP -> runSweep(sdr, name)
@@ -342,7 +341,7 @@ object SdrRadio {
                 Mode.PAGER -> runPager(sdr, name)
             }
         }
-        if (sdr.lost) UsbWifi.log("$deviceLabel: the dongle stopped answering (unplugged?)")
+        if (sdr.lost) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: the dongle stopped answering (unplugged?)")
         val away = sdr.lost || gone(name)
         if (!away) sdr.close()
         return away && !halted
@@ -352,14 +351,14 @@ object SdrRadio {
         sdr.setSampleRate(ModeS.SAMPLE_RATE)
         sdr.setGain(ADSB_GAIN_TENTHS_DB)
         if (!sdr.tune(ModeS.FREQ_HZ)) {
-            UsbWifi.log("$deviceLabel: the tuner didn't lock on 1090 MHz")
+            com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: the tuner didn't lock on 1090 MHz")
             status = "$deviceLabel · ADS-B: the tuner didn't lock on 1090 MHz"
             var waited = 0
             while (!halted && keeps(Mode.ADSB) && waited < 50) { Thread.sleep(100); waited++ }
             return
         }
         sdr.resetBuffer()
-        UsbWifi.log("$deviceLabel: ADS-B receiver on 1090 MHz, ${sdr.sampleRate} S/s, gain ${ADSB_GAIN_TENTHS_DB / 10.0} dB")
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: ADS-B receiver on 1090 MHz, ${sdr.sampleRate} S/s, gain ${ADSB_GAIN_TENTHS_DB / 10.0} dB")
         status = "$deviceLabel · ADS-B · listening on 1090 MHz…" + turnNote()
         val xfer = STREAM_XFER
         val buf = ByteArray(xfer)
@@ -376,7 +375,7 @@ object SdrRadio {
             if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
             if (n <= 0) {
                 if (++fails % STALL_CHUNKS == 0) {
-                    if (fails <= STALL_CHUNKS * 3) UsbWifi.log("$deviceLabel: no samples for $fails reads in a row - restarting the stream")
+                    if (fails <= STALL_CHUNKS * 3) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: no samples for $fails reads in a row - restarting the stream")
                     sdr.resetBuffer()
                 }
                 continue
@@ -403,14 +402,14 @@ object SdrRadio {
                 if (!halted) status = "$deviceLabel · ADS-B · ${located.size + unlocated.size} aircraft heard, ${located.size} with a position" + turnNote()
             }
             if (now - lastLog >= 60_000) {
-                UsbWifi.log("$deviceLabel: ADS-B ${messages - logged} messages in ${(now - lastLog) / 1000} s, " +
+                com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: ADS-B ${messages - logged} messages in ${(now - lastLog) / 1000} s, " +
                     "${demod.preambles} preambles, ${demod.fixed} fixed, ${tracker.count} aircraft, USB errors ${sdr.ctlErrors}")
                 lastLog = now; logged = messages
             }
         }
         // Only its turn ended: the aircraft stay listed until they go stale, and come back on the next turn.
         if (Mode.ADSB !in active) onAircraft?.invoke(emptyList(), emptyList())
-        UsbWifi.log("$deviceLabel: ADS-B receiver stopped after $messages messages")
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: ADS-B receiver stopped after $messages messages")
     }
 
     private fun runSweep(sdr: SdrDevice, name: String) {
@@ -421,7 +420,7 @@ object SdrRadio {
         var plan = RadioWatch.plan(cfg)
         val watch = sweepWatch ?: RadioWatch().also { sweepWatch = it }
         watch.config = cfg
-        fun logPlan() = UsbWifi.log("$deviceLabel: ${sdr.sampleRate} S/s, gain ${GAIN_TENTHS_DB / 10.0} dB, ${plan.size} chunks per sweep over " +
+        fun logPlan() = com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: ${sdr.sampleRate} S/s, gain ${GAIN_TENTHS_DB / 10.0} dB, ${plan.size} chunks per sweep over " +
             cfg.bands.joinToString { "%.1f-%.1f MHz".format(it.startHz / 1e6, it.endHz / 1e6) } +
             (if (cfg.targets.isNotEmpty()) ", ${cfg.targets.size} watched frequencies" else "") +
             ", reporting from ${cfg.minSnrDb} dB, USB errors ${sdr.ctlErrors}")
@@ -456,7 +455,7 @@ object SdrRadio {
                 if (got < 2 * 1024) {
                     // The sample stream stalled: restart it (as librtlsdr's reset_buffer) instead of sweeping on with nothing.
                     if (++failedChunks % STALL_CHUNKS == 0) {
-                        if (failedChunks <= STALL_CHUNKS * 3) UsbWifi.log("$deviceLabel: no samples for $failedChunks chunks in a row - restarting the stream")
+                        if (failedChunks <= STALL_CHUNKS * 3) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: no samples for $failedChunks chunks in a row - restarting the stream")
                         sdr.resetBuffer()
                     }
                     skipped()
@@ -470,7 +469,7 @@ object SdrRadio {
                 for (e in watch.analyze(center, psd, sdr.sampleRate, System.currentTimeMillis(), bursts)) {
                     if (!e.repeat) {
                         events++
-                        UsbWifi.log("$deviceLabel: transmission ${e.mhz} MHz, ${e.snrDb} dB above the noise (${e.band.label})" +
+                        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: transmission ${e.mhz} MHz, ${e.snrDb} dB above the noise (${e.band.label})" +
                             (e.slots?.let { ", $it time slots" } ?: ""))
                     }
                     onEvent?.invoke(e)
@@ -489,25 +488,25 @@ object SdrRadio {
                      else "$deviceLabel · live · sweep ${sweepMs / 100 / 10.0} s · $events transmissions nearby so far") + turnNote()
             if (now - lastLog > (if (watch.sweeps < 20) 10_000 else 60_000)) {
                 lastLog = now
-                UsbWifi.log("$deviceLabel: sweep ${watch.sweeps} in $sweepMs ms, ${watch.learnedChannels} channels, ${watch.busyChannels} always busy, " +
+                com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: sweep ${watch.sweeps} in $sweepMs ms, ${watch.learnedChannels} channels, ${watch.busyChannels} always busy, " +
                     "$events reported, PLL unlocked $unlocked, read errors $readErrors, tuner write failures ${sdr.tunerWriteFails}, USB errors ${sdr.ctlErrors}")
             }
         }
-        UsbWifi.log("$deviceLabel: radio sweep stopped after ${watch.sweeps} sweeps")
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: radio sweep stopped after ${watch.sweeps} sweeps")
     }
 
     /** Finds a P25 control channel and follows it; looks again when it goes quiet or none was found. */
     private fun runP25(sdr: SdrDevice, name: String) {
         sdr.setGain(GAIN_TENTHS_DB)
         sdr.resetBuffer()
-        val hunt = p25Hunt ?: P25Hunt(sdr) { UsbWifi.log("$deviceLabel: $it") }.also { p25Hunt = it }
+        val hunt = p25Hunt ?: P25Hunt(sdr) { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: $it") }.also { p25Hunt = it }
         var lastCheck = System.currentTimeMillis(); var away = false
         val stop = {
             val now = System.currentTimeMillis()
             if (now - lastCheck >= 2_000L) { lastCheck = now; away = gone(name) }
             halted || sdr.lost || away || !keeps(Mode.P25)
         }
-        UsbWifi.log("$deviceLabel: P25 control channel receiver, gain ${GAIN_TENTHS_DB / 10.0} dB")
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 control channel receiver, gain ${GAIN_TENTHS_DB / 10.0} dB")
         while (!stop()) {
             // Its last turn's control channel first: no new search when it is still there.
             val known = p25Lock
@@ -515,14 +514,14 @@ object SdrRadio {
             val lock = known ?: hunt.hunt(stop)
             if (lock == null) {
                 if (stop()) break
-                UsbWifi.log("$deviceLabel: P25 - no control channel decoded (${hunt.tried} channels tried), looking again in ${P25_RETRY_MS / 1000} s")
+                com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 - no control channel decoded (${hunt.tried} channels tried), looking again in ${P25_RETRY_MS / 1000} s")
                 status = "$deviceLabel · P25 · no control channel heard here · looking again shortly" + turnNote()
                 val until = System.currentTimeMillis() + P25_RETRY_MS
                 while (!stop() && System.currentTimeMillis() < until) Thread.sleep(200)
                 continue
             }
             // Frequency and network code stay off the log: together they name the local system.
-            UsbWifi.log(if (known != null) "$deviceLabel: P25 back on the control channel" else "$deviceLabel: P25 control channel found after ${hunt.tried} tries")
+            com.rfsentinel.app.util.HwLogs.sdr.log(if (known != null) "$deviceLabel: P25 back on the control channel" else "$deviceLabel: P25 control channel found after ${hunt.tried} tries")
             p25Lock = lock
             if (lock.nac != p25Nac) { p25Log.clear(System.currentTimeMillis()); p25Nac = lock.nac } // another system: a new list
             val where = "%.3f MHz · NAC %03X".format(java.util.Locale.US, lock.hz / 1e6, lock.nac)
@@ -569,7 +568,7 @@ object SdrRadio {
                 if (now - lastStatus >= 2_000L && !halted) { lastStatus = now; status = "$deviceLabel · P25 · control channel $where · $messages messages" + turnNote() }
             }
             if (lost) p25Lock = null
-            UsbWifi.log("$deviceLabel: P25 ${if (lost) "control channel went quiet" else "turn over or stopped"} after $messages messages (${hunt.blocks} blocks in all), " +
+            com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 ${if (lost) "control channel went quiet" else "turn over or stopped"} after $messages messages (${hunt.blocks} blocks in all), " +
                 p25Log.rows().let { r -> "${r.size} talkgroups / private calls, ${r.sumOf { it.calls }} calls" } +
                 (if (inputs > 0) ", $inputs input checks, $heard radios heard nearby" else "") +
                 (if (recorded > 0) ", $recorded calls recorded" else "") +
@@ -585,7 +584,7 @@ object SdrRadio {
      */
     private fun followCall(sdr: SdrDevice, call: P25History.Call, stop: () -> Boolean): Boolean {
         val hz = call.hz ?: return false
-        val out = speaker ?: runCatching { newSpeaker() }.onFailure { UsbWifi.log("$deviceLabel: P25 no audio output - ${UsbWifi.describe(it)}") }
+        val out = speaker ?: runCatching { newSpeaker() }.onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 no audio output - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
             .getOrNull()?.also { speaker = it } ?: return false
         if (!sdr.tune(hz - INPUT_OFFSET_HZ)) return false
         sdr.resetBuffer()
@@ -613,7 +612,7 @@ object SdrRadio {
                 follow.feed(buf, n / 2)
             }
         } finally { p25Playing = null; out.stop() } // stop: what's buffered still plays
-        if (follow.frames > 0) UsbWifi.log("$deviceLabel: P25 call played (%.1f s)".format(java.util.Locale.US, follow.frames * 0.18))
+        if (follow.frames > 0) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 call played (%.1f s)".format(java.util.Locale.US, follow.frames * 0.18))
         return follow.frames > 0
     }
 
@@ -645,8 +644,8 @@ object SdrRadio {
         }
         if (rec.samples < P25Record.RATE) return false
         val wav = rec.wav()
-        runCatching { P25Record.save(ctx, call, wav) }.onFailure { UsbWifi.log("$deviceLabel: P25 recording not saved - ${UsbWifi.describe(it)}"); return false }
-        UsbWifi.log("$deviceLabel: P25 call recorded (%.1f s, %d KB)".format(java.util.Locale.US, rec.samples.toDouble() / P25Record.RATE, wav.size / 1024))
+        runCatching { P25Record.save(ctx, call, wav) }.onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 recording not saved - ${com.rfsentinel.app.util.HwLog.describe(it)}"); return false }
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 call recorded (%.1f s, %d KB)".format(java.util.Locale.US, rec.samples.toDouble() / P25Record.RATE, wav.size / 1024))
         return true
     }
 
@@ -676,7 +675,7 @@ object SdrRadio {
         val hunt = PagerHunt(sdr, { appContext?.let { com.rfsentinel.app.util.Prefs.pagerSpeeds(it) } ?: PagerDemod.SPEEDS }, STREAM_XFER, { stalled ->
             status = if (stalled) "$deviceLabel · pagers · no samples from the SDR · restarting it" + turnNote() else shown
         }) {
-            UsbWifi.log("$deviceLabel: $it")
+            com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: $it")
         }
         var lastCheck = System.currentTimeMillis(); var away = false
         val stop = {
@@ -721,7 +720,7 @@ object SdrRadio {
             val quiet = hunt.listen(hz, stop, onPage)
             if (quiet) pagerHz = null
             // A count only: frequency, capcodes and text stay off the log.
-            UsbWifi.log("$deviceLabel: pagers ${if (quiet) "channel went quiet" else "turn over or stopped"} after ${pagerLog.total - before} pages")
+            com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: pagers ${if (quiet) "channel went quiet" else "turn over or stopped"} after ${pagerLog.total - before} pages")
         }
     }
 
@@ -732,13 +731,13 @@ object SdrRadio {
         sdr.setGain(GAIN_TENTHS_DB)
         val mhz = "%.3f MHz".format(java.util.Locale.US, hz / 1e6)
         if (!sdr.tune(hz)) {
-            UsbWifi.log("$deviceLabel: the tuner didn't lock on $mhz")
+            com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: the tuner didn't lock on $mhz")
             status = "$deviceLabel · waterfall: the tuner can't tune to $mhz"
             while (!halted && !sdr.lost && tuneHz == hz) Thread.sleep(100)
             return
         }
         sdr.resetBuffer()
-        UsbWifi.log("$deviceLabel: waterfall on $mhz (radio watch paused)")
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: waterfall on $mhz (radio watch paused)")
         status = "$deviceLabel · waterfall on $mhz · radio watch paused"
         val buf = ByteArray(XFER)
         val iq = ByteArray(XFER * TUNED_READS)
@@ -765,6 +764,6 @@ object SdrRadio {
             // The outer tenth on each side rolls off in the receiver's filter: left out.
             listener(SdrWaterfall.Row(listOf(SdrWaterfall.segment(hz, psd, sdr.sampleRate, sdr.sampleRate * 0.45, null)), tuned = true, at = now))
         }
-        UsbWifi.log("$deviceLabel: waterfall left $mhz")
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: waterfall left $mhz")
     }
 }

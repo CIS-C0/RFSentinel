@@ -162,7 +162,7 @@ object UsbBluetooth {
         if (!mgr.hasPermission(d)) {
             // The WiFi side of a combo adapter asks for access itself, when it uses that adapter: one prompt, not two.
             if (!ask || UsbPick.chosen(context, UsbPick.Kind.WIFI, all)?.deviceName == d.deviceName) { status = "USB Bluetooth found - allow USB access on the prompt"; return }
-            UsbWifi.log("BT: %04x:%04x plugged in - asking for USB access".format(d.vendorId, d.productId))
+            com.rfsentinel.app.util.HwLogs.usbBt.log("BT: %04x:%04x plugged in - asking for USB access".format(d.vendorId, d.productId))
             val pi = PendingIntent.getBroadcast(context, 2, Intent(ACTION_PERMISSION).setPackage(context.packageName),
                 PendingIntent.FLAG_MUTABLE)
             status = "USB Bluetooth found - allow USB access on the prompt"
@@ -180,7 +180,7 @@ object UsbBluetooth {
                 if (previous?.isAlive == true) status = "USB Bluetooth: the last session is still stopping - unplug and replug the adapter"
                 else run(context, mgr, d, mine)
             } catch (e: Exception) {
-                UsbWifi.log("BT: stopped - ${UsbWifi.describe(e)}")
+                com.rfsentinel.app.util.HwLogs.usbBt.log("BT: stopped - ${com.rfsentinel.app.util.HwLog.describe(e)}")
                 if (!mine.get()) status = "USB Bluetooth: error · ${e.message}"
             }
             synchronized(this) { if (halt === mine) runningDevice = null }
@@ -207,7 +207,7 @@ object UsbBluetooth {
         var ext = false
         try {
             val id = "%04x:%04x".format(d.vendorId, d.productId)
-            UsbWifi.log("=== USB Bluetooth bring-up ($id, interface ${intf.id}) - RF Sentinel ${com.rfsentinel.app.BuildConfig.VERSION_NAME} ===")
+            com.rfsentinel.app.util.HwLogs.usbBt.log("=== USB Bluetooth bring-up ($id, interface ${intf.id}) - RF Sentinel ${com.rfsentinel.app.BuildConfig.VERSION_NAME} ===")
             BulkRx.claim("BT", conn, intf) { halt.get() }
             val hci = HciUsb(conn, evtIn, "BT").also { h = it }
             hci.startReader() // btusb_open: the interrupt endpoint is read from here on
@@ -219,7 +219,7 @@ object UsbBluetooth {
                 val maker = if (v.size >= 9) HciUsb.le16(v, 5) else -1
                 vendor = when (maker) { MANUFACTURER_REALTEK -> Vendor.REALTEK; MANUFACTURER_MEDIATEK -> Vendor.MEDIATEK; else -> Vendor.GENERIC }
                 if (vendor == Vendor.GENERIC) name = GENERIC_MAKERS[maker] ?: "generic"
-                UsbWifi.log("BT: manufacturer 0x%04x (%s)".format(maker, vendor.name.lowercase()))
+                com.rfsentinel.app.util.HwLogs.usbBt.log("BT: manufacturer 0x%04x (%s)".format(maker, vendor.name.lowercase()))
             }
             when (vendor) {
                 Vendor.INTEL -> { status = "USB Bluetooth (Intel) isn't supported: it needs Intel's own firmware loader"; return }
@@ -253,7 +253,7 @@ object UsbBluetooth {
                 val now = System.currentTimeMillis()
                 if (now - lastLog >= 60_000) {
                     val c = reportCount.get()
-                    UsbWifi.log("BT: ${c - lastCount} advertising reports in the last minute, ${hci.eventsIn} events in all")
+                    com.rfsentinel.app.util.HwLogs.usbBt.log("BT: ${c - lastCount} advertising reports in the last minute, ${hci.eventsIn} events in all")
                     lastLog = now; lastCount = c
                 }
             }
@@ -278,7 +278,7 @@ object UsbBluetooth {
         val missing = Firmware.missingFiles(ctx, files)
         if (missing.isEmpty()) { firmwareNeeded = null; return true }
         if (firmwareNeeded?.first != chip) {
-            UsbWifi.log("BT: $chip needs firmware that isn't downloaded yet: ${missing.joinToString { it.name }}")
+            com.rfsentinel.app.util.HwLogs.usbBt.log("BT: $chip needs firmware that isn't downloaded yet: ${missing.joinToString { it.name }}")
             FirmwarePrompt.notify(ctx, "$chip Bluetooth")
         }
         firmwareNeeded = chip to files
@@ -294,7 +294,7 @@ object UsbBluetooth {
         h.cmdOk(0x0C03) // Reset
         val features = h.cmdOk(0x1003) // Read Local Supported Features
         if (features.size < 9 || features[1 + 4].toInt() and 0x40 == 0) throw IOException("$name has no Bluetooth LE")
-        h.cmdOk(0x1001).let { v -> UsbWifi.log("BT: $name HCI version %d, revision %04x, LMP subversion %04x".format(v[1].toInt() and 0xff, HciUsb.le16(v, 2), HciUsb.le16(v, 7))) }
+        h.cmdOk(0x1001).let { v -> com.rfsentinel.app.util.HwLogs.usbBt.log("BT: $name HCI version %d, revision %04x, LMP subversion %04x".format(v[1].toInt() and 0xff, HciUsb.le16(v, 2), HciUsb.le16(v, 7))) }
         // Event mask: hardware error (bit 15) and LE meta (bit 61); command complete / status always come.
         h.cmdOk(0x0C01, byteArrayOf(0, 0x80.toByte(), 0, 0, 0, 0, 0, 0x20))
         val le = h.cmdOk(0x2003) // LE Read Local Supported Features
@@ -309,13 +309,13 @@ object UsbBluetooth {
             val per = byteArrayOf(0) + interval + window
             h.cmdOk(0x2041, byteArrayOf(0, 0, phys.toByte()) + per + (if (coded) per else ByteArray(0)))
             h.cmdOk(0x2042, byteArrayOf(1, 0, 0, 0, 0, 0)) // enable, duplicates kept, no duration, no period
-            UsbWifi.log("BT: $name extended passive scan on LE 1M" + if (coded) " + LE Coded" else "")
+            com.rfsentinel.app.util.HwLogs.usbBt.log("BT: $name extended passive scan on LE 1M" + if (coded) " + LE Coded" else "")
             true
         } else {
             // Legacy: passive, the same interval, the full window.
             h.cmdOk(0x200B, byteArrayOf(0) + interval + interval + byteArrayOf(0, 0))
             h.cmdOk(0x200C, byteArrayOf(1, 0))
-            UsbWifi.log("BT: $name legacy passive scan")
+            com.rfsentinel.app.util.HwLogs.usbBt.log("BT: $name legacy passive scan")
             false
         }
     }

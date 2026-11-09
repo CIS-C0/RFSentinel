@@ -54,6 +54,8 @@ object MqttRelay {
 
     /** One line for the screens, "" while off. */
     @Volatile var status = ""; private set
+    /** [status] without the broker's name or an IP address, for the log's export. */
+    val safeStatus get() = com.rfsentinel.app.util.HwLog.redact(status, config?.broker?.host)
     /** Connected and subscribed. */
     @Volatile var ready = false; private set
     @Volatile var lastSent = 0L; private set
@@ -64,7 +66,7 @@ object MqttRelay {
     private fun setStatus(s: String) {
         if (s == status) return
         // The log never names the broker (it may be the user's own server).
-        com.rfsentinel.app.usb.UsbWifi.logStatus("Internet relay", if (s.isEmpty()) "" else "Internet relay: " + com.rfsentinel.app.usb.UsbWifi.redact(s, config?.broker?.host))
+        com.rfsentinel.app.util.HwLogs.relay.logStatus("Internet relay", if (s.isEmpty()) "" else "Internet relay: " + com.rfsentinel.app.util.HwLog.redact(s, config?.broker?.host))
         status = s; changed()
     }
 

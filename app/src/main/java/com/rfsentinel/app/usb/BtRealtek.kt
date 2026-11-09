@@ -87,7 +87,7 @@ internal object BtRealtek {
                 lmpSubver = HciUsb.le16(v, 7)
                 ic = match(lmpSubver, hciRev, hciVer)
             }
-            UsbWifi.log("$tag: examining hci_ver=%02x hci_rev=%04x lmp_subver=%04x".format(hciVer, hciRev, lmpSubver))
+            com.rfsentinel.app.util.HwLogs.usbBt.log("$tag: examining hci_ver=%02x hci_rev=%04x lmp_subver=%04x".format(hciVer, hciRev, lmpSubver))
             // Not in the table: the controller may be running a stock firmware; ask it to drop it (0xFC66) and look again, once.
             if (ic == null && !dropped) {
                 dropped = true
@@ -101,10 +101,10 @@ internal object BtRealtek {
                 val r = h.cmd(0xFC6D)
                 if (r.size != 2) throw IOException("ROM version answer has the wrong length")
                 rom = r[1].toInt() and 0xff
-                UsbWifi.log("$tag: rom_version status=%x version=%x".format(r[0].toInt() and 0xff, rom))
+                com.rfsentinel.app.util.HwLogs.usbBt.log("$tag: rom_version status=%x version=%x".format(r[0].toInt() and 0xff, rom))
             }
             val keyId = reg16(h, SEC_PROJ) and 0xff
-            UsbWifi.log("$tag: key id $keyId")
+            com.rfsentinel.app.util.HwLogs.usbBt.log("$tag: key id $keyId")
             return Found(ic, rom, keyId, lmpSubver, hciRev, hciVer)
         }
     }
@@ -177,18 +177,18 @@ internal object BtRealtek {
             at += FRAG
         }
         val v = h.cmd(0x1001)
-        if (v.size == 9) UsbWifi.log("$tag: fw version 0x%04x%04x".format(HciUsb.le16(v, 2), HciUsb.le16(v, 7)))
+        if (v.size == 9) com.rfsentinel.app.util.HwLogs.usbBt.log("$tag: fw version 0x%04x%04x".format(HciUsb.le16(v, 2), HciUsb.le16(v, 7)))
     }
 
     /** btrtl_download_firmware (8723B-style chips). Null when it runs, else what failed. */
     fun setup(ctx: Context, h: HciUsb, f: Found, tag: String): String? {
-        val ic = f.ic ?: run { UsbWifi.log("$tag: unknown chip, assuming no firmware upload needed"); return null }
+        val ic = f.ic ?: run { com.rfsentinel.app.util.HwLogs.usbBt.log("$tag: unknown chip, assuming no firmware upload needed"); return null }
         val fwName = ic.fw ?: return "${ic.name} Bluetooth isn't supported yet"
         val patch = parse(Firmware.read(ctx, fwName), ic.lmpSubver, f.romVersion)
         val cfg = ic.cfg?.takeIf { f.keyId == 0 }?.let { runCatching { Firmware.read(ctx, it) }.getOrNull() }
         if (ic.cfgNeeded && cfg == null) return "${ic.name}: its config file is missing"
         val all = if (cfg != null) patch + cfg else patch
-        UsbWifi.log("$tag: cfg_sz ${cfg?.size ?: 0}, total sz ${all.size}")
+        com.rfsentinel.app.util.HwLogs.usbBt.log("$tag: cfg_sz ${cfg?.size ?: 0}, total sz ${all.size}")
         send(h, all, tag)
         return null
     }

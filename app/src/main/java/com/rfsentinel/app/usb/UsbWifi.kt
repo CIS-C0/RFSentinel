@@ -195,77 +195,19 @@ object UsbWifi {
     @Volatile var firmwareNeeded: Chip? = null
         private set
 
-    /** Recent driver log lines (bring-up, RX stats, errors), for troubleshooting from Settings. */
-    private val logLines = ArrayDeque<String>()
+    /** The USB WiFi adapter's own log ([HwLogs.usbWifi]); the USB drivers write to it. */
+    fun log(line: String) = com.rfsentinel.app.util.HwLogs.usbWifi.log(line)
 
-    /**
-     * The log also goes to files/usbwifi.log (the previous one kept as usbwifi.log.1), so it
-     * survives a restart and a tester can export it from Settings ([report]).
-     */
-    @Volatile private var logFile: java.io.File? = null
-    private const val LOG_FILE = "usbwifi.log"
-    private const val LOG_MAX_BYTES = 1_000_000L
+    /** An error for a log: its type, message and where it happened. */
+    fun describe(e: Throwable): String = com.rfsentinel.app.util.HwLog.describe(e)
 
-    fun log(line: String) {
-        Log.d(TAG, line)
-        synchronized(logLines) {
-            val now = java.util.Date()
-            logLines.addLast(java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(now) + "  " + line)
-            while (logLines.size > 300) logLines.removeFirst()
-            logFile?.let { f ->
-                runCatching {
-                    if (f.length() > LOG_MAX_BYTES) { val old = java.io.File(f.path + ".1"); old.delete(); f.renameTo(old) }
-                    f.appendText(java.text.SimpleDateFormat("MM-dd HH:mm:ss", java.util.Locale.US).format(now) + "  " + line + "\n")
-                }
-            }
-        }
-    }
-
-    private val lastStatus = java.util.concurrent.ConcurrentHashMap<String, String>()
-
-    /**
-     * [who]'s status line for this log, once per change: numbers in it (counts, levels) don't count as a change, so a
-     * live count doesn't fill the log. An empty status logs "[who]: stopped" once.
-     */
-    fun logStatus(who: String, s: String) {
-        val shape = s.replace(Regex("\\d+"), "#")
-        val before = lastStatus.put(who, shape)
-        if (before == shape || (s.isEmpty() && before == null)) return
-        log(s.ifEmpty { "$who: stopped" })
-    }
-
-    /** [text] without a server's name or any IP address in it, for the log. */
-    fun redact(text: String, host: String?): String =
-        (if (host.isNullOrEmpty()) text else text.replace(host, "the server"))
-            .replace(Regex("\\b\\d{1,3}(\\.\\d{1,3}){3}\\b"), "an IP address")
-            .replace(Regex("\\[?[0-9a-fA-F]{0,4}(:[0-9a-fA-F]{0,4}){2,7}\\]?"), "an IP address")
-
-    /** An error for the log: its type, message and where it happened. */
-    fun describe(e: Throwable): String =
-        "${e.javaClass.simpleName}: ${e.message}" + (e.stackTrace.firstOrNull()?.let { " (${it.fileName}:${it.lineNumber})" } ?: "")
-
-    /**
-     * Everything a tester can send back about their adapter: app and phone, the USB devices
-     * plugged in now, and the driver log. No nearby devices' addresses or network names.
-     */
-    fun report(context: Context): String {
-        val app = context.applicationContext
-        val sb = StringBuilder()
-        sb.append("RF Sentinel - USB WiFi adapter log\n")
-        sb.append("App ${com.rfsentinel.app.BuildConfig.VERSION_NAME} (${com.rfsentinel.app.BuildConfig.VERSION_CODE})")
-            .append(if (com.rfsentinel.app.BuildConfig.DEBUG) " debug\n" else "\n")
-        sb.append("Phone ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}, Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})\n")
-        sb.append("Exported ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date())}\n")
-        sb.append("Status: ${status.ifBlank { "no adapter running" }}\n\n")
-        sb.append("USB devices plugged in now:\n")
-        val mgr = app.getSystemService(UsbManager::class.java)
+    /** The USB devices plugged in now, for a hardware log's export. No nearby devices' addresses or network names. */
+    fun usbDevices(context: Context): String {
+        val mgr = context.applicationContext.getSystemService(UsbManager::class.java)
         val devices = runCatching { mgr?.deviceList?.values?.toList() }.getOrNull().orEmpty()
+        val sb = StringBuilder("USB devices plugged in now:\n")
         if (devices.isEmpty()) sb.append("  none\n")
         for (d in devices) sb.append(describe(mgr, d))
-        sb.append("\nDriver log, oldest first:\n")
-        val files = listOf(java.io.File(app.filesDir, "$LOG_FILE.1"), java.io.File(app.filesDir, LOG_FILE)).filter { it.exists() }
-        if (files.isEmpty()) sb.append(logText().ifBlank { "(empty - plug the adapter in and start a scan first)" }).append('\n')
-        else synchronized(logLines) { files.forEach { f -> sb.append(runCatching { f.readText() }.getOrDefault("")) } }
         return sb.toString()
     }
 
@@ -295,7 +237,6 @@ object UsbWifi {
         return sb.toString()
     }
 
-    fun logText(): String = synchronized(logLines) { logLines.joinToString("\n") }
 
     fun chipOf(d: UsbDevice): Chip? = SUPPORTED[d.vendorId to d.productId]
 
@@ -307,7 +248,6 @@ object UsbWifi {
     fun start(context: Context, sightings: (List<MonitorSighting>) -> Unit) {
         val app = context.applicationContext
         onSightings = sightings
-        logFile = java.io.File(app.filesDir, LOG_FILE)
         if (receiver == null) {
             val r = object : BroadcastReceiver() {
                 override fun onReceive(c: Context, intent: Intent) {

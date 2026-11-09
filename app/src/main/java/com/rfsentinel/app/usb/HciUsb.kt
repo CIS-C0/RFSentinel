@@ -57,7 +57,7 @@ internal class HciUsb(private val conn: UsbDeviceConnection, private val evtIn: 
             if (n <= 0) {
                 // A timeout takes the full 200 ms; an error comes back at once, so pause instead of spinning on it.
                 if (System.nanoTime() - t0 < 50_000_000L) {
-                    if (++fastFails >= 100) { readDead = true; UsbWifi.log("$tag: event endpoint keeps failing - adapter gone"); return }
+                    if (++fastFails >= 100) { readDead = true; com.rfsentinel.app.util.HwLogs.usbBt.log("$tag: event endpoint keeps failing - adapter gone"); return }
                     Thread.sleep(50)
                 } else fastFails = 0
                 continue
@@ -73,7 +73,7 @@ internal class HciUsb(private val conn: UsbDeviceConnection, private val evtIn: 
                 if (evt.size() == 2 && expect == 0) expect = chunk[off - 1].toInt() and 0xff // the header is complete: its length
                 if (expect == 0) {
                     // Each chunk should hold whole events: a leftover too short for a header is a controller bug.
-                    if (count in 1 until 2) { UsbWifi.log("$tag: unexpected $count-byte continuation dropped"); count = 0 }
+                    if (count in 1 until 2) { com.rfsentinel.app.util.HwLogs.usbBt.log("$tag: unexpected $count-byte continuation dropped"); count = 0 }
                     deliver(evt.toByteArray())
                     evt = null
                 }
@@ -87,7 +87,7 @@ internal class HciUsb(private val conn: UsbDeviceConnection, private val evtIn: 
             onAdvertising?.invoke(e)
             return
         }
-        if (e.size >= 2 && e[0].toInt() == 0x10) UsbWifi.log("$tag: controller reported a hardware error (code ${e.getOrNull(2)?.toInt()?.and(0xff)})")
+        if (e.size >= 2 && e[0].toInt() == 0x10) com.rfsentinel.app.util.HwLogs.usbBt.log("$tag: controller reported a hardware error (code ${e.getOrNull(2)?.toInt()?.and(0xff)})")
         if (!events.offer(e)) { events.poll(); events.offer(e) }
     }
 

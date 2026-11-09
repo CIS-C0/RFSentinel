@@ -100,7 +100,7 @@ internal object BtMediatek {
         if (fw.size < HEADER + GLOBAL_DESC) throw IOException("firmware too small")
         val sections = HciUsb.le32(fw, HEADER + 12)
         if (sections <= 0 || fw.size < HEADER + GLOBAL_DESC + SEC_MAP * sections) throw IOException("firmware section table damaged")
-        UsbWifi.log("$tag: firmware built ${String(fw, 0, 14, Charsets.US_ASCII).trimEnd('\u0000')}, $sections sections")
+        com.rfsentinel.app.util.HwLogs.usbBt.log("$tag: firmware built ${String(fw, 0, 14, Charsets.US_ASCII).trimEnd('\u0000')}, $sections sections")
         for (i in 0 until sections) {
             val map = HEADER + GLOBAL_DESC + SEC_MAP * i
             val offset = HciUsb.le32(fw, map + 4)
@@ -118,7 +118,7 @@ internal object BtMediatek {
                 }
             }
             if (retry == 0) throw IOException("firmware section $i: chip stayed busy")
-            if (!go) { UsbWifi.log("$tag: section $i already loaded"); continue }
+            if (!go) { com.rfsentinel.app.util.HwLogs.usbBt.log("$tag: section $i already loaded"); continue }
             var at = offset
             var first = true
             while (size > 0) {
@@ -129,7 +129,7 @@ internal object BtMediatek {
                     throw IOException("firmware section $i: unexpected busy answer")
                 size -= len; at += len
             }
-            UsbWifi.log("$tag: section $i loaded (${HciUsb.le32(fw, map + 16) / 1024} KB)")
+            com.rfsentinel.app.util.HwLogs.usbBt.log("$tag: section $i loaded (${HciUsb.le32(fw, map + 16) / 1024} KB)")
         }
         Thread.sleep(110) // firmware activation
     }
@@ -145,7 +145,7 @@ internal object BtMediatek {
         uhwWrite(h, BT_SUBSYS_RST, 0); uhwRead(h, BT_SUBSYS_RST)
         val until = System.currentTimeMillis() + 1_000
         while (uhwRead(h, BT_MISC) and BT_RST_DONE == 0) {
-            if (System.currentTimeMillis() > until) { UsbWifi.log("BT MT7921AU: subsystem reset timed out"); break }
+            if (System.currentTimeMillis() > until) { com.rfsentinel.app.util.HwLogs.usbBt.log("BT MT7921AU: subsystem reset timed out"); break }
             Thread.sleep(20)
         }
         if (regRead(h, 0x70010200) == 0) throw IOException("chip ID unreadable after reset")
@@ -158,19 +158,19 @@ internal object BtMediatek {
     fun setup(ctx: Context, h: HciUsb, chip: Chip, tag: String): String? {
         val name = chip.firmware ?: return "${chip.name} Bluetooth isn't supported yet"
         val fw = Firmware.read(ctx, name)
-        UsbWifi.log("$tag: chip %04x, firmware version %02x, flavour %d: %s".format(chip.devId and 0xffff, chip.fwVersion and 0xff, chip.flavor, name))
+        com.rfsentinel.app.util.HwLogs.usbBt.log("$tag: chip %04x, firmware version %02x, flavour %d: %s".format(chip.devId and 0xffff, chip.fwVersion and 0xff, chip.flavor, name))
         try {
             download(h, fw, tag)
         } catch (e: IOException) {
             if (h.unplugged) throw e
             // Linux: retry once after a reset (btmtk_reset_sync).
-            UsbWifi.log("$tag: firmware download failed (${e.message}) - resetting the Bluetooth subsystem and trying again")
+            com.rfsentinel.app.util.HwLogs.usbBt.log("$tag: firmware download failed (${e.message}) - resetting the Bluetooth subsystem and trying again")
             subsysReset(h)
             download(h, fw, tag)
         }
         uhwWrite(h, EP_RST_OPT, EP_RST_IN_OUT_OPT)
         val (flag, status) = wmt(h, WMT_FUNC_CTRL, 0, byteArrayOf(1))
-        UsbWifi.log("$tag: Bluetooth function on (flag %d, status %s)".format(flag, status?.let { "0x%03x".format(it) } ?: "none"))
+        com.rfsentinel.app.util.HwLogs.usbBt.log("$tag: Bluetooth function on (flag %d, status %s)".format(flag, status?.let { "0x%03x".format(it) } ?: "none"))
         return null
     }
 

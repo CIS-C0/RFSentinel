@@ -751,7 +751,12 @@
             <Button
                 android:id="@+id/usbWifiLogButton"
                 style="@style/SettingsTextButton"
-                android:text="Export USB adapter log" />
+                android:text="Export a hardware log" />
+
+            <Button
+                android:id="@+id/allLogsButton"
+                style="@style/SettingsTextButton"
+                android:text="Export all hardware logs" />
 
             <TextView
                 android:id="@+id/pcapText"

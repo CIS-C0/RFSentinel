@@ -272,7 +272,7 @@ object PhoneLink {
             else -> "Sentinel Link · $n Sentinel${if (n == 1) "" else "s"} linked"
         }
         // The count is a number, so this logs problems and "waiting" / "linked", not every phone coming and going.
-        com.rfsentinel.app.usb.UsbWifi.logStatus("Sentinel Link", status)
+        com.rfsentinel.app.util.HwLogs.link.logStatus("Sentinel Link", status)
         changed()
     }
 
@@ -411,7 +411,7 @@ object PhoneLink {
                 h.post {
                     if (advertCallback !== this) return@post
                     Log.w(TAG, "advertising failed: $errorCode")
-                    com.rfsentinel.app.usb.UsbWifi.log("Sentinel Link: Bluetooth advertising failed ($errorCode)")
+                    com.rfsentinel.app.util.HwLogs.link.log("Sentinel Link: Bluetooth advertising failed ($errorCode)")
                     advertised = null; advertCallback = null
                     pairing?.takeIf { it.host }?.let { endPairing(it, "This phone can't advertise over Bluetooth ($errorCode)"); return@post }
                     problem = "this phone can't be found by other Sentinels (advertising failed)"
@@ -673,7 +673,7 @@ object PhoneLink {
         val messages = try { l.reasm.feed(chunk) } catch (e: Exception) { close(l); return }
         for (m in messages) {
             if (l.closed) return
-            try { handle(l, m) } catch (e: Exception) { Log.w(TAG, "bad message", e); com.rfsentinel.app.usb.UsbWifi.log("Sentinel Link: bad message, link closed: ${com.rfsentinel.app.usb.UsbWifi.describe(e)}"); close(l); return }
+            try { handle(l, m) } catch (e: Exception) { Log.w(TAG, "bad message", e); com.rfsentinel.app.util.HwLogs.link.log("Sentinel Link: bad message, link closed: ${com.rfsentinel.app.util.HwLog.describe(e)}"); close(l); return }
         }
     }
 

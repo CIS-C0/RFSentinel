@@ -285,7 +285,7 @@ object MeshNode {
         else if (inFlight != null && now - opSince > OP_TIMEOUT_MS) lost("stopped answering")
         if (now - summaryAt >= SUMMARY_MS) {
             if (summaryAt > 0 && (sentCount + gotCount + otherCount + droppedCount + badCount) > 0)
-                com.rfsentinel.app.usb.UsbWifi.log("Meshtastic node: last ${SUMMARY_MS / 60_000} min: sent $sentCount, got $gotCount from Sentinels, " +
+                com.rfsentinel.app.util.HwLogs.meshNode.log("Meshtastic node: last ${SUMMARY_MS / 60_000} min: sent $sentCount, got $gotCount from Sentinels, " +
                     "$otherCount other mesh packets, $droppedCount dropped (queue full), $badCount unreadable")
             summaryAt = now; sentCount = 0; gotCount = 0; otherCount = 0; droppedCount = 0; badCount = 0
         }
@@ -434,7 +434,7 @@ object MeshNode {
         } else {
             runCatching { handle(MeshProto.readFromRadio(value)) }.onFailure {
                 Log.w(TAG, "bad message from the node", it)
-                if (++badCount <= 5) com.rfsentinel.app.usb.UsbWifi.log("Meshtastic node: unreadable message: ${com.rfsentinel.app.usb.UsbWifi.describe(it)}")
+                if (++badCount <= 5) com.rfsentinel.app.util.HwLogs.meshNode.log("Meshtastic node: unreadable message: ${com.rfsentinel.app.util.HwLog.describe(it)}")
             }
             ops.addFirst(Op.Read)
         }
@@ -458,7 +458,7 @@ object MeshNode {
                     changed()
                 }
             }
-            is MeshProto.From.Queue -> if (m.res != 0) { Log.i(TAG, "node queue: ${m.res}, ${m.free} free"); com.rfsentinel.app.usb.UsbWifi.log("Meshtastic node: queue answer ${m.res}, ${m.free} free") }
+            is MeshProto.From.Queue -> if (m.res != 0) { Log.i(TAG, "node queue: ${m.res}, ${m.free} free"); com.rfsentinel.app.util.HwLogs.meshNode.log("Meshtastic node: queue answer ${m.res}, ${m.free} free") }
             MeshProto.From.Rebooted -> lost("restarted")
             is MeshProto.From.NodeInfo, MeshProto.From.Other -> Unit
         }
@@ -525,7 +525,7 @@ object MeshNode {
         }
         extNotif = MeshProto.From.ExtNotif(fields + (MeshProto.EXTNOTIF_ENABLED to if (turnOn) 1L else 0L))
         Log.i(TAG, "external notification ${if (turnOn) "back on" else "off"}")
-        com.rfsentinel.app.usb.UsbWifi.log("Meshtastic node: external notification ${if (turnOn) "back on" else "off"}")
+        com.rfsentinel.app.util.HwLogs.meshNode.log("Meshtastic node: external notification ${if (turnOn) "back on" else "off"}")
         enqueue(Op.Write(MeshProto.packet(myNode, 0, MeshProto.PORT_ADMIN_APP,
             MeshProto.setExtNotif(fields, turnOn), packetId(), 0, MeshProto.PRIORITY_RELIABLE)))
     }
@@ -543,7 +543,7 @@ object MeshNode {
 
     private fun setStatus(s: String) {
         if (s == status) return
-        com.rfsentinel.app.usb.UsbWifi.logStatus("Meshtastic node", s)
+        com.rfsentinel.app.util.HwLogs.meshNode.logStatus("Meshtastic node", s)
         status = s
         changed()
     }

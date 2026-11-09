@@ -100,11 +100,11 @@ object EspBoards {
             val conn = mgr.openDevice(d) ?: continue
             val port = SerialPort.open(conn, d)
             if (port == null) { runCatching { conn.close() }; setStatus("ESP32: couldn't open its USB serial port"); continue }
-            com.rfsentinel.app.usb.UsbWifi.log("ESP32 %04x:%04x: serial port open (${SerialPort.chipOf(d.vendorId, d.productId) ?: "generic"})".format(d.vendorId, d.productId))
+            com.rfsentinel.app.util.HwLogs.esp.log("ESP32 %04x:%04x: serial port open (${SerialPort.chipOf(d.vendorId, d.productId) ?: "generic"})".format(d.vendorId, d.productId))
             val freeWili = SerialPort.chipOf(d.vendorId, d.productId) == SerialPort.Chip.FREEWILI
             val reader = EspReader(port, ::setStatus, freeWili) { list -> onSightings?.invoke(list) }
             val t = Thread({
-                runCatching { reader.run() }.onFailure { com.rfsentinel.app.usb.UsbWifi.log("ESP32 stopped: ${com.rfsentinel.app.usb.UsbWifi.describe(it)}") }
+                runCatching { reader.run() }.onFailure { com.rfsentinel.app.util.HwLogs.esp.log("ESP32 stopped: ${com.rfsentinel.app.util.HwLog.describe(it)}") }
                 runCatching { port.close() }
                 synchronized(this) { running.remove(d.deviceName) }
             }, "esp32-${d.deviceName}")
@@ -123,7 +123,7 @@ object EspBoards {
     }
 
     private fun setStatus(s: String) {
-        com.rfsentinel.app.usb.UsbWifi.logStatus("ESP32", s)
+        com.rfsentinel.app.util.HwLogs.esp.logStatus("ESP32", s)
         status = s
         onStatusChanged?.invoke()
     }
