@@ -179,9 +179,12 @@ class RadarView @JvmOverloads constructor(
         fusion.fix(System.currentTimeMillis(), course, if (fix.hasSpeed()) fix.speed else 0f)
     }
 
+    // The circle fills the box down to just above the footer hint (its text tops out ~18 dp from the bottom).
+    private fun roomTop() = 3 * density
+    private fun roomHeight() = height - 21 * density - roomTop()
     private fun cx() = width / 2f
-    private fun cy() = (height - 28 * density) / 2f
-    private fun radius() = min(width, (height - 28 * density).toInt()) / 2f - 8 * density
+    private fun cy() = roomTop() + roomHeight() / 2f
+    private fun radius() = (min(width - 16 * density, roomHeight()) / 2f).coerceAtLeast(1f)
 
     /** Maps RSSI (-30 strong ... -100 weak) to 0.08..0.96 of the radius. */
     private fun rssiToFraction(rssi: Int): Float =
