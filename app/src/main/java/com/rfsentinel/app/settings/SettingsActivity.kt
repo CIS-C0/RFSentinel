@@ -1226,7 +1226,7 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.rotationLabel, "Normal follows the phone's auto-rotate.\n\nAuto-rotate, upside down too: also turns upside down, which phones like the Pixel never do on their own.\n\nAlways upside down: the USB-C port at the top, for an antenna or adapter plugged in.")
         info(binding.listSizeLabel, "How much each row of the device list and History takes.\n\nRegular: every line, as before.\n\n" +
             "Compact: smaller text and spacing, about a third more rows.\n\nDense: two lines a row, the address and details " +
-            "on one line, for the most rows.\n\nRows that are alerting always stay Regular, so they stand out.")
+            "on one line, for the most rows.\n\nAlerts keep their colour and flash at every size.")
         info(binding.bannerLabel, "A picture across the header of the styled themes (a logo or artwork you own). Your custom themes have their own banner, set in the theme maker.")
         info(binding.hideTrustedSwitch, "Devices on your whitelist are left off the list and radar.")
         info(binding.wifiBandLabel, "The channels a USB WiFi adapter hops. 5 and 6 GHz only gives those channels more listening time (police in-car networks are usually on 5 GHz). Adapters that only do 2.4 GHz keep scanning 2.4 GHz.\n\nThe phone's own WiFi always shows every band. An adapter picks up a change when it next starts.")

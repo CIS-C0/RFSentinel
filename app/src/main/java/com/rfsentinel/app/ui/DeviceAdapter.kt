@@ -98,7 +98,7 @@ class DeviceAdapter(
     var visual = false
         set(v) { if (field != v) { field = v; notifyDataSetChanged() } }
 
-    /** Settings › Appearance › List size. A row with an alert colour ([DeviceRow.highlight]) stays Regular. */
+    /** Settings › Appearance › List size, for every row. */
     @android.annotation.SuppressLint("NotifyDataSetChanged")
     var size = com.rfsentinel.app.util.Prefs.ListSize.REGULAR
         set(v) { if (field != v) { field = v; notifyDataSetChanged() } }
@@ -204,8 +204,8 @@ class DeviceAdapter(
         if (holder is HeaderVH) { holder.text.text = row.title; return }
         holder as VH
         val b = holder.binding
-        // Alerting rows stay full size, so they stand out among smaller ones.
-        val rowSize = if (row.highlight != null) com.rfsentinel.app.util.Prefs.ListSize.REGULAR else size
+        // Every row the same size, alerts included: they stand out by their colour and flash.
+        val rowSize = size
         val small = rowSize != com.rfsentinel.app.util.Prefs.ListSize.REGULAR
         val dense = rowSize == com.rfsentinel.app.util.Prefs.ListSize.DENSE
         holder.applySize(rowSize)

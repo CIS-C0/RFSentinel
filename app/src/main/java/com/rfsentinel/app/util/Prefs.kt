@@ -275,7 +275,7 @@ object Prefs {
             ?: if (bool(context, "upside_down", false)) Rotation.UPSIDE_DOWN else Rotation.NORMAL
     fun setRotation(context: Context, value: Rotation) = sp(context).edit { putString("rotation_mode", value.name) }
 
-    /** How tall the device list's and History's rows are (Settings › Appearance › List size). Alerting rows stay Regular. */
+    /** How tall the device list's and History's rows are (Settings › Appearance › List size). */
     enum class ListSize { REGULAR, COMPACT, DENSE }
 
     fun listSize(context: Context): ListSize =

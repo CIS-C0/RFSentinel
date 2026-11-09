@@ -18,7 +18,7 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** Settings › Appearance › List size: what each size shows, alerting rows staying Regular, and sizes switching back. */
+/** Settings › Appearance › List size: what each size shows, for alerting rows too, and sizes switching back. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
 class ListSizeTest {
@@ -76,12 +76,12 @@ class ListSizeTest {
     }
 
     @Test
-    fun alertingRowStaysRegular() {
+    fun alertingRowTakesTheSizeToo() {
         val a = DeviceAdapter({}, {}).apply { size = Prefs.ListSize.DENSE }
         val h = bind(a, row(highlight = 0xFFD0503C.toInt()))
-        assertEquals(View.VISIBLE, h.binding.tagText.visibility)
-        assertEquals(View.VISIBLE, h.binding.macText.visibility)
-        assertEquals("Axon body camera", h.binding.titleText.text.toString())
+        assertEquals(View.GONE, h.binding.tagText.visibility)
+        assertEquals(View.GONE, h.binding.macText.visibility)
+        assertTrue(h.binding.titleText.text.toString().endsWith("Axon body camera"))
     }
 
     @Test
