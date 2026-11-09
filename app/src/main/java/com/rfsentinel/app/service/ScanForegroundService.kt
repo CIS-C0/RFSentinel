@@ -1161,7 +1161,7 @@ class ScanForegroundService : Service() {
         for (s in b.sightings) {
             val mac = s.advert.mac
             val a = LinkCodec.rebased(s.advert, (s.advert.timestamp + shift).coerceAtMost(now))
-            heardBy.peer.mark(mac, via, now)
+            heardBy.peer.mark(mac, via, now, if (byMesh) heardBy.MESH_HOLD_MS else heardBy.WINDOW_MS)
             (if (byMesh) heardBy.peerMesh else heardBy.peerBluetooth).mark(mac, now)
             if (s.hits.isNotEmpty()) {
                 espHits[mac] = now to s.hits

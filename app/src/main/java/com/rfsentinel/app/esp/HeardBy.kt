@@ -34,18 +34,20 @@ class RecentMacs(private val windowMs: Long = HeardBy.WINDOW_MS) {
 
 /** Devices another Sentinel (Sentinel Link) heard, with that Sentinel's name. */
 class PeerMacs {
+    /** Until when (ms) the badge holds, and the Sentinel's name. */
     private val last = ConcurrentHashMap<String, Pair<Long, String>>()
 
-    fun mark(mac: String, via: String, now: Long = System.currentTimeMillis()) {
-        last[mac.uppercase()] = now to via
-        if (last.size > 5_000) last.entries.removeAll { now - it.value.first >= HeardBy.WINDOW_MS }
+    /** [holdMs]: as long as the device stays listed ([HeardBy.MESH_HOLD_MS] over the mesh), so its row keeps its badge. */
+    fun mark(mac: String, via: String, now: Long = System.currentTimeMillis(), holdMs: Long = HeardBy.WINDOW_MS) {
+        last.merge(mac.uppercase(), now + holdMs to via) { old, new -> maxOf(old.first, new.first) to new.second }
+        if (last.size > 5_000) last.entries.removeAll { now >= it.value.first }
     }
 
     /** The Sentinel that heard [mac] recently, or null. */
     fun via(mac: String, now: Long = System.currentTimeMillis()): String? {
         val key = mac.uppercase()
         val v = last[key] ?: return null
-        if (now - v.first < HeardBy.WINDOW_MS) return v.second
+        if (now < v.first) return v.second
         last.remove(key, v)
         return null
     }

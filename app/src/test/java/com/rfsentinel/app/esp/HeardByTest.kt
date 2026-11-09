@@ -31,4 +31,16 @@ class HeardByTest {
         assertTrue(HeardBy.peerMesh.recent("AA:BB:CC:00:00:02", now = com.rfsentinel.app.link.MeshOutbox.repeatMs(0)))
         assertFalse(HeardBy.peerMesh.recent("AA:BB:CC:00:00:02", now = HeardBy.MESH_HOLD_MS))
     }
+
+    @Test
+    fun aDeviceFromTheMeshKeepsItsViaBadgeAsLongAsItStaysListed() {
+        val p = PeerMacs()
+        p.mark("AA:BB:CC:00:00:01", "phone b", 0L, HeardBy.MESH_HOLD_MS)
+        // A later Bluetooth report doesn't cut the mesh hold short.
+        p.mark("AA:BB:CC:00:00:01", "phone b", 60_000L)
+        assertTrue(p.recent("AA:BB:CC:00:00:01", 10 * 60_000L))  // past the 5-minute Bluetooth window
+        assertFalse(p.recent("AA:BB:CC:00:00:01", HeardBy.MESH_HOLD_MS))
+        p.mark("AA:BB:CC:00:00:02", "phone b", 0L)
+        assertFalse(p.recent("AA:BB:CC:00:00:02", HeardBy.WINDOW_MS))
+    }
 }
