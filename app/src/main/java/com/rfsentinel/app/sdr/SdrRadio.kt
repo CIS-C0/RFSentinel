@@ -46,6 +46,8 @@ object SdrRadio {
     private const val INPUT_DELAY_MS = 400L    // after a grant: the radio is on the air by then
     private const val INPUT_GAP_MS = 5_000L    // at most one input check this often: each costs ~0.2 s of control channel
     private const val INPUT_READS = 16         // ~70 ms of the input
+    /** An FM station fills at least this much. */
+    private const val FM_WIDTH_HZ = 100_000L
     private const val INPUT_OFFSET_HZ = 250_000L // the input this far above the tuned centre, clear of the DC spike
     private const val RECORD_GAP_MS = 20_000L  // at most one call recording this often: each costs P25Record.SECONDS of control channel
     private const val FOLLOW_START_S = 1.5     // no voice this long after tuning to a call: it isn't there (or already over)
@@ -84,7 +86,7 @@ object SdrRadio {
     /** The scans that get turns: P25 alone while a talkgroup is held ([p25Hold]). */
     private val active get() = if (p25Hold != null) setOf(Mode.P25) else modes
     /** [m] keeps the SDR: its turn, still ticked, and the waterfall not zoomed in. */
-    private fun keeps(m: Mode) = mode == m && m in active && tuneHz == null && weatherCheck == null && (active.size == 1 || System.currentTimeMillis() < turnEnd)
+    private fun keeps(m: Mode) = mode == m && m in active && tuneHz == null && antennaCheck == null && (active.size == 1 || System.currentTimeMillis() < turnEnd)
     /** The scan after the current one, round the ticked ones. */
     private fun next(): Mode? = Mode.entries.filter { it in active }.let { l -> l.firstOrNull { it.ordinal > (mode?.ordinal ?: -1) } ?: l.firstOrNull() }
     /** " · ADS-B in 40 s" while taking turns, or " · holding talkgroup 1234", for the status line. */
@@ -144,21 +146,34 @@ object SdrRadio {
      */
     @Volatile var tuneHz: Long? = null
     /**
-     * The Radio waterfall's "Antenna check": set to get one reading of the 7 weather-radio channels (162.400-162.550 MHz,
-     * NOAA Weather Radio and Weatheradio Canada, on the air around the clock), then the scans carry on. Called on the SDR's thread.
+     * The Radio waterfall's "Antenna check": set to get one reading of the FM radio band (on the air everywhere) and of the
+     * 7 weather-radio channels (162.400-162.550 MHz, United States only: Canada's went off the air in March 2026), then the
+     * scans carry on. Called on the SDR's thread.
      */
-    @Volatile var weatherCheck: ((WeatherCheck) -> Unit)? = null
-    /** The strongest weather channel and how far it stands above the noise; [hz] 0 when the tuner or the samples failed. */
-    data class WeatherCheck(val hz: Long, val snrDb: Int) {
+    @Volatile var antennaCheck: ((AntennaReading) -> Unit)? = null
+    /**
+     * The strongest FM station and weather channel, and how far each stands above the noise; [ok] false when the tuner
+     * or the samples failed.
+     * shortcut: the 20 / 8 dB steps are not calibrated on real antennas, adjust them from testers' hardware logs.
+     */
+    data class AntennaReading(val fmHz: Long, val fmDb: Int, val weatherHz: Long, val weatherDb: Int, val ok: Boolean = true) {
         /** What it says about the antenna, in words. */
-        val verdict get() = when {
-            hz == 0L -> "The SDR gave no reading. Try again."
-            snrDb >= 20 -> "%.3f MHz is %d dB above the noise: the antenna and SDR receive well.".format(java.util.Locale.US, hz / 1e6, snrDb)
-            snrDb >= 8 -> "%.3f MHz is %d dB above the noise: heard, but weak. Try a better antenna or a spot near a window.".format(java.util.Locale.US, hz / 1e6, snrDb)
-            else -> "No weather channel heard (best %d dB). Check the antenna and its connector. These stations only exist in the United States and Canada.".format(snrDb)
+        val verdict: String get() {
+            if (!ok) return "The SDR gave no reading. Try again."
+            val fm = "FM radio %.1f MHz: %d dB above the noise.".format(java.util.Locale.US, fmHz / 1e6, fmDb)
+            val weather = if (weatherDb >= 8) "\nWeather radio %.3f MHz: %d dB above the noise.".format(java.util.Locale.US, weatherHz / 1e6, weatherDb) else ""
+            return when {
+                maxOf(fmDb, weatherDb) >= 20 -> "The antenna and SDR receive well.\n\n$fm$weather"
+                maxOf(fmDb, weatherDb) >= 8 -> "Stations are heard, but weak. Pull the antenna out fully, or try near a window or outside.\n\n$fm$weather"
+                else -> "No station heard. Check that the antenna is screwed on and its cable is plugged into the SDR. " +
+                    "A filter that blocks FM radio also hides these stations."
+            }
         }
     }
     internal val WEATHER_HZ = (0 until 7).map { 162_400_000L + it * 25_000L }
+    /** Chunk centres covering FM radio, 87.5 to 108 MHz.
+     *  shortcut: not Japan's 76-95 MHz band, add its chunks if a tester there asks. */
+    private val FM_CENTERS = (0 until 13).map { 88_300_000L + it * 1_600_000L }
 
     /** Learned channels for the sweep, kept while the waterfall zooms in and out (new per device). */
     private var sweepWatch: RadioWatch? = null
@@ -308,6 +323,8 @@ object SdrRadio {
             runCatching { previous?.join(3_000) }
             val sdr = open()
             val result = runCatching { run(sdr, name, intro) }
+            // An antenna check still waiting (the SDR failed or was unplugged): answer it, never silence.
+            antennaCheck?.let { ask -> antennaCheck = null; ask(AntennaReading(0, 0, 0, 0, ok = false)) }
             val failure = result.exceptionOrNull()
             if (net) sdr.close()
             runCatching { release() }
@@ -346,7 +363,7 @@ object SdrRadio {
         sweepWatch = null; p25Hunt = null; p25Lock = null; pagerHz = null
         var tuned = false
         while (!halted && !sdr.lost && !gone(name)) {
-            weatherCheck?.let { ask -> weatherCheck = null; ask(runCatching { checkWeather(sdr) }.getOrDefault(WeatherCheck(0, 0))); tuned = true }
+            antennaCheck?.let { ask -> antennaCheck = null; ask(runCatching { checkAntenna(sdr) }.getOrDefault(AntennaReading(0, 0, 0, 0, ok = false))); tuned = true }
             if (tuneHz != null) { runTuned(sdr, name); tuned = true; continue }
             // Back from the waterfall: the scan it interrupted gets its turn again, not the next one.
             val m = mode?.takeIf { tuned && it in active } ?: next()
@@ -757,19 +774,33 @@ object SdrRadio {
         }
     }
 
-    /** One look at the weather channels, all inside one tuned chunk, away from the centre spike. */
-    private fun checkWeather(sdr: SdrDevice): WeatherCheck {
+    /** One look at FM radio, chunk by chunk, then at the weather channels, all inside one tuned chunk away from the centre spike. */
+    private fun checkAntenna(sdr: SdrDevice): AntennaReading {
         sdr.setSampleRate(SAMPLE_RATE)
         sdr.setGain(GAIN_TENTHS_DB)
-        val center = WEATHER_HZ.first() - INPUT_OFFSET_HZ
-        val snr = measureChannels(sdr, center, WEATHER_HZ) ?: return WeatherCheck(0, 0)
-        val best = snr.indices.maxBy { snr[it] }
-        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: antenna check on the weather channels: ${snr.joinToString(" ")} dB, gain ${GAIN_TENTHS_DB / 10.0} dB")
-        return WeatherCheck(WEATHER_HZ[best], snr[best])
+        // The strongest station against the quietest chunk: a city's FM band can be full from end to end in places.
+        var fmHz = 0L; var fmPeak = Float.NEGATIVE_INFINITY; var floor = Float.POSITIVE_INFINITY; var chunks = 0
+        for (center in FM_CENTERS) {
+            if (halted || sdr.lost) break
+            val (offset, peak, quiet) = RadioWatch.widePeak(spectrum(sdr, center) ?: continue, sdr.sampleRate, FM_WIDTH_HZ)
+            chunks++
+            if (peak > fmPeak) { fmPeak = peak; fmHz = center + offset }
+            if (quiet < floor) floor = quiet
+        }
+        val weatherCenter = WEATHER_HZ.first() - INPUT_OFFSET_HZ
+        val weather = spectrum(sdr, weatherCenter)?.let { psd -> WEATHER_HZ.map { RadioWatch.channelSnrDb(psd, sdr.sampleRate, it - weatherCenter) } }
+        if (chunks == 0 && weather == null) return AntennaReading(0, 0, 0, 0, ok = false)
+        val fmDb = if (chunks == 0) 0 else (fmPeak - floor).toInt()
+        val best = weather?.indices?.maxBy { weather[it] }
+        // Levels only: which station is strongest would tell where the phone is.
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: antenna check: FM radio $fmDb dB in $chunks of ${FM_CENTERS.size} chunks, " +
+            "weather channels ${weather?.max() ?: "not read"} dB, gain ${GAIN_TENTHS_DB / 10.0} dB")
+        // FM stations sit on a 100 kHz grid.
+        return AntennaReading((fmHz + 50_000) / 100_000 * 100_000, fmDb, best?.let { WEATHER_HZ[it] } ?: 0, best?.let { weather[it] } ?: 0)
     }
 
-    /** Each of [channels]' level in dB above the noise with the SDR tuned to [center]; null when the tuner or the samples failed. */
-    private fun measureChannels(sdr: SdrDevice, center: Long, channels: List<Long>): List<Int>? {
+    /** The power spectrum with the SDR tuned to [center]; null when the tuner or the samples failed. */
+    private fun spectrum(sdr: SdrDevice, center: Long): FloatArray? {
         if (!sdr.tune(center)) return null
         sdr.resetBuffer()
         val buf = ByteArray(XFER)
@@ -782,8 +813,7 @@ object SdrRadio {
             System.arraycopy(buf, 0, iq, got, n); got += n
         }
         if (got < 2 * 1024) return null
-        val psd = RadioWatch.powerSpectrum(iq, got / 2)
-        return channels.map { RadioWatch.channelSnrDb(psd, sdr.sampleRate, it - center) }
+        return RadioWatch.powerSpectrum(iq, got / 2)
     }
 
     /** Holds [tuneHz] for the waterfall screen: a row of the ~2 MHz around it every few tens of ms. */
@@ -795,7 +825,7 @@ object SdrRadio {
         if (!sdr.tune(hz)) {
             com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: the tuner didn't lock on $mhz")
             status = "$deviceLabel · waterfall: the tuner can't tune to $mhz"
-            while (!halted && !sdr.lost && tuneHz == hz) Thread.sleep(100)
+            while (!halted && !sdr.lost && tuneHz == hz && antennaCheck == null) Thread.sleep(100)
             return
         }
         sdr.resetBuffer()
@@ -805,7 +835,7 @@ object SdrRadio {
         val iq = ByteArray(XFER * TUNED_READS)
         var lastRow = 0L; var lastCheck = System.currentTimeMillis(); var fails = 0
         repeat(sdr.settleReads) { sdr.read(buf) }
-        while (!halted && !sdr.lost && tuneHz == hz && weatherCheck == null) {
+        while (!halted && !sdr.lost && tuneHz == hz && antennaCheck == null) {
             if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
             var got = 0
             for (i in 0 until TUNED_READS) {

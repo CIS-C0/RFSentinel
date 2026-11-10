@@ -120,6 +120,23 @@ class RadioWatchTest {
         assertEquals(0, RadioWatch.channelSnrDb(psd, rate, 400_000L))
     }
 
+    @Test
+    fun widePeakFindsAStationNotASpur() {
+        // The antenna check: an FM station 30 dB up and 200 kHz wide, 400 kHz above the centre; a taller one-bin spur below it.
+        val psd = FloatArray(n) { -100f }
+        val station = n / 2 + (400_000 / binHz).roundToInt()
+        for (k in station - 50..station + 50) psd[k] = -70f
+        psd[n / 2 - (300_000 / binHz).roundToInt()] = -50f
+        psd[n / 2] = -40f // the receiver's own DC spike
+        val (offset, peak, floor) = RadioWatch.widePeak(psd, rate, 100_000L)
+        assertEquals(400_000.0, offset.toDouble(), 60_000.0)
+        assertEquals(30f, peak - floor, 0.5f)
+        // Nothing but the spur: next to nothing above the noise.
+        for (k in station - 50..station + 50) psd[k] = -100f
+        val (_, p, f) = RadioWatch.widePeak(psd, rate, 100_000L)
+        assertEquals(0f, p - f, 2f)
+    }
+
     // ---- Settings > RTL-SDR radio ----
 
     @Test

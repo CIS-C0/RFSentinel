@@ -365,6 +365,35 @@ class RadioWatch {
         }
 
         /**
+         * The strongest [widthHz]-wide stretch of the usable middle of [psd]: its offset from the centre in Hz and its
+         * level, then the quiet level (the lower quartile), all averaged over [widthHz] in dB. A broadcast station fills
+         * the width; a one-bin spur of the receiver's own is averaged away.
+         */
+        fun widePeak(spectrum: FloatArray, sampleRate: Int, widthHz: Long): Triple<Long, Float, Float> {
+            val binHz = sampleRate.toDouble() / spectrum.size
+            // The receiver's own spike at the centre levelled to the noise beside it, as the waterfall does.
+            val psd = spectrum.copyOf()
+            val mid = psd.size / 2
+            val guard = maxOf(1, (DC_GUARD_HZ / binHz).toInt())
+            if (mid - guard - 1 >= 0 && mid + guard + 1 < psd.size) {
+                val level = minOf(psd[mid - guard - 1], psd[mid + guard + 1])
+                for (k in mid - guard..mid + guard) psd[k] = level
+            }
+            val w = maxOf(1, (widthHz / binHz).roundToInt())
+            val from = (psd.size / 2 - (USABLE_HZ / binHz).toInt()).coerceAtLeast(0)
+            val to = (psd.size / 2 + (USABLE_HZ / binHz).toInt()).coerceAtMost(psd.size - 1)
+            var sum = 0f
+            val means = FloatArray((to - from + 2 - w).coerceAtLeast(0)) { i ->
+                if (i == 0) for (k in from until from + w) sum += psd[k] else sum += psd[from + i + w - 1] - psd[from + i - 1]
+                sum / w
+            }
+            if (means.isEmpty()) return Triple(0L, 0f, 0f)
+            val best = means.indices.maxBy { means[it] }
+            val offset = ((from + best + (w - 1) / 2.0 - psd.size / 2) * binHz).toLong()
+            return Triple(offset, means[best], means.sorted()[means.size / 4])
+        }
+
+        /**
          * Averaged power spectrum in dB of [count] unsigned 8-bit I/Q pairs from [iq], in
          * [n]-point Hann-windowed FFTs, FFT-shifted so DC sits at index n/2.
          */
