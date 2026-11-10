@@ -55,31 +55,99 @@ class ModeSTest {
         assertEquals(59, ModeS.nl(0.0)); assertEquals(36, ModeS.nl(52.2572)); assertEquals(1, ModeS.nl(88.0))
     }
 
-    /** Magnitudes for a preamble and [msg] in pulse-position code, with noise-free levels. */
-    private fun signal(msg: ByteArray, lead: Int = 40): IntArray {
-        val m = IntArray(lead + ModeS.OVERLAP + 100) { 2 }
-        for (p in intArrayOf(0, 2, 7, 9)) m[lead + p] = 120
-        for (i in 0 until msg.size * 8) {
-            val one = (msg[i / 8].toInt() ushr (7 - i % 8)) and 1 == 1
-            m[lead + 16 + 2 * i + (if (one) 0 else 1)] = 120
-        }
+    /**
+     * Magnitudes at 2.4 MS/s for a preamble and [msg] in pulse-position code, starting [shift]
+     * twelfths of a microsecond into sample [lead]: each sample is the share of it a pulse covers.
+     */
+    private fun signal(msg: ByteArray, lead: Int = 40, shift: Int = 0, level: Int = 120, floor: Int = 2): IntArray {
+        // In sixtieths of a microsecond: a sample is 25, a half-microsecond symbol 30.
+        val n = lead + 350 + ModeS.OVERLAP
+        val high = BooleanArray(n * 25 + 60)
+        fun pulse(symbol: Int) { val from = lead * 25 + shift * 5 + symbol * 30; for (t in from until from + 30) high[t] = true }
+        for (p in intArrayOf(0, 2, 7, 9)) pulse(p)
+        for (i in 0 until msg.size * 8) pulse(16 + 2 * i + (if ((msg[i / 8].toInt() ushr (7 - i % 8)) and 1 == 1) 0 else 1))
+        return IntArray(n) { k -> floor + level * (0 until 25).count { high[k * 25 + it] } / 25 }
+    }
+
+    private val klm = hex("8D4840D6202CC371C32CE0576098")
+
+    /** An all-call reply (DF11) from [icao] with interrogator code [iid]. */
+    private fun allCall(icao: Int, iid: Int): ByteArray {
+        val m = byteArrayOf(0x5D, (icao shr 16).toByte(), (icao shr 8).toByte(), icao.toByte(), 0, 0, 0)
+        val p = ModeS.parity(m, 56) xor iid
+        m[4] = (p shr 16).toByte(); m[5] = (p shr 8).toByte(); m[6] = p.toByte()
         return m
     }
 
     @Test
-    fun demodulatesAndFixesOneBadBit() {
-        val msg = hex("8D4840D6202CC371C32CE0576098")
+    fun demodulatesAtEverySamplePhase() {
+        for (shift in 0 until 12) {
+            val out = ArrayList<ModeS.Frame>()
+            val m = signal(klm, shift = shift)
+            ModeS.Demod().scan(m, m.size, out)
+            assertEquals("shift $shift", "KLM1023", ModeS.decode(out.single()).callsign)
+            assertEquals(120.0, out[0].signal.toDouble(), 20.0)
+        }
+    }
+
+    @Test
+    fun fixesOneBadBit() {
+        val bad = klm.copyOf().also { it[6] = (it[6].toInt() xor 0x10).toByte() }
         val out = ArrayList<ModeS.Frame>()
         val d = ModeS.Demod()
-        d.scan(signal(msg), signal(msg).size, out)
-        assertEquals(1, out.size)
-        assertEquals("KLM1023", ModeS.decode(out[0]).callsign)
-
-        val bad = msg.copyOf().also { it[6] = (it[6].toInt() xor 0x10).toByte() }
-        out.clear()
-        d.scan(signal(bad), signal(bad).size, out)
+        val m = signal(bad, shift = 7)
+        d.scan(m, m.size, out)
         assertEquals("KLM1023", ModeS.decode(out.single()).callsign)
         assertEquals(1L, d.fixed)
+        // Two bad bits: dropped, not "fixed" into another message.
+        val worse = bad.copyOf().also { it[9] = (it[9].toInt() xor 0x01).toByte() }
+        out.clear()
+        ModeS.Demod().scan(signal(worse), signal(worse).size, out)
+        assertTrue(out.isEmpty())
+    }
+
+    @Test
+    fun anAllCallReplyWithAnInterrogatorCodeNeedsAKnownAddress() {
+        val d = ModeS.Demod()
+        val out = ArrayList<ModeS.Frame>()
+        fun hear(msg: ByteArray) { val m = signal(msg, shift = 3); d.scan(m, m.size, out) }
+        hear(allCall(0x4840D6, 0x05))
+        assertTrue("unknown address: too likely noise", out.isEmpty())
+        hear(allCall(0xABCDEF, 0))
+        assertEquals(0xABCDEF, out.single().icao)
+        assertEquals(7, out[0].bytes.size)
+        hear(klm)
+        hear(allCall(0x4840D6, 0x05))
+        assertEquals(listOf(0xABCDEF, 0x4840D6, 0x4840D6), out.map { it.icao })
+    }
+
+    @Test
+    fun aMessageAcrossTwoReadsIsFoundOnceAndTheNoiseIsCounted() {
+        // Three messages in one stream, read in pieces as the receiver does: each straddles two reads.
+        val one = signal(klm, lead = 0, shift = 4)
+        val stream = IntArray(5_000) { 2 }
+        for (at in intArrayOf(1_100, 2_600, 3_900)) System.arraycopy(one, 0, stream, at, 330)
+        val d = ModeS.Demod()
+        val out = ArrayList<ModeS.Frame>()
+        val quiet = IntArray(ModeS.LEVELS)
+        val read = 1_500
+        val mag = IntArray(read + 2 * ModeS.OVERLAP)
+        var have = 0; var scanned = 0
+        var at = 0
+        while (at < stream.size) {
+            val n = minOf(read, stream.size - at)
+            System.arraycopy(stream, at, mag, have, n); at += n
+            val total = have + n
+            if (total < 2 * ModeS.OVERLAP) { have = total; continue }
+            d.scan(mag, total, out, quiet)
+            scanned += total - ModeS.OVERLAP
+            System.arraycopy(mag, total - ModeS.OVERLAP, mag, 0, ModeS.OVERLAP); have = ModeS.OVERLAP
+        }
+        assertEquals(3, out.size)
+        assertTrue(out.all { ModeS.decode(it).callsign == "KLM1023" })
+        // Everything scanned but the messages (preamble and 112 bits: 288 samples each) is noise.
+        assertEquals(scanned - 3 * 288, quiet.sum())
+        assertTrue(quiet[2] >= quiet.sum() - 3 * 2) // the floor, but for a sample a pulse edge reaches
     }
 
     @Test
@@ -89,6 +157,8 @@ class ModeSTest {
         val out = ArrayList<ModeS.Frame>()
         ModeS.Demod().scan(m, m.size, out)
         assertTrue(out.size <= 1)
+        // Too short to scan at all.
+        ModeS.Demod().scan(IntArray(ModeS.OVERLAP), ModeS.OVERLAP, out)
     }
 
     @Test

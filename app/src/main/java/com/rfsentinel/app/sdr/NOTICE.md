@@ -41,3 +41,5 @@ IMBE is a voice coding method of Digital Voice Systems, Inc. (DVSI); the P25 sta
 |---|---|---|
 | Automatic frequency correction (`FreqCorrection.kt`): correct the tuner by the error a decoder measures on a channel of known frequency | Idea from [SDRTrunk](https://github.com/DSheirer/sdrtrunk) `TunerFrequencyErrorManager` (C) 2014-2026 Dennis Sheirer; written anew | GPL-3.0-or-later |
 | Bias-tee on GPIO 0 (`RtlSdr.setBiasTee`) | [rtl-sdr-blog](https://github.com/rtlsdrblog/rtl-sdr-blog) librtlsdr `rtlsdr_set_bias_tee` | GPL-2.0-or-later |
+| ADS-B demodulator at 2.4 MS/s (`ModeS.Demod`): preamble match at five sample phases, phase-aware bit slicing, best-scoring phase kept | Port of [dump1090-fa](https://github.com/flightaware/dump1090) `demod_2400.c`, Copyright (c) 2014, 2015 Oliver Jowett | GPL-2.0-or-later |
+| ADS-B automatic gain (`AdsbGain.kt`): dynamic-range mode, gain steered by the noise floor's 40th percentile | Port of [dump1090-fa](https://github.com/flightaware/dump1090) `adaptive.c`, Copyright (c) 2021 FlightAware, LLC | GPL-2.0-or-later |

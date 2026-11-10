@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import androidx.core.content.ContextCompat
+import kotlin.math.roundToInt
 
 /**
  * An RTL-SDR dongle or a HackRF ([SdrDevice]) on an OTG cable, used while scanning as a receive-only radio-activity
@@ -37,7 +38,6 @@ object SdrRadio {
     private const val READS_PER_CHUNK = 8     // ~32 ms of samples per tuned chunk
     private const val SLOT_READS = 16         // ~64 ms: more than one TETRA or DMR frame, so a radio's slot is always in it
     private const val STALL_CHUNKS = 8        // chunks in a row without samples before the stream is restarted
-    private const val ADSB_GAIN_TENTHS_DB = 496 // the tuner's most: aircraft are far and faint
     private const val ADSB_PUSH_MS = 2_000L
     private const val TUNED_READS = 4          // ~16 ms of samples per waterfall row
     private const val TUNED_ROW_MS = 40L       // at most ~25 rows a second
@@ -103,6 +103,8 @@ object SdrRadio {
     private var freqFix: FreqCorrection? = null
     private var freqFixes = 0
     private var biasOn = false
+    /** The ADS-B gain, kept from one ADS-B turn to the next while the dongle stays open. */
+    private var adsbGain = AdsbGain()
 
     /** Settings › bias-tee or frequency correction changed; [afterTyping]: a moment after the typing stops, not per key. */
     fun deviceSettingsChanged(afterTyping: Boolean = false) {
@@ -421,7 +423,7 @@ object SdrRadio {
             return false
         }
         sweepWatch = null; p25Hunt = null; p25Lock = null; pagerHz = null
-        biasOn = false; freqFixes = 0
+        biasOn = false; freqFixes = 0; adsbGain = AdsbGain()
         applyDeviceSettings(sdr, start = true)
         var tuned = false
         while (!halted && !sdr.lost && !gone(name)) {
@@ -456,7 +458,8 @@ object SdrRadio {
 
     private fun runAdsb(sdr: SdrDevice, name: String) {
         sdr.setSampleRate(ModeS.SAMPLE_RATE)
-        sdr.setGain(ADSB_GAIN_TENTHS_DB)
+        val gain = adsbGain
+        sdr.setGain(gain.tenths)
         if (!sdr.tune(ModeS.FREQ_HZ)) {
             com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: the tuner didn't lock on 1090 MHz")
             status = "$deviceLabel · ADS-B: the tuner didn't lock on 1090 MHz"
@@ -465,7 +468,7 @@ object SdrRadio {
             return
         }
         sdr.resetBuffer()
-        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: ADS-B receiver on 1090 MHz, ${sdr.sampleRate} S/s, gain ${ADSB_GAIN_TENTHS_DB / 10.0} dB")
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: ADS-B receiver on 1090 MHz, ${sdr.sampleRate} S/s, gain ${gain.tenths / 10.0} dB")
         status = "$deviceLabel · ADS-B · listening on 1090 MHz…" + turnNote()
         val xfer = STREAM_XFER
         val buf = ByteArray(xfer)
@@ -477,6 +480,7 @@ object SdrRadio {
         val loggedPlanes = HashSet<String>()
         var lastPush = 0L; var lastLog = System.currentTimeMillis(); var fails = 0; var messages = 0L; var logged = 0L
         var lastCheck = System.currentTimeMillis()
+        var blockSamples = 0
         // A reader thread keeps a read waiting on the dongle while the last one is decoded: no samples lost in between.
         val ahead = ReadAhead(sdr, xfer)
         try { while (!halted && !sdr.lost && keeps(Mode.ADSB)) {
@@ -496,7 +500,16 @@ object SdrRadio {
             val total = have + n / 2
             if (total < 2 * ModeS.OVERLAP) { have = total; continue }
             frames.clear()
-            demod.scan(mag, total, frames)
+            demod.scan(mag, total, frames, gain.quiet)
+            // Once a second: the gain the noise floor asks for.
+            blockSamples += n / 2
+            if (blockSamples >= sdr.sampleRate) {
+                blockSamples = 0
+                gain.endOfBlock()?.let { c ->
+                    sdr.setGain(c.tenths)
+                    com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: ADS-B gain ${c.tenths / 10.0} dB, ${gain.rangeDb.roundToInt()} dB above the noise: ${c.why}")
+                }
+            }
             val now = System.currentTimeMillis()
             val me = location?.invoke()
             for (f in frames) tracker.add(f, now, me?.first, me?.second)
@@ -519,7 +532,8 @@ object SdrRadio {
             }
             if (now - lastLog >= 60_000) {
                 com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: ADS-B ${messages - logged} messages in ${(now - lastLog) / 1000} s, " +
-                    "${demod.preambles} preambles, ${demod.fixed} fixed, ${tracker.count} aircraft, USB errors ${sdr.ctlErrors}")
+                    "${demod.preambles} preambles, ${demod.fixed} fixed, ${tracker.count} aircraft, gain ${gain.tenths / 10.0} dB, " +
+                    "${gain.rangeDb.roundToInt()} dB above the noise, USB errors ${sdr.ctlErrors}")
                 lastLog = now; logged = messages
             }
         } } finally { ahead.close() }

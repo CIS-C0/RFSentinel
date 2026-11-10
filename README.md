@@ -756,7 +756,8 @@ around you itself - position, altitude, speed, call sign - with no internet. The
 through the same police-aircraft checks as the online feeds and show on the map and
 in Android Auto; a registered police aircraft heard without a position is reported as
 in radio range. Needs *Police aircraft* on; its *Online aircraft feeds* switch can then
-be turned off so nothing leaves the phone. A 1090 MHz antenna helps.
+be turned off so nothing leaves the phone. The gain sets itself to the noise where you are,
+as high as it goes without drowning out nearby aircraft. A 1090 MHz antenna helps.
 
 Plug an RTL-SDR dongle (R820T / R820T2 / R860 tuner, e.g. RTL-SDR Blog V3, or the
 RTL-SDR Blog V4 or V4L) or a **HackRF One** into the phone with an OTG cable while scanning.
@@ -1258,7 +1259,9 @@ shape is [FlipDeFlock](https://github.com/ReconGrunt/FlipDeFlock)'s IE skeleton 
 so its values match, with its candidate and generic shape lists (GPL-3.0). The ADS-B decoder
 is written from the published format and Junzi Sun's *The 1090 MHz Riddle*, with
 [SkyPulse](https://github.com/MrJohn6774/SkyPulse) (GPL-3.0) and
-[dump1090](https://github.com/antirez/dump1090) (BSD-3-Clause) as references. The POCSAG and
+[dump1090](https://github.com/antirez/dump1090) (BSD-3-Clause) as references; its 2.4 MS/s
+demodulator and automatic gain are ports of [dump1090-fa](https://github.com/flightaware/dump1090)'s
+(Oliver Jowett and FlightAware, GPL-2.0-or-later). The POCSAG and
 FLEX pager decoders follow [multimon-ng](https://github.com/EliasOenal/multimon-ng) (GPL; see
 `sdr/NOTICE.md`). The SDR's automatic frequency correction follows
 [SDRTrunk](https://github.com/DSheirer/sdrtrunk)'s auto-PPM (Dennis Sheirer, GPL-3.0), and its
