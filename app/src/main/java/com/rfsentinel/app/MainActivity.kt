@@ -261,6 +261,14 @@ class MainActivity : AppCompatActivity() {
         setupFilterChips()
         panes.setFilter(filter)
 
+        // Debug builds only: inner screens adb can't open directly (not exported), for emulator tests.
+        // --es open waterfall: the Radio waterfall on a made-up SDR (see WaterfallDemo); radio_settings, p25, pager.
+        if (BuildConfig.DEBUG) when (intent.getStringExtra("open")) {
+            "waterfall" -> startActivity(android.content.Intent(this, com.rfsentinel.app.ui.WaterfallActivity::class.java).putExtra("demo", true))
+            "radio_settings" -> com.rfsentinel.app.settings.SettingsActivity.openRadio(this)
+            "p25" -> startActivity(android.content.Intent(this, com.rfsentinel.app.ui.P25Activity::class.java))
+            "pager" -> startActivity(android.content.Intent(this, com.rfsentinel.app.ui.PagerActivity::class.java))
+        }
         // Debug builds only: made-up devices for screenshots (see DemoData).
         if (BuildConfig.DEBUG && intent.getBooleanExtra("demo", false)) {
             demoMode = true

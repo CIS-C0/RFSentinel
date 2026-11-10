@@ -60,7 +60,7 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
         // Frequencies and network codes stay off the log (they name the local system); bands and levels say enough.
         log("P25 scan: ${plan.size} steps, tuner didn't lock ${scan.unlocked}, no samples ${scan.short}, ${ranked.size} channels " +
             "${MIN_SNR_DB.toInt()} dB or more above the noise (700 MHz ${ranked.count { it.hz < 800_000_000L }}, " +
-            "800 MHz ${ranked.count { it.hz >= 800_000_000L }}), strongest ${tries.joinToString { "%.0f".format(it.snrDb) }} dB")
+            "800 MHz ${ranked.count { it.hz >= 800_000_000L }}), strongest ${levels(tries)}, highest point %.0f dB".format(scan.peakDb))
         tried = 0
         for (c in tries) {
             if (stop()) return null
@@ -96,7 +96,8 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
             demod.feed(buf, n / 2); samples += n / 2
         }
         val drift = "frequency loop moved %+.0f Hz in %.2f s".format(demod.offsetHz - OFFSET_HZ, samples.toDouble() / P25Demod.SAMPLE_RATE)
-        if (st.good < MIN_BLOCKS) { log("$head $st, $drift - not a control channel"); return null }
+        // Trunking NIDs but no clean block: a control channel all the same, only too weak here to read.
+        if (st.good < MIN_BLOCKS) { log("$head $st, $drift - ${if (st.tsdu > 0) "a control channel, too weak to decode" else "not a control channel"}"); return null }
         log("$head $st, $drift - control channel (${nacs.size} NAC${if (nacs.size == 1) "" else "s"} seen)")
         return Lock(center + demod.offsetHz.roundToLong(), nacs.maxBy { it.value }.key)
     }
@@ -193,14 +194,15 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
         internal fun plan(bands: List<LongRange> = BANDS): List<Long> =
             bands.flatMap { b -> generateSequence(b.first - STEP_HZ / 2) { it + STEP_HZ }.takeWhile { it <= b.last + STEP_HZ / 2 }.toList() }
 
-        internal class Scan(val found: List<Candidate>, val unlocked: Int, val short: Int)
+        /** [peakDb]: the highest bin above its chunk's noise, even under the threshold, so a log tells a dead antenna from a quiet band. */
+        internal class Scan(val found: List<Candidate>, val unlocked: Int, val short: Int, val peakDb: Float = 0f)
 
         /** Looks at each tuned centre of [plan] for channels that are on; null when [stop] said so. */
         internal fun scan(sdr: SdrDevice, plan: List<Long>, stop: () -> Boolean): Scan? {
             val buf = ByteArray(XFER)
             val found = ArrayList<Candidate>()
             val iq = ByteArray(XFER * SCAN_READS)
-            var unlocked = 0; var short = 0
+            var unlocked = 0; var short = 0; var peak = 0f
             for (center in plan) {
                 if (stop()) return null
                 if (!sdr.tune(center)) { unlocked++; continue }
@@ -211,9 +213,13 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
                     if (n <= 0) break
                     System.arraycopy(buf, 0, iq, got, n); got += n
                 }
-                if (got >= 2 * 1024) found += candidates(center, RadioWatch.powerSpectrum(iq, got / 2), sdr.sampleRate) else short++
+                if (got >= 2 * 1024) {
+                    val psd = RadioWatch.powerSpectrum(iq, got / 2)
+                    found += candidates(center, psd, sdr.sampleRate)
+                    peak = maxOf(peak, peakAboveNoise(psd, sdr.sampleRate))
+                } else short++
             }
-            return Scan(found, unlocked, short)
+            return Scan(found, unlocked, short, peak)
         }
 
         /** Channel-wide peaks [MIN_SNR_DB] above the noise in one tuned chunk, at their power-weighted centre. */
@@ -238,6 +244,18 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
                 out += Candidate(center + (at / w * binHz).roundToLong(), snr.toFloat())
             }
             return out
+        }
+
+        /** "17, 16 dB", or "none" when nothing stood out (it read "strongest  dB"). */
+        internal fun levels(tries: List<Candidate>) = if (tries.isEmpty()) "none" else tries.joinToString { "%.0f".format(it.snrDb) } + " dB"
+
+        /** The highest bin of the usable middle above the chunk's median, the receiver's own centre spike left out. */
+        internal fun peakAboveNoise(psd: FloatArray, sampleRate: Int): Float {
+            val n = psd.size; val mid = n / 2; val binHz = sampleRate.toDouble() / n
+            val usable = (RadioWatch.USABLE_HZ / binHz).toInt(); val guard = (RadioWatch.DC_GUARD_HZ / binHz).toInt() + 1
+            var m = Float.NEGATIVE_INFINITY
+            for (k in maxOf(0, mid - usable) until minOf(n, mid + usable)) if (abs(k - mid) > guard && psd[k] > m) m = psd[k]
+            return if (m == Float.NEGATIVE_INFINITY) 0f else m - psd.sorted()[mid]
         }
 
         /** Strongest first, each channel once (seen from two tuned centres). */

@@ -384,6 +384,7 @@ object SdrRadio {
             }
         }
         if (sdr.lost) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: the dongle stopped answering (unplugged?)")
+        else if (halted) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: stopped (scanning stopped or the SDR scans switched off)")
         val away = sdr.lost || gone(name)
         if (!away) sdr.close()
         return away && !halted
@@ -473,7 +474,9 @@ object SdrRadio {
         val buf = ByteArray(XFER)
         val iq = ByteArray(XFER * maxOf(READS_PER_CHUNK, SLOT_READS))
         var lastLog = 0L; var sweepStart = System.currentTimeMillis(); var sweepMs = 0L
-        var events = 0; var unlocked = 0; var readErrors = 0; var failedChunks = 0
+        var events = 0; var unlocked = 0; var readErrors = 0; var failedChunks = 0; var emptyChunks = 0
+        // Each band's noise floor since the last log line (sum of chunk medians, chunks): a noisy band or a dead antenna shows here.
+        val noise = java.util.TreeMap<Long, Pair<Double, Int>>()
         var lastCheck = System.currentTimeMillis()
         // The waterfall's row for this sweep, while it is on screen.
         var row = ArrayList<SdrWaterfall.Segment>()
@@ -504,12 +507,17 @@ object SdrRadio {
                         if (!halted) status = "$deviceLabel · no samples from the SDR · restarting it" + turnNote()
                         sdr.resetBuffer()
                     }
+                    emptyChunks++
                     skipped()
                     continue
                 }
                 failedChunks = 0
                 val bursts = if (slotted) RadioWatch.burstSpectrum(iq, got / 2, sdr.sampleRate) else null
                 val psd = bursts?.psd ?: RadioWatch.powerSpectrum(iq, got / 2)
+                cfg.bands.firstOrNull { RadioWatch.covers(it, center) }?.let { b ->
+                    val med = psd.sorted()[psd.size / 2].toDouble()
+                    noise.merge(b.startHz, med to 1) { a, c -> (a.first + c.first) to (a.second + c.second) }
+                }
                 if (SdrWaterfall.listening) row += SdrWaterfall.segment(center, psd, sdr.sampleRate, RadioWatch.USABLE_HZ,
                     cfg.bands.firstOrNull { RadioWatch.covers(it, center) }?.label)
                 for (e in watch.analyze(center, psd, sdr.sampleRate, System.currentTimeMillis(), bursts)) {
@@ -535,7 +543,10 @@ object SdrRadio {
             if (now - lastLog > (if (watch.sweeps < 20) 10_000 else 60_000)) {
                 lastLog = now
                 com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: sweep ${watch.sweeps} in $sweepMs ms, ${watch.learnedChannels} channels, ${watch.busyChannels} always busy, " +
-                    "$events reported, PLL unlocked $unlocked, read errors $readErrors, tuner write failures ${sdr.tunerWriteFails}, USB errors ${sdr.ctlErrors}")
+                    "$events reported, PLL unlocked $unlocked, read errors $readErrors, chunks without samples $emptyChunks, " +
+                    "tuner write failures ${sdr.tunerWriteFails}, USB errors ${sdr.ctlErrors}, noise " +
+                    noise.entries.joinToString { (hz, v) -> "%.0f MHz %.0f dB".format(hz / 1e6, v.first / v.second) })
+                noise.clear()
             }
         }
         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: radio sweep stopped after ${watch.sweeps} sweeps")

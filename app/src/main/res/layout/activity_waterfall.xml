@@ -32,20 +32,23 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
+        android:baselineAligned="false"
         android:orientation="horizontal">
+
+        <!-- Same height for all three (a two-line label made its button taller and shifted the others), so none moves. -->
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/tuneButton"
             style="?attr/materialButtonOutlinedStyle"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_weight="1"
             android:text="Tune" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/sweepButton"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_marginStart="8dp"
             android:layout_weight="1"
             android:text="Back to sweep" />
@@ -54,7 +57,7 @@
             android:id="@+id/antennaButton"
             style="?attr/materialButtonOutlinedStyle"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_marginStart="8dp"
             android:layout_weight="1"
             android:text="Antenna check" />

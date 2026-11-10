@@ -65,15 +65,16 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
         val maker = runCatching { device.manufacturerName }.getOrNull().orEmpty()
         val product = runCatching { device.productName }.getOrNull().orEmpty()
         setI2cRepeater(true)
-        // a second look when nothing answers: right after plug-in one I2C read can go unanswered
-        for (attempt in 0 until 2) {
+        // More looks when nothing answers: right after a plug-in the tuner can stay silent for most of a second,
+        // and two looks 50 ms apart called a Blog V4L "not supported" six times in a row (tester log, 2026-11-10).
+        for (attempt in 0 until 6) {
             tuner = when {
                 i2cReadReg(R820T_I2C_ADDR, 0x00) == R82XX_CHECK_VAL -> Tuner.R820T
                 i2cReadReg(R828D_I2C_ADDR, 0x00) == R82XX_CHECK_VAL -> Tuner.R828D
                 else -> null
             }
             if (tuner != null) break
-            try { Thread.sleep(50) } catch (_: InterruptedException) {}
+            try { Thread.sleep(200) } catch (_: InterruptedException) {}
         }
         blogV4 = tuner == Tuner.R828D && maker == "RTLSDRBlog" && product == "Blog V4"
         blogV4L = tuner == Tuner.R820T && maker == "RTLSDRBlog" && product == "Blog V4L"
@@ -181,7 +182,11 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
     override fun read(buf: ByteArray, len: Int): Int {
         val t0 = System.nanoTime()
         val n = conn.bulkTransfer(rx, buf, len, 1000)
-        if (n > 0) { fastFails = 0; return n }
+        if (n > 0) {
+            // Whether clearing the endpoint worked: the log only said that reads failed.
+            if (fastFails > 0) log("RTL-SDR: samples back after $fastFails failed reads")
+            fastFails = 0; return n
+        }
         // A quiet stream takes the whole timeout; a read that fails at once is a stalled endpoint or a lost
         // interface. Clear the stall and pause instead of spinning, and give the dongle up after ~10 s of it
         // (SdrRadio then opens it again from scratch).

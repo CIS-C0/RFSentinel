@@ -27,7 +27,7 @@ class PagerHunt(
         val ranked = P25Hunt.strongest(scan.found)
         val tries = ranked.take(MAX_TRIES)
         log("Pager scan: ${plan.size} steps, tuner didn't lock ${scan.unlocked}, no samples ${scan.short}, ${ranked.size} carriers, " +
-            "strongest ${tries.joinToString { "%.0f".format(it.snrDb) }} dB")
+            "strongest ${P25Hunt.levels(tries)}, highest point %.0f dB".format(scan.peakDb))
         tried = 0
         for (c in tries) {
             if (stop()) return null

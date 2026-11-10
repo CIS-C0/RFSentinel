@@ -37,6 +37,20 @@ class WaterfallActivity : AppCompatActivity() {
     /** Rows show the zoomed-in view (vs the sweep), to clear the view once when it switches. */
     private var showingTuned: Boolean? = null
 
+    /** Debug builds only: a made-up SDR ([WaterfallDemo]) instead of the real one. */
+    private val demo get() = com.rfsentinel.app.BuildConfig.DEBUG && intent.getBooleanExtra("demo", false)
+    private val onRow: (SdrWaterfall.Row) -> Unit = { row ->
+        queue.add(row)
+        while (queue.size > MAX_QUEUED) queue.poll()
+        if (posted.compareAndSet(false, true)) binding.waterfall.post(drain)
+    }
+    private val demoFeed by lazy { WaterfallDemo(onRow) }
+    private val running get() = demo || SdrRadio.running
+    private val status get() = if (demo) "Demo: a made-up SDR, no radio used" else SdrRadio.status
+    private var tuneHz: Long?
+        get() = if (demo) demoFeed.tuneHz else SdrRadio.tuneHz
+        set(v) { if (demo) demoFeed.tuneHz = v else SdrRadio.tuneHz = v }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityWaterfallBinding.inflate(layoutInflater)
@@ -46,7 +60,7 @@ class WaterfallActivity : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         binding.waterfall.onTap = { hz -> zoom(hz) }
         binding.tuneButton.setOnClickListener { askFrequency() }
-        binding.sweepButton.setOnClickListener { SdrRadio.tuneHz = null; refresh() }
+        binding.sweepButton.setOnClickListener { tuneHz = null; refresh() }
         binding.antennaButton.setOnClickListener { antennaCheck() }
         // Opened from a radio transmission's Locate: straight to its frequency (not again after a rotation).
         if (savedInstanceState == null) intent.getLongExtra(EXTRA_TUNE_HZ, 0L).takeIf { it > 0 }?.let { zoom(it) }
@@ -55,35 +69,38 @@ class WaterfallActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        SdrWaterfall.listener = { row ->
-            queue.add(row)
-            while (queue.size > MAX_QUEUED) queue.poll()
-            if (posted.compareAndSet(false, true)) binding.waterfall.post(drain)
+        if (demo) demoFeed.start() else {
+            SdrWaterfall.listener = onRow
+            // So a log lines up with what the person saw (and screenshots of it).
+            com.rfsentinel.app.util.HwLogs.sdr.log("Radio waterfall screen opened")
         }
     }
 
     override fun onStop() {
         super.onStop()
-        SdrWaterfall.listener = null
+        if (demo) demoFeed.stop() else {
+            SdrWaterfall.listener = null
+            com.rfsentinel.app.util.HwLogs.sdr.log("Radio waterfall screen closed")
+        }
         queue.clear()
         // Radio detection never stays paused behind a closed screen (a redraw for a new theme comes straight back).
-        if (!isChangingConfigurations) SdrRadio.tuneHz = null
+        if (!isChangingConfigurations) tuneHz = null
     }
 
     override fun onSupportNavigateUp(): Boolean { finish(); return true }
 
     private fun zoom(hz: Long) {
-        if (!SdrRadio.running) return
-        SdrRadio.tuneHz = (hz + RadioWatch.STEP_HZ / 2) / RadioWatch.STEP_HZ * RadioWatch.STEP_HZ
+        if (!running) return
+        tuneHz = (hz + RadioWatch.STEP_HZ / 2) / RadioWatch.STEP_HZ * RadioWatch.STEP_HZ
         refresh()
     }
 
     /** One reading of FM radio and the weather-radio channels: on the air around the clock, so a quick test of antenna and SDR. */
     private fun antennaCheck() {
-        if (!SdrRadio.running) { Toast.makeText(this, "No SDR running", Toast.LENGTH_SHORT).show(); return }
+        if (!running) { Toast.makeText(this, "No SDR running", Toast.LENGTH_SHORT).show(); return }
         // The button says it's working until the answer comes: a couple of seconds, longer with a slow SDR.
         checking = true; refresh()
-        SdrRadio.antennaCheck = { r ->
+        val answer: (SdrRadio.AntennaReading) -> Unit = { r ->
             runOnUiThread {
                 checking = false
                 if (!isDestroyed) refresh()
@@ -93,11 +110,12 @@ class WaterfallActivity : AppCompatActivity() {
                     .setPositiveButton("OK", null).show()
             }
         }
+        if (demo) demoFeed.antennaCheck(answer) else SdrRadio.antennaCheck = answer
     }
 
     /** Ready-made stations first, so nobody needs to know a frequency; typing one is the last choice. */
     private fun askFrequency() {
-        if (!SdrRadio.running) { Toast.makeText(this, "No SDR running", Toast.LENGTH_SHORT).show(); return }
+        if (!running) { Toast.makeText(this, "No SDR running", Toast.LENGTH_SHORT).show(); return }
         MaterialAlertDialogBuilder(this)
             .setTitle("What to look at")
             .setItems((PRESETS.map { "${it.name}\n${it.about}" } + "Type a frequency…").toTypedArray()) { _, i ->
@@ -110,8 +128,10 @@ class WaterfallActivity : AppCompatActivity() {
     private fun typeFrequency() {
         val input = EditText(this).apply {
             hint = "Frequency in MHz, e.g. 155.475"
-            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
-            SdrRadio.tuneHz?.let { setText(String.format(Locale.US, "%.4f", it / 1e6)) }
+            // Both decimal marks in every language: the number filter alone dropped a "," (155,475 became 155475).
+            keyListener = android.text.method.DigitsKeyListener.getInstance("0123456789.,")
+            setRawInputType(InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL)
+            tuneHz?.let { setText(String.format(Locale.US, "%.4f", it / 1e6)) }
         }
         val pad = (20 * resources.displayMetrics.density).toInt()
         MaterialAlertDialogBuilder(this)
@@ -128,19 +148,19 @@ class WaterfallActivity : AppCompatActivity() {
     }
 
     private fun refresh() {
-        val tuned = SdrRadio.tuneHz
+        val tuned = tuneHz
         if (showingTuned != (tuned != null)) {
             showingTuned = tuned != null
             queue.clear()
             binding.waterfall.clear()
         }
-        val running = SdrRadio.running
+        val running = this.running
         binding.statusText.text = when {
-            !running -> SdrRadio.status.ifBlank { "No SDR running" }
+            !running -> status.ifBlank { "No SDR running" }
             tuned != null -> String.format(Locale.US, "%.4f MHz", tuned / 1e6) +
                 ((FreqNames.lookup(tuned, RadioWatch.STEP_HZ)?.name ?: PRESETS.firstOrNull { it.hz == tuned }?.name)?.let { " · $it" } ?: "") +
-                "\n" + SdrRadio.status
-            else -> SdrRadio.status
+                "\n" + status
+            else -> status
         }
         binding.hintText.text = when {
             !running -> "Plug in an RTL-SDR or HackRF and start scanning to see the radio bands live."
