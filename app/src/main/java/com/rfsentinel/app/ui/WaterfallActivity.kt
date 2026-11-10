@@ -2,7 +2,6 @@ package com.rfsentinel.app.ui
 
 import android.os.Bundle
 import android.text.InputType
-import android.view.View
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -146,14 +145,15 @@ class WaterfallActivity : AppCompatActivity() {
         binding.hintText.text = when {
             !running -> "Plug in an RTL-SDR or HackRF and start scanning to see the radio bands live."
             tuned != null -> (PRESETS.firstOrNull { it.hz == tuned }?.look ?: "Zoomed in on about 2 MHz.") +
-                " Tap or use the arrow keys to move; Back to sweep starts the radio sweep again."
+                " Pinch to zoom; tap or use the arrow keys to move; Back to sweep starts the radio sweep again."
             SdrRadio.mode == SdrRadio.Mode.ADSB -> "The SDR is receiving ADS-B. Tune to look at a frequency."
             SdrRadio.mode == SdrRadio.Mode.P25 -> "The SDR is following a P25 control channel. Tune to look at a frequency."
             SdrRadio.mode == SdrRadio.Mode.PAGER -> "The SDR is decoding pagers. Tune to look at a frequency."
             else -> "A row per sweep of your bands, newest on top; rows pause while another scan has its turn. " +
-                "Bright marks are signals: tap one to zoom in, or tap Tune to pick from a list."
+                "Bright marks are signals: pinch to look closer, tap one to tune to it, or tap Tune to pick from a list."
         }
-        binding.sweepButton.visibility = if (tuned != null) View.VISIBLE else View.GONE
+        // Always in place, so the buttons never move; usable only while zoomed in on a frequency.
+        binding.sweepButton.isEnabled = running && tuned != null
         binding.tuneButton.isEnabled = running
         binding.antennaButton.isEnabled = running && !checking
         binding.antennaButton.text = if (checking) "Checking…" else "Antenna check"

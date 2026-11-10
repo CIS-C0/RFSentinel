@@ -5,13 +5,17 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Rect
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.view.View
+import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import com.rfsentinel.app.sdr.SdrWaterfall
 import java.util.Locale
 import kotlin.math.abs
@@ -19,7 +23,7 @@ import kotlin.math.abs
 /**
  * The radio waterfall: the latest spectrum as a line on top, and below it every row so far, newest at
  * the top, from dark (noise) to bright (a strong signal). The colour scale follows the noise floor, so
- * it reads the same with any antenna. Tap to pick a frequency ([onTap]).
+ * it reads the same with any antenna. Tap to pick a frequency ([onTap]); pinch to zoom the picture, drag to move it.
  */
 class WaterfallView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
 
@@ -60,13 +64,47 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
     /** Noise floor (dB), followed slowly so the colours stay steady. */
     private var floor = Float.NaN
 
+    /** Pinch zoom of the picture (1 = everything) and the first column shown, in columns. */
+    private var zoom = 1f
+    private var panX = 0f
+    private fun colAt(sx: Float) = (panX + sx / zoom).toInt().coerceIn(0, (colHz.size - 1).coerceAtLeast(0))
+    private fun screenX(col: Float) = (col - panX) * zoom
+    private fun clampPan() { panX = panX.coerceIn(0f, (width - width / zoom).coerceAtLeast(0f)) }
+    private var focusX = 0f
+    private val scaler = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+        override fun onScaleBegin(d: ScaleGestureDetector): Boolean { focusX = d.focusX; return true }
+        override fun onScale(d: ScaleGestureDetector): Boolean {
+            // Like a map: the frequency under the fingers stays under them, and moving both fingers moves the picture.
+            val at = panX + focusX / zoom
+            zoom = (zoom * d.scaleFactor).coerceIn(1f, MAX_ZOOM)
+            panX = at - d.focusX / zoom
+            focusX = d.focusX
+            clampPan(); invalidate()
+            return true
+        }
+    }).apply { isQuickScaleEnabled = false } // a double tap would also be two taps that tune
+
+    init {
+        // Screen readers: double tap zooms in on the strongest signal shown, as tapping on it would.
+        ViewCompat.replaceAccessibilityAction(this, AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_CLICK,
+            "zoom in on the strongest signal") { _, _ -> strongest()?.let { onTap?.invoke(it); true } ?: false }
+    }
+
+    /** The frequency of the strongest signal on screen, if any. */
+    private fun strongest(): Long? {
+        val s = spectrum ?: return null
+        if (colHz.size != s.size) return null
+        val x = (colAt(0f)..colAt(width - 1f)).maxByOrNull { s[it] } ?: return null
+        return if (s[x] > SdrWaterfall.NO_DATA) colHz[x] else null
+    }
+
     private val spectrumH get() = (height * 0.28f).coerceAtLeast(64 * density)
     private val labelH get() = textPaint.textSize + 6 * density
     private val waterTop get() = spectrumH + labelH
 
     /** Forgets every row (the view switched between the sweep and a single frequency). */
     fun clear() {
-        layoutKey = ""; rows = 0; spectrum = null; peak = null; floor = Float.NaN
+        layoutKey = ""; rows = 0; spectrum = null; peak = null; floor = Float.NaN; zoom = 1f; panX = 0f
         bitmap?.eraseColor(Color.BLACK)
         invalidate()
     }
@@ -145,7 +183,12 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
             c.drawBitmap(old, Rect(0, oldNewest, old.width, oldNewest + first), Rect(0, 0, w, first), bitmapPaint)
             if (keep > first) c.drawBitmap(old, Rect(0, 0, old.width, keep - first), Rect(0, first, w, keep), bitmapPaint)
             rows = keep
-        } else floor = Float.NaN
+        } else {
+            floor = Float.NaN
+            // Zoomed in on a frequency and moved to another: keep the zoom, centred on it. New sweep bands: show them all.
+            if (row.tuned) panX = (w - w / zoom) / 2 else { zoom = 1f; panX = 0f }
+        }
+        clampPan()
         bitmap?.recycle()
         bitmap = fresh
     }
@@ -165,7 +208,10 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
         val top = waterTop
         canvas.drawRect(0f, top, w, height.toFloat(), blackPaint)
         val bmp = bitmap
+        // Pinch zoom: columns stretched by [zoom] from [panX]; lines are drawn in screen pixels so they stay thin.
+        val m = Matrix().apply { setScale(zoom, 1f); postTranslate(-panX * zoom, 0f) }
         if (bmp != null && rows > 0) {
+            canvas.save(); canvas.concat(m)
             // Newest row at the top: the bitmap from [newest] down, then its start.
             val scale = (height - top) / bmp.height
             val firstRows = minOf(rows, bmp.height - newest)
@@ -174,8 +220,9 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
             val rest = rows - firstRows
             if (rest > 0) canvas.drawBitmap(bmp, Rect(0, 0, bmp.width, rest),
                 android.graphics.RectF(0f, top + firstRows * scale, w, top + rows * scale), bitmapPaint)
+            canvas.restore()
         }
-        for (g in gaps) canvas.drawLine(g.toFloat(), 0f, g.toFloat(), height.toFloat(), gapPaint)
+        for (g in gaps) screenX(g.toFloat()).let { canvas.drawLine(it, 0f, it, height.toFloat(), gapPaint) }
         val s = spectrum
         if (s != null && !floor.isNaN()) {
             val h = spectrumH - 4 * density
@@ -187,44 +234,59 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
                     if (v <= SdrWaterfall.NO_DATA || s[x] <= SdrWaterfall.NO_DATA) pen = false
                     else if (pen) lineTo(x.toFloat(), y(v)) else { moveTo(x.toFloat(), y(v)); pen = true }
                 }
+                transform(m)
             }
             peak?.let { canvas.drawPath(line(it), peakPaint) }
             canvas.drawPath(line(s), linePaint)
         }
         drawLabels(canvas)
+        // How far in, and how to get back out: shown only while zoomed.
+        if (zoom > 1.05f) {
+            val t = String.format(Locale.US, "%.0f× · pinch out to see all", zoom)
+            canvas.drawText(t, width - textPaint.measureText(t) - 2 * density, textPaint.textSize, textPaint)
+        }
     }
 
     /** Frequencies under the spectrum: each band's start, and the right-hand end. */
     private fun drawLabels(canvas: Canvas) {
         if (colHz.isEmpty()) return
         val y = spectrumH + textPaint.textSize
-        val marks = if (tuned) listOf(0, colHz.size / 2, colHz.size - 1) else (listOf(0) + gaps.toList() + (colHz.size - 1)).distinct()
+        // The first, last and band-start frequencies of what is on screen (all of it unless zoomed).
+        val first = colAt(0f); val last = colAt(width - 1f)
+        val marks = if (tuned) listOf(first, colAt(width / 2f), last) else (listOf(first) + gaps.filter { it in first + 1..last } + last).distinct()
         var lastEnd = Float.NEGATIVE_INFINITY // -1 hid the first label: 0 is closer than 8 dp to it
         for ((i, x) in marks.withIndex()) {
             val t = mhz(colHz[x])
             val tw = textPaint.measureText(t)
-            val left = when (i) { 0 -> 0f; marks.lastIndex -> width - tw; else -> (x - tw / 2).coerceIn(0f, width - tw) }
+            val left = when (i) { 0 -> 0f; marks.lastIndex -> width - tw; else -> (screenX(x.toFloat()) - tw / 2).coerceIn(0f, width - tw) }
             if (left < lastEnd + 8 * density) continue
             canvas.drawText(t, left, y, textPaint)
             lastEnd = left + tw
         }
     }
 
-    private fun mhz(hz: Long) = String.format(Locale.US, if (tuned) "%.3f" else "%.1f", hz / 1e6)
+    private fun mhz(hz: Long) = String.format(Locale.US, if (tuned || zoom > 2f) "%.3f" else "%.1f", hz / 1e6)
 
-    private var downX = 0f; private var downY = 0f
+    private var downX = 0f; private var downY = 0f; private var lastX = 0f
+    /** This touch pinched or dragged, so lifting the finger is not a tap. */
+    private var moved = false
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(e: MotionEvent): Boolean {
+        scaler.onTouchEvent(e)
         when (e.actionMasked) {
-            MotionEvent.ACTION_DOWN -> { downX = e.x; downY = e.y; return true }
-            MotionEvent.ACTION_UP -> if (abs(e.x - downX) < 16 * density && abs(e.y - downY) < 16 * density) {
-                val x = e.x.toInt()
-                if (x in colHz.indices) { onTap?.invoke(colHz[x]); performClick() }
-                return true
+            MotionEvent.ACTION_DOWN -> { downX = e.x; downY = e.y; lastX = e.x; moved = false }
+            MotionEvent.ACTION_POINTER_DOWN -> { moved = true; parent?.requestDisallowInterceptTouchEvent(true) }
+            // One finger left of a pinch: drag on from where it is now, without a jump.
+            MotionEvent.ACTION_POINTER_UP -> lastX = e.getX(if (e.actionIndex == 0) 1 else 0)
+            MotionEvent.ACTION_MOVE -> if (e.pointerCount == 1 && !scaler.isInProgress) {
+                if (abs(e.x - downX) >= 16 * density || abs(e.y - downY) >= 16 * density) moved = true
+                if (moved && zoom > 1f) { panX -= (e.x - lastX) / zoom; clampPan(); invalidate() }
+                lastX = e.x
             }
+            MotionEvent.ACTION_UP -> if (!moved && colHz.isNotEmpty()) { onTap?.invoke(colHz[colAt(e.x)]); performClick() }
         }
-        return super.onTouchEvent(e)
+        return true
     }
 
     override fun performClick(): Boolean = super.performClick()
@@ -245,6 +307,7 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
         /** dB above the noise floor that reach the top of the colour scale. */
         private const val RANGE_DB = 40f
         private const val KEY_STEP_HZ = 100_000L
+        private const val MAX_ZOOM = 8f
 
         /** Black, deep blue, cyan, yellow, red, white: the usual waterfall scale. */
         private val PALETTE = IntArray(256) { i ->

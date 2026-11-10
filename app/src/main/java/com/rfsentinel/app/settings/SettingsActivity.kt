@@ -1894,8 +1894,10 @@ class SettingsActivity : AppCompatActivity() {
             Prefs.setRadioReferenceOn(this, it)
         }
         fun secret(title: String, key: String, password: Boolean) {
+            // A label that stays above the field: a hint disappears once something is typed.
+            val label = box.label(title)
             box.addView(android.widget.EditText(this).apply {
-                hint = title
+                id = View.generateViewId(); label.labelFor = id
                 setText(com.rfsentinel.app.util.SecureStore.get(this@SettingsActivity, key).orEmpty())
                 isSingleLine = true
                 inputType = android.text.InputType.TYPE_CLASS_TEXT or
@@ -1907,9 +1909,9 @@ class SettingsActivity : AppCompatActivity() {
                 secretFields += this to key
             })
         }
-        secret("RadioReference username (not your email)", com.rfsentinel.app.sdr.RadioReference.USER_KEY, false)
-        secret("RadioReference password", com.rfsentinel.app.sdr.RadioReference.PASS_KEY, true)
-        secret("RadioReference developer key", com.rfsentinel.app.sdr.RadioReference.APPKEY_KEY, true)
+        secret("Username, not your email", com.rfsentinel.app.sdr.RadioReference.USER_KEY, false)
+        secret("Password", com.rfsentinel.app.sdr.RadioReference.PASS_KEY, true)
+        secret("Developer key", com.rfsentinel.app.sdr.RadioReference.APPKEY_KEY, true)
         val rrStatus = box.label(com.rfsentinel.app.sdr.RadioReference.status.ifEmpty { "Stored encrypted on this phone." }, small = true)
         box.addView(com.google.android.material.button.MaterialButton(this, null, android.R.attr.borderlessButtonStyle).apply {
             text = "Test login"
