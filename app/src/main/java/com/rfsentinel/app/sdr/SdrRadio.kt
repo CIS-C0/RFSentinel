@@ -41,6 +41,7 @@ object SdrRadio {
     private const val ADSB_PUSH_MS = 2_000L
     private const val TUNED_READS = 4          // ~16 ms of samples per waterfall row
     private const val TUNED_ROW_MS = 40L       // at most ~25 rows a second
+    private const val TUNED_LOG_MS = 5_000L    // "log everything": what the waterfall hears, every 5 s
     private const val P25_RETRY_MS = 30_000L   // no control channel found: look again after this
     private const val PAGER_RETRY_MS = 5_000L  // no paging channel decoded: look again after this (they can be silent between pages)
     private const val INPUT_DELAY_MS = 400L    // after a grant: the radio is on the air by then
@@ -69,7 +70,10 @@ object SdrRadio {
     private var lastWorker: Thread? = null
     @Volatile private var usb: UsbManager? = null
     private var appContext: Context? = null
-    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    /** Settings › "Log everything the RTL-SDR hears": frequencies, aircraft and capcodes in the log too (page text never). */
+    private val logAll get() = appContext?.let { com.rfsentinel.app.util.Prefs.sdrLogAll(it) } == true
+    private fun logHeard(text: String) = com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: heard: $text")
+    private val main =android.os.Handler(android.os.Looper.getMainLooper())
     /** "RTL-SDR" or "HackRF": the plugged-in device, for the status line. */
     @Volatile private var deviceLabel = "RTL-SDR"
     private val UNPLUGGED get() = "$deviceLabel unplugged"
@@ -410,6 +414,7 @@ object SdrRadio {
         val demod = ModeS.Demod()
         val tracker = AdsbTracker()
         val frames = ArrayList<ModeS.Frame>()
+        val loggedPlanes = HashSet<String>()
         var lastPush = 0L; var lastLog = System.currentTimeMillis(); var fails = 0; var messages = 0L; var logged = 0L
         var lastCheck = System.currentTimeMillis()
         // A reader thread keeps a read waiting on the dongle while the last one is decoded: no samples lost in between.
@@ -444,6 +449,11 @@ object SdrRadio {
                 tracker.prune(now)
                 val located = tracker.located(now)
                 val unlocated = tracker.unlocated(now)
+                // Each aircraft once per turn; no position (it would be near you).
+                if (logAll) {
+                    for (p in located) if (loggedPlanes.add(p.hex)) logHeard("aircraft ${p.hex}" + (p.callsign?.let { " $it" } ?: "") + (p.altitudeFt?.let { " at $it ft" } ?: ""))
+                    for (hex in unlocated) if (loggedPlanes.add(hex)) logHeard("aircraft $hex, no position")
+                }
                 onAircraft?.invoke(located, unlocated)
                 if (!halted) status = "$deviceLabel · ADS-B · ${located.size + unlocated.size} aircraft heard, ${located.size} with a position" + turnNote()
             }
@@ -480,6 +490,8 @@ object SdrRadio {
         var lastCheck = System.currentTimeMillis()
         // The waterfall's row for this sweep, while it is on screen.
         var row = ArrayList<SdrWaterfall.Segment>()
+        // "Log everything": every channel heard in this sweep.
+        val heard = ArrayList<P25Hunt.Candidate>()
         while (!halted && !sdr.lost && keeps(Mode.SWEEP)) {
             // Settings changed: the new bands / targets / sensitivity from this sweep on.
             if (config != cfg) { cfg = config; plan = RadioWatch.plan(cfg); watch.config = cfg; logPlan() }
@@ -520,6 +532,7 @@ object SdrRadio {
                 }
                 if (SdrWaterfall.listening) row += SdrWaterfall.segment(center, psd, sdr.sampleRate, RadioWatch.USABLE_HZ,
                     cfg.bands.firstOrNull { RadioWatch.covers(it, center) }?.label)
+                if (logAll) heard += P25Hunt.candidates(center, psd, sdr.sampleRate)
                 for (e in watch.analyze(center, psd, sdr.sampleRate, System.currentTimeMillis(), bursts)) {
                     if (!e.repeat) {
                         events++
@@ -531,6 +544,8 @@ object SdrRadio {
             }
             if (!keeps(Mode.SWEEP)) break // cut short: not a whole sweep
             watch.sweepDone()
+            if (logAll) logHeard("sweep ${watch.sweeps}: ${P25Hunt.heard(heard)}")
+            heard.clear()
             val now = System.currentTimeMillis()
             // Whole sweeps only: one begun before the screen opened lacks its first bands, and its different
             // layout made the screen start over on the next row (skipped chunks are in it, as blanks).
@@ -556,7 +571,7 @@ object SdrRadio {
     private fun runP25(sdr: SdrDevice, name: String) {
         sdr.setGain(GAIN_TENTHS_DB)
         sdr.resetBuffer()
-        val hunt = p25Hunt ?: P25Hunt(sdr, readAhead = true) { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: $it") }.also { p25Hunt = it }
+        val hunt = p25Hunt ?: P25Hunt(sdr, readAhead = true, logAll = { logAll }) { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: $it") }.also { p25Hunt = it }
         var lastCheck = System.currentTimeMillis(); var away = false
         val stop = {
             val now = System.currentTimeMillis()
@@ -577,11 +592,12 @@ object SdrRadio {
                 while (!stop() && System.currentTimeMillis() < until) Thread.sleep(200)
                 continue
             }
-            // Frequency and network code stay off the log: together they name the local system.
-            com.rfsentinel.app.util.HwLogs.sdr.log(if (known != null) "$deviceLabel: P25 back on the control channel" else "$deviceLabel: P25 control channel found after ${hunt.tried} tries")
+            // Frequency and network code stay off the log (together they name the local system), unless "log everything" is on.
+            val where = "%.3f MHz · NAC %03X".format(java.util.Locale.US, lock.hz / 1e6, lock.nac)
+            com.rfsentinel.app.util.HwLogs.sdr.log((if (known != null) "$deviceLabel: P25 back on the control channel" else "$deviceLabel: P25 control channel found after ${hunt.tried} tries") +
+                (if (logAll) " ($where)" else ""))
             p25Lock = lock
             if (lock.nac != p25Nac) { p25Log.clear(System.currentTimeMillis()); p25Nac = lock.nac } // another system: a new list
-            val where = "%.3f MHz · NAC %03X".format(java.util.Locale.US, lock.hz / 1e6, lock.nac)
             status = "$deviceLabel · P25 · control channel $where" + turnNote()
             var messages = 0; var lastStatus = 0L
             var pending: Pair<P25History.Call, Long>? = null; var lastInput = 0L; var inputs = 0; var heard = 0
@@ -609,6 +625,9 @@ object SdrRadio {
                 for (tg in p25Log.add(it, now)) onP25Call?.invoke(tg)
                 val calls = p25Log.takeCalls()
                 appContext?.let { c -> P25History.append(c, calls) }
+                if (logAll) for (c in calls) logHeard("P25 call" + (c.tg?.let { " talkgroup $it" } ?: "") + (c.target?.let { " to radio $it" } ?: "") +
+                    (c.source?.let { " from radio $it" } ?: "") + (c.hz?.let { " on %.4f MHz".format(java.util.Locale.US, it / 1e6) } ?: "") +
+                    (if (c.encrypted) ", encrypted" else "") + (if (c.emergency) ", emergency" else ""))
                 val hold = p25Hold
                 if (p25Inputs && pending == null && now - lastInput >= INPUT_GAP_MS) {
                     calls.lastOrNull { it.source != null && it.channel != null && (hold == null || it.tg == hold) }?.let { c ->
@@ -735,7 +754,7 @@ object SdrRadio {
         fun show(text: String) { shown = text; status = text }
         val hunt = PagerHunt(sdr, { appContext?.let { com.rfsentinel.app.util.Prefs.pagerSpeeds(it) } ?: PagerDemod.SPEEDS }, STREAM_XFER, { stalled ->
             status = if (stalled) "$deviceLabel · pagers · no samples from the SDR · restarting it" + turnNote() else shown
-        }) {
+        }, { logAll }) {
             com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: $it")
         }
         var lastCheck = System.currentTimeMillis(); var away = false
@@ -746,6 +765,9 @@ object SdrRadio {
         }
         val onPage = { page: PagerLog.Page, hz: Long ->
             val ignored = appContext?.let { page.capcode in PagerRules.ignored(com.rfsentinel.app.util.Prefs.pagerIgnore(it)) } == true
+            // Never the text: pages are never saved or exported.
+            if (logAll) logHeard("%s page to capcode %d on %.4f MHz, %s, %d characters%s%s".format(java.util.Locale.US, page.protocol, page.capcode,
+                hz / 1e6, page.kind.name.lowercase(), page.text.length, if (page.partial) ", partly garbled" else "", if (ignored) ", ignored" else ""))
             if (!ignored) {
                 pagerLog.add(page, hz, System.currentTimeMillis())
                 onPagerPage?.invoke(page)
@@ -780,8 +802,9 @@ object SdrRadio {
             val before = pagerLog.total
             val quiet = hunt.listen(hz, stop, onPage)
             if (quiet) pagerHz = null
-            // A count only: frequency, capcodes and text stay off the log.
-            com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: pagers ${if (quiet) "channel went quiet" else "turn over or stopped"} after ${pagerLog.total - before} pages")
+            // A count only: frequency, capcodes and text stay off the log (the frequency too with "log everything").
+            com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: pagers ${if (quiet) "channel went quiet" else "turn over or stopped"} after ${pagerLog.total - before} pages" +
+                (if (logAll) " on %.4f MHz".format(java.util.Locale.US, hz / 1e6) else ""))
         }
     }
 
@@ -803,11 +826,13 @@ object SdrRadio {
         if (chunks == 0 && weather == null) return AntennaReading(0, 0, 0, 0, ok = false)
         val fmDb = if (chunks == 0) 0 else (fmPeak - floor).toInt()
         val best = weather?.indices?.maxBy { weather[it] }
-        // Levels only: which station is strongest would tell where the phone is.
-        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: antenna check: FM radio $fmDb dB in $chunks of ${FM_CENTERS.size} chunks, " +
-            "weather channels ${weather?.max() ?: "not read"} dB, gain ${GAIN_TENTHS_DB / 10.0} dB")
         // FM stations sit on a 100 kHz grid.
-        return AntennaReading((fmHz + 50_000) / 100_000 * 100_000, fmDb, best?.let { WEATHER_HZ[it] } ?: 0, best?.let { weather[it] } ?: 0)
+        val reading = AntennaReading((fmHz + 50_000) / 100_000 * 100_000, fmDb, best?.let { WEATHER_HZ[it] } ?: 0, best?.let { weather[it] } ?: 0)
+        // Levels only: which station is strongest would tell where the phone is (unless "log everything" is on).
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: antenna check: FM radio $fmDb dB in $chunks of ${FM_CENTERS.size} chunks, " +
+            "weather channels ${weather?.max() ?: "not read"} dB, gain ${GAIN_TENTHS_DB / 10.0} dB" +
+            (if (logAll) ", strongest FM %.1f MHz, weather %.3f MHz".format(java.util.Locale.US, reading.fmHz / 1e6, reading.weatherHz / 1e6) else ""))
+        return reading
     }
 
     /** The power spectrum with the SDR tuned to [center]; null when the tuner or the samples failed. */
@@ -844,7 +869,7 @@ object SdrRadio {
         status = "$deviceLabel · waterfall on $mhz · radio sweep paused"
         val buf = ByteArray(XFER)
         val iq = ByteArray(XFER * TUNED_READS)
-        var lastRow = 0L; var lastCheck = System.currentTimeMillis(); var fails = 0
+        var lastRow = 0L; var lastCheck = System.currentTimeMillis(); var fails = 0; var lastHeard = 0L
         repeat(sdr.settleReads) { sdr.read(buf) }
         while (!halted && !sdr.lost && tuneHz == hz && antennaCheck == null) {
             if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
@@ -860,10 +885,13 @@ object SdrRadio {
             }
             fails = 0
             val now = System.currentTimeMillis()
+            val logNow = now - lastHeard >= TUNED_LOG_MS && logAll
             val listener = SdrWaterfall.listener
+            if (!logNow && (listener == null || now - lastRow < TUNED_ROW_MS)) continue
+            val psd = RadioWatch.powerSpectrum(iq, got / 2)
+            if (logNow) { lastHeard = now; logHeard("waterfall on $mhz: ${P25Hunt.heard(P25Hunt.candidates(hz, psd, sdr.sampleRate))}") }
             if (listener == null || now - lastRow < TUNED_ROW_MS) continue
             lastRow = now
-            val psd = RadioWatch.powerSpectrum(iq, got / 2)
             // The outer tenth on each side rolls off in the receiver's filter: left out.
             listener(SdrWaterfall.Row(listOf(SdrWaterfall.segment(hz, psd, sdr.sampleRate, sdr.sampleRate * 0.45, null)), tuned = true, at = now))
         }

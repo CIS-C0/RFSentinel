@@ -786,6 +786,10 @@ object Prefs {
     }
 
     /** Name hits from RadioReference (needs the user's own Premium login and developer key; off by default). */
+    /** SDR log names every frequency, aircraft and page it hears (never page text). Off: counts and levels only. */
+    fun sdrLogAll(context: Context): Boolean = bool(context, "sdr_log_all", false)
+    fun setSdrLogAll(context: Context, v: Boolean) = setBool(context, "sdr_log_all", v)
+
     fun radioReferenceOn(context: Context): Boolean = bool(context, "radio_reference_on", false)
     fun setRadioReferenceOn(context: Context, v: Boolean) = setBool(context, "radio_reference_on", v)
 

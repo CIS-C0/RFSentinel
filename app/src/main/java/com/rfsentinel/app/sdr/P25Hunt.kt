@@ -16,7 +16,8 @@ import kotlin.math.roundToLong
  *
  * Times count in samples, not the clock: unit-tested with a simulated dongle.
  */
-class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false, private val log: (String) -> Unit = {}) {
+class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false, private val logAll: () -> Boolean = { false },
+              private val log: (String) -> Unit = {}) {
 
     data class Candidate(val hz: Long, val snrDb: Float)
     /** A control channel: [hz] where this dongle hears it, [nac] the system's network access code. */
@@ -61,6 +62,7 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
         log("P25 scan: ${plan.size} steps, tuner didn't lock ${scan.unlocked}, no samples ${scan.short}, ${ranked.size} channels " +
             "${MIN_SNR_DB.toInt()} dB or more above the noise (700 MHz ${ranked.count { it.hz < 800_000_000L }}, " +
             "800 MHz ${ranked.count { it.hz >= 800_000_000L }}), strongest ${levels(tries)}, highest point %.0f dB".format(scan.peakDb))
+        if (logAll()) log("P25 scan heard: ${heard(ranked)}")
         tried = 0
         for (c in tries) {
             if (stop()) return null
@@ -72,7 +74,7 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
 
     /** A short listen on [c]: a [Lock] when trunking blocks decode there. */
     private fun trial(c: Candidate, which: String, stop: () -> Boolean): Lock? {
-        val head = "P25 try $which: ${band(c.hz)} band, %.0f dB:".format(c.snrDb)
+        val head = "P25 try $which: ${if (logAll()) "%.4f MHz".format(java.util.Locale.US, c.hz / 1e6) else "${band(c.hz)} band"}, %.0f dB:".format(c.snrDb)
         val center = c.hz - OFFSET_HZ
         if (!sdr.tune(center)) { log("$head the tuner didn't lock"); return null }
         repeat(sdr.settleReads) { sdr.read(buf) }
@@ -98,7 +100,8 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
         val drift = "frequency loop moved %+.0f Hz in %.2f s".format(demod.offsetHz - OFFSET_HZ, samples.toDouble() / P25Demod.SAMPLE_RATE)
         // Trunking NIDs but no clean block: a control channel all the same, only too weak here to read.
         if (st.good < MIN_BLOCKS) { log("$head $st, $drift - ${if (st.tsdu > 0) "a control channel, too weak to decode" else "not a control channel"}"); return null }
-        log("$head $st, $drift - control channel (${nacs.size} NAC${if (nacs.size == 1) "" else "s"} seen)")
+        log("$head $st, $drift - control channel (${nacs.size} NAC${if (nacs.size == 1) "" else "s"} seen" +
+            (if (logAll()) ": " + nacs.keys.joinToString { "%03X".format(it) } else "") + ")")
         return Lock(center + demod.offsetHz.roundToLong(), nacs.maxBy { it.value }.key)
     }
 
@@ -248,6 +251,14 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
 
         /** "17, 16 dB", or "none" when nothing stood out (it read "strongest  dB"). */
         internal fun levels(tries: List<Candidate>) = if (tries.isEmpty()) "none" else tries.joinToString { "%.0f".format(it.snrDb) } + " dB"
+
+        /** "155.4750 MHz 24 dB, ...": the strongest [max], for "Log everything the RTL-SDR hears". */
+        internal fun heard(found: List<Candidate>, max: Int = 40): String {
+            val top = strongest(found)
+            return if (top.isEmpty()) "nothing ${MIN_SNR_DB.toInt()} dB above the noise" else
+                top.take(max).joinToString { "%.4f MHz %.0f dB".format(java.util.Locale.US, it.hz / 1e6, it.snrDb) } +
+                    (if (top.size > max) " and ${top.size - max} weaker" else "")
+        }
 
         /** The highest bin of the usable middle above the chunk's median, the receiver's own centre spike left out. */
         internal fun peakAboveNoise(psd: FloatArray, sampleRate: Int): Float {

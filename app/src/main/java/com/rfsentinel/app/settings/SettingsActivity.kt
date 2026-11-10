@@ -1661,6 +1661,11 @@ class SettingsActivity : AppCompatActivity() {
                 }
             })
         })
+        box.toggle("Log everything the RTL-SDR hears", Prefs.sdrLogAll(this),
+            "The SDR log also names what it hears: the frequencies found in each sweep and scan, P25 control channels and " +
+            "calls, aircraft addresses and callsigns, and each page's capcode and length. Page text is never logged. " +
+            "Frequencies can tell where you are, so read the log before you share it. The log keeps about the last 2 MB, " +
+            "roughly half an hour with this on. Off, it keeps counts and levels only.") { Prefs.setSdrLogAll(this, it) }
 
         // What the SDR does: any mix; with more than one ticked it takes turns.
         var showSdrOptions: () -> Unit = {}
