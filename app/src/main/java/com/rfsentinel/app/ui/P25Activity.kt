@@ -202,15 +202,17 @@ class P25Activity : AppCompatActivity() {
             if (s.messages > 0) "${s.messages} messages · ${s.registrations} radios registered" else null
         ).joinToString("\n")
         adapter.notifyDataSetChanged()
+        val p25Off = SdrRadio.Mode.P25 !in SdrRadio.modes
         val empty = when {
             rows.isNotEmpty() -> null
             q.isNotEmpty() -> "Nothing matches."
-            SdrRadio.Mode.P25 !in SdrRadio.modes -> "P25 is off.\nTick P25 control channel in Settings › RTL-SDR radio. It runs while scanning, with an RTL-SDR plugged in."
+            p25Off -> "P25 is off.\nTap here to open Settings › RTL-SDR radio and tick P25 control channel. It runs while scanning, with an RTL-SDR plugged in."
             else -> "No calls heard yet.\nTalkgroups show up here as the control channel grants them a channel."
         }
         binding.recyclerView.visibility = if (empty == null) View.VISIBLE else View.GONE
         binding.emptyText.text = empty.orEmpty()
         binding.emptyText.visibility = if (empty != null) View.VISIBLE else View.GONE
+        settingsLink(binding.emptyText, empty != null && q.isEmpty() && p25Off)
     }
 
     private var all: List<P25History.Summary> = emptyList()
@@ -240,6 +242,7 @@ class P25Activity : AppCompatActivity() {
         binding.recyclerView.visibility = if (empty == null) View.VISIBLE else View.GONE
         binding.emptyText.text = empty.orEmpty()
         binding.emptyText.visibility = if (empty != null) View.VISIBLE else View.GONE
+        settingsLink(binding.emptyText, false)
     }
 
     companion object {

@@ -76,9 +76,18 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
         val w = width; if (w <= 0 || height <= waterTop + 8 * density) return
         val key = row.tuned.toString() + row.segments.joinToString { "${it.startHz}-${it.endHz}" }
         if (key != layoutKey || w != layoutW || height != layoutH) relayout(row, w, key)
+        // The sweep: each chunk against its own noise floor. The dongle hears more noise on some bands (VHF most),
+        // and one scale for all made those bands glow and the others look dead.
+        val dbs = row.segments.map { s ->
+            if (row.tuned) s.db else {
+                val heard = s.db.filter { it > SdrWaterfall.NO_DATA }.sorted()
+                val noise = if (heard.isEmpty()) 0f else heard[heard.size / 2]
+                FloatArray(s.db.size) { if (s.db[it] <= SdrWaterfall.NO_DATA) SdrWaterfall.NO_DATA else s.db[it] - noise }
+            }
+        }
         // One value per column: the strongest bin under it, so a narrow signal never falls between pixels.
         val values = FloatArray(w) { x ->
-            val d = row.segments[colSeg[x]].db
+            val d = dbs[colSeg[x]]
             var m = -200f
             for (k in colFrom[x]..colTo[x]) if (d[k] > m) m = d[k]
             m
@@ -171,8 +180,16 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
         if (s != null && !floor.isNaN()) {
             val h = spectrumH - 4 * density
             fun y(v: Float) = 2 * density + h * (1f - ((v - floor + 3f) / (RANGE_DB + 10f)).coerceIn(0f, 1f))
-            peak?.let { p -> canvas.drawPath(Path().apply { p.forEachIndexed { x, v -> if (x == 0) moveTo(0f, y(v)) else lineTo(x.toFloat(), y(v)) } }, peakPaint) }
-            canvas.drawPath(Path().apply { s.forEachIndexed { x, v -> if (x == 0) moveTo(0f, y(v)) else lineTo(x.toFloat(), y(v)) } }, linePaint)
+            // A chunk that gave no reading leaves a gap, not a flat line along the bottom that looks like a signal.
+            fun line(a: FloatArray) = Path().apply {
+                var pen = false
+                a.forEachIndexed { x, v ->
+                    if (v <= SdrWaterfall.NO_DATA || s[x] <= SdrWaterfall.NO_DATA) pen = false
+                    else if (pen) lineTo(x.toFloat(), y(v)) else { moveTo(x.toFloat(), y(v)); pen = true }
+                }
+            }
+            peak?.let { canvas.drawPath(line(it), peakPaint) }
+            canvas.drawPath(line(s), linePaint)
         }
         drawLabels(canvas)
     }
@@ -182,7 +199,7 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
         if (colHz.isEmpty()) return
         val y = spectrumH + textPaint.textSize
         val marks = if (tuned) listOf(0, colHz.size / 2, colHz.size - 1) else (listOf(0) + gaps.toList() + (colHz.size - 1)).distinct()
-        var lastEnd = -1f
+        var lastEnd = Float.NEGATIVE_INFINITY // -1 hid the first label: 0 is closer than 8 dp to it
         for ((i, x) in marks.withIndex()) {
             val t = mhz(colHz[x])
             val tw = textPaint.measureText(t)
@@ -212,9 +229,22 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
 
     override fun performClick(): Boolean = super.performClick()
 
+    /** Keyboard and D-pad: left / right move the zoomed-in view by [KEY_STEP_HZ]. */
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent): Boolean {
+        val step = when (keyCode) {
+            android.view.KeyEvent.KEYCODE_DPAD_LEFT -> -KEY_STEP_HZ
+            android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> KEY_STEP_HZ
+            else -> return super.onKeyDown(keyCode, event)
+        }
+        if (!tuned || colHz.isEmpty()) return super.onKeyDown(keyCode, event)
+        onTap?.invoke(colHz[colHz.size / 2] + step)
+        return true
+    }
+
     companion object {
         /** dB above the noise floor that reach the top of the colour scale. */
         private const val RANGE_DB = 40f
+        private const val KEY_STEP_HZ = 100_000L
 
         /** Black, deep blue, cyan, yellow, red, white: the usual waterfall scale. */
         private val PALETTE = IntArray(256) { i ->

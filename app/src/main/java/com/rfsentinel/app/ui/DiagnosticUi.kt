@@ -28,6 +28,13 @@ internal fun AppCompatActivity.logScreen(name: String, adapter: RecyclerView.Ada
         it.recyclerView.adapter = adapter
     }
 
+/** [text] opens Settings › RTL-SDR radio when tapped ([on]), for an empty screen whose scan is switched off there. */
+internal fun AppCompatActivity.settingsLink(text: TextView, on: Boolean) {
+    if (on == text.isClickable) return
+    if (on) text.setOnClickListener { com.rfsentinel.app.settings.SettingsActivity.openRadio(this) }
+    else { text.setOnClickListener(null); text.isClickable = false }
+}
+
 internal fun AppCompatActivity.refreshWhileStarted(interval: Long, refresh: suspend () -> Unit) {
     lifecycleScope.launch {
         repeatOnLifecycle(Lifecycle.State.STARTED) {

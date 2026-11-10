@@ -33,6 +33,8 @@ class WaterfallActivity : AppCompatActivity() {
         while (true) { val row = queue.poll() ?: break; binding.waterfall.add(row); any = true }
         if (any) binding.waterfall.invalidate()
     }
+    /** An antenna check is waiting for its answer. */
+    private var checking = false
     /** Rows show the zoomed-in view (vs the sweep), to clear the view once when it switches. */
     private var showingTuned: Boolean? = null
 
@@ -80,9 +82,12 @@ class WaterfallActivity : AppCompatActivity() {
     /** One reading of FM radio and the weather-radio channels: on the air around the clock, so a quick test of antenna and SDR. */
     private fun antennaCheck() {
         if (!SdrRadio.running) { Toast.makeText(this, "No SDR running", Toast.LENGTH_SHORT).show(); return }
-        Toast.makeText(this, "Listening to FM radio and the weather channels…", Toast.LENGTH_SHORT).show()
+        // The button says it's working until the answer comes: a couple of seconds, longer with a slow SDR.
+        checking = true; refresh()
         SdrRadio.antennaCheck = { r ->
             runOnUiThread {
+                checking = false
+                if (!isDestroyed) refresh()
                 if (!isFinishing && !isDestroyed) MaterialAlertDialogBuilder(this)
                     .setTitle("Antenna check")
                     .setMessage(r.verdict + "\n\nMeasured on FM radio, 87.5 to 108 MHz, and the US weather radio channels, 162.400 to 162.550 MHz.")
@@ -140,17 +145,24 @@ class WaterfallActivity : AppCompatActivity() {
         }
         binding.hintText.text = when {
             !running -> "Plug in an RTL-SDR or HackRF and start scanning to see the radio bands live."
-            tuned != null -> PRESETS.firstOrNull { it.hz == tuned }?.let { "${it.look} Radio detection is paused until you go back to the sweep." }
-                ?: "Zoomed in on about 2 MHz. Radio detection is paused until you go back to the sweep. Tap to move."
+            tuned != null -> (PRESETS.firstOrNull { it.hz == tuned }?.look ?: "Zoomed in on about 2 MHz.") +
+                " Tap or use the arrow keys to move; Back to sweep starts the radio sweep again."
             SdrRadio.mode == SdrRadio.Mode.ADSB -> "The SDR is receiving ADS-B. Tune to look at a frequency."
             SdrRadio.mode == SdrRadio.Mode.P25 -> "The SDR is following a P25 control channel. Tune to look at a frequency."
             SdrRadio.mode == SdrRadio.Mode.PAGER -> "The SDR is decoding pagers. Tune to look at a frequency."
-            else -> "One row per sweep of your watched bands, newest at the top. Bright marks are signals: tap one to zoom in, " +
-                "or tap Tune to pick from a list."
+            else -> "A row per sweep of your bands, newest on top; rows pause while another scan has its turn. " +
+                "Bright marks are signals: tap one to zoom in, or tap Tune to pick from a list."
         }
         binding.sweepButton.visibility = if (tuned != null) View.VISIBLE else View.GONE
         binding.tuneButton.isEnabled = running
-        binding.antennaButton.isEnabled = running
+        binding.antennaButton.isEnabled = running && !checking
+        binding.antennaButton.text = if (checking) "Checking…" else "Antenna check"
+        // What the screen reader says about the waterfall itself: which view it shows.
+        androidx.core.view.ViewCompat.setStateDescription(binding.waterfall, when {
+            !running -> "No SDR running"
+            tuned != null -> String.format(Locale.US, "Zoomed in on %.3f MHz", tuned / 1e6)
+            else -> "Sweep of your watched bands"
+        })
     }
 
     /** A ready-made view: [hz] in the middle of the ~2 MHz shown, [look] tells what a signal there looks like. */

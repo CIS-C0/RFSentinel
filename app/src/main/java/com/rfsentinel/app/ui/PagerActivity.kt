@@ -109,15 +109,17 @@ class PagerActivity : AppCompatActivity() {
             (if (tones > 0) "\n$tones tone-only page${if (tones == 1) "" else "s"} hidden" else "") +
             "\nKept in memory only, until the app closes: at most ${PagerLog.MAX} pages."
         adapter.notifyDataSetChanged()
+        val pagerOff = SdrRadio.Mode.PAGER !in SdrRadio.modes
         val empty = when {
             rows.isNotEmpty() -> null
             q.isNotEmpty() -> "Nothing matches."
             tones > 0 -> "Only tone-only pages so far: the channel is decoding."
-            SdrRadio.Mode.PAGER !in SdrRadio.modes -> "Pager messages is off.\nTick it in Settings › RTL-SDR radio. It runs while scanning, with an RTL-SDR or HackRF plugged in."
+            pagerOff -> "Pager messages is off.\nTap here to open Settings › RTL-SDR radio and tick it. It runs while scanning, with an RTL-SDR or HackRF plugged in."
             else -> "No pages heard yet.\nThey show up here as a paging channel is decoded."
         }
         binding.recyclerView.visibility = if (empty == null) View.VISIBLE else View.GONE
         binding.emptyText.text = empty.orEmpty()
         binding.emptyText.visibility = if (empty != null) View.VISIBLE else View.GONE
+        settingsLink(binding.emptyText, empty != null && q.isEmpty() && tones == 0 && pagerOff)
     }
 }

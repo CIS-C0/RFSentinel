@@ -40,6 +40,10 @@ class SettingsActivity : AppCompatActivity() {
         const val SECTION_MAP = "map"
         const val SECTION_NAV = "navigation"
         const val SECTION_DATA = "data"
+        const val SECTION_RADIO = "radio"
+
+        /** Settings opened on the RTL-SDR radio section, for screens that need a scan ticked there. */
+        fun openRadio(from: android.content.Context) = from.startActivity(Intent(from, SettingsActivity::class.java).putExtra(EXTRA_SECTION, SECTION_RADIO))
         private const val PRESETS_INFO = "Adds lists of equipment known to be used by police in that region. The built-in detection " +
             "(body cams, Flock, drones, trackers, glasses) works everywhere.\n\n" +
             "Global: body cams (Axon, Zepcam, WatchGuard...), Flock, ShotSpotter, traffic cameras, radios.\n" +
@@ -1618,8 +1622,10 @@ class SettingsActivity : AppCompatActivity() {
             })
         }
         fun lines(title: String, hint: String, value: String, details: String? = null, save: (String) -> Unit): android.widget.EditText {
-            box.label(title).also { if (details != null) info(it, details) }
+            val label = box.label(title).also { if (details != null) info(it, details) }
             return android.widget.EditText(this).apply {
+                // The screen reader names the field by its label, not by the example in its hint.
+                id = View.generateViewId(); label.labelFor = id
                 setText(value); this.hint = hint
                 minLines = 2; maxLines = 8; gravity = android.view.Gravity.TOP
                 inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
@@ -1636,10 +1642,12 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         heading("Connection")
-        info(box.label("Network SDR"), "Uses an RTL-SDR on another device over WiFi, such as an ESP32 board or a computer running " +
+        val networkLabel = box.label("Network SDR")
+        info(networkLabel, "Uses an RTL-SDR on another device over WiFi, such as an ESP32 board or a computer running " +
             "rtl_tcp. Enter its address and port; the port is ${com.rfsentinel.app.sdr.RtlTcp.DEFAULT_PORT} if left out. A plugged-in " +
             "USB SDR is used first. Streaming takes about 5 MB/s of WiFi.", "Network SDR")
         box.addView(android.widget.EditText(this).apply {
+            id = View.generateViewId(); networkLabel.labelFor = id
             setText(Prefs.networkSdr(this@SettingsActivity)); hint = "192.168.4.1:1234"
             isSingleLine = true
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
@@ -1852,7 +1860,17 @@ class SettingsActivity : AppCompatActivity() {
             addView(com.google.android.material.button.MaterialButton(this@SettingsActivity, null,
                 android.R.attr.borderlessButtonStyle).apply {
                 text = "Clear list"
-                setOnClickListener { com.rfsentinel.app.sdr.FreqNames.clearImported(this@SettingsActivity); updateFreqListText() }
+                setOnClickListener {
+                    val n = com.rfsentinel.app.sdr.FreqNames.importedCount
+                    if (n == 0) { Toast.makeText(this@SettingsActivity, "No list imported", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
+                    // Can't be undone: the imported file is gone, so ask first, as Forget saved places does.
+                    MaterialAlertDialogBuilder(this@SettingsActivity)
+                        .setTitle("Clear the frequency list?")
+                        .setMessage("Removes the $n imported frequency names from this phone. Watched frequencies stay.")
+                        .setPositiveButton("Clear") { _, _ -> com.rfsentinel.app.sdr.FreqNames.clearImported(this@SettingsActivity); updateFreqListText() }
+                        .setNegativeButton("Cancel", null)
+                        .show()
+                }
             })
         })
         // Its own row: three buttons side by side would be cut off on a narrow screen.

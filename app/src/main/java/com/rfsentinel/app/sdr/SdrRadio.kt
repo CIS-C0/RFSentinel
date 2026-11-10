@@ -341,7 +341,7 @@ object SdrRadio {
                     appContext?.let { main.postDelayed({ if (receiver != null) connect(it) }, if (net) NET_RETRY_MS else 3_000L) }
                 } else if (failure != null) {
                     com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel stopped: ${com.rfsentinel.app.util.HwLog.describe(failure)}")
-                    status = "$deviceLabel error: ${failure.message}"
+                    status = "$deviceLabel stopped: ${failure.message ?: "unknown error"} · trying again in ${ERROR_RETRY_MS / 1000} s"
                     appContext?.let { main.postDelayed({ if (receiver != null) connect(it) }, ERROR_RETRY_MS) }
                 }
             }
@@ -524,10 +524,10 @@ object SdrRadio {
             if (!keeps(Mode.SWEEP)) break // cut short: not a whole sweep
             watch.sweepDone()
             val now = System.currentTimeMillis()
-            if (row.isNotEmpty()) {
-                SdrWaterfall.listener?.invoke(SdrWaterfall.Row(row.sortedBy { it.startHz }, tuned = false, at = now))
-                row = ArrayList()
-            }
+            // Whole sweeps only: one begun before the screen opened lacks its first bands, and its different
+            // layout made the screen start over on the next row (skipped chunks are in it, as blanks).
+            if (row.size == plan.size) SdrWaterfall.listener?.invoke(SdrWaterfall.Row(row.sortedBy { it.startHz }, tuned = false, at = now))
+            row = ArrayList()
             sweepMs = now - sweepStart; sweepStart = now
             if (gone(name)) break
             if (!halted) status = (if (watch.sweeps < 6) "$deviceLabel · learning the radio bands here…"
@@ -829,8 +829,8 @@ object SdrRadio {
             return
         }
         sdr.resetBuffer()
-        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: waterfall on $mhz (radio watch paused)")
-        status = "$deviceLabel · waterfall on $mhz · radio watch paused"
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: waterfall on $mhz (radio sweep paused)")
+        status = "$deviceLabel · waterfall on $mhz · radio sweep paused"
         val buf = ByteArray(XFER)
         val iq = ByteArray(XFER * TUNED_READS)
         var lastRow = 0L; var lastCheck = System.currentTimeMillis(); var fails = 0
