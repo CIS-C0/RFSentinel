@@ -50,6 +50,10 @@ object MeshNode {
     private const val RETRY_MAX_MS = 120_000L
     /** While the node is out of reach, packets beyond this wait are dropped (they'd be stale). */
     private const val MAX_QUEUED = 12
+    /** The node closes a phone session silent for 15 min (a watch-only phone sends nothing): a heartbeat keeps it open. */
+    private const val HEARTBEAT_MS = 5 * 60_000L
+    /** Nothing from the node this long: its settings are asked again to check it still answers (and reopen its session). */
+    private const val QUIET_PROBE_MS = 10 * 60_000L
 
     private val thread = HandlerThread("rf-mesh").apply { start() }
     private val h = Handler(thread.looper)
@@ -109,6 +113,10 @@ object MeshNode {
     private var opSince = 0L
     private var busyTries = 0
     private var ioReady = false
+    // Liveness (elapsedRealtime): last write sent, last message read, when the still-answering check began (0: none).
+    private var lastWriteAt = 0L
+    private var lastReadAt = 0L
+    private var probeAt = 0L
     private var draining = false
     private var drainAgain = false
     // For the log's summary line (this thread only).
@@ -248,7 +256,7 @@ object MeshNode {
         gatt?.let { g -> runCatching { g.disconnect() }; runCatching { g.close() } }
         gatt = null
         toRadio = null; fromRadio = null
-        ops.clear(); inFlight = null; ioReady = false; busyTries = 0
+        ops.clear(); inFlight = null; ioReady = false; busyTries = 0; probeAt = 0L
         draining = false; drainAgain = false
         channels.clear(); channelIndex = -1; myNode = 0L; setupProblem = null; extNotif = null
         if (ready) { ready = false; changed() }
@@ -283,6 +291,7 @@ object MeshNode {
             if (problem != null) { teardown(); setStatus("Meshtastic node: $problem"); scheduleRetry() } else lost("no answer")
         }
         else if (inFlight != null && now - opSince > OP_TIMEOUT_MS) lost("stopped answering")
+        else if (ready && ioReady) keepAlive(now)
         if (now - summaryAt >= SUMMARY_MS) {
             if (summaryAt > 0 && (sentCount + gotCount + otherCount + droppedCount + badCount) > 0)
                 com.rfsentinel.app.util.HwLogs.meshNode.log("Meshtastic node: last ${SUMMARY_MS / 60_000} min: sent $sentCount, got $gotCount from Sentinels, " +
@@ -290,6 +299,26 @@ object MeshNode {
             summaryAt = now; sentCount = 0; gotCount = 0; otherCount = 0; droppedCount = 0; badCount = 0
         }
         h.postDelayed(::tick, TICK_MS)
+    }
+
+    /**
+     * A link can look connected while the node has stopped feeding the phone (it closed the session, or Bluetooth
+     * stalled): a heartbeat after 5 min without a write, and after 10 min without a message its settings are asked
+     * again; no answer within 45 s reconnects.
+     */
+    private fun keepAlive(now: Long) {
+        when {
+            probeAt > 0 && now - probeAt > SETUP_TIMEOUT_MS -> {
+                com.rfsentinel.app.util.HwLogs.meshNode.log("Meshtastic node: no answer to the settings check, reconnecting")
+                lost("stopped answering")
+            }
+            probeAt == 0L && now - lastReadAt > QUIET_PROBE_MS -> {
+                probeAt = now
+                com.rfsentinel.app.util.HwLogs.meshNode.log("Meshtastic node: nothing from it in ${QUIET_PROBE_MS / 60_000} min, checking it still answers")
+                askConfig()
+            }
+            now - lastWriteAt > HEARTBEAT_MS && inFlight == null && ops.isEmpty() -> enqueue(Op.Write(MeshProto.heartbeat()))
+        }
     }
 
     private val callback = object : BluetoothGattCallback() {
@@ -366,6 +395,8 @@ object MeshNode {
 
     private fun onIoReady() {
         ioReady = true
+        lastReadAt = SystemClock.elapsedRealtime()
+        lastWriteAt = lastReadAt
         setStatus("Meshtastic node: reading its settings…")
         askConfig()
     }
@@ -409,6 +440,7 @@ object MeshNode {
         busyTries = 0
         inFlight = op
         opSince = SystemClock.elapsedRealtime()
+        if (op is Op.Write) lastWriteAt = opSince
     }
 
     private fun done() {
@@ -432,6 +464,7 @@ object MeshNode {
             draining = false
             if (drainAgain) { drainAgain = false; drain() }
         } else {
+            lastReadAt = SystemClock.elapsedRealtime()
             runCatching { handle(MeshProto.readFromRadio(value)) }.onFailure {
                 Log.w(TAG, "bad message from the node", it)
                 if (++badCount <= 5) com.rfsentinel.app.util.HwLogs.meshNode.log("Meshtastic node: unreadable message: ${com.rfsentinel.app.util.HwLog.describe(it)}")
@@ -448,7 +481,11 @@ object MeshNode {
             is MeshProto.From.ChannelInfo -> channels[m.index] = m
             is MeshProto.From.ExtNotif -> extNotif = m
             is MeshProto.From.Lora -> { hopLimit = if (m.hopLimit in 1..7) m.hopLimit else 3; region = m.region; txEnabled = m.txEnabled }
-            is MeshProto.From.ConfigComplete -> configDone()
+            is MeshProto.From.ConfigComplete -> {
+                if (probeAt > 0) com.rfsentinel.app.util.HwLogs.meshNode.log("Meshtastic node: answered the settings check")
+                probeAt = 0L
+                configDone()
+            }
             is MeshProto.From.Packet -> {
                 if (m.from != myNode) { lastAnyHeard = System.currentTimeMillis(); otherCount++ }
                 if (m.port == MeshProto.PORT_PRIVATE_APP && (channelIndex < 0 || m.channel == channelIndex)) {
