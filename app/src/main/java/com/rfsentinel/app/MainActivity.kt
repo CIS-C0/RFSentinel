@@ -1118,6 +1118,7 @@ class MainActivity : AppCompatActivity() {
         val me = (if (demoMode) com.rfsentinel.app.ui.DemoData.fakeLocation else ScanForegroundService.lastFix)?.let { it.latitude to it.longitude }
         val color = com.rfsentinel.app.ui.ThemeManager.ink(this, Category.AIRCRAFT.colorArgb)
         val air = com.rfsentinel.app.ui.AircraftActivity
+        val alertM = Prefs.aircraftAlertKm(this) * 1000.0
         return currentAircraft(now)
             .filter { all || it.hit != null }
             .filter { s -> query.isBlank() || listOfNotNull(air.name(s.plane), s.plane.type, s.plane.owner, s.plane.registration, s.hit?.label)
@@ -1129,7 +1130,8 @@ class MainActivity : AppCompatActivity() {
                 val p = s.plane
                 val hit = s.hit
                 val muted = hit != null && com.rfsentinel.app.data.AlertMutes.isMuted(this, AIRCRAFT_ROW + p.hex, now)
-                val urgent = hit != null && hit.confidence >= threshold && !muted
+                // Flashes only within Settings' alert distance, like its sound; with no GPS fix the distance is unknown, so it still flashes.
+                val urgent = hit != null && hit.confidence >= threshold && !muted && (d == null || d <= alertM)
                 val where = d?.let { m -> com.rfsentinel.app.util.Units.distance(m) +
                     me?.let { " " + air.compass(air.bearing(it.first, it.second, p.lat, p.lon)) }.orEmpty() }
                 DeviceRow(
