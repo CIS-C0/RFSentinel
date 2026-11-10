@@ -48,7 +48,7 @@ class WardriveGoDriverTest {
     private fun rtlTransfer(frame: ByteArray, crc: Boolean = false, rate: Int = 0x0c, power: Int = 0): ByteArray {
         val pkt = frame.size + 4
         val desc = ByteArray(24)
-        le32(pkt or (if (crc) 1 shl 14 else 0) or (1 shl 16)).copyInto(desc, 0) // 1 x 8 bytes of PHY status
+        le32(pkt or (if (crc) 1 shl 14 else 0) or (1 shl 16) or (1 shl 26)).copyInto(desc, 0) // 1 x 8 bytes of PHY status, filled (bit 26)
         desc[12] = rate.toByte()
         val phy = ByteArray(8); phy[4] = power.toByte()
         val body = desc + phy + frame + byteArrayOf(9, 9, 9, 9)

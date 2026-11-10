@@ -32,6 +32,9 @@ internal class HciUsb(private val conn: UsbDeviceConnection, private val evtIn: 
     @Volatile var eventsIn = 0L; private set
     /** The event endpoint fails at once, over and over: the adapter is gone or taken. */
     @Volatile private var readDead = false
+    /** The controller sent a Hardware Error event: it has reset itself and is no longer scanning. */
+    @Volatile var hardwareError = false; private set
+    private var resyncLogs = 0
 
     fun startReader() {
         stop = false
@@ -72,11 +75,17 @@ internal class HciUsb(private val conn: UsbDeviceConnection, private val evtIn: 
                 off += len; count -= len; expect -= len
                 if (evt.size() == 2 && expect == 0) expect = chunk[off - 1].toInt() and 0xff // the header is complete: its length
                 if (expect == 0) {
-                    // Each chunk should hold whole events: a leftover too short for a header is a controller bug.
-                    if (count in 1 until 2) { com.rfsentinel.app.util.HwLogs.usbBt.log("$tag: unexpected $count-byte continuation dropped"); count = 0 }
+                    // A single byte left in the chunk is the next event's first header byte (the TP-Link UB500 packs
+                    // events back to back, seen in a tester's log): it starts that event, as btusb_recv_intr keeps it.
                     deliver(evt.toByteArray())
                     evt = null
                 }
+            }
+            // An event always ends on a short packet. One that ends with an event still unfinished means a packet
+            // went missing: start over at the next packet, or every later event would be read out of step for good.
+            if (n < size && evt != null) {
+                if (resyncLogs++ < 5) com.rfsentinel.app.util.HwLogs.usbBt.log("$tag: event cut short (${evt.size()} bytes in, $expect missing) - back in step at the next one")
+                evt = null
             }
         }
     }
@@ -87,6 +96,7 @@ internal class HciUsb(private val conn: UsbDeviceConnection, private val evtIn: 
             onAdvertising?.invoke(e)
             return
         }
+        if (e.size >= 2 && e[0].toInt() == 0x10) hardwareError = true
         if (e.size >= 2 && e[0].toInt() == 0x10) com.rfsentinel.app.util.HwLogs.usbBt.log("$tag: controller reported a hardware error (code ${e.getOrNull(2)?.toInt()?.and(0xff)})")
         if (!events.offer(e)) { events.poll(); events.offer(e) }
     }

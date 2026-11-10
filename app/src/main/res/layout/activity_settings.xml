@@ -166,6 +166,16 @@
                 android:id="@+id/bleEaseSwitch"
                 android:text="Ease off for Bluetooth audio" />
 
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
+                android:id="@+id/blePassiveSwitch"
+                android:text="Listen-only Bluetooth scan" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
+                android:id="@+id/bleScreenOffAllSwitch"
+                android:text="Hear every Bluetooth device with the screen off" />
+
             <TextView android:id="@+id/intervalLabel" style="@style/SettingsLabel" android:text="WiFi scan interval" />
 
             <EditText

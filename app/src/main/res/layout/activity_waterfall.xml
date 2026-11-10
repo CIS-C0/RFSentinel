@@ -48,5 +48,14 @@
             android:layout_marginStart="8dp"
             android:layout_weight="1"
             android:text="Back to sweep" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/antennaButton"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="Antenna check" />
     </LinearLayout>
 </LinearLayout>

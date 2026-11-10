@@ -46,6 +46,7 @@ class WaterfallActivity : AppCompatActivity() {
         binding.waterfall.onTap = { hz -> zoom(hz) }
         binding.tuneButton.setOnClickListener { askFrequency() }
         binding.sweepButton.setOnClickListener { SdrRadio.tuneHz = null; refresh() }
+        binding.antennaButton.setOnClickListener { antennaCheck() }
         // Opened from a radio transmission's Locate: straight to its frequency (not again after a rotation).
         if (savedInstanceState == null) intent.getLongExtra(EXTRA_TUNE_HZ, 0L).takeIf { it > 0 }?.let { zoom(it) }
         refreshWhileStarted(1000) { refresh() }
@@ -74,6 +75,20 @@ class WaterfallActivity : AppCompatActivity() {
         if (!SdrRadio.running) return
         SdrRadio.tuneHz = (hz + RadioWatch.STEP_HZ / 2) / RadioWatch.STEP_HZ * RadioWatch.STEP_HZ
         refresh()
+    }
+
+    /** One reading of the weather-radio channels: always on the air in the US and Canada, so a quick test of antenna and SDR. */
+    private fun antennaCheck() {
+        if (!SdrRadio.running) { Toast.makeText(this, "No SDR running", Toast.LENGTH_SHORT).show(); return }
+        Toast.makeText(this, "Listening on the weather channels…", Toast.LENGTH_SHORT).show()
+        SdrRadio.weatherCheck = { r ->
+            runOnUiThread {
+                if (!isFinishing && !isDestroyed) com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle("Antenna check")
+                    .setMessage(r.verdict + "\n\nMeasured on the weather radio channels, 162.400 to 162.550 MHz.")
+                    .setPositiveButton("OK", null).show()
+            }
+        }
     }
 
     private fun askFrequency() {
@@ -121,6 +136,7 @@ class WaterfallActivity : AppCompatActivity() {
         }
         binding.sweepButton.visibility = if (tuned != null) View.VISIBLE else View.GONE
         binding.tuneButton.isEnabled = running
+        binding.antennaButton.isEnabled = running
     }
 
     companion object {

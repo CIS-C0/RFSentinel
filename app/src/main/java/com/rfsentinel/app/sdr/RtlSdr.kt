@@ -50,9 +50,15 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
     /** Opens the dongle: baseband, tuner detection and init. False when no supported tuner answers. */
     override fun open(): Boolean {
         val intf = device.getInterface(0)
-        if (!conn.claimInterface(intf, true)) log("RTL-SDR: couldn't claim the USB interface (continuing)")
+        // Right after plug-in the system can still hold the dongle: ask again for ~3 s, as the WiFi drivers do.
+        var claimed = conn.claimInterface(intf, true); var waits = 0
+        while (!claimed && waits < 10) { try { Thread.sleep(300) } catch (_: InterruptedException) {}; waits++; claimed = conn.claimInterface(intf, true) }
+        if (!claimed) log("RTL-SDR: couldn't claim the USB interface after ${waits * 300} ms (continuing)")
+        else if (waits > 0) log("RTL-SDR: USB interface claimed after ${waits * 300} ms")
         rx = (0 until intf.endpointCount).map { intf.getEndpoint(it) }.firstOrNull { it.address == 0x81 }
             ?: run { log("RTL-SDR: no bulk-IN endpoint 0x81"); return false }
+        clearHalt() // a stall left on the sample endpoint by an earlier session
+        fastFails = 0
         // A dummy write first, as librtlsdr does.
         writeReg(USBB, USB_SYSCTL, 0x09, 1)
         initBaseband()
@@ -172,7 +178,27 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
     }
 
     /** Reads raw 8-bit I/Q samples; bytes read, or a negative value on error. */
-    override fun read(buf: ByteArray, len: Int): Int = conn.bulkTransfer(rx, buf, len, 1000)
+    override fun read(buf: ByteArray, len: Int): Int {
+        val t0 = System.nanoTime()
+        val n = conn.bulkTransfer(rx, buf, len, 1000)
+        if (n > 0) { fastFails = 0; return n }
+        // A quiet stream takes the whole timeout; a read that fails at once is a stalled endpoint or a lost
+        // interface. Clear the stall and pause instead of spinning, and give the dongle up after ~10 s of it
+        // (SdrRadio then opens it again from scratch).
+        if (n < 0 && System.nanoTime() - t0 < 50_000_000L) {
+            fastFails++
+            if (fastFails == 1) log("RTL-SDR: sample reads fail at once - clearing the endpoint")
+            if (fastFails % 8 == 1) clearHalt()
+            if (fastFails >= FAST_FAILS_LOST && !lost) { log("RTL-SDR: no samples after $fastFails failed reads - starting over"); lost = true }
+            try { Thread.sleep(50) } catch (_: InterruptedException) {}
+        }
+        return n
+    }
+
+    /** Sample reads that failed at once, in a row. */
+    private var fastFails = 0
+    /** CLEAR_FEATURE(ENDPOINT_HALT) on the sample endpoint. */
+    private fun clearHalt() { conn.controlTransfer(0x02, 0x01, 0, 0x81, null, 0, 300) }
 
     // ---- register access ----
 
@@ -353,6 +379,9 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
         val freqKhz = (freqHz + 500) / 1000
         val vcoMin = 1_770_000L; val vcoMax = vcoMin * 2
         r82xxWriteMask(0x1a, 0x00, 0x0c)
+        // Before the VCO reading below, as librtlsdr orders it: after a failed lock the VCO current is still raised.
+        r82xxWriteMask(0x10, 0x00, 0x10)
+        r82xxWriteMask(0x12, 0x80, 0xe0)
         val p = IntArray(7) { regs[0x10 - REG_SHADOW_START + it] }
         p[0] = (p[0] and 0x10.inv())          // refdiv2 = 0
         p[2] = (p[2] and 0xe0.inv()) or 0x80
@@ -484,6 +513,7 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
         private const val MAX_FAIL_LOGS = 20
         /** Unbroken control-transfer failures before the dongle counts as gone (a working one fails a few at most). */
         private const val LOST_AFTER_FAILS = 25
+        private const val FAST_FAILS_LOST = 200
         private const val VHF = 2; private const val UHF = 3
         private const val HP_BW1 = 350_000; private const val HP_BW2 = 380_000
 

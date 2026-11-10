@@ -12,6 +12,8 @@ class MonitorFrames {
     private class Sighting(val mac: String, var isAp: Boolean) {
         var ssid: String? = null; var bssid: String? = null
         var rssi = NOMINAL_RSSI; var rssiAt = 0L; var measured = false; var channel = 0
+        /** Heard transmitting itself, not only named as the receiver of someone else's frame. */
+        var heard = false
         var lastSeen = 0L
         /** Network names this client asked for (probe requests), oldest first. */
         val probed = LinkedHashSet<String>()
@@ -47,7 +49,7 @@ class MonitorFrames {
 
     val tracked: Int get() = sightings.size
 
-    fun clear() = sightings.clear()
+    fun clear() { sightings.clear(); pendingNames.clear() }
 
     /**
      * One received 802.11 frame in [b] from [d] to [end] (exclusive), heard while tuned
@@ -73,6 +75,7 @@ class MonitorFrames {
             val m = mac(b, at)
             val s = sightings.getOrPut(m) { Sighting(m, ap) }
             val rssi = rssi.takeIf { sent }
+            if (sent) s.heard = true
             // Strongest reading of the last couple of seconds, so a device that drove off fades.
             if (rssi != null && (!s.measured || rssi > s.rssi || now - s.rssiAt > RSSI_WINDOW_MS)) {
                 s.rssi = rssi; s.rssiAt = now; s.measured = true
@@ -94,7 +97,7 @@ class MonitorFrames {
             0 -> when (sub) {
                 // Beacon or probe response: an access point.
                 8, 5 -> if (d + 36 <= end) {
-                    val ies = Ies.read(b, d + 36, end)
+                    val ies = Ies.read(b, d + 36, ProbeIntel.withoutFcs(b, d, end))
                     touch(a3, ap = true, ch = ies.channel.takeIf { validChannel(it) } ?: channel)?.let {
                         it.isAp = true
                         val name = ies.ssid?.takeIf { n -> validSsid(n) }
@@ -197,7 +200,9 @@ class MonitorFrames {
 
     /** Everything heard within [freshMs], for the app; forgets what hasn't been heard for [pruneMs]. */
     fun drain(now: Long, freshMs: Long, pruneMs: Long = PRUNE_MS): List<MonitorSighting> {
-        val batch = sightings.values.filter { now - it.lastSeen < freshMs }.map { s ->
+        // A client only ever named as the receiver of a router's frames was never heard itself: it waits for its
+        // first own frame instead of showing at a made-up level.
+        val batch = sightings.values.filter { now - it.lastSeen < freshMs && (it.isAp || it.heard) }.map { s ->
             MonitorSighting(
                 mac = s.mac,
                 ssid = s.ssid,

@@ -38,6 +38,10 @@ class MoreScreen(carContext: CarContext) : LiveScreen(carContext, periodMs = 5_0
                 }
                 invalidate()
             },
+            row("Save a snapshot", "Keeps the device list as it is now, to look at later on the phone",
+                icon = R.drawable.ic_car_usb) {
+                com.rfsentinel.app.service.ScanForegroundService.snapshotNow(carContext) { toast(it) }
+            },
             row("Spoken alerts in car: ${if (voice) "On" else "Off"}",
                 if (voice) "Says what was detected - tap to turn off" else "Tone only - tap to hear what was detected",
                 icon = if (voice) R.drawable.ic_car_voice else R.drawable.ic_car_voice_off) {

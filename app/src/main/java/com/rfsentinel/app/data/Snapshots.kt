@@ -16,6 +16,24 @@ object Snapshots {
     fun defaultName(now: Long = System.currentTimeMillis()): String =
         "Snapshot " + SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(now))
 
+    /**
+     * One tap, no questions (the scanning notification, the car): saves what the main list shows now (the same
+     * time windows, trusted devices left out when Settings hide them) under the dated default name.
+     * Returns how many devices it kept; 0 when the list was empty (nothing is saved then).
+     */
+    suspend fun saveNow(context: Context): Int {
+        val now = System.currentTimeMillis()
+        val hideTrusted = com.rfsentinel.app.util.Prefs.hideWhitelisted(context)
+        val devices = DeviceRegistry.snapshot(now).filter {
+            com.rfsentinel.app.ui.LiveWindow.keep(it, now, com.rfsentinel.app.util.Prefs.liveBleSec(context) * 1000L,
+                com.rfsentinel.app.util.Prefs.liveWifiSec(context) * 1000L, com.rfsentinel.app.util.Prefs.liveExternalSec(context) * 1000L,
+                com.rfsentinel.app.util.Prefs.liveMeshSec(context) * 1000L) && !(hideTrusted && WhitelistCache.contains(it.mac))
+        }
+        if (devices.isEmpty()) return 0
+        save(context, defaultName(now), devices)
+        return devices.size
+    }
+
     /** Saves [devices] under [name]; returns the new snapshot's id. */
     suspend fun save(context: Context, name: String, devices: List<DeviceRegistry.Snapshot>): Long {
         val now = System.currentTimeMillis()

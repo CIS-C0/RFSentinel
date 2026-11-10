@@ -82,8 +82,10 @@ class Mt7921uDriverTest {
 
     @Test
     fun tuningCommandsMatchTheGoldenFrames() {
-        // the golden frame with the RX antenna mask set to both antennas (0x3), as Linux sends it
-        assertEquals(golden["set_chan_info_6g_53_20"]!!.replace("353500020200", "353500020300"), hex(m.cmdFrame(m.extCmd(m.EXT_CHANNEL_SWITCH), m.chanInfoPayload(2, 53), 1)))
+        // CHANNEL_SWITCH carries the number of receive antennas (2), as Linux sends it (hweight8 of the mask) ...
+        assertEquals(golden["set_chan_info_6g_53_20"], hex(m.cmdFrame(m.extCmd(m.EXT_CHANNEL_SWITCH), m.chanInfoPayload(2, 53), 1)))
+        // ... and SET_RX_PATH the mask of both (0x3)
+        assertEquals(3, m.chanInfoPayload(2, 53, 3)[4].toInt())
         assertEquals(golden["config_sniffer_6g_53_20"], hex(m.uniFrame(m.UNI_SNIFFER, m.snifferConfigPayload(2, 53), 1)))
     }
 
@@ -168,9 +170,12 @@ class Mt7921uDriverTest {
     fun sixGhzRotatesUnlessSomethingWasHeardThere() {
         val rounds = (0 until 3).map { r -> m.roundPlan(r, emptySet()) }
         for (plan in rounds) {
-            assertEquals("all of 2.4 and 5 GHz every round", 13 + 25, plan.count { it.first != 2 })
+            assertEquals("all of 2.4 GHz and the common 5 GHz channels every round", 13 + 9, plan.count { it.first != 2 && !m.isDfs(it) })
+            assertTrue("a third of the 16 radar channels per round", plan.count { m.isDfs(it) } in 5..6)
             assertEquals("a third of 6 GHz per round", 5, plan.count { it.first == 2 })
         }
+        assertEquals("every radar channel within 3 rounds", m.HOP.filter { m.isDfs(it) }.toSet(), rounds.flatten().filter { m.isDfs(it) }.toSet())
+        for (r in 0 until 3) assertTrue("a radar channel with traffic is in every round", 1 to 100 in m.roundPlan(r, emptySet(), setOf(100)))
         assertEquals("every 6 GHz channel within 3 rounds", m.HOP.filter { it.first == 2 }.toSet(),
             rounds.flatten().filter { it.first == 2 }.toSet())
         // ch 37 had traffic: it's in every round

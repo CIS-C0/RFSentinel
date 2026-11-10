@@ -101,6 +101,22 @@ class ScanForegroundService : Service() {
         /** Re-applies Sentinel Link (joined, left, sharing switched) to a running scan. */
         const val ACTION_REFRESH_LINK = "com.rfsentinel.app.action.REFRESH_LINK"
         const val ACTION_RESCAN = "com.rfsentinel.app.action.RESCAN"
+        /** Saves a snapshot of the device list now, without opening the app (the notification's button, the car). */
+        const val ACTION_SNAPSHOT = "com.rfsentinel.app.action.SNAPSHOT"
+
+        /** [ACTION_SNAPSHOT] from anywhere; [said] gets the line to show ("Snapshot saved: 42 devices"). */
+        fun snapshotNow(context: Context, said: (String) -> Unit) {
+            val app = context.applicationContext
+            kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+                val n = runCatching { com.rfsentinel.app.data.Snapshots.saveNow(app) }.getOrDefault(-1)
+                val msg = when {
+                    n < 0 -> "Couldn't save the snapshot"
+                    n == 0 -> "The list is empty: nothing to save"
+                    else -> "Snapshot saved: $n device${if (n == 1) "" else "s"}"
+                }
+                android.os.Handler(Looper.getMainLooper()).post { said(msg) }
+            }
+        }
 
         /** Android downgrades an unfiltered BLE scan to opportunistic after ~30 min; restart before. */
         private const val BLE_RESTART_INTERVAL_MS = 25 * 60 * 1000L
@@ -383,6 +399,11 @@ class ScanForegroundService : Service() {
             updateLocationUpdates()
             return START_STICKY
         }
+        if (intent?.action == ACTION_SNAPSHOT) {
+            if (!isRunning) { stopSelf(); return START_NOT_STICKY }
+            snapshotNow(this) { android.widget.Toast.makeText(applicationContext, it, android.widget.Toast.LENGTH_SHORT).show() }
+            return START_STICKY
+        }
         if (intent?.action == ACTION_RESCAN) {
             if (!isRunning) { stopSelf(); return START_NOT_STICKY }
             // Bluetooth and the external boards report all the time; WiFi and the cells are polled.
@@ -569,7 +590,7 @@ class ScanForegroundService : Service() {
 
     // Exact addresses only: a name rule can be 17 characters long too.
     private fun bleWatched() = OuiWatchlist.allEntries().filter { it.isCustom && com.rfsentinel.app.util.MacUtil.isValidMac(it.prefix) }.map { it.prefix }
-    private fun bleSettingsKey() = "${bleMode()}|${bleEased()}|${bleWatched()}"
+    private fun bleSettingsKey() = "${bleMode()}|${bleEased()}|${bleWatched()}|${Prefs.blePassive(this)}|${Prefs.bleScreenOffAll(this)}"
 
     /** Settings › Ease off for Bluetooth audio, with headphones, a car or a speaker connected. */
     private fun bleEased(): Boolean {
@@ -1584,6 +1605,7 @@ class ScanForegroundService : Service() {
             now - maxOf(lastBleResultAt, bleStartedAt) > bleSilenceMs
         ) {
             Log.w(TAG, "Watchdog: no Bluetooth results for ${(now - maxOf(lastBleResultAt, bleStartedAt)) / 1000} s - restarting the scan")
+            com.rfsentinel.app.util.HwLogs.phone.log("Watchdog: no Bluetooth results for ${(now - maxOf(lastBleResultAt, bleStartedAt)) / 1000} s - restarting the scan")
             // A quiet area isn't a stuck scanner: back off while restarts bring nothing.
             if (bleWatchdogRestartAt != null) bleSilenceMs = (bleSilenceMs * 2).coerceAtMost(MAX_SILENCE_MS)
             bleWatchdogRestartAt = now
@@ -1598,6 +1620,7 @@ class ScanForegroundService : Service() {
         if (interactive && wasInteractive && bleRunning && !restarted) {
             if (bleRate.tick(count, span, now)) {
                 Log.w(TAG, "Watchdog: Bluetooth results down to %.1f/s - restarting the scan".format(count * 1000.0 / span))
+                com.rfsentinel.app.util.HwLogs.phone.log("Watchdog: Bluetooth results down to %.1f/s - restarting the scan".format(count * 1000.0 / span))
                 android.os.Handler(Looper.getMainLooper()).post { bleEngine.stop(); startBle() }
                 restarted = true
             }
@@ -1610,6 +1633,7 @@ class ScanForegroundService : Service() {
             screenOnChecked = true
             if (bleRunning && !restarted && bleEngine.lastUnfilteredAt < screenOnAt && now - bleStartedAt >= SCREEN_ON_CHECK_MS) {
                 Log.w(TAG, "Watchdog: no unfiltered Bluetooth results since the screen came on - restarting the scan")
+                com.rfsentinel.app.util.HwLogs.phone.log("Watchdog: no unfiltered Bluetooth results since the screen came on - restarting the scan")
                 android.os.Handler(Looper.getMainLooper()).post { bleEngine.stop(); startBle() }
             }
         }
@@ -1620,6 +1644,7 @@ class ScanForegroundService : Service() {
             now - maxOf(lastWifiResultAt, wifiStartedAt) > maxOf(wifiSilenceMs, 4 * Prefs.scanIntervalMs(this))
         ) {
             Log.w(TAG, "Watchdog: no WiFi results - restarting the WiFi scan")
+            com.rfsentinel.app.util.HwLogs.phone.log("Watchdog: no WiFi results - restarting the WiFi scan")
             if (wifiWatchdogRestartAt != null) wifiSilenceMs = (wifiSilenceMs * 2).coerceAtMost(MAX_SILENCE_MS)
             wifiWatchdogRestartAt = now
             android.os.Handler(Looper.getMainLooper()).post { wifiEngine.stop(); startWifiPolling() }

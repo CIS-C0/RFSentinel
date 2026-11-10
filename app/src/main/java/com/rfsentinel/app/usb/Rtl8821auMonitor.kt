@@ -23,9 +23,7 @@ object Rtl8821auMonitor {
     @Volatile private var stop = false
 
     private val frames = MonitorFrames()
-    private val HOP_24 = intArrayOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
-    /** UNII-1 and UNII-3, like the RTL8814AU driver (where most 5 GHz networks are). */
-    private val HOP_5 = intArrayOf(36, 40, 44, 48, 149, 153, 157, 161, 165)
+    private val HOP_24 = UsbWifi.HOP_24
     /** Settings > External hardware: also hop 5 GHz (experimental); read when the adapter starts. */
     @Volatile var scan5g = false
     /** The adapter's light blinks with traffic (Settings > External hardware); off = it stays dark. Changes apply live. */
@@ -36,7 +34,7 @@ object Rtl8821auMonitor {
 
     private val FRESH_MS get() = (HOP.size * DWELL_MS * 9 / 5).coerceAtLeast(3000L)
     private const val REPORT_MS = 10_000L
-    private const val NOMINAL_RSSI = -60
+    private const val FCS_LEN = 4
 
     private const val OUT_VENDOR = 0x40; private const val IN_VENDOR = 0xC0
     private const val VREQ = 0x05
@@ -94,7 +92,7 @@ object Rtl8821auMonitor {
             w16(conn, Rtl8821auTables.REG_RXFLTMAP0, Rtl8821auTables.RXFLTMAP_ALL)
             w16(conn, Rtl8821auTables.REG_RXFLTMAP1, Rtl8821auTables.RXFLTMAP_ALL)
             w16(conn, Rtl8821auTables.REG_RXFLTMAP2, Rtl8821auTables.RXFLTMAP_ALL)
-            HOP = UsbWifi.hops(if (scan5g) HOP_24 + HOP_5 else HOP_24)
+            HOP = round(0)
             if (scan5g) UsbWifi.log("RTL8821AU: 5 GHz hopping on (experimental): ${HOP.joinToString()}")
             channelTune(conn, HOP[0])
             UsbWifi.log("RTL8821AU: RCR=0x%08x BB(0x800)=0x%08x — monitor live ch ${HOP[0]}".format(
@@ -109,6 +107,8 @@ object Rtl8821auMonitor {
             onStatus("RTL8821AU: error · ${e.message}")
         } finally {
             runCatching { led(conn, false) }
+            // Scanning stopped, adapter still plugged in: radio and receiver off, so it stops drawing on the battery.
+            if (stop && !UsbCtl.gone) runCatching { w16(conn, Rtl8821auTables.REG_CR, 0x0000); w8(conn, 0x1F, 0x00) }
             runCatching { conn.close() }
             running = false
         }
@@ -157,6 +157,9 @@ object Rtl8821auMonitor {
         }
     }
 
+    /** Hop round [k]: 2.4 GHz, and with 5 GHz on the common 5 GHz channels plus two radar (DFS) ones in turn, as the RTL8822BU driver. */
+    private fun round(k: Int) = UsbWifi.hops(if (scan5g) Rtl8822buMonitor.hopCycle(k) else HOP_24)
+
     private fun channelTune(conn: UsbDeviceConnection, ch: Int) {
         for (op in Rtl8821auTables.channelTune(ch, bandSwitch = scan5g)) {
             val kind = op[0]; val addr = op[1]; val mask = op[2]; val v = op[3]
@@ -170,7 +173,7 @@ object Rtl8821auMonitor {
     }
 
     private class RxState {
-        var total = 0L; var bufs = 0L; var lastLog = 0L; var hopAt = 0L; var lastEmit = 0L; var hopIdx = 0
+        var total = 0L; var bufs = 0L; var lastLog = 0L; var hopAt = 0L; var lastEmit = 0L; var hopIdx = 0; var round = 0
         /** Good frames received, and how many there were at the light's last change. */
         var frames = 0L; var ledFrames = 0L; var ledAt = 0L; var ledOn = lightEnabled
         fun start() { val t = System.currentTimeMillis(); lastLog = t; hopAt = t; lastEmit = t; ledAt = t }
@@ -193,6 +196,7 @@ object Rtl8821auMonitor {
         val lock = AntennaCheck.lockIndex(HOP) // antenna check: hold the reference's channel
         if (lock >= 0 && lock == st.hopIdx) AntennaCheck.holding = HOP[lock]
         if (if (lock >= 0) lock != st.hopIdx else now - st.hopAt > DWELL_MS) {
+            if (lock < 0 && st.hopIdx + 1 >= HOP.size) HOP = round(++st.round) // same length every round
             val ni = if (lock >= 0) lock else (st.hopIdx + 1) % HOP.size
             if (ni != st.hopIdx) { st.hopIdx = ni; runCatching { channelTune(conn, HOP[st.hopIdx]) } }
             val (aps, clients) = frames.live(now, REPORT_MS)
@@ -204,7 +208,7 @@ object Rtl8821auMonitor {
     private fun rxLoop(conn: UsbDeviceConnection, epRx: UsbEndpoint,
                        onFrame: (List<MonitorSighting>) -> Unit, onStatus: (String) -> Unit) {
         val st = RxState().apply { start() }
-        BulkRx.run("RTL8821AU", conn, epRx, 24, 16384, { stop }, { b, n ->
+        BulkRx.run("RTL8821AU", conn, epRx, 24, 16384, { stop || UsbCtl.gone }, { b, n ->
             st.total += n; st.bufs++
             st.frames += parseRxBuf(b, n, HOP[st.hopIdx])
         }, syncTimeoutMs = 500) { now -> rxTick(conn, now, st, onFrame, onStatus) }
@@ -229,10 +233,12 @@ object Rtl8821auMonitor {
             // A frame cut off at the end of the transfer isn't reported: its tail (and so a
             // complete header / IEs) is missing, and what follows in the next transfer isn't a descriptor.
             if (fs + pkt > n) break
-            val fe = fs + pkt
+            val fe = fs + pkt - FCS_LEN // RCR appends the checksum; its bytes aren't part of the frame
+            val physt = (d0 ushr 26) and 1 != 0
             if (crc == 0 && fe - fs >= 24) {
                 val rate = b[off + 12].toInt() and 0x7f
-                val rssi = if (drv >= 8 && off + size + drv <= n) rtlRssi(b, off + size, rate) else NOMINAL_RSSI
+                // Only a PHY status the chip filled (bit 26): on other frames of an aggregate those bytes aren't a signal report.
+                val rssi = if (physt && drv >= 8) rtlRssi(b, off + size, rate) else null
                 frames.frame(b, fs, fe, ch, rssi)
                 good++
             }
@@ -262,10 +268,10 @@ object Rtl8821auMonitor {
 
     private fun r(conn: UsbDeviceConnection, addr: Int, len: Int): ByteArray {
         val b = ByteArray(len)
-        return if (conn.controlTransfer(IN_VENDOR, VREQ, addr, 0, b, len, 500) == len) b else ByteArray(len)
+        return if (conn.ctl3(IN_VENDOR, VREQ, addr, 0, b, len, 500) == len) b else ByteArray(len)
     }
     private fun w(conn: UsbDeviceConnection, addr: Int, data: ByteArray) {
-        conn.controlTransfer(OUT_VENDOR, VREQ, addr, 0, data, data.size, 500)
+        conn.ctl3(OUT_VENDOR, VREQ, addr, 0, data, data.size, 500)
     }
     private fun r8(conn: UsbDeviceConnection, a: Int) = r(conn, a, 1)[0].toInt() and 0xff
     private fun r16(conn: UsbDeviceConnection, a: Int): Int { val b = r(conn, a, 2); return (b[0].toInt() and 0xff) or ((b[1].toInt() and 0xff) shl 8) }

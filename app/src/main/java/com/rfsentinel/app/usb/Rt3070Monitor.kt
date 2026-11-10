@@ -27,7 +27,7 @@ object Rt3070Monitor {
     @Volatile private var stop = false
 
     private val frames = MonitorFrames()
-    private val HOP = intArrayOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
+    private val HOP = UsbWifi.HOP_24
     private const val DWELL_MS = 350L
     private val FRESH_MS get() = (HOP.size * DWELL_MS * 9 / 5).coerceAtLeast(3000L)
     private const val REPORT_MS = 10_000L
@@ -143,6 +143,8 @@ object Rt3070Monitor {
             UsbWifi.log("RT3070: bring-up error - ${UsbWifi.describe(e)}")
             onStatus("$chipName: error · ${e.message}")
         } finally {
+            // Scanning stopped, adapter still plugged in: radio and receiver off, so it stops drawing on the battery.
+            if (stop && !UsbCtl.gone) runCatching { regWr(MAC_SYS_CTRL, 0) }
             runCatching { c.close() }
             running = false
         }
@@ -172,7 +174,7 @@ object Rt3070Monitor {
             var off = 0; var failed = 0
             while (off < ee.size) {
                 val chunk = ByteArray(CSR_CACHE)
-                if (conn.controlTransfer(IN_VENDOR, EEPROM_READ, 0, off, chunk, CSR_CACHE, 1000) == CSR_CACHE) chunk.copyInto(ee, off)
+                if (conn.ctl3(IN_VENDOR, EEPROM_READ, 0, off, chunk, CSR_CACHE, 1000) == CSR_CACHE) chunk.copyInto(ee, off)
                 else failed++
                 off += CSR_CACHE
             }
@@ -204,7 +206,7 @@ object Rt3070Monitor {
         disableWpdma()
         val autorun = run {
             val b = ByteArray(4)
-            conn.controlTransfer(IN_VENDOR, DEVICE_MODE, USB_MODE_AUTORUN, 0, b, 4, 1000) == 4 && (le32(b, 0) and 0x3) == 2
+            conn.ctl3(IN_VENDOR, DEVICE_MODE, USB_MODE_AUTORUN, 0, b, 4, 1000) == 4 && (le32(b, 0) and 0x3) == 2
         }
         if (autorun) UsbWifi.log("RT3070: firmware already running (autorun)")
         else {
@@ -216,7 +218,7 @@ object Rt3070Monitor {
                 val len = minOf(CSR_CACHE, FW_LEN - off)
                 val chunk = fw.copyOfRange(image + off, image + off + len)
                 // a write now and then isn't taken right after plug-in: try it again before giving up
-                if ((0 until 3).none { conn.controlTransfer(OUT_VENDOR, MULTI_WRITE, 0, FIRMWARE_BASE + off, chunk, len, 1000) >= 0 }) {
+                if ((0 until 3).none { conn.ctl3(OUT_VENDOR, MULTI_WRITE, 0, FIRMWARE_BASE + off, chunk, len, 1000) >= 0 }) {
                     UsbWifi.log("RT3070: firmware write failed at $off"); return false
                 }
                 off += len
@@ -224,7 +226,7 @@ object Rt3070Monitor {
             UsbWifi.log("RT3070: firmware written ($off B)")
         }
         regWr(H2M_MAILBOX_CID, -1); regWr(H2M_MAILBOX_STATUS, -1)
-        conn.controlTransfer(OUT_VENDOR, DEVICE_MODE, USB_MODE_FIRMWARE, 0, null, 0, 1000)
+        conn.ctl3(OUT_VENDOR, DEVICE_MODE, USB_MODE_FIRMWARE, 0, null, 0, 1000)
         sleep(10)
         regWr(H2M_MAILBOX_CSR, 0)
         if (!poll(1000) { regRd(PBF_SYS_CTRL) and 0x80 != 0 }) { UsbWifi.log("RT3070: PBF not ready - firmware didn't start"); return false }
@@ -286,7 +288,7 @@ object Rt3070Monitor {
         waitCsrReady()
         regWr(PBF_SYS_CTRL, regRd(PBF_SYS_CTRL) and 0x00002000.inv())
         regWr(MAC_SYS_CTRL, 0x3)
-        conn.controlTransfer(OUT_VENDOR, DEVICE_MODE, USB_MODE_RESET, 0, null, 0, 1000)
+        conn.ctl3(OUT_VENDOR, DEVICE_MODE, USB_MODE_RESET, 0, null, 0, 1000)
         regWr(MAC_SYS_CTRL, 0)
 
         regWr(LEGACY_BASIC_RATE, 0x0000013f); regWr(HT_BASIC_RATE, 0x00008003)
@@ -514,7 +516,7 @@ object Rt3070Monitor {
         val st = RxState()
         val t0 = System.currentTimeMillis(); st.hopAt = t0; st.lastEmit = t0
         val stats = BulkRx.Stats("RT3070")
-        val total = BulkRx.run("RT3070", conn, ep, 24, RX_SIZE, { stop }, { b, n ->
+        val total = BulkRx.run("RT3070", conn, ep, 24, RX_SIZE, { stop || UsbCtl.gone }, { b, n ->
             stats.transfer(n)
             // RXINFO + RXWI, and the RXD that follows the frame
             val rxd = if (n >= 4) 4 + (le32(b, 0) and 0xffff) else -1
@@ -580,11 +582,11 @@ object Rt3070Monitor {
 
     private fun regWr(addr: Int, v: Int) {
         val b = ByteArray(4); putLe32(b, 0, v)
-        if (conn.controlTransfer(OUT_VENDOR, MULTI_WRITE, 0, addr, b, 4, 1000) < 0) ctlErrors++
+        if (conn.ctl3(OUT_VENDOR, MULTI_WRITE, 0, addr, b, 4, 1000) < 0) ctlErrors++
     }
     private fun regRd(addr: Int): Int {
         val b = ByteArray(4)
-        if (conn.controlTransfer(IN_VENDOR, MULTI_READ, 0, addr, b, 4, 1000) != 4) { ctlErrors++; return 0 }
+        if (conn.ctl3(IN_VENDOR, MULTI_READ, 0, addr, b, 4, 1000) != 4) { ctlErrors++; return 0 }
         return le32(b, 0)
     }
 

@@ -70,7 +70,7 @@
 
 <h2 id="rules">Ground rules</h2>
 <ul>
-<li><b>Receive only.</b> Only the features whose job is to send (Sentinel Link, Meshtastic, and an OUI-SPY board relaying every network, which sends probe requests) transmit. No driver here does: the HackRF's transmitter, amplifier and antenna bias stay off, the rtl_tcp bias-T is set off, the WiFi drivers have every transmit path removed (no injection, no deauth, no handshake or PMKID capture), and USB Bluetooth never advertises or connects.</li>
+<li><b>Receive only.</b> Only the features whose job is to send (Sentinel Link, Meshtastic, and an OUI-SPY board relaying every network, which sends probe requests) transmit, plus the phone's own scans, which Android runs as every phone does (Bluetooth scan requests unless the Listen-only Bluetooth scan setting is on, WiFi probe requests). No driver here does: the HackRF's transmitter, amplifier and antenna bias stay off, the rtl_tcp bias-T is set off, the WiFi drivers have every transmit path removed (no injection, no deauth, no handshake or PMKID capture), and USB Bluetooth never advertises or connects.</li>
 <li><b>No root, no kernel driver.</b> Every USB device is driven from the app through Android's USB host API (<code>UsbManager</code>, control and bulk transfers). Android asks you once per device for permission.</li>
 <li><b>No decryption.</b> Encrypted P25 calls, WPA traffic and TETRA are never decoded. Radio scanning measures energy, timing and clear signalling only.</li>
 <li><b>Nothing leaves the phone</b> unless you turn on something that says so (RadioReference lookups, Sentinel Link, Meshtastic).</li>

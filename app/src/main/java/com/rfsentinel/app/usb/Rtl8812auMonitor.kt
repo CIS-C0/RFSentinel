@@ -24,10 +24,9 @@ object Rtl8812auMonitor {
     @Volatile private var stop = false
 
     private val frames = MonitorFrames()
-    private val HOP_24 = intArrayOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
-    /** UNII-1 and UNII-3, like the RTL8814AU driver (where most 5 GHz networks are). */
-    private val HOP_5 = intArrayOf(36, 40, 44, 48, 149, 153, 157, 161, 165)
-    private var HOP = HOP_24 + HOP_5
+    /** Hop round [k]: 2.4 GHz, the common 5 GHz channels and two radar (DFS) ones in turn, as the RTL8822BU driver. */
+    private fun round(k: Int) = UsbWifi.hops(Rtl8822buMonitor.hopCycle(k))
+    private var HOP = Rtl8822buMonitor.hopCycle(0)
     /** The board type the efuse says (which antenna switch and LNA lines the baseband drives); 0 when it can't be read. */
     private var rfe = 0
     /** The chip's revision: 0 = A, 1 = B, 2 = C... */
@@ -37,7 +36,7 @@ object Rtl8812auMonitor {
 
     private val FRESH_MS get() = (HOP.size * DWELL_MS * 9 / 5).coerceAtLeast(3000L)
     private const val REPORT_MS = 10_000L
-    private const val NOMINAL_RSSI = -60
+    private const val FCS_LEN = 4
 
     private const val OUT_VENDOR = 0x40; private const val IN_VENDOR = 0xC0
     private const val VREQ = 0x05
@@ -60,7 +59,7 @@ object Rtl8812auMonitor {
     fun run(ctx: Context, device: UsbDevice, onStatus: (String) -> Unit,
             onFrame: (List<MonitorSighting>) -> Unit) {
         if (running) return
-        HOP = UsbWifi.hops(HOP_24 + HOP_5)
+        HOP = round(0)
         running = true; stop = false; frames.clear(); rfShadow.forEach { it.clear() }
         val mgr = ctx.getSystemService(Context.USB_SERVICE) as UsbManager
         val conn = mgr.openDevice(device) ?: run { onStatus("RTL8812AU: couldn't reopen adapter"); running = false; return }
@@ -112,6 +111,8 @@ object Rtl8812auMonitor {
             UsbWifi.log("RTL8812AU: bring-up error — ${e.message}")
             onStatus("RTL8812AU: error · ${e.message}")
         } finally {
+            // Scanning stopped, adapter still plugged in: radio and receiver off, so it stops drawing on the battery.
+            if (stop && !UsbCtl.gone) runCatching { w16(conn, Rtl8812auTables.REG_CR, 0x0000); w8(conn, REG_RF_CTRL, 0x00); w8(conn, REG_RF_B_CTRL, 0x00) }
             runCatching { conn.close() }
             running = false
         }
@@ -241,7 +242,7 @@ object Rtl8812auMonitor {
     }
 
     private class RxState {
-        var total = 0L; var bufs = 0L; var lastLog = 0L; var hopAt = 0L; var lastEmit = 0L; var hopIdx = 0
+        var total = 0L; var bufs = 0L; var lastLog = 0L; var hopAt = 0L; var lastEmit = 0L; var hopIdx = 0; var round = 0
         var frames = 0L
         fun start() { val t = System.currentTimeMillis(); lastLog = t; hopAt = t; lastEmit = t }
     }
@@ -257,6 +258,7 @@ object Rtl8812auMonitor {
         val lock = AntennaCheck.lockIndex(HOP) // antenna check: hold the reference's channel
         if (lock >= 0 && lock == st.hopIdx) AntennaCheck.holding = HOP[lock]
         if (if (lock >= 0) lock != st.hopIdx else now - st.hopAt > DWELL_MS) {
+            if (lock < 0 && st.hopIdx + 1 >= HOP.size) HOP = round(++st.round) // same length every round
             val ni = if (lock >= 0) lock else (st.hopIdx + 1) % HOP.size
             if (ni != st.hopIdx) { st.hopIdx = ni; runCatching { channelTune(conn, HOP[st.hopIdx]) } }
             val (aps, clients) = frames.live(now, REPORT_MS)
@@ -268,7 +270,7 @@ object Rtl8812auMonitor {
     private fun rxLoop(conn: UsbDeviceConnection, epRx: UsbEndpoint,
                        onFrame: (List<MonitorSighting>) -> Unit, onStatus: (String) -> Unit) {
         val st = RxState().apply { start() }
-        BulkRx.run("RTL8812AU", conn, epRx, 24, 16384, { stop }, { b, n ->
+        BulkRx.run("RTL8812AU", conn, epRx, 24, 16384, { stop || UsbCtl.gone }, { b, n ->
             st.total += n; st.bufs++
             st.frames += parseRxBuf(b, n, HOP[st.hopIdx])
         }, syncTimeoutMs = 500) { now -> rxTick(conn, now, st, onFrame, onStatus) }
@@ -293,11 +295,13 @@ object Rtl8812auMonitor {
             // A frame cut off at the end of the transfer isn't reported: its tail (and so a
             // complete header / IEs) is missing, and what follows in the next transfer isn't a descriptor.
             if (fs + pkt > n) break
-            val fe = fs + pkt
+            val fe = fs + pkt - FCS_LEN // RCR appends the checksum; its bytes aren't part of the frame
+            val physt = (d0 ushr 26) and 1 != 0
             if (crc == 0 && fe - fs >= 24) {
                 val rate = b[off + 12].toInt() and 0x7f
-                val phy = drv >= 8 && off + size + drv <= n
-                val rssi = if (phy) rtlRssi(b, off + size, rate) else NOMINAL_RSSI
+                // Only a PHY status the chip filled (bit 26): on other frames of an aggregate those bytes aren't a signal report.
+                val phy = physt && drv >= 8
+                val rssi = if (phy) rtlRssi(b, off + size, rate) else null
                 // OFDM reports also carry each path's power (antenna check); CCK only one value.
                 val ofdm = phy && rate > 3
                 frames.frame(b, fs, fe, ch, rssi, pathA = if (ofdm) pathPower(b, off + size) else null,
@@ -324,10 +328,10 @@ object Rtl8812auMonitor {
 
     private fun r(conn: UsbDeviceConnection, addr: Int, len: Int): ByteArray {
         val b = ByteArray(len)
-        return if (conn.controlTransfer(IN_VENDOR, VREQ, addr, 0, b, len, 500) == len) b else ByteArray(len)
+        return if (conn.ctl3(IN_VENDOR, VREQ, addr, 0, b, len, 500) == len) b else ByteArray(len)
     }
     private fun w(conn: UsbDeviceConnection, addr: Int, data: ByteArray) {
-        conn.controlTransfer(OUT_VENDOR, VREQ, addr, 0, data, data.size, 500)
+        conn.ctl3(OUT_VENDOR, VREQ, addr, 0, data, data.size, 500)
     }
     private fun r8(conn: UsbDeviceConnection, a: Int) = r(conn, a, 1)[0].toInt() and 0xff
     private fun r16(conn: UsbDeviceConnection, a: Int): Int { val b = r(conn, a, 2); return (b[0].toInt() and 0xff) or ((b[1].toInt() and 0xff) shl 8) }

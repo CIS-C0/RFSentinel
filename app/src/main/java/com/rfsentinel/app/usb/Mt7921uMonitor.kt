@@ -36,7 +36,7 @@ object Mt7921uMonitor {
 
     /** Band (0 = 2.4, 1 = 5, 2 = 6 GHz) and channel of each hop. 6 GHz: the preferred scanning channels. */
     internal val HOP: List<Pair<Int, Int>> =
-        (1..13).map { 0 to it } +
+        UsbWifi.HOP_24.map { 0 to it } +
         listOf(36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144,
             149, 153, 157, 161, 165).map { 1 to it } +
         listOf(5, 21, 37, 53, 69, 85, 101, 117, 133, 149, 165, 181, 197, 213, 229).map { 2 to it }
@@ -46,19 +46,30 @@ object Mt7921uMonitor {
     /** A 6 GHz channel that carried a frame this recently is visited every round. */
     private const val SIX_GHZ_ACTIVE_MS = 90_000L
 
+    /** 5 GHz radar (DFS) channels: fewer networks than on 36-48, so they rotate like 6 GHz. */
+    internal fun isDfs(hop: Pair<Int, Int>) = hop.first == 1 && hop.second in 52..144
+
     /**
-     * The channels of hop round [round]: all of 2.4 and 5 GHz, and a rotating third of the 6 GHz
-     * channels plus any 6 GHz channel in [active6]. 6 GHz switches are the slowest (often the full
-     * timeout) and most places have little there yet, so a full 6 GHz pass every round would
-     * stretch the loop by about half for nothing; every channel is still visited every 3 rounds.
+     * The channels of hop round [round]: all of 2.4 GHz and the common 5 GHz channels, and a rotating third of
+     * the 6 GHz and of the 5 GHz radar channels, plus any of those heard lately ([active6], [activeDfs]).
+     * 6 GHz switches are the slowest (often the full timeout) and most places have little there yet; a full
+     * pass of both every round would stretch the loop by about half for nothing, and each 2.4 GHz channel is
+     * only heard for its dwell once a round. Every channel is still visited every 3 rounds.
      */
-    internal fun roundPlan(round: Int, active6: Set<Int>): List<Pair<Int, Int>> {
+    internal fun roundPlan(round: Int, active6: Set<Int>, activeDfs: Set<Int> = emptySet()): List<Pair<Int, Int>> {
         val six = HOP.filter { it.first == 2 }
-        return (HOP.filter { it.first != 2 } +
+        val dfs = HOP.filter { isDfs(it) }
+        return (HOP.filter { it.first != 2 && !isDfs(it) } +
+            dfs.filterIndexed { i, (_, ch) -> i % SIX_GHZ_EVERY == round % SIX_GHZ_EVERY || ch in activeDfs } +
             six.filterIndexed { i, (_, ch) -> i % SIX_GHZ_EVERY == round % SIX_GHZ_EVERY || ch in active6 })
             .filter { UsbWifi.inBand(it.first != 0) }.ifEmpty { HOP }
     }
+    /** Both antennas as a mask (SET_RX_PATH), and as a count (CHANNEL_SWITCH): mt7921_mcu_set_chan_info sends each its own. */
     private const val RX_ANTENNAS = 0x3
+    private const val RX_STREAMS = 2
+    /** MT_WTBLOFF_TOP_RSCR per band: RCPI mode (bits 31-30) and parameter (25-24). */
+    private val RSCR = intArrayOf(0x820e9008.toInt(), 0x820f9008.toInt())
+    private const val RSCR_RCPI_MODE = 3 shl 30; private const val RSCR_RCPI_PARAM = 3 shl 24
     private const val SWITCH_TIMEOUT_MS = 500L
     /** A full round, allowing ~150 ms per channel switch on top of the dwell. */
     private val FRESH_MS get() = (HOP.size * (DWELL_MS + 150) * 9 / 5).coerceAtLeast(3000L)
@@ -105,7 +116,7 @@ object Mt7921uMonitor {
     private const val EXT_CID = 0xED
     internal fun extCmd(id: Int) = EXT_CID or ((id shl 8) and 0xFF00)
     internal fun ceCmd(id: Int) = CMD_FIELD_CE or (id and 0xFF)
-    internal const val EXT_CHANNEL_SWITCH = 0x08; internal const val EXT_EFUSE_BUFFER_MODE = 0x21
+    internal const val EXT_CHANNEL_SWITCH = 0x08; internal const val EXT_SET_RX_PATH = 0x4E; internal const val EXT_EFUSE_BUFFER_MODE = 0x21
     internal const val CE_GET_NIC_CAPAB = 0x8A; internal const val CE_SET_RX_FILTER = 0x0A
     internal const val UNI_SNIFFER = 0x24
     private const val MCU_TXD_LEN = 64; private const val UNI_TXD_LEN = 48
@@ -179,6 +190,9 @@ object Mt7921uMonitor {
             mcuCmd(ceCmd(CE_SET_RX_FILTER), rxFilterPayload(0, FIF_BIT_CLR, MONITOR_DROP_CLEAR), wait = false)
             if (!mcuUni(UNI_SNIFFER, snifferEnablePayload(true), wait = true)) UsbWifi.log("MT7921AU: sniffer mode not acknowledged (continuing)")
             val (band0, ch0) = HOP[0]
+            // __mt7921_start: the receive antennas as a mask, once, before the first channel switch.
+            val rxPath = mcuCmd(extCmd(EXT_SET_RX_PATH), chanInfoPayload(band0, ch0, RX_ANTENNAS), wait = true) != null
+            UsbWifi.log("MT7921AU: receive path (both antennas) ${if (rxPath) "set" else "not acknowledged (continuing)"}")
             tune(band0, ch0, wait = true)
             UsbWifi.log("MT7921AU: started in %d ms - CONN_ON_MISC 0x%08x WLCFG_0 0x%08x, USB errors %d - monitor live ch %d".format(
                 System.currentTimeMillis() - t0, rr(CONN_ON_MISC), rr(UDMA_WLCFG_0), ctlErrors, ch0))
@@ -188,10 +202,16 @@ object Mt7921uMonitor {
             UsbWifi.log("MT7921AU: bring-up error - ${UsbWifi.describe(e)}")
             onStatus("$chipName: error · ${e.message}")
         } finally {
+            // Scanning stopped, adapter still plugged in: radio and receiver off, so it stops drawing on the battery.
+            // mt792xu_cleanup: the WiFi subsystem reset stops the firmware and the radio.
+            if (stop && fwStarted && ctlErrors < 5) runCatching { UsbWifi.log("MT7921AU: WiFi subsystem off (${if (wfsysReset()) "reset done" else "reset not confirmed"})") }
+            fwStarted = false
             runCatching { c.close() }
             running = false
         }
     }
+
+    private var fwStarted = false
 
     private fun wifiInterface(d: UsbDevice): UsbInterface? = (0 until d.interfaceCount).map { d.getInterface(it) }.firstOrNull { i ->
         i.interfaceClass == 0xff && i.interfaceSubclass == 0xff && i.interfaceProtocol == 0xff &&
@@ -235,6 +255,14 @@ object Mt7921uMonitor {
         if (mcuCmd(ceCmd(CE_GET_NIC_CAPAB), ByteArray(0), wait = true) == null) return "no answer to the capability query"
         if (mcuCmd(extCmd(EXT_EFUSE_BUFFER_MODE), byteArrayOf(0, 1, 0, 0), wait = true) == null) return "calibration not accepted"
         UsbWifi.log("MT7921AU: calibration (efuse) pushed")
+        fwStarted = true
+        // mt792x_mac_init_band: each frame's own signal level in its descriptor ("instantaneous signal reporting"),
+        // not the chip's default mode. Logged before and after, to see from a tester's log what it changed.
+        for (r in RSCR) {
+            val before = rrChecked(r)
+            rmw(r, RSCR_RCPI_MODE or RSCR_RCPI_PARAM, RSCR_RCPI_PARAM)
+            UsbWifi.log("MT7921AU: signal reporting register 0x%08x: 0x%08x -> 0x%08x".format(r, before ?: -1, rrChecked(r) ?: -1))
+        }
         return null
     }
 
@@ -487,13 +515,13 @@ object Mt7921uMonitor {
     }
 
     /**
-     * CHANNEL_SWITCH: 20 MHz on [ch] in [band] (0 = 2.4, 1 = 5, 2 = 6 GHz), two streams. The RX path
-     * is an antenna mask, as mt7921_mcu_set_chan_info sends it (antenna_mask): 0x3 listens on both
-     * antennas; the 2 in mt76-usb-macos's frames is antenna 2 alone.
+     * CHANNEL_SWITCH / SET_RX_PATH: 20 MHz on [ch] in [band] (0 = 2.4, 1 = 5, 2 = 6 GHz), two streams. [rx] is
+     * "mask or num" in mt7921_mcu_set_chan_info: the antenna mask (0x3) in SET_RX_PATH, and for CHANNEL_SWITCH
+     * Linux turns it into the number of antennas (hweight8: 2), which is also what mt76-usb-macos sends.
      */
-    internal fun chanInfoPayload(band: Int, ch: Int): ByteArray {
+    internal fun chanInfoPayload(band: Int, ch: Int, rx: Int = RX_STREAMS): ByteArray {
         val p = ByteArray(76)
-        p[0] = ch.toByte(); p[1] = ch.toByte(); p[2] = 0; p[3] = 2; p[4] = RX_ANTENNAS.toByte(); p[10] = band.toByte()
+        p[0] = ch.toByte(); p[1] = ch.toByte(); p[2] = 0; p[3] = 2; p[4] = rx.toByte(); p[10] = band.toByte()
         return p
     }
 
@@ -544,6 +572,8 @@ object Mt7921uMonitor {
         if (rxd1 and RXD1_FCS_ERR != 0) { onBad(true); return null }
         if (rxd2 and (RXD2_AMSDU_ERR or RXD2_MAX_LEN_ERROR or RXD2_HDR_TRANS) != 0) { onBad(false); return null }
         val dmaLen = rxd0 and 0xffff
+        // One frame per transfer: a descriptor longer than the transfer is a piece of something else.
+        if (dmaLen > n) { onBad(false); return null }
         val end = if (dmaLen in 1 until n) dmaLen else n
         // Groups in the order mt7921_mac_fill_rx reads them; group 5 needs group 3.
         val mask = (rxd1 ushr 11) and 31
@@ -561,7 +591,8 @@ object Mt7921uMonitor {
         // an antenna that heard nothing reports 0 (or 255) and is left out.
         val rcpiWord = when { g5 >= 0 -> le32(b, g5 + 24); g3 >= 0 -> le32(b, g3 + 4); else -> null }
         fun chain(w: Int, c: Int): Int? = ((w ushr (8 * c)) and 0xff).takeIf { it in 1..254 }?.let { it / 2 - 110 }?.takeIf { it < 0 }
-        val rssi = rcpiWord?.let { w -> (0 until 4).mapNotNull { chain(w, it) }.maxOrNull() }
+        // Two antennas: the word's other two bytes are not chains on this chip (Linux only counts those in its antenna mask).
+        val rssi = rcpiWord?.let { w -> (0 until 2).mapNotNull { chain(w, it) }.maxOrNull() }
         val start = off + 2 * ((rxd2 ushr 14) and 0x3)
         if (end - start < 10) { onBad(false); return null }
         val chfreq = (rxd3 ushr 8) and 0xff
@@ -582,8 +613,9 @@ object Mt7921uMonitor {
     private class RxState {
         var hopAt = 0L; var lastEmit = 0L; var lastRxAt = 0L; var lastCheck = 0L; var hopIdx = 0
         var round = 0; var plan: List<Pair<Int, Int>> = HOP.filter { UsbWifi.inBand(it.first != 0) }
-        /** 6 GHz channel number -> when a frame was last heard on it. */
+        /** 6 GHz channel number -> when a frame was last heard on it; the same for the 5 GHz radar channels. */
         val heard6 = HashMap<Int, Long>()
+        val heardDfs = HashMap<Int, Long>()
         /** The channel held for the antenna check instead of hopping. */
         var locked: Pair<Int, Int>? = null
         val current get() = locked ?: plan[hopIdx]
@@ -619,6 +651,7 @@ object Mt7921uMonitor {
             val f = parseRx(b, n, onBad = { crc -> if (crc) stats.badChecksum++ else stats.malformed++ }) ?: return@onData
             val (hopBand, hopCh) = st.current
             if (f.band == 2 && f.channel > 0) st.heard6[f.channel] = System.currentTimeMillis()
+            else if (isDfs(f.band to f.channel)) st.heardDfs[f.channel] = System.currentTimeMillis()
             // The descriptor's channel, else the one tuned to.
             val ch = if (f.channel > 0) monitorChannel(f.band, f.channel) else monitorChannel(hopBand, hopCh)
             stats.frame(f.rssi)
@@ -652,7 +685,8 @@ object Mt7921uMonitor {
                     st.hopIdx++
                     if (st.hopIdx >= st.plan.size) {
                         st.round++
-                        st.plan = roundPlan(st.round, st.heard6.filterValues { now - it < SIX_GHZ_ACTIVE_MS }.keys)
+                        st.plan = roundPlan(st.round, st.heard6.filterValues { now - it < SIX_GHZ_ACTIVE_MS }.keys,
+                            st.heardDfs.filterValues { now - it < SIX_GHZ_ACTIVE_MS }.keys)
                         st.hopIdx = 0
                     }
                 }

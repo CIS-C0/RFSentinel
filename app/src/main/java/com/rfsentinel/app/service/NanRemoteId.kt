@@ -57,6 +57,7 @@ class NanRemoteId(private val context: Context, private val onAdvert: (Advert) -
 
     fun stop() {
         running = false
+        handler.removeCallbacks(reattach)
         if (receiverOn) { runCatching { context.unregisterReceiver(stateReceiver) }; receiverOn = false }
         close()
     }
@@ -79,7 +80,7 @@ class NanRemoteId(private val context: Context, private val onAdvert: (Advert) -
                     session = s
                     subscribe(s)
                 }
-                override fun onAttachFailed() { Log.w(TAG, "Wi-Fi Aware attach failed") }
+                override fun onAttachFailed() { retry("attach failed") }
             }, handler)
         } catch (e: SecurityException) {
             Log.w(TAG, "Wi-Fi Aware not allowed: ${e.message}")
@@ -95,17 +96,32 @@ class NanRemoteId(private val context: Context, private val onAdvert: (Advert) -
         try {
             s.subscribe(config, object : DiscoverySessionCallback() {
                 override fun onSubscribeStarted(sub: SubscribeDiscoverySession) {
-                    subscription = sub
+                    subscription = sub; retryMs = RETRY_MS
                     Log.i(TAG, "Listening for drone Remote ID over Wi-Fi Aware")
+                    com.rfsentinel.app.util.HwLogs.phone.logStatus("Wi-Fi Aware", "Wi-Fi Aware: listening for drone Remote ID")
                 }
+                override fun onSessionConfigFailed() { retry("subscription refused") }
                 override fun onServiceDiscovered(peer: PeerHandle, info: ByteArray?, filter: List<ByteArray>?) {
                     info?.let { onInfo(peer, it) }
                 }
-                override fun onSessionTerminated() { subscription = null }
+                override fun onSessionTerminated() { subscription = null; retry("session ended") }
             }, handler)
         } catch (e: SecurityException) {
             Log.w(TAG, "Wi-Fi Aware subscribe not allowed: ${e.message}")
         }
+    }
+
+    private var retryMs = RETRY_MS
+    private val reattach = Runnable { if (running) { close(); attach() } }
+
+    /** Wi-Fi Aware let go ([why]): attach again shortly, a little later each time it fails, so listening never just stops. */
+    private fun retry(why: String) {
+        Log.w(TAG, "Wi-Fi Aware: $why")
+        if (!running) return
+        com.rfsentinel.app.util.HwLogs.phone.logStatus("Wi-Fi Aware", "Wi-Fi Aware: $why, trying again")
+        handler.removeCallbacks(reattach)
+        handler.postDelayed(reattach, retryMs)
+        retryMs = (retryMs * 2).coerceAtMost(MAX_RETRY_MS)
     }
 
     private fun onInfo(peer: PeerHandle, info: ByteArray) {
@@ -122,6 +138,8 @@ class NanRemoteId(private val context: Context, private val onAdvert: (Advert) -
         private const val NAN_MHZ = 2437
         /** No signal strength comes with a discovery. */
         private const val NOMINAL_RSSI = -75
+        private const val RETRY_MS = 5_000L
+        private const val MAX_RETRY_MS = 60_000L
 
         fun supported(context: Context): Boolean =
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&

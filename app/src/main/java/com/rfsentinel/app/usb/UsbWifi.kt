@@ -191,6 +191,12 @@ object UsbWifi {
     /** [all]'s channels in the chosen band (2.4 GHz is 1-14); all of them when none are (a 2.4 GHz-only adapter on 5 GHz). */
     fun hops(all: IntArray): IntArray = all.filter { inBand(it > 14) }.toIntArray().takeIf { it.isNotEmpty() } ?: all
 
+    /**
+     * The 2.4 GHz channels in hop order. Neighbouring channels overlap (a beacon on 6 is heard from 5 and 7 too), so
+     * visiting them far apart in time halves the longest wait before an access point is heard again, at no cost.
+     */
+    val HOP_24 = intArrayOf(1, 6, 11, 3, 9, 2, 7, 13, 4, 10, 5, 8, 12)
+
     /** The adapter waiting for its chip firmware (FOSS build, not downloaded yet), for [FirmwarePrompt]; null when none. */
     @Volatile var firmwareNeeded: Chip? = null
         private set
@@ -356,6 +362,7 @@ object UsbWifi {
                 previous?.join(3_000)
                 if (previous?.isAlive == true) { status = "USB WiFi (${chip.name}): the last session is still stopping - unplug and replug the adapter"; return@runCatching }
                 band = com.rfsentinel.app.util.Prefs.wifiBand(context)
+                UsbCtl.reset()
                 val onStatus: (String) -> Unit = { s -> status = s }
                 val onFrames: (List<MonitorSighting>) -> Unit = { list -> onSightings?.invoke(list) }
                 when (chip.driver) {
@@ -380,7 +387,16 @@ object UsbWifi {
                 if (Firmware.missing(context, chip.driver).isNotEmpty()) { firmwareNeeded = chip; FirmwarePrompt.notify(context, chip.name) }
             }
             // By thread, not name: a replug reuses the name, and a stopped run ending late must not clear the new one.
-            synchronized(this) { if (thread === Thread.currentThread()) { runningDevice = null; runningChip = null } }
+            synchronized(this) {
+                if (thread === Thread.currentThread()) {
+                    // Never leave the last "live" line behind when the adapter stopped answering on its own.
+                    if (UsbCtl.gone && runningDevice != null) {
+                        log("${chip.name}: the adapter stopped answering (${UsbCtl.run} register accesses failed in a row)")
+                        status = "USB WiFi (${chip.name}): the adapter stopped answering - unplug it and plug it back in"
+                    }
+                    runningDevice = null; runningChip = null
+                }
+            }
         }, "usb-wifi").also { it.start() }
     }
 

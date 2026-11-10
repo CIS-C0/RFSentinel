@@ -68,6 +68,10 @@ object UsbBluetooth {
     /** The running session's stop flag: each session has its own, so a quick stop and start can't revive the old one. */
     @Volatile private var halt = java.util.concurrent.atomic.AtomicBoolean(true)
     private val main by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
+    /** Sessions that may still be started again by themselves after an error; refilled by a plug-in or a minute of scanning. */
+    @Volatile private var retriesLeft = RETRIES
+    private const val RETRIES = 3
+    private const val RETRY_MS = 3_000L
 
     /** The Bluetooth interface of [d] (btusb_table): class e0/01/01, or ff/01/01 for the vendors listed. */
     internal fun btInterface(d: UsbDevice): UsbInterface? = (0 until d.interfaceCount).map { d.getInterface(it) }.firstOrNull { i ->
@@ -94,6 +98,7 @@ object UsbBluetooth {
                 override fun onReceive(c: Context, intent: Intent) {
                     when (intent.action) {
                         UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
+                            retriesLeft = RETRIES
                             connect(app, ask = false)
                             main.postDelayed({ if (receiver != null) connect(app) }, UsbAttachActivity.ATTACH_GRACE_MS)
                         }
@@ -181,7 +186,15 @@ object UsbBluetooth {
                 else run(context, mgr, d, mine)
             } catch (e: Exception) {
                 com.rfsentinel.app.util.HwLogs.usbBt.log("BT: stopped - ${com.rfsentinel.app.util.HwLog.describe(e)}")
-                if (!mine.get()) status = "USB Bluetooth: error · ${e.message}"
+                if (!mine.get()) {
+                    status = "USB Bluetooth: error · ${e.message}"
+                    // Still plugged in and not stopped: try again shortly instead of staying dead until the next plug-in.
+                    if (retriesLeft > 0) {
+                        retriesLeft--
+                        com.rfsentinel.app.util.HwLogs.usbBt.log("BT: starting again in ${RETRY_MS / 1000} s ($retriesLeft more tries after this)")
+                        main.postDelayed({ if (receiver != null) connect(context) }, RETRY_MS)
+                    }
+                }
             }
             synchronized(this) { if (halt === mine) runningDevice = null }
         }, "usb-bt").also { it.start() }
@@ -208,7 +221,8 @@ object UsbBluetooth {
         try {
             val id = "%04x:%04x".format(d.vendorId, d.productId)
             com.rfsentinel.app.util.HwLogs.usbBt.log("=== USB Bluetooth bring-up ($id, interface ${intf.id}) - RF Sentinel ${com.rfsentinel.app.BuildConfig.VERSION_NAME} ===")
-            BulkRx.claim("BT", conn, intf) { halt.get() }
+            synchronized(partial) { partial.clear() } // pieces of split reports from an earlier session
+            BulkRx.claim("BT", conn, intf, com.rfsentinel.app.util.HwLogs.usbBt::log) { halt.get() }
             val hci = HciUsb(conn, evtIn, "BT").also { h = it }
             hci.startReader() // btusb_open: the interrupt endpoint is read from here on
             vendor = vendorOf(d.vendorId, d.productId)
@@ -244,12 +258,16 @@ object UsbBluetooth {
             ext = startScan(hci, name)
             status = "USB Bluetooth ($name) · live · " + if (ext) "LE 1M + Coded" else "LE"
             runningChip = name
+            val liveAt = System.currentTimeMillis()
             hci.onAdvertising = { e -> parse(e).takeIf { it.isNotEmpty() }?.let { reportCount.addAndGet(it.size.toLong()); sink?.invoke(it) } }
             var lastLog = System.currentTimeMillis()
             var lastCount = reportCount.get()
             while (!halt.get()) {
                 Thread.sleep(500)
                 if (hci.unplugged) throw IOException("the adapter stopped answering")
+                // The controller reset itself and no longer scans: this session ends, and a new one starts shortly.
+                if (hci.hardwareError) throw IOException("the controller reported a hardware error")
+                if (retriesLeft < RETRIES && System.currentTimeMillis() - liveAt > 60_000) retriesLeft = RETRIES // it held: a later failure may retry again
                 val now = System.currentTimeMillis()
                 if (now - lastLog >= 60_000) {
                     val c = reportCount.get()
@@ -306,7 +324,8 @@ object UsbBluetooth {
         return if (extAdv) {
             // Set Extended Scan Parameters: public own address, accept all, then per PHY: passive, interval, window.
             val phys = if (coded) 0x05 else 0x01
-            val per = byteArrayOf(0) + interval + window
+            // Two PHYs share the interval, half each; one PHY alone listens the whole time (as the legacy scan below).
+            val per = byteArrayOf(0) + interval + (if (coded) window else interval)
             h.cmdOk(0x2041, byteArrayOf(0, 0, phys.toByte()) + per + (if (coded) per else ByteArray(0)))
             h.cmdOk(0x2042, byteArrayOf(1, 0, 0, 0, 0, 0)) // enable, duplicates kept, no duration, no period
             com.rfsentinel.app.util.HwLogs.usbBt.log("BT: $name extended passive scan on LE 1M" + if (coded) " + LE Coded" else "")
@@ -358,11 +377,11 @@ object UsbBluetooth {
                 // Data status (bits 5-6): 1 = more to come in the next report, 2 = truncated.
                 val key = addr.joinToString("") { "%02x".format(it) } + addrType
                 val status = (type shr 5) and 0x3
-                partial.remove(key)?.let { data = it + data }
-                if (status == 1) {
-                    if (data.size < 1650) { if (partial.size >= 64) partial.remove(partial.keys.first()); partial[key] = data }
-                    continue
+                synchronized(partial) {
+                    partial.remove(key)?.let { data = it + data }
+                    if (status == 1 && data.size < 1650) { if (partial.size >= 64) partial.remove(partial.keys.first()); partial[key] = data }
                 }
+                if (status == 1) continue
                 val legacy = type and 0x10 != 0
                 val phy = when {
                     primary == 3 -> "LE Coded (long range)"

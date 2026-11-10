@@ -158,6 +158,10 @@ object NotificationHelper {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setContentIntent(openAppIntent(context))
             .addAction(0, "Stop", stop)
+            // One tap at the wheel: what is in the list now, kept to look at later (History > Snapshots).
+            .addAction(0, "Snapshot", PendingIntent.getService(context, 3,
+                Intent(context, ScanForegroundService::class.java).setAction(ScanForegroundService.ACTION_SNAPSHOT),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             .build()
     }
 

@@ -32,8 +32,7 @@ object Mt7612uMonitor {
     @Volatile private var stop = false
 
     private val frames = MonitorFrames()
-    private val ALL_HOP = intArrayOf(
-        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+    private val ALL_HOP = UsbWifi.HOP_24 + intArrayOf(
         36, 40, 44, 48, 52, 56, 60, 64,
         100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144,
         149, 153, 157, 161, 165
@@ -255,6 +254,8 @@ object Mt7612uMonitor {
             UsbWifi.log("$tag: bring-up error - ${UsbWifi.describe(e)}")
             onStatus("$chipName: error · ${e.message}")
         } finally {
+            // Scanning stopped, adapter still plugged in: radio and receiver off, so it stops drawing on the battery.
+            if (stop && !UsbCtl.gone) runCatching { regClear(MAC_SYS_CTRL, SYS_CTRL_ENABLE_TX or SYS_CTRL_ENABLE_RX) }
             runCatching { c.close() }
             running = false
         }
@@ -528,7 +529,7 @@ object Mt7612uMonitor {
         val st = RxState()
         val t0 = System.currentTimeMillis(); st.hopAt = t0; st.lastEmit = t0; st.lastRxAt = t0; st.lastCheck = t0
         val stats = BulkRx.Stats(tag)
-        val total = BulkRx.run(tag, conn, ep, 24, RX_BUF, { stop }, onData@{ b, n ->
+        val total = BulkRx.run(tag, conn, ep, 24, RX_BUF, { stop || UsbCtl.gone }, onData@{ b, n ->
             stats.transfer(n)
             st.lastRxAt = System.currentTimeMillis()
             stats.sample("$n bytes, DMA header + RXWI", b, 0, DMA_HDR + 16)
@@ -663,7 +664,7 @@ object Mt7612uMonitor {
         var i = 0
         while (i + 4 <= EE_SIZE) {
             val b = ByteArray(4)
-            if (conn.controlTransfer(IN_VENDOR, READ_EEPROM, 0, i, b, 4, 1000) == 4) System.arraycopy(b, 0, ee, i, 4) else failed++
+            if (conn.ctl3(IN_VENDOR, READ_EEPROM, 0, i, b, 4, 1000) == 4) System.arraycopy(b, 0, ee, i, 4) else failed++
             i += 4
         }
         if (failed > 0) UsbWifi.log("MT7612U: $failed of ${EE_SIZE / 4} EEPROM reads failed")
@@ -1003,18 +1004,18 @@ object Mt7612uMonitor {
 
     /** Standard CLEAR_FEATURE(ENDPOINT_HALT) on [ep]. */
     private fun clearHalt(ep: UsbEndpoint) {
-        conn.controlTransfer(0x02, 0x01, 0, ep.address, null, 0, 1000)
+        conn.ctl3(0x02, 0x01, 0, ep.address, null, 0, 1000)
     }
     private fun vendor(req: Int, reqType: Int, value: Int, data: ByteArray?) {
-        if (conn.controlTransfer(reqType, req, value, 0, data, data?.size ?: 0, 1000) < 0) ctlErrors++
+        if (conn.ctl3(reqType, req, value, 0, data, data?.size ?: 0, 1000) < 0) ctlErrors++
     }
     private fun regWr(addr: Int, v: Int) {
         val b = ByteArray(4); putLe32(b, 0, v)
-        if (conn.controlTransfer(OUT_VENDOR, MULTI_WRITE, (addr ushr 16) and 0xffff, addr and 0xffff, b, 4, 1000) < 0) ctlErrors++
+        if (conn.ctl3(OUT_VENDOR, MULTI_WRITE, (addr ushr 16) and 0xffff, addr and 0xffff, b, 4, 1000) < 0) ctlErrors++
     }
     private fun regRd(addr: Int): Int {
         val b = ByteArray(4)
-        if (conn.controlTransfer(IN_VENDOR, MULTI_READ, (addr ushr 16) and 0xffff, addr and 0xffff, b, 4, 1000) != 4) { ctlErrors++; return 0 }
+        if (conn.ctl3(IN_VENDOR, MULTI_READ, (addr ushr 16) and 0xffff, addr and 0xffff, b, 4, 1000) != 4) { ctlErrors++; return 0 }
         return le32(b, 0)
     }
     private fun regSet(addr: Int, bits: Int) = regWr(addr, regRd(addr) or bits)
@@ -1022,18 +1023,18 @@ object Mt7612uMonitor {
     private fun regRmw(addr: Int, mask: Int, v: Int) = regWr(addr, (regRd(addr) and mask.inv()) or v)
     private fun cfgWr(addr: Int, v: Int) {
         val b = ByteArray(4); putLe32(b, 0, v)
-        if (conn.controlTransfer(OUT_VENDOR, WRITE_CFG, (addr ushr 16) and 0xffff, addr and 0xffff, b, 4, 1000) < 0) ctlErrors++
+        if (conn.ctl3(OUT_VENDOR, WRITE_CFG, (addr ushr 16) and 0xffff, addr and 0xffff, b, 4, 1000) < 0) ctlErrors++
     }
     private fun cfgRd(addr: Int): Int {
         val b = ByteArray(4)
-        if (conn.controlTransfer(IN_VENDOR, READ_CFG, (addr ushr 16) and 0xffff, addr and 0xffff, b, 4, 1000) != 4) { ctlErrors++; return 0 }
+        if (conn.ctl3(IN_VENDOR, READ_CFG, (addr ushr 16) and 0xffff, addr and 0xffff, b, 4, 1000) != 4) { ctlErrors++; return 0 }
         return le32(b, 0)
     }
     private fun cfgSet(addr: Int, bits: Int) = cfgWr(addr, cfgRd(addr) or bits)
     private fun cfgClear(addr: Int, bits: Int) = cfgWr(addr, cfgRd(addr) and bits.inv())
     private fun singleWr(req: Int, offset: Int, v: Int) {
-        conn.controlTransfer(OUT_VENDOR, req, v and 0xffff, offset, null, 0, 1000)
-        conn.controlTransfer(OUT_VENDOR, req, (v ushr 16) and 0xffff, offset + 2, null, 0, 1000)
+        conn.ctl3(OUT_VENDOR, req, v and 0xffff, offset, null, 0, 1000)
+        conn.ctl3(OUT_VENDOR, req, (v ushr 16) and 0xffff, offset + 2, null, 0, 1000)
     }
     private fun waitWpdma() = poll(1000, 2) { regRd(WPDMA_GLO_CFG) and (WPDMA_TX_DMA_BUSY or WPDMA_RX_DMA_BUSY) == 0 }
 

@@ -46,7 +46,7 @@ object AdvertFactory {
             mac = mac,
             source = Advert.Source.BLE,
             rssi = if (r.rssi >= 127) -100 else r.rssi, // 127: no RSSI reported; counted as far rather than +127 dBm
-            name = rec?.deviceName ?: runCatching { r.device.name }.getOrNull(),
+            name = rec?.deviceName ?: cachedName(r.device, mac),
             manufacturerData = mfg,
             serviceUuids = rec?.serviceUuids?.map { it.uuid }.orEmpty(),
             serviceData = rec?.serviceData?.mapKeys { it.key.uuid }.orEmpty(),
@@ -54,8 +54,27 @@ object AdvertFactory {
             txPower = tx,
             addressType = addressType,
             connectable = r.isConnectable,
-            phy = phy
+            phy = phy,
+            timestamp = heardAt(r.timestampNanos)
         )
+    }
+
+    /** When an advert was heard ([nanos] since boot), not when the pipeline got to it; now when Android gave no time. */
+    internal fun heardAt(nanos: Long, nowMs: Long = System.currentTimeMillis(), bootNanos: Long = android.os.SystemClock.elapsedRealtimeNanos()): Long =
+        if (nanos <= 0) nowMs else nowMs - ((bootNanos - nanos) / 1_000_000).coerceIn(0, MAX_LAG_MS)
+
+    private const val MAX_LAG_MS = 10_000L
+    private const val NAME_TTL_MS = 30_000L
+    /** Address -> (when asked, the name Android remembers): asking is a call into the Bluetooth service, too slow for every advert. */
+    private val names = object : LinkedHashMap<String, Pair<Long, String?>>(256, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<Long, String?>>) = size > 1024
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun cachedName(device: BluetoothDevice, mac: String): String? = synchronized(names) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        names[mac]?.takeIf { now - it.first < NAME_TTL_MS }?.let { return it.second }
+        runCatching { device.name }.getOrNull().also { names[mac] = now to it }
     }
 
     /**

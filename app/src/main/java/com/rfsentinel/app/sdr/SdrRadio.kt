@@ -63,6 +63,8 @@ object SdrRadio {
     @Volatile private var stop = false
     /** The thread reading the dongle now; an older one still winding down stops on its own. */
     @Volatile private var worker: Thread? = null
+    /** The last thread started, kept after [halt] so the next one can wait for it to let go of the dongle. */
+    private var lastWorker: Thread? = null
     @Volatile private var usb: UsbManager? = null
     private var appContext: Context? = null
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
@@ -82,7 +84,7 @@ object SdrRadio {
     /** The scans that get turns: P25 alone while a talkgroup is held ([p25Hold]). */
     private val active get() = if (p25Hold != null) setOf(Mode.P25) else modes
     /** [m] keeps the SDR: its turn, still ticked, and the waterfall not zoomed in. */
-    private fun keeps(m: Mode) = mode == m && m in active && tuneHz == null && (active.size == 1 || System.currentTimeMillis() < turnEnd)
+    private fun keeps(m: Mode) = mode == m && m in active && tuneHz == null && weatherCheck == null && (active.size == 1 || System.currentTimeMillis() < turnEnd)
     /** The scan after the current one, round the ticked ones. */
     private fun next(): Mode? = Mode.entries.filter { it in active }.let { l -> l.firstOrNull { it.ordinal > (mode?.ordinal ?: -1) } ?: l.firstOrNull() }
     /** " · ADS-B in 40 s" while taking turns, or " · holding talkgroup 1234", for the status line. */
@@ -141,6 +143,23 @@ object SdrRadio {
      * until set back to null. Picked up within a chunk.
      */
     @Volatile var tuneHz: Long? = null
+    /**
+     * The Radio waterfall's "Antenna check": set to get one reading of the 7 weather-radio channels (162.400-162.550 MHz,
+     * NOAA Weather Radio and Weatheradio Canada, on the air around the clock), then the scans carry on. Called on the SDR's thread.
+     */
+    @Volatile var weatherCheck: ((WeatherCheck) -> Unit)? = null
+    /** The strongest weather channel and how far it stands above the noise; [hz] 0 when the tuner or the samples failed. */
+    data class WeatherCheck(val hz: Long, val snrDb: Int) {
+        /** What it says about the antenna, in words. */
+        val verdict get() = when {
+            hz == 0L -> "The SDR gave no reading. Try again."
+            snrDb >= 20 -> "%.3f MHz is %d dB above the noise: the antenna and SDR receive well.".format(java.util.Locale.US, hz / 1e6, snrDb)
+            snrDb >= 8 -> "%.3f MHz is %d dB above the noise: heard, but weak. Try a better antenna or a spot near a window.".format(java.util.Locale.US, hz / 1e6, snrDb)
+            else -> "No weather channel heard (best %d dB). Check the antenna and its connector. These stations only exist in the United States and Canada.".format(snrDb)
+        }
+    }
+    internal val WEATHER_HZ = (0 until 7).map { 162_400_000L + it * 25_000L }
+
     /** Learned channels for the sweep, kept while the waterfall zooms in and out (new per device). */
     private var sweepWatch: RadioWatch? = null
     /** An SDR is plugged in and being read. */
@@ -282,7 +301,11 @@ object SdrRadio {
         stop = false
         status = "$deviceLabel · starting…"
         val net = name.startsWith(NET)
+        val previous = lastWorker
         val t = Thread({
+            // A quick stop and start: the last session puts the dongle to sleep as it ends (tuner standby, demodulator
+            // off). Let it finish first, or that lands in the middle of this session's start.
+            runCatching { previous?.join(3_000) }
             val sdr = open()
             val result = runCatching { run(sdr, name, intro) }
             val failure = result.exceptionOrNull()
@@ -306,6 +329,7 @@ object SdrRadio {
                 }
             }
         }, "rtl-sdr")
+        lastWorker = t
         worker = t
         t.start()
     }
@@ -322,6 +346,7 @@ object SdrRadio {
         sweepWatch = null; p25Hunt = null; p25Lock = null; pagerHz = null
         var tuned = false
         while (!halted && !sdr.lost && !gone(name)) {
+            weatherCheck?.let { ask -> weatherCheck = null; ask(runCatching { checkWeather(sdr) }.getOrDefault(WeatherCheck(0, 0))); tuned = true }
             if (tuneHz != null) { runTuned(sdr, name); tuned = true; continue }
             // Back from the waterfall: the scan it interrupted gets its turn again, not the next one.
             val m = mode?.takeIf { tuned && it in active } ?: next()
@@ -369,13 +394,16 @@ object SdrRadio {
         val frames = ArrayList<ModeS.Frame>()
         var lastPush = 0L; var lastLog = System.currentTimeMillis(); var fails = 0; var messages = 0L; var logged = 0L
         var lastCheck = System.currentTimeMillis()
-        while (!halted && !sdr.lost && keeps(Mode.ADSB)) {
-            val n = sdr.read(buf)
+        // A reader thread keeps a read waiting on the dongle while the last one is decoded: no samples lost in between.
+        val ahead = ReadAhead(sdr, xfer)
+        try { while (!halted && !sdr.lost && keeps(Mode.ADSB)) {
+            val n = ahead.read(buf)
             // Every couple of seconds: still plugged in? (Reads alone can fail quietly for a long time.)
             if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
             if (n <= 0) {
                 if (++fails % STALL_CHUNKS == 0) {
                     if (fails <= STALL_CHUNKS * 3) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: no samples for $fails reads in a row - restarting the stream")
+                    if (!halted) status = "$deviceLabel · ADS-B · no samples from the SDR · restarting it" + turnNote()
                     sdr.resetBuffer()
                 }
                 continue
@@ -406,7 +434,7 @@ object SdrRadio {
                     "${demod.preambles} preambles, ${demod.fixed} fixed, ${tracker.count} aircraft, USB errors ${sdr.ctlErrors}")
                 lastLog = now; logged = messages
             }
-        }
+        } } finally { ahead.close() }
         // Only its turn ended: the aircraft stay listed until they go stale, and come back on the next turn.
         if (Mode.ADSB !in active) onAircraft?.invoke(emptyList(), emptyList())
         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: ADS-B receiver stopped after $messages messages")
@@ -456,6 +484,7 @@ object SdrRadio {
                     // The sample stream stalled: restart it (as librtlsdr's reset_buffer) instead of sweeping on with nothing.
                     if (++failedChunks % STALL_CHUNKS == 0) {
                         if (failedChunks <= STALL_CHUNKS * 3) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: no samples for $failedChunks chunks in a row - restarting the stream")
+                        if (!halted) status = "$deviceLabel · no samples from the SDR · restarting it" + turnNote()
                         sdr.resetBuffer()
                     }
                     skipped()
@@ -499,7 +528,7 @@ object SdrRadio {
     private fun runP25(sdr: SdrDevice, name: String) {
         sdr.setGain(GAIN_TENTHS_DB)
         sdr.resetBuffer()
-        val hunt = p25Hunt ?: P25Hunt(sdr) { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: $it") }.also { p25Hunt = it }
+        val hunt = p25Hunt ?: P25Hunt(sdr, readAhead = true) { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: $it") }.also { p25Hunt = it }
         var lastCheck = System.currentTimeMillis(); var away = false
         val stop = {
             val now = System.currentTimeMillis()
@@ -545,7 +574,8 @@ object SdrRadio {
                 }
                 true
             }
-            val lost = hunt.listen(lock, stop, detour) {
+            val detourDue = { toFollow != null || toRecord != null || pending?.let { System.currentTimeMillis() - it.first.time >= INPUT_DELAY_MS } == true }
+            val lost = hunt.listen(lock, stop, detour, detourDue) {
                 messages++; p25Messages++
                 val now = System.currentTimeMillis()
                 for (tg in p25Log.add(it, now)) onP25Call?.invoke(tg)
@@ -601,17 +631,18 @@ object SdrRadio {
         out.play()
         val start = System.currentTimeMillis()
         var fails = 0
+        val ahead = ReadAhead(sdr, buf.size)
         try {
             while (!stop() && !p25Mute && !follow.ended && fails < STALL_CHUNKS &&
                 follow.quietS < (if (follow.frames == 0) FOLLOW_START_S else FOLLOW_QUIET_S)) {
                 val hold = p25Hold
                 if (if (hold != null) hold != call.tg else p25Listen == Listen.OFF || System.currentTimeMillis() - start >= FOLLOW_MAX_MS) break
-                val n = sdr.read(buf)
+                val n = ahead.read(buf)
                 if (n <= 0) { fails++; continue }
                 fails = 0 // stalls in a row end it, not stalls over a long call
                 follow.feed(buf, n / 2)
             }
-        } finally { p25Playing = null; out.stop() } // stop: what's buffered still plays
+        } finally { ahead.close(); p25Playing = null; out.stop() } // stop: what's buffered still plays
         if (follow.frames > 0) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 call played (%.1f s)".format(java.util.Locale.US, follow.frames * 0.18))
         return follow.frames > 0
     }
@@ -636,11 +667,13 @@ object SdrRadio {
         repeat(sdr.settleReads) { sdr.read(buf) }
         val rec = P25Record.Baseband(INPUT_OFFSET_HZ, sdr.sampleRate)
         var fails = 0
-        while (rec.samples < P25Record.SECONDS * P25Record.RATE && !halted && fails < STALL_CHUNKS) {
-            val n = sdr.read(buf)
-            if (n <= 0) { fails++; continue }
-            fails = 0
-            rec.feed(buf, n / 2)
+        ReadAhead(sdr, buf.size).use { ahead ->
+            while (rec.samples < P25Record.SECONDS * P25Record.RATE && !halted && fails < STALL_CHUNKS) {
+                val n = ahead.read(buf)
+                if (n <= 0) { fails++; continue }
+                fails = 0
+                rec.feed(buf, n / 2)
+            }
         }
         if (rec.samples < P25Record.RATE) return false
         val wav = rec.wav()
@@ -724,6 +757,35 @@ object SdrRadio {
         }
     }
 
+    /** One look at the weather channels, all inside one tuned chunk, away from the centre spike. */
+    private fun checkWeather(sdr: SdrDevice): WeatherCheck {
+        sdr.setSampleRate(SAMPLE_RATE)
+        sdr.setGain(GAIN_TENTHS_DB)
+        val center = WEATHER_HZ.first() - INPUT_OFFSET_HZ
+        val snr = measureChannels(sdr, center, WEATHER_HZ) ?: return WeatherCheck(0, 0)
+        val best = snr.indices.maxBy { snr[it] }
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: antenna check on the weather channels: ${snr.joinToString(" ")} dB, gain ${GAIN_TENTHS_DB / 10.0} dB")
+        return WeatherCheck(WEATHER_HZ[best], snr[best])
+    }
+
+    /** Each of [channels]' level in dB above the noise with the SDR tuned to [center]; null when the tuner or the samples failed. */
+    private fun measureChannels(sdr: SdrDevice, center: Long, channels: List<Long>): List<Int>? {
+        if (!sdr.tune(center)) return null
+        sdr.resetBuffer()
+        val buf = ByteArray(XFER)
+        repeat(sdr.settleReads) { sdr.read(buf) }
+        val iq = ByteArray(XFER * INPUT_READS)
+        var got = 0
+        for (i in 0 until INPUT_READS) {
+            val n = sdr.read(buf)
+            if (n <= 0) break
+            System.arraycopy(buf, 0, iq, got, n); got += n
+        }
+        if (got < 2 * 1024) return null
+        val psd = RadioWatch.powerSpectrum(iq, got / 2)
+        return channels.map { RadioWatch.channelSnrDb(psd, sdr.sampleRate, it - center) }
+    }
+
     /** Holds [tuneHz] for the waterfall screen: a row of the ~2 MHz around it every few tens of ms. */
     private fun runTuned(sdr: SdrDevice, name: String) {
         val hz = tuneHz ?: return
@@ -743,7 +805,7 @@ object SdrRadio {
         val iq = ByteArray(XFER * TUNED_READS)
         var lastRow = 0L; var lastCheck = System.currentTimeMillis(); var fails = 0
         repeat(sdr.settleReads) { sdr.read(buf) }
-        while (!halted && !sdr.lost && tuneHz == hz) {
+        while (!halted && !sdr.lost && tuneHz == hz && weatherCheck == null) {
             if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
             var got = 0
             for (i in 0 until TUNED_READS) {

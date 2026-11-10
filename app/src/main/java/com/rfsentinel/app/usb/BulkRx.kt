@@ -7,6 +7,33 @@ import java.nio.ByteBuffer
 import java.util.concurrent.TimeoutException
 
 /**
+ * Control-transfer health of the running USB WiFi adapter. One failed transfer in thousands is normal on a phone's
+ * USB port; a register read that fails comes back as 0, and a read-modify-write would then write 0 over the rest of
+ * that register. So [ctl3] tries each transfer up to 3 times, and [gone] says when the adapter stopped answering
+ * altogether (unplugged, or its USB link died), so the driver stops instead of hammering it.
+ */
+internal object UsbCtl {
+    /** Failed transfers in a row (each already tried 3 times). */
+    @Volatile var run = 0
+    val gone get() = run >= GONE_AFTER
+    fun reset() { run = 0 }
+    private const val GONE_AFTER = 25
+}
+
+/** [UsbDeviceConnection.controlTransfer], tried up to 3 times; counts towards [UsbCtl.gone]. */
+internal fun UsbDeviceConnection.ctl3(type: Int, request: Int, value: Int, index: Int, data: ByteArray?, length: Int, timeout: Int): Int {
+    var r = -1
+    for (attempt in 0 until 3) {
+        r = controlTransfer(type, request, value, index, data, length, timeout)
+        if (r >= 0) { UsbCtl.run = 0; return r }
+        if (UsbCtl.gone) break // already given up on: no more waiting on a dead adapter
+        if (attempt < 2) try { Thread.sleep(2) } catch (_: InterruptedException) {}
+    }
+    UsbCtl.run++
+    return r
+}
+
+/**
  * Bulk-IN receive loop for monitor drivers: keeps [count] transfers of
  * [size] bytes in flight (async [UsbRequest]), or falls back to synchronous transfers
  * where the platform can't queue them. [onData] gets each completed transfer; [onTick]
@@ -170,15 +197,16 @@ internal object BulkRx {
      * adapter, and without the interface every transfer fails), then clears any stall left on its
      * bulk endpoints by an earlier session. Linux resets the whole device instead, which apps can't.
      */
-    fun claim(tag: String, conn: UsbDeviceConnection, intf: android.hardware.usb.UsbInterface, stopped: () -> Boolean = { false }): Boolean {
+    fun claim(tag: String, conn: UsbDeviceConnection, intf: android.hardware.usb.UsbInterface,
+              log: (String) -> Unit = UsbWifi::log, stopped: () -> Boolean = { false }): Boolean {
         var ok = conn.claimInterface(intf, true)
         var waits = 0
         while (!ok && waits < 10 && !stopped()) {
             try { Thread.sleep(300) } catch (_: InterruptedException) {}
             waits++; ok = conn.claimInterface(intf, true)
         }
-        if (!ok) UsbWifi.log("$tag: couldn't claim the USB interface after ${waits * 300} ms (continuing)")
-        else if (waits > 0) UsbWifi.log("$tag: USB interface claimed after ${waits * 300} ms")
+        if (!ok) log("$tag: couldn't claim the USB interface after ${waits * 300} ms (continuing)")
+        else if (waits > 0) log("$tag: USB interface claimed after ${waits * 300} ms")
         for (i in 0 until intf.endpointCount) {
             val ep = intf.getEndpoint(i)
             if (ep.type == android.hardware.usb.UsbConstants.USB_ENDPOINT_XFER_BULK)

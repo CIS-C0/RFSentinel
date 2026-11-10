@@ -26,6 +26,11 @@ class WifiScanEngine(
     private val wifiManager =
         context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
     private var registered = false
+    /** The newest result handed on (its ScanResult.timestamp). */
+    private var newestUs = 0L
+    /** Scan requests Android refused in a row (its limit of about 4 per 2 minutes, or WiFi scanning off). */
+    @Volatile var refused = 0
+        private set
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context?, intent: Intent?) {
@@ -37,8 +42,9 @@ class WifiScanEngine(
             try {
                 val nowUs = SystemClock.elapsedRealtime() * 1000
                 // Every band, always: the WiFi bands setting is for external adapters only.
-                val fresh = wifiManager.scanResults.filter { nowUs - it.timestamp <= MAX_RESULT_AGE_US }
-                if (fresh.isNotEmpty()) onResults(fresh)
+                // And only once each: a broadcast without a new scan carries the same results again.
+                val fresh = wifiManager.scanResults.filter { nowUs - it.timestamp <= MAX_RESULT_AGE_US && it.timestamp > newestUs }
+                if (fresh.isNotEmpty()) { newestUs = fresh.maxOf { it.timestamp }; onResults(fresh) }
             } catch (e: SecurityException) {
                 // Missing location permission - caller should have requested it already.
             }
@@ -52,6 +58,7 @@ class WifiScanEngine(
 
     fun start() {
         if (registered) return
+        newestUs = 0L; refused = 0
         val filter = IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)
         // Protected system broadcasts still reach NOT_EXPORTED receivers.
         ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
@@ -76,7 +83,8 @@ class WifiScanEngine(
     fun requestScan() {
         try {
             @Suppress("DEPRECATION") // no replacement API; still the only way to request a scan
-            wifiManager.startScan()
+            if (wifiManager.startScan()) refused = 0 else refused++
+            com.rfsentinel.app.util.HwLogs.phone.logStatus("WiFi", if (refused >= 3) "WiFi: Android is refusing scan requests (its limit, or WiFi scanning is off)" else "WiFi: scanning")
         } catch (e: Exception) {
             // Throttled or disabled - safe to ignore, next cycle will retry.
         }

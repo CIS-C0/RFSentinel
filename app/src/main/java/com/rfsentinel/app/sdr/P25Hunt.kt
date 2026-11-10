@@ -16,7 +16,7 @@ import kotlin.math.roundToLong
  *
  * Times count in samples, not the clock: unit-tested with a simulated dongle.
  */
-class P25Hunt(private val sdr: SdrDevice, private val log: (String) -> Unit = {}) {
+class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false, private val log: (String) -> Unit = {}) {
 
     data class Candidate(val hz: Long, val snrDb: Float)
     /** A control channel: [hz] where this dongle hears it, [nac] the system's network access code. */
@@ -104,9 +104,19 @@ class P25Hunt(private val sdr: SdrDevice, private val log: (String) -> Unit = {}
     /**
      * Stays on [lock], handing each message to [onMsg]: false when [stop] said so, true when the channel
      * went quiet for [LOST_S] (hunt again). Logs what it decoded every [LOG_S]. [detour] true: it tuned away for a
-     * moment (an input check), so the control channel is tuned again.
+     * moment (an input check), so the control channel is tuned again. With [readAhead] a reader thread keeps a read
+     * waiting on the dongle while a block is decoded (no samples lost in between); it is stopped around each detour,
+     * which is then only asked for when [detourDue].
      */
-    fun listen(lock: Lock, stop: () -> Boolean, detour: () -> Boolean = { false }, onMsg: (P25Tsbk.Msg) -> Unit): Boolean {
+    fun listen(lock: Lock, stop: () -> Boolean, detour: () -> Boolean = { false }, detourDue: () -> Boolean = { true },
+               onMsg: (P25Tsbk.Msg) -> Unit): Boolean {
+        var ahead: ReadAhead? = null
+        try { return listen(lock, stop, detour, detourDue, onMsg, { ahead }, { ahead?.close(); ahead = if (it) ReadAhead(sdr, buf.size) else null }) }
+        finally { ahead?.close() }
+    }
+
+    private fun listen(lock: Lock, stop: () -> Boolean, detour: () -> Boolean, detourDue: () -> Boolean, onMsg: (P25Tsbk.Msg) -> Unit,
+                       ahead: () -> ReadAhead?, setAhead: (Boolean) -> Unit): Boolean {
         sdr.setSampleRate(P25Demod.SAMPLE_RATE)
         if (!sdr.tune(lock.hz - OFFSET_HZ)) { log("P25 listen: the tuner didn't lock"); return true }
         sdr.resetBuffer()
@@ -128,14 +138,18 @@ class P25Hunt(private val sdr: SdrDevice, private val log: (String) -> Unit = {}
             st = Stats(); kinds.clear()
         }
         while (!stop()) {
-            if (detour()) {
-                if (!sdr.tune(lock.hz - OFFSET_HZ)) { log("P25 listen: the tuner didn't lock after an input check"); return true }
-                sdr.resetBuffer()
-                repeat(sdr.settleReads) { sdr.read(buf) }
-                lastGood = samples // the time away doesn't count as the channel going quiet
-                continue
+            if (!readAhead || ahead() == null || detourDue()) {
+                setAhead(false) // the detour tunes and reads the dongle itself
+                if (detour()) {
+                    if (!sdr.tune(lock.hz - OFFSET_HZ)) { log("P25 listen: the tuner didn't lock after an input check"); return true }
+                    sdr.resetBuffer()
+                    repeat(sdr.settleReads) { sdr.read(buf) }
+                    lastGood = samples // the time away doesn't count as the channel going quiet
+                    continue
+                }
+                if (readAhead) setAhead(true)
             }
-            val n = sdr.read(buf)
+            val n = ahead()?.read(buf) ?: sdr.read(buf)
             if (n <= 0) {
                 st.stalls++
                 if (++fails % STALL_READS == 0) sdr.resetBuffer()

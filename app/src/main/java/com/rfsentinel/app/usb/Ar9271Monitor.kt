@@ -29,7 +29,7 @@ object Ar9271Monitor {
     @Volatile private var stop = false
 
     private val frames = MonitorFrames()
-    private val HOP = intArrayOf(1, 6, 11, 3, 9, 2, 7, 13, 4, 10, 5, 8, 12)
+    private val HOP = UsbWifi.HOP_24
     private const val DWELL_MS = 500L
     private val FRESH_MS get() = (HOP.size * DWELL_MS * 9 / 5).coerceAtLeast(3000L)
     private const val REPORT_MS = 10_000L
@@ -123,6 +123,8 @@ object Ar9271Monitor {
             UsbWifi.log("AR9271: bring-up error - ${UsbWifi.describe(e)}")
             onStatus("$chipName: error · ${e.message}")
         } finally {
+            // Scanning stopped, adapter still plugged in: radio and receiver off, so it stops drawing on the battery.
+            if (stop && ctlErrors < 5) runCatching { wmi(WMI_STOP_RECV, waitMs = 200) }
             runCatching { c.close() }
             running = false
         }
@@ -211,7 +213,8 @@ object Ar9271Monitor {
     }
 
     private fun regRead(reg: Int): Long? {
-        val r = wmi(WMI_REG_READ, be32(reg), 1200) ?: run { ctlErrors++; return null }
+        // Once more before giving up: a read that fails comes back as 0 to its caller, who writes it back.
+        val r = wmi(WMI_REG_READ, be32(reg), 1200) ?: wmi(WMI_REG_READ, be32(reg), 1200) ?: run { ctlErrors++; return null }
         if (r.size < 16) return null
         return ((r[12].toLong() and 0xff) shl 24) or ((r[13].toLong() and 0xff) shl 16) or ((r[14].toLong() and 0xff) shl 8) or (r[15].toLong() and 0xff)
     }
@@ -445,8 +448,10 @@ object Ar9271Monitor {
         val total = BulkRx.run("AR9271", conn, ep, 8, RX_BUF, { stop }, { b, n ->
             stats.transfer(n)
             stats.sample("$n bytes, stream header + HTC header + RX status", b, 0, 4 + 8 + 16)
-            val data = carry?.let { it + b.copyOf(n) } ?: b.copyOf(n)
-            carry = forEachFrame(data, data.size, noiseFloor,
+            // In place unless the last transfer left a piece: no copy of every transfer.
+            val piece = carry
+            val data = if (piece == null) b else piece + b.copyOf(n)
+            carry = forEachFrame(data, if (piece == null) n else data.size, noiseFloor,
                 onBad = { crc -> if (crc) stats.badChecksum++ else stats.malformed++ }) { s, e, rssi ->
                 stats.frame(rssi)
                 frames.frame(data, s, e, curChannel, rssi)

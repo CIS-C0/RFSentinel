@@ -100,5 +100,6 @@ object HwLogs {
     val meshNode = HwLog("Sentinel Link Meshtastic node", "meshnode.log")
     val link = HwLog("Sentinel Link Bluetooth", "link.log")
     val relay = HwLog("Sentinel Link internet relay", "relay.log")
-    val all = listOf(usbWifi, usbBt, sdr, esp, meshRadio, ouiSpy, meshNode, link, relay)
+    val phone = HwLog("Phone Bluetooth and WiFi", "phone.log")
+    val all = listOf(phone, usbWifi, usbBt, sdr, esp, meshRadio, ouiSpy, meshNode, link, relay)
 }

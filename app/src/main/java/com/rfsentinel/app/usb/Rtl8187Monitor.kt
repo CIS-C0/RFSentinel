@@ -24,7 +24,7 @@ object Rtl8187Monitor {
     @Volatile private var stop = false
 
     private val frames = MonitorFrames()
-    private val HOP = intArrayOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
+    private val HOP = UsbWifi.HOP_24
     private const val DWELL_MS = 350L
     private val FRESH_MS get() = (HOP.size * DWELL_MS * 9 / 5).coerceAtLeast(3000L)
     private const val REPORT_MS = 10_000L
@@ -136,6 +136,8 @@ object Rtl8187Monitor {
             UsbWifi.log("RTL8187: bring-up error - ${UsbWifi.describe(e)}")
             onStatus("$chipName: error · ${e.message}")
         } finally {
+            // Scanning stopped, adapter still plugged in: radio and receiver off, so it stops drawing on the battery.
+            if (stop && !UsbCtl.gone) runCatching { w8(CMD, r8(CMD) and (CMD_TX_ENABLE or CMD_RX_ENABLE).inv()) }
             runCatching { c.close() }
             running = false
         }
@@ -431,7 +433,7 @@ object Rtl8187Monitor {
         val reg80 = r16(RF_OUT) and 0x000C.inv(); val reg82 = r16(RF_EN); val reg84 = r16(RF_SEL) and 0x000F.inv()
         w16(RF_EN, reg82 or 0x7); w16(RF_SEL, reg84 or 0x7)
         w16(RF_OUT, reg80 or 0x4); w16(RF_OUT, reg80)
-        if (conn.controlTransfer(REQT_WRITE, REQ_REG, addr, 0x8225, byteArrayOf(data.toByte(), (data ushr 8).toByte()), 2, 500) < 0) ctlErrors++
+        if (conn.ctl3(REQT_WRITE, REQ_REG, addr, 0x8225, byteArrayOf(data.toByte(), (data ushr 8).toByte()), 2, 500) < 0) ctlErrors++
         w16(RF_OUT, reg80 or 0x4); w16(RF_OUT, reg80 or 0x4)
         w16(RF_SEL, reg84)
     }
@@ -494,7 +496,7 @@ object Rtl8187Monitor {
         val t0 = System.currentTimeMillis(); st.hopAt = t0; st.lastEmit = t0
         val stats = BulkRx.Stats("RTL8187")
         val hdr = if (is8187b) 20 else 16
-        val total = BulkRx.run("RTL8187", conn, ep, 16, MAX_RX, { stop }, onData@{ b, n ->
+        val total = BulkRx.run("RTL8187", conn, ep, 16, MAX_RX, { stop || UsbCtl.gone }, onData@{ b, n ->
             stats.transfer(n)
             if (n >= hdr) stats.sample("$n bytes, frame control %02x, descriptor".format(b[0].toInt() and 0xff), b, n - hdr, hdr)
             val f = parseRx(b, n, is8187b)
@@ -552,14 +554,14 @@ object Rtl8187Monitor {
 
     private fun read(addr: Int, len: Int, idx: Int = 0): Int {
         val b = ByteArray(len)
-        if (conn.controlTransfer(REQT_READ, REQ_REG, addr, idx and 3, b, len, 500) != len) { ctlErrors++; return 0 }
+        if (conn.ctl3(REQT_READ, REQ_REG, addr, idx and 3, b, len, 500) != len) { ctlErrors++; return 0 }
         var v = 0
         for (i in len - 1 downTo 0) v = (v shl 8) or (b[i].toInt() and 0xff)
         return v
     }
     private fun write(addr: Int, v: Int, len: Int, idx: Int = 0) {
         val b = ByteArray(len) { (v ushr (8 * it)).toByte() }
-        if (conn.controlTransfer(REQT_WRITE, REQ_REG, addr, idx and 3, b, len, 500) < 0) ctlErrors++
+        if (conn.ctl3(REQT_WRITE, REQ_REG, addr, idx and 3, b, len, 500) < 0) ctlErrors++
     }
     private fun r8(a: Int) = read(a, 1)
     private fun r16(a: Int) = read(a, 2)

@@ -106,7 +106,7 @@
 | | |
 |---|---|
 | **What** | A non-rooted Android app that lists every Bluetooth LE and WiFi device around you with its vendor, type and signal, and flags law-enforcement and surveillance equipment |
-| **How** | Receive-only: reads advertisements, beacons and cell info that devices broadcast publicly. Never transmits to, connects to or jams anything |
+| **How** | Receive-only: reads advertisements, beacons and cell info that devices broadcast publicly. Never connects to, jams or sends data to anything. The phone's own scans go through Android, which sends the standard scan requests (Bluetooth scan requests, WiFi probe requests) every phone sends when it looks for devices; on Android 16 QPR2 and later the Listen-only Bluetooth scan setting stops the Bluetooth ones. |
 | **Runs on** | Android 8.0+ phones (64-bit and 32-bit ARM), Android Auto, plus optional ESP32 boards (OUI-Spy, GhostESP, Marauder, Flipper Zero + BFFB, FREE-WiLi 2) and USB WiFi adapters |
 | **Costs** | Nothing. GPL-3.0, no ads, no account, no subscription, no analytics |
 
@@ -971,7 +971,7 @@ Your own themes sit under the built-in ones: **Create a custom theme**, long-pre
 
 ## Privacy
 
-- **Receive-only.** Nothing is transmitted to, jammed, spoofed or connected to.
+- **Receive-only.** Nothing is jammed, spoofed or connected to, and no data is sent to any device. The phone's own scans go through Android, which sends the standard scan requests (Bluetooth scan requests, WiFi probe requests) every phone sends when it looks for devices; on Android 16 QPR2 and later the Listen-only Bluetooth scan setting stops the Bluetooth ones.
   The only thing it ever sends is Sentinel Link's encrypted messages to your own
   linked phones and Meshtastic node, and only when you set it up.
 - **No accounts, no cloud, no analytics.** Detections live in a local database

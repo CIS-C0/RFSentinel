@@ -48,6 +48,12 @@ object Prefs {
     /** Lighter Bluetooth scan while Bluetooth audio (headphones, car, speaker) is connected, so music doesn't stutter. */
     fun bleEaseForAudio(context: Context) = bool(context, "ble_ease_audio", false)
     fun setBleEaseForAudio(context: Context, on: Boolean) = setBool(context, "ble_ease_audio", on)
+    /** Bluetooth listens only (Android 16 QPR2+): a device shows from one heard advert, without its scan response (often its name). */
+    fun blePassive(context: Context) = bool(context, "ble_passive", false)
+    fun setBlePassive(context: Context, on: Boolean) = setBool(context, "ble_passive", on)
+    /** Every Bluetooth device stays heard with the screen off (Android 13+), not just the listed makers; more battery. */
+    fun bleScreenOffAll(context: Context) = bool(context, "ble_screen_off_all", false)
+    fun setBleScreenOffAll(context: Context, on: Boolean) = setBool(context, "ble_screen_off_all", on)
 
     fun autoStartOnBoot(context: Context): Boolean = bool(context, "auto_start_boot", false)
     fun setAutoStartOnBoot(context: Context, value: Boolean) = setBool(context, "auto_start_boot", value)

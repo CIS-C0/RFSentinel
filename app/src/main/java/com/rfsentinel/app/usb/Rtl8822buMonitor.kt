@@ -67,7 +67,7 @@ object Rtl8822buMonitor {
     }
 
     /** 2.4 GHz channels, every cycle. */
-    internal val HOP_24 = IntArray(13) { it + 1 }
+    internal val HOP_24 = UsbWifi.HOP_24
     /** 5 GHz channels without radar rules, every cycle (where vehicle and mobile routers usually sit). */
     internal val HOP_5 = intArrayOf(36, 40, 44, 48, 149, 153, 157, 161, 165)
     /** 5 GHz radar (DFS) channels, two per cycle. */
