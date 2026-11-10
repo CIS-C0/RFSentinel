@@ -173,23 +173,64 @@ object UsbWifi {
     private var cmdReceiver: BroadcastReceiver? = null
     private const val ACTION_CMD = "com.rfsentinel.app.USB_WIFI_CMD"
     private var onSightings: ((List<MonitorSighting>) -> Unit)? = null
-    private var thread: Thread? = null
-    @Volatile private var runningDevice: String? = null
 
-    /** The running adapter's chip name ("MT7612U"), for the antenna check; null when none is running. */
-    @Volatile var runningChip: String? = null
-        private set
+    /**
+     * One running adapter. Several run side by side, each with its own driver instance and thread, and share the
+     * channels between them ([share]): two adapters visit every channel twice as often, four four times.
+     */
+    private class Session(val device: String, val chip: Chip) {
+        @Volatile var status = ""
+        /** The channels its driver can tune (the number; MHz on 6 GHz), known once the driver asked for its hops. */
+        @Volatile var channels: Set<Int> = emptySet()
+        @Volatile var stopped = false
+        @Volatile var abortDriver: (() -> Unit)? = null
+        fun stop() { stopped = true; abortDriver?.invoke() }
+    }
+    private val sessions = java.util.concurrent.CopyOnWriteArrayList<Session>()
+    /** The session of the driver thread asking. */
+    private val current = ThreadLocal<Session>()
+    /** Each device's last thread, so a quick stop and start waits for the old session to let go of the adapter. */
+    private val lastThread = HashMap<String, Thread>()
+    /** What to show while no adapter runs: waiting for access, firmware, an unsupported chip, the last error. */
+    @Volatile private var idle = ""
 
-    /** Latest adapter status for the main screen and Settings ("" when none is plugged in). */
-    @Volatile var status: String = ""
-        private set
+    /** The first running adapter's chip name ("MT7612U"), for the antenna check; null when none is running. */
+    val runningChip: String? get() = sessions.firstOrNull()?.chip?.name
+
+    /** How many adapters are running. */
+    val running: Int get() = sessions.size
+
+    /** Latest adapter status for the main screen and Settings ("" when none is plugged in); one part per running adapter. */
+    val status: String get() = sessions.map { it.status }.filter { it.isNotBlank() }.joinToString(" + ").ifEmpty { idle }
+
+    /**
+     * The part of [all] (channel numbers; MHz on 6 GHz) that is this adapter's to visit. Alone: all of it. With others:
+     * each channel belongs to one of the adapters that can tune it, in turn, so a 2.4 GHz-only adapter next to a
+     * dual-band one leaves all of 5 GHz to the other and shares 2.4 GHz with it. Asked again every hop round, so the
+     * split follows adapters being plugged in and out; never empty.
+     */
+    fun share(all: List<Int>): List<Int> {
+        val me = current.get() ?: return all
+        me.channels = all.toSet()
+        val live = sessions.filter { !it.stopped && it.channels.isNotEmpty() }
+        val at = live.indexOf(me)
+        return if (live.size < 2 || at < 0) all else split(all, at, live.map { it.channels })
+    }
+
+    /** [all] for adapter [me] of the adapters whose tunable channels are [caps]: see [share]. */
+    internal fun split(all: List<Int>, me: Int, caps: List<Set<Int>>): List<Int> {
+        val order = caps.flatten().distinct().sorted()
+        val mine = all.filter { c -> caps.indices.filter { c in caps[it] }.let { can -> can[order.indexOf(c) % can.size] == me } }
+        return mine.ifEmpty { all }
+    }
 
     /** Settings > WiFi bands, read as a session starts. */
     @Volatile var band = com.rfsentinel.app.util.Prefs.WifiBand.ALL
     /** True when a channel of the 5 / 6 GHz bands ([high]) or of 2.4 GHz is in the chosen band. */
     fun inBand(high: Boolean) = band == com.rfsentinel.app.util.Prefs.WifiBand.ALL || (band == com.rfsentinel.app.util.Prefs.WifiBand.HIGH) == high
     /** [all]'s channels in the chosen band (2.4 GHz is 1-14); all of them when none are (a 2.4 GHz-only adapter on 5 GHz). */
-    fun hops(all: IntArray): IntArray = all.filter { inBand(it > 14) }.toIntArray().takeIf { it.isNotEmpty() } ?: all
+    fun hops(all: IntArray): IntArray = share(all.toList()).filter { inBand(it > 14) }.toIntArray().takeIf { it.isNotEmpty() }
+        ?: all.filter { inBand(it > 14) }.toIntArray().takeIf { it.isNotEmpty() } ?: all
 
     /**
      * The 2.4 GHz channels in hop order. Neighbouring channels overlap (a beacon on 6 is heard from 5 and 7 too), so
@@ -266,9 +307,9 @@ object UsbWifi {
                         ACTION_PERMISSION, UsbAttachActivity.ACTION_READY -> connect(app)
                         UsbManager.ACTION_USB_DEVICE_DETACHED -> {
                             val d = deviceOf(intent)
-                            if (d != null && d.deviceName == runningDevice) stopAdapter("USB WiFi adapter unplugged")
+                            if (d != null && sessions.any { it.device == d.deviceName }) stopAdapter(d.deviceName, "USB WiFi adapter unplugged")
                             else if (firmwareNeeded != null && d != null && chipOf(d) == firmwareNeeded) {
-                                firmwareNeeded = null; status = ""; FirmwarePrompt.cancel(app)
+                                firmwareNeeded = null; idle = ""; FirmwarePrompt.cancel(app)
                             }
                         }
                     }
@@ -297,7 +338,7 @@ object UsbWifi {
         connect(app)
     }
 
-    /** Tries the plugged-in adapter again (its firmware was just downloaded). */
+    /** Tries the plugged-in adapters again (firmware was just downloaded). */
     fun retry(context: Context) = connect(context.applicationContext)
 
     @Synchronized
@@ -306,7 +347,7 @@ object UsbWifi {
         receiver = null
         cmdReceiver?.let { runCatching { context.applicationContext.unregisterReceiver(it) } }
         cmdReceiver = null
-        stopAdapter("")
+        stopAdapter(null, "")
         onSightings = null
     }
 
@@ -314,106 +355,119 @@ object UsbWifi {
         if (android.os.Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
         else @Suppress("DEPRECATION") intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
 
-    /** [ask]: false right after a plug-in, while Android's own prompt may still give access. */
+    /**
+     * Starts every supported adapter that is plugged in and not running yet: all of them on Auto, only the one picked
+     * in Settings otherwise. [ask]: false right after a plug-in, while Android's own prompt may still give access.
+     */
     @Synchronized
     private fun connect(context: Context, ask: Boolean = true) {
-        if (runningDevice != null) return
         val mgr = context.getSystemService(UsbManager::class.java) ?: return
         val all = runCatching { mgr.deviceList.values.toList() }.getOrDefault(emptyList())
-        val d = UsbPick.pick(context, UsbPick.Kind.WIFI, all)
-        if (d == null) {
-            UsbPick.waitingFor(context, UsbPick.Kind.WIFI, all)?.let { status = "USB WiFi: waiting for $it, picked in Settings"; return }
+        val saved = com.rfsentinel.app.util.Prefs.usbPick(context, UsbPick.Kind.WIFI.key)
+        val wanted = UsbPick.candidates(UsbPick.Kind.WIFI, all).filter { saved == null || UsbPick.id(it) == saved }
+        if (wanted.isEmpty()) {
+            if (sessions.isNotEmpty()) return
+            UsbPick.waitingFor(context, UsbPick.Kind.WIFI, all)?.let { idle = "USB WiFi: waiting for $it, picked in Settings"; return }
             val known = all.firstOrNull { knownOnly(it) != null }
             val newStatus = known?.let { "USB WiFi adapter (${knownOnly(it)}) found - this chip isn't supported yet" }.orEmpty()
-            if (known != null && newStatus != status) log("%04x:%04x (%s) plugged in: not supported yet".format(known.vendorId, known.productId, knownOnly(known)))
-            status = newStatus
+            if (known != null && newStatus != idle) log("%04x:%04x (%s) plugged in: not supported yet".format(known.vendorId, known.productId, knownOnly(known)))
+            idle = newStatus
             return
         }
-        if (!mgr.hasPermission(d)) {
-            if (!ask) { status = "USB WiFi adapter found - allow USB access on the prompt"; return }
-            log("%04x:%04x (%s) plugged in - asking for USB access".format(d.vendorId, d.productId, chipOf(d)?.name))
-            val pi = PendingIntent.getBroadcast(context, 1, Intent(ACTION_PERMISSION).setPackage(context.packageName),
-                PendingIntent.FLAG_MUTABLE)
-            status = "USB WiFi adapter found - allow USB access on the prompt"
-            runCatching { mgr.requestPermission(d, pi) }
-            return
-        }
-        val chip = chipOf(d)!!
-        val missing = Firmware.missing(context, chip.driver)
-        if (missing.isNotEmpty()) {
-            if (firmwareNeeded != chip) {
-                log("${chip.name} needs firmware that isn't downloaded yet: ${missing.joinToString { it.name }}")
-                FirmwarePrompt.notify(context, chip.name)
+        var asked = false
+        for (d in wanted) {
+            if (sessions.any { it.device == d.deviceName }) continue
+            if (!mgr.hasPermission(d)) {
+                idle = "USB WiFi adapter found - allow USB access on the prompt"
+                // One prompt at a time: Android shows the next adapter's after this one is answered.
+                if (ask && !asked) {
+                    asked = true
+                    log("%04x:%04x (%s) plugged in - asking for USB access".format(d.vendorId, d.productId, chipOf(d)?.name))
+                    val pi = PendingIntent.getBroadcast(context, 1, Intent(ACTION_PERMISSION).setPackage(context.packageName),
+                        PendingIntent.FLAG_MUTABLE)
+                    runCatching { mgr.requestPermission(d, pi) }
+                }
+                continue
             }
-            firmwareNeeded = chip
-            status = "USB WiFi (${chip.name}) needs its chip firmware: tap the notification, or this line in Settings, to download it"
-            return
+            val chip = chipOf(d)!!
+            val missing = Firmware.missing(context, chip.driver)
+            if (missing.isNotEmpty()) {
+                if (firmwareNeeded != chip) {
+                    log("${chip.name} needs firmware that isn't downloaded yet: ${missing.joinToString { it.name }}")
+                    FirmwarePrompt.notify(context, chip.name)
+                }
+                firmwareNeeded = chip
+                idle = "USB WiFi (${chip.name}) needs its chip firmware: tap the notification, or this line in Settings, to download it"
+                continue
+            }
+            if (firmwareNeeded == chip) firmwareNeeded = null
+            launch(context, d, chip)
         }
-        firmwareNeeded = null
-        runningDevice = d.deviceName
-        runningChip = chip.name
-        status = "USB WiFi (${chip.name}) · starting…"
+    }
+
+    private fun launch(context: Context, d: UsbDevice, chip: Chip) {
+        val s = Session(d.deviceName, chip)
+        s.status = "USB WiFi (${chip.name}) · starting…"
+        sessions += s
         log("Starting ${chip.name} (${"%04x:%04x".format(d.vendorId, d.productId)}) - RF Sentinel ${com.rfsentinel.app.BuildConfig.VERSION_NAME}, " +
-            "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}, Android ${android.os.Build.VERSION.RELEASE}")
-        val previous = thread
-        thread = Thread({
+            "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}, Android ${android.os.Build.VERSION.RELEASE}" +
+            if (sessions.size > 1) " - adapter ${sessions.size} of ${sessions.size}, sharing the channels" else "")
+        val previous = lastThread[d.deviceName]
+        lastThread[d.deviceName] = Thread({
+            current.set(s)
+            var last = ""
             runCatching {
-                // A quick stop and start: each driver refuses to start while its last session is still stopping.
+                // A quick stop and start: the last session switches the adapter off as it ends; let it finish first.
                 previous?.join(3_000)
-                if (previous?.isAlive == true) { status = "USB WiFi (${chip.name}): the last session is still stopping - unplug and replug the adapter"; return@runCatching }
+                if (previous?.isAlive == true) { last = "USB WiFi (${chip.name}): the last session is still stopping - unplug and replug the adapter"; return@runCatching }
                 band = com.rfsentinel.app.util.Prefs.wifiBand(context)
                 UsbCtl.reset()
-                val onStatus: (String) -> Unit = { s -> status = s }
+                val onStatus: (String) -> Unit = { text -> s.status = text; last = text }
                 val onFrames: (List<MonitorSighting>) -> Unit = { list -> onSightings?.invoke(list) }
+                /** Runs one driver instance, stoppable through the session. */
+                fun go(abort: () -> Unit, run: () -> Unit) { s.abortDriver = abort; if (!s.stopped) run() }
                 when (chip.driver) {
                     Driver.RTL88XXAU -> {
                         Rtl8821auMonitor.scan5g = com.rfsentinel.app.util.Prefs.rtl8821au5g(context)
                         Rtl8821auMonitor.lightEnabled = com.rfsentinel.app.util.Prefs.usbAdapterLight(context)
-                        Rtl8821auMonitor.run(context, d, onStatus, onFrames)
+                        Rtl8821auMonitor().let { m -> go(m::abort) { m.run(context, d, onStatus, onFrames) } }
                     }
-                    Driver.RTL8812AU -> Rtl8812auMonitor.run(context, d, onStatus, onFrames)
-                    Driver.RTL88X2BU -> Rtl8822buMonitor.run(context, d, chip.name, onStatus, onFrames)
-                    Driver.RTL8187 -> Rtl8187Monitor.run(context, d, chip.name, onStatus, onFrames)
-                    Driver.RT3070 -> Rt3070Monitor.run(context, d, chip.name, onStatus, onFrames)
-                    Driver.RTL8814AU -> Rtl8814auMonitor.run(context, d, chip.name, onStatus, onFrames)
-                    Driver.MT7612U -> Mt7612uMonitor.run(context, d, chip.name, onStatus, onFrames)
-                    Driver.MT7610U -> Mt7612uMonitor.run(context, d, chip.name, onStatus, onFrames, x0 = true)
-                    Driver.MT7921U -> Mt7921uMonitor.run(context, d, chip.name, onStatus, onFrames)
-                    Driver.AR9271 -> Ar9271Monitor.run(context, d, "${chip.name} (experimental)", onStatus, onFrames)
+                    Driver.RTL8812AU -> Rtl8812auMonitor().let { m -> go(m::abort) { m.run(context, d, onStatus, onFrames) } }
+                    Driver.RTL88X2BU -> Rtl8822buMonitor().let { m -> go(m::abort) { m.run(context, d, chip.name, onStatus, onFrames) } }
+                    Driver.RTL8187 -> Rtl8187Monitor().let { m -> go(m::abort) { m.run(context, d, chip.name, onStatus, onFrames) } }
+                    Driver.RT3070 -> Rt3070Monitor().let { m -> go(m::abort) { m.run(context, d, chip.name, onStatus, onFrames) } }
+                    Driver.RTL8814AU -> Rtl8814auMonitor().let { m -> go(m::abort) { m.run(context, d, chip.name, onStatus, onFrames) } }
+                    Driver.MT7612U -> Mt7612uMonitor().let { m -> go(m::abort) { m.run(context, d, chip.name, onStatus, onFrames) } }
+                    Driver.MT7610U -> Mt7612uMonitor().let { m -> go(m::abort) { m.run(context, d, chip.name, onStatus, onFrames, x0 = true) } }
+                    Driver.MT7921U -> Mt7921uMonitor().let { m -> go(m::abort) { m.run(context, d, chip.name, onStatus, onFrames) } }
+                    Driver.AR9271 -> Ar9271Monitor().let { m -> go(m::abort) { m.run(context, d, "${chip.name} (experimental)", onStatus, onFrames) } }
                 }
             }.onFailure {
-                log("Driver stopped: ${describe(it)}"); status = "USB WiFi adapter error: ${it.message}"
+                log("Driver stopped: ${describe(it)}"); last = "USB WiFi adapter error: ${it.message}"
                 // The firmware file vanished or failed to load after the check above: offer the download again.
                 if (Firmware.missing(context, chip.driver).isNotEmpty()) { firmwareNeeded = chip; FirmwarePrompt.notify(context, chip.name) }
             }
-            // By thread, not name: a replug reuses the name, and a stopped run ending late must not clear the new one.
             synchronized(this) {
-                if (thread === Thread.currentThread()) {
-                    // Never leave the last "live" line behind when the adapter stopped answering on its own.
-                    if (UsbCtl.gone && runningDevice != null) {
-                        log("${chip.name}: the adapter stopped answering (${UsbCtl.run} register accesses failed in a row)")
-                        status = "USB WiFi (${chip.name}): the adapter stopped answering - unplug it and plug it back in"
-                    }
-                    runningDevice = null; runningChip = null
+                // Never leave the last "live" line behind when the adapter stopped answering on its own.
+                if (UsbCtl.gone && !s.stopped) {
+                    log("${chip.name}: the adapter stopped answering (${UsbCtl.run} register accesses failed in a row)")
+                    last = "USB WiFi (${chip.name}): the adapter stopped answering - unplug it and plug it back in"
                 }
+                sessions -= s
+                // It ended on its own (an error, a failed start): its last word stays up while nothing else runs.
+                if (!s.stopped && sessions.isEmpty()) idle = last
+                if (!s.stopped && sessions.isNotEmpty()) log("${chip.name} stopped; ${sessions.size} adapter${if (sessions.size == 1) "" else "s"} still running, taking over its channels")
             }
-        }, "usb-wifi").also { it.start() }
+        }, "usb-wifi-${sessions.size}").also { it.start() }
     }
 
+    /** Stops the adapter [device], or all of them (null); [newStatus] shows once none is left. */
     @Synchronized
-    private fun stopAdapter(newStatus: String) {
-        Rtl8821auMonitor.abort()
-        Rtl8812auMonitor.abort()
-        Rtl8822buMonitor.abort()
-        Rtl8187Monitor.abort()
-        Rt3070Monitor.abort()
-        Rtl8814auMonitor.abort()
-        Mt7612uMonitor.abort()
-        Mt7921uMonitor.abort()
-        Ar9271Monitor.abort()
-        runningDevice = null
-        runningChip = null
-        status = newStatus
-        com.rfsentinel.app.esp.HeardBy.usb.clear() // unplugged or stopped: nothing is "heard by USB" any more
+    private fun stopAdapter(device: String?, newStatus: String) {
+        for (s in sessions.filter { device == null || it.device == device }) { s.stop(); sessions -= s }
+        if (sessions.isEmpty()) {
+            idle = newStatus
+            com.rfsentinel.app.esp.HeardBy.usb.clear() // unplugged or stopped: nothing is "heard by USB" any more
+        }
     }
 }

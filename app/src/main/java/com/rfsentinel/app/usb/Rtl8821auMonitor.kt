@@ -18,37 +18,14 @@ import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbManager
 
-object Rtl8821auMonitor {
+class Rtl8821auMonitor {
     @Volatile var running = false; private set
     @Volatile private var stop = false
 
     private val frames = MonitorFrames()
-    private val HOP_24 = UsbWifi.HOP_24
-    /** Settings > External hardware: also hop 5 GHz (experimental); read when the adapter starts. */
-    @Volatile var scan5g = false
-    /** The adapter's light blinks with traffic (Settings > External hardware); off = it stays dark. Changes apply live. */
-    @Volatile var lightEnabled = true
     private var HOP = HOP_24
-    private const val MAX_PKT = 12000
-    private const val DWELL_MS = 350L
 
     private val FRESH_MS get() = (HOP.size * DWELL_MS * 9 / 5).coerceAtLeast(3000L)
-    private const val REPORT_MS = 10_000L
-    private const val FCS_LEN = 4
-
-    private const val OUT_VENDOR = 0x40; private const val IN_VENDOR = 0xC0
-    private const val VREQ = 0x05
-    private const val REG_RX_DRVINFO_SZ = 0x060F; private const val RCR_APP_PHYST_RXFF = 0x10000000
-
-    /**
-     * The adapter's light: LED pin 2 on the RTL8811AU / 8821AU (as Linux's rtw88 drives it).
-     * Bit 5 = software control, bit 3 = off. Bit 7 belongs to the 5 GHz band switch: kept as is.
-     */
-    private const val REG_LEDCFG2 = 0x4E
-    /** How often the light may toggle while frames arrive (a visible blink, a few writes a second). */
-    private const val BLINK_MS = 150L
-
-    private const val rA_LSSIWrite = 0xC90; private const val rHSSIRead = 0x8B0; private const val rA_PIRead = 0xD04
 
     private val rfShadow = HashMap<Int, Int>()
 
@@ -113,10 +90,6 @@ object Rtl8821auMonitor {
             running = false
         }
     }
-
-    /** The light's next state: dark when switched off; else it flips while frames arrive and stays on when the air is quiet. */
-    internal fun nextLight(enabled: Boolean, framesArrived: Boolean, on: Boolean): Boolean =
-        if (!enabled) false else if (framesArrived) !on else true
 
     /** Light on or off under software control; the band-switch bit and the rest of the byte are kept. */
     private fun led(conn: UsbDeviceConnection, on: Boolean) {
@@ -303,7 +276,37 @@ object Rtl8821auMonitor {
         val cur = rfRead(conn, addr); rfWrite(conn, addr, (cur and mask.inv()) or ((v shl sh(mask)) and mask))
     }
 
-    private fun sh(mask: Int) = Integer.numberOfTrailingZeros(mask)
-    private fun le32(b: ByteArray, i: Int) = (b[i].toInt() and 0xff) or ((b[i+1].toInt() and 0xff) shl 8) or ((b[i+2].toInt() and 0xff) shl 16) or ((b[i+3].toInt() and 0xff) shl 24)
-    private fun sleep(ms: Int) = try { Thread.sleep(ms.toLong()) } catch (_: InterruptedException) {}
+    companion object {
+        private val HOP_24 = UsbWifi.HOP_24
+        /** Settings > External hardware: also hop 5 GHz (experimental); read when the adapter starts. */
+        @Volatile var scan5g = false
+        /** The adapter's light blinks with traffic (Settings > External hardware); off = it stays dark. Changes apply live. */
+        @Volatile var lightEnabled = true
+        private const val MAX_PKT = 12000
+        private const val DWELL_MS = 350L
+        private const val REPORT_MS = 10_000L
+        private const val FCS_LEN = 4
+
+        private const val OUT_VENDOR = 0x40; private const val IN_VENDOR = 0xC0
+        private const val VREQ = 0x05
+        private const val REG_RX_DRVINFO_SZ = 0x060F; private const val RCR_APP_PHYST_RXFF = 0x10000000
+
+        /**
+         * The adapter's light: LED pin 2 on the RTL8811AU / 8821AU (as Linux's rtw88 drives it).
+         * Bit 5 = software control, bit 3 = off. Bit 7 belongs to the 5 GHz band switch: kept as is.
+         */
+        private const val REG_LEDCFG2 = 0x4E
+        /** How often the light may toggle while frames arrive (a visible blink, a few writes a second). */
+        private const val BLINK_MS = 150L
+
+        private const val rA_LSSIWrite = 0xC90; private const val rHSSIRead = 0x8B0; private const val rA_PIRead = 0xD04
+
+        /** The light's next state: dark when switched off; else it flips while frames arrive and stays on when the air is quiet. */
+        internal fun nextLight(enabled: Boolean, framesArrived: Boolean, on: Boolean): Boolean =
+            if (!enabled) false else if (framesArrived) !on else true
+
+        private fun sh(mask: Int) = Integer.numberOfTrailingZeros(mask)
+        private fun le32(b: ByteArray, i: Int) = (b[i].toInt() and 0xff) or ((b[i+1].toInt() and 0xff) shl 8) or ((b[i+2].toInt() and 0xff) shl 16) or ((b[i+3].toInt() and 0xff) shl 24)
+        private fun sleep(ms: Int) = try { Thread.sleep(ms.toLong()) } catch (_: InterruptedException) {}
+    }
 }

@@ -118,7 +118,7 @@ class Rtl8812auDriverTest {
         return out
     }
 
-    private fun logical(raw: List<Int>): IntArray = Rtl8812auMonitor.EfuseMap.logical(512) { raw.getOrElse(it) { 0xFF } }
+    private fun logical(raw: List<Int>): IntArray = Rtl8812auMonitor.Companion.EfuseMap.logical(512) { raw.getOrElse(it) { 0xFF } }
 
     @Test
     fun theEfuseMapCollectsWordsFromTheirHeaders() {

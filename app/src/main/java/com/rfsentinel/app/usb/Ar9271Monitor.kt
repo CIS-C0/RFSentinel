@@ -24,31 +24,13 @@ import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbManager
 
-object Ar9271Monitor {
+class Ar9271Monitor {
     @Volatile var running = false; private set
     @Volatile private var stop = false
 
     private val frames = MonitorFrames()
-    private val HOP = UsbWifi.HOP_24
-    private const val DWELL_MS = 500L
+    private var HOP = UsbWifi.HOP_24
     private val FRESH_MS get() = (HOP.size * DWELL_MS * 9 / 5).coerceAtLeast(3000L)
-    private const val REPORT_MS = 10_000L
-
-    private const val FW_DOWNLOAD = 0x30; private const val FW_DOWNLOAD_COMP = 0x31
-    private const val FW_ADDR = 0x501000; private const val FW_TEXT_ADDR = 0x903000; private const val FW_BLOCK = 4096
-    private const val RX_STREAM_TAG = 0x4e00
-    private const val RX_BUF = 16384
-    private const val HTC_RX_STATUS = 40
-    private const val FCS_LEN = 4
-    private const val RX_FILTER_MONITOR = 0x0018ffff
-    private const val RSSI_BAD = -128
-
-    // WMI commands (wmi.h)
-    private const val WMI_GET_FW_VERSION = 3; private const val WMI_DISABLE_INTR = 4; private const val WMI_ENABLE_INTR = 5
-    private const val WMI_ATH_INIT = 6; private const val WMI_DRAIN_TXQ_ALL = 11; private const val WMI_START_RECV = 12
-    private const val WMI_STOP_RECV = 13; private const val WMI_FLUSH_RECV = 14; private const val WMI_SET_MODE = 15
-    private const val WMI_NODE_CREATE = 16; private const val WMI_VAP_CREATE = 19; private const val WMI_REG_READ = 20
-    private const val WMI_REG_WRITE = 21; private const val WMI_TARGET_IC_UPDATE = 24; private const val WMI_REG_RMW = 32
 
     private lateinit var conn: UsbDeviceConnection
     private lateinit var regOut: UsbEndpoint
@@ -465,6 +447,7 @@ object Ar9271Monitor {
             val lock = AntennaCheck.lockIndex(HOP) // antenna check: hold the reference's channel
             if (lock >= 0 && lock == st.hopIdx) AntennaCheck.holding = HOP[lock]
             if (if (lock >= 0) lock != st.hopIdx else now - st.hopAt > DWELL_MS) {
+                if (lock < 0 && st.hopIdx + 1 >= HOP.size) HOP = UsbWifi.hops(UsbWifi.HOP_24) // its share, with other adapters running
                 st.hopIdx = if (lock >= 0) lock else (st.hopIdx + 1) % HOP.size
                 runCatching { hop(HOP[st.hopIdx]) }
                 val (aps, clients) = frames.live(now, REPORT_MS)
@@ -476,50 +459,71 @@ object Ar9271Monitor {
         UsbWifi.log("AR9271: RX loop stopped ($total B)")
     }
 
-    /**
-     * The firmware's RX stream: packets of | length (le16) | tag 0x4e00 (le16) | HTC header (8) |
-     * RX status (40) | frame + FCS | (HTC trailer) |, each padded to 4 bytes; one can continue in
-     * the next transfer. [onFrame] gets each good frame's [start, end) without the FCS and its
-     * signal (RX status reading + [noiseFloor]); bad checksums and broken packets go to [onBad].
-     * Returns the bytes of an unfinished last packet, to put in front of the next transfer.
-     */
-    internal fun forEachFrame(b: ByteArray, n: Int, noiseFloor: Int, onBad: (Boolean) -> Unit = {},
-                              onFrame: (Int, Int, Int?) -> Unit): ByteArray? {
-        fun u8(i: Int) = b[i].toInt() and 0xff
-        fun le16(i: Int) = u8(i) or (u8(i + 1) shl 8)
-        var off = 0
-        while (off + 4 <= n) {
-            if (le16(off + 2) != RX_STREAM_TAG) { onBad(false); return null } // lost sync: drop the rest, like ath9k_htc
-            val pktLen = le16(off)
-            if (pktLen > 2 * RX_BUF) { onBad(false); return null }
-            val next = off + 4 + pktLen + ((4 - (pktLen and 3)) and 3)
-            if (off + 4 + pktLen > n) return if (n - off <= 2 * RX_BUF) b.copyOfRange(off, n) else null
-            val hs = off + 4
-            if (pktLen >= 8 + HTC_RX_STATUS) {
-                var plen = (u8(hs + 2) shl 8) or u8(hs + 3)
-                if (u8(hs + 1) and 0x02 != 0) plen -= u8(hs + 4) // HTC trailer
-                val ps = hs + 8
-                val dlen = (u8(ps + 8) shl 8) or u8(ps + 9)
-                val status = u8(ps + 10)
-                when {
-                    plen != HTC_RX_STATUS + dlen || ps + plen > n -> onBad(false)
-                    status and 0x01 != 0 -> onBad(true)                    // checksum error
-                    status != 0 || dlen < 24 + FCS_LEN -> onBad(false)     // PHY / decrypt error, runt
-                    else -> {
-                        val raw = b[ps + 12].toInt()
-                        val d = ps + HTC_RX_STATUS
-                        onFrame(d, d + dlen - FCS_LEN, if (raw == RSSI_BAD) null else noiseFloor + raw)
+    companion object {
+        private const val DWELL_MS = 500L
+        private const val REPORT_MS = 10_000L
+
+        private const val FW_DOWNLOAD = 0x30; private const val FW_DOWNLOAD_COMP = 0x31
+        private const val FW_ADDR = 0x501000; private const val FW_TEXT_ADDR = 0x903000; private const val FW_BLOCK = 4096
+        private const val RX_STREAM_TAG = 0x4e00
+        private const val RX_BUF = 16384
+        private const val HTC_RX_STATUS = 40
+        private const val FCS_LEN = 4
+        private const val RX_FILTER_MONITOR = 0x0018ffff
+        private const val RSSI_BAD = -128
+
+        // WMI commands (wmi.h)
+        private const val WMI_GET_FW_VERSION = 3; private const val WMI_DISABLE_INTR = 4; private const val WMI_ENABLE_INTR = 5
+        private const val WMI_ATH_INIT = 6; private const val WMI_DRAIN_TXQ_ALL = 11; private const val WMI_START_RECV = 12
+        private const val WMI_STOP_RECV = 13; private const val WMI_FLUSH_RECV = 14; private const val WMI_SET_MODE = 15
+        private const val WMI_NODE_CREATE = 16; private const val WMI_VAP_CREATE = 19; private const val WMI_REG_READ = 20
+        private const val WMI_REG_WRITE = 21; private const val WMI_TARGET_IC_UPDATE = 24; private const val WMI_REG_RMW = 32
+
+        /**
+         * The firmware's RX stream: packets of | length (le16) | tag 0x4e00 (le16) | HTC header (8) |
+         * RX status (40) | frame + FCS | (HTC trailer) |, each padded to 4 bytes; one can continue in
+         * the next transfer. [onFrame] gets each good frame's [start, end) without the FCS and its
+         * signal (RX status reading + [noiseFloor]); bad checksums and broken packets go to [onBad].
+         * Returns the bytes of an unfinished last packet, to put in front of the next transfer.
+         */
+        internal fun forEachFrame(b: ByteArray, n: Int, noiseFloor: Int, onBad: (Boolean) -> Unit = {},
+                                  onFrame: (Int, Int, Int?) -> Unit): ByteArray? {
+            fun u8(i: Int) = b[i].toInt() and 0xff
+            fun le16(i: Int) = u8(i) or (u8(i + 1) shl 8)
+            var off = 0
+            while (off + 4 <= n) {
+                if (le16(off + 2) != RX_STREAM_TAG) { onBad(false); return null } // lost sync: drop the rest, like ath9k_htc
+                val pktLen = le16(off)
+                if (pktLen > 2 * RX_BUF) { onBad(false); return null }
+                val next = off + 4 + pktLen + ((4 - (pktLen and 3)) and 3)
+                if (off + 4 + pktLen > n) return if (n - off <= 2 * RX_BUF) b.copyOfRange(off, n) else null
+                val hs = off + 4
+                if (pktLen >= 8 + HTC_RX_STATUS) {
+                    var plen = (u8(hs + 2) shl 8) or u8(hs + 3)
+                    if (u8(hs + 1) and 0x02 != 0) plen -= u8(hs + 4) // HTC trailer
+                    val ps = hs + 8
+                    val dlen = (u8(ps + 8) shl 8) or u8(ps + 9)
+                    val status = u8(ps + 10)
+                    when {
+                        plen != HTC_RX_STATUS + dlen || ps + plen > n -> onBad(false)
+                        status and 0x01 != 0 -> onBad(true)                    // checksum error
+                        status != 0 || dlen < 24 + FCS_LEN -> onBad(false)     // PHY / decrypt error, runt
+                        else -> {
+                            val raw = b[ps + 12].toInt()
+                            val d = ps + HTC_RX_STATUS
+                            onFrame(d, d + dlen - FCS_LEN, if (raw == RSSI_BAD) null else noiseFloor + raw)
+                        }
                     }
                 }
+                off = next
             }
-            off = next
+            return null
         }
-        return null
+
+        // ---- helpers ----
+
+        private fun be16(b: ByteArray, i: Int) = ((b[i].toInt() and 0xff) shl 8) or (b[i + 1].toInt() and 0xff)
+        private fun be32(v: Int) = byteArrayOf((v ushr 24).toByte(), (v ushr 16).toByte(), (v ushr 8).toByte(), v.toByte())
+        private fun sleep(ms: Int) = try { Thread.sleep(ms.toLong()) } catch (_: InterruptedException) {}
     }
-
-    // ---- helpers ----
-
-    private fun be16(b: ByteArray, i: Int) = ((b[i].toInt() and 0xff) shl 8) or (b[i + 1].toInt() and 0xff)
-    private fun be32(v: Int) = byteArrayOf((v ushr 24).toByte(), (v ushr 16).toByte(), (v ushr 8).toByte(), v.toByte())
-    private fun sleep(ms: Int) = try { Thread.sleep(ms.toLong()) } catch (_: InterruptedException) {}
 }

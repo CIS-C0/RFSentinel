@@ -22,58 +22,13 @@ import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbManager
 
-object Rt3070Monitor {
+class Rt3070Monitor {
     @Volatile var running = false; private set
     @Volatile private var stop = false
 
     private val frames = MonitorFrames()
-    private val HOP = UsbWifi.HOP_24
-    private const val DWELL_MS = 350L
+    private var HOP = UsbWifi.HOP_24
     private val FRESH_MS get() = (HOP.size * DWELL_MS * 9 / 5).coerceAtLeast(3000L)
-    private const val REPORT_MS = 10_000L
-    private const val RX_SIZE = 4096
-
-    private const val OUT_VENDOR = 0x40; private const val IN_VENDOR = 0xC0
-    private const val DEVICE_MODE = 0x01; private const val MULTI_WRITE = 0x06; private const val MULTI_READ = 0x07
-    private const val EEPROM_READ = 0x09
-    private const val USB_MODE_RESET = 1; private const val USB_MODE_FIRMWARE = 8; private const val USB_MODE_AUTORUN = 17
-    private const val FIRMWARE_BASE = 0x3000; private const val FW_LEN = 4096; private const val CSR_CACHE = 64
-    private const val MCU_CURRENT = 0x36; private const val MCU_BOOT_SIGNAL = 0x72; private const val MCU_FREQ_OFFSET = 0x74
-    private const val REV_RT3070F = 0x0201; private const val REV_RT5390F = 0x0502; private const val REV_RT5370G = 0x0503
-    private const val RT3070 = 0x3070; private const val RT5390 = 0x5390; private const val RT5392 = 0x5392
-    private const val FREQ_OFFSET_BOUND = 0x5f
-
-    private const val OPT_14_CSR = 0x0114; private const val WPDMA_GLO_CFG = 0x0208; private const val USB_DMA_CFG = 0x02a0
-    private const val US_CYC_CNT = 0x02a4; private const val PBF_SYS_CTRL = 0x0400; private const val HOST_CMD_CSR = 0x0404
-    private const val PBF_CFG = 0x0408; private const val PBF_MAX_PCNT = 0x040c; private const val RF_CSR_CFG = 0x0500
-    private const val EFUSE_CTRL = 0x0580; private const val LDO_CFG0 = 0x05d4
-    private const val MAC_CSR0 = 0x1000; private const val MAC_SYS_CTRL = 0x1004; private const val MAX_LEN_CFG = 0x1018
-    private const val BBP_CSR_CFG = 0x101c; private const val LED_CFG = 0x102c
-    private const val XIFS_TIME_CFG = 0x1100; private const val BKOFF_SLOT_CFG = 0x1104; private const val CH_TIME_CFG = 0x110c
-    private const val BCN_TIME_CFG = 0x1114; private const val CH_IDLE_STA = 0x1130; private const val CH_BUSY_STA = 0x1134
-    private const val CH_BUSY_STA_SEC = 0x1138; private const val MAC_STATUS_CFG = 0x1200; private const val PWR_PIN_CFG = 0x1204
-    private const val AUTOWAKEUP_CFG = 0x1208; private const val TX_PIN_CFG = 0x1328; private const val TX_BAND_CFG = 0x132c
-    private const val TX_SW_CFG0 = 0x1330; private const val TX_SW_CFG1 = 0x1334; private const val TX_SW_CFG2 = 0x1338
-    private const val TXOP_CTRL_CFG = 0x1340; private const val TX_RTS_CFG = 0x1344; private const val TX_TIMEOUT_CFG = 0x1348
-    private const val TX_RTY_CFG = 0x134c; private const val TX_LINK_CFG = 0x1350
-    private const val HT_FBK_CFG0 = 0x1354; private const val HT_FBK_CFG1 = 0x1358; private const val LG_FBK_CFG0 = 0x135c
-    private const val LG_FBK_CFG1 = 0x1360; private const val CCK_PROT_CFG = 0x1364; private const val OFDM_PROT_CFG = 0x1368
-    private const val MM20_PROT_CFG = 0x136c; private const val MM40_PROT_CFG = 0x1370; private const val GF20_PROT_CFG = 0x1374
-    private const val GF40_PROT_CFG = 0x1378; private const val EXP_ACK_TIME = 0x1380
-    private const val RX_FILTR_CFG = 0x1400; private const val AUTO_RSP_CFG = 0x1404
-    private const val LEGACY_BASIC_RATE = 0x1408; private const val HT_BASIC_RATE = 0x140c; private const val TXOP_HLDR_ET = 0x1608
-    private const val H2M_MAILBOX_CSR = 0x7010; private const val H2M_MAILBOX_CID = 0x7014; private const val H2M_MAILBOX_STATUS = 0x701c
-    private const val H2M_INT_SRC = 0x7024; private const val H2M_BBP_AGENT = 0x7028
-
-    /**
-     * Keep everything except frames with a bad checksum, PHY or version errors and
-     * control frames (ACK, RTS, CTS, block ack...), which say nothing about who is there.
-     */
-    private const val RX_FILTER_MONITOR = 0x0001FF13
-
-    // EEPROM words
-    private const val EE_MAC = 0x02; private const val EE_NIC_CONF0 = 0x1a; private const val EE_NIC_CONF1 = 0x1b
-    private const val EE_FREQ = 0x1d; private const val EE_LNA = 0x22; private const val EE_RSSI_BG = 0x23; private const val EE_BBP_START = 0x78
 
     /** rf_vals_3x: synthesizer N and K per 2.4 GHz channel (R is 2 on all of them). */
     private val RF_N = intArrayOf(241, 241, 242, 242, 243, 243, 244, 244, 245, 245, 246, 246, 247, 248)
@@ -535,6 +490,7 @@ object Rt3070Monitor {
             val lock = AntennaCheck.lockIndex(HOP) // antenna check: hold the reference's channel
             if (lock >= 0 && lock == st.hopIdx) AntennaCheck.holding = HOP[lock]
             if (if (lock >= 0) lock != st.hopIdx else now - st.hopAt > DWELL_MS) {
+                if (lock < 0 && st.hopIdx + 1 >= HOP.size) HOP = UsbWifi.hops(UsbWifi.HOP_24) // its share, with other adapters running
                 st.hopIdx = if (lock >= 0) lock else (st.hopIdx + 1) % HOP.size
                 runCatching { tune(HOP[st.hopIdx]) }
                 val (aps, clients) = frames.live(now, REPORT_MS)
@@ -544,35 +500,6 @@ object Rt3070Monitor {
         }
         frames.emit(FRESH_MS, onFrame)
         UsbWifi.log("RT3070: RX loop stopped ($total B)")
-    }
-
-    /**
-     * Frames in one bulk transfer: | RXINFO (4) | RXWI (16) | 802.11 frame, padded | RXD (4) |,
-     * RXINFO giving the length up to RXD. Frames with a bad checksum are skipped; [onFrame]
-     * gets the 802.11 frame's [start, end) and its signal (null when the radio gave none).
-     * [onBad] hears about the skipped ones: true for a bad checksum, false for a malformed one.
-     */
-    internal fun forEachFrame(b: ByteArray, n: Int, rssiOffset: Int, lnaGain: Int, onBad: (Boolean) -> Unit = {},
-                              onFrame: (Int, Int, Int?) -> Unit) {
-        var off = 0
-        while (off + 4 + 16 + 4 <= n) {
-            val pktLen = le32(b, off) and 0xffff
-            if (pktLen < 16 + 10 || off + 4 + pktLen + 4 > n) { if (off == 0) onBad(false); return } // trailing USB padding is fine
-            val rxwi = off + 4
-            val mpdu = (le32(b, rxwi) ushr 16) and 0xfff
-            val rxd = le32(b, off + 4 + pktLen)
-            val start = rxwi + 16
-            when {
-                rxd and 0x100 != 0 -> onBad(true)
-                mpdu < 24 || start + mpdu > off + 4 + pktLen -> onBad(false)
-                else -> {
-                    val raw = b[rxwi + 8].toInt() // RSSI0; 0 = no reading
-                    onFrame(start, start + mpdu, if (raw > 0) -12 - rssiOffset - lnaGain - raw else null)
-                }
-            }
-            off += 4 + pktLen + 4
-        }
-        if (off == 0) onBad(false)
     }
 
     // ---- register access ----
@@ -627,10 +554,87 @@ object Rt3070Monitor {
         return false
     }
 
-    /** Sets the field [mask] of [reg] to [v] (truncated to the field, like rt2x00_set_field32). */
-    private fun setf(reg: Int, mask: Int, v: Int) = (reg and mask.inv()) or ((v shl Integer.numberOfTrailingZeros(mask)) and mask)
-    private fun putLe32(b: ByteArray, i: Int, v: Int) { b[i] = v.toByte(); b[i + 1] = (v ushr 8).toByte(); b[i + 2] = (v ushr 16).toByte(); b[i + 3] = (v ushr 24).toByte() }
-    private fun le32(b: ByteArray, i: Int) = (b[i].toInt() and 0xff) or ((b[i + 1].toInt() and 0xff) shl 8) or
-        ((b[i + 2].toInt() and 0xff) shl 16) or ((b[i + 3].toInt() and 0xff) shl 24)
-    private fun sleep(ms: Int) = try { Thread.sleep(ms.toLong()) } catch (_: InterruptedException) {}
+    companion object {
+        private const val DWELL_MS = 350L
+        private const val REPORT_MS = 10_000L
+        private const val RX_SIZE = 4096
+
+        private const val OUT_VENDOR = 0x40; private const val IN_VENDOR = 0xC0
+        private const val DEVICE_MODE = 0x01; private const val MULTI_WRITE = 0x06; private const val MULTI_READ = 0x07
+        private const val EEPROM_READ = 0x09
+        private const val USB_MODE_RESET = 1; private const val USB_MODE_FIRMWARE = 8; private const val USB_MODE_AUTORUN = 17
+        private const val FIRMWARE_BASE = 0x3000; private const val FW_LEN = 4096; private const val CSR_CACHE = 64
+        private const val MCU_CURRENT = 0x36; private const val MCU_BOOT_SIGNAL = 0x72; private const val MCU_FREQ_OFFSET = 0x74
+        private const val REV_RT3070F = 0x0201; private const val REV_RT5390F = 0x0502; private const val REV_RT5370G = 0x0503
+        private const val RT3070 = 0x3070; private const val RT5390 = 0x5390; private const val RT5392 = 0x5392
+        private const val FREQ_OFFSET_BOUND = 0x5f
+
+        private const val OPT_14_CSR = 0x0114; private const val WPDMA_GLO_CFG = 0x0208; private const val USB_DMA_CFG = 0x02a0
+        private const val US_CYC_CNT = 0x02a4; private const val PBF_SYS_CTRL = 0x0400; private const val HOST_CMD_CSR = 0x0404
+        private const val PBF_CFG = 0x0408; private const val PBF_MAX_PCNT = 0x040c; private const val RF_CSR_CFG = 0x0500
+        private const val EFUSE_CTRL = 0x0580; private const val LDO_CFG0 = 0x05d4
+        private const val MAC_CSR0 = 0x1000; private const val MAC_SYS_CTRL = 0x1004; private const val MAX_LEN_CFG = 0x1018
+        private const val BBP_CSR_CFG = 0x101c; private const val LED_CFG = 0x102c
+        private const val XIFS_TIME_CFG = 0x1100; private const val BKOFF_SLOT_CFG = 0x1104; private const val CH_TIME_CFG = 0x110c
+        private const val BCN_TIME_CFG = 0x1114; private const val CH_IDLE_STA = 0x1130; private const val CH_BUSY_STA = 0x1134
+        private const val CH_BUSY_STA_SEC = 0x1138; private const val MAC_STATUS_CFG = 0x1200; private const val PWR_PIN_CFG = 0x1204
+        private const val AUTOWAKEUP_CFG = 0x1208; private const val TX_PIN_CFG = 0x1328; private const val TX_BAND_CFG = 0x132c
+        private const val TX_SW_CFG0 = 0x1330; private const val TX_SW_CFG1 = 0x1334; private const val TX_SW_CFG2 = 0x1338
+        private const val TXOP_CTRL_CFG = 0x1340; private const val TX_RTS_CFG = 0x1344; private const val TX_TIMEOUT_CFG = 0x1348
+        private const val TX_RTY_CFG = 0x134c; private const val TX_LINK_CFG = 0x1350
+        private const val HT_FBK_CFG0 = 0x1354; private const val HT_FBK_CFG1 = 0x1358; private const val LG_FBK_CFG0 = 0x135c
+        private const val LG_FBK_CFG1 = 0x1360; private const val CCK_PROT_CFG = 0x1364; private const val OFDM_PROT_CFG = 0x1368
+        private const val MM20_PROT_CFG = 0x136c; private const val MM40_PROT_CFG = 0x1370; private const val GF20_PROT_CFG = 0x1374
+        private const val GF40_PROT_CFG = 0x1378; private const val EXP_ACK_TIME = 0x1380
+        private const val RX_FILTR_CFG = 0x1400; private const val AUTO_RSP_CFG = 0x1404
+        private const val LEGACY_BASIC_RATE = 0x1408; private const val HT_BASIC_RATE = 0x140c; private const val TXOP_HLDR_ET = 0x1608
+        private const val H2M_MAILBOX_CSR = 0x7010; private const val H2M_MAILBOX_CID = 0x7014; private const val H2M_MAILBOX_STATUS = 0x701c
+        private const val H2M_INT_SRC = 0x7024; private const val H2M_BBP_AGENT = 0x7028
+
+        /**
+         * Keep everything except frames with a bad checksum, PHY or version errors and
+         * control frames (ACK, RTS, CTS, block ack...), which say nothing about who is there.
+         */
+        private const val RX_FILTER_MONITOR = 0x0001FF13
+
+        // EEPROM words
+        private const val EE_MAC = 0x02; private const val EE_NIC_CONF0 = 0x1a; private const val EE_NIC_CONF1 = 0x1b
+        private const val EE_FREQ = 0x1d; private const val EE_LNA = 0x22; private const val EE_RSSI_BG = 0x23; private const val EE_BBP_START = 0x78
+
+        /**
+         * Frames in one bulk transfer: | RXINFO (4) | RXWI (16) | 802.11 frame, padded | RXD (4) |,
+         * RXINFO giving the length up to RXD. Frames with a bad checksum are skipped; [onFrame]
+         * gets the 802.11 frame's [start, end) and its signal (null when the radio gave none).
+         * [onBad] hears about the skipped ones: true for a bad checksum, false for a malformed one.
+         */
+        internal fun forEachFrame(b: ByteArray, n: Int, rssiOffset: Int, lnaGain: Int, onBad: (Boolean) -> Unit = {},
+                                  onFrame: (Int, Int, Int?) -> Unit) {
+            var off = 0
+            while (off + 4 + 16 + 4 <= n) {
+                val pktLen = le32(b, off) and 0xffff
+                if (pktLen < 16 + 10 || off + 4 + pktLen + 4 > n) { if (off == 0) onBad(false); return } // trailing USB padding is fine
+                val rxwi = off + 4
+                val mpdu = (le32(b, rxwi) ushr 16) and 0xfff
+                val rxd = le32(b, off + 4 + pktLen)
+                val start = rxwi + 16
+                when {
+                    rxd and 0x100 != 0 -> onBad(true)
+                    mpdu < 24 || start + mpdu > off + 4 + pktLen -> onBad(false)
+                    else -> {
+                        val raw = b[rxwi + 8].toInt() // RSSI0; 0 = no reading
+                        onFrame(start, start + mpdu, if (raw > 0) -12 - rssiOffset - lnaGain - raw else null)
+                    }
+                }
+                off += 4 + pktLen + 4
+            }
+            if (off == 0) onBad(false)
+        }
+
+        /** Sets the field [mask] of [reg] to [v] (truncated to the field, like rt2x00_set_field32). */
+        private fun setf(reg: Int, mask: Int, v: Int) = (reg and mask.inv()) or ((v shl Integer.numberOfTrailingZeros(mask)) and mask)
+        private fun putLe32(b: ByteArray, i: Int, v: Int) { b[i] = v.toByte(); b[i + 1] = (v ushr 8).toByte(); b[i + 2] = (v ushr 16).toByte(); b[i + 3] = (v ushr 24).toByte() }
+        private fun le32(b: ByteArray, i: Int) = (b[i].toInt() and 0xff) or ((b[i + 1].toInt() and 0xff) shl 8) or
+            ((b[i + 2].toInt() and 0xff) shl 16) or ((b[i + 3].toInt() and 0xff) shl 24)
+        private fun sleep(ms: Int) = try { Thread.sleep(ms.toLong()) } catch (_: InterruptedException) {}
+    }
 }

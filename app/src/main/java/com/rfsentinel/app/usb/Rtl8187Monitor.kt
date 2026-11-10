@@ -19,57 +19,19 @@ import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbManager
 
-object Rtl8187Monitor {
+class Rtl8187Monitor {
     @Volatile var running = false; private set
     @Volatile private var stop = false
 
     private val frames = MonitorFrames()
-    private val HOP = UsbWifi.HOP_24
-    private const val DWELL_MS = 350L
+    private var HOP = UsbWifi.HOP_24
     private val FRESH_MS get() = (HOP.size * DWELL_MS * 9 / 5).coerceAtLeast(3000L)
-    private const val REPORT_MS = 10_000L
 
     /** USB IDs the kernel driver runs as RTL8187B (the rest are RTL8187L unless the chip says otherwise). */
     private val B_IDS = setOf(0x050d to 0x705e, 0x0bda to 0x8189, 0x0bda to 0x8197, 0x0bda to 0x8198,
         0x0846 to 0x4260, 0x0df6 to 0x0028, 0x0df6 to 0x0029, 0x1737 to 0x0073)
 
-    private const val REQT_READ = 0xC0; private const val REQT_WRITE = 0x40; private const val REQ_REG = 0x05
-    /** One frame per bulk transfer, at most this long (RTL8187_MAX_RX). */
-    private const val MAX_RX = 0x9C4
-
-    // struct rtl818x_csr, mapped at 0xFF00
-    private const val MAR0 = 0xFF08; private const val MAR1 = 0xFF0C; private const val BRSR = 0xFF2C
-    private const val RESP_RATE = 0xFF34; private const val CMD = 0xFF37; private const val INT_MASK = 0xFF3C
-    private const val TX_CONF = 0xFF40; private const val RX_CONF = 0xFF44; private const val INT_TIMEOUT = 0xFF48
-    private const val EEPROM_CMD = 0xFF50; private const val CONFIG1 = 0xFF52; private const val ANAPARAM = 0xFF54
-    private const val MSR = 0xFF58; private const val CONFIG3 = 0xFF59; private const val TESTR = 0xFF5B
-    private const val PGSELECT = 0xFF5E; private const val ANAPARAM2 = 0xFF60; private const val PHY0 = 0xFF7C
-    private const val RF_OUT = 0xFF80; private const val RF_EN = 0xFF82; private const val RF_SEL = 0xFF84
-    private const val RF_IN = 0xFF86; private const val RF_PARA = 0xFF88; private const val RF_TIMING = 0xFF8C
-    private const val GP_ENABLE = 0xFF90; private const val GPIO0 = 0xFF91; private const val HSSI_PARA = 0xFF94
-    private const val TX_AGC_CTL = 0xFF9C; private const val TX_GAIN_CCK = 0xFF9D; private const val TX_GAIN_OFDM = 0xFF9E
-    private const val TX_ANTENNA = 0xFF9F; private const val WPA_CONF = 0xFFB0; private const val CW_CONF = 0xFFBC
-    private const val RATE_FALLBACK = 0xFFBE; private const val ACM_CONTROL = 0xFFBF; private const val INT_MIG = 0xFFE2
-    private const val TID_AC_MAP = 0xFFE8; private const val ANAPARAM3A = 0xFFEE; private const val TALLY_SEL = 0xFFFC
-
-    private const val EEPROM_CMD_NORMAL = 0x00; private const val EEPROM_CMD_LOAD = 0x40; private const val EEPROM_CMD_CONFIG = 0xC0
-    private const val CONFIG3_ANAPARAM_WRITE = 0x40
-    private const val CMD_TX_ENABLE = 0x04; private const val CMD_RX_ENABLE = 0x08; private const val CMD_RESET = 0x10
-    private const val TX_CONF_LOOPBACK_MAC = 1 shl 17; private const val TX_CONF_NO_ICV = 1 shl 19
-    private const val TX_CONF_HWVER_MASK = 7 shl 25; private const val TX_CONF_R8187vD = 5 shl 25; private const val TX_CONF_R8187vD_B = 6 shl 25
-    private const val TX_CONF_DISREQQSIZE = 1 shl 28; private const val TX_CONF_HW_SEQNUM = 1 shl 30; private const val TX_CONF_CW_MIN = 1 shl 31
-    private const val RX_CONF_MONITOR = 1 shl 0; private const val RX_CONF_NICMAC = 1 shl 1; private const val RX_CONF_BROADCAST = 1 shl 3
-    private const val RX_CONF_DATA = 1 shl 18; private const val RX_CONF_MGMT = 1 shl 20; private const val RX_CONF_BSSID = 1 shl 23
-    private const val RX_CONF_AUTORESETPHY = 1 shl 28; private const val RX_CONF_ONLYERLPKT = 1 shl 31
-    private const val RX_FIFO_NONE = 7 shl 13; private const val RX_MAX_DMA = 7 shl 10
-    /** RX descriptor: the frame's checksum failed. */
-    private const val RX_DESC_CRC32_ERR = 1 shl 13
-
-    private const val ANAPARAM_ON_L = 0xa0000a59.toInt(); private const val ANAPARAM2_ON_L = 0x860c7312.toInt()
-    private const val ANAPARAM_ON_B = 0x45090658; private const val ANAPARAM2_ON_B = 0x727f3f52
-
     private enum class Rf { RTL8225, RTL8225Z2, RTL8225Z2B }
-    private const val BvB = 0; private const val BvD = 1; private const val BvE = 2
 
     private lateinit var conn: UsbDeviceConnection
     private var is8187b = false
@@ -515,6 +477,7 @@ object Rtl8187Monitor {
             val lock = AntennaCheck.lockIndex(HOP) // antenna check: hold the reference's channel
             if (lock >= 0 && lock == st.hopIdx) AntennaCheck.holding = HOP[lock]
             if (if (lock >= 0) lock != st.hopIdx else now - st.hopAt > DWELL_MS) {
+                if (lock < 0 && st.hopIdx + 1 >= HOP.size) HOP = UsbWifi.hops(UsbWifi.HOP_24) // its share, with other adapters running
                 st.hopIdx = if (lock >= 0) lock else (st.hopIdx + 1) % HOP.size
                 runCatching { tune(HOP[st.hopIdx]) }
                 val (aps, clients) = frames.live(now, REPORT_MS)
@@ -524,27 +487,6 @@ object Rtl8187Monitor {
         }
         frames.emit(FRESH_MS, onFrame)
         UsbWifi.log("RTL8187: RX loop stopped ($total B)")
-    }
-
-    /** Where the 802.11 frame sits in a received transfer (FCS removed) and its signal in dBm. */
-    internal data class Rx(val start: Int, val end: Int, val rssi: Int)
-
-    /**
-     * One bulk transfer = one frame followed by the RX descriptor (16 bytes on the
-     * RTL8187L, 20 on the RTL8187B). Null for a failed checksum or a malformed transfer.
-     */
-    internal fun parseRx(b: ByteArray, n: Int, is8187b: Boolean): Rx? {
-        val hdr = if (is8187b) 20 else 16
-        if (n < hdr + 24 || n > b.size) return null
-        val h = n - hdr
-        val flags = le32(b, h)
-        if (flags and RX_DESC_CRC32_ERR != 0) return null
-        val len = flags and 0x0FFF // frame + FCS
-        if (len < 24 + 4 || len > h) return null
-        // Signal from the AGC value, scaled as the kernel driver does.
-        val rssi = if (is8187b) 14 - (b[h + 14].toInt() and 0xff) / 2
-                   else -4 - ((27 * (b[h + 6].toInt() and 0xff)) shr 6)
-        return Rx(0, len - 4, rssi)
     }
 
     // ---- register access ----
@@ -569,10 +511,6 @@ object Rtl8187Monitor {
     private fun w8(a: Int, v: Int, idx: Int = 0) = write(a, v, 1, idx)
     private fun w16(a: Int, v: Int, idx: Int = 0) = write(a, v, 2, idx)
     private fun w32(a: Int, v: Int, idx: Int = 0) = write(a, v, 4, idx)
-
-    private fun le32(b: ByteArray, i: Int) = (b[i].toInt() and 0xff) or ((b[i + 1].toInt() and 0xff) shl 8) or
-        ((b[i + 2].toInt() and 0xff) shl 16) or ((b[i + 3].toInt() and 0xff) shl 24)
-    private fun sleep(ms: Int) = try { Thread.sleep(ms.toLong()) } catch (_: InterruptedException) {}
 
     // ---- tables (rtl8225.c / dev.c) ----
 
@@ -725,4 +663,70 @@ object Rtl8187Monitor {
         intArrayOf(0xEE, 0x00, 0), intArrayOf(0x4C, 0x00, 2),
         intArrayOf(0x9F, 0x00, 3), intArrayOf(0x8C, 0x01, 0), intArrayOf(0x8D, 0x10, 0), intArrayOf(0x8E, 0x08, 0),
         intArrayOf(0x8F, 0x00, 0))
+
+    companion object {
+        private const val DWELL_MS = 350L
+        private const val REPORT_MS = 10_000L
+
+        private const val REQT_READ = 0xC0; private const val REQT_WRITE = 0x40; private const val REQ_REG = 0x05
+        /** One frame per bulk transfer, at most this long (RTL8187_MAX_RX). */
+        private const val MAX_RX = 0x9C4
+
+        // struct rtl818x_csr, mapped at 0xFF00
+        private const val MAR0 = 0xFF08; private const val MAR1 = 0xFF0C; private const val BRSR = 0xFF2C
+        private const val RESP_RATE = 0xFF34; private const val CMD = 0xFF37; private const val INT_MASK = 0xFF3C
+        private const val TX_CONF = 0xFF40; private const val RX_CONF = 0xFF44; private const val INT_TIMEOUT = 0xFF48
+        private const val EEPROM_CMD = 0xFF50; private const val CONFIG1 = 0xFF52; private const val ANAPARAM = 0xFF54
+        private const val MSR = 0xFF58; private const val CONFIG3 = 0xFF59; private const val TESTR = 0xFF5B
+        private const val PGSELECT = 0xFF5E; private const val ANAPARAM2 = 0xFF60; private const val PHY0 = 0xFF7C
+        private const val RF_OUT = 0xFF80; private const val RF_EN = 0xFF82; private const val RF_SEL = 0xFF84
+        private const val RF_IN = 0xFF86; private const val RF_PARA = 0xFF88; private const val RF_TIMING = 0xFF8C
+        private const val GP_ENABLE = 0xFF90; private const val GPIO0 = 0xFF91; private const val HSSI_PARA = 0xFF94
+        private const val TX_AGC_CTL = 0xFF9C; private const val TX_GAIN_CCK = 0xFF9D; private const val TX_GAIN_OFDM = 0xFF9E
+        private const val TX_ANTENNA = 0xFF9F; private const val WPA_CONF = 0xFFB0; private const val CW_CONF = 0xFFBC
+        private const val RATE_FALLBACK = 0xFFBE; private const val ACM_CONTROL = 0xFFBF; private const val INT_MIG = 0xFFE2
+        private const val TID_AC_MAP = 0xFFE8; private const val ANAPARAM3A = 0xFFEE; private const val TALLY_SEL = 0xFFFC
+
+        private const val EEPROM_CMD_NORMAL = 0x00; private const val EEPROM_CMD_LOAD = 0x40; private const val EEPROM_CMD_CONFIG = 0xC0
+        private const val CONFIG3_ANAPARAM_WRITE = 0x40
+        private const val CMD_TX_ENABLE = 0x04; private const val CMD_RX_ENABLE = 0x08; private const val CMD_RESET = 0x10
+        private const val TX_CONF_LOOPBACK_MAC = 1 shl 17; private const val TX_CONF_NO_ICV = 1 shl 19
+        private const val TX_CONF_HWVER_MASK = 7 shl 25; private const val TX_CONF_R8187vD = 5 shl 25; private const val TX_CONF_R8187vD_B = 6 shl 25
+        private const val TX_CONF_DISREQQSIZE = 1 shl 28; private const val TX_CONF_HW_SEQNUM = 1 shl 30; private const val TX_CONF_CW_MIN = 1 shl 31
+        private const val RX_CONF_MONITOR = 1 shl 0; private const val RX_CONF_NICMAC = 1 shl 1; private const val RX_CONF_BROADCAST = 1 shl 3
+        private const val RX_CONF_DATA = 1 shl 18; private const val RX_CONF_MGMT = 1 shl 20; private const val RX_CONF_BSSID = 1 shl 23
+        private const val RX_CONF_AUTORESETPHY = 1 shl 28; private const val RX_CONF_ONLYERLPKT = 1 shl 31
+        private const val RX_FIFO_NONE = 7 shl 13; private const val RX_MAX_DMA = 7 shl 10
+        /** RX descriptor: the frame's checksum failed. */
+        private const val RX_DESC_CRC32_ERR = 1 shl 13
+
+        private const val ANAPARAM_ON_L = 0xa0000a59.toInt(); private const val ANAPARAM2_ON_L = 0x860c7312.toInt()
+        private const val ANAPARAM_ON_B = 0x45090658; private const val ANAPARAM2_ON_B = 0x727f3f52
+        private const val BvB = 0; private const val BvD = 1; private const val BvE = 2
+
+        /** Where the 802.11 frame sits in a received transfer (FCS removed) and its signal in dBm. */
+        internal data class Rx(val start: Int, val end: Int, val rssi: Int)
+
+        /**
+         * One bulk transfer = one frame followed by the RX descriptor (16 bytes on the
+         * RTL8187L, 20 on the RTL8187B). Null for a failed checksum or a malformed transfer.
+         */
+        internal fun parseRx(b: ByteArray, n: Int, is8187b: Boolean): Rx? {
+            val hdr = if (is8187b) 20 else 16
+            if (n < hdr + 24 || n > b.size) return null
+            val h = n - hdr
+            val flags = le32(b, h)
+            if (flags and RX_DESC_CRC32_ERR != 0) return null
+            val len = flags and 0x0FFF // frame + FCS
+            if (len < 24 + 4 || len > h) return null
+            // Signal from the AGC value, scaled as the kernel driver does.
+            val rssi = if (is8187b) 14 - (b[h + 14].toInt() and 0xff) / 2
+                       else -4 - ((27 * (b[h + 6].toInt() and 0xff)) shr 6)
+            return Rx(0, len - 4, rssi)
+        }
+
+        private fun le32(b: ByteArray, i: Int) = (b[i].toInt() and 0xff) or ((b[i + 1].toInt() and 0xff) shl 8) or
+            ((b[i + 2].toInt() and 0xff) shl 16) or ((b[i + 3].toInt() and 0xff) shl 24)
+        private fun sleep(ms: Int) = try { Thread.sleep(ms.toLong()) } catch (_: InterruptedException) {}
+    }
 }

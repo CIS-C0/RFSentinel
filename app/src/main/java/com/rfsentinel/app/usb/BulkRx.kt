@@ -13,8 +13,11 @@ import java.util.concurrent.TimeoutException
  * altogether (unplugged, or its USB link died), so the driver stops instead of hammering it.
  */
 internal object UsbCtl {
-    /** Failed transfers in a row (each already tried 3 times). */
-    @Volatile var run = 0
+    /** Failed transfers in a row (each already tried 3 times), per driver thread: adapters run side by side. */
+    private val runs = ThreadLocal.withInitial { IntArray(1) }
+    var run: Int
+        get() = runs.get()[0]
+        set(v) { runs.get()[0] = v }
     val gone get() = run >= GONE_AFTER
     fun reset() { run = 0 }
     private const val GONE_AFTER = 25

@@ -19,7 +19,7 @@ import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbManager
 
-object Rtl8812auMonitor {
+class Rtl8812auMonitor {
     @Volatile var running = false; private set
     @Volatile private var stop = false
 
@@ -31,25 +31,8 @@ object Rtl8812auMonitor {
     private var rfe = 0
     /** The chip's revision: 0 = A, 1 = B, 2 = C... */
     private var cut = 0
-    private const val MAX_PKT = 12000
-    private const val DWELL_MS = 350L
 
     private val FRESH_MS get() = (HOP.size * DWELL_MS * 9 / 5).coerceAtLeast(3000L)
-    private const val REPORT_MS = 10_000L
-    private const val FCS_LEN = 4
-
-    private const val OUT_VENDOR = 0x40; private const val IN_VENDOR = 0xC0
-    private const val VREQ = 0x05
-    private const val REG_RX_DRVINFO_SZ = 0x060F; private const val RCR_APP_PHYST_RXFF = 0x10000000
-    private const val REG_SYS_FUNC_EN = 0x02; private const val FEN_USBA = 0x04; private const val FEN_BB_GLB_RSTN = 0x02; private const val FEN_BBRSTB = 0x01
-    private const val FEN_ELDR = 0x1000
-    private const val REG_RF_CTRL = 0x1F; private const val REG_RF_B_CTRL = 0x76
-    private const val REG_SYS_CLKR = 0x08; private const val LOADER_CLK_EN = 0x20; private const val ANA8M = 0x02
-    private const val REG_SYS_CFG = 0xF0
-    private const val REG_EFUSE_CTRL = 0x30; private const val REG_EFUSE_ACCESS = 0xCF
-
-    private const val rA_LSSIWrite = 0xC90; private const val rB_LSSIWrite = 0xE90
-    private const val rHSSIRead = 0x8B0; private const val rA_PIRead = 0xD04; private const val rB_PIRead = 0xD44
 
     /** What was last written to each radio register, per path: reading one back through the baseband is slow. */
     private val rfShadow = arrayOf(HashMap<Int, Int>(), HashMap<Int, Int>())
@@ -198,49 +181,6 @@ object Rtl8812auMonitor {
         return if (tries < 100) r8(conn, REG_EFUSE_CTRL) else 0xFF
     }
 
-    /** The efuse's logical map out of its raw bytes (Hal_EfuseReadEFuse8812A): headers say which words follow. */
-    internal object EfuseMap {
-        fun logical(rawLen: Int, raw: (Int) -> Int): IntArray {
-            val words = IntArray(64 * 4) { 0xFFFF }
-            var addr = 0
-            var h = raw(addr)
-            if (h == 0xFF) return IntArray(512) { 0xFF }
-            addr++
-            while (h != 0xFF && addr < rawLen) {
-                val offset: Int; var wren: Int
-                if ((h and 0x1F) == 0x0F) {
-                    val low = (h and 0xE0) shr 5
-                    h = raw(addr)
-                    if ((h and 0x0F) == 0x0F) {
-                        addr++
-                        h = raw(addr)
-                        if (h != 0xFF && addr < rawLen) addr++
-                        continue
-                    }
-                    offset = ((h and 0xF0) shr 1) or low
-                    wren = h and 0x0F
-                    addr++
-                } else {
-                    offset = (h shr 4) and 0x0F
-                    wren = h and 0x0F
-                }
-                for (i in 0 until 4) {
-                    if ((wren and 1) == 0) {
-                        val lo = raw(addr); addr++
-                        if (addr >= rawLen) break
-                        val hi = raw(addr); addr++
-                        if (offset < 64) words[offset * 4 + i] = lo or (hi shl 8)
-                        if (addr >= rawLen) break
-                    }
-                    wren = wren shr 1
-                }
-                h = raw(addr)
-                if (h != 0xFF && addr < rawLen) addr++
-            }
-            return IntArray(512) { i -> val w = words[i / 2]; if (i % 2 == 0) w and 0xFF else (w shr 8) and 0xFF }
-        }
-    }
-
     private class RxState {
         var total = 0L; var bufs = 0L; var lastLog = 0L; var hopAt = 0L; var lastEmit = 0L; var hopIdx = 0; var round = 0
         var frames = 0L
@@ -313,9 +253,6 @@ object Rtl8812auMonitor {
         return good
     }
 
-    /** One RF path's receive power from a jaguar PHY status (gain_trsw[i], as phydm reads it), null when empty. */
-    internal fun pathPower(b: ByteArray, at: Int): Int? = ((b[at].toInt() and 0x7f) - 110).takeIf { it in -109..-1 }
-
     private fun rtlRssi(b: ByteArray, di: Int, rate: Int): Int {
         fun u8(i: Int) = b[i].toInt() and 0xff
         return if (rate <= 3) {
@@ -364,7 +301,73 @@ object Rtl8812auMonitor {
         val cur = rfRead(conn, path, addr); rfWrite(conn, path, addr, (cur and mask.inv()) or ((v shl sh(mask)) and mask))
     }
 
-    private fun sh(mask: Int) = Integer.numberOfTrailingZeros(mask)
-    private fun le32(b: ByteArray, i: Int) = (b[i].toInt() and 0xff) or ((b[i+1].toInt() and 0xff) shl 8) or ((b[i+2].toInt() and 0xff) shl 16) or ((b[i+3].toInt() and 0xff) shl 24)
-    private fun sleep(ms: Int) = try { Thread.sleep(ms.toLong()) } catch (_: InterruptedException) {}
+    companion object {
+        private const val MAX_PKT = 12000
+        private const val DWELL_MS = 350L
+        private const val REPORT_MS = 10_000L
+        private const val FCS_LEN = 4
+
+        private const val OUT_VENDOR = 0x40; private const val IN_VENDOR = 0xC0
+        private const val VREQ = 0x05
+        private const val REG_RX_DRVINFO_SZ = 0x060F; private const val RCR_APP_PHYST_RXFF = 0x10000000
+        private const val REG_SYS_FUNC_EN = 0x02; private const val FEN_USBA = 0x04; private const val FEN_BB_GLB_RSTN = 0x02; private const val FEN_BBRSTB = 0x01
+        private const val FEN_ELDR = 0x1000
+        private const val REG_RF_CTRL = 0x1F; private const val REG_RF_B_CTRL = 0x76
+        private const val REG_SYS_CLKR = 0x08; private const val LOADER_CLK_EN = 0x20; private const val ANA8M = 0x02
+        private const val REG_SYS_CFG = 0xF0
+        private const val REG_EFUSE_CTRL = 0x30; private const val REG_EFUSE_ACCESS = 0xCF
+
+        private const val rA_LSSIWrite = 0xC90; private const val rB_LSSIWrite = 0xE90
+        private const val rHSSIRead = 0x8B0; private const val rA_PIRead = 0xD04; private const val rB_PIRead = 0xD44
+
+        /** The efuse's logical map out of its raw bytes (Hal_EfuseReadEFuse8812A): headers say which words follow. */
+        internal object EfuseMap {
+            fun logical(rawLen: Int, raw: (Int) -> Int): IntArray {
+                val words = IntArray(64 * 4) { 0xFFFF }
+                var addr = 0
+                var h = raw(addr)
+                if (h == 0xFF) return IntArray(512) { 0xFF }
+                addr++
+                while (h != 0xFF && addr < rawLen) {
+                    val offset: Int; var wren: Int
+                    if ((h and 0x1F) == 0x0F) {
+                        val low = (h and 0xE0) shr 5
+                        h = raw(addr)
+                        if ((h and 0x0F) == 0x0F) {
+                            addr++
+                            h = raw(addr)
+                            if (h != 0xFF && addr < rawLen) addr++
+                            continue
+                        }
+                        offset = ((h and 0xF0) shr 1) or low
+                        wren = h and 0x0F
+                        addr++
+                    } else {
+                        offset = (h shr 4) and 0x0F
+                        wren = h and 0x0F
+                    }
+                    for (i in 0 until 4) {
+                        if ((wren and 1) == 0) {
+                            val lo = raw(addr); addr++
+                            if (addr >= rawLen) break
+                            val hi = raw(addr); addr++
+                            if (offset < 64) words[offset * 4 + i] = lo or (hi shl 8)
+                            if (addr >= rawLen) break
+                        }
+                        wren = wren shr 1
+                    }
+                    h = raw(addr)
+                    if (h != 0xFF && addr < rawLen) addr++
+                }
+                return IntArray(512) { i -> val w = words[i / 2]; if (i % 2 == 0) w and 0xFF else (w shr 8) and 0xFF }
+            }
+        }
+
+        /** One RF path's receive power from a jaguar PHY status (gain_trsw[i], as phydm reads it), null when empty. */
+        internal fun pathPower(b: ByteArray, at: Int): Int? = ((b[at].toInt() and 0x7f) - 110).takeIf { it in -109..-1 }
+
+        private fun sh(mask: Int) = Integer.numberOfTrailingZeros(mask)
+        private fun le32(b: ByteArray, i: Int) = (b[i].toInt() and 0xff) or ((b[i+1].toInt() and 0xff) shl 8) or ((b[i+2].toInt() and 0xff) shl 16) or ((b[i+3].toInt() and 0xff) shl 24)
+        private fun sleep(ms: Int) = try { Thread.sleep(ms.toLong()) } catch (_: InterruptedException) {}
+    }
 }

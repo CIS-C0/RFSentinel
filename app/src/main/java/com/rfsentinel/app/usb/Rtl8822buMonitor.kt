@@ -23,77 +23,16 @@ import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbManager
 import java.io.IOException
 
-object Rtl8822buMonitor {
+class Rtl8822buMonitor {
     @Volatile var running = false; private set
     @Volatile private var stop = false
 
     private val frames = MonitorFrames()
     private val pathSense = PathSense()
-
-    /**
-     * Finds which receive path has the antenna. Single-antenna dongles wire only one of
-     * the chip's two paths (the Wise Tiger 8812BU uses path B), but the chip receives
-     * 2.4 GHz CCK frames - most 2.4 GHz beacons - on path A only, so they arrive ~30 dB
-     * weak. OFDM frames report both paths' power; when one path is consistently far
-     * stronger, CCK is moved to it. Two-antenna adapters never reach a verdict.
-     */
-    internal class PathSense {
-        var aVotes = 0; private set
-        var bVotes = 0; private set
-        var decided = false
-
-        fun add(a: Int, b: Int) {
-            if (decided || maxOf(a, b) < -95) return
-            if (b - a >= GAP_DB) bVotes++ else if (a - b >= GAP_DB) aVotes++
-        }
-
-        /** 0 = path A, 1 = path B, null while undecided or when both paths have antennas. */
-        fun verdict(): Int? {
-            val n = aVotes + bVotes
-            if (n < MIN_VOTES) return null
-            return when {
-                bVotes >= n * 0.85 -> 1
-                aVotes >= n * 0.85 -> 0
-                else -> null
-            }
-        }
-
-        fun reset() { aVotes = 0; bVotes = 0; decided = false }
-
-        companion object {
-            const val GAP_DB = 10
-            const val MIN_VOTES = 40
-        }
-    }
-
-    /** 2.4 GHz channels, every cycle. */
-    internal val HOP_24 = UsbWifi.HOP_24
-    /** 5 GHz channels without radar rules, every cycle (where vehicle and mobile routers usually sit). */
-    internal val HOP_5 = intArrayOf(36, 40, 44, 48, 149, 153, 157, 161, 165)
-    /** 5 GHz radar (DFS) channels, two per cycle. */
-    internal val HOP_DFS = intArrayOf(52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144)
-
-    /** Channels of hop cycle [k]: all of 2.4 GHz, the common 5 GHz ones and two radar channels in turn. */
-    internal fun hopCycle(k: Int): IntArray {
-        val n = HOP_DFS.size
-        val i = Math.floorMod(2 * k, n)
-        return HOP_24 + HOP_5 + intArrayOf(HOP_DFS[i], HOP_DFS[(i + 1) % n])
-    }
-
-    private const val DWELL_MS = 200L
     private val CYCLE_MS = hopCycle(0).size * DWELL_MS
     private val FRESH_MS = CYCLE_MS * 9 / 5
-    private const val REPORT_MS = 10_000L
-    private const val DIG_MS = 200L
 
     fun abort() { stop = true }
-
-    /**
-     * Debug builds: commands sent with adb (see [UsbWifi]), run on the RX thread -
-     * `park <ch>`, `hop`, `igi <hex>`, `dig`, `stats`, `rd <addr>`, `w8|w32 <addr> <val>`,
-     * `bb <addr> <mask> <val>`, `rfrd <path> <addr>`, `rf <path> <addr> <mask> <val>` (hex).
-     */
-    internal val commands = java.util.concurrent.ConcurrentLinkedQueue<String>()
 
     fun run(ctx: Context, device: UsbDevice, label: String, onStatus: (String) -> Unit,
             onFrame: (List<MonitorSighting>) -> Unit) {
@@ -226,82 +165,16 @@ object Rtl8822buMonitor {
         }
     }
 
-    private const val MAX_IO_FAILURES = 30
-
     private fun rxLoop(conn: UsbDeviceConnection, epRx: UsbEndpoint, chip: Chip, label: String,
                        onFrame: (List<MonitorSighting>) -> Unit, onStatus: (String) -> Unit) {
         // Keep aggregation inside one 16 KB transfer for Android USB hosts.
         val st = RxState(label).apply { start() }
         BulkRx.run(label, conn, epRx, 16, 16384, { stop }, { b, n ->
             st.total += n; st.bufs++
-            parseRxBuf(b, n, st.channel, chip.rf2t2r)
+            parseRxBuf(b, n, st.channel, chip.rf2t2r, frames, pathSense)
         }, syncTimeoutMs = 100) { now -> rxTick(chip, now, st, onFrame, onStatus) }
         frames.emit(FRESH_MS, onFrame)
         UsbWifi.log("$label: RX loop stopped (${st.total} B)")
-    }
-
-    /** One RX descriptor of an aggregated bulk-IN buffer (88xx layout, 24 bytes). */
-    internal class RxDesc(val pktLen: Int, val crcErr: Boolean, val drvInfo: Int, val shift: Int,
-                          val physt: Boolean, val rate: Int, val c2h: Boolean) {
-        val frameOffset get() = RXDESC_SIZE + drvInfo + shift
-        /** Offset of the next descriptor, 8-byte aligned. */
-        val next get() = (frameOffset + pktLen + 7) and 7.inv()
-    }
-
-    internal const val RXDESC_SIZE = 24
-    private const val FCS_LEN = 4
-
-    internal fun rxDesc(b: ByteArray, off: Int): RxDesc {
-        val d0 = Rtl8822bTables.le32(b, off)
-        return RxDesc(
-            pktLen = d0 and 0x3fff,
-            crcErr = (d0 ushr 14) and 1 != 0,
-            drvInfo = ((d0 ushr 16) and 0xf) * 8,
-            shift = (d0 ushr 24) and 3,
-            physt = (d0 ushr 26) and 1 != 0,
-            rate = b[off + 12].toInt() and 0x7f,
-            c2h = b[off + 11].toInt() and 0x10 != 0
-        )
-    }
-
-    /**
-     * Per-path receive power from a jaguar2 PHY status report, in dBm: page 0 (CCK)
-     * has one value, page 1 (OFDM / HT / VHT) one per path. The page number in the
-     * report, not the frame's rate, says which (as rtw88 reads it). Readings at or
-     * below the noise floor or above 0 dBm (a corrupt report) come back null.
-     */
-    internal fun phyPaths(b: ByteArray, at: Int, paths: Int): IntArray? {
-        fun dbm(i: Int) = (b[i].toInt() and 0xff).takeIf { it in 1..110 }?.let { it - 110 } ?: NO_SIGNAL
-        return when (b[at].toInt() and 0x0f) {
-            0 -> intArrayOf(dbm(at + 1))
-            1 -> IntArray(paths) { dbm(at + 1 + it) }
-            else -> null
-        }
-    }
-
-    internal const val NO_SIGNAL = Int.MIN_VALUE
-
-    internal fun parseRxBuf(b: ByteArray, n: Int, ch: Int, twoPaths: Boolean, sink: MonitorFrames = frames,
-                            sense: PathSense? = pathSense) {
-        var off = 0
-        while (off + RXDESC_SIZE <= n) {
-            val d = rxDesc(b, off)
-            if (d.pktLen == 0 || off + d.frameOffset + d.pktLen > n) break
-            if (!d.c2h && !d.crcErr) {
-                val fs = off + d.frameOffset
-                val fe = fs + d.pktLen - FCS_LEN // RCR appends the FCS
-                if (fe - fs >= 24) {
-                    val p = if (d.physt && d.drvInfo >= 28) phyPaths(b, off + RXDESC_SIZE + d.shift, if (twoPaths) 2 else 1) else null
-                    val best = p?.max()?.takeIf { it != NO_SIGNAL }
-                    // Both paths of an OFDM report: which one has the antenna, and diagnostics.
-                    val pa = p?.takeIf { it.size == 2 }?.get(0)?.takeIf { it != NO_SIGNAL }
-                    val pb = p?.takeIf { it.size == 2 }?.get(1)?.takeIf { it != NO_SIGNAL }
-                    if (pa != null && pb != null) sense?.add(pa, pb)
-                    sink.frame(b, fs, fe, ch, best, System.currentTimeMillis(), pa, pb)
-                }
-            }
-            off += d.next
-        }
     }
 
     /**
@@ -309,7 +182,7 @@ object Rtl8822buMonitor {
      * MAC / BB / RF bring-up, channel tuning and gain control. Used only from the
      * driver's RX thread.
      */
-    private class Chip(private val conn: UsbDeviceConnection, private val epOut: UsbEndpoint,
+    private inner class Chip(private val conn: UsbDeviceConnection, private val epOut: UsbEndpoint,
                        private val t: Rtl8822bTables.Data, private val onStatus: (String) -> Unit,
                        private val label: String) {
         var up = false; private set
@@ -1044,61 +917,6 @@ object Rtl8822buMonitor {
         }
     }
 
-    // --- channel constants (config_phydm_switch_channel_8822b) ---
-
-    /**
-     * RF 0x18 for a 20 MHz channel, from its current value: band, channel, sub-band and
-     * bandwidth fields set explicitly (rtw8822b_set_channel_rf), other bits kept except
-     * the LC-calibration trigger (bit 15), which the read-back can still show set.
-     */
-    internal fun rf18For(cur: Int, ch: Int): Int {
-        var v = cur and (RF18_BAND or 0xff or RF18_RFSI or RF18_BW or RF18_LCK).inv()
-        if (ch > 14) v = v or (1 shl 16) or (1 shl 8)
-        v = v or (ch and 0xff)
-        if (ch > 144) v = v or (1 shl 18) else if (ch >= 80) v = v or (1 shl 17)
-        return v or RF18_BW // 20 MHz
-    }
-
-    private const val RF18_BAND = (1 shl 16) or (1 shl 9) or (1 shl 8)
-    private const val RF18_RFSI = (1 shl 18) or (1 shl 17)
-    private const val RF18_BW = (1 shl 11) or (1 shl 10)
-    private const val RF18_LCK = 1 shl 15
-
-    internal fun agcBucket(ch: Int) = when {
-        ch <= 14 -> 0
-        ch <= 64 -> 1
-        ch in 100..144 -> 2
-        ch >= 149 -> 3
-        else -> -1
-    }
-
-    internal fun fcFor(ch: Int) = when {
-        ch <= 14 -> 0x96a
-        ch <= 48 -> 0x494
-        ch in 52..64 -> 0x453
-        ch in 100..116 -> 0x452
-        ch >= 118 -> 0x412
-        else -> -1
-    }
-
-    /** RF 0xBE[17:15] VCO band for a 5 GHz channel; 0 on 2.4 GHz, 0xff for no change. */
-    internal fun rfBeFor(ch: Int): Int {
-        if (ch <= 14) return 0
-        return when {
-            ch < 36 -> RF_BE_LOW[0]
-            ch <= 64 -> RF_BE_LOW[(ch - 36) shr 1]
-            ch in 100..144 -> RF_BE_MID[(ch - 100) shr 1]
-            ch in 149..177 -> RF_BE_HIGH[(ch - 149) shr 1]
-            ch > 177 -> RF_BE_HIGH[(177 - 149) shr 1]
-            else -> 0xff
-        }
-    }
-
-    private val RF_BE_LOW = intArrayOf(0x7, 0x6, 0x6, 0x5, 0x0, 0x0, 0x7, 0xff, 0x6, 0x5, 0x0, 0x0, 0x7, 0x6, 0x6)
-    private val RF_BE_MID = intArrayOf(0x6, 0x5, 0x0, 0x0, 0x7, 0x6, 0x6, 0xff, 0x0, 0x0, 0x7, 0x6,
-        0x6, 0x5, 0x0, 0xff, 0x7, 0x6, 0x6, 0x5, 0x0, 0x0, 0x7)
-    private val RF_BE_HIGH = intArrayOf(0x5, 0x5, 0x0, 0x7, 0x7, 0x6, 0x5, 0xff, 0x0, 0x7, 0x7, 0x6, 0x5, 0x5, 0x0)
-
     /** CCA thresholds 0x82c / 0x830 / 0x838; columns 2.4 GHz 1R, 2.4 GHz 2R, 5 GHz 1R, 5 GHz 2R. */
     private val CCA_IFEM = arrayOf(
         intArrayOf(0x75C97010, 0x75C97010, 0x75C97010, 0x75C97010),
@@ -1111,30 +929,214 @@ object Rtl8822buMonitor {
         intArrayOf(0x87765541.toInt(), 0x86666341.toInt(), 0x87765561.toInt(), 0x86666361.toInt())
     )
 
-    // --- HalMAC constants ---
-    private const val TXDESC_SIZE = 48
-    private const val QSEL_BEACON = 0x10
-    private const val DLFW_CHUNK = 4096
-    private const val OCPBASE_TXBUF = 0x18780000
-    private const val OCPBASE_DMEM = 0x00200000
-    private const val TX_FIFO_SIZE = 262144
-    private const val RX_FIFO_SIZE = 24576
+    companion object {
 
-    /** Sets [bits] bits at [shift] of the little-endian dword at [at] in a TX descriptor. */
-    internal fun setDesc(d: ByteArray, at: Int, shift: Int, bits: Int, v: Int) {
-        val mask = if (bits == 32) -1 else ((1 shl bits) - 1) shl shift
-        val cur = Rtl8822bTables.le32(d, at)
-        val nv = (cur and mask.inv()) or ((v shl shift) and mask)
-        for (k in 0 until 4) d[at + k] = (nv ushr (8 * k)).toByte()
+        private val RF_BE_LOW = intArrayOf(0x7, 0x6, 0x6, 0x5, 0x0, 0x0, 0x7, 0xff, 0x6, 0x5, 0x0, 0x0, 0x7, 0x6, 0x6)
+        private val RF_BE_MID = intArrayOf(0x6, 0x5, 0x0, 0x0, 0x7, 0x6, 0x6, 0xff, 0x0, 0x0, 0x7, 0x6,
+            0x6, 0x5, 0x0, 0xff, 0x7, 0x6, 0x6, 0x5, 0x0, 0x0, 0x7)
+        private val RF_BE_HIGH = intArrayOf(0x5, 0x5, 0x0, 0x7, 0x7, 0x6, 0x5, 0xff, 0x0, 0x7, 0x7, 0x6, 0x5, 0x5, 0x0)
+
+        /**
+         * Finds which receive path has the antenna. Single-antenna dongles wire only one of
+         * the chip's two paths (the Wise Tiger 8812BU uses path B), but the chip receives
+         * 2.4 GHz CCK frames - most 2.4 GHz beacons - on path A only, so they arrive ~30 dB
+         * weak. OFDM frames report both paths' power; when one path is consistently far
+         * stronger, CCK is moved to it. Two-antenna adapters never reach a verdict.
+         */
+        internal class PathSense {
+            var aVotes = 0; private set
+            var bVotes = 0; private set
+            var decided = false
+
+            fun add(a: Int, b: Int) {
+                if (decided || maxOf(a, b) < -95) return
+                if (b - a >= GAP_DB) bVotes++ else if (a - b >= GAP_DB) aVotes++
+            }
+
+            /** 0 = path A, 1 = path B, null while undecided or when both paths have antennas. */
+            fun verdict(): Int? {
+                val n = aVotes + bVotes
+                if (n < MIN_VOTES) return null
+                return when {
+                    bVotes >= n * 0.85 -> 1
+                    aVotes >= n * 0.85 -> 0
+                    else -> null
+                }
+            }
+
+            fun reset() { aVotes = 0; bVotes = 0; decided = false }
+
+            companion object {
+                const val GAP_DB = 10
+                const val MIN_VOTES = 40
+            }
+        }
+
+        /** 2.4 GHz channels, every cycle. */
+        internal val HOP_24 = UsbWifi.HOP_24
+        /** 5 GHz channels without radar rules, every cycle (where vehicle and mobile routers usually sit). */
+        internal val HOP_5 = intArrayOf(36, 40, 44, 48, 149, 153, 157, 161, 165)
+        /** 5 GHz radar (DFS) channels, two per cycle. */
+        internal val HOP_DFS = intArrayOf(52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144)
+
+        /** Channels of hop cycle [k]: all of 2.4 GHz, the common 5 GHz ones and two radar channels in turn. */
+        internal fun hopCycle(k: Int): IntArray {
+            val n = HOP_DFS.size
+            val i = Math.floorMod(2 * k, n)
+            return HOP_24 + HOP_5 + intArrayOf(HOP_DFS[i], HOP_DFS[(i + 1) % n])
+        }
+
+        private const val DWELL_MS = 200L
+        private const val REPORT_MS = 10_000L
+        private const val DIG_MS = 200L
+
+        /**
+         * Debug builds: commands sent with adb (see [UsbWifi]), run on the RX thread -
+         * `park <ch>`, `hop`, `igi <hex>`, `dig`, `stats`, `rd <addr>`, `w8|w32 <addr> <val>`,
+         * `bb <addr> <mask> <val>`, `rfrd <path> <addr>`, `rf <path> <addr> <mask> <val>` (hex).
+         */
+        internal val commands = java.util.concurrent.ConcurrentLinkedQueue<String>()
+
+        private const val MAX_IO_FAILURES = 30
+
+        /** One RX descriptor of an aggregated bulk-IN buffer (88xx layout, 24 bytes). */
+        internal class RxDesc(val pktLen: Int, val crcErr: Boolean, val drvInfo: Int, val shift: Int,
+                              val physt: Boolean, val rate: Int, val c2h: Boolean) {
+            val frameOffset get() = RXDESC_SIZE + drvInfo + shift
+            /** Offset of the next descriptor, 8-byte aligned. */
+            val next get() = (frameOffset + pktLen + 7) and 7.inv()
+        }
+
+        internal const val RXDESC_SIZE = 24
+        private const val FCS_LEN = 4
+
+        internal fun rxDesc(b: ByteArray, off: Int): RxDesc {
+            val d0 = Rtl8822bTables.le32(b, off)
+            return RxDesc(
+                pktLen = d0 and 0x3fff,
+                crcErr = (d0 ushr 14) and 1 != 0,
+                drvInfo = ((d0 ushr 16) and 0xf) * 8,
+                shift = (d0 ushr 24) and 3,
+                physt = (d0 ushr 26) and 1 != 0,
+                rate = b[off + 12].toInt() and 0x7f,
+                c2h = b[off + 11].toInt() and 0x10 != 0
+            )
+        }
+
+        /**
+         * Per-path receive power from a jaguar2 PHY status report, in dBm: page 0 (CCK)
+         * has one value, page 1 (OFDM / HT / VHT) one per path. The page number in the
+         * report, not the frame's rate, says which (as rtw88 reads it). Readings at or
+         * below the noise floor or above 0 dBm (a corrupt report) come back null.
+         */
+        internal fun phyPaths(b: ByteArray, at: Int, paths: Int): IntArray? {
+            fun dbm(i: Int) = (b[i].toInt() and 0xff).takeIf { it in 1..110 }?.let { it - 110 } ?: NO_SIGNAL
+            return when (b[at].toInt() and 0x0f) {
+                0 -> intArrayOf(dbm(at + 1))
+                1 -> IntArray(paths) { dbm(at + 1 + it) }
+                else -> null
+            }
+        }
+
+        internal const val NO_SIGNAL = Int.MIN_VALUE
+
+        internal fun parseRxBuf(b: ByteArray, n: Int, ch: Int, twoPaths: Boolean, sink: MonitorFrames, sense: PathSense? = null) {
+            var off = 0
+            while (off + RXDESC_SIZE <= n) {
+                val d = rxDesc(b, off)
+                if (d.pktLen == 0 || off + d.frameOffset + d.pktLen > n) break
+                if (!d.c2h && !d.crcErr) {
+                    val fs = off + d.frameOffset
+                    val fe = fs + d.pktLen - FCS_LEN // RCR appends the FCS
+                    if (fe - fs >= 24) {
+                        val p = if (d.physt && d.drvInfo >= 28) phyPaths(b, off + RXDESC_SIZE + d.shift, if (twoPaths) 2 else 1) else null
+                        val best = p?.max()?.takeIf { it != NO_SIGNAL }
+                        // Both paths of an OFDM report: which one has the antenna, and diagnostics.
+                        val pa = p?.takeIf { it.size == 2 }?.get(0)?.takeIf { it != NO_SIGNAL }
+                        val pb = p?.takeIf { it.size == 2 }?.get(1)?.takeIf { it != NO_SIGNAL }
+                        if (pa != null && pb != null) sense?.add(pa, pb)
+                        sink.frame(b, fs, fe, ch, best, System.currentTimeMillis(), pa, pb)
+                    }
+                }
+                off += d.next
+            }
+        }
+
+        // --- channel constants (config_phydm_switch_channel_8822b) ---
+
+        /**
+         * RF 0x18 for a 20 MHz channel, from its current value: band, channel, sub-band and
+         * bandwidth fields set explicitly (rtw8822b_set_channel_rf), other bits kept except
+         * the LC-calibration trigger (bit 15), which the read-back can still show set.
+         */
+        internal fun rf18For(cur: Int, ch: Int): Int {
+            var v = cur and (RF18_BAND or 0xff or RF18_RFSI or RF18_BW or RF18_LCK).inv()
+            if (ch > 14) v = v or (1 shl 16) or (1 shl 8)
+            v = v or (ch and 0xff)
+            if (ch > 144) v = v or (1 shl 18) else if (ch >= 80) v = v or (1 shl 17)
+            return v or RF18_BW // 20 MHz
+        }
+
+        private const val RF18_BAND = (1 shl 16) or (1 shl 9) or (1 shl 8)
+        private const val RF18_RFSI = (1 shl 18) or (1 shl 17)
+        private const val RF18_BW = (1 shl 11) or (1 shl 10)
+        private const val RF18_LCK = 1 shl 15
+
+        internal fun agcBucket(ch: Int) = when {
+            ch <= 14 -> 0
+            ch <= 64 -> 1
+            ch in 100..144 -> 2
+            ch >= 149 -> 3
+            else -> -1
+        }
+
+        internal fun fcFor(ch: Int) = when {
+            ch <= 14 -> 0x96a
+            ch <= 48 -> 0x494
+            ch in 52..64 -> 0x453
+            ch in 100..116 -> 0x452
+            ch >= 118 -> 0x412
+            else -> -1
+        }
+
+        /** RF 0xBE[17:15] VCO band for a 5 GHz channel; 0 on 2.4 GHz, 0xff for no change. */
+        internal fun rfBeFor(ch: Int): Int {
+            if (ch <= 14) return 0
+            return when {
+                ch < 36 -> RF_BE_LOW[0]
+                ch <= 64 -> RF_BE_LOW[(ch - 36) shr 1]
+                ch in 100..144 -> RF_BE_MID[(ch - 100) shr 1]
+                ch in 149..177 -> RF_BE_HIGH[(ch - 149) shr 1]
+                ch > 177 -> RF_BE_HIGH[(177 - 149) shr 1]
+                else -> 0xff
+            }
+        }
+
+        // --- HalMAC constants ---
+        private const val TXDESC_SIZE = 48
+        private const val QSEL_BEACON = 0x10
+        private const val DLFW_CHUNK = 4096
+        private const val OCPBASE_TXBUF = 0x18780000
+        private const val OCPBASE_DMEM = 0x00200000
+        private const val TX_FIFO_SIZE = 262144
+        private const val RX_FIFO_SIZE = 24576
+
+        /** Sets [bits] bits at [shift] of the little-endian dword at [at] in a TX descriptor. */
+        internal fun setDesc(d: ByteArray, at: Int, shift: Int, bits: Int, v: Int) {
+            val mask = if (bits == 32) -1 else ((1 shl bits) - 1) shl shift
+            val cur = Rtl8822bTables.le32(d, at)
+            val nv = (cur and mask.inv()) or ((v shl shift) and mask)
+            for (k in 0 until 4) d[at + k] = (nv ushr (8 * k)).toByte()
+        }
+
+        /** The 8822B checksums only the first 32 bytes of a TX descriptor: XOR of 16 LE words. */
+        internal fun txDescChecksum(d: ByteArray) {
+            setDesc(d, 0x1C, 0, 16, 0)
+            var sum = 0
+            for (w in 0 until 16) sum = sum xor ((d[2 * w].toInt() and 0xff) or ((d[2 * w + 1].toInt() and 0xff) shl 8))
+            setDesc(d, 0x1C, 0, 16, sum)
+        }
+
+        private fun sleep(ms: Int) = try { Thread.sleep(ms.toLong()) } catch (_: InterruptedException) {}
     }
-
-    /** The 8822B checksums only the first 32 bytes of a TX descriptor: XOR of 16 LE words. */
-    internal fun txDescChecksum(d: ByteArray) {
-        setDesc(d, 0x1C, 0, 16, 0)
-        var sum = 0
-        for (w in 0 until 16) sum = sum xor ((d[2 * w].toInt() and 0xff) or ((d[2 * w + 1].toInt() and 0xff) shl 8))
-        setDesc(d, 0x1C, 0, 16, sum)
-    }
-
-    private fun sleep(ms: Int) = try { Thread.sleep(ms.toLong()) } catch (_: InterruptedException) {}
 }

@@ -553,8 +553,9 @@ class SettingsActivity : AppCompatActivity() {
             info(row, "$about Only one runs at a time. Two of the same model can't be told apart: the first one found is used.", label)
             usbPickRows += parent.getChildAt(at)
         }
-        add(UsbPick.Kind.WIFI, binding.usbWifiText, "WiFi adapter", "Which USB WiFi adapter to use when more than one is " +
-            "plugged in. Auto takes the first one found. A new pick starts the next time scanning starts.")
+        add(UsbPick.Kind.WIFI, binding.usbWifiText, "WiFi adapter", "Auto uses every supported USB WiFi adapter that is plugged in, " +
+            "at the same time: they share the channels between them, so two adapters come back to each channel twice as often, four four " +
+            "times. Several adapters need a powered USB hub. Pick one to use only that model. A new pick starts the next time scanning starts.")
         add(UsbPick.Kind.BT, binding.usbBtText, "Bluetooth adapter", "Which USB Bluetooth adapter to use when more than one is " +
             "plugged in. A combo WiFi + Bluetooth adapter (like the ALFA AWUS036AXML) only has the small antenna inside its " +
             "case for Bluetooth, so Auto takes a Bluetooth-only dongle first. A new pick takes over right away while scanning.")

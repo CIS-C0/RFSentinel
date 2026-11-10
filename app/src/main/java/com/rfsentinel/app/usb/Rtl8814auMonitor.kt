@@ -18,7 +18,7 @@ import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbManager
 
-object Rtl8814auMonitor {
+class Rtl8814auMonitor {
     @Volatile var running = false; private set
     @Volatile private var stop = false
 
@@ -26,14 +26,7 @@ object Rtl8814auMonitor {
     /** Hop round [k]: 2.4 GHz, the common 5 GHz channels and two radar (DFS) ones in turn, as the RTL8822BU driver. */
     private fun round(k: Int) = UsbWifi.hops(Rtl8822buMonitor.hopCycle(k))
     private var HOP = Rtl8822buMonitor.hopCycle(0)
-    private const val DWELL_MS = 125L
     private val FRESH_MS get() = (HOP.size * DWELL_MS * 9 / 5).coerceAtLeast(3000L)
-    private const val REPORT_MS = 10_000L
-    private const val RXDESC_SIZE = 24
-    private const val FCS_LEN = 4
-
-    private const val OUT_VENDOR = 0x40; private const val IN_VENDOR = 0xC0; private const val VREQ = 0x05
-    private const val REG_RX_DRVINFO_SZ = 0x060F
     private val RF_BASE = intArrayOf(0x2800, 0x2c00, 0x3800, 0x3c00)
 
     private lateinit var conn: UsbDeviceConnection
@@ -226,54 +219,6 @@ object Rtl8814auMonitor {
         UsbWifi.log("RTL8814AU: RX loop stopped ($total B)")
     }
 
-    /**
-     * Frames in one bulk transfer, each | RX descriptor (24) | PHY status | shift | frame + FCS |,
-     * padded to 8 bytes. [onFrame] gets the 802.11 frame's [start, end) without the FCS, its
-     * signal (null without a PHY status) and, for OFDM, paths A and B's power; [onBad] hears
-     * about skipped ones (true: bad checksum).
-     */
-    internal fun forEachFrame(b: ByteArray, n: Int, onBad: (Boolean) -> Unit = {},
-                              onFrame: (Int, Int, Int?, Int?, Int?) -> Unit) {
-        var off = 0
-        while (off + RXDESC_SIZE <= n) {
-            val d0 = le32(b, off)
-            val pkt = d0 and 0x3fff
-            if (pkt == 0 || pkt > 12000) { if (off == 0) onBad(false); break }
-            val crc = (d0 ushr 14) and 1
-            val drv = ((d0 ushr 16) and 0xf) * 8
-            val shift = (d0 ushr 24) and 3
-            val fs = off + RXDESC_SIZE + drv + shift
-            val fe = fs + pkt - FCS_LEN
-            when {
-                crc != 0 -> onBad(true)
-                pkt < 24 + FCS_LEN || fe > n -> onBad(false)
-                else -> {
-                    val rate = b[off + 12].toInt() and 0x7f
-                    // Only a PHY status the chip filled (bit 26): on other frames of an aggregate those bytes aren't a signal report.
-                    val phy = drv >= 8 && (d0 ushr 26) and 1 != 0
-                    val rssi = if (phy) rtlRssi(b, off + RXDESC_SIZE, rate) else null
-                    val ofdm = phy && rate > 3
-                    onFrame(fs, fe, rssi, if (ofdm) Rtl8812auMonitor.pathPower(b, off + RXDESC_SIZE) else null,
-                        if (ofdm) Rtl8812auMonitor.pathPower(b, off + RXDESC_SIZE + 1) else null)
-                }
-            }
-            off += (RXDESC_SIZE + drv + shift + pkt + 7) and 7.inv()
-        }
-    }
-
-    /** Signal from the PHY status: CCK (rates 0-3) from the LNA / VGA gain, OFDM from the power report. */
-    private fun rtlRssi(b: ByteArray, di: Int, rate: Int): Int {
-        fun u8(i: Int) = b[i].toInt() and 0xff
-        return if (rate <= 3) {
-            val agc = u8(di + 5); val lna = (agc and 0xE0) shr 5; val vga = agc and 0x1F
-            when (lna) {
-                7 -> if (vga <= 27) -94 + 2 * (27 - vga) else -94
-                6 -> -42 + 2 * (2 - vga); 5 -> -36 + 2 * (7 - vga); 4 -> -30 + 2 * (7 - vga)
-                3 -> -18 + 2 * (7 - vga); 2 -> 2 * (5 - vga); 1 -> 14 - 2 * vga; else -> 20 - 2 * vga
-            }
-        } else ((u8(di + 4) shr 1) and 0x7f) - 110
-    }
-
     // ---- register access ----
 
     private fun r(addr: Int, len: Int): ByteArray {
@@ -304,8 +249,66 @@ object Rtl8814auMonitor {
         val cur = rfRead(path, reg); rfWrite(path, reg, (cur and mask.inv()) or ((v shl sh(mask)) and mask))
     }
 
-    private fun sh(mask: Int) = Integer.numberOfTrailingZeros(mask)
-    private fun le32(b: ByteArray, i: Int) = (b[i].toInt() and 0xff) or ((b[i + 1].toInt() and 0xff) shl 8) or
-        ((b[i + 2].toInt() and 0xff) shl 16) or ((b[i + 3].toInt() and 0xff) shl 24)
-    private fun sleep(ms: Int) = try { Thread.sleep(ms.toLong()) } catch (_: InterruptedException) {}
+    companion object {
+
+        /** Signal from the PHY status: CCK (rates 0-3) from the LNA / VGA gain, OFDM from the power report. */
+        private fun rtlRssi(b: ByteArray, di: Int, rate: Int): Int {
+            fun u8(i: Int) = b[i].toInt() and 0xff
+            return if (rate <= 3) {
+                val agc = u8(di + 5); val lna = (agc and 0xE0) shr 5; val vga = agc and 0x1F
+                when (lna) {
+                    7 -> if (vga <= 27) -94 + 2 * (27 - vga) else -94
+                    6 -> -42 + 2 * (2 - vga); 5 -> -36 + 2 * (7 - vga); 4 -> -30 + 2 * (7 - vga)
+                    3 -> -18 + 2 * (7 - vga); 2 -> 2 * (5 - vga); 1 -> 14 - 2 * vga; else -> 20 - 2 * vga
+                }
+            } else ((u8(di + 4) shr 1) and 0x7f) - 110
+        }
+        private const val DWELL_MS = 125L
+        private const val REPORT_MS = 10_000L
+        private const val RXDESC_SIZE = 24
+        private const val FCS_LEN = 4
+
+        private const val OUT_VENDOR = 0x40; private const val IN_VENDOR = 0xC0; private const val VREQ = 0x05
+        private const val REG_RX_DRVINFO_SZ = 0x060F
+
+        /**
+         * Frames in one bulk transfer, each | RX descriptor (24) | PHY status | shift | frame + FCS |,
+         * padded to 8 bytes. [onFrame] gets the 802.11 frame's [start, end) without the FCS, its
+         * signal (null without a PHY status) and, for OFDM, paths A and B's power; [onBad] hears
+         * about skipped ones (true: bad checksum).
+         */
+        internal fun forEachFrame(b: ByteArray, n: Int, onBad: (Boolean) -> Unit = {},
+                                  onFrame: (Int, Int, Int?, Int?, Int?) -> Unit) {
+            var off = 0
+            while (off + RXDESC_SIZE <= n) {
+                val d0 = le32(b, off)
+                val pkt = d0 and 0x3fff
+                if (pkt == 0 || pkt > 12000) { if (off == 0) onBad(false); break }
+                val crc = (d0 ushr 14) and 1
+                val drv = ((d0 ushr 16) and 0xf) * 8
+                val shift = (d0 ushr 24) and 3
+                val fs = off + RXDESC_SIZE + drv + shift
+                val fe = fs + pkt - FCS_LEN
+                when {
+                    crc != 0 -> onBad(true)
+                    pkt < 24 + FCS_LEN || fe > n -> onBad(false)
+                    else -> {
+                        val rate = b[off + 12].toInt() and 0x7f
+                        // Only a PHY status the chip filled (bit 26): on other frames of an aggregate those bytes aren't a signal report.
+                        val phy = drv >= 8 && (d0 ushr 26) and 1 != 0
+                        val rssi = if (phy) rtlRssi(b, off + RXDESC_SIZE, rate) else null
+                        val ofdm = phy && rate > 3
+                        onFrame(fs, fe, rssi, if (ofdm) Rtl8812auMonitor.pathPower(b, off + RXDESC_SIZE) else null,
+                            if (ofdm) Rtl8812auMonitor.pathPower(b, off + RXDESC_SIZE + 1) else null)
+                    }
+                }
+                off += (RXDESC_SIZE + drv + shift + pkt + 7) and 7.inv()
+            }
+        }
+
+        private fun sh(mask: Int) = Integer.numberOfTrailingZeros(mask)
+        private fun le32(b: ByteArray, i: Int) = (b[i].toInt() and 0xff) or ((b[i + 1].toInt() and 0xff) shl 8) or
+            ((b[i + 2].toInt() and 0xff) shl 16) or ((b[i + 3].toInt() and 0xff) shl 24)
+        private fun sleep(ms: Int) = try { Thread.sleep(ms.toLong()) } catch (_: InterruptedException) {}
+    }
 }

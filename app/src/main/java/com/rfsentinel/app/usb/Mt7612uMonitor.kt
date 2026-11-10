@@ -27,7 +27,7 @@ import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbManager
 
-object Mt7612uMonitor {
+class Mt7612uMonitor {
     @Volatile var running = false; private set
     @Volatile private var stop = false
 
@@ -38,92 +38,9 @@ object Mt7612uMonitor {
         149, 153, 157, 161, 165
     )
     private var HOP = ALL_HOP
-    private const val DWELL_MS = 125L
+    /** The channels this board can tune (an MT7610U can be one band only); its hops are its share of them. */
+    private var capable = ALL_HOP
     private val FRESH_MS get() = (HOP.size * DWELL_MS * 9 / 5).coerceAtLeast(3000L)
-    private const val REPORT_MS = 10_000L
-    private const val CAL_TTL_MS = 30_000L
-
-    private const val OUT_VENDOR = 0x40; private const val IN_VENDOR = 0xC0; private const val OUT_CLASS = 0x20
-    private const val DEV_MODE = 0x01; private const val MULTI_WRITE = 0x06; private const val MULTI_READ = 0x07
-    private const val READ_EEPROM = 0x09; private const val WRITE_FCE = 0x42; private const val WRITE_CFG = 0x46; private const val READ_CFG = 0x47
-
-    // firmware load (mt76x2u_mcu_load_rom_patch / _load_firmware)
-    private const val ASIC_VERSION = 0x0000; private const val MCU_CLOCK_CTL = 0x0708; private const val MCU_COM_REG0 = 0x0730
-    private const val MCU_SEMAPHORE_03 = 0x07BC
-    private const val FCE_PSE_CTRL = 0x0800; private const val FCE_DMA_ADDR = 0x0230; private const val FCE_DMA_LEN = 0x0234
-    private const val TX_CPU_FROM_FCE_BASE_PTR = 0x09a0; private const val TX_CPU_FROM_FCE_MAX_COUNT = 0x09a4
-    private const val TX_CPU_FROM_FCE_CPU_DESC_IDX = 0x09a8; private const val FCE_PDMA_GLOBAL_CONF = 0x09c4; private const val FCE_SKIP_FS = 0x0a6c
-    private const val USB_U3DMA_CFG = 0x9018
-    private const val ILM_OFFSET = 0x80000; private const val DLM_OFFSET = 0x110000; private const val ROM_PATCH_OFFSET = 0x90000
-    private const val FW_URB_MAX_PAYLOAD = 0x3900; private const val ROM_PATCH_MAX_PAYLOAD = 2048
-    private const val FW_HDR_LEN = 32; private const val PATCH_HDR_LEN = 30; private const val REV_E3 = 0x22
-    private const val DMA_INFO_BASE = (2 shl 27) or (1 shl 30)
-
-    // MAC / BBP
-    private const val WLAN_FUN_CTRL = 0x0080; private const val MAC_CSR0 = 0x1000; private const val MAC_SYS_CTRL = 0x1004
-    private const val MAC_STATUS = 0x1200; private const val CH_IDLE = 0x1130; private const val CH_BUSY = 0x1134; private const val RX_STAT_0 = 0x1700
-    private const val WPDMA_GLO_CFG = 0x0208; private const val RX_FILTR_CFG = 0x1400; private const val US_CYC_CFG = 0x02a4
-    private const val TXOP_CTRL_CFG = 0x1340; private const val COEXCFG0 = 0x0040; private const val EXT_CCA_CFG = 0x141c
-    private const val TX_ALC_CFG_4 = 0x13c0; private const val PBF_TX_MAX_PCNT = 0x0408; private const val PBF_RX_MAX_PCNT = 0x040c
-    private const val TX_LINK_CFG = 0x1350; private const val AUTO_RSP_CFG = 0x1404; private const val MAX_LEN_CFG = 0x1018
-    private const val WMM_AIFSN = 0x0214; private const val WMM_CWMIN = 0x0218; private const val WMM_CWMAX = 0x021c
-    private const val CH_TIME_CFG = 0x110c; private const val TX_PIN_CFG = 0x1328; private const val TXOP_HLDR_ET = 0x1608
-    private const val XIFS_TIME_CFG = 0x1100; private const val BKOFF_SLOT_CFG = 0x1104; private const val FCE_L2_STUFF = 0x080c
-    private const val XO_CTRL5 = 0x0114; private const val XO_CTRL6 = 0x0118; private const val XO_CTRL7 = 0x011c
-    private const val ED_CCA_TIMER = 0x1140; private const val ADDR_504 = 0x0504; private const val ADDR_50C = 0x050c
-    private const val TX_BAND_CFG = 0x132c; private const val BBP_CORE1 = 0x2004
-    private const val BBP_AGC0 = 0x2300; private const val BBP_AGC2 = 0x2308; private const val BBP_AGC7 = 0x231c
-    private const val BBP_AGC11 = 0x232c; private const val BBP_AGC61 = 0x23f4; private const val BBP_TXO4 = 0x2610; private const val BBP_RXO13 = 0x2934
-
-    private const val WLAN_EN = 1 shl 0; private const val WLAN_CLK_EN = 1 shl 1
-    private const val WLAN_RESET_RF = 1 shl 2; private const val FRC_WL_ANT_SEL = 1 shl 5
-    private const val SYS_CTRL_RESET_CSR = 1 shl 0; private const val SYS_CTRL_RESET_BBP = 1 shl 1
-    private const val SYS_CTRL_ENABLE_TX = 1 shl 2; private const val SYS_CTRL_ENABLE_RX = 1 shl 3
-    private const val WPDMA_TX_DMA_BUSY = 1 shl 1; private const val WPDMA_RX_DMA_BUSY = 1 shl 3
-    private const val DMA_RX_DROP_OR_PAD = 1 shl 18; private const val DMA_RX_BULK_AGG_EN = 1 shl 21
-    private const val DMA_RX_BULK_EN = 1 shl 22; private const val DMA_TX_BULK_EN = 1 shl 23
-    private const val COEX_EN = 1 shl 0
-    /** Drop bad checksums, PHY / version errors and control frames; keep everything else (not-to-me, other BSS). */
-    private const val RX_FILTER_MONITOR = 0x0001FF13
-    /** AUTO_RSP_CFG without the auto-responder (bit 0): the adapter never answers with an ACK or CTS. */
-    private const val AUTO_RSP_NO_RESPONDER = 0x12
-
-    // MT7610U (mt76x0u)
-    private const val USB_DMA_CFG = 0x0238; private const val DMA_TX_WL_DROP = 1 shl 16
-    private const val EFUSE_CTRL = 0x0024; private const val EFUSE_DATA = 0x0028
-    private const val CMB_CTRL = 0x0020; private const val COEXCFG3 = 0x004c; private const val CSR_EE_CFG1 = 0x0104
-    private const val WMM_CTRL = 0x0230; private const val RF_MISC = 0x0518
-    private const val TX0_RF_GAIN_CORR = 0x13a0; private const val TX0_RF_GAIN_ATTEN = 0x13a8
-    private const val TX_ALC_CFG_0 = 0x13b0; private const val TX_ALC_CFG_1 = 0x13b4; private const val TX_ALC_VGA3 = 0x13c8
-    private const val BBP_CORE0 = 0x2000; private const val BBP_IBI9 = 0x2124; private const val BBP_AGC8 = 0x2320
-    private const val BBP_TXBE0 = 0x2700; private const val BBP_TXBE5 = 0x2714
-    private const val IVB_SIZE = 0x40; private const val DLM_X0 = 0x80000; private const val FW_URB_X0 = 0x38f8
-    private const val CMD_RANDOM_READ = 10; private const val CMD_RANDOM_WRITE = 12; private const val BW_SETTING = 2
-    private const val RF_MEMMAP = 0x80000000.toInt(); private const val RF_PAIRS_PER_CMD = 24 // MT_INBAND_PACKET_MAX_LEN / 8
-    private const val X0_CAL_R = 1; private const val X0_CAL_RXDCOC = 2; private const val X0_CAL_LC = 3
-    private const val X0_CAL_VCO = 12; private const val X0_CAL_FULL = 0xff
-    private const val RF_G_BAND = 0x100; private const val RF_A_BAND = 0x200
-
-    private const val MIN_FRAME = 10; private const val MAX_BAD_LOGS = 12; private const val DEAF_MS = 15_000L
-    private const val UNCALIBRATED = " · not calibrated: unplug the adapter and plug it back in"
-    private const val FW_ATTEMPTS = 3; private const val CLAIM_WAITS = 10
-    private const val DMA_HDR = 4; private const val RXWI_LEN = 32; private const val FCE_INFO = 4
-    /** Room for the largest 802.11ac MPDU (11454 B) plus descriptors: a smaller buffer splits big frames over two transfers. */
-    private const val RX_BUF = 16384
-    private const val RXINFO_L2PAD = 1 shl 14; private const val RXINFO_CRCERR = 1 shl 8
-
-    private const val EE_SIZE = 512; private const val EE_MAC_ADDR = 0x004; private const val EE_NIC_CONF_0 = 0x034
-    private const val EE_NIC_CONF_1 = 0x036; private const val EE_NIC_CONF_2 = 0x042; private const val EE_LNA_GAIN = 0x044
-    private const val EE_RSSI_OFFSET_2G_0 = 0x046; private const val EE_RSSI_OFFSET_2G_1 = 0x048; private const val EE_RSSI_OFFSET_5G_0 = 0x04a
-    private const val EE_XTAL_TRIM_1 = 0x03a; private const val EE_XTAL_TRIM_2 = 0x09e
-    private const val EE_ANTENNA = 0x022; private const val EE_CFG1_INIT = 0x024; private const val EE_RSSI_OFFSET_5G_1 = 0x04c; private const val EE_TSSI_BOUND4 = 0x0da
-
-    private const val CMD_FUN_SET_OP = 1; private const val CMD_LOAD_CR = 2; private const val CMD_INIT_GAIN_OP = 3
-    private const val CMD_POWER_SAVING_OP = 20; private const val CMD_SWITCH_CHANNEL_OP = 30; private const val CMD_CALIBRATION_OP = 31
-    private const val Q_SELECT = 1; private const val RADIO_ON = 0x31; private const val MT_RF_BBP_CR = 2
-    private const val MCU_CAL_TEMP = 2; private const val MCU_CAL_RXDCOC = 3; private const val MCU_CAL_RC = 4
-    private const val MCU_CAL_LC = 6; private const val MCU_CAL_TX_LOFT = 7; private const val MCU_CAL_TXIQ = 8
-    private const val MCU_CAL_RXIQC_FI = 12; private const val MCU_CAL_TX_SHAPING = 15
 
     private lateinit var conn: UsbDeviceConnection
     private var epResp: UsbEndpoint? = null
@@ -159,7 +76,7 @@ object Mt7612uMonitor {
             onFrame: (List<MonitorSighting>) -> Unit, x0: Boolean = false) {
         if (running) return
         this.x0 = x0; tag = if (x0) "MT7610U" else "MT7612U"
-        HOP = UsbWifi.hops(ALL_HOP)
+        capable = ALL_HOP; HOP = UsbWifi.hops(capable)
         running = true; stop = false; frames.clear(); lastCalMs.clear(); mcuLogged = 0; ctlErrors = 0; mcuAsked = 0; mcuMissed = 0; mcuAnswered = 0; uncalibrated = false
         val mgr = ctx.getSystemService(Context.USB_SERVICE) as UsbManager
         val c = mgr.openDevice(device) ?: run { onStatus("$chipName: couldn't reopen adapter"); running = false; return }
@@ -573,6 +490,7 @@ object Mt7612uMonitor {
             val lock = AntennaCheck.lockIndex(HOP) // antenna check: hold the reference's channel
             if (lock >= 0 && lock == st.hopIdx) AntennaCheck.holding = HOP[lock]
             if (if (lock >= 0) lock != st.hopIdx else now - st.hopAt > DWELL_MS) {
+                if (lock < 0 && st.hopIdx + 1 >= HOP.size) HOP = UsbWifi.hops(capable) // its share, with other adapters running
                 st.hopIdx = if (lock >= 0) lock else (st.hopIdx + 1) % HOP.size
                 runCatching { tune(epCmd, HOP[st.hopIdx], scan = true) }
                 drainCmdResp()
@@ -584,57 +502,6 @@ object Mt7612uMonitor {
         }
         frames.emit(FRESH_MS, onFrame)
         UsbWifi.log("$tag: RX loop stopped ($total B)")
-    }
-
-    /** Where the 802.11 frame sits in a transfer and the radio's raw RSSI per chain (0 and 1, before calibration; null when absent). */
-    internal data class Rx(val start: Int, val end: Int, val rawRssi: Int?, val rawRssi1: Int? = null)
-
-    /**
-     * One transfer: | DMA header (4: length) | RXWI (32) | 802.11 header | L2 pad (2, when flagged) | body | FCE info |.
-     * The L2 pad is removed in place (the header moves up 2 bytes), as mt76 does, so the frame
-     * is contiguous. Null for a bad checksum or a malformed transfer ([onBad] says which).
-     * With RX aggregation off a transfer holds exactly one frame, so its length must match the
-     * DMA header: anything else is a piece of a split transfer, whose "descriptor" is frame
-     * payload (random lengths and signal values, phantom addresses) and is dropped.
-     */
-    internal fun parseRx(b: ByteArray, n: Int, onBad: (Boolean) -> Unit = {}, why: (String) -> Unit = {}): Rx? {
-        // Only lengths and flags go into [why], never frame bytes (addresses, network names).
-        if (n < DMA_HDR + RXWI_LEN + MIN_FRAME || n > b.size) { onBad(false); why("$n B transfer, too short"); return null }
-        val dmaLen = (b[0].toInt() and 0xff) or ((b[1].toInt() and 0xff) shl 8)
-        if (dmaLen < RXWI_LEN + MIN_FRAME || dmaLen and 3 != 0 || DMA_HDR + dmaLen > n || n > DMA_HDR + dmaLen + FCE_INFO) {
-            onBad(false); why("$n B transfer, DMA length $dmaLen"); return null
-        }
-        val rxwi = DMA_HDR
-        val rxinfo = le32(b, rxwi)
-        if (rxinfo and RXINFO_CRCERR != 0) { onBad(true); return null }
-        val mpdu = (le32(b, rxwi + 4) ushr 16) and 0x3fff
-        var d = rxwi + RXWI_LEN
-        val pad = if (rxinfo and RXINFO_L2PAD != 0) 2 else 0
-        if (mpdu < MIN_FRAME || d + mpdu + pad > DMA_HDR + dmaLen || DMA_HDR + dmaLen - (d + mpdu + pad) >= 4) {
-            onBad(false); why("$n B transfer, DMA length $dmaLen, frame $mpdu B, pad $pad, RX info 0x%08x".format(rxinfo)); return null
-        }
-        // ACK / CTS / RTS / PS-Poll: shorter than a full header and carry no sender worth showing.
-        if (mpdu < 24) { if ((b[d].toInt() shr 2) and 3 != 1) { onBad(false); why("$mpdu B frame that isn't a control frame") }; return null }
-        if (pad != 0) {
-            val hdr = headerLength(b, d).coerceAtMost(mpdu)
-            System.arraycopy(b, d, b, d + pad, hdr)
-            d += pad
-        }
-        val raw = b[rxwi + 12].toInt() // RSSI chain 0, signed dBm-ish
-        val raw1 = b[rxwi + 13].toInt() // chain 1
-        return Rx(d, d + mpdu, if (raw != 0) raw else null, if (raw1 != 0) raw1 else null)
-    }
-
-    /** 802.11 header length from its frame control (address 4, QoS, HT control). */
-    private fun headerLength(b: ByteArray, d: Int): Int {
-        val fc = b[d].toInt() and 0xff; val fc1 = b[d + 1].toInt() and 0xff
-        val type = (fc shr 2) and 3; val sub = (fc shr 4) and 0xf
-        var len = 24
-        if (type == 2) {
-            if (fc1 and 0x03 == 0x03) len += 6
-            if (sub and 0x8 != 0) { len += 2; if (fc1 and 0x80 != 0) len += 4 }
-        } else if (type == 0 && fc1 and 0x80 != 0) len += 4
-        return len
     }
 
     private fun computeRssiCal(ee: ByteArray) {
@@ -710,7 +577,8 @@ object Mt7612uMonitor {
         regClear(BBP_TXBE5, 0x3)
         regRmw(US_CYC_CFG, 0xff, 0x1e)
         regWr(TXOP_CTRL_CFG, 0x583f)
-        HOP = HOP.filter { if (it <= 14) has2 else has5 }.toIntArray()
+        capable = ALL_HOP.filter { if (it <= 14) has2 else has5 }.toIntArray()
+        HOP = if (capable.isEmpty()) capable else UsbWifi.hops(capable).filter { it in capable }.toIntArray()
         if (HOP.isEmpty()) { onStatus("$chipName: this adapter's band is turned off in Settings"); return }
 
         onStatus("$chipName · tuning and calibrating…")
@@ -816,15 +684,6 @@ object Mt7612uMonitor {
         return ee
     }
 
-    /** mt76x0_set_freq_offset and mt76x0_read_rx_gain. */
-    internal fun x0FreqOffset(trim: Int, compensation: Int): Int {
-        val valid = { v: Int -> v != 0 && v != 0xff }
-        val base = if (valid(trim)) trim else 0
-        val c = if (valid(compensation)) compensation else 0
-        val delta = if (c and 0x80 != 0) c and 0x7f else -(c and 0x7f) // mt76x02_sign_extend: the top bit set means positive
-        return (base - delta) and 0xff
-    }
-
     private fun calFromEfuse(ee: ByteArray) {
         fun u8(i: Int) = ee[i].toInt() and 0xff
         fun offset(i: Int) = ee[i].toInt().takeIf { it in -10..10 } ?: 0
@@ -896,9 +755,6 @@ object Mt7612uMonitor {
         val now = System.currentTimeMillis()
         if (!scan || now - (lastCalMs[ch] ?: 0L) > CAL_TTL_MS) { calibrateX0(ep, ch, powerOn = false); lastCalMs[ch] = now }
     }
-
-    /** The AGC value with its gain field (bits 14:8) lowered by twice the LNA gain. */
-    internal fun x0AgcGain(v: Int, lna: Int) = (v and (0x7f shl 8).inv()) or (((((v ushr 8) and 0x7f) - lna * 2) and 0x7f) shl 8)
 
     /** mt76x0_phy_set_chan_rf_params; [f] is a row of [Mt7610uTables.CHANNELS]. */
     private fun setChanRfX0(ep: UsbEndpoint, f: IntArray) {
@@ -1044,14 +900,6 @@ object Mt7612uMonitor {
         return false
     }
 
-    private fun leWords(vararg w: Int): ByteArray { val b = ByteArray(w.size * 4); for (i in w.indices) putLe32(b, i * 4, w[i]); return b }
-    private fun putLe32(b: ByteArray, i: Int, v: Int) { b[i] = v.toByte(); b[i + 1] = (v ushr 8).toByte(); b[i + 2] = (v ushr 16).toByte(); b[i + 3] = (v ushr 24).toByte() }
-    private fun le32(b: ByteArray, i: Int) = (b[i].toInt() and 0xff) or ((b[i + 1].toInt() and 0xff) shl 8) or
-        ((b[i + 2].toInt() and 0xff) shl 16) or ((b[i + 3].toInt() and 0xff) shl 24)
-    private fun le16(b: ByteArray, i: Int) = (b[i].toInt() and 0xff) or ((b[i + 1].toInt() and 0xff) shl 8)
-    private fun asciiz(b: ByteArray, off: Int, max: Int) = String(b, off, minOf(max, b.size - off), Charsets.US_ASCII).trim { it <= ' ' }
-    private fun sleep(ms: Int) = try { Thread.sleep(ms.toLong()) } catch (_: InterruptedException) {}
-
     private val MAC_INITVALS = arrayOf(
         intArrayOf(0x0400, 0x00080c00), intArrayOf(0x0404, 0x1efebcff), intArrayOf(0x0800, 0x00000001),
         intArrayOf(0x1004, 0x00000000), intArrayOf(0x1018, 0x003e3f00), intArrayOf(0x1030, 0xaaa99887.toInt()),
@@ -1072,4 +920,163 @@ object Mt7612uMonitor {
         intArrayOf(0x1478, 0x00000004), intArrayOf(0x1384, 0x00001818), intArrayOf(0x1358, 0xedcba980.toInt()),
         intArrayOf(0x1648, 0x00830083), intArrayOf(0x1410, 0x000001ff), intArrayOf(0x1350, 0x00001020)
     )
+
+    companion object {
+
+        /** 802.11 header length from its frame control (address 4, QoS, HT control). */
+        private fun headerLength(b: ByteArray, d: Int): Int {
+            val fc = b[d].toInt() and 0xff; val fc1 = b[d + 1].toInt() and 0xff
+            val type = (fc shr 2) and 3; val sub = (fc shr 4) and 0xf
+            var len = 24
+            if (type == 2) {
+                if (fc1 and 0x03 == 0x03) len += 6
+                if (sub and 0x8 != 0) { len += 2; if (fc1 and 0x80 != 0) len += 4 }
+            } else if (type == 0 && fc1 and 0x80 != 0) len += 4
+            return len
+        }
+        private const val DWELL_MS = 125L
+        private const val REPORT_MS = 10_000L
+        private const val CAL_TTL_MS = 30_000L
+
+        private const val OUT_VENDOR = 0x40; private const val IN_VENDOR = 0xC0; private const val OUT_CLASS = 0x20
+        private const val DEV_MODE = 0x01; private const val MULTI_WRITE = 0x06; private const val MULTI_READ = 0x07
+        private const val READ_EEPROM = 0x09; private const val WRITE_FCE = 0x42; private const val WRITE_CFG = 0x46; private const val READ_CFG = 0x47
+
+        // firmware load (mt76x2u_mcu_load_rom_patch / _load_firmware)
+        private const val ASIC_VERSION = 0x0000; private const val MCU_CLOCK_CTL = 0x0708; private const val MCU_COM_REG0 = 0x0730
+        private const val MCU_SEMAPHORE_03 = 0x07BC
+        private const val FCE_PSE_CTRL = 0x0800; private const val FCE_DMA_ADDR = 0x0230; private const val FCE_DMA_LEN = 0x0234
+        private const val TX_CPU_FROM_FCE_BASE_PTR = 0x09a0; private const val TX_CPU_FROM_FCE_MAX_COUNT = 0x09a4
+        private const val TX_CPU_FROM_FCE_CPU_DESC_IDX = 0x09a8; private const val FCE_PDMA_GLOBAL_CONF = 0x09c4; private const val FCE_SKIP_FS = 0x0a6c
+        private const val USB_U3DMA_CFG = 0x9018
+        private const val ILM_OFFSET = 0x80000; private const val DLM_OFFSET = 0x110000; private const val ROM_PATCH_OFFSET = 0x90000
+        private const val FW_URB_MAX_PAYLOAD = 0x3900; private const val ROM_PATCH_MAX_PAYLOAD = 2048
+        private const val FW_HDR_LEN = 32; private const val PATCH_HDR_LEN = 30; private const val REV_E3 = 0x22
+        private const val DMA_INFO_BASE = (2 shl 27) or (1 shl 30)
+
+        // MAC / BBP
+        private const val WLAN_FUN_CTRL = 0x0080; private const val MAC_CSR0 = 0x1000; private const val MAC_SYS_CTRL = 0x1004
+        private const val MAC_STATUS = 0x1200; private const val CH_IDLE = 0x1130; private const val CH_BUSY = 0x1134; private const val RX_STAT_0 = 0x1700
+        private const val WPDMA_GLO_CFG = 0x0208; private const val RX_FILTR_CFG = 0x1400; private const val US_CYC_CFG = 0x02a4
+        private const val TXOP_CTRL_CFG = 0x1340; private const val COEXCFG0 = 0x0040; private const val EXT_CCA_CFG = 0x141c
+        private const val TX_ALC_CFG_4 = 0x13c0; private const val PBF_TX_MAX_PCNT = 0x0408; private const val PBF_RX_MAX_PCNT = 0x040c
+        private const val TX_LINK_CFG = 0x1350; private const val AUTO_RSP_CFG = 0x1404; private const val MAX_LEN_CFG = 0x1018
+        private const val WMM_AIFSN = 0x0214; private const val WMM_CWMIN = 0x0218; private const val WMM_CWMAX = 0x021c
+        private const val CH_TIME_CFG = 0x110c; private const val TX_PIN_CFG = 0x1328; private const val TXOP_HLDR_ET = 0x1608
+        private const val XIFS_TIME_CFG = 0x1100; private const val BKOFF_SLOT_CFG = 0x1104; private const val FCE_L2_STUFF = 0x080c
+        private const val XO_CTRL5 = 0x0114; private const val XO_CTRL6 = 0x0118; private const val XO_CTRL7 = 0x011c
+        private const val ED_CCA_TIMER = 0x1140; private const val ADDR_504 = 0x0504; private const val ADDR_50C = 0x050c
+        private const val TX_BAND_CFG = 0x132c; private const val BBP_CORE1 = 0x2004
+        private const val BBP_AGC0 = 0x2300; private const val BBP_AGC2 = 0x2308; private const val BBP_AGC7 = 0x231c
+        private const val BBP_AGC11 = 0x232c; private const val BBP_AGC61 = 0x23f4; private const val BBP_TXO4 = 0x2610; private const val BBP_RXO13 = 0x2934
+
+        private const val WLAN_EN = 1 shl 0; private const val WLAN_CLK_EN = 1 shl 1
+        private const val WLAN_RESET_RF = 1 shl 2; private const val FRC_WL_ANT_SEL = 1 shl 5
+        private const val SYS_CTRL_RESET_CSR = 1 shl 0; private const val SYS_CTRL_RESET_BBP = 1 shl 1
+        private const val SYS_CTRL_ENABLE_TX = 1 shl 2; private const val SYS_CTRL_ENABLE_RX = 1 shl 3
+        private const val WPDMA_TX_DMA_BUSY = 1 shl 1; private const val WPDMA_RX_DMA_BUSY = 1 shl 3
+        private const val DMA_RX_DROP_OR_PAD = 1 shl 18; private const val DMA_RX_BULK_AGG_EN = 1 shl 21
+        private const val DMA_RX_BULK_EN = 1 shl 22; private const val DMA_TX_BULK_EN = 1 shl 23
+        private const val COEX_EN = 1 shl 0
+        /** Drop bad checksums, PHY / version errors and control frames; keep everything else (not-to-me, other BSS). */
+        private const val RX_FILTER_MONITOR = 0x0001FF13
+        /** AUTO_RSP_CFG without the auto-responder (bit 0): the adapter never answers with an ACK or CTS. */
+        private const val AUTO_RSP_NO_RESPONDER = 0x12
+
+        // MT7610U (mt76x0u)
+        private const val USB_DMA_CFG = 0x0238; private const val DMA_TX_WL_DROP = 1 shl 16
+        private const val EFUSE_CTRL = 0x0024; private const val EFUSE_DATA = 0x0028
+        private const val CMB_CTRL = 0x0020; private const val COEXCFG3 = 0x004c; private const val CSR_EE_CFG1 = 0x0104
+        private const val WMM_CTRL = 0x0230; private const val RF_MISC = 0x0518
+        private const val TX0_RF_GAIN_CORR = 0x13a0; private const val TX0_RF_GAIN_ATTEN = 0x13a8
+        private const val TX_ALC_CFG_0 = 0x13b0; private const val TX_ALC_CFG_1 = 0x13b4; private const val TX_ALC_VGA3 = 0x13c8
+        private const val BBP_CORE0 = 0x2000; private const val BBP_IBI9 = 0x2124; private const val BBP_AGC8 = 0x2320
+        private const val BBP_TXBE0 = 0x2700; private const val BBP_TXBE5 = 0x2714
+        private const val IVB_SIZE = 0x40; private const val DLM_X0 = 0x80000; private const val FW_URB_X0 = 0x38f8
+        private const val CMD_RANDOM_READ = 10; private const val CMD_RANDOM_WRITE = 12; private const val BW_SETTING = 2
+        private const val RF_MEMMAP = 0x80000000.toInt(); private const val RF_PAIRS_PER_CMD = 24 // MT_INBAND_PACKET_MAX_LEN / 8
+        private const val X0_CAL_R = 1; private const val X0_CAL_RXDCOC = 2; private const val X0_CAL_LC = 3
+        private const val X0_CAL_VCO = 12; private const val X0_CAL_FULL = 0xff
+        private const val RF_G_BAND = 0x100; private const val RF_A_BAND = 0x200
+
+        private const val MIN_FRAME = 10; private const val MAX_BAD_LOGS = 12; private const val DEAF_MS = 15_000L
+        private const val UNCALIBRATED = " · not calibrated: unplug the adapter and plug it back in"
+        private const val FW_ATTEMPTS = 3; private const val CLAIM_WAITS = 10
+        private const val DMA_HDR = 4; private const val RXWI_LEN = 32; private const val FCE_INFO = 4
+        /** Room for the largest 802.11ac MPDU (11454 B) plus descriptors: a smaller buffer splits big frames over two transfers. */
+        private const val RX_BUF = 16384
+        private const val RXINFO_L2PAD = 1 shl 14; private const val RXINFO_CRCERR = 1 shl 8
+
+        private const val EE_SIZE = 512; private const val EE_MAC_ADDR = 0x004; private const val EE_NIC_CONF_0 = 0x034
+        private const val EE_NIC_CONF_1 = 0x036; private const val EE_NIC_CONF_2 = 0x042; private const val EE_LNA_GAIN = 0x044
+        private const val EE_RSSI_OFFSET_2G_0 = 0x046; private const val EE_RSSI_OFFSET_2G_1 = 0x048; private const val EE_RSSI_OFFSET_5G_0 = 0x04a
+        private const val EE_XTAL_TRIM_1 = 0x03a; private const val EE_XTAL_TRIM_2 = 0x09e
+        private const val EE_ANTENNA = 0x022; private const val EE_CFG1_INIT = 0x024; private const val EE_RSSI_OFFSET_5G_1 = 0x04c; private const val EE_TSSI_BOUND4 = 0x0da
+
+        private const val CMD_FUN_SET_OP = 1; private const val CMD_LOAD_CR = 2; private const val CMD_INIT_GAIN_OP = 3
+        private const val CMD_POWER_SAVING_OP = 20; private const val CMD_SWITCH_CHANNEL_OP = 30; private const val CMD_CALIBRATION_OP = 31
+        private const val Q_SELECT = 1; private const val RADIO_ON = 0x31; private const val MT_RF_BBP_CR = 2
+        private const val MCU_CAL_TEMP = 2; private const val MCU_CAL_RXDCOC = 3; private const val MCU_CAL_RC = 4
+        private const val MCU_CAL_LC = 6; private const val MCU_CAL_TX_LOFT = 7; private const val MCU_CAL_TXIQ = 8
+        private const val MCU_CAL_RXIQC_FI = 12; private const val MCU_CAL_TX_SHAPING = 15
+
+        /** Where the 802.11 frame sits in a transfer and the radio's raw RSSI per chain (0 and 1, before calibration; null when absent). */
+        internal data class Rx(val start: Int, val end: Int, val rawRssi: Int?, val rawRssi1: Int? = null)
+
+        /**
+         * One transfer: | DMA header (4: length) | RXWI (32) | 802.11 header | L2 pad (2, when flagged) | body | FCE info |.
+         * The L2 pad is removed in place (the header moves up 2 bytes), as mt76 does, so the frame
+         * is contiguous. Null for a bad checksum or a malformed transfer ([onBad] says which).
+         * With RX aggregation off a transfer holds exactly one frame, so its length must match the
+         * DMA header: anything else is a piece of a split transfer, whose "descriptor" is frame
+         * payload (random lengths and signal values, phantom addresses) and is dropped.
+         */
+        internal fun parseRx(b: ByteArray, n: Int, onBad: (Boolean) -> Unit = {}, why: (String) -> Unit = {}): Rx? {
+            // Only lengths and flags go into [why], never frame bytes (addresses, network names).
+            if (n < DMA_HDR + RXWI_LEN + MIN_FRAME || n > b.size) { onBad(false); why("$n B transfer, too short"); return null }
+            val dmaLen = (b[0].toInt() and 0xff) or ((b[1].toInt() and 0xff) shl 8)
+            if (dmaLen < RXWI_LEN + MIN_FRAME || dmaLen and 3 != 0 || DMA_HDR + dmaLen > n || n > DMA_HDR + dmaLen + FCE_INFO) {
+                onBad(false); why("$n B transfer, DMA length $dmaLen"); return null
+            }
+            val rxwi = DMA_HDR
+            val rxinfo = le32(b, rxwi)
+            if (rxinfo and RXINFO_CRCERR != 0) { onBad(true); return null }
+            val mpdu = (le32(b, rxwi + 4) ushr 16) and 0x3fff
+            var d = rxwi + RXWI_LEN
+            val pad = if (rxinfo and RXINFO_L2PAD != 0) 2 else 0
+            if (mpdu < MIN_FRAME || d + mpdu + pad > DMA_HDR + dmaLen || DMA_HDR + dmaLen - (d + mpdu + pad) >= 4) {
+                onBad(false); why("$n B transfer, DMA length $dmaLen, frame $mpdu B, pad $pad, RX info 0x%08x".format(rxinfo)); return null
+            }
+            // ACK / CTS / RTS / PS-Poll: shorter than a full header and carry no sender worth showing.
+            if (mpdu < 24) { if ((b[d].toInt() shr 2) and 3 != 1) { onBad(false); why("$mpdu B frame that isn't a control frame") }; return null }
+            if (pad != 0) {
+                val hdr = headerLength(b, d).coerceAtMost(mpdu)
+                System.arraycopy(b, d, b, d + pad, hdr)
+                d += pad
+            }
+            val raw = b[rxwi + 12].toInt() // RSSI chain 0, signed dBm-ish
+            val raw1 = b[rxwi + 13].toInt() // chain 1
+            return Rx(d, d + mpdu, if (raw != 0) raw else null, if (raw1 != 0) raw1 else null)
+        }
+
+        /** mt76x0_set_freq_offset and mt76x0_read_rx_gain. */
+        internal fun x0FreqOffset(trim: Int, compensation: Int): Int {
+            val valid = { v: Int -> v != 0 && v != 0xff }
+            val base = if (valid(trim)) trim else 0
+            val c = if (valid(compensation)) compensation else 0
+            val delta = if (c and 0x80 != 0) c and 0x7f else -(c and 0x7f) // mt76x02_sign_extend: the top bit set means positive
+            return (base - delta) and 0xff
+        }
+
+        /** The AGC value with its gain field (bits 14:8) lowered by twice the LNA gain. */
+        internal fun x0AgcGain(v: Int, lna: Int) = (v and (0x7f shl 8).inv()) or (((((v ushr 8) and 0x7f) - lna * 2) and 0x7f) shl 8)
+
+        private fun leWords(vararg w: Int): ByteArray { val b = ByteArray(w.size * 4); for (i in w.indices) putLe32(b, i * 4, w[i]); return b }
+        private fun putLe32(b: ByteArray, i: Int, v: Int) { b[i] = v.toByte(); b[i + 1] = (v ushr 8).toByte(); b[i + 2] = (v ushr 16).toByte(); b[i + 3] = (v ushr 24).toByte() }
+        private fun le32(b: ByteArray, i: Int) = (b[i].toInt() and 0xff) or ((b[i + 1].toInt() and 0xff) shl 8) or
+            ((b[i + 2].toInt() and 0xff) shl 16) or ((b[i + 3].toInt() and 0xff) shl 24)
+        private fun le16(b: ByteArray, i: Int) = (b[i].toInt() and 0xff) or ((b[i + 1].toInt() and 0xff) shl 8)
+        private fun asciiz(b: ByteArray, off: Int, max: Int) = String(b, off, minOf(max, b.size - off), Charsets.US_ASCII).trim { it <= ' ' }
+        private fun sleep(ms: Int) = try { Thread.sleep(ms.toLong()) } catch (_: InterruptedException) {}
+    }
 }

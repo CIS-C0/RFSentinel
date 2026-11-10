@@ -188,20 +188,20 @@ class UsbWifiDriverTest {
     @Test
     fun singleAntennaOnPathBIsDetected() {
         // Wise Tiger 8812BU: one antenna, on path B; path A hears 25-35 dB less (measured).
-        val s = Rtl8822buMonitor.PathSense()
+        val s = Rtl8822buMonitor.Companion.PathSense()
         repeat(39) { s.add(-70, -40) }
         assertNull(s.verdict()) // not enough frames yet
         s.add(-70, -40)
         assertEquals(1, s.verdict())
         // Noise-floor frames don't vote.
-        val quiet = Rtl8822buMonitor.PathSense()
+        val quiet = Rtl8822buMonitor.Companion.PathSense()
         repeat(100) { quiet.add(-110, -100) }
         assertNull(quiet.verdict())
     }
 
     @Test
     fun twoAntennaAdaptersKeepBothPaths() {
-        val s = Rtl8822buMonitor.PathSense()
+        val s = Rtl8822buMonitor.Companion.PathSense()
         val r = java.util.Random(7)
         // Both paths connected: multipath fades swing either way, rarely by 10 dB.
         repeat(2000) { val a = -60 + r.nextInt(17) - 8; s.add(a, -60 + r.nextInt(17) - 8) }
@@ -213,7 +213,7 @@ class UsbWifiDriverTest {
     fun ofdmFramesFeedThePathVote() {
         val ofdm = rxUnit(beacon("00:30:44:11:22:33", "x"), pwdb = 40, rate = 4) // path A 40, B 34 (helper)
         ofdm[24 + 1] = 40; ofdm[24 + 2] = 72                                       // A -70 dBm, B -38 dBm
-        val s = Rtl8822buMonitor.PathSense()
+        val s = Rtl8822buMonitor.Companion.PathSense()
         val t = MonitorFrames()
         repeat(40) { Rtl8822buMonitor.parseRxBuf(ofdm, ofdm.size, ch = 36, twoPaths = true, sink = t, sense = s) }
         assertEquals(1, s.verdict())
