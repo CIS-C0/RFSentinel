@@ -57,6 +57,7 @@ class HackRf(private val conn: UsbDeviceConnection, private val device: UsbDevic
     override fun close() {
         if (lost) return
         setTransceiver(MODE_OFF)
+        if (biasTee) setBiasTee(false) // no power left on the antenna once the scan is over
         intf?.let { runCatching { conn.releaseInterface(it) } }
     }
 
@@ -75,10 +76,21 @@ class HackRf(private val conn: UsbDeviceConnection, private val device: UsbDevic
         ctlOut(BASEBAND_FILTER_BANDWIDTH_SET, bw and 0xffff, bw ushr 16)
     }
 
+    @Volatile override var ppm = 0.0
+
+    /** The antenna port's 3.3 V (libhackrf's hackrf_set_antenna_enable). */
+    override fun setBiasTee(on: Boolean): Boolean {
+        val ok = ctlOut(ANTENNA_ENABLE, if (on) 1 else 0, 0) >= 0
+        if (ok) biasTee = on
+        return ok
+    }
+    private var biasTee = false
+
     override fun tune(hz: Long): Boolean {
         if (hz !in MIN_HZ..MAX_HZ) return false
+        val at = SdrDevice.corrected(hz, ppm)
         val p = ByteArray(8)
-        le32(p, 0, (hz / 1_000_000).toInt()); le32(p, 4, (hz % 1_000_000).toInt())
+        le32(p, 0, (at / 1_000_000).toInt()); le32(p, 4, (at % 1_000_000).toInt())
         val ok = ctlOutData(SET_FREQ, 0, 0, p) == p.size
         if (!ok) tunerWriteFails++
         return ok

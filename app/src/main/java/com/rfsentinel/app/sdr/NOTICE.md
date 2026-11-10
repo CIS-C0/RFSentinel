@@ -34,3 +34,10 @@ IMBE is a voice coding method of Digital Voice Systems, Inc. (DVSI); the P25 sta
 | FLEX decoder (`demod_flex.c`) | [multimon-ng](https://github.com/EliasOenal/multimon-ng), adapted from GNU Radio: Copyright 2004, 2006, 2010 Free Software Foundation, Inc.; (C) 2015 Craig Shelley; (C) 2024 Jason Lingohr | GPL-3.0-or-later |
 | POCSAG decoder (`pocsag.c`) | [multimon-ng](https://github.com/EliasOenal/multimon-ng): (C) 1996 Thomas Sailer; (C) 2012-2014 Elias Oenal and others | GPL-2.0-or-later |
 | BCH(31,21) correction (`bch.c`) | [multimon-ng](https://github.com/EliasOenal/multimon-ng) | Public domain (Unlicense) |
+
+# SDR driver and receiver: other sources
+
+| Part | Origin | License |
+|---|---|---|
+| Automatic frequency correction (`FreqCorrection.kt`): correct the tuner by the error a decoder measures on a channel of known frequency | Idea from [SDRTrunk](https://github.com/DSheirer/sdrtrunk) `TunerFrequencyErrorManager` (C) 2014-2026 Dennis Sheirer; written anew | GPL-3.0-or-later |
+| Bias-tee on GPIO 0 (`RtlSdr.setBiasTee`) | [rtl-sdr-blog](https://github.com/rtlsdrblog/rtl-sdr-blog) librtlsdr `rtlsdr_set_bias_tee` | GPL-2.0-or-later |

@@ -42,6 +42,8 @@ object SdrRadio {
     private const val TUNED_READS = 4          // ~16 ms of samples per waterfall row
     private const val TUNED_ROW_MS = 40L       // at most ~25 rows a second
     private const val TUNED_LOG_MS = 5_000L    // "log everything": what the waterfall hears, every 5 s
+    /** Frequency corrections learned per session at most: a warming crystal drifts a little, a wrong reading must not loop. */
+    private const val MAX_FREQ_FIXES = 3
     private const val P25_RETRY_MS = 30_000L   // no control channel found: look again after this
     private const val PAGER_RETRY_MS = 5_000L  // no paging channel decoded: look again after this (they can be silent between pages)
     private const val INPUT_DELAY_MS = 400L    // after a grant: the radio is on the air by then
@@ -90,7 +92,59 @@ object SdrRadio {
     /** The scans that get turns: P25 alone while a talkgroup is held ([p25Hold]). */
     private val active get() = if (p25Hold != null) setOf(Mode.P25) else modes
     /** [m] keeps the SDR: its turn, still ticked, and the waterfall not zoomed in. */
-    private fun keeps(m: Mode) = mode == m && m in active && tuneHz == null && antennaCheck == null && (active.size == 1 || System.currentTimeMillis() < turnEnd)
+    private fun keeps(m: Mode) = mode == m && m in active && tuneHz == null && antennaCheck == null && !reapplyNow &&
+        (active.size == 1 || System.currentTimeMillis() < turnEnd)
+
+    /** Bias-tee or frequency correction changed: applied by the worker between turns ([reapplyNow]: cut this one short). */
+    @Volatile private var reapply = false
+    @Volatile private var reapplyNow = false
+    /** "vid:pid/serial" or "host:port": whose learned frequency correction to use. */
+    @Volatile private var deviceKey = ""
+    private var freqFix: FreqCorrection? = null
+    private var freqFixes = 0
+    private var biasOn = false
+
+    /** Settings › bias-tee or frequency correction changed; [afterTyping]: a moment after the typing stops, not per key. */
+    fun deviceSettingsChanged(afterTyping: Boolean = false) {
+        main.removeCallbacks(reapplyLater)
+        if (afterTyping) main.postDelayed(reapplyLater, 2_000L) else reapplyLater.run()
+    }
+    private val reapplyLater = Runnable { reapply = true; reapplyNow = true }
+
+    /** On the worker thread: the bias-tee and frequency correction from Settings. [start]: the session's first time. */
+    private fun applyDeviceSettings(sdr: SdrDevice, start: Boolean) {
+        reapply = false; reapplyNow = false
+        val c = appContext ?: return
+        val bias = com.rfsentinel.app.util.Prefs.sdrBiasTee(c)
+        // Never touched unless asked: on some generic dongles GPIO 0 may be wired to something else.
+        if (bias || biasOn) {
+            val ok = sdr.setBiasTee(bias)
+            biasOn = bias && ok
+            com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: bias-tee ${if (!ok) "not supported by this SDR" else if (bias) "on" else "off"}")
+        }
+        val ppm = com.rfsentinel.app.util.Prefs.sdrPpm(c, deviceKey)
+        if (start || kotlin.math.abs(ppm - sdr.ppm) >= 0.01) {
+            val changed = !start && kotlin.math.abs(ppm - sdr.ppm) >= 0.01
+            sdr.ppm = ppm
+            if (start && ppm != 0.0 || changed) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: frequency correction %+.1f ppm".format(java.util.Locale.US, ppm))
+            // Everything learned so far was heard through the old correction: learn it again.
+            if (changed) { sweepWatch = null; p25Lock = null; pagerHz = null }
+        }
+        freqFix = if (com.rfsentinel.app.util.Prefs.sdrPpmAuto(c) && freqFixes < MAX_FREQ_FIXES) FreqCorrection(sdr.ppm) else null
+    }
+
+    /** A P25 site said where its control channel is: one reading towards the frequency correction. */
+    private fun learnFrequency(heardHz: Long, announcedHz: Long?) {
+        val fix = freqFix ?: return
+        val c = appContext ?: return
+        val ppm = fix.add(heardHz, announcedHz ?: return) ?: return
+        freqFix = null
+        freqFixes++
+        com.rfsentinel.app.util.Prefs.setSdrPpm(c, ppm.toFloat(), deviceKey)
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: frequency correction learned from the P25 control channel: %+.1f ppm (was %+.1f)"
+            .format(java.util.Locale.US, ppm, fix.appliedPpm))
+        deviceSettingsChanged()
+    }
     /** The scan after the current one, round the ticked ones. */
     private fun next(): Mode? = Mode.entries.filter { it in active }.let { l -> l.firstOrNull { it.ordinal > (mode?.ordinal ?: -1) } ?: l.firstOrNull() }
     /** " · ADS-B in 40 s" while taking turns, or " · holding talkgroup 1234", for the status line. */
@@ -291,6 +345,7 @@ object SdrRadio {
             return
         }
         val conn = mgr.openDevice(d) ?: run { status = "$deviceLabel: couldn't open it"; return }
+        deviceKey = "%04x:%04x/%s".format(d.vendorId, d.productId, runCatching { d.serialNumber }.getOrNull().orEmpty())
         launch(d.deviceName, "%04x:%04x".format(d.vendorId, d.productId), { conn.close() }) {
             if (HackRf.isHackRf(d.vendorId, d.productId)) HackRf(conn, d, com.rfsentinel.app.util.HwLogs.sdr::log) else RtlSdr(conn, d, com.rfsentinel.app.util.HwLogs.sdr::log)
         }
@@ -299,6 +354,7 @@ object SdrRadio {
     /** Settings › Network SDR: an rtl_tcp server, used while no USB SDR is plugged in. */
     private fun connectNet(host: String, port: Int) {
         deviceLabel = "Network SDR · $host"
+        deviceKey = "$host:$port"
         launch("$NET$host:$port", "$host:$port", {}) { RtlTcp(host, port, com.rfsentinel.app.util.HwLogs.sdr::log) }
     }
 
@@ -365,8 +421,12 @@ object SdrRadio {
             return false
         }
         sweepWatch = null; p25Hunt = null; p25Lock = null; pagerHz = null
+        biasOn = false; freqFixes = 0
+        applyDeviceSettings(sdr, start = true)
         var tuned = false
         while (!halted && !sdr.lost && !gone(name)) {
+            // Settings changed mid-turn: apply them, then the interrupted scan carries on.
+            if (reapply) { applyDeviceSettings(sdr, start = false); tuned = true }
             antennaCheck?.let { ask -> antennaCheck = null; ask(runCatching { checkAntenna(sdr) }.getOrDefault(AntennaReading(0, 0, 0, 0, ok = false))); tuned = true }
             if (tuneHz != null) { runTuned(sdr, name); tuned = true; continue }
             // Back from the waterfall: the scan it interrupted gets its turn again, not the next one.
@@ -623,6 +683,7 @@ object SdrRadio {
                 messages++; p25Messages++
                 val now = System.currentTimeMillis()
                 for (tg in p25Log.add(it, now)) onP25Call?.invoke(tg)
+                if (it is P25Tsbk.Site) learnFrequency(hunt.carrierHz, p25Log.hz(it.channel))
                 val calls = p25Log.takeCalls()
                 appContext?.let { c -> P25History.append(c, calls) }
                 if (logAll) for (c in calls) logHeard("P25 call" + (c.tg?.let { " talkgroup $it" } ?: "") + (c.target?.let { " to radio $it" } ?: "") +
@@ -861,7 +922,7 @@ object SdrRadio {
         if (!sdr.tune(hz)) {
             com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: the tuner didn't lock on $mhz")
             status = "$deviceLabel · waterfall: the tuner can't tune to $mhz"
-            while (!halted && !sdr.lost && tuneHz == hz && antennaCheck == null) Thread.sleep(100)
+            while (!halted && !sdr.lost && tuneHz == hz && antennaCheck == null && !reapplyNow) Thread.sleep(100)
             return
         }
         sdr.resetBuffer()
@@ -871,7 +932,7 @@ object SdrRadio {
         val iq = ByteArray(XFER * TUNED_READS)
         var lastRow = 0L; var lastCheck = System.currentTimeMillis(); var fails = 0; var lastHeard = 0L
         repeat(sdr.settleReads) { sdr.read(buf) }
-        while (!halted && !sdr.lost && tuneHz == hz && antennaCheck == null) {
+        while (!halted && !sdr.lost && tuneHz == hz && antennaCheck == null && !reapplyNow) {
             if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
             var got = 0
             for (i in 0 until TUNED_READS) {

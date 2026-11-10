@@ -790,6 +790,24 @@ object Prefs {
     fun sdrLogAll(context: Context): Boolean = bool(context, "sdr_log_all", false)
     fun setSdrLogAll(context: Context, v: Boolean) = setBool(context, "sdr_log_all", v)
 
+    /** Power up the SDR's antenna cable (bias-tee), for an active antenna or amplifier. */
+    fun sdrBiasTee(context: Context): Boolean = bool(context, "sdr_bias_tee", false)
+    fun setSdrBiasTee(context: Context, v: Boolean) = setBool(context, "sdr_bias_tee", v)
+    /** Learn the SDR's frequency error from P25 control channels. */
+    fun sdrPpmAuto(context: Context): Boolean = bool(context, "sdr_ppm_auto", true)
+    fun setSdrPpmAuto(context: Context, v: Boolean) = setBool(context, "sdr_ppm_auto", v)
+    /** The frequency correction last typed or learned, in ppm. */
+    fun sdrPpmShown(context: Context): Float = sp(context).getFloat("sdr_ppm", 0f)
+    /** [device]: the SDR it was learned on, or "" when typed (then it holds for any SDR). */
+    fun setSdrPpm(context: Context, ppm: Float, device: String) = sp(context).edit { putFloat("sdr_ppm", ppm); putString("sdr_ppm_for", device) }
+    /** The correction for [device]: typed, or learned on this one; with learning on, another SDR starts from 0. */
+    fun sdrPpm(context: Context, device: String): Double {
+        val v = sdrPpmShown(context).toDouble()
+        if (!sdrPpmAuto(context)) return v
+        val on = str(context, "sdr_ppm_for")
+        return if (on.isEmpty() || on == device) v else 0.0
+    }
+
     fun radioReferenceOn(context: Context): Boolean = bool(context, "radio_reference_on", false)
     fun setRadioReferenceOn(context: Context, v: Boolean) = setBool(context, "radio_reference_on", v)
 

@@ -1666,6 +1666,44 @@ class SettingsActivity : AppCompatActivity() {
             "calls, aircraft addresses and callsigns, and each page's capcode and length. Page text is never logged. " +
             "Frequencies can tell where you are, so read the log before you share it. The log keeps about the last 2 MB, " +
             "roughly half an hour with this on. Off, it keeps counts and levels only.") { Prefs.setSdrLogAll(this, it) }
+        box.toggle("Bias-tee power", Prefs.sdrBiasTee(this),
+            "Sends power up the antenna cable for an active antenna or an amplifier. Works on RTL-SDR Blog V3 and V4 dongles, " +
+            "the HackRF, and a network SDR whose rtl_tcp supports it. Use it only with an antenna or amplifier made for it: an " +
+            "antenna that shorts the cable to ground can damage the SDR. The power goes off when scanning stops.") {
+            Prefs.setSdrBiasTee(this, it); com.rfsentinel.app.sdr.SdrRadio.deviceSettingsChanged()
+        }
+        box.toggle("Correct the frequency automatically", Prefs.sdrPpmAuto(this),
+            "Learns how far off the SDR's crystal is from a P25 control channel, which broadcasts its own exact frequency, and " +
+            "corrects every frequency after that. Cheap dongles can be 20 to 50 ppm off, more than a whole radio channel at " +
+            "800 MHz; RTL-SDR Blog dongles are within about 1 ppm. Needs the P25 scan ticked and a P25 system in range. " +
+            "Each SDR learns its own; after a correction the radio sweep learns the bands again.") {
+            Prefs.setSdrPpmAuto(this, it); com.rfsentinel.app.sdr.SdrRadio.deviceSettingsChanged()
+        }
+        val ppmLabel = box.label("Frequency correction, ppm")
+        info(ppmLabel, "The SDR's crystal error in parts per million, taken out of every frequency. Learned automatically when " +
+            "that is on, or type it here, from another SDR app's calibration for example. Leave it at 0 if you don't know.",
+            "Frequency correction")
+        box.addView(android.widget.EditText(this).apply {
+            id = View.generateViewId(); ppmLabel.labelFor = id
+            val now = Prefs.sdrPpmShown(this@SettingsActivity)
+            setText(if (now == 0f) "" else "%.1f".format(java.util.Locale.US, now)); hint = "0"
+            isSingleLine = true
+            keyListener = android.text.method.DigitsKeyListener.getInstance("0123456789.,-")
+            setRawInputType(android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED)
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    val t = s?.toString().orEmpty().trim().replace(',', '.')
+                    // Half-typed ("-", "1.") or out of range: keep the last good value.
+                    val v = if (t.isEmpty()) 0f else t.toFloatOrNull()?.takeIf { kotlin.math.abs(it) <= com.rfsentinel.app.sdr.FreqCorrection.MAX_PPM } ?: return
+                    if (v == Prefs.sdrPpmShown(this@SettingsActivity)) return
+                    Prefs.setSdrPpm(this@SettingsActivity, v, "")
+                    com.rfsentinel.app.sdr.SdrRadio.deviceSettingsChanged(afterTyping = true)
+                }
+            })
+        })
 
         // What the SDR does: any mix; with more than one ticked it takes turns.
         var showSdrOptions: () -> Unit = {}

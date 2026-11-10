@@ -56,6 +56,30 @@ class RtlTcpTest {
     }
 
     @Test
+    fun biasTeeAndFrequencyCorrectionReachTheServerAndThePowerGoesOffOnClose() {
+        val server = ServerSocket(0)
+        val got = mutableListOf<List<Int>>()
+        val t = thread {
+            server.accept().use { s ->
+                s.getOutputStream().apply { write("RTL0".toByteArray() + byteArrayOf(0, 0, 0, 5, 0, 0, 0, 29)); flush() }
+                val inp = DataInputStream(s.getInputStream())
+                // The six on open, then bias on, the corrected tune, bias off on close.
+                repeat(9) { got += cmd(inp.readUnsignedByte(), inp.readInt()) }
+            }
+        }
+        val sdr = RtlTcp("127.0.0.1", server.localPort) {}
+        assertTrue(sdr.open())
+        assertTrue(sdr.setBiasTee(true))
+        sdr.ppm = 25.0
+        assertTrue(sdr.tune(851_012_500L))
+        sdr.close()
+        t.join(); server.close()
+        assertEquals(listOf(cmd(RtlTcp.BIAS_TEE, 1), cmd(RtlTcp.FREQUENCY, SdrDevice.corrected(851_012_500L, 25.0).toInt()), cmd(RtlTcp.BIAS_TEE, 0)),
+            got.drop(6))
+        assertEquals(850_991_225L, SdrDevice.corrected(851_012_500L, 25.0))
+    }
+
+    @Test
     fun notAnRtlTcpServerIsLost() {
         val server = ServerSocket(0)
         val t = thread { server.accept().use { it.getOutputStream().write("HTTP/1.1 200".toByteArray()); Thread.sleep(200) } }

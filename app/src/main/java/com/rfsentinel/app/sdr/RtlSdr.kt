@@ -95,6 +95,7 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
     override fun close() {
         if (lost) return
         runCatching {
+            if (biasTee) setBiasTee(false) // no power left on the antenna once the scan is over
             setI2cRepeater(true); r82xxStandby(); setI2cRepeater(false)
             writeReg(SYSB, DEMOD_CTL, 0x20, 1) // power off the demodulator and ADCs
         }
@@ -159,10 +160,20 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
         if (centerHz > 0) tune(centerHz)
     }
 
-    /** Tunes to [hz]; false when the tuner's PLL doesn't lock. */
+    @Volatile override var ppm = 0.0
+
+    /** GPIO 0 powers the antenna port on RTL-SDR Blog dongles (librtlsdr's rtlsdr_set_bias_tee). */
+    override fun setBiasTee(on: Boolean): Boolean {
+        setGpioOutput(0); setGpioBit(0, on)
+        biasTee = on
+        return true
+    }
+    private var biasTee = false
+
+    /** Tunes to [hz] (corrected by [ppm]); false when the tuner's PLL doesn't lock. */
     override fun tune(hz: Long): Boolean {
         setI2cRepeater(true)
-        val ok = r82xxSetFreq(hz)
+        val ok = r82xxSetFreq(SdrDevice.corrected(hz, ppm))
         setI2cRepeater(false)
         if (ok) centerHz = hz
         return ok

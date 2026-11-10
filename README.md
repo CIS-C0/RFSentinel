@@ -760,8 +760,8 @@ be turned off so nothing leaves the phone. A 1090 MHz antenna helps.
 
 Plug an RTL-SDR dongle (R820T / R820T2 / R860 tuner, e.g. RTL-SDR Blog V3, or the
 RTL-SDR Blog V4 or V4L) or a **HackRF One** into the phone with an OTG cable while scanning.
-The HackRF is only ever used to receive: its transmitter, RF amplifier and antenna-port
-power stay off. RF Sentinel
+The HackRF is only ever used to receive: its transmitter and RF amplifier stay off, and so
+does its antenna-port power unless you turn on *Bias-tee power*. RF Sentinel
 sweeps the North American public-safety radio bands - the 700 and 800 MHz bands
 where police, fire and EMS radios (not towers) transmit, and the shared VHF / UHF
 land-mobile bands - and measures only **how much energy each 12.5 kHz channel
@@ -774,7 +774,8 @@ control channel which talkgroup gets which voice channel. RF Sentinel finds that
 channel and reads only those announcements: **Tools → P25 talkgroups** lists the
 talkgroups with their calls, last channel and radio, and emergency / encrypted flags,
 and *Watch these talkgroups* alerts when a call starts on one. Voice is never
-decoded, and the frequency and network code stay out of the logs. Receiving radio
+decoded, and the frequency and network code stay out of the logs (unless *Log everything
+the RTL-SDR hears* is on). Receiving radio
 signalling is legal in many places but not all: check the law where you are. With
 more than one SDR scan ticked (radio sweep, ADS-B, P25, pagers), the dongle takes turns of
 the length you set.
@@ -782,7 +783,7 @@ the length you set.
 **Pager messages** (experimental, Settings → *RTL-SDR radio*, off by default): finds
 paging channels and decodes POCSAG (512 / 1200 / 2400 baud) and FLEX pages into
 **Tools → Pager messages**. Pages can hold private or medical details, so they stay in
-the phone's memory: never saved, exported or sent, kept out of the logs, and gone when the
+the phone's memory: never saved, exported or sent, their text never logged, and gone when the
 app closes or you untick the setting. Settings can alert on the capcodes (RICs) and words
 you watch, with the page's text left out of the alert unless you turn it on, drop the
 capcodes you ignore, and pick the POCSAG speeds. Name your channels to switch between them
@@ -840,6 +841,16 @@ hardware. **Settings → RTL-SDR radio**:
   licences near you (US; your own RadioReference Premium login and developer key,
   stored encrypted; your position rounded to ~1 km is sent, at most once a day per
   area). A hit takes the closest name within the set ± kHz.
+- **Bias-tee power** (off by default) powers an active antenna or amplifier through the
+  antenna cable (RTL-SDR Blog V3 / V4, HackRF, rtl_tcp servers that support it); it goes
+  off when scanning stops.
+- **Frequency correction**: cheap dongles can be 20-50 ppm off, more than a radio channel
+  at 800 MHz. With *Correct the frequency automatically* (on by default) the error is
+  learned from a P25 control channel, which broadcasts its own exact frequency, and taken
+  out of every frequency after that; or type the ppm yourself.
+- **Log everything the RTL-SDR hears** (off by default): the SDR log also names the
+  frequencies found, P25 control channels and calls, aircraft and page capcodes (never a
+  page's text). Frequencies can tell where you are: read the log before sharing it.
 
 **Requested networks** (Menu → History → *Requested networks*): phones and laptops ask by
 name for networks they joined before. With an adapter or a Marauder board
@@ -1249,7 +1260,9 @@ is written from the published format and Junzi Sun's *The 1090 MHz Riddle*, with
 [SkyPulse](https://github.com/MrJohn6774/SkyPulse) (GPL-3.0) and
 [dump1090](https://github.com/antirez/dump1090) (BSD-3-Clause) as references. The POCSAG and
 FLEX pager decoders follow [multimon-ng](https://github.com/EliasOenal/multimon-ng) (GPL; see
-`sdr/NOTICE.md`). Two fake-cell
+`sdr/NOTICE.md`). The SDR's automatic frequency correction follows
+[SDRTrunk](https://github.com/DSheirer/sdrtrunk)'s auto-PPM (Dennis Sheirer, GPL-3.0), and its
+bias-tee switch [rtl-sdr-blog](https://github.com/rtlsdrblog/rtl-sdr-blog)'s librtlsdr (GPL-2.0-or-later). Two fake-cell
 checks follow [AIMSICD](https://github.com/CellularPrivacy/Android-IMSI-Catcher-Detector) and
 [SnoopSnitch](https://github.com/srlabs/snoopsnitch) (GPL-3.0; ideas only). European V2X (ITS-G5) frames are read the way
 [V2X2MAP](https://github.com/pit711/V2X2MAP) by Peter Holzhauser does (MIT; see

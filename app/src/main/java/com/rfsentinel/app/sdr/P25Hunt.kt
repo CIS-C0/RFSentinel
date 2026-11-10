@@ -27,6 +27,8 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
     var tried = 0; private set
     /** Good trunking blocks heard while listening, for the log. */
     var blocks = 0L; private set
+    /** While listening: the control channel's carrier as this dongle hears it, after the last good block (0: none yet). */
+    @Volatile var carrierHz = 0L; private set
 
     private val buf = ByteArray(XFER)
 
@@ -127,11 +129,13 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
         var samples = 0L; var lastGood = 0L; var fails = 0; var lastLog = 0L
         var st = Stats()
         val kinds = java.util.TreeMap<String, Int>()
+        carrierHz = 0L
+        var good = false
         val demod = P25Demod(OFFSET_HZ.toDouble()) { f ->
             val d = P25Frame.decode(f)
             if (d.nid != null && d.nid.nac != lock.nac) { st.frames++; st.otherNac++; return@P25Demod }
             st.add(d)
-            if (d.tsbks.isNotEmpty()) lastGood = samples
+            if (d.tsbks.isNotEmpty()) { lastGood = samples; good = true }
             blocks += d.tsbks.size
             for (t in d.tsbks) P25Tsbk.parse(t)?.let { kinds.merge(it.javaClass.simpleName, 1, Int::plus); onMsg(it) }
         }
@@ -162,6 +166,8 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
             }
             fails = 0
             demod.feed(buf, n / 2); samples += n / 2
+            // The frequency loop is on the carrier only while blocks decode.
+            if (good) { good = false; carrierHz = lock.hz - OFFSET_HZ + demod.offsetHz.roundToLong() }
             if (samples - lastGood > LOST_S * P25Demod.SAMPLE_RATE) {
                 report("control channel quiet for ${LOST_S.toInt()} s (no good block)")
                 return true

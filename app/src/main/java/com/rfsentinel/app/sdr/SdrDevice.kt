@@ -28,4 +28,17 @@ interface SdrDevice {
     /** Reads unsigned 8-bit I/Q into [buf]; bytes read, or a negative value on error. */
     fun read(buf: ByteArray, len: Int): Int
     fun read(buf: ByteArray): Int = read(buf, buf.size)
+
+    /** The crystal's error in parts per million, taken out of every [tune] (0: none). */
+    var ppm: Double
+        get() = 0.0
+        set(_) {}
+
+    /** Power on the antenna port for an active antenna or amplifier; false when this device has no way to. */
+    fun setBiasTee(on: Boolean): Boolean = false
+
+    companion object {
+        /** What to ask the tuner for so it lands on [hz] when its crystal is [ppm] off. */
+        fun corrected(hz: Long, ppm: Double): Long = if (ppm == 0.0) hz else Math.round(hz / (1 + ppm / 1e6))
+    }
 }
