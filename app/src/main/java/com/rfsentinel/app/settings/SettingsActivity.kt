@@ -741,6 +741,8 @@ class SettingsActivity : AppCompatActivity() {
     )
 
     private val sectionUi = mutableListOf<SectionUi>()
+    /** RTL-SDR radio's folding groups: each one opens while searching (true) and goes back to its fold (false). */
+    private val radioFolds = mutableListOf<(Boolean) -> Unit>()
 
     private val sectionIcons = mapOf(
         "general" to R.drawable.ic_settings, "appearance" to R.drawable.ic_set_palette, "detect" to R.drawable.ic_set_visibility,
@@ -1427,6 +1429,7 @@ class SettingsActivity : AppCompatActivity() {
         searchHidden.clear()
         val q = raw.trim().lowercase()
         folds.values.forEach { it.searching(q.isNotEmpty()) }
+        radioFolds.forEach { it(q.isNotEmpty()) }
         if (q.isEmpty()) {
             sectionUi.forEach { it.row.visibility = View.VISIBLE; it.divider?.visibility = View.VISIBLE; it.restore() }
             return
@@ -1625,7 +1628,8 @@ class SettingsActivity : AppCompatActivity() {
 
     /** Settings > RTL-SDR radio, built in code; everything is saved as you change it. */
     private fun setupRadioSection() {
-        val box = binding.sectionRadio
+        val section = binding.sectionRadio
+        var box = section // the open group's body: everything below goes in it
         fun slider(from: Int, to: Int, value: Int, text: (Int) -> String, save: (Int) -> Unit) {
             val l = box.label(text(value))
             box.addView(this@SettingsActivity.slider(from, to, value, description = text(value)) {
@@ -1646,14 +1650,294 @@ class SettingsActivity : AppCompatActivity() {
             }.also { box.addView(it) }
         }
 
-        // Subheadings: the section is long, and only some of its groups apply at a time.
-        fun heading(title: String) = box.label(title).apply {
-            setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setTextColor(com.rfsentinel.app.ui.ChipStyle.accent(context).first)
-            setPadding(0, dp(18), 0, dp(2))
+        // Groups: the section is long, and only some of its groups apply at a time. Each heading folds what follows it,
+        // remembered like the sections; a search opens them all.
+        val foldPrefs = getSharedPreferences("settings_sections", MODE_PRIVATE)
+        val ripple = android.util.TypedValue().also { theme.resolveAttribute(android.R.attr.selectableItemBackground, it, true) }.resourceId
+        fun group(key: String, title: String, openFirst: Boolean = false, details: String? = null): View {
+            val whole = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.VERTICAL }
+            section.addView(whole)
+            val head = whole.label(title).apply {
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                setTextColor(com.rfsentinel.app.ui.ChipStyle.accent(context).first)
+                setPadding(0, dp(18), 0, dp(2))
+                minHeight = dp(48); gravity = android.view.Gravity.BOTTOM
+                setBackgroundResource(ripple)
+            }
+            if (details != null) info(head, details, title)
+            val body = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.VERTICAL }
+            whole.addView(body)
+            val pref = "radio_$key"
+            // Opened from a screen that needs a scan ticked: the scans show, folded or not.
+            var open = foldPrefs.getBoolean(pref, openFirst) || (key == "scan" && intent.getStringExtra(EXTRA_SECTION) == SECTION_RADIO)
+            fun show(searching: Boolean) {
+                val shown = open || searching
+                body.shownIf(shown)
+                head.text = (if (shown) "▾  " else "▸  ") + title
+                head.contentDescription = "$title, ${if (shown) "expanded" else "collapsed"}"
+            }
+            head.setOnClickListener { open = !open; foldPrefs.edit().putBoolean(pref, open).apply(); show(false) }
+            show(false)
+            radioFolds += { show(it) }
+            box = body
+            return whole
         }
 
-        heading("Connection")
+        // What the SDR does: any mix; with more than one ticked it takes turns.
+        var showSdrOptions: () -> Unit = {}
+        group("scan", "Scan with the SDR", true, "Tick what the RTL-SDR or HackRF does while scanning. One SDR hears one thing at a time: " +
+            "with more than one ticked it takes turns, and each scan hears nothing while another has its turn. " +
+            "Tick only one to give it all the time.")
+        fun scan(t: String, on: Boolean, details: String, save: (Boolean) -> Unit) = android.widget.CheckBox(this).apply {
+            text = t; isChecked = on
+            setOnCheckedChangeListener { _, v -> save(v); showSdrOptions() }
+        }.also { box.addView(infoRow(it, details)) }
+        val sweepBox = scan("Radio activity sweep", Prefs.sdrSweep(this),
+            "Sweeps the radio bands below for strong two-way radio transmissions nearby: signal strength only, nothing decoded. " +
+            "Needs Two-way radio turned on.") { Prefs.setSdrSweep(this, it) }
+        val adsbBox = scan("ADS-B aircraft receiver", Prefs.sdrAdsb(this),
+            "Listens on 1090 MHz for aircraft: police aircraft are found without internet. Needs Police aircraft turned on. " +
+            "A 1090 MHz antenna helps; the stock one hears out to about 50 km.") { Prefs.setSdrAdsb(this, it) }
+        val p25Box = scan("P25 control channel", Prefs.sdrP25(this),
+            "Experimental. Finds the P25 trunked-radio control channel here (700 / 800 MHz, used in the United States and Canada) and " +
+            "follows it: which talkgroups get a channel, and when (Tools › P25 talkgroups). Voice is only played with Listen to P25 voice, below. " +
+            "Needs Two-way radio turned on. On by default when your region is the United States or Canada. Receiving radio " +
+            "signalling is legal in many places but not all, and some forbid it in a vehicle or passing on what you hear: " +
+            "check the law where you are.") { Prefs.setSdrP25(this, it) }
+        val pagerBox = scan("Pager messages", Prefs.sdrPager(this),
+            "Experimental. Finds paging channels and decodes POCSAG and FLEX pages (Tools › Pager messages). Pages stay in the " +
+            "phone's memory: never saved, exported or sent, and gone when the app closes or you untick this. Pages can hold " +
+            "private or medical details. Canada, the United States and many other places restrict using or passing on " +
+            "messages you intercept, and some forbid listening at all: check the law where you are. " +
+            "Needs Two-way radio turned on.") {
+            Prefs.setSdrPager(this, it)
+            if (!it) com.rfsentinel.app.sdr.SdrRadio.pagerLog.clear()
+        }
+        // Each ticked scan's own turn length, shown while it shares the SDR.
+        val turnViews = listOf(sweepBox to com.rfsentinel.app.sdr.SdrRadio.Mode.SWEEP, adsbBox to com.rfsentinel.app.sdr.SdrRadio.Mode.ADSB,
+            p25Box to com.rfsentinel.app.sdr.SdrRadio.Mode.P25, pagerBox to com.rfsentinel.app.sdr.SdrRadio.Mode.PAGER).map { (ticked, m) ->
+            slider(30, 300, Prefs.sdrTurnS(this, m), { "Time for ${m.label}: $it s" }) { Prefs.setSdrTurnS(this, m, it) }
+            info(box.getChildAt(box.childCount - 2), "With more than one scan ticked, the SDR gives ${m.label} this long before the next scan takes " +
+                "its turn. Longer misses less of it; shorter comes back to the other scans sooner.",
+                "Time for ${m.label}")
+            ticked to listOf(box.getChildAt(box.childCount - 2), box.getChildAt(box.childCount - 1))
+        }
+        val sweepGroup = group("sweep", "Radio sweep")
+        slider(com.rfsentinel.app.sdr.RadioWatch.MIN_SNR_SETTING, com.rfsentinel.app.sdr.RadioWatch.MAX_SNR_SETTING, Prefs.radioMinSnr(this),
+            { "Sensitivity: $it dB above the noise" }) {
+            Prefs.setRadioMinSnr(this, it)
+        }
+        info(box.getChildAt(box.childCount - 2), "A radio is reported once its signal is this far above the noise. Lower hears farther, with more false alarms. " +
+            "Below about 10 dB the noise's own flicker sets off some alerts: good for testing how far a known radio carries " +
+            "(a fire station's TETRA, say), noisy for everyday use.", "Sensitivity")
+        box.label("Bands to sweep")
+        val off = Prefs.radioBandsOff(this).toMutableSet()
+        for ((key, band) in com.rfsentinel.app.sdr.RadioSettings.BUILT_IN) {
+            box.addView(android.widget.CheckBox(this).apply {
+                text = "%s · %.1f-%.1f MHz".format(java.util.Locale.US, band.label, band.startHz / 1e6, band.endHz / 1e6)
+                isChecked = key !in off
+                setOnCheckedChangeListener { _, on ->
+                    if (on) off -= key else off += key
+                    Prefs.setRadioBandsOff(this@SettingsActivity, off.toSet())
+                }
+            })
+        }
+        lines("Your own bands", "380-400 TETRA\n220-222", Prefs.radioCustomBands(this), "One per line, in MHz, with an optional name.") { Prefs.setRadioCustomBands(this, it) }
+        lines("Never report these ranges", "462-469 business band\n151.8-152.0", Prefs.radioExcluded(this), "One per line, in MHz.") { Prefs.setRadioExcluded(this, it) }
+        val watched = lines("Watch these frequencies", "154.4300 County fire dispatch\n460.125", Prefs.radioTargets(this),
+            "Always reported when active, whatever the sensitivity. One per line, in MHz, with an optional name.") { Prefs.setRadioTargets(this, it) }
+        box.toggle("Say the frequency", Prefs.radioSpeakFreq(this), "Says the frequency (and its name) instead of \"Radio transmitting nearby\".") { Prefs.setRadioSpeakFreq(this, it) }
+        box.toggle("Detect cellular transmitters", Prefs.radioCellOn(this),
+            "Experimental. Watches the phone / modem side of the LTE bands (uplink) for a transmitter travelling near you: a vehicle modem, a " +
+            "Cradlepoint-style router, a camera with a SIM. Energy only, nothing decoded. Adds time to each sweep; " +
+            "a phone counts too, so it is a weak sign on its own.") { Prefs.setRadioCellOn(this, it) }
+        box.toggle("Detect TETRA radios", Prefs.radioTetraOn(this),
+            "Watches 380-385 MHz, where emergency-service TETRA handsets transmit in Europe and many other countries. " +
+            "A handset sends short time-slot bursts; that rhythm marks it as a TETRA radio. Energy only: TETRA is encrypted " +
+            "and nothing is decoded. On by default when the phone's region is in Europe.") { Prefs.setRadioTetraOn(this, it) }
+        box.toggle("Detect DMR radios", Prefs.radioDmrOn(this),
+            "Experimental. On the VHF and UHF bands, marks a handset sending DMR's 60 ms time-slot bursts. Energy only, nothing " +
+            "decoded. Businesses use DMR too, and a P25 Phase 2 radio looks the same, so it is a weak sign on its own. " +
+            "NXDN has no time slots and can't be told apart. Adds time to each sweep.") { Prefs.setRadioDmrOn(this, it) }
+        slider(0, 20, Prefs.radioTrendDb(this), { if (it == 0) "Closer / moving away: off" else "Say \"getting closer\" / \"moving away\" when the signal changes by $it dB" }) {
+            Prefs.setRadioTrendDb(this, it)
+        }
+        slider(1, 50, Prefs.radioMatchKhz(this), { "A hit takes a frequency's name within ± $it kHz" }) { Prefs.setRadioMatchKhz(this, it) }
+        val p25Group = group("p25", "P25")
+        lines("Watch these talkgroups", "1234 Sheriff dispatch\n2001", Prefs.p25Talkgroups(this),
+            "P25: alerts when a call starts on one of them, and names them on the P25 talkgroups screen. One per line: the " +
+            "talkgroup number, with an optional name. 23* watches every talkgroup starting with 23 (2300, 2301, 2307...), and * every " +
+            "talkgroup; a line with the exact number keeps its own name.") { Prefs.setP25Talkgroups(this, it) }
+        info(box.label("Talkgroup alerts"), "How P25 alerts reach you: a watched talkgroup's call starting, a radio keying up nearby and " +
+            "unusual talkgroup activity. Untick Voice or Sound so they don't talk or beep over P25 voice. Other radio alerts follow " +
+            "the Two-way radio category in What to detect.", "Talkgroup alerts")
+        box.addView(alertKindChips(Prefs.p25AlertsOff(this), false, "P25 talkgroups") { Prefs.setP25AlertsOff(this, it) })
+        slider(0, 60, Prefs.p25LogDays(this), { if (it == 0) "Keep the P25 call log: off" else "Keep the P25 call log: $it days" }) {
+            Prefs.setP25LogDays(this, it)
+        }
+        info(box.getChildAt(box.childCount - 2), "Every call the control channel grants (time, talkgroup, radio, channel) is kept on the " +
+            "phone this long, for P25 talkgroups › History and Export: no internet or talkgroup list needed. About 1 MB per busy day. " +
+            "0 keeps nothing and deletes the log.", "Keep the P25 call log")
+        scan("Alert on unusual talkgroup activity", Prefs.p25Unusual(this),
+            "Compares each talkgroup's calls in the last hour with the same hour on the days before, from the call log. Alerts when " +
+            "one is at least three times busier than usual, or busy for the first time. Starts after the log has " +
+            "${com.rfsentinel.app.sdr.P25History.BASELINE_DAYS} days in it, and needs the call log kept.") { Prefs.setP25Unusual(this, it) }
+        scan("Listen for radios keying up nearby", Prefs.p25Inputs(this),
+            "When a call starts, the SDR leaves the control channel for a fraction of a second and listens where that call's radio " +
+            "transmits. A strong signal there means the radio talking is close to you, not just somewhere the site covers. At most " +
+            "once every few seconds; the control channel misses a few messages each time. Uses the radio sweep's sensitivity.") {
+            Prefs.setP25Inputs(this, it)
+        }
+        scan("Record P25 voice calls", Prefs.p25Record(this),
+            "For testing P25 voice: when a clear (not encrypted) call starts, the SDR leaves the control channel for " +
+            "${com.rfsentinel.app.sdr.P25Record.SECONDS} s and saves that call's radio signal to a file, about 1 MB each. Nothing " +
+            "is decoded or played. At most one call every 20 s; the last ${com.rfsentinel.app.sdr.P25Record.KEEP} are kept. " +
+            "Share them with the button below. Recording radio calls is not allowed everywhere: check the law where you are.") {
+            Prefs.setP25Record(this, it)
+        }
+        box.addView(com.google.android.material.button.MaterialButton(this, null, android.R.attr.borderlessButtonStyle).apply {
+            text = "Share P25 recordings"
+            setOnClickListener { shareP25Recordings() }
+        })
+        box.addView(infoRow(choiceRow("Listen to P25 voice", listOf("Off", "Watched talkgroups", "All clear calls"), Prefs.p25Listen(this)) {
+            Prefs.setP25Listen(this, it)
+        }, "Experimental. Plays clear (not encrypted) P25 calls as they happen, through the speaker, headphones or car like other audio. " +
+            "The SDR leaves the control channel for the call and misses its messages meanwhile: one call at a time, at most " +
+            "2 minutes each. Watched talkgroups: only those in Watch these talkgroups. Mute on the P25 talkgroups screen pauses it; Hold there (or tapping a talkgroup) plays only that talkgroup and keeps the SDR on P25 until Release. " +
+            "Encrypted calls can't be played. Listening to radio calls is not allowed everywhere, and some places forbid it in " +
+            "a vehicle: check the law where you are.", "Listen to P25 voice"))
+        val pagerGroup = group("pagers", "Pagers")
+        pagerFreqField = lines("Pager frequencies", "466.075 Fire dispatch", Prefs.pagerFreqs(this),
+            "Leave empty to scan for paging channels. If you know yours, enter it in MHz with an optional name, one per line: the SDR " +
+            "listens there and doesn't scan, so a quiet channel isn't missed. With two or more, the Pager messages screen gets a " +
+            "button for each, to stay on one.") { Prefs.setPagerFreqs(this, it) }
+        box.addView(android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            addView(com.google.android.material.button.MaterialButton(this@SettingsActivity, null,
+                android.R.attr.borderlessButtonStyle).apply {
+                text = "Import"
+                setOnClickListener { pagerImport.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel", "*/*")) }
+            })
+            addView(com.google.android.material.button.MaterialButton(this@SettingsActivity, null,
+                android.R.attr.borderlessButtonStyle).apply {
+                text = "Export"
+                setOnClickListener { pagerExport.launch("pager-frequencies.txt") }
+            })
+        })
+        info(box.label("POCSAG speeds"), "Which POCSAG speeds to decode. Fewer use less battery. FLEX is always decoded.", "POCSAG speeds")
+        box.addView(com.google.android.material.chip.ChipGroup(this).apply {
+            chipSpacingHorizontal = dp(6); chipSpacingVertical = 0
+            var now = Prefs.pagerSpeeds(this@SettingsActivity)
+            com.rfsentinel.app.sdr.PagerDemod.SPEEDS.forEach { speed ->
+                addView(com.rfsentinel.app.ui.FitChip(this@SettingsActivity).apply {
+                    text = "$speed"; isCheckable = true
+                    com.rfsentinel.app.ui.ChipStyle.apply(this)
+                    isChecked = speed in now
+                    contentDescription = "POCSAG $speed baud"
+                    setOnClickListener {
+                        now = if (isChecked) now + speed else now - speed
+                        Prefs.setPagerSpeeds(this@SettingsActivity, now)
+                    }
+                })
+            }
+        })
+        lines("Watch these pagers", "1234567 Station 4\ncardiac arrest", Prefs.pagerWatch(this),
+            "Alerts when a page matches. One per line: a capcode, also called a RIC, with an optional name, or words to find in the " +
+            "page. A line starting with a number is a capcode. One alert a minute at most for each line.") { Prefs.setPagerWatch(this, it) }
+        lines("Ignore these pagers", "1234567", Prefs.pagerIgnore(this),
+            "Pages to these capcodes, one per line, are dropped: no list entry, no alert.") { Prefs.setPagerIgnore(this, it) }
+        info(box.label("Pager alerts"), "How a watched page reaches you. Untick Sound and Voice for silent alerts.", "Pager alerts")
+        box.addView(alertKindChips(Prefs.pagerAlertsOff(this), false, "pager watches") { Prefs.setPagerAlertsOff(this, it) })
+        scan("Show page text in alerts", Prefs.pagerAlertText(this),
+            "Off: the alert only says a page matched, and you read it in Tools › Pager messages. On: the page's text is also on the " +
+            "notification, and in Android Auto when connected. It is still never saved or spoken.") { Prefs.setPagerAlertText(this, it) }
+        showSdrOptions = {
+            val ticked = listOf(sweepBox, adsbBox, p25Box, pagerBox).count { it.isChecked }
+            turnViews.forEach { (scan, views) -> views.forEach { it.shownIf(ticked > 1 && scan.isChecked) } }
+            sweepGroup.shownIf(sweepBox.isChecked)
+            p25Group.shownIf(p25Box.isChecked)
+            pagerGroup.shownIf(pagerBox.isChecked)
+        }
+        showSdrOptions()
+
+        group("names", "Frequency names")
+        freqListText = box.label("", small = true)
+        com.rfsentinel.app.sdr.FreqNames.load(this)
+        updateFreqListText()
+        box.addView(android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            addView(com.google.android.material.button.MaterialButton(this@SettingsActivity, null,
+                android.R.attr.borderlessButtonStyle).apply {
+                text = "Import CSV"
+                setOnClickListener { freqListPicker.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel", "*/*")) }
+            })
+            addView(com.google.android.material.button.MaterialButton(this@SettingsActivity, null,
+                android.R.attr.borderlessButtonStyle).apply {
+                text = "Clear list"
+                setOnClickListener {
+                    val n = com.rfsentinel.app.sdr.FreqNames.importedCount
+                    if (n == 0) { Toast.makeText(this@SettingsActivity, "No list imported", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
+                    // Can't be undone: the imported file is gone, so ask first, as Forget saved places does.
+                    MaterialAlertDialogBuilder(this@SettingsActivity)
+                        .setTitle("Clear the frequency list?")
+                        .setMessage("Removes the $n imported frequency names from this phone. Watched frequencies stay.")
+                        .setPositiveButton("Clear") { _, _ -> com.rfsentinel.app.sdr.FreqNames.clearImported(this@SettingsActivity); updateFreqListText() }
+                        .setNegativeButton("Cancel", null)
+                        .show()
+                }
+            })
+        })
+        // Its own row: three buttons side by side would be cut off on a narrow screen.
+        box.addView(com.google.android.material.button.MaterialButton(this, null, android.R.attr.borderlessButtonStyle).apply {
+            text = "Watch this list"
+            setOnClickListener {
+                val names = com.rfsentinel.app.sdr.FreqNames.importedNames
+                val (merged, added, left) = com.rfsentinel.app.sdr.RadioSettings.addTargets(watched.text.toString(), names)
+                if (added > 0) watched.setText(merged)
+                Toast.makeText(this@SettingsActivity, when {
+                    names.isEmpty() -> "Import a frequency list first"
+                    left > 0 -> "$added added, $left did not fit: the limit is ${com.rfsentinel.app.sdr.RadioSettings.MAX_TARGETS} watched frequencies"
+                    else -> "$added added to Watch these frequencies"
+                }, Toast.LENGTH_LONG).show()
+            }
+        }, android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        group("radioreference", "RadioReference")
+        val rrSwitch = box.toggle("Name hits from RadioReference", Prefs.radioReferenceOn(this),
+            "Names a hit from RadioReference's database. Needs your own RadioReference Premium login and developer key, stored encrypted on this phone.") {
+            Prefs.setRadioReferenceOn(this, it)
+        }
+        fun secret(title: String, key: String, password: Boolean) {
+            // A label that stays above the field: a hint disappears once something is typed.
+            val label = box.label(title)
+            box.addView(android.widget.EditText(this).apply {
+                id = View.generateViewId(); label.labelFor = id
+                setText(com.rfsentinel.app.util.SecureStore.get(this@SettingsActivity, key).orEmpty())
+                isSingleLine = true
+                inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                    (if (password) android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD else android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS)
+                importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+                setOnFocusChangeListener { v, has ->
+                    if (!has) com.rfsentinel.app.util.SecureStore.put(this@SettingsActivity, key, (v as android.widget.EditText).text.toString().trim())
+                }
+                secretFields += this to key
+            })
+        }
+        secret("Username, not your email", com.rfsentinel.app.sdr.RadioReference.USER_KEY, false)
+        secret("Password", com.rfsentinel.app.sdr.RadioReference.PASS_KEY, true)
+        secret("Developer key", com.rfsentinel.app.sdr.RadioReference.APPKEY_KEY, true)
+        val rrStatus = box.label(com.rfsentinel.app.sdr.RadioReference.status.ifEmpty { "Stored encrypted on this phone." }, small = true)
+        box.addView(com.google.android.material.button.MaterialButton(this, null, android.R.attr.borderlessButtonStyle).apply {
+            text = "Test login"
+            setOnClickListener {
+                saveSecrets()
+                rrStatus.text = "Checking…"
+                lifecycleScope.launch { rrStatus.text = com.rfsentinel.app.sdr.RadioReference.test(this@SettingsActivity) }
+            }
+        })
+        rrSwitch.isChecked = Prefs.radioReferenceOn(this)
+
+        group("connection", "Connection")
         val networkLabel = box.label("Network SDR")
         info(networkLabel, "Uses an RTL-SDR on another device over WiFi, such as an ESP32 board or a computer running " +
             "rtl_tcp. Enter its address and port; the port is ${com.rfsentinel.app.sdr.RtlTcp.DEFAULT_PORT} if left out. A plugged-in " +
@@ -1716,267 +2000,6 @@ class SettingsActivity : AppCompatActivity() {
                 }
             })
         })
-
-        // What the SDR does: any mix; with more than one ticked it takes turns.
-        var showSdrOptions: () -> Unit = {}
-        info(heading("Scan with the SDR"), "Tick what the RTL-SDR or HackRF does while scanning. One SDR hears one thing at a time: " +
-            "with more than one ticked it takes turns, and each scan hears nothing while another has its turn. " +
-            "Tick only one to give it all the time.", "Scan with the SDR")
-        fun scan(t: String, on: Boolean, details: String, save: (Boolean) -> Unit) = android.widget.CheckBox(this).apply {
-            text = t; isChecked = on
-            setOnCheckedChangeListener { _, v -> save(v); showSdrOptions() }
-        }.also { box.addView(infoRow(it, details)) }
-        val sweepBox = scan("Radio activity sweep", Prefs.sdrSweep(this),
-            "Sweeps the radio bands below for strong two-way radio transmissions nearby: signal strength only, nothing decoded. " +
-            "Needs Two-way radio turned on.") { Prefs.setSdrSweep(this, it) }
-        val adsbBox = scan("ADS-B aircraft receiver", Prefs.sdrAdsb(this),
-            "Listens on 1090 MHz for aircraft: police aircraft are found without internet. Needs Police aircraft turned on. " +
-            "A 1090 MHz antenna helps; the stock one hears out to about 50 km.") { Prefs.setSdrAdsb(this, it) }
-        val p25Box = scan("P25 control channel", Prefs.sdrP25(this),
-            "Experimental. Finds the P25 trunked-radio control channel here (700 / 800 MHz, used in the United States and Canada) and " +
-            "follows it: which talkgroups get a channel, and when (Tools › P25 talkgroups). Voice is only played with Listen to P25 voice, below. " +
-            "Needs Two-way radio turned on. On by default when your region is the United States or Canada. Receiving radio " +
-            "signalling is legal in many places but not all, and some forbid it in a vehicle or passing on what you hear: " +
-            "check the law where you are.") { Prefs.setSdrP25(this, it) }
-        val pagerBox = scan("Pager messages", Prefs.sdrPager(this),
-            "Experimental. Finds paging channels and decodes POCSAG and FLEX pages (Tools › Pager messages). Pages stay in the " +
-            "phone's memory: never saved, exported or sent, and gone when the app closes or you untick this. Pages can hold " +
-            "private or medical details. Canada, the United States and many other places restrict using or passing on " +
-            "messages you intercept, and some forbid listening at all: check the law where you are. " +
-            "Needs Two-way radio turned on.") {
-            Prefs.setSdrPager(this, it)
-            if (!it) com.rfsentinel.app.sdr.SdrRadio.pagerLog.clear()
-        }
-        // Each ticked scan's own turn length, shown while it shares the SDR.
-        val turnViews = listOf(sweepBox to com.rfsentinel.app.sdr.SdrRadio.Mode.SWEEP, adsbBox to com.rfsentinel.app.sdr.SdrRadio.Mode.ADSB,
-            p25Box to com.rfsentinel.app.sdr.SdrRadio.Mode.P25, pagerBox to com.rfsentinel.app.sdr.SdrRadio.Mode.PAGER).map { (ticked, m) ->
-            slider(30, 300, Prefs.sdrTurnS(this, m), { "Time for ${m.label}: $it s" }) { Prefs.setSdrTurnS(this, m, it) }
-            info(box.getChildAt(box.childCount - 2), "With more than one scan ticked, the SDR gives ${m.label} this long before the next scan takes " +
-                "its turn. Longer misses less of it; shorter comes back to the other scans sooner.",
-                "Time for ${m.label}")
-            ticked to listOf(box.getChildAt(box.childCount - 2), box.getChildAt(box.childCount - 1))
-        }
-        val pagerFrom = box.childCount
-        heading("Pagers")
-        pagerFreqField = lines("Pager frequencies", "466.075 Fire dispatch", Prefs.pagerFreqs(this),
-            "Leave empty to scan for paging channels. If you know yours, enter it in MHz with an optional name, one per line: the SDR " +
-            "listens there and doesn't scan, so a quiet channel isn't missed. With two or more, the Pager messages screen gets a " +
-            "button for each, to stay on one.") { Prefs.setPagerFreqs(this, it) }
-        box.addView(android.widget.LinearLayout(this).apply {
-            orientation = android.widget.LinearLayout.HORIZONTAL
-            addView(com.google.android.material.button.MaterialButton(this@SettingsActivity, null,
-                android.R.attr.borderlessButtonStyle).apply {
-                text = "Import"
-                setOnClickListener { pagerImport.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel", "*/*")) }
-            })
-            addView(com.google.android.material.button.MaterialButton(this@SettingsActivity, null,
-                android.R.attr.borderlessButtonStyle).apply {
-                text = "Export"
-                setOnClickListener { pagerExport.launch("pager-frequencies.txt") }
-            })
-        })
-        info(box.label("POCSAG speeds"), "Which POCSAG speeds to decode. Fewer use less battery. FLEX is always decoded.", "POCSAG speeds")
-        box.addView(com.google.android.material.chip.ChipGroup(this).apply {
-            chipSpacingHorizontal = dp(6); chipSpacingVertical = 0
-            var now = Prefs.pagerSpeeds(this@SettingsActivity)
-            com.rfsentinel.app.sdr.PagerDemod.SPEEDS.forEach { speed ->
-                addView(com.rfsentinel.app.ui.FitChip(this@SettingsActivity).apply {
-                    text = "$speed"; isCheckable = true
-                    com.rfsentinel.app.ui.ChipStyle.apply(this)
-                    isChecked = speed in now
-                    contentDescription = "POCSAG $speed baud"
-                    setOnClickListener {
-                        now = if (isChecked) now + speed else now - speed
-                        Prefs.setPagerSpeeds(this@SettingsActivity, now)
-                    }
-                })
-            }
-        })
-        lines("Watch these pagers", "1234567 Station 4\ncardiac arrest", Prefs.pagerWatch(this),
-            "Alerts when a page matches. One per line: a capcode, also called a RIC, with an optional name, or words to find in the " +
-            "page. A line starting with a number is a capcode. One alert a minute at most for each line.") { Prefs.setPagerWatch(this, it) }
-        lines("Ignore these pagers", "1234567", Prefs.pagerIgnore(this),
-            "Pages to these capcodes, one per line, are dropped: no list entry, no alert.") { Prefs.setPagerIgnore(this, it) }
-        info(box.label("Pager alerts"), "How a watched page reaches you. Untick Sound and Voice for silent alerts.", "Pager alerts")
-        box.addView(alertKindChips(Prefs.pagerAlertsOff(this), false, "pager watches") { Prefs.setPagerAlertsOff(this, it) })
-        scan("Show page text in alerts", Prefs.pagerAlertText(this),
-            "Off: the alert only says a page matched, and you read it in Tools › Pager messages. On: the page's text is also on the " +
-            "notification, and in Android Auto when connected. It is still never saved or spoken.") { Prefs.setPagerAlertText(this, it) }
-        val pagerViews = (pagerFrom until box.childCount).map { box.getChildAt(it) }
-        val p25From = box.childCount
-        heading("P25")
-        lines("Watch these talkgroups", "1234 Sheriff dispatch\n2001", Prefs.p25Talkgroups(this),
-            "P25: alerts when a call starts on one of them, and names them on the P25 talkgroups screen. One per line: the " +
-            "talkgroup number, with an optional name. 23* watches every talkgroup starting with 23 (2300, 2301, 2307...), and * every " +
-            "talkgroup; a line with the exact number keeps its own name.") { Prefs.setP25Talkgroups(this, it) }
-        info(box.label("Talkgroup alerts"), "How P25 alerts reach you: a watched talkgroup's call starting, a radio keying up nearby and " +
-            "unusual talkgroup activity. Untick Voice or Sound so they don't talk or beep over P25 voice. Other radio alerts follow " +
-            "the Two-way radio category in What to detect.", "Talkgroup alerts")
-        box.addView(alertKindChips(Prefs.p25AlertsOff(this), false, "P25 talkgroups") { Prefs.setP25AlertsOff(this, it) })
-        slider(0, 60, Prefs.p25LogDays(this), { if (it == 0) "Keep the P25 call log: off" else "Keep the P25 call log: $it days" }) {
-            Prefs.setP25LogDays(this, it)
-        }
-        info(box.getChildAt(box.childCount - 2), "Every call the control channel grants (time, talkgroup, radio, channel) is kept on the " +
-            "phone this long, for P25 talkgroups › History and Export: no internet or talkgroup list needed. About 1 MB per busy day. " +
-            "0 keeps nothing and deletes the log.", "Keep the P25 call log")
-        scan("Alert on unusual talkgroup activity", Prefs.p25Unusual(this),
-            "Compares each talkgroup's calls in the last hour with the same hour on the days before, from the call log. Alerts when " +
-            "one is at least three times busier than usual, or busy for the first time. Starts after the log has " +
-            "${com.rfsentinel.app.sdr.P25History.BASELINE_DAYS} days in it, and needs the call log kept.") { Prefs.setP25Unusual(this, it) }
-        scan("Listen for radios keying up nearby", Prefs.p25Inputs(this),
-            "When a call starts, the SDR leaves the control channel for a fraction of a second and listens where that call's radio " +
-            "transmits. A strong signal there means the radio talking is close to you, not just somewhere the site covers. At most " +
-            "once every few seconds; the control channel misses a few messages each time. Uses the radio sweep's sensitivity.") {
-            Prefs.setP25Inputs(this, it)
-        }
-        scan("Record P25 voice calls", Prefs.p25Record(this),
-            "For testing P25 voice: when a clear (not encrypted) call starts, the SDR leaves the control channel for " +
-            "${com.rfsentinel.app.sdr.P25Record.SECONDS} s and saves that call's radio signal to a file, about 1 MB each. Nothing " +
-            "is decoded or played. At most one call every 20 s; the last ${com.rfsentinel.app.sdr.P25Record.KEEP} are kept. " +
-            "Share them with the button below. Recording radio calls is not allowed everywhere: check the law where you are.") {
-            Prefs.setP25Record(this, it)
-        }
-        box.addView(com.google.android.material.button.MaterialButton(this, null, android.R.attr.borderlessButtonStyle).apply {
-            text = "Share P25 recordings"
-            setOnClickListener { shareP25Recordings() }
-        })
-        box.addView(infoRow(choiceRow("Listen to P25 voice", listOf("Off", "Watched talkgroups", "All clear calls"), Prefs.p25Listen(this)) {
-            Prefs.setP25Listen(this, it)
-        }, "Experimental. Plays clear (not encrypted) P25 calls as they happen, through the speaker, headphones or car like other audio. " +
-            "The SDR leaves the control channel for the call and misses its messages meanwhile: one call at a time, at most " +
-            "2 minutes each. Watched talkgroups: only those in Watch these talkgroups. Mute on the P25 talkgroups screen pauses it; Hold there (or tapping a talkgroup) plays only that talkgroup and keeps the SDR on P25 until Release. " +
-            "Encrypted calls can't be played. Listening to radio calls is not allowed everywhere, and some places forbid it in " +
-            "a vehicle: check the law where you are.", "Listen to P25 voice"))
-        val talkgroupViews = (p25From until box.childCount).map { box.getChildAt(it) }
-        var sweepViews = emptyList<View>() // the sweep's own settings, below
-        showSdrOptions = {
-            val ticked = listOf(sweepBox, adsbBox, p25Box, pagerBox).count { it.isChecked }
-            turnViews.forEach { (scan, views) -> views.forEach { it.shownIf(ticked > 1 && scan.isChecked) } }
-            talkgroupViews.forEach { it.shownIf(p25Box.isChecked) }
-            pagerViews.forEach { it.shownIf(pagerBox.isChecked) }
-            sweepViews.forEach { it.shownIf(sweepBox.isChecked) }
-        }
-        val sweepFrom = box.childCount
-        heading("Radio sweep")
-        slider(com.rfsentinel.app.sdr.RadioWatch.MIN_SNR_SETTING, com.rfsentinel.app.sdr.RadioWatch.MAX_SNR_SETTING, Prefs.radioMinSnr(this),
-            { "Sensitivity: $it dB above the noise" }) {
-            Prefs.setRadioMinSnr(this, it)
-        }
-        info(box.getChildAt(box.childCount - 2), "A radio is reported once its signal is this far above the noise. Lower hears farther, with more false alarms. " +
-            "Below about 10 dB the noise's own flicker sets off some alerts: good for testing how far a known radio carries " +
-            "(a fire station's TETRA, say), noisy for everyday use.", "Sensitivity")
-        box.label("Bands to sweep")
-        val off = Prefs.radioBandsOff(this).toMutableSet()
-        for ((key, band) in com.rfsentinel.app.sdr.RadioSettings.BUILT_IN) {
-            box.addView(android.widget.CheckBox(this).apply {
-                text = "%s · %.1f-%.1f MHz".format(java.util.Locale.US, band.label, band.startHz / 1e6, band.endHz / 1e6)
-                isChecked = key !in off
-                setOnCheckedChangeListener { _, on ->
-                    if (on) off -= key else off += key
-                    Prefs.setRadioBandsOff(this@SettingsActivity, off.toSet())
-                }
-            })
-        }
-        lines("Your own bands", "380-400 TETRA\n220-222", Prefs.radioCustomBands(this), "One per line, in MHz, with an optional name.") { Prefs.setRadioCustomBands(this, it) }
-        lines("Never report these ranges", "462-469 business band\n151.8-152.0", Prefs.radioExcluded(this), "One per line, in MHz.") { Prefs.setRadioExcluded(this, it) }
-        val watched = lines("Watch these frequencies", "154.4300 County fire dispatch\n460.125", Prefs.radioTargets(this),
-            "Always reported when active, whatever the sensitivity. One per line, in MHz, with an optional name.") { Prefs.setRadioTargets(this, it) }
-        box.toggle("Say the frequency", Prefs.radioSpeakFreq(this), "Says the frequency (and its name) instead of \"Radio transmitting nearby\".") { Prefs.setRadioSpeakFreq(this, it) }
-        box.toggle("Detect cellular transmitters", Prefs.radioCellOn(this),
-            "Experimental. Watches the phone / modem side of the LTE bands (uplink) for a transmitter travelling near you: a vehicle modem, a " +
-            "Cradlepoint-style router, a camera with a SIM. Energy only, nothing decoded. Adds time to each sweep; " +
-            "a phone counts too, so it is a weak sign on its own.") { Prefs.setRadioCellOn(this, it) }
-        box.toggle("Detect TETRA radios", Prefs.radioTetraOn(this),
-            "Watches 380-385 MHz, where emergency-service TETRA handsets transmit in Europe and many other countries. " +
-            "A handset sends short time-slot bursts; that rhythm marks it as a TETRA radio. Energy only: TETRA is encrypted " +
-            "and nothing is decoded. On by default when the phone's region is in Europe.") { Prefs.setRadioTetraOn(this, it) }
-        box.toggle("Detect DMR radios", Prefs.radioDmrOn(this),
-            "Experimental. On the VHF and UHF bands, marks a handset sending DMR's 60 ms time-slot bursts. Energy only, nothing " +
-            "decoded. Businesses use DMR too, and a P25 Phase 2 radio looks the same, so it is a weak sign on its own. " +
-            "NXDN has no time slots and can't be told apart. Adds time to each sweep.") { Prefs.setRadioDmrOn(this, it) }
-        slider(0, 20, Prefs.radioTrendDb(this), { if (it == 0) "Closer / moving away: off" else "Say \"getting closer\" / \"moving away\" when the signal changes by $it dB" }) {
-            Prefs.setRadioTrendDb(this, it)
-        }
-        slider(1, 50, Prefs.radioMatchKhz(this), { "A hit takes a frequency's name within ± $it kHz" }) { Prefs.setRadioMatchKhz(this, it) }
-        sweepViews = (sweepFrom until box.childCount).map(box::getChildAt)
-        showSdrOptions()
-
-        heading("Frequency names")
-        freqListText = box.label("", small = true)
-        com.rfsentinel.app.sdr.FreqNames.load(this)
-        updateFreqListText()
-        box.addView(android.widget.LinearLayout(this).apply {
-            orientation = android.widget.LinearLayout.HORIZONTAL
-            addView(com.google.android.material.button.MaterialButton(this@SettingsActivity, null,
-                android.R.attr.borderlessButtonStyle).apply {
-                text = "Import CSV"
-                setOnClickListener { freqListPicker.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel", "*/*")) }
-            })
-            addView(com.google.android.material.button.MaterialButton(this@SettingsActivity, null,
-                android.R.attr.borderlessButtonStyle).apply {
-                text = "Clear list"
-                setOnClickListener {
-                    val n = com.rfsentinel.app.sdr.FreqNames.importedCount
-                    if (n == 0) { Toast.makeText(this@SettingsActivity, "No list imported", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
-                    // Can't be undone: the imported file is gone, so ask first, as Forget saved places does.
-                    MaterialAlertDialogBuilder(this@SettingsActivity)
-                        .setTitle("Clear the frequency list?")
-                        .setMessage("Removes the $n imported frequency names from this phone. Watched frequencies stay.")
-                        .setPositiveButton("Clear") { _, _ -> com.rfsentinel.app.sdr.FreqNames.clearImported(this@SettingsActivity); updateFreqListText() }
-                        .setNegativeButton("Cancel", null)
-                        .show()
-                }
-            })
-        })
-        // Its own row: three buttons side by side would be cut off on a narrow screen.
-        box.addView(com.google.android.material.button.MaterialButton(this, null, android.R.attr.borderlessButtonStyle).apply {
-            text = "Watch this list"
-            setOnClickListener {
-                val names = com.rfsentinel.app.sdr.FreqNames.importedNames
-                val (merged, added, left) = com.rfsentinel.app.sdr.RadioSettings.addTargets(watched.text.toString(), names)
-                if (added > 0) watched.setText(merged)
-                Toast.makeText(this@SettingsActivity, when {
-                    names.isEmpty() -> "Import a frequency list first"
-                    left > 0 -> "$added added, $left did not fit: the limit is ${com.rfsentinel.app.sdr.RadioSettings.MAX_TARGETS} watched frequencies"
-                    else -> "$added added to Watch these frequencies"
-                }, Toast.LENGTH_LONG).show()
-            }
-        }, android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT))
-
-        heading("RadioReference")
-        val rrSwitch = box.toggle("Name hits from RadioReference", Prefs.radioReferenceOn(this),
-            "Names a hit from RadioReference's database. Needs your own RadioReference Premium login and developer key, stored encrypted on this phone.") {
-            Prefs.setRadioReferenceOn(this, it)
-        }
-        fun secret(title: String, key: String, password: Boolean) {
-            // A label that stays above the field: a hint disappears once something is typed.
-            val label = box.label(title)
-            box.addView(android.widget.EditText(this).apply {
-                id = View.generateViewId(); label.labelFor = id
-                setText(com.rfsentinel.app.util.SecureStore.get(this@SettingsActivity, key).orEmpty())
-                isSingleLine = true
-                inputType = android.text.InputType.TYPE_CLASS_TEXT or
-                    (if (password) android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD else android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS)
-                importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
-                setOnFocusChangeListener { v, has ->
-                    if (!has) com.rfsentinel.app.util.SecureStore.put(this@SettingsActivity, key, (v as android.widget.EditText).text.toString().trim())
-                }
-                secretFields += this to key
-            })
-        }
-        secret("Username, not your email", com.rfsentinel.app.sdr.RadioReference.USER_KEY, false)
-        secret("Password", com.rfsentinel.app.sdr.RadioReference.PASS_KEY, true)
-        secret("Developer key", com.rfsentinel.app.sdr.RadioReference.APPKEY_KEY, true)
-        val rrStatus = box.label(com.rfsentinel.app.sdr.RadioReference.status.ifEmpty { "Stored encrypted on this phone." }, small = true)
-        box.addView(com.google.android.material.button.MaterialButton(this, null, android.R.attr.borderlessButtonStyle).apply {
-            text = "Test login"
-            setOnClickListener {
-                saveSecrets()
-                rrStatus.text = "Checking…"
-                lifecycleScope.launch { rrStatus.text = com.rfsentinel.app.sdr.RadioReference.test(this@SettingsActivity) }
-            }
-        })
-        rrSwitch.isChecked = Prefs.radioReferenceOn(this)
     }
 
     /** The RadioReference fields, saved (encrypted) when they lose focus and when leaving Settings. */
