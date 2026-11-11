@@ -91,9 +91,11 @@ object SdrRadio {
     @Volatile private var turnEnd = 0L
     /** The scans that get turns: P25 alone while a talkgroup is held ([p25Hold]). */
     private val active get() = if (p25Hold != null) setOf(Mode.P25) else modes
-    /** [m] keeps the SDR: its turn, still ticked, and the waterfall not zoomed in. */
-    private fun keeps(m: Mode) = mode == m && m in active && tuneHz == null && antennaCheck == null && !reapplyNow &&
-        (active.size == 1 || System.currentTimeMillis() < turnEnd)
+    /** The waterfall screen is open: the sweep keeps the SDR so it always draws (a held P25 talkgroup still wins). */
+    private val sweepHeld get() = SdrWaterfall.listening && p25Hold == null
+    /** [m] keeps the SDR: its turn, still ticked (or the waterfall holds the sweep), and the waterfall not zoomed in. */
+    private fun keeps(m: Mode) = mode == m && tuneHz == null && antennaCheck == null && !reapplyNow &&
+        if (sweepHeld) m == Mode.SWEEP else m in active && (active.size == 1 || System.currentTimeMillis() < turnEnd)
 
     /** Bias-tee or frequency correction changed: applied by the worker between turns ([reapplyNow]: cut this one short). */
     @Volatile private var reapply = false
@@ -148,10 +150,20 @@ object SdrRadio {
         deviceSettingsChanged()
     }
     /** The scan after the current one, round the ticked ones. */
-    private fun next(): Mode? = Mode.entries.filter { it in active }.let { l -> l.firstOrNull { it.ordinal > (mode?.ordinal ?: -1) } ?: l.firstOrNull() }
+    private fun next(): Mode? = nextAfter(mode, active)
+    private fun nextAfter(m: Mode?, active: Set<Mode>): Mode? =
+        Mode.entries.filter { it in active }.let { l -> l.firstOrNull { it.ordinal > (m?.ordinal ?: -1) } ?: l.firstOrNull() }
+    /**
+     * Whose turn it is now, and the scan to give it back to later: [held] (the waterfall open) keeps the sweep and
+     * remembers the scan it cut short; back from the waterfall ([resume], or [tuned]: zoomed in), that scan carries on.
+     */
+    internal fun pickTurn(held: Boolean, mode: Mode?, tuned: Boolean, resume: Mode?, active: Set<Mode>): Pair<Mode?, Mode?> =
+        if (held) Mode.SWEEP to (if (mode != Mode.SWEEP) mode else resume)
+        else ((resume ?: mode?.takeIf { tuned })?.takeIf { it in active } ?: nextAfter(mode, active)) to null
     /** " · ADS-B in 40 s" while taking turns, or " · holding talkgroup 1234", for the status line. */
     private fun turnNote(): String {
         p25Hold?.let { return " · holding talkgroup $it" }
+        if (sweepHeld) return if (modes.any { it != Mode.SWEEP }) " · other scans wait while the waterfall is open" else ""
         if (modes.size < 2) return ""
         val left = ((turnEnd - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
         return " · ${next()?.label} in $left s"
@@ -429,13 +441,17 @@ object SdrRadio {
         biasOn = false; freqFixes = 0; adsbGain = AdsbGain()
         applyDeviceSettings(sdr, start = true)
         var tuned = false
+        // The scan the open waterfall cut short: its turn again once the screen closes.
+        var resume: Mode? = null
         while (!halted && !sdr.lost && !gone(name)) {
             // Settings changed mid-turn: apply them, then the interrupted scan carries on.
             if (reapply) { applyDeviceSettings(sdr, start = false); tuned = true }
             antennaCheck?.let { ask -> antennaCheck = null; ask(runCatching { checkAntenna(sdr) }.getOrDefault(AntennaReading(0, 0, 0, 0, ok = false))); tuned = true }
             if (tuneHz != null) { runTuned(sdr, name); tuned = true; continue }
-            // Back from the waterfall: the scan it interrupted gets its turn again, not the next one.
-            val m = mode?.takeIf { tuned && it in active } ?: next()
+            val held = sweepHeld
+            if (held && mode != Mode.SWEEP) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: radio sweep while the waterfall is open")
+            val (m, after) = pickTurn(held, mode, tuned, resume, active)
+            resume = after
             tuned = false
             if (m == null) {
                 mode = null
@@ -443,7 +459,7 @@ object SdrRadio {
                 Thread.sleep(500); continue
             }
             val turn = turnMs[m] ?: 60_000L
-            if (active.size > 1) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: turn: ${m.label} for ${turn / 1000} s")
+            if (!held && active.size > 1) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: turn: ${m.label} for ${turn / 1000} s")
             mode = m; turnEnd = System.currentTimeMillis() + turn
             when (m) {
                 Mode.SWEEP -> runSweep(sdr, name)
@@ -611,6 +627,8 @@ object SdrRadio {
                     cfg.bands.firstOrNull { RadioWatch.covers(it, center) }?.label)
                 if (logAll) heard += P25Hunt.candidates(center, psd, sdr.sampleRate)
                 for (e in watch.analyze(center, psd, sdr.sampleRate, System.currentTimeMillis(), bursts)) {
+                    // Swept only for the open waterfall (radio sweep not ticked): nothing reported.
+                    if (Mode.SWEEP !in active) continue
                     if (!e.repeat) {
                         events++
                         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: transmission ${e.mhz} MHz, ${e.snrDb} dB above the noise (${e.band.label})" +

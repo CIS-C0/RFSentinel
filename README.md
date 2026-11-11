@@ -830,7 +830,8 @@ hardware. **Settings → RTL-SDR radio**:
   on / off, **your own bands**, **ranges never to report** (e.g. a business band)
   and **frequencies to watch** (reported whenever they're active), one per line in MHz.
 - **Radio waterfall** (Tools → *Radio waterfall*): a live picture of the watched
-  bands, one row per sweep, while detection carries on. Tap a signal (or **Tune**) to
+  bands, one row per sweep, while detection carries on (ADS-B, P25 and pager turns wait
+  while the screen is open, so it always draws). Tap a signal (or **Tune**) to
   zoom in on about 2 MHz around it in real time; radio detection pauses until **Back
   to sweep** or you leave the screen. Zoomed in, **Tune → Listen** plays the frequency
   through the phone: wide FM for broadcast radio, AM for the airband and CB, narrow FM
