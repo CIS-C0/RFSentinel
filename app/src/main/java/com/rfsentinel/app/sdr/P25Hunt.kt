@@ -58,7 +58,7 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
         sdr.setSampleRate(P25Demod.SAMPLE_RATE)
         val plan = plan()
         val scan = scan(sdr, plan, stop) ?: return null
-        val ranked = strongest(scan.found)
+        val ranked = strongest(scan.found.filter { inBands(it.hz) })
         val tries = ranked.take(MAX_TRIES)
         // Frequencies and network codes stay off the log (they name the local system); bands and levels say enough.
         log("P25 scan: ${plan.size} steps, tuner didn't lock ${scan.unlocked}, no samples ${scan.short}, ${ranked.size} channels " +
@@ -199,6 +199,9 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
 
         /** Tuned centres a little closer than the usable width: every channel is seen twice, once well away from DC. */
         private const val STEP_HZ = 750_000L
+
+        /** The edge chunks see past the bands (870 MHz and up is cell-phone downlink): only peaks inside count. */
+        internal fun inBands(hz: Long) = BANDS.any { hz in it }
 
         internal fun plan(bands: List<LongRange> = BANDS): List<Long> =
             bands.flatMap { b -> generateSequence(b.first - STEP_HZ / 2) { it + STEP_HZ }.takeWhile { it <= b.last + STEP_HZ / 2 }.toList() }

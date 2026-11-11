@@ -128,7 +128,7 @@ object SdrRadio {
         if (start || kotlin.math.abs(ppm - sdr.ppm) >= 0.01) {
             val changed = !start && kotlin.math.abs(ppm - sdr.ppm) >= 0.01
             sdr.ppm = ppm
-            if (start && ppm != 0.0 || changed) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: frequency correction %+.1f ppm".format(java.util.Locale.US, ppm))
+            if (start && ppm != 0.0 || changed) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: frequency correction " + "%+.1f ppm".format(java.util.Locale.US, ppm))
             // Everything learned so far was heard through the old correction: learn it again.
             if (changed) { sweepWatch = null; p25Lock = null; pagerHz = null }
         }
@@ -143,8 +143,8 @@ object SdrRadio {
         freqFix = null
         freqFixes++
         com.rfsentinel.app.util.Prefs.setSdrPpm(c, ppm.toFloat(), deviceKey)
-        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: frequency correction learned from the P25 control channel: %+.1f ppm (was %+.1f)"
-            .format(java.util.Locale.US, ppm, fix.appliedPpm))
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: frequency correction learned from the P25 control channel: " +
+            "%+.1f ppm (was %+.1f)".format(java.util.Locale.US, ppm, fix.appliedPpm))
         deviceSettingsChanged()
     }
     /** The scan after the current one, round the ticked ones. */
