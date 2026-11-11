@@ -72,6 +72,7 @@ class WaterfallActivity : AppCompatActivity() {
         super.onStart()
         if (demo) demoFeed.start() else {
             SdrWaterfall.listener = onRow
+            SdrRadio.screenOpened()
             // So a log lines up with what the person saw (and screenshots of it).
             com.rfsentinel.app.util.HwLogs.sdr.log("Radio waterfall screen opened")
         }
@@ -85,7 +86,7 @@ class WaterfallActivity : AppCompatActivity() {
         }
         queue.clear()
         // Radio detection never stays paused behind a closed screen (a redraw for a new theme comes straight back).
-        if (!isChangingConfigurations) { SdrRadio.listen = false; tuneHz = null }
+        if (!isChangingConfigurations) { if (!demo) SdrRadio.screenClosed(); SdrRadio.listen = false; tuneHz = null }
     }
 
     override fun onSupportNavigateUp(): Boolean { finish(); return true }

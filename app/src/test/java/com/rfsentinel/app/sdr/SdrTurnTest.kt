@@ -42,6 +42,30 @@ class SdrTurnTest {
         assertEquals(false, SdrRadio.resetBack(null, 0L, "0bda:2838", 1_400L))
     }
 
+    private fun set(field: String, v: Any?) = SdrRadio::class.java.getDeclaredField(field).apply { isAccessible = true }.set(SdrRadio, v)
+
+    @Test
+    fun theWaterfallGetsItsFrequencyBackAfterAReset() {
+        try {
+            // Zoomed in and listening when the dongle reset itself; Android's USB prompt closed the screen.
+            set("resetAt", System.currentTimeMillis())
+            SdrRadio.tuneHz = 462_562_500L; SdrRadio.listen = true
+            SdrRadio.screenClosed(); SdrRadio.tuneHz = null; SdrRadio.listen = false
+            SdrRadio.screenOpened()
+            assertEquals(462_562_500L, SdrRadio.tuneHz); assertEquals(true, SdrRadio.listen)
+            // Given back once: the Sweep button afterwards isn't undone by the next open.
+            SdrRadio.tuneHz = null; SdrRadio.listen = false
+            SdrRadio.screenOpened()
+            assertEquals(null, SdrRadio.tuneHz)
+            // No reset (closed the screen normally): it opens on the sweep as before.
+            set("resetAt", 0L)
+            SdrRadio.tuneHz = 462_562_500L
+            SdrRadio.screenClosed(); SdrRadio.tuneHz = null
+            SdrRadio.screenOpened()
+            assertEquals(null, SdrRadio.tuneHz)
+        } finally { set("resetAt", 0L); set("resetTune", null); SdrRadio.tuneHz = null; SdrRadio.listen = false }
+    }
+
     @Test
     fun turnsGoRoundAsBefore() {
         assertEquals(Mode.P25 to null, SdrRadio.pickTurn(false, Mode.ADSB, false, null, all))

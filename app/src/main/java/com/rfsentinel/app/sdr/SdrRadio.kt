@@ -112,6 +112,8 @@ object SdrRadio {
     /** When the dongle came back from a reset: its next statuses say so until it runs again. */
     @Volatile private var resetAt = 0L
     private val resetting get() = System.currentTimeMillis() - resetAt < 60_000L
+    /** Where the waterfall was zoomed in (and listening) when the dongle dropped off: given back if it was only a reset. */
+    @Volatile private var resetTune: Pair<Long, Boolean>? = null
     private var freqFix: FreqCorrection? = null
     private var freqFixes = 0
     private var biasOn = false
@@ -288,6 +290,8 @@ object SdrRadio {
                             deviceOf(intent)?.let { d ->
                                 if (resetBack(goneId, goneAt, "%04x:%04x".format(d.vendorId, d.productId), System.currentTimeMillis())) {
                                     resetAt = System.currentTimeMillis(); goneId = null
+                                    // Still zoomed in (the screen stayed open): the run picks it up again, nothing to give back.
+                                    if (tuneHz != null) resetTune = null
                                     com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel dropped off USB and came back: it reset itself (a strong signal close to the antenna, or a power dip) - reconnecting")
                                     status = "$deviceLabel reset itself · reconnecting…"
                                 }
@@ -334,7 +338,19 @@ object SdrRadio {
     }
 
     /** The running USB dongle just went away: remembered, to tell a reset (back at once) from an unplug. */
-    private fun droppedOff() { goneId = deviceKey.substringBefore('/'); goneAt = System.currentTimeMillis() }
+    private fun droppedOff() { goneId = deviceKey.substringBefore('/'); goneAt = System.currentTimeMillis(); resetTune = tuneHz?.let { it to listen } }
+
+    /** The waterfall screen is closing (Android's USB prompt after a reset can close it): keep its frequency for [screenOpened]. */
+    fun screenClosed() { if (resetting) tuneHz?.let { resetTune = it to listen } }
+
+    /** The waterfall screen is open: back on the frequency it held before the dongle reset itself. */
+    fun screenOpened() {
+        val back = resetTune?.takeIf { resetting && tuneHz == null }
+        resetTune = null
+        if (back == null) return
+        tuneHz = back.first; listen = back.second
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: back on " + "%.4f MHz".format(java.util.Locale.US, back.first / 1e6) + " after the reset")
+    }
 
     /** "RTL-SDR unplugged" stays a little, then leaves the hardware status (unless it came back). */
     private fun clearUnpluggedSoon() = main.postDelayed({ if (status == UNPLUGGED) status = "" }, 15_000L)
