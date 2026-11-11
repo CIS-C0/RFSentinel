@@ -122,11 +122,19 @@ object OuiSpyBle {
 
     fun stop() = main.post { stopNow() }
 
+    /** Forgets the remembered board, connected or not: no more reconnect attempts. Other paired radios stay. */
+    fun forget(context: Context) {
+        com.rfsentinel.app.util.Prefs.setOuiSpyBoard(context, null)
+        stop()
+    }
+
     @SuppressLint("MissingPermission") // checked by canConnect()
     private fun stopNow() {
         active = false
         setLive(false)
         main.removeCallbacksAndMessages(null)
+        // Also between reconnect attempts (no link open), or "reconnecting…" stays on screen.
+        setStatus("")
         val g = gatt ?: return
         // Switch our engines off so the board goes quiet, then let go.
         val ctl = g.getService(OuiSpyBleProtocol.SERVICE)?.getCharacteristic(OuiSpyBleProtocol.ENGINE_CONTROL)
@@ -135,7 +143,6 @@ object OuiSpyBle {
         closer.postDelayed({ runCatching { g.disconnect(); g.close() } }, 300)
         closingUntil = System.currentTimeMillis() + 300 + CLOSE_SETTLE_MS
         gatt = null
-        setStatus("")
     }
 
     @SuppressLint("MissingPermission")

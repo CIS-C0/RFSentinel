@@ -35,6 +35,7 @@ import kotlinx.coroutines.launch
 class SettingsActivity : AppCompatActivity() {
 
     companion object {
+        private const val FORGET_OUI_SPY = "Forget the paired board"
         /** Opens Settings on one section (expanded and scrolled to): e.g. [SECTION_MAP] from the map. */
         const val EXTRA_SECTION = "open_section"
         const val SECTION_MAP = "map"
@@ -634,7 +635,10 @@ class SettingsActivity : AppCompatActivity() {
 
     private val ouiSpyConnectPermission = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-    ) { granted -> if (granted) pairOuiSpy() }
+    ) { granted ->
+        // Forgetting needs no Bluetooth permission: still offer it.
+        if (granted) pairOuiSpy() else if (Prefs.ouiSpyBoard(this) != null) showOuiSpyBoards(emptyList())
+    }
 
     /**
      * Picks the OUI-SPY board among the boards nearby: a few seconds' search for the OUI-SPY service (scanning
@@ -648,6 +652,8 @@ class SettingsActivity : AppCompatActivity() {
             .setTitle("Looking for OUI-SPY boards…")
             .setMessage("Keep the board powered and close by.")
             .setNegativeButton("Cancel", null)
+            // An offline board is never found: let it be forgotten without waiting for the search.
+            .apply { if (Prefs.ouiSpyBoard(this@SettingsActivity) != null) setNeutralButton(FORGET_OUI_SPY) { _, _ -> forgetOuiSpy() } }
             .show()
         com.rfsentinel.app.esp.OuiSpyBle.find(this) { found ->
             if (!looking.isShowing || isFinishing || isDestroyed) return@find
@@ -684,7 +690,7 @@ class SettingsActivity : AppCompatActivity() {
             .sortedByDescending { it.rssi }
         val current = Prefs.ouiSpyBoard(this)
         val labels = boards.map { "${it.name}  (${it.mac}, ${it.rssi} dBm)" }.toMutableList()
-        if (current != null) labels += "Forget the paired board"
+        if (current != null) labels += FORGET_OUI_SPY
         if (labels.isEmpty()) {
             MaterialAlertDialogBuilder(this)
                 .setTitle("No OUI-SPY board found")
@@ -705,18 +711,24 @@ class SettingsActivity : AppCompatActivity() {
                 if (i < boards.size) {
                     Prefs.setOuiSpyBoard(this, boards[i].mac)
                     Toast.makeText(this, "Paired - RF Sentinel connects to it while scanning", Toast.LENGTH_LONG).show()
-                } else {
-                    Prefs.setOuiSpyBoard(this, null)
-                    com.rfsentinel.app.esp.OuiSpyBle.stop()
-                }
-                updateEspStatus()
-                // Apply to a running scan right away.
-                if (com.rfsentinel.app.service.ScanForegroundService.isRunning) {
-                    com.rfsentinel.app.service.ScanForegroundService.start(this)
-                }
+                    ouiSpyChanged()
+                } else forgetOuiSpy()
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun forgetOuiSpy() {
+        com.rfsentinel.app.esp.OuiSpyBle.forget(this)
+        ouiSpyChanged()
+    }
+
+    private fun ouiSpyChanged() {
+        updateEspStatus()
+        // Apply to a running scan right away.
+        if (com.rfsentinel.app.service.ScanForegroundService.isRunning) {
+            com.rfsentinel.app.service.ScanForegroundService.start(this)
+        }
     }
 
     /** A foldable settings section: its header, its content and what the ⓘ button explains. */
