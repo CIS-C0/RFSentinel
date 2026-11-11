@@ -161,8 +161,8 @@ class WaterfallActivity : AppCompatActivity() {
         val tuned = tuneHz
         if (showingTuned != (tuned != null)) {
             showingTuned = tuned != null
+            // The view carries the picture over by frequency: nothing seen is wiped.
             queue.clear()
-            binding.waterfall.clear()
         }
         val running = this.running
         binding.waterfall.focusHz = tuned
@@ -179,7 +179,7 @@ class WaterfallActivity : AppCompatActivity() {
                 " Pinch to zoom; tap or use the arrow keys to move; Tune › Listen plays it; Back to sweep starts the radio sweep again."
             SdrRadio.p25Hold != null -> "The SDR is holding a P25 talkgroup. Tune to look at a frequency."
             else -> "A row per sweep of your bands, newest on top; ADS-B, P25 and pagers wait while this screen is open. " +
-                "Bright marks are signals: pinch to look closer, tap one to tune to it, or tap Tune to pick from a list."
+                "Bright marks are signals: tap or pinch to look closer, tap again at 8× to tune to one, or tap Tune to pick from a list."
         }
         // Always in place, so the buttons never move; usable only while zoomed in on a frequency.
         binding.sweepButton.isEnabled = running && tuned != null

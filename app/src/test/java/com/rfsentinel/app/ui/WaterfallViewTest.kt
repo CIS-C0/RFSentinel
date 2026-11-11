@@ -135,6 +135,38 @@ class WaterfallViewTest {
         v.onTouchEvent(ev(MotionEvent.ACTION_UP, cx - to / 2))
     }
 
+    @Test fun aTapOnTheSweepZoomsInOnThatSpotAndKeepsTheRows() {
+        val v = view()
+        v.add(SdrWaterfall.Row(listOf(seg(150_000_000L, -50f), seg(151_600_000L, -50f)), tuned = false, at = 0, sweep = 1))
+        v.add(SdrWaterfall.Row(listOf(seg(150_000_000L, -50f), seg(151_600_000L, -50f)), tuned = false, at = 0, sweep = 2))
+        val spot = 150_000_000L + (3_200_000L * 600.5 / w).toLong()
+        // 2x, 4x, 8x: the picture zooms, nothing tunes, no row is lost.
+        assertNull(tap(v, 600f)); assertNull(tap(v, w / 2f)); assertNull(tap(v, w / 2f))
+        assertEquals(2, lines(v))
+        // At full zoom a tap tunes, to the spot first tapped (now in the middle).
+        assertEquals(spot.toDouble(), tap(v, w / 2f)!!.toDouble(), 10_000.0)
+    }
+
+    @Test fun tuningKeepsWhatWasSeenAndBackToSweepGivesTheSweepBack() {
+        val v = view()
+        val sweep = { id: Long -> SdrWaterfall.Row(listOf(seg(150_000_000L, -50f), seg(151_600_000L, -50f)), tuned = false, at = 0, sweep = id) }
+        for (id in 1L..3L) v.add(sweep(id))
+        assertEquals(3, lines(v))
+        // Tuned inside the sweep's bands: its rows stay on screen, stretched to the tuned span.
+        v.add(tunedRow(center = 151_600_000L))
+        assertTrue("sweep rows carried into the tuned view: ${lines(v)}", lines(v) > 3)
+        val tunedLines = lines(v)
+        // Moving nearby keeps them too.
+        v.add(tunedRow(center = 151_800_000L))
+        assertTrue(lines(v) >= tunedLines)
+        // Back to the sweep: the three sweep rows come back, plus the new one.
+        v.add(sweep(4))
+        assertEquals(4, lines(v))
+        // Tuned somewhere the picture never covered: nothing to carry, no stale rows.
+        v.add(tunedRow(center = 400_000_000L))
+        assertEquals(1, lines(v))
+    }
+
     @Test fun aTapTunesToTheFrequencyUnderTheFinger() {
         val v = view(); v.add(tunedRow())
         assertEquals(hzAt(400f).toDouble(), tap(v, 400f)!!.toDouble(), 3_000.0)

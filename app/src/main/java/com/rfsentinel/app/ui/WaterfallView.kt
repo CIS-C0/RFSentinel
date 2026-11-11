@@ -23,7 +23,8 @@ import kotlin.math.abs
 /**
  * The radio waterfall: the latest spectrum as a line on top, and below it every row so far, newest at
  * the top, from dark (noise) to bright (a strong signal). The colour scale follows the noise floor, so
- * it reads the same with any antenna. Tap to pick a frequency ([onTap]); pinch to zoom the picture, drag to move it.
+ * it reads the same with any antenna. Tap or pinch to zoom the picture, drag to move it; a tap at full zoom (or zoomed in on
+ * a frequency) picks that frequency ([onTap]).
  */
 class WaterfallView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
 
@@ -87,7 +88,7 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
     }).apply { isQuickScaleEnabled = false } // a double tap would also be two taps that tune
 
     init {
-        // Screen readers: double tap zooms in on the strongest signal shown, as tapping on it would.
+        // Screen readers: double tap tunes to the strongest signal shown, as tapping on it at full zoom would.
         ViewCompat.replaceAccessibilityAction(this, AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_CLICK,
             "zoom in on the strongest signal") { _, _ -> strongest()?.let { onTap?.invoke(it); true } ?: false }
     }
@@ -104,10 +105,11 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
     private val labelH get() = textPaint.textSize + 6 * density
     private val waterTop get() = spectrumH + labelH
 
-    /** Forgets every row (the view switched between the sweep and a single frequency). */
+    /** Forgets every row. */
     fun clear() {
         layoutKey = ""; rows = 0; spectrum = null; peak = null; floor = Float.NaN; zoom = 1f; panX = 0f; lastSweep = -1L
         bitmap?.eraseColor(Color.BLACK)
+        savedSweep?.bmp?.recycle(); savedSweep = null
         invalidate()
     }
 
@@ -154,10 +156,21 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
 
     private var lastSweep = -1L
 
+    /** A picture's rows and where each column sits in frequency, to carry them into a new layout. */
+    private class Picture(val bmp: Bitmap, val colHz: LongArray, val rows: Int, val newest: Int, val rowPx: Float, val key: String)
+    /** The sweep's picture while a frequency is tuned: Back to sweep shows it again. */
+    private var savedSweep: Picture? = null
+    private fun rowPxFor(tuned: Boolean) = if (tuned) 1f else 4 * density
+
     private fun relayout(row: SdrWaterfall.Row, w: Int, key: String) {
-        // Only the size changed (the phone turned): the rows so far are kept, stretched to the new width.
-        val old = bitmap?.takeIf { key == layoutKey && rows > 0 && !it.isRecycled }
-        val oldRows = rows; val oldNewest = newest
+        val sizeOnly = key == layoutKey
+        val modeChanged = layoutKey.isEmpty() || row.tuned != tuned
+        val current = bitmap?.takeIf { rows > 0 && !it.isRecycled }?.let { Picture(it, colHz, rows, newest, rowPxFor(tuned), layoutKey) }
+        // Tuning from the sweep keeps the sweep's picture aside; back on the same bands, it comes back whole.
+        var src = current
+        var keepOld = false
+        if (row.tuned && !tuned && current != null) { savedSweep?.bmp?.recycle(); savedSweep = current; keepOld = true }
+        if (!row.tuned && tuned) savedSweep?.let { sv -> savedSweep = null; if (sv.key == key && !sv.bmp.isRecycled) src = sv else sv.bmp.recycle() }
         layoutKey = key; layoutW = w; layoutH = height; tuned = row.tuned
         val segs = row.segments
         val total = segs.sumOf { it.endHz - it.startHz }.coerceAtLeast(1)
@@ -180,30 +193,54 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
         }
         gaps = gapList.toIntArray()
         // The sweep gives a line every few seconds: taller rows, so the history isn't a thin strip.
-        val rowPx = if (row.tuned) 1f else 4 * density
+        val rowPx = rowPxFor(row.tuned)
         val h = ((height - waterTop) / rowPx).toInt().coerceAtLeast(1)
         val fresh = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.BLACK) }
-        pixels = IntArray(w); newest = 0; rows = 0; spectrum = null; peak = null
-        if (old != null) {
-            // Newest first from row 0, as the screen shows them; the next row goes in above (ring buffer).
-            val c = Canvas(fresh)
-            val keep = minOf(oldRows, h)
-            val first = minOf(keep, old.height - oldNewest)
-            c.drawBitmap(old, Rect(0, oldNewest, old.width, oldNewest + first), Rect(0, 0, w, first), bitmapPaint)
-            if (keep > first) c.drawBitmap(old, Rect(0, 0, old.width, keep - first), Rect(0, first, w, keep), bitmapPaint)
-            rows = keep
-        } else {
-            floor = Float.NaN
+        pixels = IntArray(w); newest = 0; spectrum = null; peak = null
+        rows = src?.let { carry(it, fresh, rowPx) } ?: 0
+        if (!sizeOnly) {
+            floor = Float.NaN; lastSweep = -1L
             // Zoomed in on a frequency and moved to another: keep the zoom, centred on it. New sweep bands: show them all.
             if (row.tuned) {
+                if (modeChanged) zoom = 1f
                 val f = focusHz?.takeIf { segs.size == 1 && it in segs[0].startHz..segs[0].endHz }
                 panX = if (f == null) (w - w / zoom) / 2
                     else ((f - segs[0].startHz).toFloat() / (segs[0].endHz - segs[0].startHz).coerceAtLeast(1) * w) - w / zoom / 2
             } else { zoom = 1f; panX = 0f }
         }
         clampPan()
-        bitmap?.recycle()
+        if (src !== current && src != null) src!!.bmp.recycle()
+        if (!keepOld) bitmap?.recycle()
         bitmap = fresh
+    }
+
+    /**
+     * Copies [src]'s rows into [fresh] (newest first from row 0), each column from the old column at the same
+     * frequency: a retune or a switch between the sweep and a frequency keeps what was seen there, black elsewhere.
+     */
+    private fun carry(src: Picture, fresh: Bitmap, rowPx: Float): Int {
+        val w = fresh.width; val ow = src.bmp.width
+        if (src.colHz.size != ow || ow == 0) return 0
+        val map = IntArray(w) { x ->
+            val f = colHz[x]
+            var k = java.util.Arrays.binarySearch(src.colHz, f).let { if (it >= 0) it else (-it - 1) }
+            if (k == ow || (k > 0 && f - src.colHz[k - 1] < src.colHz[k] - f)) k -= 1
+            k = k.coerceIn(0, ow - 1)
+            // Within one old column of it, or it wasn't on the old picture (outside, or in a gap between bands).
+            val step = minOf(if (k > 0) src.colHz[k] - src.colHz[k - 1] else Long.MAX_VALUE,
+                if (k < ow - 1) src.colHz[k + 1] - src.colHz[k] else Long.MAX_VALUE).let { if (it == Long.MAX_VALUE) 0L else it }
+            if (abs(f - src.colHz[k]) <= step) k else -1
+        }
+        if (map.all { it < 0 }) return 0
+        val keep = minOf(fresh.height, (src.rows * src.rowPx / rowPx).toInt())
+        val from = IntArray(ow); val to = IntArray(w)
+        for (j in 0 until keep) {
+            val r = (j * rowPx / src.rowPx).toInt().coerceAtMost(src.rows - 1)
+            src.bmp.getPixels(from, 0, ow, 0, (src.newest + r) % src.bmp.height, ow, 1)
+            for (x in 0 until w) to[x] = if (map[x] < 0) Color.BLACK else from[map[x]]
+            fresh.setPixels(to, 0, w, 0, j, w, 1)
+        }
+        return keep
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -214,6 +251,7 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         bitmap?.recycle(); bitmap = null; layoutKey = ""
+        savedSweep?.bmp?.recycle(); savedSweep = null
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -297,9 +335,22 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
                 if (moved && zoom > 1f) { panX -= (e.x - lastX) / zoom; clampPan(); invalidate() }
                 lastX = e.x
             }
-            MotionEvent.ACTION_UP -> if (!moved && colHz.isNotEmpty()) { onTap?.invoke(colHz[colAt(e.x)]); performClick() }
+            MotionEvent.ACTION_UP -> if (!moved && colHz.isNotEmpty()) {
+                // The sweep: a tap looks closer at that spot and keeps every row; tuning there starts a new view,
+                // so only a tap at full zoom does it.
+                if (!tuned && zoom < MAX_ZOOM) zoomAt(e.x) else onTap?.invoke(colHz[colAt(e.x)])
+                performClick()
+            }
         }
         return true
+    }
+
+    /** Zooms the picture in [TAP_ZOOM] times, the spot under [sx] moved to the middle. */
+    internal fun zoomAt(sx: Float) {
+        val at = panX + sx / zoom
+        zoom = (zoom * TAP_ZOOM).coerceAtMost(MAX_ZOOM)
+        panX = at - width / zoom / 2
+        clampPan(); invalidate()
     }
 
     override fun performClick(): Boolean = super.performClick()
@@ -321,6 +372,8 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
         private const val RANGE_DB = 40f
         private const val KEY_STEP_HZ = 100_000L
         private const val MAX_ZOOM = 8f
+        /** Each tap on the sweep: 2x, 4x, 8x. */
+        private const val TAP_ZOOM = 2f
 
         /** Black, deep blue, cyan, yellow, red, white: the usual waterfall scale. */
         private val PALETTE = IntArray(256) { i ->
