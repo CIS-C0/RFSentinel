@@ -652,11 +652,18 @@ object SdrRadio {
         var lastRow = HashMap<Long, SdrWaterfall.Segment>()
         var sweepId = ++sweepLines
         fun bandOf(center: Long) = cfg.bands.firstOrNull { RadioWatch.covers(it, center) }?.label
+        // Each chunk's empty segment, made once per plan (sorted by centre): show() runs for every chunk.
+        val blanks = java.util.TreeMap<Long, SdrWaterfall.Segment>()
+        var blanksFor: List<Long>? = null
         fun show(center: Long, seg: SdrWaterfall.Segment) {
             val l = SdrWaterfall.listener ?: return
             row[center] = seg
-            l(SdrWaterfall.Row(plan.map { c -> row[c] ?: lastRow[c] ?: SdrWaterfall.blank(c, sdr.sampleRate, RadioWatch.USABLE_HZ, bandOf(c)) }
-                .sortedBy { it.startHz }, tuned = false, at = System.currentTimeMillis(), sweep = sweepId))
+            if (blanksFor !== plan) {
+                blanksFor = plan; blanks.clear(); plan.forEach { c -> blanks[c] = SdrWaterfall.blank(c, sdr.sampleRate, RadioWatch.USABLE_HZ, bandOf(c)) }
+            }
+            // Every chunk has the same span, so centre order is start order.
+            l(SdrWaterfall.Row(blanks.keys.map { c -> row[c] ?: lastRow[c] ?: blanks.getValue(c) },
+                tuned = false, at = System.currentTimeMillis(), sweep = sweepId))
         }
         // "Log everything": every channel heard in this sweep.
         val heard = ArrayList<P25Hunt.Candidate>()
