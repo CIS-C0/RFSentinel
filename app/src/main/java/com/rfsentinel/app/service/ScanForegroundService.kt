@@ -1049,7 +1049,7 @@ class ScanForegroundService : Service() {
         val key = link.groupKey(this)
         if (!link.mqttOn(this) || broker == null || key == null) { stopMqtt(); return }
         if (mqttOutbox == null) {
-            mqttOutbox = com.rfsentinel.app.link.MeshOutbox()
+            mqttOutbox = com.rfsentinel.app.link.MeshOutbox(com.rfsentinel.app.link.MeshOutbox.NET_REPEAT_MS)
             mqttLastSend = 0L
             mqttLastName = 0L
             pipeline.postDelayed(mqttFlush, MQTT_TICK_MS)

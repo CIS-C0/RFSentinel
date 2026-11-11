@@ -202,6 +202,34 @@ class MeshLinkTest {
     }
 
     @Test
+    fun theInternetRelayRepeatsADeviceStillHeardWithinTheReceiversShortestWindow() {
+        // The sender keeps hearing a plain device; the receiver lists it for 30 s after each arrival.
+        fun adv() = Advert("00:00:00:00:00:01", Advert.Source.WIFI, -60, timestamp = 0)
+        val net = MeshOutbox(MeshOutbox.NET_REPEAT_MS)
+        val lora = MeshOutbox()
+        for (box in listOf(net, lora)) { box.add(adv(), emptyList(), 1_000); assertEquals(1, box.take(1_000, MeshCodec.MAX_BODY).size) }
+        net.add(adv(), emptyList(), 25_000); lora.add(adv(), emptyList(), 25_000)
+        assertEquals(1, net.take(25_000, MeshCodec.MAX_BODY).size)
+        assertTrue("LoRa keeps its 15 minutes", lora.take(25_000, MeshCodec.MAX_BODY).isEmpty())
+        // Not heard any more: no repeats, so the receiver's time runs out.
+        assertTrue(net.take(25_000 + MeshOutbox.FRESH_MS + 1, MeshCodec.MAX_BODY).isEmpty())
+    }
+
+    @Test
+    fun repeatsTakeTurnsWhenAPacketCantHoldThemAll() {
+        val box = MeshOutbox(MeshOutbox.NET_REPEAT_MS)
+        val macs = (1..60).map { "00:00:00:00:01:%02X".format(it) }
+        macs.forEach { box.add(Advert(it, Advert.Source.WIFI, -60, timestamp = 0), emptyList(), 1_000) }
+        val rounds = (1..10).map { box.take(1_000L * it, MeshCodec.MAX_BODY).map { d -> d.mac }.toSet() }.filter { it.isNotEmpty() }
+        val first = rounds.first()
+        assertTrue(rounds.size > 1 && first.size < macs.size)
+        assertEquals(macs.toSet(), rounds.flatten().toSet())
+        // Round two: everyone due again; the ones that waited longest go first.
+        macs.forEach { box.add(Advert(it, Advert.Source.WIFI, -60, timestamp = 0), emptyList(), 30_000) }
+        assertEquals(first, box.take(30_000, MeshCodec.MAX_BODY).map { it.mac }.toSet())
+    }
+
+    @Test
     fun fortyWifiNetworksAllReachTheOtherPhoneWithinAFewPackets() {
         val key = MeshCodec.messageKey(ByteArray(32) { 7 })
         val box = MeshOutbox()

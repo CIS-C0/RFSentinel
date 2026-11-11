@@ -2427,8 +2427,10 @@ class SettingsActivity : AppCompatActivity() {
         val meshTime = { sec: Int -> if (sec < 60) "$sec s" else if (sec % 60 == 0) "${sec / 60} min" else "${sec / 60} min ${sec % 60} s" }
         slider({ "Other Sentinels: off the list after ${meshTime(it)}" }, 30, 960, Prefs.liveMeshSec(this),
             "How long a device another Sentinel sent over the Meshtastic mesh or the internet relay stays in the list and " +
-                "radar after it arrived. The sender repeats each device about every 15 minutes, so a shorter time empties " +
-                "the list between repeats. Flagged, favourite and following devices stay longer.", 30, meshTime) {
+                "radar after it arrived. Over the internet relay the sender repeats each device it still hears every 20 s, " +
+                "so any time works. Over the mesh LoRa has little air time: the sender repeats a device only about every " +
+                "15 minutes, so a shorter time empties the list between repeats. The sender's own setting changes nothing " +
+                "here. Flagged, favourite and following devices stay longer.", 30, meshTime) {
             Prefs.setLiveMeshSec(this, it)
         }
     }
