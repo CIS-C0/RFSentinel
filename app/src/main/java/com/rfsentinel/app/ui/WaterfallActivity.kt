@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.rfsentinel.app.databinding.ActivityWaterfallBinding
+import com.rfsentinel.app.sdr.AudioDemod
 import com.rfsentinel.app.sdr.FreqNames
 import com.rfsentinel.app.sdr.RadioWatch
 import com.rfsentinel.app.sdr.SdrRadio
@@ -60,7 +61,7 @@ class WaterfallActivity : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         binding.waterfall.onTap = { hz -> zoom(hz) }
         binding.tuneButton.setOnClickListener { askFrequency() }
-        binding.sweepButton.setOnClickListener { tuneHz = null; refresh() }
+        binding.sweepButton.setOnClickListener { SdrRadio.listen = false; tuneHz = null; refresh() }
         binding.antennaButton.setOnClickListener { antennaCheck() }
         // Opened from a radio transmission's Locate: straight to its frequency (not again after a rotation).
         if (savedInstanceState == null) intent.getLongExtra(EXTRA_TUNE_HZ, 0L).takeIf { it > 0 }?.let { zoom(it) }
@@ -84,7 +85,7 @@ class WaterfallActivity : AppCompatActivity() {
         }
         queue.clear()
         // Radio detection never stays paused behind a closed screen (a redraw for a new theme comes straight back).
-        if (!isChangingConfigurations) tuneHz = null
+        if (!isChangingConfigurations) { SdrRadio.listen = false; tuneHz = null }
     }
 
     override fun onSupportNavigateUp(): Boolean { finish(); return true }
@@ -113,12 +114,20 @@ class WaterfallActivity : AppCompatActivity() {
         if (demo) demoFeed.antennaCheck(answer) else SdrRadio.antennaCheck = answer
     }
 
-    /** Ready-made stations first, so nobody needs to know a frequency; typing one is the last choice. */
+    /** Ready-made stations first, so nobody needs to know a frequency; typing one is the last choice. Zoomed in, Listen comes first. */
     private fun askFrequency() {
         if (!running) { Toast.makeText(this, "No SDR running", Toast.LENGTH_SHORT).show(); return }
+        val listenItem = tuneHz?.takeIf { !demo }?.let { hz ->
+            if (SdrRadio.listen) "Stop listening"
+            else String.format(Locale.US, "Listen to %.4f MHz\n%s, at the phone's media volume", hz / 1e6,
+                AudioDemod.modeFor(hz).label.replaceFirstChar { it.uppercase() })
+        }
+        val items = listOfNotNull(listenItem) + PRESETS.map { "${it.name}\n${it.about}" } + "Type a frequency…"
         MaterialAlertDialogBuilder(this)
             .setTitle("What to look at")
-            .setItems((PRESETS.map { "${it.name}\n${it.about}" } + "Type a frequency…").toTypedArray()) { _, i ->
+            .setItems(items.toTypedArray()) { _, picked ->
+                if (listenItem != null && picked == 0) { SdrRadio.listen = !SdrRadio.listen; refresh(); return@setItems }
+                val i = if (listenItem != null) picked - 1 else picked
                 PRESETS.getOrNull(i)?.let { zoom(it.hz) } ?: typeFrequency()
             }
             .setNegativeButton("Cancel", null)
@@ -155,6 +164,7 @@ class WaterfallActivity : AppCompatActivity() {
             binding.waterfall.clear()
         }
         val running = this.running
+        binding.waterfall.focusHz = tuned
         binding.statusText.text = when {
             !running -> status.ifBlank { "No SDR running" }
             tuned != null -> String.format(Locale.US, "%.4f MHz", tuned / 1e6) +
@@ -165,7 +175,7 @@ class WaterfallActivity : AppCompatActivity() {
         binding.hintText.text = when {
             !running -> "Plug in an RTL-SDR or HackRF and start scanning to see the radio bands live."
             tuned != null -> (PRESETS.firstOrNull { it.hz == tuned }?.look ?: "Zoomed in on about 2 MHz.") +
-                " Pinch to zoom; tap or use the arrow keys to move; Back to sweep starts the radio sweep again."
+                " Pinch to zoom; tap or use the arrow keys to move; Tune › Listen plays it; Back to sweep starts the radio sweep again."
             SdrRadio.mode == SdrRadio.Mode.ADSB -> "The SDR is receiving ADS-B. Tune to look at a frequency."
             SdrRadio.mode == SdrRadio.Mode.P25 -> "The SDR is following a P25 control channel. Tune to look at a frequency."
             SdrRadio.mode == SdrRadio.Mode.PAGER -> "The SDR is decoding pagers. Tune to look at a frequency."

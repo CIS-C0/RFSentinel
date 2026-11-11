@@ -205,6 +205,8 @@ object SdrRadio {
      * until set back to null. Picked up within a chunk.
      */
     @Volatile var tuneHz: Long? = null
+    /** The waterfall's Listen: play [tuneHz] through the speaker ([AudioDemod]) while it's held. */
+    @Volatile var listen = false
     /**
      * The Radio waterfall's "Antenna check": set to get one reading of the FM radio band (on the air everywhere) and of the
      * 7 weather-radio channels (162.400-162.550 MHz, United States only: Canada's went off the air in March 2026), then the
@@ -287,6 +289,7 @@ object SdrRadio {
         halt("")
         onEvent = null
         tuneHz = null
+        listen = false
         p25Hold = null
     }
 
@@ -770,13 +773,13 @@ object SdrRadio {
     }
 
     /** 8 kHz mono speech out, as media (so it goes to the car or headphones like other audio). */
-    private fun newSpeaker(): android.media.AudioTrack = android.media.AudioTrack.Builder()
+    private fun newSpeaker(rate: Int = ImbeDecoder.RATE): android.media.AudioTrack = android.media.AudioTrack.Builder()
         .setAudioAttributes(android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_MEDIA)
             .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH).build())
-        .setAudioFormat(android.media.AudioFormat.Builder().setSampleRate(ImbeDecoder.RATE)
+        .setAudioFormat(android.media.AudioFormat.Builder().setSampleRate(rate)
             .setEncoding(android.media.AudioFormat.ENCODING_PCM_16BIT).setChannelMask(android.media.AudioFormat.CHANNEL_OUT_MONO).build())
         .setTransferMode(android.media.AudioTrack.MODE_STREAM)
-        .setBufferSizeInBytes(ImbeDecoder.RATE) // half a second
+        .setBufferSizeInBytes(rate) // half a second
         .build()
 
     /** Records [P25Record.SECONDS] of [call]'s voice channel to a file; false when nothing was saved. Frequency kept off the log. */
@@ -927,31 +930,48 @@ object SdrRadio {
         return RadioWatch.powerSpectrum(iq, got / 2)
     }
 
-    /** Holds [tuneHz] for the waterfall screen: a row of the ~2 MHz around it every few tens of ms. */
+    /**
+     * Holds [tuneHz] for the waterfall screen: a row of the ~2 MHz around it every few tens of ms. With [listen] on,
+     * it's also played: tuned [INPUT_OFFSET_HZ] below so the channel sits clear of the centre spike, read without gaps.
+     */
     private fun runTuned(sdr: SdrDevice, name: String) {
         val hz = tuneHz ?: return
+        val listening = listen
+        val center = if (listening) hz - INPUT_OFFSET_HZ else hz
         sdr.setSampleRate(SAMPLE_RATE)
         sdr.setGain(GAIN_TENTHS_DB)
         val mhz = "%.3f MHz".format(java.util.Locale.US, hz / 1e6)
-        if (!sdr.tune(hz)) {
+        val still = { !halted && !sdr.lost && tuneHz == hz && listen == listening && antennaCheck == null && !reapplyNow }
+        if (!sdr.tune(center)) {
             com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: the tuner didn't lock on $mhz")
             status = "$deviceLabel · waterfall: the tuner can't tune to $mhz"
-            while (!halted && !sdr.lost && tuneHz == hz && antennaCheck == null && !reapplyNow) Thread.sleep(100)
+            while (still()) Thread.sleep(100)
             return
         }
         sdr.resetBuffer()
-        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: waterfall on $mhz (radio sweep paused)")
-        status = "$deviceLabel · waterfall on $mhz · radio sweep paused"
         val buf = ByteArray(XFER)
+        repeat(sdr.settleReads) { sdr.read(buf) }
+        // Listening: the channel demodulated to the speaker; without an audio output the waterfall carries on alone.
+        var speakerOut: android.media.AudioTrack? = null
+        val demod = if (!listening) null else AudioDemod(AudioDemod.modeFor(hz), INPUT_OFFSET_HZ, sdr.sampleRate) { pcm, n ->
+            speakerOut?.write(pcm, 0, n)
+        }
+        if (demod != null) speakerOut = runCatching { newSpeaker(demod.audioRate).also { it.play() } }
+            .onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: no audio output for listening - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
+            .getOrNull()
+        val ahead = if (listening) ReadAhead(sdr, XFER) else null
+        val what = demod?.let { "listening, ${it.mode.label}" } ?: "radio sweep paused"
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: waterfall on $mhz ($what)")
+        status = "$deviceLabel · waterfall on $mhz · " + (if (demod != null && speakerOut == null) "no audio output" else what)
         val iq = ByteArray(XFER * TUNED_READS)
         var lastRow = 0L; var lastCheck = System.currentTimeMillis(); var fails = 0; var lastHeard = 0L
-        repeat(sdr.settleReads) { sdr.read(buf) }
-        while (!halted && !sdr.lost && tuneHz == hz && antennaCheck == null && !reapplyNow) {
+        try { while (still()) {
             if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
             var got = 0
             for (i in 0 until TUNED_READS) {
-                val n = sdr.read(buf)
+                val n = ahead?.read(buf) ?: sdr.read(buf)
                 if (n <= 0) break
+                demod?.feed(buf, n / 2)
                 System.arraycopy(buf, 0, iq, got, n); got += n
             }
             if (got < 2 * 1024) {
@@ -964,12 +984,15 @@ object SdrRadio {
             val listener = SdrWaterfall.listener
             if (!logNow && (listener == null || now - lastRow < TUNED_ROW_MS)) continue
             val psd = RadioWatch.powerSpectrum(iq, got / 2)
-            if (logNow) { lastHeard = now; logHeard("waterfall on $mhz: ${P25Hunt.heard(P25Hunt.candidates(hz, psd, sdr.sampleRate))}") }
+            if (logNow) { lastHeard = now; logHeard("waterfall on $mhz: ${P25Hunt.heard(P25Hunt.candidates(center, psd, sdr.sampleRate))}") }
             if (listener == null || now - lastRow < TUNED_ROW_MS) continue
             lastRow = now
             // The outer tenth on each side rolls off in the receiver's filter: left out.
-            listener(SdrWaterfall.Row(listOf(SdrWaterfall.segment(hz, psd, sdr.sampleRate, sdr.sampleRate * 0.45, null)), tuned = true, at = now))
+            listener(SdrWaterfall.Row(listOf(SdrWaterfall.segment(center, psd, sdr.sampleRate, sdr.sampleRate * 0.45, null)), tuned = true, at = now))
+        } } finally {
+            ahead?.close()
+            speakerOut?.let { runCatching { it.stop(); it.release() } }
         }
-        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: waterfall left $mhz")
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: waterfall left $mhz" + (if (listening) ", stopped listening" else ""))
     }
 }

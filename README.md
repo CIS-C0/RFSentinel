@@ -832,7 +832,9 @@ hardware. **Settings → RTL-SDR radio**:
 - **Radio waterfall** (Tools → *Radio waterfall*): a live picture of the watched
   bands, one row per sweep, while detection carries on. Tap a signal (or **Tune**) to
   zoom in on about 2 MHz around it in real time; radio detection pauses until **Back
-  to sweep** or you leave the screen. Receive-only, energy only.
+  to sweep** or you leave the screen. Zoomed in, **Tune → Listen** plays the frequency
+  through the phone: wide FM for broadcast radio, AM for the airband and CB, narrow FM
+  with a squelch for the rest. Receive-only.
 - On a radio signal's page, **Locate** opens the waterfall tuned to its frequency (follow
   the strongest signal) and **Watch this frequency** adds it to the frequencies to watch.
 - **Say the frequency** (and its name) instead of "Radio transmitting nearby", and
@@ -1265,7 +1267,9 @@ demodulator and automatic gain are ports of [dump1090-fa](https://github.com/fli
 FLEX pager decoders follow [multimon-ng](https://github.com/EliasOenal/multimon-ng) (GPL; see
 `sdr/NOTICE.md`). The SDR's automatic frequency correction follows
 [SDRTrunk](https://github.com/DSheirer/sdrtrunk)'s auto-PPM (Dennis Sheirer, GPL-3.0), and its
-bias-tee switch [rtl-sdr-blog](https://github.com/rtlsdrblog/rtl-sdr-blog)'s librtlsdr (GPL-2.0-or-later). Two fake-cell
+bias-tee switch [rtl-sdr-blog](https://github.com/rtlsdrblog/rtl-sdr-blog)'s librtlsdr (GPL-2.0-or-later).
+The waterfall's Listen follows [RFAnalyzer](https://github.com/demantz/RFAnalyzer)'s demodulator
+(Dennis Mantz, GPL-2.0-or-later). Two fake-cell
 checks follow [AIMSICD](https://github.com/CellularPrivacy/Android-IMSI-Catcher-Detector) and
 [SnoopSnitch](https://github.com/srlabs/snoopsnitch) (GPL-3.0; ideas only). European V2X (ITS-G5) frames are read the way
 [V2X2MAP](https://github.com/pit711/V2X2MAP) by Peter Holzhauser does (MIT; see

@@ -53,6 +53,8 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
     /** Columns where one band stops and another starts (not side by side in frequency). */
     private var gaps = IntArray(0)
     private var tuned = false
+    /** Zoomed in: the frequency to keep in the middle when the view moves (the one listened to sits off the tuned centre). */
+    var focusHz: Long? = null
 
     private var bitmap: Bitmap? = null
     /** Bitmap row holding the newest line; the ones after it are older. */
@@ -186,7 +188,11 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
         } else {
             floor = Float.NaN
             // Zoomed in on a frequency and moved to another: keep the zoom, centred on it. New sweep bands: show them all.
-            if (row.tuned) panX = (w - w / zoom) / 2 else { zoom = 1f; panX = 0f }
+            if (row.tuned) {
+                val f = focusHz?.takeIf { segs.size == 1 && it in segs[0].startHz..segs[0].endHz }
+                panX = if (f == null) (w - w / zoom) / 2
+                    else ((f - segs[0].startHz).toFloat() / (segs[0].endHz - segs[0].startHz).coerceAtLeast(1) * w) - w / zoom / 2
+            } else { zoom = 1f; panX = 0f }
         }
         clampPan()
         bitmap?.recycle()
