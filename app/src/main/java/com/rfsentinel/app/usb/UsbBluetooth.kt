@@ -95,6 +95,8 @@ object UsbBluetooth {
      */
     private fun noBluetooth(all: List<UsbDevice>): String? {
         val d = all.firstOrNull { UsbWifi.chipOf(it)?.driver == UsbWifi.Driver.MT7921U } ?: return null
+        // A Bluetooth interface is there but wasn't usable (or another pick won): the maker didn't turn it off.
+        if ((0 until d.interfaceCount).any { d.getInterface(it).let { i -> isBtClass(d.vendorId, i.interfaceClass, i.interfaceSubclass, i.interfaceProtocol) } }) return null
         if (noBt.add(d.deviceName)) {
             val classes = (0 until d.interfaceCount).map { d.getInterface(it).let { i -> Triple(i.interfaceClass, i.interfaceSubclass, i.interfaceProtocol) } }
             com.rfsentinel.app.util.HwLogs.usbBt.log("BT: %04x:%04x (MT7921AU) has no Bluetooth interface, only: %s - its maker turned Bluetooth off in this adapter"

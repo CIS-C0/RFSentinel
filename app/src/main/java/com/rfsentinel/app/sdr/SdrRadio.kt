@@ -452,8 +452,9 @@ object SdrRadio {
     private fun launch(name: String, intro: String, release: () -> Unit, open: () -> SdrDevice) {
         runningDevice = name
         stop = false
-        status = if (resetting) "$resetSays · reconnecting…" else "$deviceLabel · starting…"
         val net = name.startsWith(NET)
+        // Only a USB dongle resets itself: a network SDR starting in the minute after says what it is.
+        status = if (resetting && !net) "$resetSays · reconnecting…" else "$deviceLabel · starting…"
         val previous = lastWorker
         val t = Thread({
             // A quick stop and start: the last session puts the dongle to sleep as it ends (tuner standby, demodulator
