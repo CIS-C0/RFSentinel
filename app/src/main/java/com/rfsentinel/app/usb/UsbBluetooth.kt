@@ -75,9 +75,33 @@ object UsbBluetooth {
 
     /** The Bluetooth interface of [d] (btusb_table): class e0/01/01, or ff/01/01 for the vendors listed. */
     internal fun btInterface(d: UsbDevice): UsbInterface? = (0 until d.interfaceCount).map { d.getInterface(it) }.firstOrNull { i ->
-        (i.interfaceClass == 0xe0 && i.interfaceSubclass == 0x01 && i.interfaceProtocol == 0x01) ||
-            (i.interfaceClass == 0xff && i.interfaceSubclass == 0x01 && i.interfaceProtocol == 0x01 && d.vendorId in VENDOR_CLASS_IDS)
+        isBtClass(d.vendorId, i.interfaceClass, i.interfaceSubclass, i.interfaceProtocol)
     }?.takeIf { i -> (0 until i.endpointCount).any { i.getEndpoint(it).let { e -> e.type == UsbConstants.USB_ENDPOINT_XFER_INT && e.direction == UsbConstants.USB_DIR_IN } } }
+
+    internal fun isBtClass(vendorId: Int, cls: Int, sub: Int, proto: Int) =
+        sub == 0x01 && proto == 0x01 && (cls == 0xe0 || cls == 0xff && vendorId in VENDOR_CLASS_IDS)
+
+    /** "0 ff/ff/ff, 1 e0/01/01": each interface's class, for the log (no serials, nothing that names the unit). */
+    internal fun layout(classes: List<Triple<Int, Int, Int>>) =
+        classes.withIndex().joinToString { (n, c) -> "%d %02x/%02x/%02x".format(n, c.first, c.second, c.third) }
+
+    /** MT7921AU adapters seen this session without a Bluetooth interface, by device path: logged once per plug-in. */
+    private val noBt: MutableSet<String> = java.util.Collections.synchronizedSet(HashSet())
+
+    /**
+     * Every MT7921AU has Bluetooth inside, but makers can turn it off: the adapter then shows only its WiFi interface
+     * (the EDUP EP-AX1672 has WiFi on interface 0; the ALFA AWUS036AXML has Bluetooth on 0-2 and WiFi on 3).
+     * Nothing over USB can turn it back on, so say so instead of "not connected".
+     */
+    private fun noBluetooth(all: List<UsbDevice>): String? {
+        val d = all.firstOrNull { UsbWifi.chipOf(it)?.driver == UsbWifi.Driver.MT7921U } ?: return null
+        if (noBt.add(d.deviceName)) {
+            val classes = (0 until d.interfaceCount).map { d.getInterface(it).let { i -> Triple(i.interfaceClass, i.interfaceSubclass, i.interfaceProtocol) } }
+            com.rfsentinel.app.util.HwLogs.usbBt.log("BT: %04x:%04x (MT7921AU) has no Bluetooth interface, only: %s - its maker turned Bluetooth off in this adapter"
+                .format(d.vendorId, d.productId, layout(classes)))
+        }
+        return "USB Bluetooth: this MT7921AU adapter has no Bluetooth - its maker turned it off. Its WiFi still works"
+    }
 
     /** Known from the USB ID alone: MediaTek (its chip ID registers are read before any HCI command), Realtek, Intel. */
     internal fun vendorOf(vendorId: Int, productId: Int): Vendor? = when {
@@ -108,6 +132,7 @@ object UsbBluetooth {
                             val d = deviceOf(intent)
                             if (d != null && d.deviceName == runningDevice) stopAdapter("")
                             else if (d != null && firmwareNeeded != null && btInterface(d) != null) { firmwareNeeded = null; status = "" }
+                            else if (d != null && noBt.remove(d.deviceName) && runningDevice == null) status = ""
                         }
                     }
                 }
@@ -161,7 +186,7 @@ object UsbBluetooth {
         // Not RTL-SDR / HackRF sticks, which have no Bluetooth interface anyway.
         val d = UsbPick.pick(context, UsbPick.Kind.BT, all) ?: run {
             status = UsbPick.waitingFor(context, UsbPick.Kind.BT, all)?.let { "USB Bluetooth: waiting for $it, picked in Settings" }
-                ?: if (firmwareNeeded == null) "" else status
+                ?: noBluetooth(all) ?: if (firmwareNeeded == null) "" else status
             return
         }
         if (!mgr.hasPermission(d)) {

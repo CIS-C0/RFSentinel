@@ -76,4 +76,21 @@ class UsbBluetoothParseTest {
 
     @Test(expected = IOException::class)
     fun realtekNoPatchForRom() { BtRealtek.parse(epatch, 0x8723, 5) }
+
+    @Test
+    fun mt7921auBluetoothInterfaceOnlyWhenTheMakerLeftItOn() {
+        val wifi = Triple(0xff, 0xff, 0xff)
+        val bt = Triple(0xe0, 0x01, 0x01)
+        fun hasBt(vid: Int, layout: List<Triple<Int, Int, Int>>) = layout.any { UsbBluetooth.isBtClass(vid, it.first, it.second, it.third) }
+        // ALFA AWUS036AXML: Bluetooth on interfaces 0-2, WiFi on 3.
+        assertTrue(hasBt(0x0e8d, listOf(bt, bt, bt, wifi)))
+        // EDUP EP-AX1672 (same 0e8d:7961): WiFi alone on interface 0, Bluetooth turned off.
+        assertFalse(hasBt(0x0e8d, listOf(wifi)))
+        assertEquals("0 ff/ff/ff", UsbBluetooth.layout(listOf(wifi)))
+        assertEquals("0 e0/01/01, 1 ff/ff/ff", UsbBluetooth.layout(listOf(bt, wifi)))
+        assertEquals(UsbBluetooth.Vendor.MEDIATEK, UsbBluetooth.vendorOf(0x0e8d, 0x7961))
+        // ff/01/01 counts only for the btusb_table vendors (Broadcom 0a5c), not MediaTek.
+        assertTrue(UsbBluetooth.isBtClass(0x0a5c, 0xff, 0x01, 0x01))
+        assertFalse(UsbBluetooth.isBtClass(0x0e8d, 0xff, 0x01, 0x01))
+    }
 }
