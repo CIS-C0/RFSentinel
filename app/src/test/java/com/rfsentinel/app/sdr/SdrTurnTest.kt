@@ -34,6 +34,15 @@ class SdrTurnTest {
     }
 
     @Test
+    fun aDongleBackAtOnceResetItself() {
+        assertEquals(true, SdrRadio.resetBack("0bda:2838", 1_000L, "0bda:2838", 1_400L))
+        // Back much later (unplugged and plugged in again), another dongle, or none dropped off: not a reset.
+        assertEquals(false, SdrRadio.resetBack("0bda:2838", 1_000L, "0bda:2838", 60_000L))
+        assertEquals(false, SdrRadio.resetBack("0bda:2838", 1_000L, "1d50:6089", 1_400L))
+        assertEquals(false, SdrRadio.resetBack(null, 0L, "0bda:2838", 1_400L))
+    }
+
+    @Test
     fun turnsGoRoundAsBefore() {
         assertEquals(Mode.P25 to null, SdrRadio.pickTurn(false, Mode.ADSB, false, null, all))
         assertEquals(Mode.SWEEP to null, SdrRadio.pickTurn(false, Mode.PAGER, false, null, all))

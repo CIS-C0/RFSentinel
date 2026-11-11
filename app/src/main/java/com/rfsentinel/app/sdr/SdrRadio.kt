@@ -32,6 +32,8 @@ object SdrRadio {
     private const val NET = "net:"             // runningDevice of a network SDR
     private const val NET_RETRY_MS = 10_000L
     private const val ERROR_RETRY_MS = 30_000L
+    /** A dongle that drops off USB and is back within this reset itself (seen: ~0.4 s, a walkie-talkie next to the antenna). */
+    private const val RESET_MS = 5_000L
     private const val XFER = 16_384           // bytes per USB read (8192 samples)
     /** For continuous decoding: one read is ~33 ms of samples; Android before 9 caps a transfer at 16 KB. */
     private val STREAM_XFER = if (android.os.Build.VERSION.SDK_INT >= 28) 131_072 else XFER
@@ -104,6 +106,12 @@ object SdrRadio {
     @Volatile private var reapplyNow = false
     /** "vid:pid/serial" or "host:port": whose learned frequency correction to use. */
     @Volatile private var deviceKey = ""
+    /** The USB dongle that last dropped off, "vid:pid", and when: back within [RESET_MS] means it reset itself. */
+    @Volatile private var goneId: String? = null
+    @Volatile private var goneAt = 0L
+    /** When the dongle came back from a reset: its next statuses say so until it runs again. */
+    @Volatile private var resetAt = 0L
+    private val resetting get() = System.currentTimeMillis() - resetAt < 60_000L
     private var freqFix: FreqCorrection? = null
     private var freqFixes = 0
     private var biasOn = false
@@ -159,6 +167,9 @@ object SdrRadio {
      * Whose turn it is now, and the scan to give it back to later: [held] (the waterfall open) keeps the sweep and
      * remembers the scan it cut short; back from the waterfall ([resume], or [tuned]: zoomed in), that scan carries on.
      */
+    /** The dongle [backId] ("vid:pid") just plugged in is the one [goneId] that dropped off at [goneAt], moments ago. */
+    internal fun resetBack(goneId: String?, goneAt: Long, backId: String, now: Long) = goneId == backId && now - goneAt in 0..RESET_MS
+
     internal fun pickTurn(held: Boolean, mode: Mode?, tuned: Boolean, resume: Mode?, active: Set<Mode>): Pair<Mode?, Mode?> =
         if (held) Mode.SWEEP to (if (mode != Mode.SWEEP) mode else resume)
         else ((resume ?: mode?.takeIf { tuned })?.takeIf { it in active } ?: nextAfter(mode, active)) to null
@@ -274,13 +285,20 @@ object SdrRadio {
                     when (intent.action) {
                         // Just plugged in: Android's "Open RF Sentinel?" prompt comes first; ask ourselves only if it didn't help.
                         UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
+                            deviceOf(intent)?.let { d ->
+                                if (resetBack(goneId, goneAt, "%04x:%04x".format(d.vendorId, d.productId), System.currentTimeMillis())) {
+                                    resetAt = System.currentTimeMillis(); goneId = null
+                                    com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel dropped off USB and came back: it reset itself (a strong signal close to the antenna, or a power dip) - reconnecting")
+                                    status = "$deviceLabel reset itself · reconnecting…"
+                                }
+                            }
                             connect(app, ask = false)
                             main.postDelayed({ if (receiver != null) connect(app) }, com.rfsentinel.app.usb.UsbAttachActivity.ATTACH_GRACE_MS)
                         }
                         ACTION_PERMISSION, com.rfsentinel.app.usb.UsbAttachActivity.ACTION_READY -> connect(app)
                         UsbManager.ACTION_USB_DEVICE_DETACHED -> {
                             val d = deviceOf(intent)
-                            if (d != null && d.deviceName == runningDevice) { halt(UNPLUGGED); clearUnpluggedSoon() }
+                            if (d != null && d.deviceName == runningDevice) { droppedOff(); halt(UNPLUGGED); clearUnpluggedSoon() }
                         }
                     }
                 }
@@ -314,6 +332,9 @@ object SdrRadio {
         runningDevice = null
         status = newStatus
     }
+
+    /** The running USB dongle just went away: remembered, to tell a reset (back at once) from an unplug. */
+    private fun droppedOff() { goneId = deviceKey.substringBefore('/'); goneAt = System.currentTimeMillis() }
 
     /** "RTL-SDR unplugged" stays a little, then leaves the hardware status (unless it came back). */
     private fun clearUnpluggedSoon() = main.postDelayed({ if (status == UNPLUGGED) status = "" }, 15_000L)
@@ -357,7 +378,7 @@ object SdrRadio {
         deviceLabel = labelOf(d)
         if (!mgr.hasPermission(d)) {
             com.rfsentinel.app.util.HwLogs.sdr.log("%04x:%04x ($deviceLabel) plugged in - asking for USB access".format(d.vendorId, d.productId))
-            status = "$deviceLabel found - allow USB access on the prompt"
+            status = if (resetting) "$deviceLabel reset itself - allow USB access on the prompt to reconnect" else "$deviceLabel found - allow USB access on the prompt"
             if (!ask) return
             val pi = PendingIntent.getBroadcast(context, 2, Intent(ACTION_PERMISSION).setPackage(context.packageName), PendingIntent.FLAG_MUTABLE)
             runCatching { mgr.requestPermission(d, pi) }
@@ -393,7 +414,7 @@ object SdrRadio {
     private fun launch(name: String, intro: String, release: () -> Unit, open: () -> SdrDevice) {
         runningDevice = name
         stop = false
-        status = "$deviceLabel · starting…"
+        status = if (resetting) "$deviceLabel reset itself · reconnecting…" else "$deviceLabel · starting…"
         val net = name.startsWith(NET)
         val previous = lastWorker
         val t = Thread({
@@ -414,6 +435,7 @@ object SdrRadio {
                 // Never leave the last "live" line behind: unplugged, failed, or just stopped answering.
                 if (gone(name) || result.getOrNull() == true) {
                     com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: ${if (net) "can't reach it" else "unplugged or not answering"}")
+                    if (!net) droppedOff()
                     status = if (net) "$deviceLabel: can't connect, retrying" else UNPLUGGED
                     if (!net) clearUnpluggedSoon()
                     // Plugged back in (it gets a new name), only stuck, or the network server may be back: try again shortly.
