@@ -97,8 +97,10 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         DRONES -> s.hits.any { it.category == Category.DRONE } || s.remoteId || s.type.startsWith("Drone")
         NEW -> s.isNew
         CELLS, WAZE, RADIO, TALKGROUPS, AIRCRAFT -> false
-        EXTERNAL -> com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac) || com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac) ||
-            com.rfsentinel.app.esp.HeardBy.usbBt.recent(s.mac)
+        // The LoRa nodes a Meshtastic / MeshCore node reports have their own chip: counted here too, External would
+        // only ever repeat LoRa's number on a phone whose one piece of hardware is that node.
+        EXTERNAL -> (com.rfsentinel.app.esp.HeardBy.esp.recent(s.mac) || com.rfsentinel.app.esp.HeardBy.usb.recent(s.mac) ||
+            com.rfsentinel.app.esp.HeardBy.usbBt.recent(s.mac)) && !com.rfsentinel.app.esp.isLoRaNode(s.mac, s.name)
         SENTINELS -> com.rfsentinel.app.esp.HeardBy.peerBluetooth.recent(s.mac)
         MESH -> com.rfsentinel.app.esp.HeardBy.peerMesh.recent(s.mac)
         LORA -> com.rfsentinel.app.esp.isLoRaNode(s.mac, s.name)
@@ -171,6 +173,14 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         )
 
         fun parse(name: String?) = entries.firstOrNull { it.name == name } ?: ALL
+
+        /**
+         * The All chip's number: every row the All list shows (search aside), so it adds up with the list and the other
+         * chips - the devices, cell towers, Waze reports, radio and the talkgroups All lists, and of the aircraft the
+         * flagged ones (the rest are only under Aircraft).
+         */
+        fun allCount(devices: Int, aircraft: List<com.rfsentinel.app.online.PoliceAircraft.Seen>, cells: Int, waze: Int,
+                     radio: Int, talkgroups: Int) = devices + aircraft.count { it.hit != null } + cells + waze + radio + talkgroups
 
         /**
          * The main screen's chip order: the counts worth a glance first (flagged, then what's heard on each

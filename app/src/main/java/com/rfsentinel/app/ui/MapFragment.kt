@@ -1378,6 +1378,9 @@ class MapFragment : Fragment() {
         val placed = devices.filter { it.place != null }
         for ((f, chip) in filterChips) {
             val n = when (f) {
+                // What All draws (RfMap.drawLive): the placed devices, Waze, every aircraft, and the towers when they're on.
+                DeviceFilter.ALL -> placed.size + com.rfsentinel.app.online.WazePolice.latest.size +
+                    com.rfsentinel.app.online.PoliceAircraft.all().size + if (Prefs.showCellTowers(act)) rf?.towerCount ?: 0 else 0
                 DeviceFilter.CELLS -> rf?.towerCount ?: 0
                 DeviceFilter.WAZE -> com.rfsentinel.app.online.WazePolice.latest.size
                 DeviceFilter.AIRCRAFT -> com.rfsentinel.app.online.PoliceAircraft.all().size

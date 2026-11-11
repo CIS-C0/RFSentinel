@@ -774,6 +774,9 @@ class MainActivity : AppCompatActivity() {
         val visualChips = com.rfsentinel.app.ui.VisualMode.on(this, com.rfsentinel.app.ui.VisualMode.Screen.STATUS)
         for ((f, chip) in filterChips) {
             val n = when (f) {
+                com.rfsentinel.app.ui.DeviceFilter.ALL -> com.rfsentinel.app.ui.DeviceFilter.allCount(all.size, aircraft, liveCellCount(now),
+                    currentWaze(now).size, if (ScanForegroundService.isRunning) com.rfsentinel.app.sdr.RadioLog.current(now).size else 0,
+                    currentTalkgroups(now).count { talkgroupOnAll(it, now) })
                 com.rfsentinel.app.ui.DeviceFilter.CELLS -> liveCellCount(now)
                 com.rfsentinel.app.ui.DeviceFilter.WAZE -> currentWaze(now).size
                 com.rfsentinel.app.ui.DeviceFilter.AIRCRAFT -> aircraft.size
@@ -1040,6 +1043,10 @@ class MainActivity : AppCompatActivity() {
                 now - it.lastAt <= TG_LIST_MS && (it.tg in com.rfsentinel.app.sdr.SdrRadio.p25Watched || now - it.inputAt <= TG_LIST_MS)
         }
 
+    /** Under All, only the talkgroups NEAR (keyed up on the input lately) or held: the rest only under Talkgroups. */
+    private fun talkgroupOnAll(r: com.rfsentinel.app.sdr.P25Log.Row, now: Long) =
+        now - r.inputAt <= TG_NEAR_MS || (r.tg != null && r.tg == com.rfsentinel.app.sdr.SdrRadio.p25Hold)
+
     /**
      * The Talkgroups filter's rows (under All, only the NEAR and held ones): a talkgroup whose radio keyed up on the input in
      * the last 2 minutes gets the NEAR box and, at or above the alert threshold, is tinted, flashes and is pinned to the top.
@@ -1054,7 +1061,7 @@ class MainActivity : AppCompatActivity() {
         return currentTalkgroups(now).mapNotNull { r ->
             val near = now - r.inputAt <= TG_NEAR_MS
             val held = r.tg != null && r.tg == sdr.p25Hold
-            if (filter == com.rfsentinel.app.ui.DeviceFilter.ALL && !near && !held) return@mapNotNull null
+            if (filter == com.rfsentinel.app.ui.DeviceFilter.ALL && !talkgroupOnAll(r, now)) return@mapNotNull null
             val title = com.rfsentinel.app.ui.P25Activity.title(r) + (sdr.p25Watched[r.tg]?.ifEmpty { null }?.let { " · $it" } ?: "")
             if (query.isNotBlank() && !title.contains(query.trim(), ignoreCase = true)) return@mapNotNull null
             val key = TG_ROW + (r.tg ?: "r${r.target}")
