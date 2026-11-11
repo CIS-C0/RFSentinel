@@ -89,6 +89,8 @@ object SdrRadio {
     /** The scan whose turn it is now; null when none is ticked. */
     @Volatile var mode: Mode? = null; private set
     @Volatile private var turnEnd = 0L
+    /** Numbers each sweep's waterfall line, unique across turns (the screen redraws a line while its number repeats). */
+    private var sweepLines = 0L
     /** The scans that get turns: P25 alone while a talkgroup is held ([p25Hold]). */
     private val active get() = if (p25Hold != null) setOf(Mode.P25) else modes
     /** The waterfall screen is open: the sweep keeps the SDR so it always draws (a held P25 talkgroup still wins). */
@@ -582,7 +584,17 @@ object SdrRadio {
         val noise = java.util.TreeMap<Long, Pair<Double, Int>>()
         var lastCheck = System.currentTimeMillis()
         // The waterfall's row for this sweep, while it is on screen.
-        var row = ArrayList<SdrWaterfall.Segment>()
+        // Drawn chunk by chunk: each new chunk redraws this sweep's line, the chunks not reached yet from the sweep before.
+        var row = HashMap<Long, SdrWaterfall.Segment>()
+        var lastRow = HashMap<Long, SdrWaterfall.Segment>()
+        var sweepId = ++sweepLines
+        fun bandOf(center: Long) = cfg.bands.firstOrNull { RadioWatch.covers(it, center) }?.label
+        fun show(center: Long, seg: SdrWaterfall.Segment) {
+            val l = SdrWaterfall.listener ?: return
+            row[center] = seg
+            l(SdrWaterfall.Row(plan.map { c -> row[c] ?: lastRow[c] ?: SdrWaterfall.blank(c, sdr.sampleRate, RadioWatch.USABLE_HZ, bandOf(c)) }
+                .sortedBy { it.startHz }, tuned = false, at = System.currentTimeMillis(), sweep = sweepId))
+        }
         // "Log everything": every channel heard in this sweep.
         val heard = ArrayList<P25Hunt.Candidate>()
         while (!halted && !sdr.lost && keeps(Mode.SWEEP)) {
@@ -592,8 +604,7 @@ object SdrRadio {
                 if (halted || sdr.lost || !keeps(Mode.SWEEP)) break
                 if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
                 fun skipped() {
-                    if (SdrWaterfall.listening) row += SdrWaterfall.blank(center, sdr.sampleRate, RadioWatch.USABLE_HZ,
-                        cfg.bands.firstOrNull { RadioWatch.covers(it, center) }?.label)
+                    if (SdrWaterfall.listening) show(center, SdrWaterfall.blank(center, sdr.sampleRate, RadioWatch.USABLE_HZ, bandOf(center)))
                 }
                 if (!sdr.tune(center)) { unlocked++; skipped(); continue }
                 repeat(sdr.settleReads) { sdr.read(buf) }
@@ -623,8 +634,7 @@ object SdrRadio {
                     val med = psd.sorted()[psd.size / 2].toDouble()
                     noise.merge(b.startHz, med to 1) { a, c -> (a.first + c.first) to (a.second + c.second) }
                 }
-                if (SdrWaterfall.listening) row += SdrWaterfall.segment(center, psd, sdr.sampleRate, RadioWatch.USABLE_HZ,
-                    cfg.bands.firstOrNull { RadioWatch.covers(it, center) }?.label)
+                if (SdrWaterfall.listening) show(center, SdrWaterfall.segment(center, psd, sdr.sampleRate, RadioWatch.USABLE_HZ, bandOf(center)))
                 if (logAll) heard += P25Hunt.candidates(center, psd, sdr.sampleRate)
                 for (e in watch.analyze(center, psd, sdr.sampleRate, System.currentTimeMillis(), bursts)) {
                     // Swept only for the open waterfall (radio sweep not ticked): nothing reported.
@@ -642,10 +652,9 @@ object SdrRadio {
             if (logAll) logHeard("sweep ${watch.sweeps}: ${P25Hunt.heard(heard)}")
             heard.clear()
             val now = System.currentTimeMillis()
-            // Whole sweeps only: one begun before the screen opened lacks its first bands, and its different
-            // layout made the screen start over on the next row (skipped chunks are in it, as blanks).
-            if (row.size == plan.size) SdrWaterfall.listener?.invoke(SdrWaterfall.Row(row.sortedBy { it.startHz }, tuned = false, at = now))
-            row = ArrayList()
+            // The next chunk starts a new line; every line has the whole plan's layout (chunks not heard as blanks).
+            if (row.isNotEmpty()) lastRow = row
+            row = HashMap(); sweepId = ++sweepLines
             sweepMs = now - sweepStart; sweepStart = now
             if (gone(name)) break
             if (!halted) status = (if (watch.sweeps < 6) "$deviceLabel · learning the radio bands here…"

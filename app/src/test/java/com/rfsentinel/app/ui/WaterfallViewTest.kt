@@ -75,6 +75,35 @@ class WaterfallViewTest {
         assertTrue((0 until top).any { Color.alpha(bmp.getPixel(w / 6, it)) > 0 })
     }
 
+    // ---- drawn chunk by chunk ----
+
+    private fun lines(v: WaterfallView) = WaterfallView::class.java.getDeclaredField("rows").apply { isAccessible = true }.getInt(v)
+
+    @Test fun aSweepRedrawsItsOwnLineChunkByChunk() {
+        val v = view()
+        val sig = { k: Int -> if (k in 395..405) 30f else 0f }
+        val blank = SdrWaterfall.Segment(151_600_000L, 153_200_000L, FloatArray(801) { SdrWaterfall.NO_DATA }, null)
+        // First chunk heard, the second not reached yet: one line, black under the second chunk.
+        v.add(SdrWaterfall.Row(listOf(seg(150_000_000L, -50f), blank), tuned = false, at = 0, sweep = 7))
+        assertEquals(1, lines(v))
+        val before = draw(v)
+        // The second chunk arrives in the same sweep: the same line, now with its signal.
+        v.add(SdrWaterfall.Row(listOf(seg(150_000_000L, -50f), seg(151_600_000L, -50f, at = sig)), tuned = false, at = 0, sweep = 7))
+        assertEquals(1, lines(v))
+        val after = draw(v)
+        // Below the spectrum, the signal lit up where the first draw was black: on the line at the top of the waterfall.
+        val lit = ((h * 0.28f).toInt() + 1 until h).filter {
+            brightness(after.getPixel(w * 3 / 4, it)) > 300 && brightness(before.getPixel(w * 3 / 4, it)) < 100
+        }
+        assertTrue("signal drawn on the top line: $lit", lit.isNotEmpty() && lit.last() < h / 2)
+        // The next sweep starts a new line; rows without a sweep number (zoomed in, demo) always do.
+        v.add(SdrWaterfall.Row(listOf(seg(150_000_000L, -50f), blank), tuned = false, at = 0, sweep = 8))
+        assertEquals(2, lines(v))
+        v.add(SdrWaterfall.Row(listOf(seg(150_000_000L, -50f), blank), tuned = false, at = 0))
+        v.add(SdrWaterfall.Row(listOf(seg(150_000_000L, -50f), blank), tuned = false, at = 0))
+        assertEquals(4, lines(v))
+    }
+
     // ---- touch ----
 
     private val start = 100_000_000L

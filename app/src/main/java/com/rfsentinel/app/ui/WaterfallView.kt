@@ -106,7 +106,7 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
 
     /** Forgets every row (the view switched between the sweep and a single frequency). */
     fun clear() {
-        layoutKey = ""; rows = 0; spectrum = null; peak = null; floor = Float.NaN; zoom = 1f; panX = 0f
+        layoutKey = ""; rows = 0; spectrum = null; peak = null; floor = Float.NaN; zoom = 1f; panX = 0f; lastSweep = -1L
         bitmap?.eraseColor(Color.BLACK)
         invalidate()
     }
@@ -132,20 +132,27 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
             for (k in colFrom[x]..colTo[x]) if (d[k] > m) m = d[k]
             m
         }
+        // The same sweep as the last row, one chunk further: its line is redrawn, not a new one (the floor and the
+        // peak hold move once per sweep, as before).
+        val again = row.sweep >= 0 && row.sweep == lastSweep && rows > 0
+        lastSweep = row.sweep
         val heard = values.filter { it > SdrWaterfall.NO_DATA }.sorted()
-        if (heard.isNotEmpty()) {
+        if (heard.isNotEmpty() && (!again || floor.isNaN())) {
             val median = heard[heard.size / 2]
             floor = if (floor.isNaN()) median else floor + (median - floor) * (if (row.tuned) 0.05f else 0.3f)
         }
         spectrum = values
-        peak = peak?.let { p -> FloatArray(w) { maxOf(values[it], p[it] - (if (row.tuned) 0.15f else 1.5f)) } } ?: values.copyOf()
+        val decay = if (again) 0f else if (row.tuned) 0.15f else 1.5f
+        peak = peak?.let { p -> FloatArray(w) { maxOf(values[it], p[it] - decay) } } ?: values.copyOf()
         val bmp = bitmap ?: return
         if (floor.isNaN()) return
         for (x in 0 until w) pixels[x] = if (values[x] <= SdrWaterfall.NO_DATA) PALETTE[0] else PALETTE[(((values[x] - floor + 3f) / RANGE_DB) * 255).toInt().coerceIn(0, 255)]
-        newest = (newest - 1 + bmp.height) % bmp.height
+        if (!again) newest = (newest - 1 + bmp.height) % bmp.height
         bmp.setPixels(pixels, 0, w, 0, newest, w, 1)
-        rows = minOf(rows + 1, bmp.height)
+        if (!again) rows = minOf(rows + 1, bmp.height)
     }
+
+    private var lastSweep = -1L
 
     private fun relayout(row: SdrWaterfall.Row, w: Int, key: String) {
         // Only the size changed (the phone turned): the rows so far are kept, stretched to the new width.
@@ -172,7 +179,7 @@ class WaterfallView @JvmOverloads constructor(context: Context, attrs: Attribute
             x0 = x1
         }
         gaps = gapList.toIntArray()
-        // The sweep gives a row every second or two: taller rows, so the history isn't a thin strip.
+        // The sweep gives a line every few seconds: taller rows, so the history isn't a thin strip.
         val rowPx = if (row.tuned) 1f else 4 * density
         val h = ((height - waterTop) / rowPx).toInt().coerceAtLeast(1)
         val fresh = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.BLACK) }

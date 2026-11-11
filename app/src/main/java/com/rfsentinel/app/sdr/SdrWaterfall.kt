@@ -11,8 +11,11 @@ object SdrWaterfall {
     /** A stretch of spectrum: [db] evenly spaced from [startHz] to [endHz], in the band named [band]. */
     class Segment(val startHz: Long, val endHz: Long, val db: FloatArray, val band: String?)
 
-    /** One line of the waterfall, segments in frequency order. [tuned]: the fast single-frequency view. */
-    class Row(val segments: List<Segment>, val tuned: Boolean, val at: Long)
+    /**
+     * One line of the waterfall, segments in frequency order. [tuned]: the fast single-frequency view.
+     * [sweep]: the sweep it belongs to; a row with the same number as the last one redraws that line (drawn chunk by chunk).
+     */
+    class Row(val segments: List<Segment>, val tuned: Boolean, val at: Long, val sweep: Long = -1)
 
     /** Called on the SDR thread with each new row; null while no screen shows it. */
     @Volatile var listener: ((Row) -> Unit)? = null
