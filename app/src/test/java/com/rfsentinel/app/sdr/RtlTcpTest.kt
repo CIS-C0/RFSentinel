@@ -15,6 +15,25 @@ class RtlTcpTest {
     private fun cmd(c: Int, v: Int) = listOf(c, v)
 
     @Test
+    fun aFailedConnectionSaysWhy() {
+        // Nothing listening on a port just freed: refused, in words.
+        val port = ServerSocket(0).use { it.localPort }
+        val sdr = RtlTcp("127.0.0.1", port) {}
+        assertFalse(sdr.open())
+        assertEquals("connection refused", sdr.why)
+        assertEquals("host not found", RtlTcp.reason(java.net.UnknownHostException("nope.invalid")))
+        assertEquals("timed out", RtlTcp.reason(java.net.SocketTimeoutException()))
+        assertEquals("host unreachable", RtlTcp.reason(java.net.ConnectException("connect failed: EHOSTUNREACH (No route to host)")))
+        // A server that isn't rtl_tcp.
+        val other = ServerSocket(0)
+        val t = thread { other.accept().use { it.getOutputStream().write("HTTP/1.1 400 Bad\r\n\r\n".toByteArray()); it.getOutputStream().flush(); Thread.sleep(300) } }
+        val web = RtlTcp("127.0.0.1", other.localPort) {}
+        assertFalse(web.open())
+        assertEquals("not an rtl_tcp server", web.why)
+        t.join(); other.close()
+    }
+
+    @Test
     fun opensSendsCommandsAndKeepsIqAligned() {
         val server = ServerSocket(0)
         val got = mutableListOf<List<Int>>()

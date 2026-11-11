@@ -34,6 +34,20 @@ class SdrTurnTest {
     }
 
     @Test
+    fun aDongleThatKeepsResettingSaysWhatToDo() {
+        assertEquals("RTL-SDR reset itself", SdrRadio.resetLine("RTL-SDR", 1, biasTee = true))
+        assertEquals("RTL-SDR keeps resetting: keep transmitters a few metres from the antenna", SdrRadio.resetLine("RTL-SDR", 2, biasTee = false))
+        assertEquals(true, SdrRadio.resetLine("RTL-SDR", 3, biasTee = true).endsWith("turn off the bias-tee if there's no LNA"))
+    }
+
+    @Test
+    fun aStreamThatKeepsStallingSaysWhatToTry() {
+        assertEquals("no samples from the SDR · restarting it", SdrRadio.stalledLine(2, network = false))
+        assertEquals(true, SdrRadio.stalledLine(3, network = false).endsWith("try another USB cable or port, or a powered hub"))
+        assertEquals(true, SdrRadio.stalledLine(3, network = true).endsWith("check the network to the SDR"))
+    }
+
+    @Test
     fun aDongleBackAtOnceResetItself() {
         assertEquals(true, SdrRadio.resetBack("0bda:2838", 1_000L, "0bda:2838", 1_400L))
         // Back much later (unplugged and plugged in again), another dongle, or none dropped off: not a reset.

@@ -34,6 +34,10 @@ object SdrRadio {
     private const val ERROR_RETRY_MS = 30_000L
     /** A dongle that drops off USB and is back within this reset itself (seen: ~0.4 s, a walkie-talkie next to the antenna). */
     private const val RESET_MS = 5_000L
+    /** A second reset within this: advice on the status line. */
+    private const val RESET_ADVICE_MS = 5 * 60_000L
+    /** Stream restarts in a row before the status line says what to try. */
+    private const val STALL_ADVICE = 3
     private const val XFER = 16_384           // bytes per USB read (8192 samples)
     /** For continuous decoding: one read is ~33 ms of samples; Android before 9 caps a transfer at 16 KB. */
     private val STREAM_XFER = if (android.os.Build.VERSION.SDK_INT >= 28) 131_072 else XFER
@@ -112,6 +116,10 @@ object SdrRadio {
     /** When the dongle came back from a reset: its next statuses say so until it runs again. */
     @Volatile private var resetAt = 0L
     private val resetting get() = System.currentTimeMillis() - resetAt < 60_000L
+    /** When the last resets happened, for advice once it keeps resetting. Main thread only. */
+    private val resetTimes = ArrayDeque<Long>()
+    /** The status line's start after a reset: plain, or with what to do once it keeps happening. */
+    @Volatile private var resetSays = ""
     /** Where the waterfall was zoomed in (and listening) when the dongle dropped off: given back if it was only a reset. */
     @Volatile private var resetTune: Pair<Long, Boolean>? = null
     private var freqFix: FreqCorrection? = null
@@ -170,6 +178,15 @@ object SdrRadio {
      * remembers the scan it cut short; back from the waterfall ([resume], or [tuned]: zoomed in), that scan carries on.
      */
     /** The dongle [backId] ("vid:pid") just plugged in is the one [goneId] that dropped off at [goneAt], moments ago. */
+    /** The status line's start after a reset; from the second in a few minutes ([resets]), what to do about it. */
+    internal fun resetLine(label: String, resets: Int, biasTee: Boolean) =
+        if (resets < 2) "$label reset itself"
+        else "$label keeps resetting: keep transmitters a few metres from the antenna" + (if (biasTee) ", and turn off the bias-tee if there's no LNA" else "")
+
+    /** The status while the sample stream stalls; after [restarts] in a row, what to try. */
+    internal fun stalledLine(restarts: Int, network: Boolean) = "no samples from the SDR · restarting it" +
+        if (restarts < STALL_ADVICE) "" else if (network) " · check the network to the SDR" else " · try another USB cable or port, or a powered hub"
+
     internal fun resetBack(goneId: String?, goneAt: Long, backId: String, now: Long) = goneId == backId && now - goneAt in 0..RESET_MS
 
     internal fun pickTurn(held: Boolean, mode: Mode?, tuned: Boolean, resume: Mode?, active: Set<Mode>): Pair<Mode?, Mode?> =
@@ -290,10 +307,14 @@ object SdrRadio {
                             deviceOf(intent)?.let { d ->
                                 if (resetBack(goneId, goneAt, "%04x:%04x".format(d.vendorId, d.productId), System.currentTimeMillis())) {
                                     resetAt = System.currentTimeMillis(); goneId = null
+                                    resetTimes.addLast(resetAt)
+                                    while (resetAt - resetTimes.first() > RESET_ADVICE_MS) resetTimes.removeFirst()
+                                    resetSays = resetLine(deviceLabel, resetTimes.size, appContext?.let { com.rfsentinel.app.util.Prefs.sdrBiasTee(it) } == true)
                                     // Still zoomed in (the screen stayed open): the run picks it up again, nothing to give back.
                                     if (tuneHz != null) resetTune = null
                                     com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel dropped off USB and came back: it reset itself (a strong signal close to the antenna, or a power dip) - reconnecting")
-                                    status = "$deviceLabel reset itself · reconnecting…"
+                                    if (resetTimes.size > 1) com.rfsentinel.app.util.HwLogs.sdr.log("$resetSays (${resetTimes.size} resets in a few minutes)")
+                                    status = "$resetSays · reconnecting…"
                                 }
                             }
                             connect(app, ask = false)
@@ -394,7 +415,8 @@ object SdrRadio {
         deviceLabel = labelOf(d)
         if (!mgr.hasPermission(d)) {
             com.rfsentinel.app.util.HwLogs.sdr.log("%04x:%04x ($deviceLabel) plugged in - asking for USB access".format(d.vendorId, d.productId))
-            status = if (resetting) "$deviceLabel reset itself - allow USB access on the prompt to reconnect" else "$deviceLabel found - allow USB access on the prompt"
+            status = if (resetting) "$resetSays - allow USB access on the prompt to reconnect"
+                else "$deviceLabel found - allow USB access on the prompt; if it lists apps, pick RF Sentinel › Always so it reconnects by itself"
             if (!ask) return
             val pi = PendingIntent.getBroadcast(context, 2, Intent(ACTION_PERMISSION).setPackage(context.packageName), PendingIntent.FLAG_MUTABLE)
             runCatching { mgr.requestPermission(d, pi) }
@@ -430,7 +452,7 @@ object SdrRadio {
     private fun launch(name: String, intro: String, release: () -> Unit, open: () -> SdrDevice) {
         runningDevice = name
         stop = false
-        status = if (resetting) "$deviceLabel reset itself · reconnecting…" else "$deviceLabel · starting…"
+        status = if (resetting) "$resetSays · reconnecting…" else "$deviceLabel · starting…"
         val net = name.startsWith(NET)
         val previous = lastWorker
         val t = Thread({
@@ -452,7 +474,7 @@ object SdrRadio {
                 if (gone(name) || result.getOrNull() == true) {
                     com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: ${if (net) "can't reach it" else "unplugged or not answering"}")
                     if (!net) droppedOff()
-                    status = if (net) "$deviceLabel: can't connect, retrying" else UNPLUGGED
+                    status = if (net) "$deviceLabel: " + ((sdr as? RtlTcp)?.why?.let { "can't connect, $it" } ?: "connection lost") + ", retrying" else UNPLUGGED
                     if (!net) clearUnpluggedSoon()
                     // Plugged back in (it gets a new name), only stuck, or the network server may be back: try again shortly.
                     appContext?.let { main.postDelayed({ if (receiver != null) connect(it) }, if (net) NET_RETRY_MS else 3_000L) }
@@ -473,7 +495,9 @@ object SdrRadio {
         com.rfsentinel.app.util.HwLogs.sdr.log("=== $deviceLabel radio activity watch ($intro) ===")
         if (!sdr.open()) {
             if (sdr.lost || gone(name)) return true
+            // Control transfers failing: the dongle is stuck (seen after a strong signal), not an unknown tuner.
             status = if (sdr is HackRf) "HackRF: couldn't start it (see the USB log)"
+                else if (sdr.ctlErrors > 0) "$deviceLabel isn't answering. Unplug it and plug it back in"
                 else "RTL-SDR: this tuner isn't supported yet (R820T / R820T2 / R860 / R828D only)"
             return false
         }
@@ -549,7 +573,7 @@ object SdrRadio {
             if (n <= 0) {
                 if (++fails % STALL_CHUNKS == 0) {
                     if (fails <= STALL_CHUNKS * 3) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: no samples for $fails reads in a row - restarting the stream")
-                    if (!halted) status = "$deviceLabel · ADS-B · no samples from the SDR · restarting it" + turnNote()
+                    if (!halted) status = "$deviceLabel · ADS-B · " + stalledLine(fails / STALL_CHUNKS, sdr is RtlTcp) + turnNote()
                     sdr.resetBuffer()
                 }
                 continue
@@ -658,7 +682,7 @@ object SdrRadio {
                     // The sample stream stalled: restart it (as librtlsdr's reset_buffer) instead of sweeping on with nothing.
                     if (++failedChunks % STALL_CHUNKS == 0) {
                         if (failedChunks <= STALL_CHUNKS * 3) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: no samples for $failedChunks chunks in a row - restarting the stream")
-                        if (!halted) status = "$deviceLabel · no samples from the SDR · restarting it" + turnNote()
+                        if (!halted) status = "$deviceLabel · " + stalledLine(failedChunks / STALL_CHUNKS, sdr is RtlTcp) + turnNote()
                         sdr.resetBuffer()
                     }
                     emptyChunks++
@@ -895,8 +919,10 @@ object SdrRadio {
         sdr.resetBuffer()
         var shown = ""
         fun show(text: String) { shown = text; status = text }
+        var stalls = 0
         val hunt = PagerHunt(sdr, { appContext?.let { com.rfsentinel.app.util.Prefs.pagerSpeeds(it) } ?: PagerDemod.SPEEDS }, STREAM_XFER, { stalled ->
-            status = if (stalled) "$deviceLabel · pagers · no samples from the SDR · restarting it" + turnNote() else shown
+            stalls = if (stalled) stalls + 1 else 0
+            status = if (stalled) "$deviceLabel · pagers · " + stalledLine(stalls, sdr is RtlTcp) + turnNote() else shown
         }, { logAll }) {
             com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: $it")
         }
