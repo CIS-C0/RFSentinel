@@ -530,7 +530,9 @@ class MainActivity : AppCompatActivity() {
                     com.rfsentinel.app.ui.StatusPanel.Hardware(it, { com.rfsentinel.app.usb.MonitorFrames.frameCount.get() }, " frames/s")
                 },
                 com.rfsentinel.app.usb.UsbBluetooth.status.takeIf { it.isNotBlank() }?.let {
-                    com.rfsentinel.app.ui.StatusPanel.Hardware(it, { com.rfsentinel.app.usb.UsbBluetooth.reportCount.get() }, " adverts/s")
+                    val notice = com.rfsentinel.app.usb.UsbBluetooth.noticeShown
+                    com.rfsentinel.app.ui.StatusPanel.Hardware(it, { com.rfsentinel.app.usb.UsbBluetooth.reportCount.get() }.takeIf { !notice }, " adverts/s",
+                        onDismiss = if (notice) ({ com.rfsentinel.app.usb.UsbBluetooth.dismissNotice(this) }) else null)
                 },
                 com.rfsentinel.app.sdr.SdrRadio.status.takeIf { it.isNotBlank() }?.let {
                     com.rfsentinel.app.ui.StatusPanel.Hardware(it,

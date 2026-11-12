@@ -37,6 +37,27 @@ class StatusPanelTest {
     )
 
     @Test
+    fun aNoticeCardHasItsOwnDismiss() {
+        val p = StatusPanel(ctx).also { it.root.visibility = View.VISIBLE }
+        var dismissed = 0
+        val notice = StatusPanel.Hardware("USB Bluetooth: this MT7921AU adapter has no Bluetooth - its maker turned it off", onDismiss = { dismissed++ })
+        p.update(running = true, warning = null, hardware = listOf(live[1], notice))
+        if (button(p.root, "Show the hardware details") != null) button(p.root, "Show the hardware details")!!.performClick()
+        // Only the notice has a ✕ of its own; the running adapter doesn't.
+        val xs = ArrayList<View>()
+        fun find(v: View) { if (v.visibility != View.VISIBLE) return
+            if (v.contentDescription?.toString() == "Don't show this again") xs += v
+            if (v is ViewGroup) for (i in 0 until v.childCount) find(v.getChildAt(i)) }
+        find(p.root)
+        assertEquals(1, xs.size)
+        xs[0].performClick()
+        assertEquals(1, dismissed)
+        val t = shownTexts(p.root)
+        assertTrue(t.toString(), t.none { it.contains("has no Bluetooth") })
+        assertTrue(t.toString(), t.any { it.contains("32 access points") })
+    }
+
+    @Test
     fun foldsUnfoldsAndHides() {
         val p = StatusPanel(ctx).also { it.root.visibility = View.VISIBLE }
         p.update(running = true, warning = null, hardware = live)

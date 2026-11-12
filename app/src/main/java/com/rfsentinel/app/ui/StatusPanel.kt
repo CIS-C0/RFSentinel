@@ -19,7 +19,7 @@ import android.widget.TextView
 class StatusPanel(private val context: Context) {
 
     /** One line of hardware status ("USB WiFi (MT7612U) · live · …") with an optional per-second counter. */
-    class Hardware(val status: String, val counter: (() -> Long)? = null, val unit: String = "/s")
+    class Hardware(val status: String, val counter: (() -> Long)? = null, val unit: String = "/s", val onDismiss: (() -> Unit)? = null)
 
     private val dp = context.resources.displayMetrics.density
     private val prefs = context.getSharedPreferences("rf_sentinel_prefs", Context.MODE_PRIVATE)
@@ -189,6 +189,8 @@ class StatusPanel(private val context: Context) {
             addView(SparklineView(context), LinearLayout.LayoutParams((64 * dp).toInt(), (22 * dp).toInt()))
             addView(TextView(context).apply { textSize = 10f; alpha = 0.75f; gravity = Gravity.END })
         }, LinearLayout.LayoutParams(-2, -2).apply { marginStart = (8 * dp).toInt() })
+        // A notice that needs nothing done (an adapter without Bluetooth): its ✕ hides it for good.
+        addView(iconButton("✕", "Don't show this again").apply { visibility = View.GONE })
     }
 
     private fun bind(card: LinearLayout, h: Hardware, color: Int, rate: String?) {
@@ -200,6 +202,10 @@ class StatusPanel(private val context: Context) {
         val texts = card.getChildAt(1) as LinearLayout
         VisualMode.text(texts.getChildAt(0) as TextView, name(h.status))
         VisualMode.text(texts.getChildAt(1) as TextView, detail(h.status))
+        (card.getChildAt(3) as TextView).apply {
+            visibility = if (h.onDismiss != null) View.VISIBLE else View.GONE
+            setOnClickListener { h.onDismiss?.invoke(); showHardware(last.filter { it !== h }) }
+        }
         val side = card.getChildAt(2) as LinearLayout
         side.visibility = if (rate != null) View.VISIBLE else View.GONE
         if (rate == null) return
@@ -207,17 +213,20 @@ class StatusPanel(private val context: Context) {
         VisualMode.text(side.getChildAt(1) as TextView, rate)
     }
 
-    private enum class State { LIVE, WAIT, ERROR }
+    private enum class State { LIVE, WAIT, ERROR, INFO }
 
     private fun colorOf(s: String) = when (stateOf(s)) {
         State.ERROR -> 0xFFD0503C.toInt()
         State.WAIT -> 0xFFE0A33A.toInt()
         State.LIVE -> 0xFF2E9E5B.toInt()
+        State.INFO -> 0xFF8A8F98.toInt()
     }
 
     private fun stateOf(s: String): State {
         val l = s.lowercase()
         return when {
+            // Not working, but nothing to fix: grey, not the green of a running adapter.
+            "has no bluetooth" in l -> State.INFO
             listOf("error", "couldn't", "isn't supported", "didn't lock", "failed", "isn't the", "is off", "disconnected").any { it in l } -> State.ERROR
             listOf("starting", "allow", "found", "needs", "learning", "connecting", "reconnecting", "setting up", "looking up", "tap ",
                 "waiting", "listening on").any { it in l } -> State.WAIT

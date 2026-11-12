@@ -357,6 +357,9 @@ object Prefs {
             "Eastlink", "Freedom", "SaskTel", "Distributel", "TekSavvy", "Ebox", "Xplore"),
         "United States" to listOf("Xfinity", "ATT", "Spectrum", "Verizon", "Fios", "CenturyLink", "Frontier", "Cox",
             "Optimum", "Windstream", "TMobile", "T-Mobile", "Mediacom", "Sparklight", "GFiber"))
+    /** MT7921AU adapters ("vid:pid") whose "no Bluetooth" notice was dismissed: not shown again. */
+    fun usbBtNoticeHidden(context: Context): Set<String> = sp(context).getStringSet("usb_bt_notice_hidden", emptySet()).orEmpty()
+    fun hideUsbBtNotice(context: Context, id: String) = sp(context).edit { putStringSet("usb_bt_notice_hidden", usbBtNoticeHidden(context) + id) }
     fun ignoredSsidPresets(context: Context): Set<String> = sp(context).getStringSet("ignored_ssid_presets", emptySet()).orEmpty()
     fun setIgnoredSsidPresets(context: Context, v: Set<String>) = sp(context).edit { putStringSet("ignored_ssid_presets", v) }
     /** Your words plus the picked presets' ([ISP_PRESETS]). */

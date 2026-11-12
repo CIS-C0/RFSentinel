@@ -93,7 +93,7 @@ object UsbBluetooth {
      * (the EDUP EP-AX1672 has WiFi on interface 0; the ALFA AWUS036AXML has Bluetooth on 0-2 and WiFi on 3).
      * Nothing over USB can turn it back on, so say so instead of "not connected".
      */
-    private fun noBluetooth(all: List<UsbDevice>): String? {
+    private fun noBluetooth(context: Context, all: List<UsbDevice>): String? {
         val d = all.firstOrNull { UsbWifi.chipOf(it)?.driver == UsbWifi.Driver.MT7921U } ?: return null
         // A Bluetooth interface is there but wasn't usable (or another pick won): the maker didn't turn it off.
         if ((0 until d.interfaceCount).any { d.getInterface(it).let { i -> isBtClass(d.vendorId, i.interfaceClass, i.interfaceSubclass, i.interfaceProtocol) } }) return null
@@ -102,8 +102,21 @@ object UsbBluetooth {
             com.rfsentinel.app.util.HwLogs.usbBt.log("BT: %04x:%04x (MT7921AU) has no Bluetooth interface, only: %s - its maker turned Bluetooth off in this adapter"
                 .format(d.vendorId, d.productId, layout(classes)))
         }
-        return "USB Bluetooth: this MT7921AU adapter has no Bluetooth - its maker turned it off. Its WiFi still works"
+        noBtId = "%04x:%04x".format(d.vendorId, d.productId)
+        if (noBtId in com.rfsentinel.app.util.Prefs.usbBtNoticeHidden(context)) return null
+        return NO_BT
     }
+
+    /** The adapter the "no Bluetooth" notice is about, for its ✕. */
+    @Volatile private var noBtId: String? = null
+    /** The status is the "no Bluetooth" notice: it can be dismissed for good ([dismissNotice]). */
+    val noticeShown get() = status == NO_BT
+    /** The notice's ✕: not shown again for this adapter model. */
+    fun dismissNotice(context: Context) {
+        noBtId?.let { com.rfsentinel.app.util.Prefs.hideUsbBtNotice(context, it) }
+        if (status == NO_BT) status = ""
+    }
+    private const val NO_BT = "USB Bluetooth: this MT7921AU adapter has no Bluetooth - its maker turned it off. Its WiFi still works"
 
     /** Known from the USB ID alone: MediaTek (its chip ID registers are read before any HCI command), Realtek, Intel. */
     internal fun vendorOf(vendorId: Int, productId: Int): Vendor? = when {
@@ -188,7 +201,7 @@ object UsbBluetooth {
         // Not RTL-SDR / HackRF sticks, which have no Bluetooth interface anyway.
         val d = UsbPick.pick(context, UsbPick.Kind.BT, all) ?: run {
             status = UsbPick.waitingFor(context, UsbPick.Kind.BT, all)?.let { "USB Bluetooth: waiting for $it, picked in Settings" }
-                ?: noBluetooth(all) ?: if (firmwareNeeded == null) "" else status
+                ?: noBluetooth(context, all) ?: if (firmwareNeeded == null) "" else status
             return
         }
         if (!mgr.hasPermission(d)) {
