@@ -2181,7 +2181,10 @@ class SettingsActivity : AppCompatActivity() {
                 override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) = onPick(position)
                 override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
             }
-        })
+        // Long choices (an adapter's full name): at most half the row. Sized to its longest choice, the spinner squeezed
+        // the label to nothing, one letter per line, and the row grew tall and blank.
+        }, if (items.any { it.length > 16 }) android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            else android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT))
         return row
     }
 
