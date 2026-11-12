@@ -302,7 +302,7 @@ object SdrRadio {
     /**
      * The Radio waterfall's "Find a remote's frequency" (like a Flipper Zero's frequency analyzer): while set, the SDR hops
      * the bands remotes use ([FINDER_CENTERS]) and hands it each signal that stands out: where this dongle hears it (Hz)
-     * and how far above the noise (dB). Called on the SDR's thread.
+     * and how far above the noise (dB); (0, 0) once, when it's ready for the button to be pressed. Called on the SDR's thread.
      */
     @Volatile var finder: ((Long, Int) -> Unit)? = null
     /**
@@ -334,7 +334,7 @@ object SdrRadio {
      */
     private val FINDER_CENTERS = listOf(300_400_000L, 303_600_000L, 310_400_000L, 315_400_000L, 318_400_000L,
         390_400_000L, 418_400_000L, 434_200_000L, 868_000_000L, 915_400_000L)
-    private const val FINDER_READS = 4          // ~16 ms a look: all of them about twice a second
+    private const val FINDER_READS = 15         // ~60 ms a look, in 4 ms spectra: all of them in under a second
     private const val FINDER_MIN_DB = 15.0      // a remote pressed near the antenna stands far above this
 
     /** Learned channels for the sweep, kept while the waterfall zooms in and out (new per device). */
@@ -1243,31 +1243,44 @@ object SdrRadio {
         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: finding a remote's frequency")
         status = "$deviceLabel · finding a remote's frequency"
         var cycles = 0; var hits = 0; var best = 0; var lastCheck = System.currentTimeMillis()
+        val pick = RemoteFinder()
         while (!halted && !sdr.lost && !reapplyNow && finder != null) {
             if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
             for (center in FINDER_CENTERS) {
                 val tell = finder ?: break
-                val psd = spectrum(sdr, center, FINDER_READS) ?: continue
-                P25Hunt.candidates(center, psd, sdr.sampleRate, FINDER_MIN_DB).maxByOrNull { it.snrDb }?.let {
+                val reads = spectra(sdr, center, FINDER_READS) ?: continue
+                pick.look(center, reads.map { P25Hunt.candidates(center, it, sdr.sampleRate, FINDER_MIN_DB) })?.let {
                     hits++; best = maxOf(best, it.snrDb.toInt()); tell(it.hz, it.snrDb.toInt())
+                    if (logAll) logHeard("remote finder: %.4f MHz %.0f dB".format(java.util.Locale.US, it.hz / 1e6, it.snrDb))
                 }
             }
-            cycles++
+            val wasReady = pick.ready
+            pick.endRound(); cycles++
+            if (!wasReady && pick.ready) finder?.invoke(0L, 0) // what was already on the air is learnt: press now
         }
         // Levels only: a remote's frequency could single out the car or the house (unless "log everything" is on).
         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: remote finder off after $cycles rounds, $hits signals heard" +
             (if (hits > 0) ", strongest $best dB" else ""))
     }
 
-    /** The power spectrum with the SDR tuned to [center] ([reads] USB reads of it); null when the tuner or the samples failed. */
-    private fun spectrum(sdr: SdrDevice, center: Long, reads: Int = INPUT_READS): FloatArray? {
+    /** A power spectrum of each of [reads] USB reads (~4 ms each) with the SDR tuned to [center]; null when the tuner failed. */
+    private fun spectra(sdr: SdrDevice, center: Long, reads: Int): List<FloatArray>? {
         if (!sdr.tune(center)) return null
         sdr.resetBuffer()
         val buf = ByteArray(XFER)
         repeat(sdr.settleReads) { sdr.read(buf) }
-        val iq = ByteArray(XFER * reads)
+        return (0 until reads).mapNotNull { sdr.read(buf).takeIf { it >= 2 * 1024 }?.let { n -> RadioWatch.powerSpectrum(buf, n / 2) } }
+    }
+
+    /** The power spectrum with the SDR tuned to [center]; null when the tuner or the samples failed. */
+    private fun spectrum(sdr: SdrDevice, center: Long): FloatArray? {
+        if (!sdr.tune(center)) return null
+        sdr.resetBuffer()
+        val buf = ByteArray(XFER)
+        repeat(sdr.settleReads) { sdr.read(buf) }
+        val iq = ByteArray(XFER * INPUT_READS)
         var got = 0
-        for (i in 0 until reads) {
+        for (i in 0 until INPUT_READS) {
             val n = sdr.read(buf)
             if (n <= 0) break
             System.arraycopy(buf, 0, iq, got, n); got += n

@@ -145,12 +145,11 @@ class WaterfallActivity : AppCompatActivity() {
      */
     private fun findRemote() {
         if (demo) { Toast.makeText(this, "Needs a real SDR", Toast.LENGTH_SHORT).show(); return }
-        val intro = "Hold your remote close to the SDR's antenna and press a button a few times.\n\n" +
-            "Listening on 300 to 318, 390, 418, 433.92, 868 and 915 MHz."
+        val intro = "Hold your remote close to the SDR's antenna. Listening on 300 to 318, 390, 418, 433.92, 868 and 915 MHz."
         var bestHz = 0L; var bestDb = 0; var bestAt = 0L
         val dialog = MaterialAlertDialogBuilder(this)
             .setTitle("Find a remote's frequency")
-            .setMessage("$intro\n\nNothing heard yet.")
+            .setMessage("$intro\n\nLearning what's already on the air, don't press yet…")
             .setPositiveButton("Tune to it") { _, _ -> if (bestHz > 0) zoom(bestHz) }
             .setNegativeButton("Stop", null)
             .setOnDismissListener { SdrRadio.finder = null; finderDialog = null; refresh() }
@@ -159,6 +158,8 @@ class WaterfallActivity : AppCompatActivity() {
         dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).isEnabled = false
         SdrRadio.finder = { hz, db ->
             runOnUiThread {
+                if (finderDialog !== dialog) return@runOnUiThread
+                if (hz == 0L) { dialog.setMessage("$intro\n\nReady: press and hold a button, a few times."); return@runOnUiThread }
                 val now = System.currentTimeMillis()
                 if (finderDialog !== dialog || (db < bestDb && now - bestAt < FINDER_HOLD_MS)) return@runOnUiThread
                 bestHz = hz; bestDb = db; bestAt = now
@@ -248,7 +249,8 @@ class WaterfallActivity : AppCompatActivity() {
             Preset("Sensors and remotes", "Weather stations, doorbells, European car keys, 433.92 MHz", 433_925_000L, // on the 12.5 kHz tuning step, so the status line finds it
                 "Sensors and remotes show as tiny dots each time they send."),
             // North American car keys, garage openers and tire sensors are on 315 MHz, not 433.92.
-            Preset("Car keys (North America)", "Key fobs, garage openers, tire sensors, 315 MHz", 315_000_000L,
+            // Centred above 315: the view then holds 315.0 keys and the ones near 315.9 (a tester's) alike.
+            Preset("Car keys (North America)", "Key fobs, garage openers, tire sensors, 315 MHz", 315_500_000L,
                 "A key fob shows as a short burst of dots each time you press it; hold it near the antenna."),
             Preset("Aircraft transponders", "ADS-B, 1090 MHz", 1_090_000_000L,
                 "Planes' transponders show as speckles in the middle; more with planes overhead.")
