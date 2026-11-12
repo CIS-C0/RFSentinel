@@ -525,7 +525,9 @@ object SdrRadio {
             }
             val turn = turnMs[m] ?: 60_000L
             if (!held && active.size > 1) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: turn: ${m.label} for ${turn / 1000} s")
-            mode = m; turnEnd = System.currentTimeMillis() + turn
+            // Held for the waterfall in another scan's place: no sweep turn left once the screen closes, the cut-short scan
+            // goes on at once (it ran on for the rest of a 30 s turn).
+            mode = m; turnEnd = System.currentTimeMillis() + if (held && after != null) 0L else turn
             when (m) {
                 Mode.SWEEP -> runSweep(sdr, name)
                 Mode.ADSB -> runAdsb(sdr, name)
