@@ -10,7 +10,8 @@ package com.rfsentinel.app.service
  * Phones and tags change their random address every 15 minutes or so. A new address linked to its earlier one ([previous]:
  * [DeviceRegistry.linkedFrom]) counts as that device; one that wasn't linked never stays [STAY_RANDOM_MS] on one address, so the
  * household's own phones don't set it off (nor does a visitor's phone that does the same). Paused while you are more than
- * [RADIUS_M] from the place. Memory only: a restart learns again. Pure, not thread-safe (the service's housekeeping loop).
+ * [RADIUS_M] from the place. What it learned is kept ([save] / [restore]) so a restart of the app or the phone doesn't learn
+ * again around someone already there. Pure, not thread-safe (the service's housekeeping loop).
  */
 class PlaceWatch {
 
@@ -96,6 +97,36 @@ class PlaceWatch {
             out += Event(Kind.GONE, mac, (now - last) / 60_000, residentSource[mac] ?: "BLE")
         }
         return out
+    }
+
+    /** What it learned, for [restore]: lines of start time, place, learned, residents, first heard while learning, reported. */
+    fun save(): String = listOf(
+        startedAt.toString(),
+        place?.let { "${it.first},${it.second}" }.orEmpty(),
+        known.joinToString(" "),
+        resident.keys.joinToString(" ") { "$it=${residentSource[it] ?: "BLE"}" },
+        learnFirst.entries.joinToString(" ") { "${it.key}=${it.value}" },
+        alerted.joinToString(" "),
+    ).joinToString("\n")
+
+    /**
+     * Back to what [save] kept, watching on at [now]; false (and off) when [text] isn't one. Residents count as heard [now]:
+     * the time the app was down isn't theirs to be missing.
+     */
+    fun restore(text: String, now: Long): Boolean {
+        stop()
+        val l = text.split("\n")
+        val started = l.getOrNull(0)?.toLongOrNull()
+        if (l.size != 6 || started == null || started > now) return false
+        fun words(i: Int) = l[i].split(" ").filter { it.isNotEmpty() }
+        fun pairs(i: Int) = words(i).mapNotNull { w -> w.split("=").takeIf { it.size == 2 }?.let { it[0] to it[1] } }
+        val p = l[1].split(",").mapNotNull { it.toDoubleOrNull() }
+        on = true; startedAt = started; place = if (p.size == 2) p[0] to p[1] else null
+        known += words(2)
+        pairs(3).forEach { (mac, source) -> resident[mac] = now; residentSource[mac] = source }
+        pairs(4).forEach { (mac, t) -> t.toLongOrNull()?.let { learnFirst[mac] = it } }
+        alerted += words(5)
+        return true
     }
 
     /** [mac]'s earlier addresses, newest first (at most 8). */

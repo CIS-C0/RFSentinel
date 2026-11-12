@@ -147,6 +147,7 @@ class ScanForegroundService : Service() {
         /** Watch this place: heard this recently by a radio here counts; its "New device" match lasts this long. */
         private const val PLACE_HEARD_MS = 60_000L
         private const val PLACE_HIT_MS = 5 * 60_000L
+        private const val PLACE_SAVE_MS = 60_000L
         /** Addresses that don't rotate, for Watch this place. */
         private val FIXED_ADDRESSES = setOf(com.rfsentinel.app.detect.AddressType.PUBLIC, com.rfsentinel.app.detect.AddressType.RANDOM_STATIC,
             com.rfsentinel.app.detect.AddressType.WIFI_GLOBAL, com.rfsentinel.app.detect.AddressType.LIKELY_PUBLIC,
@@ -272,6 +273,10 @@ class ScanForegroundService : Service() {
     /** Settings › Watch this place (housekeeping loop only); [placeLearnedLogged]: its end of learning was logged. */
     private val placeWatch = PlaceWatch()
     private var placeLearnedLogged = false
+    private var placeSavedAt = 0L
+    /** The watch running: when it was turned on ([Prefs.placeWatchSince]). */
+    private var placeSince = 0L
+    private val placeFile by lazy { java.io.File(filesDir, "place_watch.txt") }
     /**
      * Watch this place's "New device" match per address, and when it was made: added to the device's matches for a while
      * ([placeHit]) so it alerts, logs and is shared (Sentinel Link, the mesh) like any other match.
@@ -1643,11 +1648,24 @@ class ScanForegroundService : Service() {
         val here = (lastLocation ?: lastFix)?.let { it.latitude to it.longitude }
         if (!Prefs.placeWatch(this)) {
             if (placeWatch.on) { placeWatch.stop(); placeHits.clear(); Log.i(TAG, "Place watch off") }
+            if (placeFile.exists()) placeFile.delete()
             return null
         }
+        val since = Prefs.placeWatchSince(this)
+        if (placeWatch.on && since != placeSince) placeWatch.stop() // turned off and on again: a new watch
         if (!placeWatch.on) {
-            placeWatch.start(now, here); placeLearnedLogged = false; placeHits.clear()
-            Log.i(TAG, "Place watch on: learning for ${PlaceWatch.LEARN_MS / 60_000} min" + if (here == null) ", no position yet" else "")
+            placeHits.clear(); placeSince = since
+            // Still on since before a restart: back to what it learned (it keeps the place: away if the phone moved).
+            val kept = placeFile.takeIf { it.exists() }?.let { f -> runCatching { f.readText() }.getOrNull() }
+                ?.takeIf { it.startsWith("$since\n") }?.substringAfter('\n')
+            if (kept != null && placeWatch.restore(kept, now)) {
+                placeLearnedLogged = !placeWatch.learning(now)
+                Log.i(TAG, "Place watch restored: ${placeWatch.learned.first} learned, ${(now - placeWatch.startedAt) / 60_000} min on")
+            } else {
+                placeWatch.start(now, here); placeLearnedLogged = false
+                Log.i(TAG, "Place watch on: learning for ${PlaceWatch.LEARN_MS / 60_000} min" + if (here == null) ", no position yet" else "")
+            }
+            placeSavedAt = 0L
         }
         // Only what is heard here: this phone and its own hardware, or a Sentinel linked over Bluetooth (in its range). A
         // device relayed over the mesh or the internet may be far away, and so may a LoRa node: the level its packets come
@@ -1670,6 +1688,10 @@ class ScanForegroundService : Service() {
         }
         // Reported on the pipeline thread, like every other detection.
         for (e in events) byMac[e.mac].let { d -> pipeline.post { reportPlace(e, d, now) } }
+        if (events.isNotEmpty() || now - placeSavedAt >= PLACE_SAVE_MS) {
+            placeSavedAt = now
+            runCatching { placeFile.writeText("$placeSince\n" + placeWatch.save()) }.onFailure { Log.w(TAG, "Place watch not saved", it) }
+        }
         return when {
             placeWatch.away -> "away from the watched place"
             placeWatch.learning(now) -> "learning this place"

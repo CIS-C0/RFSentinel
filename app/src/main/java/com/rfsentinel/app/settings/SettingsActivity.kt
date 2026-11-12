@@ -1249,7 +1249,7 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.placeWatchSwitch, "For a phone left in one place: home, a hotel room, a camp. Turn it on there: for 10 minutes RF Sentinel " +
             "learns the devices around, then alerts when a new one shows up close by and stays 10 minutes (20 on an address that changes, " +
             "so your own phones don't set it off). Devices that were here all along and go quiet for 30 minutes, then come back, are " +
-            "only logged. Paused while you're more than 300 m away. Learns again after scanning restarts. Turn it off when you leave.\n\n" +
+            "only logged. Paused while you're more than 300 m away. Keeps what it learned until you turn it off, even if the phone restarts. Turn it off when you leave.\n\n" +
             "Counts what this phone, its USB and ESP32 hardware and Sentinels linked over Bluetooth hear. Not LoRa nodes, nor devices " +
             "heard over the mesh or the internet: they can be far away. A new device alerts like a watchlist match, so linked " +
             "Sentinels and the mesh get it too; whitelisted devices never alert.")
