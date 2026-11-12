@@ -157,6 +157,8 @@ class ScanForegroundService : Service() {
         /** Mesh: how often the send queue is checked, the shortest gap for a watchlist match, a presence packet, the name. */
         private const val MESH_TICK_MS = 5_000L
         private const val MESH_MIN_GAP_MS = 15_000L
+        /** The node's own telemetry older than this is not used for the automatic pace. */
+        private const val OWN_STATS_MS = 2 * 3_600_000L
         private const val MESH_PRESENCE_MS = 10 * 60_000L
         private const val MESH_NAME_MS = 10 * 60_000L
         private const val MQTT_TICK_MS = 5_000L
@@ -1188,7 +1190,14 @@ class ScanForegroundService : Service() {
             val since = now - meshLastSend
             val urgent = box.urgent(now)
             val presence = since >= MESH_PRESENCE_MS
-            val interval = link.meshIntervalSec(ctx) * 1000L
+            val interval = link.meshIntervalSec(ctx).let { s ->
+                if (s != link.MESH_INTERVAL_AUTO) s * 1000L
+                else com.rfsentinel.app.esp.LoRaStats.let { st ->
+                    val own = st.own?.takeIf { now - st.ownAt < OWN_STATS_MS }
+                    com.rfsentinel.app.link.MeshPace.intervalMs(own?.channelUtil, own?.airUtilTx,
+                        com.rfsentinel.app.link.MeshNode.queueFree, box.waiting(now))
+                }
+            }
             val loc = lastLocation?.takeIf { usableForPlacing(it) }
             val lat = loc?.latitude ?: Double.NaN
             val lon = loc?.longitude ?: Double.NaN

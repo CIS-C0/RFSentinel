@@ -233,10 +233,13 @@ class SentinelLinkActivity : AppCompatActivity() {
                 "Switched back on when you turn this off. The node may restart once."
         }
         val intervalLabel = TextView(this).apply { textSize = 14f; setPadding(0, pad(12), 0, 0) }
-        fun showInterval(s: Int) { intervalLabel.text = "Send a packet every $s s - watchlist matches sooner" }
+        fun showInterval(s: Int) {
+            intervalLabel.text = if (s == LinkStore.MESH_INTERVAL_AUTO) "Send packets: Auto, as fast as the channel allows - watchlist matches sooner"
+                else "Send a packet every $s s - watchlist matches sooner"
+        }
         val step = 15
         val interval = Slider(this).apply {
-            valueFrom = LinkStore.MESH_INTERVAL_MIN.toFloat()
+            valueFrom = LinkStore.MESH_INTERVAL_AUTO.toFloat()
             valueTo = LinkStore.MESH_INTERVAL_MAX.toFloat()
             stepSize = step.toFloat()
             value = (LinkStore.meshIntervalSec(this@SentinelLinkActivity) / step * step).toFloat()

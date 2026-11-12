@@ -26,6 +26,9 @@ data class NodeStats(val metrics: MeshProto.Metrics = MeshProto.Metrics(), val s
 
 /** Each LoRa node's [NodeStats], by its made-up address. */
 object LoRaStats {
+    /** The paired node's own telemetry (channel use, its own air time), for the automatic send pace; and when. */
+    @Volatile var own: MeshProto.Metrics? = null; @Volatile var ownAt = 0L
+    fun noteOwn(metrics: MeshProto.Metrics?, now: Long) { metrics ?: return; own = own?.with(metrics) ?: metrics; ownAt = now }
     private val byMac = java.util.concurrent.ConcurrentHashMap<String, NodeStats>()
     fun of(mac: String): NodeStats? = byMac[mac.uppercase()]
     fun note(mac: String, metrics: MeshProto.Metrics?, snr: Float?, hops: Int?, now: Long) {
@@ -34,7 +37,7 @@ object LoRaStats {
             NodeStats(metrics?.let { old.metrics.with(it) } ?: old.metrics, snr ?: old.snr, hops ?: old.hops, now)
         }
     }
-    fun clear() = byMac.clear()
+    fun clear() { byMac.clear(); own = null; ownAt = 0L }
 }
 
 /** What a Meshtastic radio tells its phone, as sightings: only nodes it heard over LoRa, never over MQTT. */
@@ -49,6 +52,7 @@ class MeshtasticLog(private val nowS: () -> Long = { System.currentTimeMillis() 
             is MeshProto.From.MyInfo -> me = m.nodeNum
             is MeshProto.From.NodeInfo -> {
                 if (m.name.isNotEmpty()) names[m.num] = m.name
+                if (m.num == me) LoRaStats.noteOwn(m.metrics, nowS() * 1000)
                 m.position?.let { spots[m.num] = it }
                 if (m.num != me && !m.viaMqtt && nowS() - m.lastHeard < RECENT_S) {
                     LoRaStats.note(mac(m.num), m.metrics, m.snr, m.hops, nowS() * 1000)
@@ -56,6 +60,8 @@ class MeshtasticLog(private val nowS: () -> Long = { System.currentTimeMillis() 
                 }
             }
             is MeshProto.From.Packet -> {
+                if (m.from == me && m.port == MeshProto.PORT_TELEMETRY_APP)
+                    LoRaStats.noteOwn(runCatching { MeshProto.telemetry(m.payload) }.getOrNull(), nowS() * 1000)
                 if (m.from == 0L || m.from == me || m.viaMqtt) return null
                 when (m.port) {
                     MeshProto.PORT_NODEINFO_APP -> MeshProto.userName(m.payload).takeIf { it.isNotEmpty() }?.let { names[m.from] = it }

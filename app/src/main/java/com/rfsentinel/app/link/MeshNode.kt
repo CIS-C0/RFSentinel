@@ -125,6 +125,8 @@ object MeshNode {
     private var gotCount = 0
     private var otherCount = 0
     private var droppedCount = 0
+    /** Free places in the node's send queue from its last queue report (-1: none yet), for the automatic pace. */
+    @Volatile var queueFree = -1
     private var badCount = 0
 
     /** Starts using the node at [nodeAddress]; [packets] gets RF Sentinel payloads from the mesh (on this thread). */
@@ -258,7 +260,7 @@ object MeshNode {
         toRadio = null; fromRadio = null
         ops.clear(); inFlight = null; ioReady = false; busyTries = 0; probeAt = 0L
         draining = false; drainAgain = false
-        channels.clear(); channelIndex = -1; myNode = 0L; setupProblem = null; extNotif = null
+        channels.clear(); channelIndex = -1; myNode = 0L; queueFree = -1; setupProblem = null; extNotif = null
         if (ready) { ready = false; changed() }
     }
 
@@ -495,7 +497,7 @@ object MeshNode {
                     changed()
                 }
             }
-            is MeshProto.From.Queue -> if (m.res != 0) { Log.i(TAG, "node queue: ${m.res}, ${m.free} free"); com.rfsentinel.app.util.HwLogs.meshNode.log("Meshtastic node: queue answer ${m.res}, ${m.free} free") }
+            is MeshProto.From.Queue -> { queueFree = m.free; if (m.res != 0) { Log.i(TAG, "node queue: ${m.res}, ${m.free} free"); com.rfsentinel.app.util.HwLogs.meshNode.log("Meshtastic node: queue answer ${m.res}, ${m.free} free") } }
             MeshProto.From.Rebooted -> lost("restarted")
             is MeshProto.From.NodeInfo, MeshProto.From.Other -> Unit
         }

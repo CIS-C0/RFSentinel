@@ -52,9 +52,7 @@ class MeshOutbox(private val maxRepeatMs: Long = Long.MAX_VALUE) {
     @Synchronized
     fun take(now: Long, room: Int): List<MeshCodec.Device> {
         trim(now)
-        val due = devices.entries.filter { (_, e) ->
-            now - e.seen < FRESH_MS && (e.sent == 0L || e.hits != e.sentHits || now - e.sent >= minOf(repeatMs(e.priority), maxRepeatMs))
-        }.sortedWith(compareByDescending<Map.Entry<String, Entry>> { it.value.priority }
+        val due = devices.entries.filter { (_, e) -> isDue(e, now) }.sortedWith(compareByDescending<Map.Entry<String, Entry>> { it.value.priority }
             // Never sent first, then the longest waiting: when a packet can't hold them all, each gets its turn.
             .thenBy { it.value.sent }
             .thenByDescending { it.value.seen })
@@ -72,6 +70,13 @@ class MeshOutbox(private val maxRepeatMs: Long = Long.MAX_VALUE) {
         }
         return out
     }
+
+    private fun isDue(e: Entry, now: Long) =
+        now - e.seen < FRESH_MS && (e.sent == 0L || e.hits != e.sentHits || now - e.sent >= minOf(repeatMs(e.priority), maxRepeatMs))
+
+    /** Something is due to go out (for the automatic pace). */
+    @Synchronized
+    fun waiting(now: Long) = devices.values.any { isDue(it, now) }
 
     private fun trim(now: Long) {
         devices.entries.removeAll { now - it.value.seen > FORGET_MS }

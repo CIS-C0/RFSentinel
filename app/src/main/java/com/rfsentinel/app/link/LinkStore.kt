@@ -125,8 +125,10 @@ object LinkStore {
     fun setMeshBuzzerWasOn(c: Context, address: String, on: Boolean) = sp(c).edit {
         if (on) putBoolean("mesh_buzzer_was_on_$address", true) else remove("mesh_buzzer_was_on_$address")
     }
-    /** Seconds between two packets (watchlist matches can go sooner). */
-    fun meshIntervalSec(c: Context) = sp(c).getInt("mesh_interval", 60).coerceIn(MESH_INTERVAL_MIN, MESH_INTERVAL_MAX)
+    /** Seconds between two packets (watchlist matches can go sooner); [MESH_INTERVAL_AUTO]: [MeshPace] decides. */
+    fun meshIntervalSec(c: Context) = sp(c).getInt("mesh_interval", MESH_INTERVAL_AUTO)
+        .let { if (it == MESH_INTERVAL_AUTO) it else it.coerceIn(MESH_INTERVAL_MIN, MESH_INTERVAL_MAX) }
+    const val MESH_INTERVAL_AUTO = 0
     fun setMeshIntervalSec(c: Context, s: Int) = sp(c).edit { putInt("mesh_interval", s) }
     const val MESH_INTERVAL_MIN = 15
     const val MESH_INTERVAL_MAX = 300
