@@ -31,7 +31,7 @@ class SdrTrackTest {
         SdrTrack.add("first", 1_000L); SdrTrack.add("second", 2_000L)
         SdrTrack.append(id, SdrTrack.since(1_500L))
         val text = SdrTrack.read(id)!!
-        assertTrue(text, text.startsWith("time,latitude,longitude,sdr\n") && "second" in text && "first" !in text)
+        assertTrue(text, text.startsWith("time,latitude,longitude,activity\n") && "second" in text && "first" !in text)
         SdrTrack.append(id, SdrTrack.since(0L))
         assertEquals(1, SdrTrack.read(id)!!.lines().count { it.startsWith("time,") })
         SdrTrack.delete(id)

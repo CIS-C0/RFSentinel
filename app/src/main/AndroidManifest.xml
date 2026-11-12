@@ -246,6 +246,13 @@
 
         <receiver android:name=".util.UpdateStatusReceiver" android:exported="false" />
 
+        <!-- Hardware logs for adb only (DUMP: adb's shell has it, apps can't). See util/LogProvider.kt. -->
+        <provider
+            android:name=".util.LogProvider"
+            android:authorities="${applicationId}.logs"
+            android:exported="true"
+            android:readPermission="android.permission.DUMP"
+            android:writePermission="android.permission.DUMP" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

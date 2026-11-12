@@ -8,7 +8,8 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * The SDR's activity with when and where: every line of its log, stamped with the time and your GPS position then.
+ * The SDR's and USB WiFi adapter's activity with when and where: every line of their logs, stamped with the time and
+ * your GPS position then.
  * Kept in memory for [KEEP_MS] (a snapshot keeps the last [SNAPSHOT_MS]) and, while a trace records, in a file of
  * its own (files/trip_sdr/<id>.csv, out of cloud backups), exported with the trace as CSV. Lines carry what the
  * SDR log does: frequencies and IDs only with "Log everything the RTL-SDR hears" on.
@@ -19,7 +20,7 @@ object SdrTrack {
     const val KEEP_MS = 30 * 60_000L
     const val SNAPSHOT_MS = 10 * 60_000L
     private const val MAX_EVENTS = 5_000
-    private const val HEADER = "time,latitude,longitude,sdr\n"
+    private const val HEADER = "time,latitude,longitude,activity\n"
 
     @Volatile private var dir: File? = null
     private val recent = ArrayDeque<Event>()
@@ -52,7 +53,16 @@ object SdrTrack {
     }
 
     /** The trace's or snapshot's SDR activity as CSV, or null when none was recorded. */
-    fun read(id: Long): String? = file(id)?.takeIf { it.exists() && it.length() > HEADER.length }?.let { runCatching { it.readText() }.getOrNull() }
+    fun read(id: Long): String? = read(file(id))
+
+    /** The trace or snapshot that recorded SDR activity last, for adb ([com.rfsentinel.app.util.LogProvider]). */
+    fun latest(): Long? = ids().firstOrNull()?.first
+
+    /** Every trace and snapshot with SDR activity, newest first: id and size. */
+    fun ids(): List<Pair<Long, Long>> = dir?.listFiles().orEmpty().sortedByDescending { it.lastModified() }
+        .mapNotNull { f -> f.nameWithoutExtension.toLongOrNull()?.let { it to f.length() } }
+
+    private fun read(f: File?): String? = f?.takeIf { it.exists() && it.length() > HEADER.length }?.let { runCatching { it.readText() }.getOrNull() }
 
     fun delete(id: Long) { file(id)?.delete() }
 

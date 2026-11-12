@@ -389,29 +389,10 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     /** Each hardware log's status now, for its export (no broker name or IP address). */
-    private fun hwStatus(log: com.rfsentinel.app.util.HwLog): String {
-        val l = com.rfsentinel.app.util.HwLogs
-        return when (log) {
-            l.phone -> if (com.rfsentinel.app.service.ScanForegroundService.isRunning) "scanning" else ""
-            l.usbWifi -> com.rfsentinel.app.usb.UsbWifi.status
-            l.usbBt -> com.rfsentinel.app.usb.UsbBluetooth.status
-            l.sdr -> com.rfsentinel.app.sdr.SdrRadio.status
-            l.esp -> com.rfsentinel.app.esp.EspBoards.status
-            l.meshRadio -> com.rfsentinel.app.esp.MeshBle.status
-            l.ouiSpy -> com.rfsentinel.app.esp.OuiSpyBle.status
-            l.meshNode -> com.rfsentinel.app.link.MeshNode.status
-            l.link -> com.rfsentinel.app.link.PhoneLink.status
-            l.relay -> com.rfsentinel.app.link.MqttRelay.safeStatus
-            else -> ""
-        }
-    }
+    private fun hwStatus(log: com.rfsentinel.app.util.HwLog): String = com.rfsentinel.app.util.HwLogs.status(log)
 
     /** [log]'s export: plugged-in USB devices too for the hardware on USB. */
-    private fun hwReport(log: com.rfsentinel.app.util.HwLog): String {
-        val l = com.rfsentinel.app.util.HwLogs
-        val usb = log in listOf(l.usbWifi, l.usbBt, l.sdr, l.esp)
-        return log.report(this, hwStatus(log), if (usb) com.rfsentinel.app.usb.UsbWifi.usbDevices(this) else null)
-    }
+    private fun hwReport(log: com.rfsentinel.app.util.HwLog): String = com.rfsentinel.app.util.HwLogs.report(this, log)
 
     /** External hardware › Export a hardware log: pick one; each piece of hardware has its own log. */
     private fun pickHardwareLog() {
@@ -1295,6 +1276,10 @@ class SettingsActivity : AppCompatActivity() {
             "Sentinel was, tagged \"via\" and its name. Off: it still shows live here, but only the Sentinel that heard it keeps it. " +
             "Either way each phone keeps its own History: nothing is merged later.")
         info(binding.rtl5gSwitch, "For RTL8811AU / RTL8821AU adapters such as the ALFA AWUS036ACS. Experimental.")
+        info(binding.usbLogAllSwitch, "The USB WiFi log also lists each device as it is first heard and as it goes: access " +
+            "point or client, channel, signal, security, WiFi generation, the maker part of its address or \"random address\", " +
+            "and what its probe requests say. Full addresses and network names are never logged. Off, it still logs what each " +
+            "channel heard once a minute. The log keeps about the last 2 MB. Traces save these lines with time and position.")
         info(binding.usbLightSwitch, "For RTL8811AU / RTL8821AU adapters such as the ALFA AWUS036ACS: the light blinks with received traffic.")
         info(binding.traceEveryPingSwitch, "A trace normally places each device once, where its signal was strongest. On: it also " +
             "keeps every time it was heard (up to one every 3 s) with your position then, drawn as small dots on the trace map. " +
@@ -3195,6 +3180,11 @@ class SettingsActivity : AppCompatActivity() {
             Prefs.setUsbBluetooth(this, on)
             com.rfsentinel.app.usb.UsbBluetooth.settingChanged(this) // starts or stops it live while scanning
             updateEspStatus()
+        }
+        binding.usbLogAllSwitch.isChecked = Prefs.usbWifiLogAll(this)
+        binding.usbLogAllSwitch.setOnCheckedChangeListener { _, on ->
+            Prefs.setUsbWifiLogAll(this, on)
+            com.rfsentinel.app.usb.UsbWifi.logAll = on // live, also while scanning
         }
         binding.rtl5gSwitch.isChecked = Prefs.rtl8821au5g(this)
         binding.rtl5gSwitch.setOnCheckedChangeListener { _, on -> Prefs.setRtl8821au5g(this, on) }

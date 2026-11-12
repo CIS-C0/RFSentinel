@@ -97,6 +97,7 @@ class RFSentinelApp : Application() {
         com.rfsentinel.app.util.HwLog.init(this)
         com.rfsentinel.app.service.SdrTrack.init(this)
         com.rfsentinel.app.util.HwLogs.sdr.onLine = { com.rfsentinel.app.service.SdrTrack.add(it) }
+        com.rfsentinel.app.util.HwLogs.usbWifi.onLine = { com.rfsentinel.app.service.SdrTrack.add("USB WiFi: $it") }
         com.rfsentinel.app.util.CrashLog.install(this)
         appScope.launch(Dispatchers.IO) { com.rfsentinel.app.util.CrashLog.recordExits(this@RFSentinelApp) }
         com.rfsentinel.app.ui.DeviceFilter.excludeAirTags = com.rfsentinel.app.util.Prefs.excludeAirTags(this)

@@ -221,7 +221,7 @@ object Exporter {
             "GeoJSON - web maps, QGIS",
             if (snapshot) "CSV - devices in this snapshot (spreadsheet)" else "CSV - devices heard on this trace (spreadsheet)",
             if (snapshot) null else "CSV - every sighting with its position (spreadsheet)",
-            "CSV - SDR activity with time and position (spreadsheet)"
+            "CSV - SDR and USB WiFi activity with time and position (spreadsheet)"
         ).toTypedArray()
         MaterialAlertDialogBuilder(activity)
             .setTitle(if (snapshot) "Export snapshot" else "Export trace")
@@ -252,9 +252,9 @@ object Exporter {
             val trip = dao.get(tripId) ?: run { toast(activity, "Trace not found"); return@launchExport }
             if (format == "sdr") {
                 val text = withContext(Dispatchers.IO) { com.rfsentinel.app.service.SdrTrack.read(tripId) }
-                    ?: run { toast(activity, "No SDR activity on this ${if (trip.snapshot) "snapshot" else "trace"}: plug in the SDR and scan while it records"); return@launchExport }
+                    ?: run { toast(activity, "No SDR or USB WiFi activity on this ${if (trip.snapshot) "snapshot" else "trace"}: plug in the hardware and scan while it records"); return@launchExport }
                 val safeName = trip.name.replace(Regex("[^A-Za-z0-9_-]+"), "_").trim('_').take(40)
-                share(activity, "rf_sentinel_sdr_${safeName}.csv", text, "text/csv", "Export SDR activity")
+                share(activity, "rf_sentinel_sdr_${safeName}.csv", text, "text/csv", "Export SDR and USB WiFi activity")
                 return@launchExport
             }
             val points = dao.points(tripId)

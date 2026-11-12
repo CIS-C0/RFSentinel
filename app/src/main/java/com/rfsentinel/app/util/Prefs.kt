@@ -860,6 +860,9 @@ object Prefs {
     /** The USB adapter's own light (only adapters whose light the app can drive: RTL8811AU / 8821AU): on by default. */
     fun usbAdapterLight(context: Context): Boolean = bool(context, "usb_adapter_light", true)
     fun setUsbAdapterLight(context: Context, value: Boolean) = setBool(context, "usb_adapter_light", value)
+    /** Settings › Log everything the USB WiFi adapter hears. Off by default. */
+    fun usbWifiLogAll(context: Context): Boolean = bool(context, "usb_wifi_log_all", false)
+    fun setUsbWifiLogAll(context: Context, v: Boolean) = setBool(context, "usb_wifi_log_all", v)
     /** Scan Bluetooth with a USB adapter's Bluetooth part (dongle or combo adapter). */
     fun usbBluetooth(context: Context): Boolean = bool(context, "usb_bluetooth", true)
     fun setUsbBluetooth(context: Context, value: Boolean) = setBool(context, "usb_bluetooth", value)

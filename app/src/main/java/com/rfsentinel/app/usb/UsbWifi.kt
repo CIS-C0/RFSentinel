@@ -184,6 +184,8 @@ object UsbWifi {
         @Volatile var channels: Set<Int> = emptySet()
         @Volatile var stopped = false
         @Volatile var abortDriver: (() -> Unit)? = null
+        /** Every channel its driver planned to visit since the last per-channel log line ([takePlanned]). */
+        val planned: MutableSet<Int> = java.util.concurrent.ConcurrentHashMap.newKeySet()
         fun stop() { stopped = true; abortDriver?.invoke() }
     }
     private val sessions = java.util.concurrent.CopyOnWriteArrayList<Session>()
@@ -235,6 +237,14 @@ object UsbWifi {
     /** [all]'s channels in the chosen band (2.4 GHz is 1-14); all of them when none are (a 2.4 GHz-only adapter on 5 GHz). */
     fun hops(all: IntArray): IntArray = (share(all.toList()).filter { inBand(it > 14) }.takeIf { it.isNotEmpty() }
         ?: all.filter { inBand(it > 14) }.takeIf { it.isNotEmpty() } ?: all.toList()).let { p -> mostlyLow(p) { it <= 14 } }.toIntArray()
+        .also { p -> current.get()?.planned?.addAll(p.asList()) }
+
+    /** Settings › Log everything the USB WiFi adapter hears: each device as it comes and goes ([MonitorFrames]). */
+    @Volatile var logAll = false
+    /** The asking driver thread's chip name, for its log lines. */
+    internal val label: String get() = current.get()?.chip?.name ?: "USB WiFi"
+    /** The channels the asking driver planned since the last call ([hops]). */
+    internal fun takePlanned(): Set<Int> = current.get()?.planned?.let { p -> p.toSet().also { p.removeAll(it) } }.orEmpty()
 
     /**
      * Mostly 2.4 GHz: [plan] with its 2.4 GHz hops ([isLow]) woven between the 5 / 6 GHz ones, [LOW_PER_HIGH] to one,
@@ -440,6 +450,7 @@ object UsbWifi {
                 previous?.join(3_000)
                 if (previous?.isAlive == true) { last = "USB WiFi (${chip.name}): the last session is still stopping - unplug and replug the adapter"; return@runCatching }
                 band = com.rfsentinel.app.util.Prefs.wifiBand(context)
+                logAll = com.rfsentinel.app.util.Prefs.usbWifiLogAll(context)
                 UsbCtl.reset()
                 val onStatus: (String) -> Unit = { text -> s.status = text; last = text }
                 val onFrames: (List<MonitorSighting>) -> Unit = { list -> onSightings?.invoke(list) }

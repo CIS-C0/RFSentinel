@@ -105,4 +105,23 @@ object HwLogs {
     val relay = HwLog("Sentinel Link internet relay", "relay.log")
     val phone = HwLog("Phone Bluetooth and WiFi", "phone.log")
     val all = listOf(phone, usbWifi, usbBt, sdr, esp, meshRadio, ouiSpy, meshNode, link, relay)
+
+    /** [log]'s hardware status now, for its report. */
+    fun status(log: HwLog): String = when (log) {
+        phone -> if (com.rfsentinel.app.service.ScanForegroundService.isRunning) "scanning" else ""
+        usbWifi -> com.rfsentinel.app.usb.UsbWifi.status
+        usbBt -> com.rfsentinel.app.usb.UsbBluetooth.status
+        sdr -> com.rfsentinel.app.sdr.SdrRadio.status
+        esp -> com.rfsentinel.app.esp.EspBoards.status
+        meshRadio -> com.rfsentinel.app.esp.MeshBle.status
+        ouiSpy -> com.rfsentinel.app.esp.OuiSpyBle.status
+        meshNode -> com.rfsentinel.app.link.MeshNode.status
+        link -> com.rfsentinel.app.link.PhoneLink.status
+        relay -> com.rfsentinel.app.link.MqttRelay.safeStatus
+        else -> ""
+    }
+
+    /** [log] as Settings › Export a hardware log sends it, and adb reads it ([LogProvider]). */
+    fun report(context: Context, log: HwLog): String =
+        log.report(context, status(log), if (log in listOf(usbWifi, usbBt, sdr, esp)) com.rfsentinel.app.usb.UsbWifi.usbDevices(context) else null)
 }

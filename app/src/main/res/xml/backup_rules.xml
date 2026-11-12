@@ -15,4 +15,6 @@
     <exclude domain="file" path="trip_sdr/" />
     <exclude domain="file" path="sdr.log" />
     <exclude domain="file" path="sdr.log.1" />
+    <exclude domain="file" path="usbwifi.log" />
+    <exclude domain="file" path="usbwifi.log.1" />
 </full-backup-content>

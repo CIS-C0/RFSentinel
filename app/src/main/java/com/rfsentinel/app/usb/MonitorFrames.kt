@@ -40,7 +40,15 @@ class MonitorFrames {
         // Per-window counters for driver diagnostics (debug builds).
         var winHits = 0; var winMeasured = 0; var winMax = -128; var winSum = 0L
         var winOfdm = 0; var winA = -128; var winB = -128
+        /** For the adapter's log ([diagnose]): its number there (no address), when first heard, whether logged yet. */
+        var id = 0; var firstSeen = 0L; var logged = false
     }
+
+    /** What one channel heard since the last log line ([diagnose]). */
+    private class Ch { var frames = 0; var beacons = 0; var probes = 0; var data = 0; var max = -128; var newDevices = 0 }
+    private val chs = java.util.TreeMap<Int, Ch>()
+    private var chSince = 0L
+    private var nextId = 0
 
     private val sightings = LinkedHashMap<String, Sighting>()
 
@@ -62,9 +70,13 @@ class MonitorFrames {
               pathA: Int? = null, pathB: Int? = null) {
         frameCount.incrementAndGet()
         PcapRecorder.frame(b, d, end, channel, rssi, now)
+        val c = chs.getOrPut(channel) { Ch() }
+        c.frames++
+        if (rssi != null && rssi > c.max) c.max = rssi
         if (end - d < 24 || end > b.size) return
         fun u8(i: Int) = b[i].toInt() and 0xff
         val fc = u8(d); val ftype = (fc shr 2) and 3; val sub = (fc shr 4) and 0xf
+        when { ftype == 0 && (sub == 8 || sub == 5) -> c.beacons++; ftype == 0 && sub == 4 -> c.probes++; ftype == 2 -> c.data++ }
         val fc1 = u8(d + 1); val toDs = fc1 and 0x01; val fromDs = (fc1 shr 1) and 0x01
         val a1 = d + 4; val a2 = d + 10; val a3 = d + 16
         val check = AntennaCheck.listening
@@ -73,7 +85,7 @@ class MonitorFrames {
         fun touch(at: Int, ap: Boolean, ch: Int = channel, sent: Boolean = true): Sighting? {
             if (!isReal(b, at)) return null
             val m = mac(b, at)
-            val s = sightings.getOrPut(m) { Sighting(m, ap) }
+            val s = sightings.getOrPut(m) { Sighting(m, ap).also { it.id = ++nextId; it.firstSeen = now; c.newDevices++ } }
             val rssi = rssi.takeIf { sent }
             if (sent) s.heard = true
             // Strongest reading of the last couple of seconds, so a device that drove off fades.
@@ -231,8 +243,55 @@ class MonitorFrames {
     }
 
     fun emit(freshMs: Long, onFrame: (List<MonitorSighting>) -> Unit) {
-        val batch = drain(System.currentTimeMillis(), freshMs)
+        val now = System.currentTimeMillis()
+        diagnose(now)
+        val batch = drain(now, freshMs)
         if (batch.isNotEmpty()) onFrame(batch)
+    }
+
+    /**
+     * The adapter's log: what each channel heard, every minute (30 s with [UsbWifi.logAll]), and the planned channels
+     * that heard nothing; with [UsbWifi.logAll] also each device as it is first heard and as it goes. No full address
+     * or network name: a device is "#12", its maker part of the address at most.
+     */
+    private fun diagnose(now: Long) {
+        val tag = UsbWifi.label
+        if (UsbWifi.logAll) for (s in sightings.values) {
+            if (!s.logged && (s.isAp || s.heard)) { s.logged = true; UsbWifi.log("$tag: ${heardLine(s, now)}") }
+            else if (s.logged && now - s.lastSeen > PRUNE_MS)
+                UsbWifi.log("$tag: #${s.id} gone, heard for ${(s.lastSeen - s.firstSeen) / 1000} s, last ${s.rssi} dBm on ch ${s.channel}")
+        }
+        if (chSince == 0L) chSince = now
+        if (now - chSince < if (UsbWifi.logAll) 30_000L else 60_000L) return
+        val heard = chs.entries.joinToString(" · ") { (ch, c) ->
+            "$ch: ${c.frames} (${c.beacons} beacon, ${c.probes} probe, ${c.data} data)" +
+                (if (c.max > -128) " max ${c.max} dBm" else "") + (if (c.newDevices > 0) ", ${c.newDevices} new" else "")
+        }
+        val silent = UsbWifi.takePlanned().filter { it !in chs }.sorted()
+        UsbWifi.log("$tag: by channel, last ${(now - chSince) / 1000} s: ${heard.ifEmpty { "nothing heard" }}" +
+            if (silent.isNotEmpty()) " | nothing on ${silent.joinToString()}" else "")
+        chs.clear(); chSince = now
+    }
+
+    private fun heardLine(s: Sighting, now: Long): String {
+        val p = mutableListOf("#${s.id} new ${if (s.isAp) "access point" else "client"} ch ${s.channel} " +
+            if (s.measured) "${s.rssi} dBm" else "no signal reading")
+        p += if ((s.mac.take(2).toIntOrNull(16) ?: 0) and 0x02 != 0) "random address" else "maker ${s.mac.take(8)}"
+        if (s.isAp) {
+            s.ies?.let { p += capabilities(it, s.privacy).ifBlank { "open" }; p += standard(it) }
+            if (s.hidden) p += "hidden name"
+            s.upSince?.let { p += "up ${(now - it) / 3_600_000} h" }
+        } else {
+            if (s.bssid != null) p += "on a network"
+            if (s.wildcard) p += "wildcard probes"
+            if (s.probed.isNotEmpty()) p += "asked for ${s.probed.size} network names"
+            s.fingerprint?.let { p += "fingerprint $it" }
+            s.traits?.let { p += it }
+            if (s.flockIe) p += "Flock probe element"
+        }
+        s.wps?.product?.let { p += "WPS $it" }
+        if (s.dataBytes > 0) p += "${s.dataBytes / 1024} KB data"
+        return p.joinToString(", ")
     }
 
     /**

@@ -871,6 +871,11 @@
                 style="@style/SettingsControl"
                 android:id="@+id/usbLightSwitch"
                 android:text="AWUS036ACS: light blinks with traffic" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
+                android:id="@+id/usbLogAllSwitch"
+                android:text="Log everything the USB WiFi adapter hears" />
         </LinearLayout>
 
         <!-- ================= RTL-SDR radio (filled in by SettingsActivity.setupRadioSection) ================= -->
