@@ -234,7 +234,7 @@ class StatusPanel(private val context: Context) {
                 listOf("error", "couldn't", "isn't supported", "didn't lock", "failed", "isn't the", "is off", "disconnected", "unplugged")
                     .any { it in l } -> State.ERROR
                 listOf("starting", "allow", "found", "needs", "learning", "connecting", "reconnecting", "setting up", "looking up", "tap ",
-                    "waiting", "listening on").any { it in l } -> State.WAIT
+                    "waiting", "listening on", "looking again").any { it in l } -> State.WAIT
                 else -> State.LIVE
             }
         }

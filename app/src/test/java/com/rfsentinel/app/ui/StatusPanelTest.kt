@@ -105,4 +105,12 @@ class StatusPanelTest {
         p.update(running = true, warning = "Bluetooth scan restarted 9:31", hardware = emptyList())
         assertEquals(listOf("⚠ Bluetooth scan restarted 9:31", "✕"), shownTexts(p.root))
     }
+
+    @Test
+    fun anSdrStillSearchingIsNotShownAsLive() {
+        // Seen on a phone: "too weak to decode · looking again shortly" had a green dot.
+        val p25 = "RTL-SDR · P25 · a control channel is here but too weak to decode · try a better antenna or spot · looking again shortly"
+        assertEquals(StatusPanel.State.WAIT, StatusPanel.stateOf(p25))
+        assertEquals(StatusPanel.State.WAIT, StatusPanel.stateOf("RTL-SDR · pagers · nothing decoding here · looking again shortly"))
+    }
 }
