@@ -212,8 +212,11 @@ class WaterfallActivity : AppCompatActivity() {
                 "Walkie-talkies show as short marks while someone talks."),
             Preset("Ham radio 2 m", "Amateur radio, 145 to 147 MHz", 146_000_000L,
                 "Ham radio operators and their repeaters show as marks while they talk."),
-            Preset("Sensors and remotes", "Weather stations, doorbells, car keys, 433.92 MHz", 433_925_000L, // on the 12.5 kHz tuning step, so the status line finds it
+            Preset("Sensors and remotes", "Weather stations, doorbells, European car keys, 433.92 MHz", 433_925_000L, // on the 12.5 kHz tuning step, so the status line finds it
                 "Sensors and remotes show as tiny dots each time they send."),
+            // North American car keys, garage openers and tire sensors are on 315 MHz, not 433.92.
+            Preset("Car keys (North America)", "Key fobs, garage openers, tire sensors, 315 MHz", 315_000_000L,
+                "A key fob shows as a short burst of dots each time you press it; hold it near the antenna."),
             Preset("Aircraft transponders", "ADS-B, 1090 MHz", 1_090_000_000L,
                 "Planes' transponders show as speckles in the middle; more with planes overhead.")
         )
