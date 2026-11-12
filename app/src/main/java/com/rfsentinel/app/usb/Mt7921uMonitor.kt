@@ -73,23 +73,27 @@ class Mt7921uMonitor {
             onStatus("$chipName · loading firmware…")
             val patch = Firmware.read(ctx, "WIFI_MT7961_patch_mcu_1_2_hdr.bin")
             val ram = Firmware.read(ctx, "WIFI_RAM_CODE_MT7961_1.bin")
-            val err = bringUp(patch, ram)
-            if (err != null) { onStatus("$chipName: $err - unplug the adapter and plug it back in"); return }
+            radioRestarts = 0; restartRadio = false
+            while (true) {
+                val err = bringUp(patch, ram)
+                if (err != null) { onStatus("$chipName: $err - unplug the adapter and plug it back in"); return }
 
-            onStatus("$chipName · starting monitor mode…")
-            // Monitor: receive everything (other networks, control frames), sniffer on.
-            mcuCmd(ceCmd(CE_SET_RX_FILTER), rxFilterPayload(MONITOR_FILTER, 0, 0), wait = false)
-            mcuCmd(ceCmd(CE_SET_RX_FILTER), rxFilterPayload(0, FIF_BIT_CLR, MONITOR_DROP_CLEAR), wait = false)
-            if (!mcuUni(UNI_SNIFFER, snifferEnablePayload(true), wait = true)) UsbWifi.log("MT7921AU: sniffer mode not acknowledged (continuing)")
-            val (band0, ch0) = HOP[0]
-            // __mt7921_start: the receive antennas as a mask, once, before the first channel switch.
-            val rxPath = mcuCmd(extCmd(EXT_SET_RX_PATH), chanInfoPayload(band0, ch0, RX_ANTENNAS), wait = true) != null
-            UsbWifi.log("MT7921AU: receive path (both antennas) ${if (rxPath) "set" else "not acknowledged (continuing)"}")
-            tune(band0, ch0, wait = true)
-            UsbWifi.log("MT7921AU: started in %d ms - CONN_ON_MISC 0x%08x WLCFG_0 0x%08x, USB errors %d - monitor live ch %d".format(
-                System.currentTimeMillis() - t0, rr(CONN_ON_MISC), rr(UDMA_WLCFG_0), ctlErrors, ch0))
-            onStatus("$chipName · live · 2.4 + 5 + 6 GHz monitor")
-            rxLoop(chipName, onFrame, onStatus)
+                onStatus("$chipName · starting monitor mode…")
+                val (sniffer, rxPath) = monitorOn(wait = true)
+                if (!sniffer) UsbWifi.log("MT7921AU: sniffer mode not acknowledged (continuing)")
+                val (band0, ch0) = HOP[0]
+                UsbWifi.log("MT7921AU: receive path (both antennas) ${if (rxPath) "set" else "not acknowledged (continuing)"}")
+                tune(band0, ch0, wait = true)
+                UsbWifi.log("MT7921AU: started in %d ms - CONN_ON_MISC 0x%08x WLCFG_0 0x%08x, USB errors %d - monitor live ch %d".format(
+                    System.currentTimeMillis() - t0, rr(CONN_ON_MISC), rr(UDMA_WLCFG_0), ctlErrors, ch0))
+                onStatus("$chipName · live · 2.4 + 5 + 6 GHz monitor")
+                rxLoop(chipName, onFrame, onStatus)
+                // The radio heard only faint signals ([rxLoop]): start it again from scratch (bringUp resets it first).
+                if (stop || !restartRadio) break
+                restartRadio = false; radioRestarts++
+                UsbWifi.log("MT7921AU: restarting the radio, try $radioRestarts of $MAX_RESTARTS")
+                onStatus("$chipName · restarting the radio…")
+            }
         } catch (e: Exception) {
             UsbWifi.log("MT7921AU: bring-up error - ${UsbWifi.describe(e)}")
             onStatus("$chipName: error · ${e.message}")
@@ -104,6 +108,22 @@ class Mt7921uMonitor {
     }
 
     private var fwStarted = false
+    /** [rxLoop] asks [run] to start the radio again from scratch; how often it did this session. */
+    @Volatile private var restartRadio = false
+    private var radioRestarts = 0
+
+    /**
+     * Monitor: receive everything (other networks, control frames), sniffer on, then (__mt7921_start) the receive
+     * antennas as a mask, before the first channel switch. [wait]: for the answers, at bring-up only (the receive
+     * loop reads them itself). Sniffer and antennas acknowledged.
+     */
+    private fun monitorOn(wait: Boolean): Pair<Boolean, Boolean> {
+        mcuCmd(ceCmd(CE_SET_RX_FILTER), rxFilterPayload(MONITOR_FILTER, 0, 0), wait = false)
+        mcuCmd(ceCmd(CE_SET_RX_FILTER), rxFilterPayload(0, FIF_BIT_CLR, MONITOR_DROP_CLEAR), wait = false)
+        val sniffer = mcuUni(UNI_SNIFFER, snifferEnablePayload(true), wait = wait)
+        val (band0, ch0) = HOP[0]
+        return sniffer to (mcuCmd(extCmd(EXT_SET_RX_PATH), chanInfoPayload(band0, ch0, RX_ANTENNAS), wait = wait) != null)
+    }
 
     private fun wifiInterface(d: UsbDevice): UsbInterface? = (0 until d.interfaceCount).map { d.getInterface(it) }.firstOrNull { i ->
         i.interfaceClass == 0xff && i.interfaceSubclass == 0xff && i.interfaceProtocol == 0xff &&
@@ -306,6 +326,10 @@ class Mt7921uMonitor {
 
     private class RxState {
         var hopAt = 0L; var lastEmit = 0L; var lastRxAt = 0L; var lastCheck = 0L; var hopIdx = 0
+        /** The last 802.11 frame (not a firmware answer), and how often monitor mode was put back on since ([DEAF_MS]). */
+        var lastFrameAt = 0L; var deafTries = 0
+        /** The strongest frame since [strongestSince], and whether the "only weak signals" warning is up ([WEAK_DBM]). */
+        var strongest = -128; var strongestSince = 0L; var weakSaid = false
         var round = 0; var plan: List<Pair<Int, Int>> = UsbWifi.mostlyLow(HOP.filter { UsbWifi.inBand(it.first != 0) }) { it.first == 0 }
         /** 6 GHz channel number -> when a frame was last heard on it; the same for the 5 GHz radar channels. */
         val heard6 = HashMap<Int, Long>()
@@ -325,9 +349,9 @@ class Mt7921uMonitor {
 
     private fun rxLoop(chipName: String, onFrame: (List<MonitorSighting>) -> Unit, onStatus: (String) -> Unit) {
         val st = RxState()
-        val t0 = System.currentTimeMillis(); st.hopAt = t0; st.lastEmit = t0; st.lastRxAt = t0; st.lastCheck = t0
+        val t0 = System.currentTimeMillis(); st.hopAt = t0; st.lastEmit = t0; st.lastRxAt = t0; st.lastCheck = t0; st.lastFrameAt = t0; st.strongestSince = t0
         val stats = BulkRx.Stats("MT7921AU")
-        val total = BulkRx.run("MT7921AU", conn, epRx, 16, 16384, { stop }, onData@{ b, n ->
+        val total = BulkRx.run("MT7921AU", conn, epRx, 16, 16384, { stop || restartRadio }, onData@{ b, n ->
             stats.transfer(n)
             st.lastRxAt = System.currentTimeMillis()
             stats.sample("$n bytes, RXD", b, 0, 24)
@@ -349,6 +373,12 @@ class Mt7921uMonitor {
             // The descriptor's channel, else the one tuned to.
             val ch = if (f.channel > 0) monitorChannel(f.band, f.channel) else monitorChannel(hopBand, hopCh)
             stats.frame(f.rssi)
+            if (st.deafTries > 0) {
+                UsbWifi.log("MT7921AU: frames back after putting monitor mode back on ${st.deafTries}x")
+                st.deafTries = 0; onStatus("$chipName · live · 2.4 + 5 + 6 GHz monitor")
+            }
+            st.lastFrameAt = System.currentTimeMillis()
+            f.rssi?.let { if (it > st.strongest) st.strongest = it }
             frames.frame(b, f.start, f.end, ch, f.rssi, pathA = f.chain0, pathB = f.chain1)
         }) { now ->
             stats.maybeLog(now) {
@@ -364,6 +394,41 @@ class Mt7921uMonitor {
                     UsbWifi.log("MT7921AU: receive stalled (${(now - st.lastRxAt) / 1000} s) - restarting the sniffer")
                     runCatching { mcuUni(UNI_SNIFFER, snifferEnablePayload(true), wait = false) }
                     st.lastRxAt = now
+                }
+                // Half a minute of only faint frames: normally something nearby is far stronger. Seen with an RTL-SDR on the
+                // same USB port (the adapter ~70 dB less sensitive): the adapter likely short of power.
+                if (now - st.strongestSince > WEAK_WINDOW_MS) {
+                    val weak = st.strongest in -127 until WEAK_DBM
+                    val sdr = com.rfsentinel.app.sdr.SdrRadio.status.isNotBlank()
+                    if (weak && sdr && radioRestarts < MAX_RESTARTS) {
+                        // Started next to an SDR starting too: calibrated while short of power? Start again, the SDR now steady.
+                        UsbWifi.log("MT7921AU: only faint signals for ${WEAK_WINDOW_MS / 1000} s (strongest ${st.strongest} dBm) " +
+                            "while an SDR runs too - restarting the radio")
+                        restartRadio = true
+                    } else if (weak && !st.weakSaid) {
+                        st.weakSaid = true
+                        UsbWifi.log("MT7921AU: only faint signals for ${WEAK_WINDOW_MS / 1000} s (strongest ${st.strongest} dBm)" +
+                            if (sdr) " while an SDR runs too: the adapter may be short of power on a shared USB port" else "")
+                        onStatus("$chipName · live, hearing only faint signals" + if (sdr) " - with the SDR on the same USB port, try a powered USB hub" else "")
+                    } else if (!weak && st.strongest > -128 && st.weakSaid) {
+                        st.weakSaid = false
+                        UsbWifi.log("MT7921AU: strong signals again (${st.strongest} dBm)")
+                        onStatus("$chipName · live · 2.4 + 5 + 6 GHz monitor")
+                    }
+                    st.strongest = -128; st.strongestSince = now
+                }
+                // Firmware answers arrive but not one frame: the radio isn't receiving (seen with an RTL-SDR on the same
+                // port). Put monitor mode back on, up to 3 times, and say why in the log and the status.
+                if (st.deafTries < DEAF_TRIES && now - st.lastFrameAt > DEAF_MS * (st.deafTries + 1)) {
+                    st.deafTries++
+                    val sdr = com.rfsentinel.app.sdr.SdrRadio.status.isNotBlank()
+                    UsbWifi.log(("MT7921AU: no frames for %d s while the firmware answers (CONN_ON_MISC 0x%08x WLCFG_0 0x%08x, " +
+                        "USB errors %d%s) - monitor mode on again, try %d of %d").format((now - st.lastFrameAt) / 1000,
+                        rr(CONN_ON_MISC), rr(UDMA_WLCFG_0), ctlErrors, if (sdr) ", an SDR is running too" else "", st.deafTries, DEAF_TRIES))
+                    runCatching { monitorOn(wait = false) }
+                    if (st.deafTries == DEAF_TRIES && sdr && radioRestarts < MAX_RESTARTS) restartRadio = true
+                    else if (st.deafTries == DEAF_TRIES) onStatus("$chipName · live but hearing nothing" +
+                        if (sdr) " - with the SDR on the same USB port, try a powered USB hub" else "")
                 }
             }
             if (now - st.lastEmit > 2000) { frames.emit(freshMs(st.plan.size), onFrame); st.lastEmit = now }
@@ -492,6 +557,14 @@ class Mt7921uMonitor {
         private val RSCR = intArrayOf(0x820e9008.toInt(), 0x820f9008.toInt())
         private const val RSCR_RCPI_MODE = 3 shl 30; private const val RSCR_RCPI_PARAM = 3 shl 24
         private const val SWITCH_TIMEOUT_MS = 500L
+        /** No frame for this long (then twice, three times as long) while the firmware answers: monitor mode on again. */
+        private const val DEAF_MS = 15_000L
+        private const val DEAF_TRIES = 3
+        /** A window ([WEAK_WINDOW_MS]) whose strongest frame is fainter than this: the adapter hears badly. */
+        private const val WEAK_DBM = -80
+        private const val WEAK_WINDOW_MS = 30_000L
+        /** Radio restarts per session for faint signals next to an SDR. */
+        private const val MAX_RESTARTS = 2
         /** A full round of [hops] (at least every channel once), allowing ~150 ms per channel switch on top of the dwell. */
         private fun freshMs(hops: Int) = (maxOf(HOP.size, hops) * (DWELL_MS + 150) * 9 / 5).coerceAtLeast(3000L)
 
