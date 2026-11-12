@@ -22,6 +22,7 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.slider.Slider
 import com.google.android.material.switchmaterial.SwitchMaterial
+import com.rfsentinel.app.link.LinkHardware
 import com.rfsentinel.app.link.LinkStore
 import com.rfsentinel.app.link.MeshNode
 import com.rfsentinel.app.link.MqttRelay
@@ -46,6 +47,9 @@ class SentinelLinkActivity : AppCompatActivity() {
     /** Whether the running scan last had this phone's own scans off; joining or leaving a group changes it too. */
     private var ownOffApplied: Boolean? = null
     private lateinit var list: LinearLayout
+    private lateinit var hardwareAlertRow: LinearLayout
+    /** Draws the other Sentinels' hardware cards the way the main screen draws this phone's. */
+    private val hardwareCards by lazy { StatusPanel(this) }
     private lateinit var leave: MaterialButton
     private lateinit var meshSection: LinearLayout
     private lateinit var meshSwitch: SwitchMaterial
@@ -130,6 +134,20 @@ class SentinelLinkActivity : AppCompatActivity() {
             textSize = 16f; setTypeface(typeface, Typeface.BOLD); text = "Sentinels"; setPadding(0, pad(20), 0, pad(4))
         }
         list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val hardwareAlert = SwitchMaterial(this).apply {
+            text = "Notify when their hardware stops"
+            isChecked = LinkStore.hardwareAlerts(this@SentinelLinkActivity)
+            setOnCheckedChangeListener { _, on -> LinkStore.setHardwareAlerts(this@SentinelLinkActivity, on) }
+        }
+        hardwareAlertRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            addView(hardwareAlert, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(infoIcon(this@SentinelLinkActivity, "Each Sentinel shows the others which external hardware runs on it: USB WiFi and " +
+                "Bluetooth adapters, SDR, ESP32, OUI-SPY and mesh radio, with their state and chip name, nothing else. They show " +
+                "under each Sentinel above.\n\nWith this on, this phone notifies you when one that was running is unplugged or stops " +
+                "with an error. Sentinels on an older version share no hardware.") { hardwareAlert.text.toString() })
+        }
         leave = MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
             text = "Leave the group"
             setOnClickListener { confirmLeave() }
@@ -143,7 +161,7 @@ class SentinelLinkActivity : AppCompatActivity() {
             setPadding(pad(16), pad(16), pad(16), pad(16))
             addView(intro); addView(status); addView(nameLabel); addView(name); addView(share); addView(alertSwitch(PhoneLink.Path.BLUETOOTH))
             addView(watchOnlyBox)
-            addView(hostButton); addView(joinButton); addView(listHeader); addView(list); addView(meshSection); addView(mqttSection); addView(leave)
+            addView(hostButton); addView(joinButton); addView(listHeader); addView(list); addView(hardwareAlertRow); addView(meshSection); addView(mqttSection); addView(leave)
         }
         val scroll = ScrollView(this).apply { addView(column) }
         setContentView(scroll)
@@ -438,6 +456,7 @@ class SentinelLinkActivity : AppCompatActivity() {
         share.visibility = if (grouped) View.VISIBLE else View.GONE
         watchOnlyBox.visibility = if (grouped) View.VISIBLE else View.GONE
         leave.visibility = if (grouped) View.VISIBLE else View.GONE
+        hardwareAlertRow.visibility = if (grouped) View.VISIBLE else View.GONE
         meshSection.visibility = if (grouped) View.VISIBLE else View.GONE
         mqttSection.visibility = if (grouped) View.VISIBLE else View.GONE
         mqttStatus.text = when {
@@ -494,6 +513,10 @@ class SentinelLinkActivity : AppCompatActivity() {
                 setPadding(0, pad(6), 0, pad(6))
                 text = "${m.name}\n$detail"
             })
+            for (hw in LinkHardware.of(m.id, now)) {
+                list.addView(hardwareCards.cardFor(hw.status), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = pad(4) })
+            }
         }
     }
 

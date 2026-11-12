@@ -213,8 +213,6 @@ class StatusPanel(private val context: Context) {
         VisualMode.text(side.getChildAt(1) as TextView, rate)
     }
 
-    private enum class State { LIVE, WAIT, ERROR, INFO }
-
     private fun colorOf(s: String) = when (stateOf(s)) {
         State.ERROR -> 0xFFD0503C.toInt()
         State.WAIT -> 0xFFE0A33A.toInt()
@@ -222,26 +220,34 @@ class StatusPanel(private val context: Context) {
         State.INFO -> 0xFF8A8F98.toInt()
     }
 
-    private fun stateOf(s: String): State {
-        val l = s.lowercase()
-        return when {
-            // Not working, but nothing to fix: grey, not the green of a running adapter.
-            "has no bluetooth" in l -> State.INFO
-            listOf("error", "couldn't", "isn't supported", "didn't lock", "failed", "isn't the", "is off", "disconnected").any { it in l } -> State.ERROR
-            listOf("starting", "allow", "found", "needs", "learning", "connecting", "reconnecting", "setting up", "looking up", "tap ",
-                "waiting", "listening on").any { it in l } -> State.WAIT
-            else -> State.LIVE
+    /** A card for [status] alone, no rate (another Sentinel's hardware on the Sentinel Link screen). */
+    fun cardFor(status: String): View = card().also { bind(it, Hardware(status), colorOf(status), null) }
+
+    enum class State { LIVE, WAIT, ERROR, INFO }
+
+    companion object {
+        fun stateOf(s: String): State {
+            val l = s.lowercase()
+            return when {
+                // Not working, but nothing to fix: grey, not the green of a running adapter.
+                "has no bluetooth" in l -> State.INFO
+                listOf("error", "couldn't", "isn't supported", "didn't lock", "failed", "isn't the", "is off", "disconnected", "unplugged")
+                    .any { it in l } -> State.ERROR
+                listOf("starting", "allow", "found", "needs", "learning", "connecting", "reconnecting", "setting up", "looking up", "tap ",
+                    "waiting", "listening on").any { it in l } -> State.WAIT
+                else -> State.LIVE
+            }
         }
-    }
 
-    /** "USB WiFi (MT7612U)" from "USB WiFi (MT7612U) · live · …", "OUI-SPY" from "OUI-SPY: connecting…". */
-    private fun name(s: String): String {
-        val cut = listOf(" · ", ": ", " - ").mapNotNull { sep -> s.indexOf(sep).takeIf { it > 0 } }.minOrNull() ?: return s
-        return s.substring(0, cut)
-    }
+        /** "USB WiFi (MT7612U)" from "USB WiFi (MT7612U) · live · …", "OUI-SPY" from "OUI-SPY: connecting…". */
+        fun name(s: String): String {
+            val cut = listOf(" · ", ": ", " - ").mapNotNull { sep -> s.indexOf(sep).takeIf { it > 0 } }.minOrNull() ?: return s
+            return s.substring(0, cut)
+        }
 
-    private fun detail(s: String): String {
-        val n = name(s)
-        return s.removePrefix(n).trimStart(' ', '·', ':', '-').replaceFirstChar { it.uppercase() }
+        private fun detail(s: String): String {
+            val n = name(s)
+            return s.removePrefix(n).trimStart(' ', '·', ':', '-').replaceFirstChar { it.uppercase() }
+        }
     }
 }

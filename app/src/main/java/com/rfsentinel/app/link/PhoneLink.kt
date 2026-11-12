@@ -208,6 +208,13 @@ object PhoneLink {
         links.filter { it.ready }.forEach { if (it.queuedBytes < MAX_QUEUED_BYTES) sendSealed(it, bytes) }
     }
 
+    /** Which external hardware runs here ([MeshCodec.sealHardware]), to every linked Sentinel. */
+    fun sendHardware(packet: ByteArray) = h.post {
+        if (!sharing) return@post
+        val bytes = byteArrayOf(LinkCodec.HARDWARE.toByte()) + packet
+        links.filter { it.ready }.forEach { if (it.queuedBytes < MAX_QUEUED_BYTES) sendSealed(it, bytes) }
+    }
+
     /**
      * A scan result from the scan service: true for a Sentinel Link advert (handled here, not a device to list).
      * Called on the scan's thread.
@@ -740,6 +747,10 @@ object PhoneLink {
         when (plain[0].toInt() and 0xFF) {
             LinkCodec.INFO -> onInfo(l, plain)
             LinkCodec.BATCH -> onBatchIn(l, plain)
+            LinkCodec.HARDWARE -> {
+                val m = meshKey?.let { MeshCodec.open(it, plain.copyOfRange(1, plain.size)) }
+                if (m?.hardware != null && m.origin != myId) { lastHeard[m.origin] = System.currentTimeMillis(); hardwareIn(m) }
+            }
         }
     }
 
@@ -813,10 +824,23 @@ object PhoneLink {
         m.name?.let { if (LinkStore.addMembers(c, listOf(LinkCodec.Member(m.origin, it)))) names = LinkStore.members(c).associate { x -> x.id to x.name } }
         lastHeard[m.origin] = now
         (if (viaNet) lastHeardNet else lastHeardMesh)[m.origin] = now
+        if (m.hardware != null) { hardwareIn(m); return@post }
         val b = MeshCodec.toBatch(m)
         if (seen.first(b.origin, b.seq)) {
             onBatch?.invoke(b, nameOf(b.origin), if (viaNet) Path.NET else Path.MESH)
             relay(b, null)
+        }
+        changed()
+    }
+
+    /** Another Sentinel's hardware summary: kept for the Sentinel Link screen; a running adapter that stopped may notify. */
+    private fun hardwareIn(m: MeshCodec.Message) {
+        val c = ctx ?: return
+        val lost = LinkHardware.received(m.origin, m.time, m.hardware ?: return, System.currentTimeMillis())
+        if (lost.isNotEmpty()) {
+            // Kinds only: no chip, no name of the Sentinel.
+            com.rfsentinel.app.util.HwLogs.link.log("Sentinel Link: a linked Sentinel's hardware stopped: ${lost.joinToString { it.kind.label }}")
+            if (LinkStore.hardwareAlerts(c)) com.rfsentinel.app.util.NotificationHelper.showLinkHardwareLost(c, nameOf(m.origin), lost)
         }
         changed()
     }

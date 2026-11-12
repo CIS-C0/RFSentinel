@@ -17,7 +17,8 @@ import javax.crypto.spec.SecretKeySpec
  * from the group key (nonce = origin + counter, which never repeats: the counter is kept across restarts).
  * Body: flags, time, the Sentinel's position once for all its devices, its name now and then, then one record per
  * device (address, radio, signal, age, name, and up to two matches). An aircraft packet (version [AIRCRAFT], which
- * older versions drop) starts the same way, then has one record per aircraft instead.
+ * older versions drop) starts the same way, then has one record per aircraft instead. A hardware packet (version
+ * [HARDWARE], also dropped by older versions) has no position or name, only [LinkHardware]'s records.
  */
 object MeshCodec {
     /** The Meshtastic channel RF Sentinel adds to the node; its key comes from the group key. */
@@ -25,6 +26,7 @@ object MeshCodec {
     private const val MAGIC = 0x52
     private const val VERSION = 1
     private const val AIRCRAFT = 2
+    private const val HARDWARE = 3
     private const val HEADER = 18
     private const val GCM_TAG = 16
     /** Room for the body in one packet. */
@@ -50,6 +52,8 @@ object MeshCodec {
         val lat: Double, val lon: Double,
         val name: String?, val devices: List<Device>,
         val planes: List<PoliceAircraft.Plane> = emptyList(),
+        /** That Sentinel's external hardware: only in a hardware packet. */
+        val hardware: List<LinkHardware.Item>? = null,
     )
 
     /** Bytes one device takes in a body. */
@@ -125,6 +129,13 @@ object MeshCodec {
         return close(key, AIRCRAFT, origin, counter, body)
     }
 
+    /** Which external hardware runs on this Sentinel ([LinkHardware]): a few bytes, no position or name. */
+    fun sealHardware(key: ByteArray, origin: Long, counter: Int, timeMs: Long, items: List<LinkHardware.Item>): ByteArray {
+        val body = base(timeMs, Double.NaN, Double.NaN, null)
+        LinkHardware.write(body, items)
+        return close(key, HARDWARE, origin, counter, body)
+    }
+
     /** Flags, time, position and name: how every body starts. */
     private fun base(timeMs: Long, lat: Double, lon: Double, name: String?): ByteArrayOutputStream {
         val hasPos = !lat.isNaN() && !lon.isNaN()
@@ -148,7 +159,7 @@ object MeshCodec {
     fun open(key: ByteArray, bytes: ByteArray): Message? = runCatching {
         if (bytes.size < HEADER + GCM_TAG || bytes[0].toInt() != MAGIC) return null
         val version = bytes[1].toInt()
-        if (version != VERSION && version != AIRCRAFT) return null
+        if (version != VERSION && version != AIRCRAFT && version != HARDWARE) return null
         val header = bytes.copyOfRange(0, HEADER)
         if (!header.copyOfRange(2, 6).contentEquals(groupTag(key))) return null
         val hb = ByteBuffer.wrap(header, 6, 12)
@@ -166,6 +177,7 @@ object MeshCodec {
         }
         val name = if (flags and 2 != 0) text(body) else null
         if (version == AIRCRAFT) return Message(origin, counter, time, lat, lon, name, emptyList(), planes(body))
+        if (version == HARDWARE) return Message(origin, counter, time, lat, lon, name, emptyList(), hardware = LinkHardware.read(body))
         val devices = ArrayList<Device>()
         while (body.remaining() >= 9) {
             val mac = ByteArray(6).also { body.get(it) }.joinToString(":") { "%02X".format(it.toInt() and 0xFF) }

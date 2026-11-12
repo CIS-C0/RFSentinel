@@ -115,6 +115,27 @@ object NotificationHelper {
         context.getSystemService(NotificationManager::class.java)?.cancel(MESH_PAIR_NOTIFICATION_ID)
     }
 
+    private const val LINK_HARDWARE_NOTIFICATION_ID = 4
+
+    /** A linked Sentinel's adapter stopped ([com.rfsentinel.app.link.LinkHardware]); tapping opens Sentinel Link. */
+    fun showLinkHardwareLost(context: Context, sentinel: String, lost: List<com.rfsentinel.app.link.LinkHardware.Item>) {
+        val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        val open = PendingIntent.getActivity(
+            context, LINK_HARDWARE_NOTIFICATION_ID,
+            Intent(context, com.rfsentinel.app.ui.SentinelLinkActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val text = lost.joinToString(", ") { it.kind.label + (it.chip?.let { c -> " ($c)" } ?: "") } + " stopped"
+        val n = NotificationCompat.Builder(context, CHANNEL_ALERTS)
+            .setSmallIcon(R.drawable.ic_tile_scan)
+            .setContentTitle("$sentinel: hardware stopped")
+            .setContentText(text)
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build()
+        runCatching { nm.notify(LINK_HARDWARE_NOTIFICATION_ID, n) } // no-op without the notification permission
+    }
+
     /** Clears a progress notification left behind when the app was killed mid-download. */
     fun clearStaleCameraDownload(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return

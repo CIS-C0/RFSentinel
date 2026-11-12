@@ -37,6 +37,8 @@ object LinkCodec {
     // ---- Inner (sealed) types ----
     const val INFO = 20
     const val BATCH = 21
+    /** A [MeshCodec] hardware packet ([LinkHardware]); older versions ignore an inner type they don't know. */
+    const val HARDWARE = 22
 
     /** Who heard it: the phone's own radios, an ESP32 board, a USB WiFi adapter. */
     const val KIND_PHONE = 0

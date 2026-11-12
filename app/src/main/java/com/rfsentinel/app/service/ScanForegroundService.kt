@@ -45,6 +45,7 @@ import com.rfsentinel.app.detect.RemoteId
 import com.rfsentinel.app.detect.SignatureEngine
 import com.rfsentinel.app.detect.VendorDb
 import com.rfsentinel.app.link.LinkCodec
+import com.rfsentinel.app.link.LinkHardware
 import com.rfsentinel.app.link.LinkOutbox
 import com.rfsentinel.app.oui.OuiWatchlist
 import com.rfsentinel.app.ui.StatusWidget
@@ -159,6 +160,8 @@ class ScanForegroundService : Service() {
         private const val MESH_PRESENCE_MS = 10 * 60_000L
         private const val MESH_NAME_MS = 10 * 60_000L
         private const val MQTT_TICK_MS = 5_000L
+        /** A hardware change goes over Bluetooth and the internet relay at once, but not more often than this. */
+        private const val HW_NET_GAP_MS = 10_000L
         private const val MQTT_PRESENCE_MS = 60_000L
         /** Packets per tick at most: a burst of new devices goes out over a few ticks. */
         private const val MQTT_MAX_PACKETS = 8
@@ -999,11 +1002,35 @@ class ScanForegroundService : Service() {
             .map { it.plane }
     }
 
+    /** Which external hardware runs here, for the group ([com.rfsentinel.app.link.LinkHardware]); null while this phone shares nothing. */
+    private fun hardwareHere(): List<LinkHardware.Item>? {
+        if (!sharing()) return null
+        return LinkHardware.items(listOf(
+            LinkHardware.Kind.WIFI to com.rfsentinel.app.usb.UsbWifi.status, LinkHardware.Kind.BT to com.rfsentinel.app.usb.UsbBluetooth.status,
+            LinkHardware.Kind.SDR to com.rfsentinel.app.sdr.SdrRadio.status, LinkHardware.Kind.ESP to com.rfsentinel.app.esp.EspBoards.status,
+            LinkHardware.Kind.OUISPY to com.rfsentinel.app.esp.OuiSpyBle.status, LinkHardware.Kind.MESH to com.rfsentinel.app.esp.MeshBle.status))
+    }
+
+    /** The hardware summary as a sealed packet (the same one on every way of linking). */
+    private fun hardwarePacket(hw: List<LinkHardware.Item>, now: Long): ByteArray? {
+        val link = com.rfsentinel.app.link.LinkStore
+        val key = link.groupKey(this) ?: return null
+        val codec = com.rfsentinel.app.link.MeshCodec
+        return codec.sealHardware(codec.messageKey(key), link.myId(this), link.nextMeshCounter(this), now, hw)
+    }
+
+    private var linkHwBeat = LinkHardware.Beat(HW_NET_GAP_MS, LinkHardware.BT_HEARTBEAT_MS)
+    private var mqttHwBeat = LinkHardware.Beat(HW_NET_GAP_MS, LinkHardware.NET_HEARTBEAT_MS)
+    private var meshHwBeat = LinkHardware.Beat(LinkHardware.MESH_GAP_MS, LinkHardware.MESH_HEARTBEAT_MS)
+
     private val linkFlush = object : Runnable {
         override fun run() {
             val box = linkOutbox ?: return
             val loc = lastLocation?.takeIf { usableForPlacing(it) }
             val now = System.currentTimeMillis()
+            hardwareHere()?.takeIf { linkHwBeat.due(it, now) }?.let { hw ->
+                hardwarePacket(hw, now)?.let { com.rfsentinel.app.link.PhoneLink.sendHardware(it); linkHwBeat.sent(hw, now) }
+            }
             if (now - linkPlanesAt >= LINK_PLANES_MS && sharing()) {
                 linkPlanesAt = now
                 box.setPlanes(com.rfsentinel.app.online.PoliceAircraft.own(now).map { it.plane })
@@ -1026,6 +1053,7 @@ class ScanForegroundService : Service() {
         if (link.hasGroup(this) && link.enabled(this)) {
             if (linkOutbox == null) {
                 linkOutbox = LinkOutbox(link.myId(this))
+                linkHwBeat = LinkHardware.Beat(HW_NET_GAP_MS, LinkHardware.BT_HEARTBEAT_MS)
                 pipeline.postDelayed(linkFlush, LINK_FLUSH_MS)
             }
             com.rfsentinel.app.link.PhoneLink.start(this, onBatch)
@@ -1050,6 +1078,7 @@ class ScanForegroundService : Service() {
         if (!link.mqttOn(this) || broker == null || key == null) { stopMqtt(); return }
         if (mqttOutbox == null) {
             mqttOutbox = com.rfsentinel.app.link.MeshOutbox(com.rfsentinel.app.link.MeshOutbox.NET_REPEAT_MS)
+            mqttHwBeat = LinkHardware.Beat(HW_NET_GAP_MS, LinkHardware.NET_HEARTBEAT_MS)
             mqttLastSend = 0L
             mqttLastName = 0L
             pipeline.postDelayed(mqttFlush, MQTT_TICK_MS)
@@ -1083,6 +1112,9 @@ class ScanForegroundService : Service() {
             val lat = loc?.latitude ?: Double.NaN
             val lon = loc?.longitude ?: Double.NaN
             val codec = com.rfsentinel.app.link.MeshCodec
+            hardwareHere()?.takeIf { mqttHwBeat.due(it, now) }?.let { hw ->
+                if (relay.send(codec.sealHardware(codec.messageKey(key), link.myId(ctx), link.nextMeshCounter(ctx), now, hw))) mqttHwBeat.sent(hw, now)
+            }
             if (now - mqttPlanesAt >= MQTT_PLANES_MS) {
                 mqttPlanesAt = now
                 var planes = planesToShare(now, lat, lon)
@@ -1122,6 +1154,7 @@ class ScanForegroundService : Service() {
         if (!link.meshOn(this) || node == null || key == null) { stopMesh(); return }
         if (meshOutbox == null) {
             meshOutbox = com.rfsentinel.app.link.MeshOutbox()
+            meshHwBeat = LinkHardware.Beat(LinkHardware.MESH_GAP_MS, LinkHardware.MESH_HEARTBEAT_MS)
             meshLastSend = 0L
             meshLastName = 0L
             pipeline.postDelayed(meshFlush, MESH_TICK_MS)
@@ -1160,6 +1193,11 @@ class ScanForegroundService : Service() {
             val lat = loc?.latitude ?: Double.NaN
             val lon = loc?.longitude ?: Double.NaN
             val codec = com.rfsentinel.app.link.MeshCodec
+            // Hardware: a few bytes when it changes (a minute apart at most) and every 15 minutes; devices follow a tick later.
+            if (!urgent && since >= MESH_MIN_GAP_MS) hardwareHere()?.takeIf { meshHwBeat.due(it, now) }?.let { hw ->
+                val packet = hardwarePacket(hw, now) ?: return
+                if (node.send(packet, false)) { meshHwBeat.sent(hw, now); return }
+            }
             // Aircraft: one packet of their own at the same pace, police first; the devices' packet follows a tick later.
             if (!urgent && now - meshPlanesAt >= interval && since >= MESH_TICK_MS) {
                 meshPlanesAt = now

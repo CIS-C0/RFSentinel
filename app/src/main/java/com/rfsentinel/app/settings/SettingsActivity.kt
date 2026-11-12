@@ -1082,20 +1082,8 @@ class SettingsActivity : AppCompatActivity() {
     private class InfoText(val text: String)
 
     /** The ⓘ: tapping it shows [text] under [title] (the setting's own label when not given). */
-    private fun infoIcon(text: String, title: () -> String): View {
-        val dp = resources.displayMetrics.density
-        val ripple = android.util.TypedValue().also { theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, it, true) }.resourceId
-        return android.widget.TextView(this).apply {
-            this.text = "ⓘ"
-            textSize = 18f
-            alpha = 0.7f
-            tag = InfoText(text)
-            minWidth = (48 * dp).toInt(); minHeight = (48 * dp).toInt(); gravity = android.view.Gravity.CENTER
-            setBackgroundResource(ripple)
-            contentDescription = "About ${title()}"
-            setOnClickListener { MaterialAlertDialogBuilder(this@SettingsActivity).setTitle(title()).setMessage(text).setPositiveButton("OK", null).show() }
-        }
-    }
+    private fun infoIcon(text: String, title: () -> String): View =
+        com.rfsentinel.app.ui.infoIcon(this, text, title).apply { tag = InfoText(text) }
 
     private fun labelOf(view: View) = ((view as? android.widget.TextView)?.text ?: "").toString().removePrefix("▾  ").substringBefore(":").trim()
 

@@ -103,6 +103,10 @@ object LinkStore {
     fun alerts(c: Context, path: PhoneLink.Path) = sp(c).getBoolean("alerts_" + path.name.lowercase(), true)
     fun setAlerts(c: Context, path: PhoneLink.Path, on: Boolean) = sp(c).edit { putBoolean("alerts_" + path.name.lowercase(), on) }
 
+    /** A notification when a running adapter on another Sentinel stops (off until turned on). */
+    fun hardwareAlerts(c: Context) = sp(c).getBoolean("hardware_alerts", false)
+    fun setHardwareAlerts(c: Context, on: Boolean) = sp(c).edit { putBoolean("hardware_alerts", on) }
+
     // ---- Meshtastic node
 
     /** Sentinel Link goes over a Meshtastic node, with or without Bluetooth sharing (off until turned on). */
