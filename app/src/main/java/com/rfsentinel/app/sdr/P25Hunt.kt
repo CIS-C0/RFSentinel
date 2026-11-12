@@ -358,7 +358,7 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
 
         /** Looks at each tuned centre of [plan] for channels that are on, [minSnrDb] or more; null when [stop] said so. */
         internal fun scan(sdr: SdrDevice, plan: List<Long>, stop: () -> Boolean, minSnrDb: Double = MIN_SNR_DB,
-                           halfHz: Double = CHANNEL_HALF_HZ): Scan? {
+                           centreHalfHz: Double = CHANNEL_HALF_HZ): Scan? {
             val buf = ByteArray(XFER)
             val found = ArrayList<Candidate>()
             val iq = ByteArray(XFER * SCAN_READS)
@@ -375,21 +375,23 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
                 }
                 if (got >= 2 * 1024) {
                     val psd = RadioWatch.powerSpectrum(iq, got / 2)
-                    found += candidates(center, psd, sdr.sampleRate, minSnrDb, halfHz)
+                    found += candidates(center, psd, sdr.sampleRate, minSnrDb, centreHalfHz)
                     peak = maxOf(peak, peakAboveNoise(psd, sdr.sampleRate))
                 } else short++
             }
             return Scan(found, unlocked, short, peak)
         }
 
-        /** Channel-wide peaks [minSnrDb] above the noise in one tuned chunk, at their power-weighted centre over [halfHz] either side. */
+        /** Channel-wide peaks [minSnrDb] above the noise in one tuned chunk, at their power-weighted centre over [centreHalfHz] either side
+         *  (wider than a channel for a signal like a two-tone pager, whose peaks sit at its tones). */
         internal fun candidates(center: Long, psd: FloatArray, sampleRate: Int, minSnrDb: Double = MIN_SNR_DB,
-                                halfHz: Double = CHANNEL_HALF_HZ): List<Candidate> {
+                                centreHalfHz: Double = CHANNEL_HALF_HZ): List<Candidate> {
             val n = psd.size; val mid = n / 2
             val binHz = sampleRate.toDouble() / n
             val p = DoubleArray(n) { 10.0.pow(psd[it] / 10.0) }
             val noise = p.sorted()[mid]
-            val half = (halfHz / binHz).toInt()
+            val half = (CHANNEL_HALF_HZ / binHz).toInt()
+            val centre = (centreHalfHz / binHz).toInt()
             val usable = (RadioWatch.USABLE_HZ / binHz).toInt()
             val guard = (RadioWatch.DC_GUARD_HZ / binHz).toInt() + half
             val win = DoubleArray(n) { k -> if (k < half || k >= n - half) 0.0 else (k - half..k + half).sumOf { p[it] } / (2 * half + 1) }
@@ -401,7 +403,7 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
                 // The highest point within a channel either side (the first of equal ones).
                 if ((k - 2 * half until k).any { win[it] >= win[k] } || (k + 1..k + 2 * half).any { win[it] > win[k] }) continue
                 var w = 0.0; var at = 0.0
-                for (j in k - half..k + half) { val e = (p[j] - noise).coerceAtLeast(0.0); w += e; at += e * (j - mid) }
+                for (j in maxOf(0, k - centre)..minOf(n - 1, k + centre)) { val e = (p[j] - noise).coerceAtLeast(0.0); w += e; at += e * (j - mid) }
                 if (w <= 0.0) continue
                 out += Candidate(center + (at / w * binHz).roundToLong(), snr.toFloat())
             }

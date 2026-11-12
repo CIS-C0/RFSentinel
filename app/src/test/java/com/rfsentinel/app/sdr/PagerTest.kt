@@ -278,9 +278,11 @@ class PagerTest {
         val fsk = Fsk().apply { repeat(400) { add(if (rnd.nextBoolean()) 4800.0 else -4800.0, 1600) } }
         val iq = fsk.iq(300_000.0)
         val psd = RadioWatch.powerSpectrum(iq, iq.size / 2)
-        val found = P25Hunt.candidates(0, psd, RATE, halfHz = PagerHunt.CHANNEL_HALF_HZ)
+        val found = P25Hunt.strongest(P25Hunt.candidates(0, psd, RATE, centreHalfHz = PagerHunt.CENTRE_HALF_HZ), PagerHunt.MERGE_HZ)
         assertEquals(found.toString(), 1, found.size)
         assertTrue("${found[0].hz}", abs(found[0].hz - 300_000) < 1_500)
+        // Found as sensitively as with P25's window: only the centring is wider.
+        assertEquals(P25Hunt.candidates(0, psd, RATE).maxOf { it.snrDb }, found[0].snrDb, 0f)
         // P25's narrow window lands on a tone, the bug a tester's log showed (~4 kHz off, nothing decoded).
         assertTrue(P25Hunt.candidates(0, psd, RATE).none { abs(it.hz - 300_000) < 1_500 })
     }

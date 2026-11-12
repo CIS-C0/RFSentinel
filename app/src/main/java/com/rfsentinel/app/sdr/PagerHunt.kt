@@ -26,7 +26,7 @@ class PagerHunt(
     fun hunt(stop: () -> Boolean, onPage: (PagerLog.Page, Long) -> Unit): Long? {
         sdr.setSampleRate(P25Demod.SAMPLE_RATE)
         val plan = P25Hunt.plan(BANDS)
-        val scan = P25Hunt.scan(sdr, plan, stop, halfHz = CHANNEL_HALF_HZ) ?: return null
+        val scan = P25Hunt.scan(sdr, plan, stop, centreHalfHz = CENTRE_HALF_HZ) ?: return null
         val ranked = P25Hunt.strongest(scan.found, MERGE_HZ)
         val tries = ranked.take(MAX_TRIES)
         log("Pager scan: ${plan.size} steps, tuner didn't lock ${scan.unlocked}, no samples ${scan.short}, ${ranked.size} carriers, " +
@@ -103,11 +103,13 @@ class PagerHunt(
         private const val XFER = 16_384
         private const val OFFSET_HZ = 250_000L     // clear of the receiver's DC spike
         private const val MAX_TRIES = 6
-        /** Wide enough to hold both tones of a ±4.8 kHz FSK pager, so a channel is found at its centre, not at one tone
-         *  (P25's narrower window put it ~4 kHz off and one tone outside the demodulator's filter). */
-        internal const val CHANNEL_HALF_HZ = 10_000.0
+        /** Peaks are found with P25's channel window (the most sensitive), then centred over this much either side: from
+         *  one tone of a ±4.8 kHz FSK pager it takes in the other, so the channel is tried at its centre. P25's own
+         *  window put it ~4 kHz off and one tone outside the demodulator's filter; a window this wide for finding
+         *  peaks too cost about 1 dB. */
+        internal const val CENTRE_HALF_HZ = 12_000.0
         /** The two tones of one pager are at most 9.6 kHz apart: closer peaks are one channel. */
-        private const val MERGE_HZ = 10_000L
+        internal const val MERGE_HZ = 10_000L
         private const val TRIAL_S = 3.0            // a FLEX frame is 1.875 s; a busy POCSAG channel sends within this
         /** Under the shortest turn: a channel gone silent must be noticed within a turn, not start over each time. */
         const val QUIET_S = 25.0
