@@ -89,6 +89,15 @@ class SdrTurnTest {
     }
 
     @Test
+    fun theLastGoodControlChannelIsTriedFirst() {
+        val alternates = (1..8).map { 851_000_000L + it * 25_000 }
+        val tries = SdrRadio.firstTries(listOf(857_950_000L, 859_000_000L), alternates)
+        assertEquals(857_950_000L, tries.first())
+        assertEquals(859_000_000L, tries.last())
+        assertEquals(listOf(857_950_000L, 859_437_500L), SdrRadio.firstTries(listOf(857_950_000L), listOf(857_949_900L, 859_437_500L)))
+    }
+
+    @Test
     fun activityKeepsTheTurnUpToTheCap() {
         val start = 1_000_000L
         val stay = SdrRadio.STAY_MS

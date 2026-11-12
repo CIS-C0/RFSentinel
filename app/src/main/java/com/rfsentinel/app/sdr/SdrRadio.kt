@@ -832,9 +832,9 @@ object SdrRadio {
             // Its last turn's control channel first: no new search when it is still there.
             val known = p25Lock
             if (known == null) status = "$deviceLabel · P25 · looking for a control channel…" + turnNote()
-            // Before a scan: the site's other control channels (and its neighbours') as this dongle hears them, then the
-            // ones found on earlier runs.
-            val lock = known ?: hunt.hunt((alternates() + rememberedLocks()).distinct(), stop)
+            // Before a scan: the last one that decoded, the site's other control channels (and its neighbours') as this
+            // dongle hears them, then the older ones found on earlier runs.
+            val lock = known ?: hunt.hunt(firstTries(rememberedLocks(), alternates()), stop)
             if (lock == null) {
                 if (stop()) break
                 com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 - no control channel decoded (${hunt.tried} channels tried), looking again in ${P25_RETRY_MS / 1000} s")
@@ -951,6 +951,16 @@ object SdrRadio {
     private fun alternates(): List<Long> {
         val r = dongleRatio()
         return p25Log.alternates().map { kotlin.math.round(it * r).toLong() }.filter { hz -> p25Lock?.let { kotlin.math.abs(it.hz - hz) <= 6_250L } != true }
+    }
+
+    /**
+     * The last control channel that decoded leads: a site announcing many alternates pushed it past the hunt's first tries.
+     * One channel heard a few hundred Hz apart (announced vs measured) is tried once: a tester's log tried it twice in a row.
+     */
+    internal fun firstTries(remembered: List<Long>, alternates: List<Long>): List<Long> {
+        val out = ArrayList<Long>()
+        for (hz in remembered.take(1) + alternates + remembered.drop(1)) if (out.none { kotlin.math.abs(it - hz) <= 6_250L }) out += hz
+        return out
     }
 
     /** Control channels this dongle found on earlier runs, newest first (kept on the phone only). */
