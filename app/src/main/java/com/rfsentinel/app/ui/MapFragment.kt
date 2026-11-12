@@ -1687,6 +1687,7 @@ class MapFragment : Fragment() {
             .setPositiveButton("Delete") { _, _ ->
                 viewLifecycleOwner.lifecycleScope.launch {
                     AppDatabase.getInstance(act).tripDao().delete(id)
+                    com.rfsentinel.app.service.SdrTrack.delete(id)
                     act.finish()
                 }
             }

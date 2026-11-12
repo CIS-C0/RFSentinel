@@ -11,4 +11,8 @@
     <exclude domain="sharedpref" path="sentinel_link.xml" />
     <!-- Your car's tire-sensor IDs and the P25 control channels found where you live. -->
     <exclude domain="sharedpref" path="sdr_private.xml" />
+    <!-- The SDR log and the SDR activity saved with traces: where and when it heard what. -->
+    <exclude domain="file" path="trip_sdr/" />
+    <exclude domain="file" path="sdr.log" />
+    <exclude domain="file" path="sdr.log.1" />
 </full-backup-content>

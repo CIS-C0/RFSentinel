@@ -495,7 +495,8 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
          * radios registering, changing talkgroup, sending status or data, with nobody talking. Messages heard, or null
          * when the tuner didn't get there. Uses a reader thread so no burst falls between two reads.
          */
-        fun inbound(sdr: SdrDevice, hz: Long, nac: Int, seconds: Double, stop: () -> Boolean, onRadio: (P25Tsbk.Inbound, Int) -> Unit): Int? {
+        /** Listens to the control channel's input; the radio messages decoded and the highest level heard (dB over the noise). */
+        fun inbound(sdr: SdrDevice, hz: Long, nac: Int, seconds: Double, stop: () -> Boolean, onRadio: (P25Tsbk.Inbound, Int) -> Unit): Pair<Int, Int>? {
             if (!sdr.tune(hz - OFFSET_HZ)) return null
             sdr.resetBuffer()
             val buf = ByteArray(XFER)
@@ -508,17 +509,18 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
                 if (d.nid?.nac != nac) return@P25Demod
                 for (t in d.tsbks) P25Tsbk.parseInbound(t)?.let { heard++; onRadio(it, levels.max()) }
             }
-            var samples = 0L; var fails = 0
+            var samples = 0L; var fails = 0; var peak = 0
             ReadAhead(sdr, buf.size).use { ahead ->
                 while (samples < seconds * P25Demod.SAMPLE_RATE && !stop() && fails < STALL_READS) {
                     val n = ahead.read(buf)
                     if (n <= 0) { fails++; continue }
                     fails = 0
                     levels[at++ % LEVEL_READS] = RadioWatch.channelSnrDb(RadioWatch.powerSpectrum(buf, n / 2), sdr.sampleRate, OFFSET_HZ)
+                    peak = maxOf(peak, levels[(at - 1) % LEVEL_READS])
                     demod.feed(buf, n / 2); samples += n / 2
                 }
             }
-            return heard
+            return heard to peak
         }
         /** Reads (~4 ms each) whose level a radio message is measured from: its burst and the frame decode's delay. */
         private const val LEVEL_READS = 48

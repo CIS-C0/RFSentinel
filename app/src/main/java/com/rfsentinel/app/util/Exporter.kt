@@ -214,19 +214,20 @@ object Exporter {
     /** Export one recorded trace: pick a format, then whether to include every device. */
     /** [snapshot]: a saved device list ([com.rfsentinel.app.data.Snapshots]) - no route, just the devices. */
     fun showTripExport(activity: AppCompatActivity, tripId: Long, snapshot: Boolean = false) {
-        val formats = listOf("gpx", "kml", "geojson", "csv") + if (snapshot) emptyList() else listOf("sightings")
+        val formats = listOf("gpx", "kml", "geojson", "csv") + (if (snapshot) emptyList() else listOf("sightings")) + "sdr"
         val labels = listOfNotNull(
             if (snapshot) "GPX - device waypoints (GPS / map apps)" else "GPX - track + device waypoints (GPS / map apps)",
             "KML - Google Earth / My Maps",
             "GeoJSON - web maps, QGIS",
             if (snapshot) "CSV - devices in this snapshot (spreadsheet)" else "CSV - devices heard on this trace (spreadsheet)",
-            if (snapshot) null else "CSV - every sighting with its position (spreadsheet)"
+            if (snapshot) null else "CSV - every sighting with its position (spreadsheet)",
+            "CSV - SDR activity with time and position (spreadsheet)"
         ).toTypedArray()
         MaterialAlertDialogBuilder(activity)
             .setTitle(if (snapshot) "Export snapshot" else "Export trace")
             .setItems(labels) { _, which ->
                 val format = formats[which]
-                if (format == "csv" || format == "sightings") {
+                if (format == "csv" || format == "sightings" || format == "sdr") {
                     exportTrip(activity, tripId, format, onlyFlagged = false)
                 } else {
                     MaterialAlertDialogBuilder(activity)
@@ -249,6 +250,13 @@ object Exporter {
             }
             val dao = AppDatabase.getInstance(activity).tripDao()
             val trip = dao.get(tripId) ?: run { toast(activity, "Trace not found"); return@launchExport }
+            if (format == "sdr") {
+                val text = withContext(Dispatchers.IO) { com.rfsentinel.app.service.SdrTrack.read(tripId) }
+                    ?: run { toast(activity, "No SDR activity on this ${if (trip.snapshot) "snapshot" else "trace"}: plug in the SDR and scan while it records"); return@launchExport }
+                val safeName = trip.name.replace(Regex("[^A-Za-z0-9_-]+"), "_").trim('_').take(40)
+                share(activity, "rf_sentinel_sdr_${safeName}.csv", text, "text/csv", "Export SDR activity")
+                return@launchExport
+            }
             val points = dao.points(tripId)
             val devices = dao.devices(tripId)
             val pings = dao.pings(tripId)

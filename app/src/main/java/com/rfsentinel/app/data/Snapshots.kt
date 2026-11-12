@@ -57,6 +57,8 @@ object Snapshots {
             deviceCount = rows.size, flaggedCount = rows.count { it.flagged }, kind = TripEntity.KIND_SNAPSHOT
         ))
         rows.map { it.copy(tripId = id) }.chunked(300).forEach { dao.upsertDevices(it) }
+        // What the SDR heard in the minutes before, with time and position.
+        com.rfsentinel.app.service.SdrTrack.append(id, com.rfsentinel.app.service.SdrTrack.since(now - com.rfsentinel.app.service.SdrTrack.SNAPSHOT_MS))
         return id
     }
 }

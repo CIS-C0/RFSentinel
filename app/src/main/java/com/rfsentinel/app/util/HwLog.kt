@@ -16,6 +16,8 @@ import java.util.concurrent.ConcurrentHashMap
 class HwLog(val title: String, val file: String) {
     private val lines = ArrayDeque<String>()
     private val lastShape = ConcurrentHashMap<String, String>()
+    /** Each line as it is logged (the SDR's go into traces and snapshots with time and position: [com.rfsentinel.app.service.SdrTrack]). */
+    @Volatile var onLine: ((String) -> Unit)? = null
 
     fun log(line: String) {
         Log.d("HwLog", "$title: $line")
@@ -30,6 +32,7 @@ class HwLog(val title: String, val file: String) {
                 }
             }
         }
+        onLine?.let { runCatching { it(line) } }
     }
 
     /**

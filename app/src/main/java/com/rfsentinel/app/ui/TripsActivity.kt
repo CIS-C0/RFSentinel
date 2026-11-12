@@ -243,7 +243,7 @@ class TripsActivity : AppCompatActivity() {
             .setTitle("Delete \"${t.name}\"?")
             .setMessage(if (t.snapshot) "The saved device list is deleted from this phone." else "The route and its device list are deleted from this phone.")
             .setPositiveButton("Delete") { _, _ ->
-                lifecycleScope.launch { AppDatabase.getInstance(this@TripsActivity).tripDao().delete(t.id) }
+                lifecycleScope.launch { AppDatabase.getInstance(this@TripsActivity).tripDao().delete(t.id); com.rfsentinel.app.service.SdrTrack.delete(t.id) }
             }
             .setNegativeButton("Cancel", null)
             .show()

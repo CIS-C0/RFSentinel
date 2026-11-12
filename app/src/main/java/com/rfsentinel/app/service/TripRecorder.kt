@@ -136,7 +136,7 @@ object TripRecorder {
         dao.updateStats(f.id, System.currentTimeMillis(), f.distanceM, f.totalPoints, f.deviceCount, f.flaggedCount)
         // An empty trip (no GPS fix at all) isn't worth keeping.
         val trip = dao.get(f.id)
-        if (trip != null && trip.pointCount == 0 && trip.deviceCount == 0) dao.delete(f.id)
+        if (trip != null && trip.pointCount == 0 && trip.deviceCount == 0) { dao.delete(f.id); SdrTrack.delete(f.id) }
     }
 
     /** Stops recording and writes the final state. */

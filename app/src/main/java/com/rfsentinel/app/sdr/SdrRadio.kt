@@ -865,13 +865,18 @@ object SdrRadio {
                     lastInbound = System.currentTimeMillis()
                     controlInput(lock)?.let { hz ->
                         inbounds++
-                        P25Hunt.inbound(sdr, hz, lock.nac, INBOUND_S, stop) { msg, snr ->
+                        var strongest: Int? = null
+                        val got = P25Hunt.inbound(sdr, hz, lock.nac, INBOUND_S, stop) { msg, snr ->
+                            strongest = maxOf(strongest ?: snr, snr)
                             if (snr < RadioWatch.activeDb(config.minSnrDb)) return@inbound
                             val tg = p25Log.heardRadio(msg.radio, snr, System.currentTimeMillis())
                             if (nearby.add(msg.radio) && logAll) logHeard("P25 radio ${msg.radio} ${msg.kind} on the control channel's input, $snr dB" +
                                 (tg?.let { ", talkgroup $it" } ?: ""))
                             onP25Nearby?.invoke(msg, snr, tg); activity(Mode.P25)
                         }
+                        // For tuning "near you" from real drives: what the input held, decoded or not.
+                        got?.let { (n, peak) -> com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 control channel input: $n radio messages" +
+                            (strongest?.let { ", strongest $it dB" } ?: "") + ", peak level $peak dB, nearby from ${RadioWatch.activeDb(config.minSnrDb)} dB") }
                     }
                     return@detour true
                 }
@@ -880,6 +885,8 @@ object SdrRadio {
                 pending = null
                 val snr = measureInput(sdr, hz) ?: return@detour true
                 inputs++
+                com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 input check: the talking radio $snr dB above the noise, nearby from " +
+                    "${RadioWatch.activeDb(config.minSnrDb)} dB" + (if (logAll) " (" + (call.tg?.let { "talkgroup $it" } ?: "private call") + (call.source?.let { ", radio $it" } ?: "") + ")" else ""))
                 if (snr >= RadioWatch.activeDb(config.minSnrDb)) {
                     heard++; p25Log.heardInput(call.tg, call.target, snr, System.currentTimeMillis()); onP25Input?.invoke(call, hz, snr)
                     activity(Mode.P25)

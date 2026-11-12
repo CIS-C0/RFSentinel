@@ -162,6 +162,7 @@ class SnapshotActivity : AppCompatActivity() {
             .setPositiveButton("Delete") { _, _ ->
                 lifecycleScope.launch {
                     AppDatabase.getInstance(this@SnapshotActivity).tripDao().delete(t.id)
+                    com.rfsentinel.app.service.SdrTrack.delete(t.id)
                     finish()
                 }
             }
