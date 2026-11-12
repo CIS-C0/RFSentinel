@@ -706,6 +706,9 @@ object Prefs {
     /** Say the frequency (and its name when known) instead of "Radio transmitting nearby". */
     fun radioSpeakFreq(context: Context): Boolean = bool(context, "radio_speak_freq", false)
     fun setRadioSpeakFreq(context: Context, v: Boolean) = setBool(context, "radio_speak_freq", v)
+    /** Radio sweep › Play voice transmissions ([com.rfsentinel.app.sdr.SdrRadio.sweepListen]). */
+    fun radioListen(context: Context): Boolean = bool(context, "radio_listen", false)
+    fun setRadioListen(context: Context, v: Boolean) = setBool(context, "radio_listen", v)
     /** Call out "closer" / "farther" after the signal moved this many dB (0 = off). */
     fun radioTrendDb(context: Context): Int = int(context, "radio_trend_db", 6).coerceIn(0, 20)
     fun setRadioTrendDb(context: Context, v: Int) = setInt(context, "radio_trend_db", v.coerceIn(0, 20))

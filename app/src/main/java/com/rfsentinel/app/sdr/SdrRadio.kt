@@ -75,6 +75,8 @@ object SdrRadio {
     private const val FOLLOW_START_S = 1.5     // no voice this long after tuning to a call: it isn't there (or already over)
     private const val FOLLOW_QUIET_S = 1.0     // voice gone this long: the call is over
     private const val FOLLOW_MAX_MS = 120_000L // then back to the control channel regardless
+    private const val PLAY_QUIET_MS = 1_500L    // Play voice transmissions: the channel's squelch shut this long, back to the sweep
+    private const val PLAY_MAX_MS = 60_000L     // ...and at most this long, so a stuck carrier doesn't hold the sweep
 
     @Volatile var status: String = ""; private set
     /** ADS-B messages decoded since the app started, for the main screen's messages-per-second line. */
@@ -269,6 +271,8 @@ object SdrRadio {
     /** Settings › Listen to P25 voice: which clear calls to play live ([P25Follow]). */
     enum class Listen { OFF, WATCHED, ALL }
     @Volatile var p25Listen = Listen.OFF
+    /** Settings › Radio sweep › Play voice transmissions: a new transmission is tuned to and played until it goes quiet. */
+    @Volatile var sweepListen = false
     /** The watched talkgroups (Settings › Watch these talkgroups). */
     @Volatile var p25Watched = P25Log.Watched()
     /** P25 talkgroups › Mute: no call is played, the SDR stays on the control channel. */
@@ -730,7 +734,7 @@ object SdrRadio {
         }
         // "Log everything": every channel heard in this sweep.
         val heard = ArrayList<P25Hunt.Candidate>()
-        var lastIdentify = 0L; var identified = 0; var p25Found = 0
+        var lastIdentify = 0L; var identified = 0; var p25Found = 0; var played = 0
         while (!halted && !sdr.lost && keeps(Mode.SWEEP)) {
             // Settings changed: the new bands / targets / sensitivity from this sweep on.
             if (config != cfg) { cfg = config; plan = RadioWatch.plan(cfg); watch.config = cfg; logPlan() }
@@ -770,6 +774,10 @@ object SdrRadio {
                 }
                 if (SdrWaterfall.listening) show(center, SdrWaterfall.segment(center, psd, sdr.sampleRate, RadioWatch.USABLE_HZ, bandOf(center)))
                 if (logAll) heard += P25Hunt.candidates(center, psd, sdr.sampleRate)
+                // Play voice transmissions: the first new one in this chunk, once the others are reported. Not while the
+                // waterfall is open (it holds the sweep to draw; Tune › Listen plays there).
+                var toPlay: Pair<RadioWatch.Event, Long>? = null
+                val playing = sweepListen && !SdrWaterfall.listening
                 for (found in watch.analyze(center, psd, sdr.sampleRate, System.currentTimeMillis(), bursts)) {
                     // Swept only for the open waterfall (radio sweep not ticked): nothing reported.
                     if (Mode.SWEEP !in active) continue
@@ -777,7 +785,8 @@ object SdrRadio {
                     if (!e.repeat) {
                         events++
                         // A new transmission: listen for a moment to tell a P25 radio (conventional, which no control channel lists) from the rest.
-                        if (identifies(e) && System.currentTimeMillis() - lastIdentify >= IDENTIFY_GAP_MS) {
+                        // Always when it's to be played: analog and P25 voice are played differently.
+                        if (identifies(e) && (playing || System.currentTimeMillis() - lastIdentify >= IDENTIFY_GAP_MS)) {
                             lastIdentify = System.currentTimeMillis()
                             identified++
                             identifyP25(sdr, e, center, psd)?.let { h ->
@@ -787,8 +796,13 @@ object SdrRadio {
                         }
                         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: transmission ${e.mhz} MHz, ${e.snrDb} dB above the noise (${e.band.label})" +
                             (e.slots?.let { ", $it time slots" } ?: "") + (if (e.p25Nac != null) ", P25" + (if (logAll) " NAC %03X".format(e.p25Nac) else "") else ""))
+                        if (playing && toPlay == null && identifies(e)) toPlay = e to peakHz(e, center, psd, sdr.sampleRate)
                     }
                     onEvent?.invoke(e)
+                }
+                toPlay?.let { (e, hz) ->
+                    if (playTransmission(sdr, e, hz)) played++
+                    sdr.setSampleRate(SAMPLE_RATE); sdr.resetBuffer()
                 }
             }
             if (!keeps(Mode.SWEEP)) break // cut short: not a whole sweep
@@ -806,7 +820,7 @@ object SdrRadio {
             if (now - lastLog > (if (watch.sweeps < 20) 10_000 else 60_000)) {
                 lastLog = now
                 com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: sweep ${watch.sweeps} in $sweepMs ms, ${watch.learnedChannels} channels, ${watch.busyChannels} always busy, " +
-                    "$events reported ($identified checked for P25, $p25Found were), PLL unlocked $unlocked, read errors $readErrors, chunks without samples $emptyChunks, " +
+                    "$events reported ($identified checked for P25, $p25Found were, $played played), PLL unlocked $unlocked, read errors $readErrors, chunks without samples $emptyChunks, " +
                     "tuner write failures ${sdr.tunerWriteFails}, USB errors ${sdr.ctlErrors}, noise " +
                     noise.entries.joinToString { (hz, v) -> "%.0f MHz %.0f dB".format(hz / 1e6, v.first / v.second) })
                 noise.clear()
@@ -823,11 +837,63 @@ object SdrRadio {
      * real centre first; then a short listen at the P25 sample rate. The sweep's rate is put back after.
      */
     private fun identifyP25(sdr: SdrDevice, e: RadioWatch.Event, center: Long, psd: FloatArray): P25Hunt.Heard? {
-        val hz = P25Hunt.candidates(center, psd, sdr.sampleRate, 3.0).minByOrNull { kotlin.math.abs(it.hz - e.freqHz) }
-            ?.hz?.takeIf { kotlin.math.abs(it - e.freqHz) <= RadioWatch.STEP_HZ } ?: e.freqHz
+        val hz = peakHz(e, center, psd, sdr.sampleRate)
         sdr.setSampleRate(P25Demod.SAMPLE_RATE)
         try { return P25Hunt.identify(sdr, hz, IDENTIFY_S) { halted || sdr.lost } }
         finally { sdr.setSampleRate(SAMPLE_RATE); sdr.resetBuffer() }
+    }
+
+    /** [e]'s real centre: the peak in [psd] (tuned to [center]) nearest it, as the sweep's channel grid is 12.5 kHz. */
+    private fun peakHz(e: RadioWatch.Event, center: Long, psd: FloatArray, rate: Int) =
+        P25Hunt.candidates(center, psd, rate, 3.0).minByOrNull { kotlin.math.abs(it.hz - e.freqHz) }
+            ?.hz?.takeIf { kotlin.math.abs(it - e.freqHz) <= RadioWatch.STEP_HZ } ?: e.freqHz
+
+    /**
+     * Play voice transmissions: [e], at [hz], played through the speaker until it goes quiet. Analog radios (walkie-talkies,
+     * businesses) as narrow FM with its squelch; a P25 radio's clear voice decoded, an encrypted one ends it. The sweep
+     * goes on after. False when nothing was played.
+     */
+    private fun playTransmission(sdr: SdrDevice, e: RadioWatch.Event, hz: Long): Boolean {
+        val p25 = e.p25Nac != null
+        val mhz = "%.4f MHz".format(java.util.Locale.US, hz / 1e6)
+        sdr.setSampleRate(if (p25) P25Demod.SAMPLE_RATE else SAMPLE_RATE)
+        if (!sdr.tune(hz - INPUT_OFFSET_HZ)) return false
+        sdr.resetBuffer()
+        val buf = ByteArray(XFER)
+        repeat(sdr.settleReads) { sdr.read(buf) }
+        var out: android.media.AudioTrack? = null
+        val follow = if (!p25) null else P25Follow(INPUT_OFFSET_HZ.toDouble()) { pcm -> out?.write(pcm, 0, pcm.size, android.media.AudioTrack.WRITE_NON_BLOCKING) }
+        val demod = if (p25) null else AudioDemod(AudioDemod.modeFor(hz), INPUT_OFFSET_HZ, sdr.sampleRate) { pcm, n -> out?.write(pcm, 0, n) }
+        val track = runCatching { newSpeaker(demod?.audioRate ?: ImbeDecoder.RATE).also { it.play() } }
+            .onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: no audio output to play a transmission - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
+            .getOrNull() ?: return false
+        out = track
+        activity(Mode.SWEEP)
+        status = "$deviceLabel · playing $mhz${if (p25) " · P25" else ""}" + turnNote()
+        val start = System.currentTimeMillis()
+        var heardAt = start; var heardMs = 0L; var fails = 0
+        val ahead = ReadAhead(sdr, buf.size)
+        try {
+            while (!halted && !sdr.lost && sweepListen && keeps(Mode.SWEEP) && !SdrWaterfall.listening &&
+                System.currentTimeMillis() - start < PLAY_MAX_MS) {
+                val n = ahead.read(buf)
+                if (n <= 0) { if (++fails >= STALL_CHUNKS) break; continue }
+                fails = 0
+                val now = System.currentTimeMillis()
+                if (demod != null) {
+                    demod.feed(buf, n / 2)
+                    if (demod.open) { heardMs += now - heardAt; heardAt = now } else if (now - heardAt >= PLAY_QUIET_MS) break
+                } else if (follow != null) {
+                    follow.feed(buf, n / 2)
+                    if (follow.ended || follow.quietS >= (if (follow.frames == 0) FOLLOW_START_S else FOLLOW_QUIET_S)) break
+                }
+            }
+        } finally { ahead.close(); track.stop(); track.release() }
+        val secs = if (follow != null) follow.frames * 0.18 else heardMs / 1000.0
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: transmission ${if (logAll) "$mhz " else ""}(${e.band.label}) " +
+            (if (secs > 0) "played (%.1f s)".format(java.util.Locale.US, secs) else "not played") +
+            (if (follow != null) ", P25" + (follow.endedBy?.let { ", ended: $it" } ?: "") else ""))
+        return secs > 0
     }
 
     /** Finds a P25 control channel and follows it; looks again when it goes quiet or none was found. */

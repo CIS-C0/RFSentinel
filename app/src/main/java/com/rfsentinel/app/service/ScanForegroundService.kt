@@ -486,6 +486,7 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.sdr.SdrRadio.p25Inputs = Prefs.p25Inputs(this)
         com.rfsentinel.app.sdr.SdrRadio.p25Record = Prefs.p25Record(this)
         com.rfsentinel.app.sdr.SdrRadio.p25Listen = com.rfsentinel.app.sdr.SdrRadio.Listen.entries[Prefs.p25Listen(this)]
+        com.rfsentinel.app.sdr.SdrRadio.sweepListen = Prefs.radioListen(this)
         com.rfsentinel.app.sdr.SdrRadio.p25Watched = com.rfsentinel.app.sdr.P25Log.watched(Prefs.p25Talkgroups(this))
         com.rfsentinel.app.sdr.SdrRadio.p25Mute = Prefs.p25Mute(this)
         com.rfsentinel.app.sdr.SdrRadio.pagerChannel = Prefs.pagerChannel(this)

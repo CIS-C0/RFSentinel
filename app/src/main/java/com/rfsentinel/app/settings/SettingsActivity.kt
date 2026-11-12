@@ -1740,6 +1740,13 @@ class SettingsActivity : AppCompatActivity() {
         val watched = lines("Watch these frequencies", "154.4300 County fire dispatch\n460.125", Prefs.radioTargets(this),
             "Always reported when active, whatever the sensitivity. One per line, in MHz, with an optional name.") { Prefs.setRadioTargets(this, it) }
         box.toggle("Say the frequency", Prefs.radioSpeakFreq(this), "Says the frequency (and its name) instead of \"Radio transmitting nearby\".") { Prefs.setRadioSpeakFreq(this, it) }
+        box.toggle("Play voice transmissions", Prefs.radioListen(this),
+            "Experimental. When the sweep hears a new transmission, the SDR tunes to it and plays the voice through the speaker, " +
+            "headphones or car like other audio, then sweeps on once it goes quiet (at most 1 minute). Walkie-talkies and other " +
+            "analog radios, and P25 radios that aren't encrypted. Encrypted and other digital radios can't be played. Not while " +
+            "the radio waterfall is open. Listening to radio calls is not allowed everywhere: check the law where you are.") {
+            Prefs.setRadioListen(this, it); com.rfsentinel.app.sdr.SdrRadio.sweepListen = it
+        }
         box.toggle("Detect cellular transmitters", Prefs.radioCellOn(this),
             "Experimental. Watches the phone / modem side of the LTE bands (uplink) for a transmitter travelling near you: a vehicle modem, a " +
             "Cradlepoint-style router, a camera with a SIM. Energy only, nothing decoded. Adds time to each sweep; " +
