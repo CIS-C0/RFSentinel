@@ -75,43 +75,59 @@ object P25Record {
     }
 
     /** Saves a call's recording ("p25_20261102_142233_tg1234.wav") and drops the oldest past [KEEP]. */
-    fun save(context: Context, call: P25History.Call, wav: ByteArray): File = keep(context, DIR, KEEP, call, wav)
+    fun save(context: Context, call: P25History.Call, wav: ByteArray): File = keep(context, DIR, KEEP, "p25_${stamp(call.time)}_${who(call)}.wav", wav)
 
     /** The kept recordings, newest first. */
     fun files(context: Context): List<File> = list(context, DIR)
 
-    /** Played calls' sound (Settings › RTL-SDR radio › Save played calls), to listen to on the P25 talkgroups screen. */
+    /**
+     * Played calls' sound (Settings › RTL-SDR radio › Save played calls), to listen to on the P25 talkgroups screen: P25 calls
+     * ("20261112_114720_tg54221.wav") and transmissions the radio sweep played ("20261112_114720_462562500hz.wav").
+     */
     private const val CALLS_DIR = "p25calls"
     const val CALLS_KEEP = 200
 
-    /** A played call's speech ([P25Follow]'s 8 kHz pieces) saved as a mono WAV; the oldest past [CALLS_KEEP] go. */
-    fun saveSpeech(context: Context, call: P25History.Call, pcm: List<ShortArray>): File = keep(context, CALLS_DIR, CALLS_KEEP, call, speechWav(pcm))
+    /** A played P25 call's speech ([P25Follow]'s 8 kHz pieces) saved as a mono WAV; the oldest past [CALLS_KEEP] go. */
+    fun saveSpeech(context: Context, call: P25History.Call, pcm: List<ShortArray>): File =
+        keep(context, CALLS_DIR, CALLS_KEEP, "${stamp(call.time)}_${who(call)}.wav", speechWav(pcm))
+
+    /** A transmission the radio sweep played (a walkie-talkie...), heard at [hz]: its sound at [rate]. */
+    fun saveTransmission(context: Context, time: Long, hz: Long, pcm: List<ShortArray>, rate: Int): File =
+        keep(context, CALLS_DIR, CALLS_KEEP, "${stamp(time)}_${hz}hz.wav", speechWav(pcm, rate))
 
     /** The saved played calls, newest first. */
     fun speechFiles(context: Context): List<File> = list(context, CALLS_DIR)
 
-    internal fun speechWav(pcm: List<ShortArray>): ByteArray {
+    internal fun speechWav(pcm: List<ShortArray>, rate: Int = ImbeDecoder.RATE): ByteArray {
         val b = java.nio.ByteBuffer.allocate(2 * pcm.sumOf { it.size }).order(java.nio.ByteOrder.LITTLE_ENDIAN)
         for (piece in pcm) for (s in piece) b.putShort(s)
-        return header(b.capacity(), 1, ImbeDecoder.RATE) + b.array()
+        return header(b.capacity(), 1, rate) + b.array()
     }
 
-    /** A saved call, from its file name: when, its talkgroup (or the radio a private call went to), how long. */
-    class Saved(val file: File, val time: Long, val tg: Int?, val target: Long?, val seconds: Double)
+    /** A saved call, from its file name: when, its talkgroup, the radio a private call went to, or where a transmission was heard; how long. */
+    class Saved(val file: File, val time: Long, val tg: Int?, val target: Long?, val hz: Long?, val seconds: Double)
 
     internal fun saved(f: File): Saved? {
-        val m = Regex("""p25_(\d{8}_\d{6})_(tg|to)(\d+)\.wav""").matchEntire(f.name) ?: return null
+        val m = Regex("""(\d{8}_\d{6})_(?:(tg|to)(\d+)|(\d+)hz)\.wav""").matchEntire(f.name) ?: return null
         val time = runCatching { java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).parse(m.groupValues[1])!!.time }.getOrNull() ?: return null
-        val n = m.groupValues[3].toLongOrNull() ?: return null
-        val seconds = (f.length() - 44).coerceAtLeast(0) / (2.0 * ImbeDecoder.RATE)
-        return if (m.groupValues[2] == "tg") Saved(f, time, n.toInt(), null, seconds) else Saved(f, time, null, n, seconds)
+        // The WAV header's sample rate: 8 kHz P25 speech, the sweep's analog audio faster.
+        val rate = runCatching { java.io.RandomAccessFile(f, "r").use { r -> r.seek(24); Integer.reverseBytes(r.readInt()) } }.getOrNull()
+            ?.takeIf { it > 0 } ?: ImbeDecoder.RATE
+        val seconds = (f.length() - 44).coerceAtLeast(0) / (2.0 * rate)
+        val n = m.groupValues[3].ifEmpty { m.groupValues[4] }.toLongOrNull() ?: return null
+        return when (m.groupValues[2]) {
+            "tg" -> Saved(f, time, n.toInt(), null, null, seconds)
+            "to" -> Saved(f, time, null, n, null, seconds)
+            else -> Saved(f, time, null, null, n, seconds)
+        }
     }
 
-    private fun keep(context: Context, dirName: String, max: Int, call: P25History.Call, wav: ByteArray): File {
+    private fun stamp(time: Long) = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date(time))
+    private fun who(call: P25History.Call) = call.tg?.let { "tg$it" } ?: call.target?.let { "to$it" } ?: "call"
+
+    private fun keep(context: Context, dirName: String, max: Int, name: String, wav: ByteArray): File {
         val dir = File(context.filesDir, dirName).apply { mkdirs() }
-        val stamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date(call.time))
-        val who = call.tg?.let { "tg$it" } ?: call.target?.let { "to$it" } ?: "call"
-        val f = File(dir, "p25_${stamp}_$who.wav").apply { writeBytes(wav) }
+        val f = File(dir, name).apply { writeBytes(wav) }
         list(context, dirName).drop(max).forEach { it.delete() }
         return f
     }

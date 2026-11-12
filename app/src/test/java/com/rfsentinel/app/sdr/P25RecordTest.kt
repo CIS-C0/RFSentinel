@@ -56,14 +56,19 @@ class P25RecordTest {
 
         val dir = kotlin.io.path.createTempDirectory().toFile()
         try {
-            val f = java.io.File(dir, "p25_20261112_114720_tg54221.wav").apply { writeBytes(wav) }
+            val f = java.io.File(dir, "20261112_114720_tg54221.wav").apply { writeBytes(wav) }
             val c = P25Record.saved(f)!!
             assertEquals(54221, c.tg)
             assertEquals(0.04, c.seconds, 1e-9)
-            val private = P25Record.saved(java.io.File(dir, "p25_20261112_114720_to1500020.wav").apply { writeBytes(wav) })!!
+            val private = P25Record.saved(java.io.File(dir, "20261112_114720_to1500020.wav").apply { writeBytes(wav) })!!
             assertEquals(1500020L, private.target)
             assertEquals(null, private.tg)
             assertEquals(null, P25Record.saved(java.io.File(dir, "other.wav")))
+            // A walkie-talkie the sweep played: its frequency, and its length at the analog audio's rate.
+            val radio = P25Record.saved(java.io.File(dir, "20261112_114720_462562500hz.wav")
+                .apply { writeBytes(P25Record.speechWav(listOf(ShortArray(32_000)), 32_000)) })!!
+            assertEquals(462_562_500L, radio.hz)
+            assertEquals(1.0, radio.seconds, 1e-9)
         } finally { dir.deleteRecursively() }
     }
 }

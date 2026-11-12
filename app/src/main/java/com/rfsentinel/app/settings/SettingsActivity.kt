@@ -1819,10 +1819,10 @@ class SettingsActivity : AppCompatActivity() {
             "Encrypted calls can't be played. Listening to radio calls is not allowed everywhere, and some places forbid it in " +
             "a vehicle: check the law where you are.", "Listen to P25 voice"))
         scan("Save played calls", Prefs.p25SaveCalls(this),
-            "Keeps the sound of each P25 call played, on the phone only, to listen to again on the P25 talkgroups screen › " +
-            "Played calls. The last ${com.rfsentinel.app.sdr.P25Record.CALLS_KEEP} are kept, about 1 MB per minute of voice. " +
+            "Keeps the sound of each P25 call played, and of each transmission Play voice transmissions plays (walkie-talkies...), " +
+            "on the phone only, to listen to again on the P25 talkgroups screen › Played calls. The last ${com.rfsentinel.app.sdr.P25Record.CALLS_KEEP} are kept, about 1 MB per minute of voice. " +
             "Recording radio calls is not allowed everywhere: check the law where you are.") {
-            Prefs.setP25SaveCalls(this, it); com.rfsentinel.app.sdr.SdrRadio.p25SaveCalls = it
+            Prefs.setP25SaveCalls(this, it); com.rfsentinel.app.sdr.SdrRadio.saveCalls = it
         }
         val pagerGroup = group("pagers", "Pagers")
         pagerFreqField = lines("Pager frequencies", "466.075 Fire dispatch", Prefs.pagerFreqs(this),

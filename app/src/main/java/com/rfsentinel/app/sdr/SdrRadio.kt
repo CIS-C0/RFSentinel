@@ -268,8 +268,8 @@ object SdrRadio {
     @Volatile var onP25Nearby: ((P25Tsbk.Inbound, Int, Int?) -> Unit)? = null
     /** Settings › RTL-SDR radio: save the radio signal of clear calls ([P25Record]). */
     @Volatile var p25Record = false
-    /** Settings › RTL-SDR radio › Save played calls: each P25 call played is kept ([P25Record.saveSpeech]). */
-    @Volatile var p25SaveCalls = true
+    /** Settings › RTL-SDR radio › Save played calls: each P25 call and sweep transmission played is kept ([P25Record.speechFiles]). */
+    @Volatile var saveCalls = true
     /** Settings › Listen to P25 voice: which clear calls to play live ([P25Follow]). */
     enum class Listen { OFF, WATCHED, ALL }
     @Volatile var p25Listen = Listen.OFF
@@ -864,8 +864,13 @@ object SdrRadio {
         val buf = ByteArray(XFER)
         repeat(sdr.settleReads) { sdr.read(buf) }
         var out: android.media.AudioTrack? = null
-        val follow = if (!p25) null else P25Follow(INPUT_OFFSET_HZ.toDouble()) { pcm -> out?.write(pcm, 0, pcm.size, android.media.AudioTrack.WRITE_NON_BLOCKING) }
-        val demod = if (p25) null else AudioDemod(AudioDemod.modeFor(hz), INPUT_OFFSET_HZ, sdr.sampleRate) { pcm, n -> out?.write(pcm, 0, n) }
+        val heard = if (saveCalls) ArrayList<ShortArray>() else null
+        val follow = if (!p25) null else P25Follow(INPUT_OFFSET_HZ.toDouble()) { pcm ->
+            heard?.add(pcm.copyOf()); out?.write(pcm, 0, pcm.size, android.media.AudioTrack.WRITE_NON_BLOCKING)
+        }
+        val demod = if (p25) null else AudioDemod(AudioDemod.modeFor(hz), INPUT_OFFSET_HZ, sdr.sampleRate) { pcm, n ->
+            heard?.add(pcm.copyOf(n)); out?.write(pcm, 0, n)
+        }
         val track = runCatching { newSpeaker(demod?.audioRate ?: ImbeDecoder.RATE).also { it.play() } }
             .onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: no audio output to play a transmission - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
             .getOrNull() ?: return false
@@ -895,6 +900,10 @@ object SdrRadio {
         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: transmission ${if (logAll) "$mhz " else ""}(${e.band.label}) " +
             (if (secs > 0) "played (%.1f s)".format(java.util.Locale.US, secs) else "not played") +
             (if (follow != null) ", P25" + (follow.endedBy?.let { ", ended: $it" } ?: "") else ""))
+        val ctx = appContext
+        if (heard != null && secs > 0 && ctx != null)
+            runCatching { P25Record.saveTransmission(ctx, start, hz, heard, demod?.audioRate ?: ImbeDecoder.RATE) }
+                .onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: transmission sound not saved - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
         return secs > 0
     }
 
@@ -1074,7 +1083,7 @@ object SdrRadio {
         val buf = ByteArray(XFER)
         repeat(sdr.settleReads) { sdr.read(buf) }
         var started = false
-        val heard = if (p25SaveCalls) ArrayList<ShortArray>() else null
+        val heard = if (saveCalls) ArrayList<ShortArray>() else null
         val follow = P25Follow(INPUT_OFFSET_HZ.toDouble(), lsm = p25Lock?.lsm == true) { pcm ->
             heard?.add(pcm.copyOf())
             // A little silence first: voice comes in 180 ms bursts, and the buffer shouldn't run dry between them.
