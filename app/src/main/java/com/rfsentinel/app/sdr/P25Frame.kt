@@ -3,7 +3,8 @@ package com.rfsentinel.app.sdr
 /**
  * P25 Phase 1 frames, second stage: the dibits after a frame sync ([P25Demod]) to the network ID and
  * the control channel's trunking blocks (TSBKs). Status symbols out, the NID's BCH(63,16) code corrected,
- * then each 98-dibit block de-interleaved, rate-1/2 trellis decoded (Viterbi) and CRC checked.
+ * then each 98-dibit block de-interleaved, rate-1/2 trellis decoded (Viterbi, on the symbols' soft values when the
+ * demodulator gives them) and CRC checked.
  * Constants from TIA-102.BAAA (the trellis table, interleave and CRC as OP25 implements them).
  * Pure: unit-tested.
  */
@@ -26,14 +27,16 @@ object P25Frame {
     /** What a frame held: its NID (null when uncorrectable) and the blocks that passed their CRC. */
     class Decoded(val nid: Nid?, val tsbks: List<Tsbk>, val badBlocks: Int)
 
-    fun decode(frame: IntArray): Decoded {
+    /** [soft]: the frame's symbol values (±1 for ±3, as [P25Demod.soft]), same length as [frame]; null for hard decisions. */
+    fun decode(frame: IntArray, soft: DoubleArray? = null): Decoded {
         val d = stripStatus(frame)
+        val sd = soft?.takeIf { it.size == frame.size }?.let { stripStatus(it) }
         val nid = nid(d) ?: return Decoded(null, emptyList(), 0)
         if (nid.duid != DUID_TSDU) return Decoded(nid, emptyList(), 0)
         val out = ArrayList<Tsbk>(); var bad = 0
         var at = NID_DIBITS
         while (out.size + bad < 3 && at + BLOCK_DIBITS <= d.size) {
-            val b = trellis(deinterleave(d, at))
+            val b = trellis(deinterleave(d, at), sd?.let { deinterleaveSoft(it, at) })
             at += BLOCK_DIBITS
             if (b == null || !crcOk(b)) { bad++; continue }
             val t = Tsbk(b.copyOf(10))
@@ -46,6 +49,8 @@ object P25Frame {
     /** Takes out the status symbols: every 36th dibit counting from the sync's first ([frame] starts after the sync). */
     fun stripStatus(frame: IntArray): IntArray =
         frame.filterIndexed { i, _ -> (i + SYNC_DIBITS + 1) % 36 != 0 }.toIntArray()
+    fun stripStatus(frame: DoubleArray): DoubleArray =
+        frame.filterIndexed { i, _ -> (i + SYNC_DIBITS + 1) % 36 != 0 }.toDoubleArray()
 
     // ---- NID: 16 bits (NAC, DUID), 47 BCH parity bits, 1 parity bit ----
 
@@ -85,28 +90,45 @@ object P25Frame {
     fun deinterleave(d: IntArray, from: Int): IntArray =
         IntArray(49) { k -> d[from + SYMBOL_AT[k]] shl 2 or d[from + SYMBOL_AT[k] + 1] }
 
+    /** The block's soft values in trellis order: symbol k's two dibits at [2k] and [2k + 1]. */
+    fun deinterleaveSoft(d: DoubleArray, from: Int): DoubleArray =
+        DoubleArray(98) { i -> d[from + SYMBOL_AT[i / 2] + i % 2] }
+
+    /** Each dibit's symbol value (±1 for ±3): 01 → +1, 00 → +1/3, 10 → -1/3, 11 → -1. */
+    private val LEVEL = doubleArrayOf(1.0 / 3, 1.0, -1.0 / 3, -1.0)
+
     /** Rate-1/2 trellis: the symbol sent for input dibit [in] from state (the previous input) [s]: NEXT[s][in]. */
     val NEXT = arrayOf(intArrayOf(0x2, 0xC, 0x1, 0xF), intArrayOf(0xE, 0x0, 0xD, 0x3),
         intArrayOf(0x9, 0x7, 0xA, 0x4), intArrayOf(0x5, 0xB, 0x6, 0x8))
 
-    /** Viterbi decode of 49 symbols into 48 dibits (12 bytes; the 49th input is the flush). Null when too damaged. */
-    fun trellis(sym: IntArray): ByteArray? {
-        val inf = Int.MAX_VALUE / 2
-        var metric = intArrayOf(0, inf, inf, inf)
+    /**
+     * Viterbi decode of 49 symbols into 48 dibits (12 bytes; the 49th input is the flush). Null when too damaged.
+     * With [soft] (from [deinterleaveSoft]) the path is chosen by distance to the sent levels (about 2 dB better than
+     * counting bits); the damage limit still counts the bits the chosen path disagrees with.
+     */
+    fun trellis(sym: IntArray, soft: DoubleArray? = null): ByteArray? {
+        val inf = Double.MAX_VALUE / 4
+        var metric = doubleArrayOf(0.0, inf, inf, inf)
         val from = Array(sym.size) { IntArray(4) }
         for (t in sym.indices) {
-            val next = IntArray(4) { inf }
+            val next = DoubleArray(4) { inf }
             for (s in 0 until 4) if (metric[s] < inf) for (input in 0 until 4) {
-                val m = metric[s] + Integer.bitCount(NEXT[s][input] xor sym[t])
+                val c = NEXT[s][input]
+                val cost = if (soft == null) Integer.bitCount(c xor sym[t]).toDouble()
+                    else (soft[2 * t] - LEVEL[c shr 2]).let { it * it } + (soft[2 * t + 1] - LEVEL[c and 3]).let { it * it }
+                val m = metric[s] + cost
                 if (m < next[input]) { next[input] = m; from[t][input] = s }
             }
             metric = next
         }
         // Ends in state 0: the flush input.
         var s = 0
-        if (metric[0] > MAX_TRELLIS_ERRORS) return null
+        if (metric[0] >= inf) return null
         val dibits = IntArray(sym.size)
         for (t in sym.indices.reversed()) { dibits[t] = s; s = from[t][s] }
+        var errors = 0; var state = 0
+        for (t in sym.indices) { errors += Integer.bitCount(NEXT[state][dibits[t]] xor sym[t]); state = dibits[t] }
+        if (errors > MAX_TRELLIS_ERRORS) return null
         val out = ByteArray(12)
         for (i in 0 until 48) out[i / 4] = (out[i / 4].toInt() or (dibits[i] shl (6 - 2 * (i % 4)))).toByte()
         return out

@@ -24,6 +24,15 @@ object P25Tsbk {
     data class Site(val wacn: Int?, val sysId: Int, val rfss: Int?, val site: Int?, val channel: Int) : Msg()
     /** A neighbouring site's control channel. */
     data class Neighbor(val rfss: Int, val site: Int, val channel: Int) : Msg()
+    /** This site's other control channels (secondary control channel broadcast): where to look when the main one fades. */
+    data class Secondary(val rfss: Int, val site: Int, val channels: List<Int>) : Msg()
+
+    /**
+     * A radio's own message to the site, heard on the control channel's input: [radio] its unit ID, [kind] what it sent.
+     * Radios send these without anyone talking (switching on, changing talkgroup or site, status, data, acknowledging
+     * a page from the system), so they show a radio that isn't in a call.
+     */
+    data class Inbound(val radio: Int, val kind: String)
 
     fun parse(t: P25Frame.Tsbk): Msg? {
         if (t.protected || (t.mfid != 0x00 && t.mfid != 0x01)) return null
@@ -42,9 +51,28 @@ object P25Tsbk {
             0x3A -> Site(null, f(56, 12), f(48, 8), f(40, 8), f(24, 16))
             0x3B -> Site(f(52, 20), f(40, 12), null, null, f(24, 16))
             0x3C -> Neighbor(f(48, 8), f(40, 8), f(24, 16))
+            0x39 -> Secondary(f(72, 8), f(64, 8), listOf(f(48, 16), f(24, 16)).filter { it != 0 && it != 0xffff }.distinct())
             else -> null
         }
     }
+
+    /**
+     * An inbound block (a radio to the site, TIA-102.AABC ISPs) to who sent it. The sending radio's unit ID is the last
+     * 24 argument bits in every request and response listed; others (and vendor ones) give null.
+     */
+    fun parseInbound(t: P25Frame.Tsbk): Inbound? {
+        if (t.protected || (t.mfid != 0x00 && t.mfid != 0x01)) return null
+        val kind = INBOUND[t.opcode] ?: return null
+        val radio = (args(t.bytes) and 0xffffffL).toInt()
+        // 0 and the top addresses are "nobody" / system-wide: not a radio.
+        return if (radio == 0 || radio >= 0xfffff0) null else Inbound(radio, kind)
+    }
+
+    private val INBOUND = mapOf(
+        0x00 to "talkgroup call request", 0x04 to "private call request", 0x05 to "private call answer",
+        0x12 to "data channel request", 0x18 to "status update", 0x19 to "status reply", 0x1C to "message",
+        0x1F to "call alert", 0x20 to "acknowledgement", 0x24 to "function reply", 0x28 to "talkgroup affiliation",
+        0x2B to "sign-off", 0x2C to "registration", 0x2D to "location registration")
 
     /** A transmit offset: the bits below sign bit [sign] (set: the radios transmit above the base station) times [step]. */
     private fun offset(v: Int, sign: Int, step: Long): Long =
@@ -67,6 +95,8 @@ object P25Tsbk {
     class Channels {
         private val tables = arrayOfNulls<Iden>(16)
         fun learn(i: Iden) { tables[i.id] = i }
+        /** True when [channel] is on a TDMA (Phase 2) carrier; false when FDMA or its table isn't known yet. */
+        fun tdma(channel: Int) = (tables[channel shr 12 and 0xf]?.slots ?: 1) > 1
         fun hz(channel: Int): Long? {
             val t = tables[channel shr 12 and 0xf] ?: return null
             return t.baseHz + t.spacingHz.toLong() * ((channel and 0xfff) / t.slots)

@@ -13,9 +13,10 @@ import java.util.concurrent.Executors
  */
 object P25History {
 
-    /** One call: [tg] null for a private call to radio [target]. [site] is "system-rfss-site" when the site was heard. */
+    /** One call: [tg] null for a private call to radio [target]. [site] is "system-rfss-site" when the site was heard.
+     *  [phase2]: on a TDMA channel (live only, not kept in the file: its voice can't be played or recorded). */
     data class Call(val time: Long, val tg: Int?, val target: Int?, val source: Int?, val channel: Int?, val hz: Long?,
-                    val emergency: Boolean, val encrypted: Boolean, val site: String?)
+                    val emergency: Boolean, val encrypted: Boolean, val site: String?, val phase2: Boolean = false)
 
     /** Per talkgroup over the kept days, for the history screen. [byHour]: calls in each hour of the day (0-23). */
     data class Summary(val tg: Int?, val target: Int?, val lastDay: Int, val lastWeek: Int, val all: Int, val lastAt: Long,

@@ -84,8 +84,9 @@ class P25HuntTest {
 
     @Test
     fun everyChannelIsSeenAwayFromTheTunedCentre() {
-        val plan = P25Hunt.plan()
-        for (b in P25Hunt.BANDS) for (f in b step 6_250L)
+        val bands = P25Hunt.ALL_BANDS.map { it.range }
+        val plan = P25Hunt.plan(bands)
+        for (b in bands) for (f in b step 6_250L)
             assertTrue("$f", plan.any { abs(f - it) in RadioWatch.DC_GUARD_HZ + 6_000..RadioWatch.USABLE_HZ.toLong() - 6_000 })
     }
 

@@ -12,13 +12,15 @@ class P25Log {
     data class Row(val tg: Int?, val target: Int?, val calls: Int, val lastAt: Long, val lastChannel: Int?,
                    val lastHz: Long?, val lastSource: Int?, val radios: Int, val emergency: Boolean, val encrypted: Boolean,
                    /** The last time one of its radios was heard on the site's input (close to you), and how strong; 0 never. */
-                   val inputAt: Long = 0L, val inputSnr: Int = 0)
+                   val inputAt: Long = 0L, val inputSnr: Int = 0,
+                   /** Its last call was on a Phase 2 (TDMA) channel: seen, but its voice can't be played or recorded. */
+                   val phase2: Boolean = false)
 
     /** The site and how much was heard there, for the screen's header. */
     data class Summary(val site: P25Tsbk.Site?, val messages: Long, val registrations: Int, val since: Long)
 
     private class Group { var calls = 0; var lastAt = 0L; var lastChannel: Int? = null; var lastSource: Int? = null
-        val radios = HashSet<Int>(); var emergency = false; var encrypted = false; var inputAt = 0L; var inputSnr = 0 }
+        val radios = HashSet<Int>(); var emergency = false; var encrypted = false; var inputAt = 0L; var inputSnr = 0; var phase2 = false }
 
     private val groups = HashMap<Pair<Int?, Int?>, Group>()
     private val channels = P25Tsbk.Channels()
@@ -26,12 +28,16 @@ class P25Log {
     private var messages = 0L
     private var registrations = 0
     private var since = 0L
+    /** This site's other control channels and its neighbours', as channel numbers, newest last. */
+    private val alternates = LinkedHashSet<Int>()
+    /** Each radio's last talkgroup (affiliation or a call it started), oldest first. */
+    private val joined = LinkedHashMap<Int, Int>()
     /** Calls started since [takeCalls], for the kept call log ([P25History]). */
     private val started = ArrayList<P25History.Call>()
 
     /** A new control channel: forget the last site. */
     @Synchronized fun clear(now: Long) {
-        groups.clear(); site = null; messages = 0; registrations = 0; since = now
+        groups.clear(); site = null; messages = 0; registrations = 0; since = now; alternates.clear(); joined.clear()
     }
 
     /** Takes in one message; the talkgroups whose call just started (not heard for [CALL_GAP_MS]). */
@@ -41,13 +47,16 @@ class P25Log {
         return when (m) {
             is P25Tsbk.Grant -> listOfNotNull(call(m.tg, m.target, m.channel, m.source, now, m.emergency, m.encrypted))
             is P25Tsbk.GrantUpdate -> m.calls.mapNotNull { (ch, tg) -> call(tg, null, ch, null, now, false, false) }
-            is P25Tsbk.Affiliation -> { group(m.tg, null).radios += m.radio; emptyList() }
+            is P25Tsbk.Affiliation -> { group(m.tg, null).radios += m.radio; joined(m.radio, m.tg); emptyList() }
             is P25Tsbk.Registration -> { if (m.accepted) registrations++; emptyList() }
             is P25Tsbk.Iden -> { channels.learn(m); emptyList() }
             is P25Tsbk.Site -> { site = site?.let { s -> m.copy(wacn = m.wacn ?: s.wacn, rfss = m.rfss ?: s.rfss, site = m.site ?: s.site) } ?: m; emptyList() }
-            is P25Tsbk.Neighbor -> emptyList()
+            is P25Tsbk.Neighbor -> { alternate(m.channel); emptyList() }
+            is P25Tsbk.Secondary -> { m.channels.forEach(::alternate); emptyList() }
         }
     }
+
+    private fun alternate(channel: Int) { alternates.remove(channel); alternates += channel; while (alternates.size > MAX_ALTERNATES) alternates.remove(alternates.first()) }
 
     private fun group(tg: Int?, target: Int?) = groups.getOrPut(tg to target) { Group() }
 
@@ -55,12 +64,12 @@ class P25Log {
         val g = group(tg, target)
         val new = g.calls == 0 || now - g.lastAt > CALL_GAP_MS
         if (new) g.calls++
-        g.lastAt = now; g.lastChannel = channel
-        if (source != null) { g.lastSource = source; g.radios += source }
+        g.lastAt = now; g.lastChannel = channel; g.phase2 = channels.tdma(channel)
+        if (source != null) { g.lastSource = source; g.radios += source; if (tg != null) joined(source, tg) }
         g.emergency = g.emergency || emergency
         g.encrypted = encrypted || (g.encrypted && source == null) // an update doesn't say: keep the last grant's
         if (new) started += P25History.Call(now, tg, target, source, channel, channels.hz(channel), emergency, g.encrypted,
-            site?.let { s -> listOfNotNull("%03X".format(s.sysId), s.rfss?.toString(), s.site?.toString()).joinToString("-") })
+            site?.let { s -> listOfNotNull("%03X".format(s.sysId), s.rfss?.toString(), s.site?.toString()).joinToString("-") }, g.phase2)
         return if (new) tg else null
     }
 
@@ -69,10 +78,25 @@ class P25Log {
         group(tg, target).apply { inputAt = now; inputSnr = snr }
     }
 
+    /**
+     * Radio [radio] heard on the control channel's input, [snr] dB above the noise, nobody talking: marks the talkgroup
+     * it last joined (an affiliation, or a call it started) as near, and gives that talkgroup; null when not known.
+     */
+    @Synchronized fun heardRadio(radio: Int, snr: Int, now: Long): Int? {
+        val tg = joined[radio] ?: return null
+        groups[tg to null]?.apply { inputAt = now; inputSnr = snr }
+        return tg
+    }
+
+    private fun joined(radio: Int, tg: Int) {
+        joined.remove(radio); joined[radio] = tg
+        if (joined.size > MAX_JOINED) joined.remove(joined.keys.first())
+    }
+
     /** Most recent first. */
     @Synchronized fun rows(): List<Row> = groups.map { (k, g) ->
         Row(k.first, k.second, g.calls, g.lastAt, g.lastChannel, g.lastChannel?.let(channels::hz), g.lastSource,
-            g.radios.size, g.emergency, g.encrypted, g.inputAt, g.inputSnr)
+            g.radios.size, g.emergency, g.encrypted, g.inputAt, g.inputSnr, g.phase2)
     }.filter { it.calls > 0 || it.radios > 0 }.sortedByDescending { it.lastAt }
 
     @Synchronized fun summary() = Summary(site, messages, registrations, since)
@@ -82,12 +106,22 @@ class P25Log {
     /** The downlink frequency of [channel], once its table has been heard. */
     @Synchronized fun hz(channel: Int): Long? = channels.hz(channel)
 
+    /**
+     * Where else this system's control channel may be heard, best first: this site's own channel and its secondary ones,
+     * then the neighbouring sites'. Downlink frequencies, for when the control channel goes quiet; only those whose
+     * channel table has been heard.
+     */
+    @Synchronized fun alternates(): List<Long> =
+        (listOfNotNull(site?.channel) + alternates.reversed()).distinct().mapNotNull(channels::hz).distinct()
+
     /** The calls started since the last time this was asked, oldest first. */
     @Synchronized fun takeCalls(): List<P25History.Call> = started.toList().also { started.clear() }
 
     companion object {
         /** A grant or update for a talkgroup heard within this long is the same call going on. */
         const val CALL_GAP_MS = 10_000L
+        private const val MAX_ALTERNATES = 12
+        private const val MAX_JOINED = 4096
 
         private val LINE = Regex("""^\s*(\d{1,5}\*?|\*)(?!\d)\s*[,;:\-]?\s*(.*)$""")
 
