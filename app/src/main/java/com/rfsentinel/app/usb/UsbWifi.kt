@@ -227,10 +227,29 @@ object UsbWifi {
     /** Settings > WiFi bands, read as a session starts. */
     @Volatile var band = com.rfsentinel.app.util.Prefs.WifiBand.ALL
     /** True when a channel of the 5 / 6 GHz bands ([high]) or of 2.4 GHz is in the chosen band. */
-    fun inBand(high: Boolean) = band == com.rfsentinel.app.util.Prefs.WifiBand.ALL || (band == com.rfsentinel.app.util.Prefs.WifiBand.HIGH) == high
+    fun inBand(high: Boolean) = when (band) {
+        com.rfsentinel.app.util.Prefs.WifiBand.LOW -> !high
+        com.rfsentinel.app.util.Prefs.WifiBand.HIGH -> high
+        else -> true
+    }
     /** [all]'s channels in the chosen band (2.4 GHz is 1-14); all of them when none are (a 2.4 GHz-only adapter on 5 GHz). */
-    fun hops(all: IntArray): IntArray = share(all.toList()).filter { inBand(it > 14) }.toIntArray().takeIf { it.isNotEmpty() }
-        ?: all.filter { inBand(it > 14) }.toIntArray().takeIf { it.isNotEmpty() } ?: all
+    fun hops(all: IntArray): IntArray = (share(all.toList()).filter { inBand(it > 14) }.takeIf { it.isNotEmpty() }
+        ?: all.filter { inBand(it > 14) }.takeIf { it.isNotEmpty() } ?: all.toList()).let { p -> mostlyLow(p) { it <= 14 } }.toIntArray()
+
+    /**
+     * Mostly 2.4 GHz: [plan] with its 2.4 GHz hops ([isLow]) woven between the 5 / 6 GHz ones, [LOW_PER_HIGH] to one,
+     * so 2.4 GHz gets about three quarters of the time and every 5 / 6 GHz channel is still visited once a round.
+     * Every 2.4 GHz channel is visited at least once. Any other band setting: [plan] as it is.
+     */
+    fun <T> mostlyLow(plan: List<T>, isLow: (T) -> Boolean): List<T> {
+        if (band != com.rfsentinel.app.util.Prefs.WifiBand.MOSTLY_LOW) return plan
+        val (low, high) = plan.partition(isLow)
+        if (low.isEmpty() || high.isEmpty()) return plan
+        val per = maxOf(LOW_PER_HIGH, (low.size + high.size - 1) / high.size)
+        var i = 0
+        return high.flatMap { h -> List(per) { low[i++ % low.size] } + h }
+    }
+    private const val LOW_PER_HIGH = 3
 
     /**
      * The 2.4 GHz channels in hop order. Neighbouring channels overlap (a beacon on 6 is heard from 5 and 7 too), so

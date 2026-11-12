@@ -544,7 +544,7 @@ object Prefs {
         if (address == null) remove("ouispy_board") else putString("ouispy_board", address)
     }
     /** The channels USB WiFi adapters hop (Settings › External hardware). The phone's own WiFi always lists every band. */
-    enum class WifiBand { ALL, LOW, HIGH }
+    enum class WifiBand { ALL, MOSTLY_LOW, LOW, HIGH }
     fun wifiBand(context: Context): WifiBand =
         runCatching { WifiBand.valueOf(sp(context).getString("wifi_band", null)!!) }.getOrDefault(WifiBand.ALL)
     fun setWifiBand(context: Context, band: WifiBand) = sp(context).edit { putString("wifi_band", band.name) }

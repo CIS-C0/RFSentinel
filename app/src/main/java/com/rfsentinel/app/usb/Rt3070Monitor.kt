@@ -483,7 +483,7 @@ class Rt3070Monitor {
             }
         }) { now ->
             stats.maybeLog(now) {
-                val (aps, clients) = frames.live(now, REPORT_MS)
+                val (aps, clients) = frames.live(now, FRESH_MS)
                 "ch ${HOP[st.hopIdx]}, $aps access points, $clients devices, USB errors $ctlErrors"
             }
             if (now - st.lastEmit > 2000) { frames.emit(FRESH_MS, onFrame); st.lastEmit = now }
@@ -493,7 +493,7 @@ class Rt3070Monitor {
                 if (lock < 0 && st.hopIdx + 1 >= HOP.size) HOP = UsbWifi.hops(UsbWifi.HOP_24) // its share, with other adapters running
                 st.hopIdx = if (lock >= 0) lock else (st.hopIdx + 1) % HOP.size
                 runCatching { tune(HOP[st.hopIdx]) }
-                val (aps, clients) = frames.live(now, REPORT_MS)
+                val (aps, clients) = frames.live(now, FRESH_MS)
                 onStatus("$chipName · live · $aps access points · $clients devices · ch ${HOP[st.hopIdx]}")
                 st.hopAt = System.currentTimeMillis() // the dwell starts once the retune is done
             }
@@ -556,7 +556,6 @@ class Rt3070Monitor {
 
     companion object {
         private const val DWELL_MS = 350L
-        private const val REPORT_MS = 10_000L
         private const val RX_SIZE = 4096
 
         private const val OUT_VENDOR = 0x40; private const val IN_VENDOR = 0xC0

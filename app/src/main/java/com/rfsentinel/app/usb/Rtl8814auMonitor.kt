@@ -200,7 +200,7 @@ class Rtl8814auMonitor {
             }
         }) { now ->
             stats.maybeLog(now) {
-                val (aps, clients) = frames.live(now, REPORT_MS)
+                val (aps, clients) = frames.live(now, FRESH_MS)
                 "ch ${HOP[st.hopIdx]}, $aps access points, $clients devices, USB errors $ctlErrors"
             }
             if (now - st.lastEmit > 2000) { frames.emit(FRESH_MS, onFrame); st.lastEmit = now }
@@ -210,7 +210,7 @@ class Rtl8814auMonitor {
                 if (lock < 0 && st.hopIdx + 1 >= HOP.size) HOP = round(++st.round) // same length every round
                 st.hopIdx = if (lock >= 0) lock else (st.hopIdx + 1) % HOP.size
                 runCatching { tune(HOP[st.hopIdx]) }
-                val (aps, clients) = frames.live(now, REPORT_MS)
+                val (aps, clients) = frames.live(now, FRESH_MS)
                 onStatus("$chipName · live · $aps access points · $clients devices · ch ${HOP[st.hopIdx]}")
                 st.hopAt = System.currentTimeMillis() // the dwell starts once the retune is done
             }
@@ -264,7 +264,6 @@ class Rtl8814auMonitor {
             } else ((u8(di + 4) shr 1) and 0x7f) - 110
         }
         private const val DWELL_MS = 125L
-        private const val REPORT_MS = 10_000L
         private const val RXDESC_SIZE = 24
         private const val FCS_LEN = 4
 

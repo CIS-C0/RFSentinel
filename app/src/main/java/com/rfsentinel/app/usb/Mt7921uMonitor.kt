@@ -306,7 +306,7 @@ class Mt7921uMonitor {
 
     private class RxState {
         var hopAt = 0L; var lastEmit = 0L; var lastRxAt = 0L; var lastCheck = 0L; var hopIdx = 0
-        var round = 0; var plan: List<Pair<Int, Int>> = HOP.filter { UsbWifi.inBand(it.first != 0) }
+        var round = 0; var plan: List<Pair<Int, Int>> = UsbWifi.mostlyLow(HOP.filter { UsbWifi.inBand(it.first != 0) }) { it.first == 0 }
         /** 6 GHz channel number -> when a frame was last heard on it; the same for the 5 GHz radar channels. */
         val heard6 = HashMap<Int, Long>()
         val heardDfs = HashMap<Int, Long>()
@@ -352,7 +352,7 @@ class Mt7921uMonitor {
             frames.frame(b, f.start, f.end, ch, f.rssi, pathA = f.chain0, pathB = f.chain1)
         }) { now ->
             stats.maybeLog(now) {
-                val (aps, clients) = frames.live(now, REPORT_MS)
+                val (aps, clients) = frames.live(now, freshMs(st.plan.size))
                 val (band, ch) = st.current
                 "${listOf("2.4", "5", "6")[band]} GHz ch $ch, $aps access points, $clients devices, " +
                     "firmware answered $cmdsAnswered of $cmdsSent commands, ${st.switchSummary()}, USB errors $ctlErrors"
@@ -366,7 +366,7 @@ class Mt7921uMonitor {
                     st.lastRxAt = now
                 }
             }
-            if (now - st.lastEmit > 2000) { frames.emit(FRESH_MS, onFrame); st.lastEmit = now }
+            if (now - st.lastEmit > 2000) { frames.emit(freshMs(st.plan.size), onFrame); st.lastEmit = now }
             // As the kernel does, a channel switch is only done once the firmware confirms it: the
             // dwell is counted from that answer, so slow switches don't eat the listening time.
             if (st.pendingSeq >= 0 && now - st.sentAt > SWITCH_TIMEOUT_MS) { st.unconfirmed++; st.pendingSeq = -1; st.hopAt = now }
@@ -387,12 +387,12 @@ class Mt7921uMonitor {
                 val (band, ch) = st.current
                 runCatching { tune(band, ch, wait = false) }
                 st.pendingSeq = seq; st.sentAt = now
-                val (aps, clients) = frames.live(now, REPORT_MS)
+                val (aps, clients) = frames.live(now, freshMs(st.plan.size))
                 onStatus("$chipName · live · $aps access points · $clients devices · ${listOf("2.4", "5", "6")[band]} GHz ch $ch")
                 st.hopAt = now
             }
         }
-        frames.emit(FRESH_MS, onFrame)
+        frames.emit(freshMs(st.plan.size), onFrame)
         UsbWifi.log("MT7921AU: RX loop stopped ($total B)")
     }
 
@@ -482,7 +482,7 @@ class Mt7921uMonitor {
                 // With other adapters running, only this one's share of the channels.
                 val mine = UsbWifi.share(HOP.map { monitorChannel(it.first, it.second) }).toSet()
                 plan.filter { monitorChannel(it.first, it.second) in mine }.ifEmpty { plan }
-            }.ifEmpty { HOP }
+            }.ifEmpty { HOP }.let { plan -> UsbWifi.mostlyLow(plan) { it.first == 0 } }
         }
         /** Both antennas as a mask (SET_RX_PATH), and as a count (CHANNEL_SWITCH): mt7921_mcu_set_chan_info sends each its own. */
         private const val RX_ANTENNAS = 0x3
@@ -491,9 +491,8 @@ class Mt7921uMonitor {
         private val RSCR = intArrayOf(0x820e9008.toInt(), 0x820f9008.toInt())
         private const val RSCR_RCPI_MODE = 3 shl 30; private const val RSCR_RCPI_PARAM = 3 shl 24
         private const val SWITCH_TIMEOUT_MS = 500L
-        /** A full round, allowing ~150 ms per channel switch on top of the dwell. */
-        private val FRESH_MS get() = (HOP.size * (DWELL_MS + 150) * 9 / 5).coerceAtLeast(3000L)
-        private const val REPORT_MS = 10_000L
+        /** A full round of [hops] (at least every channel once), allowing ~150 ms per channel switch on top of the dwell. */
+        private fun freshMs(hops: Int) = (maxOf(HOP.size, hops) * (DWELL_MS + 150) * 9 / 5).coerceAtLeast(3000L)
 
         // ---- USB vendor requests (mt76 usb.c) ----
         private const val TYPE_VENDOR = 0x40 or 0x1F       // MT_USB_TYPE_VENDOR

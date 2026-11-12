@@ -1249,7 +1249,7 @@ class SettingsActivity : AppCompatActivity() {
             "on one line, for the most rows.\n\nAlerts keep their colour and flash at every size.")
         info(binding.bannerLabel, "A picture across the header of the styled themes (a logo or artwork you own). Your custom themes have their own banner, set in the theme maker.")
         info(binding.hideTrustedSwitch, "Devices on your whitelist are left off the list and radar.")
-        info(binding.wifiBandLabel, "The channels a USB WiFi adapter hops. 5 and 6 GHz only gives those channels more listening time (police in-car networks are usually on 5 GHz). Adapters that only do 2.4 GHz keep scanning 2.4 GHz.\n\nThe phone's own WiFi always shows every band. An adapter picks up a change when it next starts.")
+        info(binding.wifiBandLabel, "The channels a USB WiFi adapter hops. Mostly 2.4 GHz spends about three quarters of the time on 2.4 GHz and still visits every 5 and 6 GHz channel once a round. 5 and 6 GHz only gives those channels more listening time (police in-car networks are usually on 5 GHz). Adapters that only do 2.4 GHz keep scanning 2.4 GHz.\n\nThe phone's own WiFi always shows every band. An adapter picks up a change when it next starts.")
         info(binding.scanModeLabel, "Maximum finds devices fastest and uses the most battery. Battery saver notices them later.")
         info(binding.intervalLabel, "How often WiFi is scanned. Android allows an app 4 scans in 2 minutes unless WiFi scan throttling is turned off in Developer options.")
         withUnit(binding.intervalInput, "s")

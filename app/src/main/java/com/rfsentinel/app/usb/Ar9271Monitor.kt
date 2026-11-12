@@ -440,7 +440,7 @@ class Ar9271Monitor {
             }
         }) { now ->
             stats.maybeLog(now) {
-                val (aps, clients) = frames.live(now, REPORT_MS)
+                val (aps, clients) = frames.live(now, FRESH_MS)
                 "ch $curChannel, $aps access points, $clients devices, USB errors $ctlErrors"
             }
             if (now - st.lastEmit > 2000) { frames.emit(FRESH_MS, onFrame); st.lastEmit = now }
@@ -450,7 +450,7 @@ class Ar9271Monitor {
                 if (lock < 0 && st.hopIdx + 1 >= HOP.size) HOP = UsbWifi.hops(UsbWifi.HOP_24) // its share, with other adapters running
                 st.hopIdx = if (lock >= 0) lock else (st.hopIdx + 1) % HOP.size
                 runCatching { hop(HOP[st.hopIdx]) }
-                val (aps, clients) = frames.live(now, REPORT_MS)
+                val (aps, clients) = frames.live(now, FRESH_MS)
                 onStatus("$chipName · live · $aps access points · $clients devices · ch $curChannel")
                 st.hopAt = System.currentTimeMillis() // the dwell starts once the retune is done
             }
@@ -461,7 +461,6 @@ class Ar9271Monitor {
 
     companion object {
         private const val DWELL_MS = 500L
-        private const val REPORT_MS = 10_000L
 
         private const val FW_DOWNLOAD = 0x30; private const val FW_DOWNLOAD_COMP = 0x31
         private const val FW_ADDR = 0x501000; private const val FW_TEXT_ADDR = 0x903000; private const val FW_BLOCK = 4096

@@ -459,7 +459,7 @@ class Mt7612uMonitor {
             frames.frame(b, f.start, f.end, ch, rssi, pathA = rssi, pathB = rssi1)
         }) { now ->
             stats.maybeLog(now) {
-                val (aps, clients) = frames.live(now, REPORT_MS)
+                val (aps, clients) = frames.live(now, FRESH_MS)
                 val busy = regRd(CH_BUSY); val rs0 = regRd(RX_STAT_0) // clear on read
                 "ch ${HOP[st.hopIdx]}, $aps access points, $clients devices, channel busy $busy, " +
                     "radio drops: ${rs0 and 0xffff} checksum / ${(rs0 ushr 16) and 0xffff} PHY, USB errors $ctlErrors"
@@ -494,7 +494,7 @@ class Mt7612uMonitor {
                 st.hopIdx = if (lock >= 0) lock else (st.hopIdx + 1) % HOP.size
                 runCatching { tune(epCmd, HOP[st.hopIdx], scan = true) }
                 drainCmdResp()
-                val (aps, clients) = frames.live(now, REPORT_MS)
+                val (aps, clients) = frames.live(now, FRESH_MS)
                 onStatus("$chipName · live · $aps access points · $clients devices · ch ${HOP[st.hopIdx]}" +
                     UNCALIBRATED.takeIf { uncalibrated }.orEmpty())
                 st.hopAt = System.currentTimeMillis() // the dwell starts once the retune is done
@@ -935,7 +935,6 @@ class Mt7612uMonitor {
             return len
         }
         private const val DWELL_MS = 125L
-        private const val REPORT_MS = 10_000L
         private const val CAL_TTL_MS = 30_000L
 
         private const val OUT_VENDOR = 0x40; private const val IN_VENDOR = 0xC0; private const val OUT_CLASS = 0x20

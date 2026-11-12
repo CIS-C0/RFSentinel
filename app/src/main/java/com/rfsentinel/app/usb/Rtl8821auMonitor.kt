@@ -155,7 +155,7 @@ class Rtl8821auMonitor {
     private fun rxTick(conn: UsbDeviceConnection, now: Long, st: RxState,
                        onFrame: (List<MonitorSighting>) -> Unit, onStatus: (String) -> Unit) {
         if (now - st.lastLog > 3000) {
-            val (aps, clients) = frames.live(now, REPORT_MS)
+            val (aps, clients) = frames.live(now, FRESH_MS)
             UsbWifi.log("RTL8821AU: RX ${st.bufs} bufs / ${st.total} B ch ${HOP[st.hopIdx]} | ${aps + clients} live ($aps AP · $clients client, ${frames.tracked} tracked)")
             st.lastLog = now
         }
@@ -172,7 +172,7 @@ class Rtl8821auMonitor {
             if (lock < 0 && st.hopIdx + 1 >= HOP.size) HOP = round(++st.round) // same length every round
             val ni = if (lock >= 0) lock else (st.hopIdx + 1) % HOP.size
             if (ni != st.hopIdx) { st.hopIdx = ni; runCatching { channelTune(conn, HOP[st.hopIdx]) } }
-            val (aps, clients) = frames.live(now, REPORT_MS)
+            val (aps, clients) = frames.live(now, FRESH_MS)
             onStatus("RTL8811AU / 8821AU · live · $aps access points · $clients devices · ch ${HOP[st.hopIdx]}")
             st.hopAt = System.currentTimeMillis() // the dwell starts once the retune is done
         }
@@ -284,7 +284,6 @@ class Rtl8821auMonitor {
         @Volatile var lightEnabled = true
         private const val MAX_PKT = 12000
         private const val DWELL_MS = 350L
-        private const val REPORT_MS = 10_000L
         private const val FCS_LEN = 4
 
         private const val OUT_VENDOR = 0x40; private const val IN_VENDOR = 0xC0

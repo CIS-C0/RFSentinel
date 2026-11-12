@@ -852,6 +852,7 @@
                 android:layout_height="wrap_content">
 
                 <RadioButton android:id="@+id/wifiBandAll" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="All bands" />
+                <RadioButton android:id="@+id/wifiBandMostlyLow" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Mostly 2.4 GHz" />
                 <RadioButton android:id="@+id/wifiBandLow" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="2.4 GHz only" />
                 <RadioButton android:id="@+id/wifiBandHigh" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="5 and 6 GHz only" />
             </RadioGroup>

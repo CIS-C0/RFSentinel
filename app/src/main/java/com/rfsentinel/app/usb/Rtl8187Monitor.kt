@@ -470,7 +470,7 @@ class Rtl8187Monitor {
             frames.frame(b, f.start, f.end, HOP[st.hopIdx], f.rssi)
         }) { now ->
             stats.maybeLog(now) {
-                val (aps, clients) = frames.live(now, REPORT_MS)
+                val (aps, clients) = frames.live(now, FRESH_MS)
                 "ch ${HOP[st.hopIdx]}, $aps access points, $clients devices, USB errors $ctlErrors"
             }
             if (now - st.lastEmit > 2000) { frames.emit(FRESH_MS, onFrame); st.lastEmit = now }
@@ -480,7 +480,7 @@ class Rtl8187Monitor {
                 if (lock < 0 && st.hopIdx + 1 >= HOP.size) HOP = UsbWifi.hops(UsbWifi.HOP_24) // its share, with other adapters running
                 st.hopIdx = if (lock >= 0) lock else (st.hopIdx + 1) % HOP.size
                 runCatching { tune(HOP[st.hopIdx]) }
-                val (aps, clients) = frames.live(now, REPORT_MS)
+                val (aps, clients) = frames.live(now, FRESH_MS)
                 onStatus("$chipName · live · $aps access points · $clients devices · ch ${HOP[st.hopIdx]}")
                 st.hopAt = System.currentTimeMillis() // the dwell starts once the retune is done
             }
@@ -666,7 +666,6 @@ class Rtl8187Monitor {
 
     companion object {
         private const val DWELL_MS = 350L
-        private const val REPORT_MS = 10_000L
 
         private const val REQT_READ = 0xC0; private const val REQT_WRITE = 0x40; private const val REQ_REG = 0x05
         /** One frame per bulk transfer, at most this long (RTL8187_MAX_RX). */

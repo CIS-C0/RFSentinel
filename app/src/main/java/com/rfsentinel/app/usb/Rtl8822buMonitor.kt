@@ -29,8 +29,8 @@ class Rtl8822buMonitor {
 
     private val frames = MonitorFrames()
     private val pathSense = PathSense()
-    private val CYCLE_MS = hopCycle(0).size * DWELL_MS
-    private val FRESH_MS = CYCLE_MS * 9 / 5
+    /** A round of [hops] channels (at least the full cycle), with margin. */
+    private fun freshMs(hops: Int) = maxOf(hopCycle(0).size, hops) * DWELL_MS * 9 / 5
 
     fun abort() { stop = true }
 
@@ -99,11 +99,11 @@ class Rtl8822buMonitor {
         }
         if (now - st.lastLog > 3000) {
             if (st.parked > 0) frames.window().forEach { UsbWifi.log("${st.label}:   $it") }
-            val (aps, clients) = frames.live(now, REPORT_MS)
+            val (aps, clients) = frames.live(now, freshMs(st.plan.size))
             UsbWifi.log("${st.label}: RX ${st.bufs} bufs / ${st.total} B ch ${st.channel} IGI 0x%02x FA ${chip.lastFa} | ${aps + clients} live ($aps AP · $clients client, ${frames.tracked} tracked)".format(chip.igi))
             st.lastLog = now
         }
-        if (now - st.lastEmit > 2000) { frames.emit(FRESH_MS, onFrame); st.lastEmit = now }
+        if (now - st.lastEmit > 2000) { frames.emit(freshMs(st.plan.size), onFrame); st.lastEmit = now }
         if (!pathSense.decided && chip.rf2t2r) pathSense.verdict()?.let { path ->
             pathSense.decided = true
             val name = if (path == 1) "B" else "A"
@@ -121,7 +121,7 @@ class Rtl8822buMonitor {
         if (lock != null && lock != st.parked) {
             st.parked = lock; st.checkParked = true
             chipIo(st) { chip.tune(lock) }
-            val (aps, clients) = frames.live(now, REPORT_MS)
+            val (aps, clients) = frames.live(now, freshMs(st.plan.size))
             onStatus("${st.label} · live · $aps access points · $clients devices · ch $lock (${if (lock > 14) "5 GHz" else "2.4 GHz"})")
         } else if (lock == null && st.checkParked) {
             st.parked = 0; st.checkParked = false; st.hopAt = 0L
@@ -131,7 +131,7 @@ class Rtl8822buMonitor {
             st.hopIdx++
             if (st.hopIdx >= st.plan.size) { st.cycle++; st.plan = UsbWifi.hops(hopCycle(st.cycle)); st.hopIdx = 0 }
             chipIo(st) { chip.tune(st.channel) }
-            val (aps, clients) = frames.live(now, REPORT_MS)
+            val (aps, clients) = frames.live(now, freshMs(st.plan.size))
             val band = if (st.channel > 14) "5 GHz" else "2.4 GHz"
             onStatus("${st.label} · live · $aps access points · $clients devices · ch ${st.channel} ($band)")
             st.hopAt = System.currentTimeMillis() // the dwell starts once the retune is done
@@ -173,7 +173,7 @@ class Rtl8822buMonitor {
             st.total += n; st.bufs++
             parseRxBuf(b, n, st.channel, chip.rf2t2r, frames, pathSense)
         }, syncTimeoutMs = 100) { now -> rxTick(chip, now, st, onFrame, onStatus) }
-        frames.emit(FRESH_MS, onFrame)
+        frames.emit(freshMs(st.plan.size), onFrame)
         UsbWifi.log("$label: RX loop stopped (${st.total} B)")
     }
 
@@ -987,7 +987,6 @@ class Rtl8822buMonitor {
         }
 
         private const val DWELL_MS = 200L
-        private const val REPORT_MS = 10_000L
         private const val DIG_MS = 200L
 
         /**
