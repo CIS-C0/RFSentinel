@@ -158,11 +158,11 @@ class MeshLinkTest {
         val first = box.take(2_000, MeshCodec.MAX_BODY)
         assertEquals(listOf("00:00:00:00:00:03", "00:00:00:00:00:02", "00:00:00:00:00:01"), first.map { it.mac })
         assertFalse(box.urgent(2_000))
-        // Nothing new: nothing due until each one's turn comes back.
-        assertTrue(box.take(3_000, MeshCodec.MAX_BODY).isEmpty())
+        // Flagged ones wait for their turn to come back; a plain one goes again in any packet with room.
+        assertEquals(listOf("00:00:00:00:00:01"), box.take(3_000, MeshCodec.MAX_BODY).map { it.mac })
         box.add(adv("00:00:00:00:00:03"), listOf(watch), 61_000)
         box.add(adv("00:00:00:00:00:02"), listOf(cam), 61_000)
-        assertEquals(listOf("00:00:00:00:00:03"), box.take(62_500, MeshCodec.MAX_BODY).map { it.mac })
+        assertEquals(listOf("00:00:00:00:00:03", "00:00:00:00:00:01"), box.take(62_500, MeshCodec.MAX_BODY).map { it.mac })
         // Small room: the most important one that fits.
         box.add(adv("00:00:00:00:00:04"), listOf(watch), 63_000)
         box.add(adv("00:00:00:00:00:05"), emptyList(), 63_000)
@@ -202,6 +202,22 @@ class MeshLinkTest {
     }
 
     @Test
+    fun loraCyclesThroughEveryDeviceWithFlaggedOnesFirst() {
+        val box = MeshOutbox()
+        fun adv(i: Int) = Advert("00:00:00:00:01:%02x".format(i), Advert.Source.WIFI, -60, timestamp = 0)
+        for (i in 0 until 40) box.add(adv(i), emptyList(), 1_000)
+        box.add(adv(99), listOf(cam), 1_000)
+        val room = MeshCodec.MAX_BODY / 3
+        val first = box.take(1_000, room)
+        assertEquals("flagged first", "00:00:00:00:01:63", first.first().mac)
+        // Plain devices come round in turn, packet after packet, until all were sent.
+        val seen = first.map { it.mac }.toMutableSet()
+        var t = 1_000L
+        while (seen.size < 41 && t < 60_000) { t += 1_000; box.add(adv(0), emptyList(), t); seen += box.take(t, room).map { it.mac } }
+        assertEquals("every device went out", 41, seen.size)
+    }
+
+    @Test
     fun theInternetRelayRepeatsADeviceStillHeardWithinTheReceiversShortestWindow() {
         // The sender keeps hearing a plain device; the receiver lists it for 30 s after each arrival.
         fun adv() = Advert("00:00:00:00:00:01", Advert.Source.WIFI, -60, timestamp = 0)
@@ -210,7 +226,7 @@ class MeshLinkTest {
         for (box in listOf(net, lora)) { box.add(adv(), emptyList(), 1_000); assertEquals(1, box.take(1_000, MeshCodec.MAX_BODY).size) }
         net.add(adv(), emptyList(), 25_000); lora.add(adv(), emptyList(), 25_000)
         assertEquals(1, net.take(25_000, MeshCodec.MAX_BODY).size)
-        assertTrue("LoRa keeps its 15 minutes", lora.take(25_000, MeshCodec.MAX_BODY).isEmpty())
+        assertEquals("LoRa sends it again in the next packet with room", 1, lora.take(25_000, MeshCodec.MAX_BODY).size)
         // Not heard any more: no repeats, so the receiver's time runs out.
         assertTrue(net.take(25_000 + MeshOutbox.FRESH_MS + 1, MeshCodec.MAX_BODY).isEmpty())
     }
@@ -220,13 +236,16 @@ class MeshLinkTest {
         val box = MeshOutbox(MeshOutbox.NET_REPEAT_MS)
         val macs = (1..60).map { "00:00:00:00:01:%02X".format(it) }
         macs.forEach { box.add(Advert(it, Advert.Source.WIFI, -60, timestamp = 0), emptyList(), 1_000) }
-        val rounds = (1..10).map { box.take(1_000L * it, MeshCodec.MAX_BODY).map { d -> d.mac }.toSet() }.filter { it.isNotEmpty() }
+        val rounds = ArrayList<Set<String>>(); var t = 1_000L
+        while (rounds.flatten().toSet().size < macs.size && t < 20_000) { rounds += box.take(t, MeshCodec.MAX_BODY).map { d -> d.mac }.toSet(); t += 1_000 }
         val first = rounds.first()
         assertTrue(rounds.size > 1 && first.size < macs.size)
         assertEquals(macs.toSet(), rounds.flatten().toSet())
-        // Round two: everyone due again; the ones that waited longest go first.
+        // Round two: the ones that waited longest go first, none of the ones just sent.
         macs.forEach { box.add(Advert(it, Advert.Source.WIFI, -60, timestamp = 0), emptyList(), 30_000) }
-        assertEquals(first, box.take(30_000, MeshCodec.MAX_BODY).map { it.mac }.toSet())
+        val next = box.take(30_000, MeshCodec.MAX_BODY).map { it.mac }
+        assertTrue(next.isNotEmpty() && next.none { it in rounds.last() })
+        assertTrue(next.count { it in first } > next.size / 2)
     }
 
     @Test

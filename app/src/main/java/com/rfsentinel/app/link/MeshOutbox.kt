@@ -7,9 +7,9 @@ import com.rfsentinel.app.detect.Hit
 /**
  * What goes out over the mesh next. LoRa carries one small packet now and then, so devices take turns:
  * watchlist matches first (again every minute while heard), then flagged devices (every 3 minutes),
- * then every other device (once, then every 15 minutes), newest first.
+ * then every other device, in turn, in whatever room each packet has left: the send interval sets the pace.
  * [maxRepeatMs]: the internet relay has no air time to save, so it repeats every device still heard this often:
- * the receiver's "off the list after" time then works below the mesh's 15 minutes.
+ * the receiver's "off the list after" time then works however many devices the sender hears.
  */
 class MeshOutbox(private val maxRepeatMs: Long = Long.MAX_VALUE) {
     private class Entry(var source: Advert.Source, var rssi: Int, var name: String?, var hits: List<Hit>, var seen: Long) {
@@ -88,7 +88,7 @@ class MeshOutbox(private val maxRepeatMs: Long = Long.MAX_VALUE) {
         fun repeatMs(priority: Int) = when (priority) {
             2 -> 60_000L
             1 -> 3 * 60_000L
-            else -> 15 * 60_000L
+            else -> 0L
         }
     }
 }
