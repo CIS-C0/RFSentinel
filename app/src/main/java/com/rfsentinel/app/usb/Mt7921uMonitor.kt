@@ -64,7 +64,7 @@ class Mt7921uMonitor {
             epRx = ins[0]; epCmd = outs[0]; epData = outs[1]
             UsbWifi.log("MT7921AU: interface ${intf.id}, bulk IN [${ins.joinToString { "0x%02x".format(it.address) }}] " +
                 "OUT [${outs.joinToString { "0x%02x".format(it.address) }}]")
-            val t0 = System.currentTimeMillis()
+            var t0 = System.currentTimeMillis()
 
             val chip = rr(HW_CHIPID) and 0xffff
             UsbWifi.log("MT7921AU: chip 0x%04x rev 0x%08x".format(chip, rr(HW_REV)))
@@ -92,6 +92,7 @@ class Mt7921uMonitor {
                 if (stop || !restartRadio) break
                 restartRadio = false; radioRestarts++
                 UsbWifi.log("MT7921AU: restarting the radio, try $radioRestarts of $MAX_RESTARTS")
+                t0 = System.currentTimeMillis()
                 onStatus("$chipName · restarting the radio…")
             }
         } catch (e: Exception) {

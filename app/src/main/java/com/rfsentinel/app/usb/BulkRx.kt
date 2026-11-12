@@ -85,7 +85,7 @@ internal object BulkRx {
                 val req = try { conn.requestWait(100L) } catch (_: TimeoutException) { null }
                 if (req != null) {
                     val idx = req.clientData as? Int ?: -1
-                    if (idx in reqs.indices) {
+                    if (idx in reqs.indices && reqs[idx] === req) {
                         val b = buffers[idx]
                         val n = b.position()
                         if (n in 1..size) { b.rewind(); b.get(scratch, 0, n) }
@@ -100,9 +100,26 @@ internal object BulkRx {
                 onTick(System.currentTimeMillis())
             }
         } finally {
-            reqs.forEach { runCatching { it.cancel() }; runCatching { it.close() } }
+            reap(tag, conn, reqs)
         }
         return total
+    }
+
+    /**
+     * Cancels [reqs] and collects each one back from the kernel before closing it. A cancelled transfer still comes
+     * back through [UsbDeviceConnection.requestWait]: closed first, the next loop on the same connection (a driver
+     * restarting its radio) gets a freed request back and the app dies in native code (SIGSEGV in usb_request_wait).
+     */
+    private fun reap(tag: String, conn: UsbDeviceConnection, reqs: List<UsbRequest>) {
+        reqs.forEach { runCatching { it.cancel() } }
+        val left = HashSet<UsbRequest>(reqs)
+        var waits = 0
+        while (left.isNotEmpty() && waits < 20) {
+            val r = try { conn.requestWait(50L) } catch (_: TimeoutException) { waits++; null } catch (_: Exception) { break }
+            if (r != null) left.remove(r)
+        }
+        if (left.isNotEmpty()) UsbWifi.log("$tag: ${left.size} of ${reqs.size} USB transfers didn't come back after cancelling")
+        reqs.forEach { runCatching { it.close() } }
     }
 
     private fun runSync(tag: String, conn: UsbDeviceConnection, ep: UsbEndpoint, size: Int, stopped: () -> Boolean,

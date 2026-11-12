@@ -115,7 +115,9 @@ object EspBoards {
 
     @Synchronized
     private fun stopBoard(name: String) {
-        running.remove(name)?.stop()
+        // Any USB device unplugged lands here (an SDR, a WiFi adapter): only an ESP32 that was running counts.
+        val reader = running.remove(name) ?: return
+        reader.stop()
         if (running.isEmpty()) {
             setStatus("ESP32 disconnected")
             if (!OuiSpyBle.connected) HeardBy.esp.clear()
