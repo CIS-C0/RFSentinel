@@ -87,4 +87,18 @@ class SdrTurnTest {
         // Back from zooming in: the interrupted scan carries on.
         assertEquals(Mode.ADSB to null, SdrRadio.pickTurn(false, Mode.ADSB, true, null, all))
     }
+
+    @Test
+    fun activityKeepsTheTurnUpToTheCap() {
+        val start = 1_000_000L
+        val stay = SdrRadio.STAY_MS
+        // Early in a 60 s turn: the turn already runs longer than the stay, unchanged.
+        assertEquals(start + 60_000, SdrRadio.stayUntil(start + 60_000, start, start + 10_000))
+        // Near its end: runs on 30 s past the activity.
+        assertEquals(start + 55_000 + stay, SdrRadio.stayUntil(start + 60_000, start, start + 55_000))
+        // Never past the cap from the turn's start, however busy.
+        assertEquals(start + SdrRadio.MAX_STAY_MS, SdrRadio.stayUntil(start + 60_000, start, start + SdrRadio.MAX_STAY_MS - 5_000))
+        // A turn already past the cap is never cut short.
+        assertEquals(start + 20 * 60_000, SdrRadio.stayUntil(start + 20 * 60_000, start, start + 15 * 60_000))
+    }
 }

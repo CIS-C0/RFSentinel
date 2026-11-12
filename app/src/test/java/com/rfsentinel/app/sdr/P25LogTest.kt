@@ -30,6 +30,14 @@ class P25LogTest {
     }
 
     @Test
+    fun anUnusedSlotIsNoCall() {
+        val log = P25Log()
+        // Talkgroup 0 is no talkgroup: an update's empty second slot.
+        assertEquals(listOf(0x303), log.add(P25Tsbk.GrantUpdate(listOf(0x1005 to 0x303, 0 to 0)), 6_000))
+        assertEquals(listOf(0x303), log.rows().map { it.tg })
+    }
+
+    @Test
     fun siteFillsInAndClearForgets() {
         val log = P25Log()
         log.add(P25Tsbk.Site(0xBEE00, 0x3A1, null, null, 0x1040), 0)

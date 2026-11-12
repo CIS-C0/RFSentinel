@@ -46,7 +46,8 @@ class P25Log {
         if (since == 0L) since = now
         return when (m) {
             is P25Tsbk.Grant -> listOfNotNull(call(m.tg, m.target, m.channel, m.source, now, m.emergency, m.encrypted))
-            is P25Tsbk.GrantUpdate -> m.calls.mapNotNull { (ch, tg) -> call(tg, null, ch, null, now, false, false) }
+            // Talkgroup 0 is no talkgroup: an update's unused second slot (a tester's log showed "call talkgroup 0").
+            is P25Tsbk.GrantUpdate -> m.calls.filter { it.second != 0 }.mapNotNull { (ch, tg) -> call(tg, null, ch, null, now, false, false) }
             is P25Tsbk.Affiliation -> { group(m.tg, null).radios += m.radio; joined(m.radio, m.tg); emptyList() }
             is P25Tsbk.Registration -> { if (m.accepted) registrations++; emptyList() }
             is P25Tsbk.Iden -> { channels.learn(m); emptyList() }

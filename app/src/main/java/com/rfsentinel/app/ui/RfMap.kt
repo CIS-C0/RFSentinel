@@ -235,7 +235,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
             layer(DRONES, "symbol", layout = o("icon-image" to "rf-drone", "icon-rotate" to get("dir"),
                 "icon-rotation-alignment" to "map", *overlap)),
             // Aircraft: police / government ones bold purple with their agency and altitude, others small and grey
-            // (under the Aircraft filter: every one large and labelled).
+            // (under the Aircraft filter, and those the SDR hears itself: large and labelled).
             // Where the route ends (red) and the stops on the way (white with a blue edge), above everything else.
             layer("$NAV_PLACES-pin", "circle", NAV_PLACES, paint = o(
                 "circle-color" to a("case", a("==", get("end"), true), "#D93025", "#FFFFFF"), "circle-radius" to 9.0,
@@ -338,8 +338,11 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
 
         val air = PoliceAircraft.all()
         planes = air.associateBy { it.plane.hex }
-        val clear = filter == DeviceFilter.AIRCRAFT
+        val all = filter == DeviceFilter.AIRCRAFT
+        // Heard by this phone's own SDR: always shown large and labelled, whatever the filter.
+        val sdr = PoliceAircraft.mine().mapTo(HashSet()) { it.plane.hex }
         set(AIRCRAFT, air.map { (p, hit) ->
+            val clear = all || p.hex in sdr
             GeoJson.feature(GeoJson.point(p.lat, p.lon),
                 "hex" to p.hex,
                 "icon" to if (hit != null) "rf-plane-police" else if (clear) "rf-plane-clear" else "rf-plane",

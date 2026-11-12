@@ -248,8 +248,11 @@ object PoliceAircraft {
     const val SHARED_MS = 5 * 60_000L
 
     /** This phone's own aircraft, heard by the RTL-SDR and from the online feeds, while fresh; the RTL-SDR's are newer. */
+    /** The aircraft this phone's own SDR hears now. */
+    fun mine(now: Long = System.currentTimeMillis()): List<Seen> = if (now - localAt <= 30_000L) local else emptyList()
+
     fun own(now: Long = System.currentTimeMillis()): List<Seen> {
-        val mine = if (now - localAt <= 30_000L) local else emptyList()
+        val mine = mine(now)
         val online = if (now - latestAt <= 3 * 60_000L) latest else emptyList()
         if (mine.isEmpty()) return online
         val heard = mine.mapTo(HashSet()) { it.plane.hex }

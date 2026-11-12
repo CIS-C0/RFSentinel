@@ -481,6 +481,7 @@ class ScanForegroundService : Service() {
         ).toSet()
         com.rfsentinel.app.sdr.SdrRadio.modes = sdrModes
         com.rfsentinel.app.sdr.SdrRadio.turnMs = com.rfsentinel.app.sdr.SdrRadio.Mode.entries.associateWith { Prefs.sdrTurnS(this, it) * 1000L }
+        com.rfsentinel.app.sdr.SdrRadio.stayOnActivity = Prefs.sdrStay(this)
         com.rfsentinel.app.sdr.SdrRadio.onP25Call = { tg -> pipeline.post { onP25Call(tg) } }
         com.rfsentinel.app.sdr.SdrRadio.p25Inputs = Prefs.p25Inputs(this)
         com.rfsentinel.app.sdr.SdrRadio.p25Record = Prefs.p25Record(this)
@@ -493,7 +494,9 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.sdr.SdrRadio.onP25Nearby = { msg, snr, tg -> pipeline.post { onP25Nearby(msg, snr, tg) } }
         com.rfsentinel.app.sdr.SdrRadio.onTpms = { r -> pipeline.post { onTpms(r) } }
         com.rfsentinel.app.sdr.SdrRadio.location = { (lastLocation ?: lastFix)?.let { it.latitude to it.longitude } }
-        com.rfsentinel.app.sdr.SdrRadio.onAircraft = { planes, unlocated -> onlineWatch.localAircraft(planes, unlocated) }
+        com.rfsentinel.app.sdr.SdrRadio.onAircraft = { planes, unlocated ->
+            if (onlineWatch.localAircraft(planes, unlocated)) com.rfsentinel.app.sdr.SdrRadio.activity(com.rfsentinel.app.sdr.SdrRadio.Mode.ADSB)
+        }
         if (sdrModes.isNotEmpty() || radioOn) {
             // Settings > RTL-SDR radio: bands, excluded ranges, watched frequencies, sensitivity (re-read on every refresh).
             com.rfsentinel.app.sdr.SdrRadio.config = com.rfsentinel.app.sdr.RadioSettings.config(this)
@@ -1946,6 +1949,8 @@ class ScanForegroundService : Service() {
         if (!Prefs.followerAlerts(this) || key in Prefs.tpmsOwn(this)) return
         val followMs = Prefs.followMinMinutes(this) * 60_000L
         val followM = Prefs.followMinMeters(this).toDouble()
+        if (key !in Prefs.tpmsOwn(this) && tpmsFollow.places(key, followMs, followM) > 0)
+            com.rfsentinel.app.sdr.SdrRadio.activity(com.rfsentinel.app.sdr.SdrRadio.Mode.TPMS)
         if (!tpmsFollow.follower(key, now, followMs, followM)) return
         val learning = Prefs.tpmsLearnAt(this)
         if (learning == 0L || now - learning < TPMS_LEARN_MS) {

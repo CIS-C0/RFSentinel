@@ -1708,6 +1708,11 @@ class SettingsActivity : AppCompatActivity() {
             "sensors to do that are taken as your own car's and never alert: use Forget my car's tire sensors after new tires " +
             "or another car. Sensor IDs stay on this phone, out of logs and backups, except a following car's in its alert. Needs Two-way radio " +
             "turned on.") { Prefs.setSdrTpms(this, it) }
+        scan("Stay on activity", Prefs.sdrStay(this),
+            "With more than one scan ticked, a scan that hears something keeps the SDR instead of handing it to the next one: " +
+            "P25 calls or radios, a police aircraft in alert range, a page, a car following you, or a P25 radio found by the sweep. " +
+            "It moves on 30 s after it goes quiet, and after 10 min at most so the other scans still get a turn.") { Prefs.setSdrStay(this, it) }
+        val stayRow = box.getChildAt(box.childCount - 1)
         // Each ticked scan's own turn length, shown while it shares the SDR.
         val turnViews = listOf(sweepBox to com.rfsentinel.app.sdr.SdrRadio.Mode.SWEEP, adsbBox to com.rfsentinel.app.sdr.SdrRadio.Mode.ADSB,
             p25Box to com.rfsentinel.app.sdr.SdrRadio.Mode.P25, pagerBox to com.rfsentinel.app.sdr.SdrRadio.Mode.PAGER,
@@ -1873,8 +1878,9 @@ class SettingsActivity : AppCompatActivity() {
             "Off: the alert only says a page matched, and you read it in Tools › Pager messages. On: the page's text is also on the " +
             "notification, and in Android Auto when connected. It is still never saved or spoken.") { Prefs.setPagerAlertText(this, it) }
         showSdrOptions = {
-            val ticked = listOf(sweepBox, adsbBox, p25Box, pagerBox).count { it.isChecked }
+            val ticked = listOf(sweepBox, adsbBox, p25Box, pagerBox, tpmsBox).count { it.isChecked }
             turnViews.forEach { (scan, views) -> views.forEach { it.shownIf(ticked > 1 && scan.isChecked) } }
+            stayRow.shownIf(ticked > 1)
             sweepGroup.shownIf(sweepBox.isChecked)
             p25Group.shownIf(p25Box.isChecked)
             pagerGroup.shownIf(pagerBox.isChecked)

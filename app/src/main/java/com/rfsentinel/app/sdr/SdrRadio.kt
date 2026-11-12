@@ -51,6 +51,8 @@ object SdrRadio {
     /** Frequency corrections learned per session at most: a warming crystal drifts a little, a wrong reading must not loop. */
     private const val MAX_FREQ_FIXES = 3
     private const val P25_RETRY_MS = 30_000L   // no control channel found: look again after this
+    internal const val STAY_MS = 30_000L       // Stay on activity: the turn runs on this long after the last activity
+    internal const val MAX_STAY_MS = 10 * 60_000L // ...but at most this long in all, so the other scans still get turns
     private const val PAGER_RETRY_MS = 5_000L  // no paging channel decoded: look again after this (they can be silent between pages)
     private const val INPUT_DELAY_MS = 400L    // after a grant: the radio is on the air by then
     private const val INPUT_GAP_MS = 5_000L    // at most one input check this often: each costs ~0.2 s of control channel
@@ -105,6 +107,13 @@ object SdrRadio {
     /** The scan whose turn it is now; null when none is ticked. */
     @Volatile var mode: Mode? = null; private set
     @Volatile private var turnEnd = 0L
+    @Volatile private var turnStart = 0L
+    /** Settings › Stay on activity: a scan that hears something keeps the SDR ([activity]). */
+    @Volatile var stayOnActivity = false
+    /** This turn was lengthened by [activity]. */
+    @Volatile private var stayed = false
+    /** A turn starts and [activity] lengthens it under this lock (activity can come from the service's thread). */
+    private val turnLock = Any()
     /** Numbers each sweep's waterfall line, unique across turns (the screen redraws a line while its number repeats). */
     private var sweepLines = 0L
     /** The scans that get turns: P25 alone while a talkgroup is held ([p25Hold]). */
@@ -202,13 +211,29 @@ object SdrRadio {
     internal fun pickTurn(held: Boolean, mode: Mode?, tuned: Boolean, resume: Mode?, active: Set<Mode>): Pair<Mode?, Mode?> =
         if (held) Mode.SWEEP to (if (mode != Mode.SWEEP) mode else resume)
         else ((resume ?: mode?.takeIf { tuned })?.takeIf { it in active } ?: nextAfter(mode, active)) to null
+    /**
+     * [m] heard something worth staying for (a P25 call, a police aircraft, a page, a following car): with
+     * [stayOnActivity], its turn runs on [STAY_MS] past now, up to [MAX_STAY_MS] from its start. Any thread.
+     */
+    fun activity(m: Mode) {
+        synchronized(turnLock) {
+            if (!stayOnActivity || mode != m || active.size < 2 || sweepHeld) return
+            val end = stayUntil(turnEnd, turnStart, System.currentTimeMillis())
+            if (end == turnEnd) return
+            turnEnd = end
+            if (stayed) return
+            stayed = true
+        }
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: staying on ${m.label}: activity heard")
+    }
+    internal fun stayUntil(turnEnd: Long, turnStart: Long, now: Long) = maxOf(turnEnd, minOf(now + STAY_MS, turnStart + MAX_STAY_MS))
     /** " · ADS-B in 40 s" while taking turns, or " · holding talkgroup 1234", for the status line. */
     private fun turnNote(): String {
         p25Hold?.let { return " · holding talkgroup $it" }
         if (sweepHeld) return if (modes.any { it != Mode.SWEEP }) " · other scans wait while the waterfall is open" else ""
         if (modes.size < 2) return ""
         val left = ((turnEnd - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
-        return " · ${next()?.label} in $left s"
+        return (if (stayed) " · staying for activity" else "") + " · ${next()?.label} in $left s"
     }
     /** P25: the control channel to go back to on its next turn, and the system the talkgroup list is for. */
     private var p25Hunt: P25Hunt? = null
@@ -543,7 +568,10 @@ object SdrRadio {
             if (!held && active.size > 1) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: turn: ${m.label} for ${turn / 1000} s")
             // Held for the waterfall in another scan's place: no sweep turn left once the screen closes, the cut-short scan
             // goes on at once (it ran on for the rest of a 30 s turn).
-            mode = m; turnEnd = System.currentTimeMillis() + if (held && after != null) 0L else turn
+            synchronized(turnLock) {
+                stayed = false; turnStart = System.currentTimeMillis()
+                mode = m; turnEnd = turnStart + if (held && after != null) 0L else turn
+            }
             when (m) {
                 Mode.SWEEP -> runSweep(sdr, name)
                 Mode.ADSB -> runAdsb(sdr, name)
@@ -737,7 +765,7 @@ object SdrRadio {
                             lastIdentify = System.currentTimeMillis()
                             identified++
                             identifyP25(sdr, e, center, psd)?.let { h ->
-                                p25Found++
+                                p25Found++; activity(Mode.SWEEP)
                                 e = e.copy(p25Nac = h.nac, confidence = minOf(e.confidence + P25_BONUS, P25_MAX_CONFIDENCE))
                             }
                         }
@@ -842,7 +870,7 @@ object SdrRadio {
                             val tg = p25Log.heardRadio(msg.radio, snr, System.currentTimeMillis())
                             if (nearby.add(msg.radio) && logAll) logHeard("P25 radio ${msg.radio} ${msg.kind} on the control channel's input, $snr dB" +
                                 (tg?.let { ", talkgroup $it" } ?: ""))
-                            onP25Nearby?.invoke(msg, snr, tg)
+                            onP25Nearby?.invoke(msg, snr, tg); activity(Mode.P25)
                         }
                     }
                     return@detour true
@@ -854,6 +882,7 @@ object SdrRadio {
                 inputs++
                 if (snr >= RadioWatch.activeDb(config.minSnrDb)) {
                     heard++; p25Log.heardInput(call.tg, call.target, snr, System.currentTimeMillis()); onP25Input?.invoke(call, hz, snr)
+                    activity(Mode.P25)
                 }
                 true
             }
@@ -865,6 +894,7 @@ object SdrRadio {
                 for (tg in p25Log.add(it, now)) onP25Call?.invoke(tg)
                 if (it is P25Tsbk.Site) learnFrequency(hunt.carrierHz, p25Log.hz(it.channel))
                 val calls = p25Log.takeCalls()
+                if (calls.isNotEmpty()) activity(Mode.P25)
                 appContext?.let { c -> P25History.append(c, calls) }
                 if (logAll) for (c in calls) logHeard("P25 call" + (c.tg?.let { " talkgroup $it" } ?: "") + (c.target?.let { " to radio $it" } ?: "") +
                     (c.source?.let { " from radio $it" } ?: "") + (c.hz?.let { " on %.4f MHz".format(java.util.Locale.US, it / 1e6) } ?: "") +
@@ -1046,7 +1076,7 @@ object SdrRadio {
                 hz / 1e6, page.kind.name.lowercase(), page.text.length, if (page.partial) ", partly garbled" else "", if (ignored) ", ignored" else ""))
             if (!ignored) {
                 pagerLog.add(page, hz, System.currentTimeMillis())
-                onPagerPage?.invoke(page)
+                onPagerPage?.invoke(page); activity(Mode.PAGER)
             }
         }
         var next = 0

@@ -113,11 +113,11 @@ class OnlineWatch(
     /**
      * Aircraft heard by the RTL-SDR's own ADS-B receiver (no internet): checked like the feed's,
      * every couple of seconds. [unlocated]: addresses heard without a position, flagged only
-     * when they are in the law-enforcement registry.
+     * when they are in the law-enforcement registry. True when one is police and in alert range (Stay on activity).
      */
-    fun localAircraft(planes: List<PoliceAircraft.Plane>, unlocated: List<String>) {
+    fun localAircraft(planes: List<PoliceAircraft.Plane>, unlocated: List<String>): Boolean {
         val now = System.currentTimeMillis()
-        if (!airOn()) { PoliceAircraft.local = emptyList(); return }
+        if (!airOn()) { PoliceAircraft.local = emptyList(); return false }
         val registry = PoliceAircraft.load(context)
         val me = location()
         val seen = ArrayList<PoliceAircraft.Seen>(planes.size)
@@ -146,6 +146,8 @@ class OnlineWatch(
             if (cur == null || now - cur.first > AIRCRAFT_MS || best.confidence >= cur.second.score)
                 AmbientThreats.aircraft = now to AmbientThreats.Threat(best.confidence, best.label, Category.AIRCRAFT)
         }
+        // Only an alerting one: a listed plane 40 km off would hold every ADS-B turn for the full 10 minutes.
+        return best != null
     }
 
     /**

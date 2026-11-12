@@ -793,6 +793,9 @@ object Prefs {
         int(context, "sdr_turn_s_" + mode.name, int(context, "sdr_turn_s", 60)).coerceIn(30, 300)
     fun setSdrTurnS(context: Context, mode: com.rfsentinel.app.sdr.SdrRadio.Mode, v: Int) =
         setInt(context, "sdr_turn_s_" + mode.name, v.coerceIn(30, 300))
+    /** Settings › RTL-SDR radio › Stay on activity: a scan that hears something keeps the SDR. Off by default. */
+    fun sdrStay(context: Context): Boolean = bool(context, "sdr_stay", false)
+    fun setSdrStay(context: Context, v: Boolean) = setBool(context, "sdr_stay", v)
     /** The ways P25 talkgroup alerts don't alert you (Settings › RTL-SDR radio › Talkgroup alerts); none by default. */
     fun p25AlertsOff(context: Context): Set<com.rfsentinel.app.data.AlertKind> =
         com.rfsentinel.app.data.AlertKind.parse(sp(context).getString("p25_alerts_off", null))
