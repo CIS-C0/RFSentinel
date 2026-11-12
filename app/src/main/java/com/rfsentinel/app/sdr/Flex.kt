@@ -189,13 +189,18 @@ class Flex(sampleRate: Int, private val onPage: (PagerLog.Page) -> Unit) {
     }
 
     private fun decodePhase(p: IntArray) {
-        for (i in p.indices) p[i] = (fix(p[i]) ?: return) and DATA_MASK
+        // One garbled word used to drop the whole phase (as upstream), so a weak channel showed frames but no pages:
+        // now only a page that uses a garbled word is dropped.
+        val ok = BooleanArray(p.size)
+        for (i in p.indices) fix(p[i])?.let { p[i] = it and DATA_MASK; ok[i] = true }
+        if (!ok[0]) return
         val biw = p[0]
         if (biw == 0 || biw == DATA_MASK) return
         val vectors = (biw ushr 10) and 0x3f
         val addresses = ((biw ushr 8) and 3) + 1
         if (vectors < addresses || vectors + (vectors - addresses) > WORDS) return
         for (i in addresses until vectors) {
+            if (!ok[i] || !ok[vectors + i - addresses]) continue
             val address = p[i]
             if (address == 0 || address == DATA_MASK) continue
             val capcode = address - 0x8000L
@@ -209,9 +214,9 @@ class Flex(sampleRate: Int, private val onPage: (PagerLog.Page) -> Unit) {
             if (type == TYPE_SHORT_INSTRUCTION || (start == 0 && end == 0)) continue
             val protocol = "FLEX $baud/$levels"
             when (type) {
-                TYPE_SECURE, TYPE_ALPHA -> if (start < WORDS && end < WORDS) alpha(p, start, end, protocol, capcode)
+                TYPE_SECURE, TYPE_ALPHA -> if (start < WORDS && end < WORDS && (start..end).all { ok[it] }) alpha(p, start, end, protocol, capcode)
                 TYPE_NUMERIC, TYPE_SPECIAL_NUMERIC, TYPE_NUMBERED_NUMERIC ->
-                    numeric(p, j, type, long)?.let { onPage(PagerLog.Page(protocol, capcode, PagerLog.Kind.NUMERIC, it)) }
+                    numeric(p, ok, j, type, long)?.let { onPage(PagerLog.Page(protocol, capcode, PagerLog.Kind.NUMERIC, it)) }
                 TYPE_TONE -> onPage(PagerLog.Page(protocol, capcode, PagerLog.Kind.TONE, ""))
             }
         }
@@ -231,10 +236,11 @@ class Flex(sampleRate: Int, private val onPage: (PagerLog.Page) -> Unit) {
     }
 
     /** Digits run through 21-bit words, after a few header bits; null when the vector points outside the phase. */
-    private fun numeric(p: IntArray, j: Int, type: Int, long: Boolean): String? {
+    private fun numeric(p: IntArray, ok: BooleanArray, j: Int, type: Int, long: Boolean): String? {
         var first = (p[j] ushr 7) and 0x7f
         var last = ((p[j] ushr 14) and 7) + first
         if (first >= WORDS || last >= WORDS || (long && j + 1 >= WORDS)) return null
+        if (!(first..last).all { ok[it] } || (long && !ok[j + 1])) return null
         // A long address has its first digits in the second vector word.
         var dw = if (long) p[j + 1] else p[first++].also { last++ }
         var digit = 0

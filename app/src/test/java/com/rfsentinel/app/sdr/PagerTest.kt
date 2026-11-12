@@ -260,7 +260,30 @@ class PagerTest {
         assertEquals(listOf("Phase A", "Phase C"), pages.map { it.text })
     }
 
+    @Test fun `a garbled word drops only the page that uses it`() {
+        val phase = flexPhase(listOf(Triple(1000L, 5, flexAlpha("Kept")), Triple(2000L, 5, flexAlpha("Lost"))))
+        // Three bit errors: past fixing. One in an unused word, one in the second page's text.
+        phase[80] = phase[80] xor (7 shl 5)
+        val lost = 1 + 2 + 2 + flexAlpha("Kept").size + 1 // past the BIW, 2 addresses, 2 vectors, the first page and the second's header: its first text word
+        phase[lost] = phase[lost] xor (7 shl 5)
+        val idle = IntArray(88) { flexWord(flexFill(it)) }
+        val pages = decode(flex(0x870C, 1600, 2, listOf(phase, idle, idle, idle)).iq(OFFSET + CARRIER_ERROR_HZ)).first
+        assertEquals(listOf("Kept"), pages.map { it.text })
+    }
+
     // The hunt.
+
+    @Test fun `the scan finds a two-tone pager at its centre, not at one tone`() {
+        val rnd = java.util.Random(3)
+        val fsk = Fsk().apply { repeat(400) { add(if (rnd.nextBoolean()) 4800.0 else -4800.0, 1600) } }
+        val iq = fsk.iq(300_000.0)
+        val psd = RadioWatch.powerSpectrum(iq, iq.size / 2)
+        val found = P25Hunt.candidates(0, psd, RATE, halfHz = PagerHunt.CHANNEL_HALF_HZ)
+        assertEquals(found.toString(), 1, found.size)
+        assertTrue("${found[0].hz}", abs(found[0].hz - 300_000) < 1_500)
+        // P25's narrow window lands on a tone, the bug a tester's log showed (~4 kHz off, nothing decoded).
+        assertTrue(P25Hunt.candidates(0, psd, RATE).none { abs(it.hz - 300_000) < 1_500 })
+    }
 
     /** A dongle that hears [signal] on repeat at [carrierHz], plus noise. */
     private class FakeDongle(val carrierHz: Long, val signal: Fsk) : SdrDevice {
