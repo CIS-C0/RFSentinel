@@ -165,12 +165,20 @@ object P25Voice {
         return Decoded(frames, demod.syncs)
     }
 
-    /** A call's speech as a WAV (8 kHz mono, 20 ms per codeword); empty when any of it is encrypted. */
+    /**
+     * The algorithm ID is only two Hamming-checked words, so a garbled LDU2 can read as encrypted (simulcast did, cutting
+     * clear calls after one frame): a call is encrypted when two LDU2s in a row say the same non-clear ID.
+     */
+    fun confirmsEncryption(previous: Int?, algid: Int) = algid != ALGID_CLEAR && algid == previous
+
+    /** A call's speech as a WAV (8 kHz mono, 20 ms per codeword); empty when it is encrypted. */
     fun speechWav(frames: List<Frame>): ByteArray {
-        if (frames.isEmpty() || frames.any { it.encrypted }) return ByteArray(0)
+        val ids = frames.mapNotNull { it.algid }
+        if (frames.isEmpty() || ids.zipWithNext().any { (a, b) -> confirmsEncryption(a, b) }) return ByteArray(0)
+        val clear = frames.filter { !it.encrypted }
         val imbe = ImbeDecoder()
-        val b = java.nio.ByteBuffer.allocate(frames.sumOf { it.voice.size } * ImbeDecoder.N * 2).order(java.nio.ByteOrder.LITTLE_ENDIAN)
-        for (f in frames) for (v in f.voice) for (s in imbe.decode(v.bits, v.errors)) b.putShort(s)
+        val b = java.nio.ByteBuffer.allocate(clear.sumOf { it.voice.size } * ImbeDecoder.N * 2).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        for (f in clear) for (v in f.voice) for (s in imbe.decode(v.bits, v.errors)) b.putShort(s)
         return P25Record.header(b.capacity(), 1, ImbeDecoder.RATE) + b.array()
     }
 }

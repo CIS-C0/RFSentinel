@@ -994,7 +994,15 @@ object SdrRadio {
                 follow.feed(buf, n / 2)
             }
         } finally { ahead.close(); p25Playing = null; out.stop() } // stop: what's buffered still plays
-        if (follow.frames > 0) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 call played (%.1f s)".format(java.util.Locale.US, follow.frames * 0.18))
+        val why = follow.endedBy ?: when {
+            stop() || p25Mute -> "stopped"
+            fails >= STALL_CHUNKS -> "no samples"
+            follow.frames == 0 -> "no voice heard"
+            follow.quietS >= FOLLOW_QUIET_S -> "voice lost for 1 s"
+            else -> "listening changed"
+        }
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 call " + (if (follow.frames > 0) "played (%.1f s)".format(java.util.Locale.US, follow.frames * 0.18) else "not played") +
+            ", ended: $why" + (if (follow.garbled > 0) ", ${follow.garbled} garbled frames skipped" else ""))
         return follow.frames > 0
     }
 

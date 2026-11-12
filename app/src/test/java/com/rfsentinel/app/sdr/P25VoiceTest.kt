@@ -126,7 +126,10 @@ class P25VoiceTest {
         assertEquals(P25Voice.ALGID_CLEAR, out.frames[1].algid)
         // 18 codewords of 20 ms each, as 8 kHz mono.
         assertEquals(44 + 18 * ImbeDecoder.N * 2, P25Voice.speechWav(out.frames).size)
-        assertEquals(0, P25Voice.speechWav(listOf(P25Voice.decode(ldu(P25Voice.DUID_LDU2, v1, algid = 0x84))!!)).size)
+        val enc = P25Voice.decode(ldu(P25Voice.DUID_LDU2, v1, algid = 0x84))!!
+        assertEquals(0, P25Voice.speechWav(listOf(enc, enc)).size)
+        // One garbled LDU2 alone is skipped, the rest kept.
+        assertEquals(44 + 9 * ImbeDecoder.N * 2, P25Voice.speechWav(listOf(out.frames[0], enc)).size)
     }
 
     @Test
@@ -142,11 +145,24 @@ class P25VoiceTest {
         assertEquals(18, played)
         assertTrue(follow.ended)
 
-        // An encrypted call ends it before anything more is played.
+        // An encrypted call (two LDU2s say so) ends it before anything more is played.
         var later = 0
         val enc = P25Follow(250_000.0) { later++ }
-        chunks(iq(IntArray(60) { it % 4 } + P25TestSignal.SYNC + ldu(P25Voice.DUID_LDU2, voice(8), algid = 0x84) + IntArray(60) { it % 4 }), enc::feed)
+        chunks(iq(IntArray(60) { it % 4 } + P25TestSignal.SYNC + ldu(P25Voice.DUID_LDU2, voice(8), algid = 0x84) +
+            P25TestSignal.SYNC + ldu(P25Voice.DUID_LDU2, voice(8), algid = 0x84) + IntArray(60) { it % 4 }), enc::feed)
         assertTrue(enc.ended)
+        assertEquals("encrypted", enc.endedBy)
         assertEquals(0, later)
+
+        // One garbled LDU2 reading as encrypted: skipped, the call goes on.
+        var heard = 0
+        val noisy = P25Follow(250_000.0) { heard++ }
+        chunks(iq(IntArray(60) { it % 4 } + P25TestSignal.SYNC + ldu(P25Voice.DUID_LDU2, voice(8), algid = 0x84) +
+            P25TestSignal.SYNC + ldu(P25Voice.DUID_LDU1, voice(9)) + P25TestSignal.SYNC + ldu(P25Voice.DUID_LDU2, voice(10)) +
+            IntArray(60) { it % 4 }), noisy::feed)
+        assertFalse(noisy.ended)
+        assertEquals(1, noisy.garbled)
+        assertEquals(2, noisy.frames)
+        assertEquals(18, heard)
     }
 }

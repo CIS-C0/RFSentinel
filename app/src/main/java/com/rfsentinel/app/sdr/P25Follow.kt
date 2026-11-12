@@ -14,13 +14,25 @@ class P25Follow(offsetHz: Double, lsm: Boolean = false, private val onSpeech: (S
     /** Voice frames played (each 180 ms). */
     var frames = 0; private set
     var ended = false; private set
+    /** Why it [ended]: "terminator" or "encrypted". */
+    var endedBy: String? = null; private set
+    /** LDU2s that read as encrypted once, not confirmed by the next ([P25Voice.confirmsEncryption]): skipped. */
+    var garbled = 0; private set
+    private var lastAlgid: Int? = null
 
     private val demod = P25Demod(offsetHz, P25Voice.LDU_DIBITS, if (lsm) P25Demod.Mod.LSM else P25Demod.Mod.C4FM) { f ->
         val v = P25Voice.decode(f)
         when {
-            v == null -> if (P25Frame.nid(P25Frame.stripStatus(f))?.duid in TERMINATORS) ended = true
-            v.encrypted -> ended = true
-            else -> { frames++; lastVoice = samples; for (c in v.voice) onSpeech(imbe.decode(c.bits, c.errors)) }
+            v == null -> if (P25Frame.nid(P25Frame.stripStatus(f))?.duid in TERMINATORS) { ended = true; endedBy = "terminator" }
+            v.encrypted -> {
+                if (P25Voice.confirmsEncryption(lastAlgid, v.algid!!)) { ended = true; endedBy = "encrypted" }
+                else { garbled++; lastVoice = samples } // still a voice frame: the call goes on
+                lastAlgid = v.algid
+            }
+            else -> {
+                if (v.algid != null) lastAlgid = v.algid
+                frames++; lastVoice = samples; for (c in v.voice) onSpeech(imbe.decode(c.bits, c.errors))
+            }
         }
     }
 
