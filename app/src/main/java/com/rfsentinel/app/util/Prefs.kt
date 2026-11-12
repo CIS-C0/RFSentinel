@@ -729,12 +729,14 @@ object Prefs {
     fun sdrTpms(context: Context): Boolean = bool(context, "sdr_tpms", false)
     fun setSdrTpms(context: Context, v: Boolean) { keepSdrSweep(context); setBool(context, "sdr_tpms", v) }
     /** Your own car's tire sensors ("protocol:id"), learned on the phone so they never alert. */
-    fun tpmsOwn(context: Context): Set<String> = sp(context).getStringSet("tpms_own", emptySet()).orEmpty()
-    fun addTpmsOwn(context: Context, key: String) = sp(context).edit { putStringSet("tpms_own", (tpmsOwn(context) + key).toSet()) }
+    fun tpmsOwn(context: Context): Set<String> = sdrPrivate(context).getStringSet("tpms_own", emptySet()).orEmpty()
+    fun addTpmsOwn(context: Context, key: String) = sdrPrivate(context).edit { putStringSet("tpms_own", (tpmsOwn(context) + key).toSet()) }
     /** When learning your car's sensors started (0: not yet). */
-    fun tpmsLearnAt(context: Context): Long = sp(context).getLong("tpms_learn_at", 0L)
-    fun setTpmsLearnAt(context: Context, at: Long) = sp(context).edit { putLong("tpms_learn_at", at) }
-    fun forgetTpmsOwn(context: Context) = sp(context).edit { remove("tpms_own"); remove("tpms_learn_at") }
+    fun tpmsLearnAt(context: Context): Long = sdrPrivate(context).getLong("tpms_learn_at", 0L)
+    fun setTpmsLearnAt(context: Context, at: Long) = sdrPrivate(context).edit { putLong("tpms_learn_at", at) }
+    fun forgetTpmsOwn(context: Context) = sdrPrivate(context).edit { remove("tpms_own"); remove("tpms_learn_at") }
+    /** Your car's tire-sensor IDs and the control channels found here: out of cloud backups (res/xml backup rules). */
+    private fun sdrPrivate(context: Context) = context.getSharedPreferences("sdr_private", Context.MODE_PRIVATE)
     /** Paging frequencies typed by the user, one per line in MHz: listened to instead of scanning for a channel. */
     fun pagerFreqs(context: Context) = str(context, "pager_freqs")
     fun setPagerFreqs(context: Context, v: String) = sp(context).edit { putString("pager_freqs", v) }
@@ -826,7 +828,7 @@ object Prefs {
         sp(context).getStringSet("p25_bands", null)?.takeIf { it.isNotEmpty() } ?: com.rfsentinel.app.sdr.P25Hunt.DEFAULT_KEYS
     fun setP25Bands(context: Context, v: Set<String>) = sp(context).edit { putStringSet("p25_bands", v) }
     /** Control channels found before, newest first (on the phone only): tried before a band scan. */
-    fun p25Known(context: Context): List<com.rfsentinel.app.sdr.P25Hunt.Lock> = str(context, "p25_known").lines().mapNotNull { l ->
+    fun p25Known(context: Context): List<com.rfsentinel.app.sdr.P25Hunt.Lock> = sdrPrivate(context).getString("p25_known", "").orEmpty().lines().mapNotNull { l ->
         val f = l.split(',')
         val hz = f.getOrNull(0)?.toLongOrNull() ?: return@mapNotNull null
         com.rfsentinel.app.sdr.P25Hunt.Lock(hz, f.getOrNull(1)?.toIntOrNull(16) ?: 0, f.getOrNull(2) == "lsm")
@@ -834,7 +836,7 @@ object Prefs {
     fun addP25Known(context: Context, lock: com.rfsentinel.app.sdr.P25Hunt.Lock) {
         // The same channel heard a few kHz apart (dongle drift) is one entry.
         val kept = listOf(lock) + p25Known(context).filter { kotlin.math.abs(it.hz - lock.hz) > 6_250L }
-        setStr(context, "p25_known", kept.take(P25_KNOWN).joinToString("\n") { "${it.hz},%X,${if (it.lsm) "lsm" else "c4fm"}".format(it.nac) })
+        sdrPrivate(context).edit { putString("p25_known", kept.take(P25_KNOWN).joinToString("\n") { "${it.hz},%X,${if (it.lsm) "lsm" else "c4fm"}".format(it.nac) }) }
     }
     private const val P25_KNOWN = 4
 

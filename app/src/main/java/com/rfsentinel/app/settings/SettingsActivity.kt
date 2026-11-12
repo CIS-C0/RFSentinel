@@ -1706,7 +1706,7 @@ class SettingsActivity : AppCompatActivity() {
             "Experimental. Listens on 315 and 433.92 MHz for the tire-pressure sensors every car's wheels send while driving. " +
             "The same sensor heard with you at three places or more (the follow settings) is a car following you. The first " +
             "sensors to do that are taken as your own car's and never alert: use Forget my car's tire sensors after new tires " +
-            "or another car. IDs stay in the phone's memory, except a following car's in its alert. Needs Two-way radio " +
+            "or another car. Sensor IDs stay on this phone, out of logs and backups, except a following car's in its alert. Needs Two-way radio " +
             "turned on.") { Prefs.setSdrTpms(this, it) }
         // Each ticked scan's own turn length, shown while it shares the SDR.
         val turnViews = listOf(sweepBox to com.rfsentinel.app.sdr.SdrRadio.Mode.SWEEP, adsbBox to com.rfsentinel.app.sdr.SdrRadio.Mode.ADSB,

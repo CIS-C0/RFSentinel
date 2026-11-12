@@ -16,6 +16,8 @@ object P25Link {
     /** Keying up again within this is the same occasion. */
     private const val SAME_TIME_MS = 10 * 60_000L
     private const val CONFIDENCE = 60
+    private const val KEEP_MS = 24 * 60 * 60_000L
+    private const val PRUNE_EVERY = 200
     const val SOURCE = "P25 radio near you, the same device around each time"
 
     private class Shared(var times: Int = 0, var last: Long = Long.MIN_VALUE / 2)
@@ -23,6 +25,7 @@ object P25Link {
     /** (radio, device) → shared occasions; device → occasions with any radio. */
     private val shared = HashMap<Int, HashMap<String, Shared>>()
     private val anyRadio = HashMap<String, Int>()
+    private var calls = 0
 
     /** Radio [radio] keyed up near you at [now] with [macs] in range. */
     @Synchronized fun heard(radio: Int, macs: Collection<String>, now: Long) {
@@ -32,6 +35,23 @@ object P25Link {
             if (now - p.last < SAME_TIME_MS) { p.last = now; continue }
             p.times++; p.last = now
             anyRadio.merge(mac, 1, Int::plus)
+        }
+        // Every radio near you, times every device around: forget pairs not seen together for a day, or it only grows.
+        if (++calls % PRUNE_EVERY == 0) prune(now)
+    }
+
+    @Synchronized internal fun prune(now: Long) {
+        val radios = shared.values.iterator()
+        while (radios.hasNext()) {
+            val m = radios.next()
+            val pairs = m.entries.iterator()
+            while (pairs.hasNext()) {
+                val (mac, p) = pairs.next()
+                if (now - p.last <= KEEP_MS) continue
+                pairs.remove()
+                anyRadio.computeIfPresent(mac) { _, n -> (n - p.times).takeIf { it > 0 } }
+            }
+            if (m.isEmpty()) radios.remove()
         }
     }
 

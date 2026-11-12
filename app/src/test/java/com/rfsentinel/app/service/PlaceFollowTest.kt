@@ -54,4 +54,15 @@ class PlaceFollowTest {
         p.heard("y", null, 15 * min, 10.5 + 2 * step, -20.5)
         assertFalse("alert carried with the rotation", p.follower("y", 15 * min, 10 * min, 800.0))
     }
+
+    @Test
+    fun aFullListKeepsTheOnesHeardAtMorePlaces() {
+        val p = PlaceFollow()
+        // A follower heard at two places, then 500 others pass by once: it is kept, a passer-by goes.
+        p.heard("aa", null, 0, 10.5, -20.5)
+        p.heard("aa", null, 6 * min, 10.5 + step, -20.5)
+        for (k in 0 until 500) p.heard("x$k", null, 7 * min + k, 10.5, -20.5)
+        p.heard("aa", null, 14 * min, 10.5 + 2 * step, -20.5)
+        assertEquals(3, p.places("aa", 10 * min, 800.0))
+    }
 }

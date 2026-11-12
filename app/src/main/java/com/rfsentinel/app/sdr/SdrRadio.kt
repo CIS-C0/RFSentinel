@@ -1098,6 +1098,13 @@ object SdrRadio {
             if (now - lastCheck >= 2_000L) { lastCheck = now; away = gone(name) }
             halted || sdr.lost || away || !keeps(Mode.TPMS)
         }
+        if (sdr.sampleRate % Tpms.RATE != 0) {
+            // The decoder needs a whole multiple of its rate (an rtl_tcp server may refuse the one asked for).
+            com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: tire sensors need ${SAMPLE_RATE / 1000} kS/s, the receiver is at ${sdr.sampleRate / 1000} kS/s: skipped")
+            status = "$deviceLabel · tire sensors · couldn't set the sample rate" + turnNote()
+            while (!stop()) Thread.sleep(200)
+            return
+        }
         val buf = ByteArray(STREAM_XFER)
         val sensors = HashSet<String>(); var heard = 0; var bursts = 0; var unlocked = 0
         var next = 0

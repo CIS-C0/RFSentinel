@@ -30,7 +30,10 @@ class PlaceFollow {
         while (list.isNotEmpty() && now - list.first().at > WINDOW_MS) list.removeFirst()
         if (visits.size > MAX_DEVICES) {
             visits.entries.removeIf { now - (it.value.lastOrNull()?.at ?: 0L) > WINDOW_MS }
-            if (visits.size > MAX_DEVICES) visits.remove(visits.keys.first())
+            // Still too many: one heard at the fewest places goes, the longest ago of those (a HashMap's first key is any
+            // one, maybe a follower about to be caught).
+            if (visits.size > MAX_DEVICES) visits.entries.minWithOrNull(compareBy({ it.value.size }, { it.value.lastOrNull()?.at ?: 0L }))
+                ?.let { visits.remove(it.key) }
             alerted.entries.removeIf { now - it.value > WINDOW_MS }
         }
     }

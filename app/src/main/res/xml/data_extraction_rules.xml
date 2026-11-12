@@ -10,6 +10,8 @@
         <exclude domain="sharedpref" path="nav_places.xml" />
         <!-- Sentinel Link: this phone's own id and its group; a copy would make two phones the same Sentinel. -->
         <exclude domain="sharedpref" path="sentinel_link.xml" />
+        <!-- Your car's tire-sensor IDs and the P25 control channels found where you live. -->
+        <exclude domain="sharedpref" path="sdr_private.xml" />
     </cloud-backup>
     <device-transfer>
         <include domain="database" path="." />

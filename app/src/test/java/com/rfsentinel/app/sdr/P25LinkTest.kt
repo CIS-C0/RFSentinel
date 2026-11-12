@@ -25,4 +25,16 @@ class P25LinkTest {
         P25Link.heard(8004, listOf("PHONE"), 0); P25Link.heard(8004, listOf("PHONE"), 30 * min)
         assertNull(P25Link.hitFor("PHONE"))
     }
+
+    @Test
+    fun pairsNotSeenForADayAreForgotten() {
+        val min = 60_000L
+        for (t in 0 until 3) P25Link.heard(5001, listOf("CAM"), t * 30 * min)
+        P25Link.heard(6002, listOf("PHONE"), 23 * 60 * min)
+        P25Link.prune(26 * 60 * min) // CAM last heard at 1 h: over a day ago
+        assertNull(P25Link.radioFor("CAM"))
+        // Back with the radio after that: counted from scratch, not against the forgotten times.
+        for (t in 0 until 3) P25Link.heard(5001, listOf("CAM"), 27 * 60 * min + t * 30 * min)
+        assertEquals(5001 to 3, P25Link.radioFor("CAM"))
+    }
 }
