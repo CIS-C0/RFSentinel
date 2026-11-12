@@ -122,7 +122,7 @@ object SdrRadio {
     /** The waterfall screen is open: the sweep keeps the SDR so it always draws (a held P25 talkgroup still wins). */
     private val sweepHeld get() = SdrWaterfall.listening && p25Hold == null
     /** [m] keeps the SDR: its turn, still ticked (or the waterfall holds the sweep), and the waterfall not zoomed in. */
-    private fun keeps(m: Mode) = mode == m && tuneHz == null && antennaCheck == null && !reapplyNow &&
+    private fun keeps(m: Mode) = mode == m && tuneHz == null && antennaCheck == null && finder == null && !reapplyNow &&
         if (sweepHeld) m == Mode.SWEEP else m in active && (active.size == 1 || System.currentTimeMillis() < turnEnd)
 
     /** Bias-tee or frequency correction changed: applied by the worker between turns ([reapplyNow]: cut this one short). */
@@ -300,6 +300,12 @@ object SdrRadio {
      */
     @Volatile var antennaCheck: ((AntennaReading) -> Unit)? = null
     /**
+     * The Radio waterfall's "Find a remote's frequency" (like a Flipper Zero's frequency analyzer): while set, the SDR hops
+     * the bands remotes use ([FINDER_CENTERS]) and hands it each signal that stands out: where this dongle hears it (Hz)
+     * and how far above the noise (dB). Called on the SDR's thread.
+     */
+    @Volatile var finder: ((Long, Int) -> Unit)? = null
+    /**
      * The strongest FM station and weather channel, and how far each stands above the noise; [ok] false when the tuner
      * or the samples failed.
      * shortcut: the 20 / 8 dB steps are not calibrated on real antennas, adjust them from testers' hardware logs.
@@ -322,6 +328,14 @@ object SdrRadio {
     /** Chunk centres covering FM radio, 87.5 to 108 MHz.
      *  shortcut: not Japan's 76-95 MHz band, add its chunks if a tester there asks. */
     private val FM_CENTERS = (0 until 13).map { 88_300_000L + it * 1_600_000L }
+    /**
+     * Where remotes send (car keys, garage openers, sensors), each tuned a little off so the usual channels clear the
+     * centre spike: 300 / 303.875 / 304.25, 310, 315, 318, 390, 418, 433.92 / 434.42, 868.35 and 915 MHz.
+     */
+    private val FINDER_CENTERS = listOf(300_400_000L, 303_600_000L, 310_400_000L, 315_400_000L, 318_400_000L,
+        390_400_000L, 418_400_000L, 434_200_000L, 868_000_000L, 915_400_000L)
+    private const val FINDER_READS = 4          // ~16 ms a look: all of them about twice a second
+    private const val FINDER_MIN_DB = 15.0      // a remote pressed near the antenna stands far above this
 
     /** Learned channels for the sweep, kept while the waterfall zooms in and out (new per device). */
     private var sweepWatch: RadioWatch? = null
@@ -554,6 +568,7 @@ object SdrRadio {
             // Settings changed mid-turn: apply them, then the interrupted scan carries on.
             if (reapply) { applyDeviceSettings(sdr, start = false); tuned = true }
             antennaCheck?.let { ask -> antennaCheck = null; ask(runCatching { checkAntenna(sdr) }.getOrDefault(AntennaReading(0, 0, 0, 0, ok = false))); tuned = true }
+            if (finder != null) { runFinder(sdr, name); tuned = true; continue }
             if (tuneHz != null) { runTuned(sdr, name); tuned = true; continue }
             val held = sweepHeld
             if (held && mode != Mode.SWEEP) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: radio sweep while the waterfall is open")
@@ -1221,15 +1236,38 @@ object SdrRadio {
         return reading
     }
 
-    /** The power spectrum with the SDR tuned to [center]; null when the tuner or the samples failed. */
-    private fun spectrum(sdr: SdrDevice, center: Long): FloatArray? {
+    /** Hops [FINDER_CENTERS] while [finder] is set: a key fob sends for a fraction of a second, so each look is short. */
+    private fun runFinder(sdr: SdrDevice, name: String) {
+        sdr.setSampleRate(SAMPLE_RATE)
+        sdr.setGain(GAIN_TENTHS_DB)
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: finding a remote's frequency")
+        status = "$deviceLabel · finding a remote's frequency"
+        var cycles = 0; var hits = 0; var best = 0; var lastCheck = System.currentTimeMillis()
+        while (!halted && !sdr.lost && !reapplyNow && finder != null) {
+            if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
+            for (center in FINDER_CENTERS) {
+                val tell = finder ?: break
+                val psd = spectrum(sdr, center, FINDER_READS) ?: continue
+                P25Hunt.candidates(center, psd, sdr.sampleRate, FINDER_MIN_DB).maxByOrNull { it.snrDb }?.let {
+                    hits++; best = maxOf(best, it.snrDb.toInt()); tell(it.hz, it.snrDb.toInt())
+                }
+            }
+            cycles++
+        }
+        // Levels only: a remote's frequency could single out the car or the house (unless "log everything" is on).
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: remote finder off after $cycles rounds, $hits signals heard" +
+            (if (hits > 0) ", strongest $best dB" else ""))
+    }
+
+    /** The power spectrum with the SDR tuned to [center] ([reads] USB reads of it); null when the tuner or the samples failed. */
+    private fun spectrum(sdr: SdrDevice, center: Long, reads: Int = INPUT_READS): FloatArray? {
         if (!sdr.tune(center)) return null
         sdr.resetBuffer()
         val buf = ByteArray(XFER)
         repeat(sdr.settleReads) { sdr.read(buf) }
-        val iq = ByteArray(XFER * INPUT_READS)
+        val iq = ByteArray(XFER * reads)
         var got = 0
-        for (i in 0 until INPUT_READS) {
+        for (i in 0 until reads) {
             val n = sdr.read(buf)
             if (n <= 0) break
             System.arraycopy(buf, 0, iq, got, n); got += n
@@ -1249,7 +1287,7 @@ object SdrRadio {
         sdr.setSampleRate(SAMPLE_RATE)
         sdr.setGain(GAIN_TENTHS_DB)
         val mhz = "%.3f MHz".format(java.util.Locale.US, hz / 1e6)
-        val still = { !halted && !sdr.lost && tuneHz == hz && listen == listening && antennaCheck == null && !reapplyNow }
+        val still = { !halted && !sdr.lost && tuneHz == hz && listen == listening && antennaCheck == null && finder == null && !reapplyNow }
         if (!sdr.tune(center)) {
             com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: the tuner didn't lock on $mhz")
             status = "$deviceLabel · waterfall: the tuner can't tune to $mhz"

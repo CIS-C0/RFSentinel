@@ -85,6 +85,7 @@ class WaterfallActivity : AppCompatActivity() {
             com.rfsentinel.app.util.HwLogs.sdr.log("Radio waterfall screen closed")
         }
         queue.clear()
+        finderDialog?.dismiss()
         // Radio detection never stays paused behind a closed screen (a redraw for a new theme comes straight back).
         if (!isChangingConfigurations) { if (!demo) SdrRadio.screenClosed(); SdrRadio.listen = false; tuneHz = null }
     }
@@ -123,16 +124,48 @@ class WaterfallActivity : AppCompatActivity() {
             else String.format(Locale.US, "Listen to %.4f MHz\n%s, at the phone's media volume", hz / 1e6,
                 AudioDemod.modeFor(hz).label.replaceFirstChar { it.uppercase() })
         }
-        val items = listOfNotNull(listenItem) + PRESETS.map { "${it.name}\n${it.about}" } + "Type a frequency…"
+        val items = listOfNotNull(listenItem) + FINDER_ITEM + PRESETS.map { "${it.name}\n${it.about}" } + "Type a frequency…"
         MaterialAlertDialogBuilder(this)
             .setTitle("What to look at")
             .setItems(items.toTypedArray()) { _, picked ->
                 if (listenItem != null && picked == 0) { SdrRadio.listen = !SdrRadio.listen; refresh(); return@setItems }
                 val i = if (listenItem != null) picked - 1 else picked
-                PRESETS.getOrNull(i)?.let { zoom(it.hz) } ?: typeFrequency()
+                if (i == 0) { findRemote(); return@setItems }
+                PRESETS.getOrNull(i - 1)?.let { zoom(it.hz) } ?: typeFrequency()
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private var finderDialog: androidx.appcompat.app.AlertDialog? = null
+
+    /**
+     * Like a Flipper Zero's frequency analyzer: the SDR hops the bands remotes use while the person presses theirs, the
+     * strongest signal shows as it comes, then Tune goes there. The strongest stays unless it's gone for [FINDER_HOLD_MS].
+     */
+    private fun findRemote() {
+        if (demo) { Toast.makeText(this, "Needs a real SDR", Toast.LENGTH_SHORT).show(); return }
+        val intro = "Hold your remote close to the SDR's antenna and press a button a few times.\n\n" +
+            "Listening on 300 to 318, 390, 418, 433.92, 868 and 915 MHz."
+        var bestHz = 0L; var bestDb = 0; var bestAt = 0L
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle("Find a remote's frequency")
+            .setMessage("$intro\n\nNothing heard yet.")
+            .setPositiveButton("Tune to it") { _, _ -> if (bestHz > 0) zoom(bestHz) }
+            .setNegativeButton("Stop", null)
+            .setOnDismissListener { SdrRadio.finder = null; finderDialog = null; refresh() }
+            .show()
+        finderDialog = dialog
+        dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).isEnabled = false
+        SdrRadio.finder = { hz, db ->
+            runOnUiThread {
+                val now = System.currentTimeMillis()
+                if (finderDialog !== dialog || (db < bestDb && now - bestAt < FINDER_HOLD_MS)) return@runOnUiThread
+                bestHz = hz; bestDb = db; bestAt = now
+                dialog.setMessage(String.format(Locale.US, "%s\n\nHeard %.3f MHz, %d dB above the noise.", intro, hz / 1e6, db))
+                dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).isEnabled = true
+            }
+        }
     }
 
     private fun typeFrequency() {
@@ -220,6 +253,9 @@ class WaterfallActivity : AppCompatActivity() {
             Preset("Aircraft transponders", "ADS-B, 1090 MHz", 1_090_000_000L,
                 "Planes' transponders show as speckles in the middle; more with planes overhead.")
         )
+        private const val FINDER_ITEM = "Find a remote's frequency\nPress your remote, see where it sends, then tune there"
+        /** A weaker signal replaces the strongest one heard only after this long: the next press may be another remote. */
+        private const val FINDER_HOLD_MS = 3_000L
         /** A frequency (Hz) to zoom in on as the screen opens. */
         const val EXTRA_TUNE_HZ = "tune_hz"
         /** Rows waiting for the screen; older ones are dropped if it falls behind. */
