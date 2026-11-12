@@ -407,5 +407,17 @@ object Exporter {
         context.startActivity(Intent.createChooser(intent, title))
     }
 
+    /** Offers saved [files] (in a FileProvider path) in the share sheet. */
+    internal fun shareFiles(context: Context, files: List<File>, mime: String, subject: String, title: String) {
+        val uris = ArrayList(files.mapNotNull {
+            runCatching { FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", it) }.getOrNull()
+        })
+        if (uris.isEmpty()) { toast(context, "Nothing to share"); return }
+        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND_MULTIPLE).setType(mime)
+            .putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+            .putExtra(Intent.EXTRA_SUBJECT, subject)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), title))
+    }
+
     private fun toast(context: Context, msg: String) = Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
 }

@@ -268,6 +268,8 @@ object SdrRadio {
     @Volatile var onP25Nearby: ((P25Tsbk.Inbound, Int, Int?) -> Unit)? = null
     /** Settings › RTL-SDR radio: save the radio signal of clear calls ([P25Record]). */
     @Volatile var p25Record = false
+    /** Settings › RTL-SDR radio › Save played calls: each P25 call played is kept ([P25Record.saveSpeech]). */
+    @Volatile var p25SaveCalls = true
     /** Settings › Listen to P25 voice: which clear calls to play live ([P25Follow]). */
     enum class Listen { OFF, WATCHED, ALL }
     @Volatile var p25Listen = Listen.OFF
@@ -1072,7 +1074,9 @@ object SdrRadio {
         val buf = ByteArray(XFER)
         repeat(sdr.settleReads) { sdr.read(buf) }
         var started = false
+        val heard = if (p25SaveCalls) ArrayList<ShortArray>() else null
         val follow = P25Follow(INPUT_OFFSET_HZ.toDouble(), lsm = p25Lock?.lsm == true) { pcm ->
+            heard?.add(pcm.copyOf())
             // A little silence first: voice comes in 180 ms bursts, and the buffer shouldn't run dry between them.
             if (!started) { started = true; out.write(ShortArray(ImbeDecoder.RATE / 5), 0, ImbeDecoder.RATE / 5, android.media.AudioTrack.WRITE_NON_BLOCKING) }
             out.write(pcm, 0, pcm.size, android.media.AudioTrack.WRITE_NON_BLOCKING)
@@ -1103,6 +1107,9 @@ object SdrRadio {
         }
         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 call " + (if (follow.frames > 0) "played (%.1f s)".format(java.util.Locale.US, follow.frames * 0.18) else "not played") +
             ", ended: $why" + (if (follow.garbled > 0) ", ${follow.garbled} garbled frames skipped" else ""))
+        val ctx = appContext
+        if (heard != null && follow.frames > 0 && ctx != null) runCatching { P25Record.saveSpeech(ctx, call, heard) }
+            .onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 call sound not saved - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
         return follow.frames > 0
     }
 

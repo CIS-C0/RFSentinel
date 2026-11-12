@@ -474,13 +474,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun shareP25Recordings() {
         val files = com.rfsentinel.app.sdr.P25Record.files(this)
         if (files.isEmpty()) { Toast.makeText(this, "No P25 calls recorded yet", Toast.LENGTH_SHORT).show(); return }
-        val uris = ArrayList(files.mapNotNull {
-            runCatching { androidx.core.content.FileProvider.getUriForFile(this, "$packageName.fileprovider", it) }.getOrNull()
-        })
-        startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND_MULTIPLE).setType("audio/wav")
-            .putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
-            .putExtra(Intent.EXTRA_SUBJECT, "RF Sentinel P25 recordings (${files.size})")
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Share P25 recordings"))
+        com.rfsentinel.app.util.Exporter.shareFiles(this, files, "audio/wav", "RF Sentinel P25 recordings (${files.size})", "Share P25 recordings")
     }
 
     /** The recording's size and frame count, refreshed every second while it runs. */
@@ -1824,6 +1818,12 @@ class SettingsActivity : AppCompatActivity() {
             "2 minutes each. Watched talkgroups: only those in Watch these talkgroups. Mute on the P25 talkgroups screen pauses it; Hold there (or tapping a talkgroup) plays only that talkgroup and keeps the SDR on P25 until Release. " +
             "Encrypted calls can't be played. Listening to radio calls is not allowed everywhere, and some places forbid it in " +
             "a vehicle: check the law where you are.", "Listen to P25 voice"))
+        scan("Save played calls", Prefs.p25SaveCalls(this),
+            "Keeps the sound of each P25 call played, on the phone only, to listen to again on the P25 talkgroups screen › " +
+            "Played calls. The last ${com.rfsentinel.app.sdr.P25Record.CALLS_KEEP} are kept, about 1 MB per minute of voice. " +
+            "Recording radio calls is not allowed everywhere: check the law where you are.") {
+            Prefs.setP25SaveCalls(this, it); com.rfsentinel.app.sdr.SdrRadio.p25SaveCalls = it
+        }
         val pagerGroup = group("pagers", "Pagers")
         pagerFreqField = lines("Pager frequencies", "466.075 Fire dispatch", Prefs.pagerFreqs(this),
             "Leave empty to scan for paging channels. If you know yours, enter it in MHz with an optional name, one per line: the SDR " +

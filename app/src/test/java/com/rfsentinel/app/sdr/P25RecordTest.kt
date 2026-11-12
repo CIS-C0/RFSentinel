@@ -43,4 +43,27 @@ class P25RecordTest {
         assertEquals(2 * PI * 1000 / P25Record.RATE, step / 100, 0.01)
         assertTrue(wav.getShort(44 + 400).toInt() != 0)
     }
+
+    @Test
+    fun aPlayedCallIsSavedAsAn8kMonoWavAndReadBackFromItsName() {
+        val wav = P25Record.speechWav(listOf(ShortArray(160) { 1000 }, ShortArray(160) { -1000 }))
+        val h = ByteBuffer.wrap(wav).order(ByteOrder.LITTLE_ENDIAN)
+        assertEquals(44 + 2 * 320, wav.size)
+        assertEquals(1, h.getShort(22).toInt())
+        assertEquals(ImbeDecoder.RATE, h.getInt(24))
+        assertEquals(640, h.getInt(40))
+        assertEquals(-1000, h.getShort(44 + 2 * 160).toInt())
+
+        val dir = kotlin.io.path.createTempDirectory().toFile()
+        try {
+            val f = java.io.File(dir, "p25_20261112_114720_tg54221.wav").apply { writeBytes(wav) }
+            val c = P25Record.saved(f)!!
+            assertEquals(54221, c.tg)
+            assertEquals(0.04, c.seconds, 1e-9)
+            val private = P25Record.saved(java.io.File(dir, "p25_20261112_114720_to1500020.wav").apply { writeBytes(wav) })!!
+            assertEquals(1500020L, private.target)
+            assertEquals(null, private.tg)
+            assertEquals(null, P25Record.saved(java.io.File(dir, "other.wav")))
+        } finally { dir.deleteRecursively() }
+    }
 }

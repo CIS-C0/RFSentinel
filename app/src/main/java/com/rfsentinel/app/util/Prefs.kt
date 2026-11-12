@@ -785,6 +785,9 @@ object Prefs {
     /** Save the radio signal of clear calls ([com.rfsentinel.app.sdr.P25Record]), for the voice decoder. Off by default. */
     fun p25Record(context: Context): Boolean = bool(context, "p25_record", false)
     fun setP25Record(context: Context, v: Boolean) = setBool(context, "p25_record", v)
+    /** Keep the sound of P25 calls played ([com.rfsentinel.app.sdr.P25Record.saveSpeech]). On by default. */
+    fun p25SaveCalls(context: Context): Boolean = bool(context, "p25_save_calls", true)
+    fun setP25SaveCalls(context: Context, v: Boolean) = setBool(context, "p25_save_calls", v)
     /** Which clear P25 calls to play live: 0 none (default), 1 watched talkgroups, 2 all ([com.rfsentinel.app.sdr.SdrRadio.Listen]). */
     fun p25Listen(context: Context): Int = int(context, "p25_listen", 0).coerceIn(0, 2)
     fun setP25Listen(context: Context, v: Int) = setInt(context, "p25_listen", v.coerceIn(0, 2))

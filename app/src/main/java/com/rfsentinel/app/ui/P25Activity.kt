@@ -94,6 +94,7 @@ class P25Activity : AppCompatActivity() {
         menu.add(0, MENU_HISTORY, 0, if (history == null) "History" else "Live")
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
         menu.add(0, MENU_EXPORT, 1, "Export call log")
+        menu.add(0, MENU_CALLS, 2, "Played calls")
         if (Prefs.p25Listen(this) != 0) menu.add(0, MENU_MUTE, 0, if (Prefs.p25Mute(this)) "Unmute" else "Mute")
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
         heldInMenu = SdrRadio.p25Hold
@@ -139,6 +140,7 @@ class P25Activity : AppCompatActivity() {
             invalidateOptionsMenu(); refresh(); true
         }
         MENU_EXPORT -> { exportLog(); true }
+        MENU_CALLS -> { showPlayedCalls(); true }
         MENU_HOLD -> {
             val tg = SdrRadio.p25Playing?.tg
             when {
@@ -154,6 +156,50 @@ class P25Activity : AppCompatActivity() {
             invalidateOptionsMenu(); true
         }
         else -> super.onOptionsItemSelected(item)
+    }
+
+    private var player: android.media.MediaPlayer? = null
+
+    private fun stopPlayer() { player?.release(); player = null }
+
+    override fun onStop() { stopPlayer(); super.onStop() }
+
+    /** The saved played calls ([com.rfsentinel.app.sdr.P25Record.saveSpeech]), newest first: tap one to hear it. */
+    private fun showPlayedCalls() = lifecycleScope.launch {
+        val calls = withContext(Dispatchers.IO) {
+            com.rfsentinel.app.sdr.P25Record.speechFiles(this@P25Activity).mapNotNull { com.rfsentinel.app.sdr.P25Record.saved(it) }
+        }
+        if (calls.isEmpty()) {
+            android.widget.Toast.makeText(this@P25Activity, "No calls saved yet: each P25 call played is kept (Settings › " +
+                "RTL-SDR radio › Save played calls)", android.widget.Toast.LENGTH_LONG).show()
+            return@launch
+        }
+        val labels = calls.map { c ->
+            val who = c.tg?.let { tg -> "Talkgroup $tg" + (watched[tg]?.ifEmpty { null }?.let { " ($it)" } ?: "") } ?: "Private call to radio ${c.target}"
+            DateUtils.formatDateTime(this@P25Activity, c.time, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or
+                DateUtils.FORMAT_ABBREV_MONTH) + " · $who · " + String.format(Locale.US, "%.1f s", c.seconds)
+        }.toTypedArray()
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this@P25Activity)
+            .setTitle("Played calls")
+            .setSingleChoiceItems(labels, -1) { _, i -> play(calls[i].file) }
+            .setNeutralButton("Share") { _, _ ->
+                com.rfsentinel.app.util.Exporter.shareFiles(this@P25Activity, calls.map { it.file }, "audio/wav",
+                    "RF Sentinel P25 calls (${calls.size})", "Share played calls")
+            }
+            .setPositiveButton("Close", null)
+            .setOnDismissListener { stopPlayer() }
+            .show()
+    }
+
+    private fun play(f: java.io.File) {
+        stopPlayer()
+        player = runCatching {
+            android.media.MediaPlayer().apply {
+                setAudioAttributes(android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH).build())
+                setDataSource(f.path); prepare(); start()
+            }
+        }.onFailure { android.widget.Toast.makeText(this, "This call can't be played", android.widget.Toast.LENGTH_SHORT).show() }.getOrNull()
     }
 
     private fun exportLog() = lifecycleScope.launch {
@@ -251,6 +297,7 @@ class P25Activity : AppCompatActivity() {
         private const val MENU_EXPORT = 2
         private const val MENU_MUTE = 3
         private const val MENU_HOLD = 4
+        private const val MENU_CALLS = 5
         private const val HISTORY_MS = 30_000L
         private val EMERGENCY = 0xFFD0503C.toInt()
 
