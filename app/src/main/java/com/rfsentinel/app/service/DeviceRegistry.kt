@@ -131,8 +131,9 @@ object DeviceRegistry {
         var fingerprint: String? = null
         /** Patrol-kit role (see [PatrolCluster.roleOf]) - sticky once known. */
         var role: String? = null
-        /** The address this device most likely used before its address rotated. */
+        /** The address this device most likely used before its address rotated, and what linked them. */
         var linkedFrom: String? = null
+        var linkedBy: String? = null
         var inherited: List<Hit> = emptyList()
         /** The device's own strongest recent match, held for [HIT_HOLD_MS] after it was last seen. */
         var heldHit: Hit? = null
@@ -285,26 +286,31 @@ object DeviceRegistry {
      * fingerprint went silent shortly before this new address appeared, treat
      * them as the same device and carry its matches over. Two or more
      * candidates (e.g. several identical earbuds) means no link. A random WiFi
-     * address uses the WPS UUID its probe requests send (USB adapter) instead.
+     * address uses the WPS UUID its probe requests send (USB adapter) instead, or
+     * the address the USB adapter linked it to (probe fingerprint and frame count).
      */
     private fun linkRotatedAddress(t: Track, a: Advert, now: Long) {
-        val uuid = if (a.isWifi && com.rfsentinel.app.util.MacUtil.isRandomized(a.mac)) com.rfsentinel.app.usb.ProbeIntel.of(a.mac)?.wps?.uuid else null
-        val fp = AdvertFingerprint.of(a) ?: uuid?.let { "uuid:$it" } ?: return
-        synchronized(t) { t.fingerprint = fp }
-        if (!AdvertFingerprint.mayRotate(a) && uuid == null) return
-        val candidates = tracks.values.filter { o ->
-            o !== t && synchronized(o) {
-                o.fingerprint == fp && o.lastSeen <= now - ROTATION_SILENCE_MS && now - o.lastSeen <= ROTATION_WINDOW_MS
-            }
+        val random = a.isWifi && com.rfsentinel.app.util.MacUtil.isRandomized(a.mac)
+        val probe = if (random) com.rfsentinel.app.usb.ProbeIntel.of(a.mac) else null
+        val uuid = probe?.wps?.uuid
+        val seqPrev = probe?.previous?.let { tracks[it] }?.takeIf { it !== t }
+        val fp = AdvertFingerprint.of(a) ?: uuid?.let { "uuid:$it" }
+        if (fp != null) synchronized(t) { t.fingerprint = fp }
+        val prev = seqPrev ?: run {
+            if (fp == null || (!AdvertFingerprint.mayRotate(a) && uuid == null)) return
+            tracks.values.filter { o ->
+                o !== t && synchronized(o) {
+                    o.fingerprint == fp && o.lastSeen <= now - ROTATION_SILENCE_MS && now - o.lastSeen <= ROTATION_WINDOW_MS
+                }
+            }.singleOrNull() ?: return
         }
-        val prev = candidates.singleOrNull() ?: return
+        val by = when { seqPrev != null -> "same probe fingerprint, frame count carried on"; uuid != null -> "same WPS UUID"; else -> "same advert fingerprint" }
         val carried = synchronized(prev) {
             (prev.hits.ifEmpty { prev.inherited }).map { h ->
                 h.copy(
                     confidence = (h.confidence - 5).coerceAtLeast(0),
-                    evidence = "Same device as ${prev.mac} before its address rotated (identical " +
-                        (if (uuid != null) "WPS UUID" else "advert fingerprint") +
-                        ", ${(now - prev.lastSeen) / 1000} s gap). Original evidence: ${h.evidence}"
+                    evidence = "Same device as ${prev.mac} before its address rotated ($by, " +
+                        "${(now - prev.lastSeen) / 1000} s gap). Original evidence: ${h.evidence}"
                 )
             } to (prev.name to prev.role)
         }
@@ -313,6 +319,7 @@ object DeviceRegistry {
         val follow = synchronized(prev) { Triple(prev.since, prev.path.toList(), prev.following) }
         synchronized(t) {
             t.linkedFrom = prev.mac
+            t.linkedBy = by
             t.inherited = carried.first
             if (t.name == null) t.name = carried.second.first
             if (t.role == null) t.role = carried.second.second
@@ -513,7 +520,7 @@ object DeviceRegistry {
         deviceType = hiddenRouterType(t) ?: t.identity.type,
         facts = t.identity.facts +
             listOfNotNull(
-                t.linkedFrom?.let { "Previous address" to "$it (address rotated, same advert fingerprint)" },
+                t.linkedFrom?.let { "Previous address" to "$it (address rotated, ${t.linkedBy ?: "same advert fingerprint"})" },
                 t.role?.let { "Patrol-kit role" to it }
             ) + if (full && Advert.Source.WIFI in t.sources) usbWifiFacts(t) else emptyList(),
         hits = t.hits,

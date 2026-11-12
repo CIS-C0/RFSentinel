@@ -294,6 +294,10 @@ object Prefs {
     fun followerAlerts(context: Context): Boolean = bool(context, "follower_alerts", true)
     fun setFollowerAlerts(context: Context, value: Boolean) = setBool(context, "follower_alerts", value)
 
+    /** Settings › Trackers & followers › Watch this place ([com.rfsentinel.app.service.PlaceWatch]). Off by default. */
+    fun placeWatch(context: Context): Boolean = bool(context, "place_watch", false)
+    fun setPlaceWatch(context: Context, value: Boolean) = setBool(context, "place_watch", value)
+
     /** Start recording a trace automatically whenever scanning starts. */
     /** Warn when approaching a plate reader mapped in OpenStreetMap (needs downloaded data). */
     /** Flock plate cameras among the detected ones (What to detect). */

@@ -1246,6 +1246,10 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.followSwitch, "Warns when a tracker or flagged device keeps moving with you, for at least the time and distance below - whether it stays in range or keeps turning up again: heard at 3 or more places along your way within 2 hours.")
         withUnit(binding.followMinutesInput, "min")
         withUnit(binding.followMetersInput, "m")
+        info(binding.placeWatchSwitch, "For a phone left in one place: home, a hotel room, a camp. Turn it on there: for 10 minutes RF Sentinel " +
+            "learns the devices around, then alerts when a new one shows up close by and stays 10 minutes (20 on an address that changes, " +
+            "so your own phones don't set it off). Devices that were here all along and go quiet for 30 minutes, then come back, are " +
+            "only logged. Paused while you're more than 300 m away. Learns again after scanning restarts. Turn it off when you leave.")
         info(binding.mapProviderLabel, "OpenFreeMap: free and open, OpenStreetMap data.\n\nMapbox: Mapbox's Standard map with 3D buildings and day / night light.\n\nThe floating mini map and the Android Auto map always use OpenStreetMap maps.")
         info(binding.mapAutoRecenterSwitch, "While you drive, the map goes back to your position once you've left it alone for the time set under it (Re-center after).")
         info(binding.mapSpeedometerSwitch, "Your speed and the posted limit in a corner of the map; your speed turns red over the limit.")
@@ -3124,6 +3128,7 @@ class SettingsActivity : AppCompatActivity() {
 
         // Location
         binding.followSwitch.isChecked = Prefs.followerAlerts(this)
+        binding.placeWatchSwitch.isChecked = Prefs.placeWatch(this)
         updateTrackerIgnoreText()
         updateEspStatus()
         com.rfsentinel.app.esp.EspBoards.onStatusChanged = { runOnUiThread { updateEspStatus() } }
@@ -3421,6 +3426,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setDedupeWindowMs(this, dedupeMin.coerceAtLeast(1) * 60000L)
 
         Prefs.setFollowerAlerts(this, binding.followSwitch.isChecked)
+        Prefs.setPlaceWatch(this, binding.placeWatchSwitch.isChecked)
         Prefs.setFollowMinMinutes(this, (binding.followMinutesInput.text.toString().toIntOrNull() ?: 10).coerceIn(2, 240))
         Prefs.setFollowMinMeters(this, (binding.followMetersInput.text.toString().toIntOrNull() ?: 800).coerceIn(100, 50_000))
         Prefs.setGpsTaggingEnabled(this, binding.gpsSwitch.isChecked)

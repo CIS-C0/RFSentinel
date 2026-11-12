@@ -152,19 +152,19 @@ object ProbeIntel {
 
     /** What external hardware learned about a device this scan, for its detail screen. */
     data class Record(val wps: Wps?, val fingerprint: String?, val probed: List<String>, val hidden: Boolean = false,
-                      val skeleton: Long? = null, val traits: String? = null)
+                      val skeleton: Long? = null, val traits: String? = null, val previous: String? = null)
 
     private val byMac = ConcurrentHashMap<String, Record>()
 
     fun note(mac: String, wps: Wps?, fingerprint: String?, probed: List<String>, hidden: Boolean = false, skeleton: Long? = null,
-             traits: String? = null) {
-        if (wps == null && fingerprint == null && probed.isEmpty() && !hidden && skeleton == null && traits == null) return
+             traits: String? = null, previous: String? = null) {
+        if (wps == null && fingerprint == null && probed.isEmpty() && !hidden && skeleton == null && traits == null && previous == null) return
         val key = mac.uppercase()
         val old = byMac[key]
         // A later WPS block without its UUID keeps the one already heard.
         val w = wps?.let { if (it.uuid == null && old?.wps?.uuid != null) it.copy(uuid = old.wps.uuid) else it }
         byMac[key] = Record(w ?: old?.wps, fingerprint ?: old?.fingerprint, probed.ifEmpty { old?.probed.orEmpty() },
-            hidden || old?.hidden == true, skeleton ?: old?.skeleton, traits ?: old?.traits)
+            hidden || old?.hidden == true, skeleton ?: old?.skeleton, traits ?: old?.traits, previous ?: old?.previous)
         if (byMac.size > 5000) byMac.keys.take(500).forEach { byMac.remove(it) }
     }
 

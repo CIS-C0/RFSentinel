@@ -144,6 +144,10 @@ class ScanForegroundService : Service() {
         private const val CLASSIFY_INTERVAL_MS = 2_000L
 
         private const val STATUS_INTERVAL_MS = 10_000L
+        /** Addresses that don't rotate, for Watch this place. */
+        private val FIXED_ADDRESSES = setOf(com.rfsentinel.app.detect.AddressType.PUBLIC, com.rfsentinel.app.detect.AddressType.RANDOM_STATIC,
+            com.rfsentinel.app.detect.AddressType.WIFI_GLOBAL, com.rfsentinel.app.detect.AddressType.LIKELY_PUBLIC,
+            com.rfsentinel.app.detect.AddressType.LIKELY_STATIC)
         /** Each periodic job holds a short wake lock only while it runs. */
         private const val WAKE_SLICE_MS = 10_000L
         private const val HISTORY_FLUSH_MS = 60_000L
@@ -262,6 +266,9 @@ class ScanForegroundService : Service() {
     private lateinit var wifiEngine: WifiScanEngine
     /** Flagged devices that keep turning up at places along your way (pipeline thread only). */
     private val placeFollow = PlaceFollow()
+    /** Settings › Watch this place (housekeeping loop only); [placeLearnedLogged]: its end of learning was logged. */
+    private val placeWatch = PlaceWatch()
+    private var placeLearnedLogged = false
     /** Drone Remote ID over Wi-Fi Aware, on phones that have it. */
     private var nanRemoteId: NanRemoteId? = null
 
@@ -937,14 +944,14 @@ class ScanForegroundService : Service() {
      */
     private fun noteProbes(mac: String, ssids: List<String>, rssi: Int, now: Long,
                            wps: com.rfsentinel.app.usb.ProbeIntel.Wps? = null, fingerprint: String? = null, hidden: Boolean = false,
-                           skeleton: Long? = null, traits: String? = null) {
-        com.rfsentinel.app.usb.ProbeIntel.note(mac, wps, fingerprint, ssids, hidden, skeleton, traits)
+                           skeleton: Long? = null, traits: String? = null, previous: String? = null) {
+        com.rfsentinel.app.usb.ProbeIntel.note(mac, wps, fingerprint, ssids, hidden, skeleton, traits, previous)
         // Kept in the requested-networks list when that's on, and always while a trace records.
         // Where it was asked for: this phone's position, when the fix is fresh and good enough to place devices.
         val at = lastFix?.takeIf { usableForPlacing(it) }
             ?.let { it.latitude to it.longitude }
         com.rfsentinel.app.data.ProbeLog.record(this, mac, ssids, rssi, now, force = TripRecorder.isRecording,
-            wps = wps, fingerprint = fingerprint, at = at, traits = traits)
+            wps = wps, fingerprint = fingerprint, at = at, traits = traits, previous = previous)
         val hits = OuiWatchlist.probeHits(ssids) + OuiWatchlist.fingerprintHits(fingerprint) + OuiWatchlist.wpsHits(wps) +
             OuiWatchlist.fingerprintHits(skeleton?.let { com.rfsentinel.app.usb.ProbeIntel.shapeKey(it) }) +
             OuiWatchlist.fingerprintHits(wps?.uuid?.let { com.rfsentinel.app.usb.ProbeIntel.uuidKey(it) })
@@ -959,7 +966,8 @@ class ScanForegroundService : Service() {
         val now = System.currentTimeMillis()
         val mac = com.rfsentinel.app.util.MacUtil.normalize(m.mac)
         com.rfsentinel.app.esp.HeardBy.usb.mark(mac, now)
-        noteProbes(mac, m.probedSsids, m.rssi, now, m.wps, m.fingerprint, m.hiddenNetwork, m.probeSkeleton, m.probeTraits)
+        noteProbes(mac, m.probedSsids, m.rssi, now, m.wps, m.fingerprint, m.hiddenNetwork, m.probeSkeleton, m.probeTraits,
+            m.previousMac?.let { com.rfsentinel.app.util.MacUtil.normalize(it) })
         val a = Advert(
             // A client has no network name; its WPS device name or model says what it is.
             mac = mac, source = Advert.Source.WIFI, rssi = m.rssi, name = m.ssid ?: m.wps?.label,
@@ -1581,8 +1589,9 @@ class ScanForegroundService : Service() {
                 holdAwake()
                 val devices = DeviceRegistry.snapshot()
                 val flagged = devices.count { d -> com.rfsentinel.app.ui.LiveWindow.alerting(d) }
+                val place = runCatching { checkPlaceWatch(devices) }.onFailure { Log.w(TAG, "Place watch failed", it) }.getOrNull()
                 val text = "${devices.size} device${if (devices.size == 1) "" else "s"} nearby" +
-                    (if (flagged > 0) " · $flagged flagged" else "") +
+                    (if (flagged > 0) " · $flagged flagged" else "") + (place?.let { " · $it" } ?: "") +
                     (com.rfsentinel.app.sdr.SdrRadio.p25Hold?.let { " · holding P25 talkgroup $it" } ?: "")
                 NotificationHelper.updateServiceNotification(this@ScanForegroundService, text)
                 StatusWidget.updateAll(this@ScanForegroundService, devices.size, flagged)
@@ -1603,6 +1612,57 @@ class ScanForegroundService : Service() {
                 watchdog()
             }
         }
+    }
+
+    /**
+     * Settings › Watch this place: started and stopped with the setting, checked with each status update. Returns its state
+     * for the status notification, or null when off.
+     */
+    private fun checkPlaceWatch(devices: List<DeviceRegistry.Snapshot>): String? {
+        val now = System.currentTimeMillis()
+        val here = (lastLocation ?: lastFix)?.let { it.latitude to it.longitude }
+        if (!Prefs.placeWatch(this)) {
+            if (placeWatch.on) { placeWatch.stop(); Log.i(TAG, "Place watch off") }
+            return null
+        }
+        if (!placeWatch.on) {
+            placeWatch.start(now, here); placeLearnedLogged = false
+            Log.i(TAG, "Place watch on: learning for ${PlaceWatch.LEARN_MS / 60_000} min" + if (here == null) ", no position yet" else "")
+        }
+        val byMac = devices.associateBy { it.mac }
+        val events = placeWatch.check(now, here, devices.map { d ->
+            PlaceWatch.Device(d.mac, d.addressType !in FIXED_ADDRESSES, d.bestRssi, d.lastSeen, d.source.name)
+        }) { DeviceRegistry.linkedFrom(it) }
+        if (!placeWatch.learning(now) && !placeLearnedLogged) {
+            placeLearnedLogged = true
+            val (known, resident) = placeWatch.learned
+            Log.i(TAG, "Place watch: learned $known devices, $resident on a fixed address that stayed" + if (placeWatch.place == null) ", no position" else "")
+        }
+        // Reported on the pipeline thread, like every other detection.
+        for (e in events) byMac[e.mac].let { d -> pipeline.post { reportPlace(e, d, now) } }
+        return when {
+            placeWatch.away -> "away from the watched place"
+            placeWatch.learning(now) -> "learning this place"
+            else -> "watching this place"
+        }
+    }
+
+    /** A Watch this place report: a new device alerts; one gone or back is only logged (low confidence). */
+    private fun reportPlace(e: PlaceWatch.Event, d: DeviceRegistry.Snapshot?, now: Long) {
+        val what = d?.name ?: d?.vendor ?: d?.deviceType?.takeIf { it.isNotBlank() } ?: "A device"
+        val how = "Watch this place (Settings › Trackers & followers)"
+        val hit = when (e.kind) {
+            PlaceWatch.Kind.NEW -> Hit(Category.CUSTOM, "New device here: $what", 70,
+                "$what (${e.mac}) wasn't around while RF Sentinel learned this place, and has stayed ${e.minutes} min" +
+                    (d?.let { ", at up to ${it.bestRssi} dBm" } ?: "") + ".", how)
+            PlaceWatch.Kind.GONE -> Hit(Category.CUSTOM, "Gone from here: $what", 30,
+                "$what (${e.mac}) was here all along while RF Sentinel learned this place, and hasn't been heard for ${e.minutes} min.", how)
+            PlaceWatch.Kind.BACK -> Hit(Category.CUSTOM, "Back here: $what", 30,
+                "$what (${e.mac}) is back after ${e.minutes} min away.", how)
+        }
+        Log.i(TAG, "Place watch: ${e.kind.name.lowercase()}, ${e.source}, ${e.minutes} min")
+        reportAttack(e.mac, e.source, hit, d?.name, "place:${e.kind}:${e.mac}", "New device here", now,
+            d?.let { com.rfsentinel.app.esp.HeardBy.tag(it.mac, it.source) })
     }
 
     /**
@@ -2091,7 +2151,9 @@ class ScanForegroundService : Service() {
             (if (a.broadcast) ", sent to every device on it" else "") + ". Something is knocking devices off this WiFi: a jammer " +
             "or a hacking tool (ESP32 / ESP8266 deauther, Flipper Zero WiFi board, WiFi Pineapple). A normal network sends a " +
             "handful, never a stream. Heard by the USB WiFi adapter; nothing is sent."
-        val hit = Hit(Category.HACKER, "WiFi deauth attack on $net", if (a.broadcast) 80 else 70, detail,
+        val tool = a.tool?.let { t -> " Its frames match ${t.label}: ${t.how}. Tools can change these, so that's likely, not proof." } ?: ""
+        val hit = Hit(Category.HACKER, "WiFi deauth attack on $net" + (a.tool?.let { " (likely ${it.label})" } ?: ""),
+            if (a.broadcast) 80 else 70, detail.replaceFirst(". Something is knocking", ".$tool Something is knocking"),
             "802.11 management frames (USB WiFi adapter, receive-only)")
         reportAttack(a.bssid, "WIFI", hit, ssid, "deauth:" + a.bssid, "WiFi attack nearby", now, "USB WiFi")
     }
@@ -2128,7 +2190,7 @@ class ScanForegroundService : Service() {
     }
 
     /** An attack heard over time rather than one device: logged, and alerted like a detection. */
-    private fun reportAttack(mac: String, source: String, hit: Hit, name: String?, key: String, spoken: String, now: Long, heardBy: String) {
+    private fun reportAttack(mac: String, source: String, hit: Hit, name: String?, key: String, spoken: String, now: Long, heardBy: String?) {
         val loc = lastLocation
         logDetection(mac, source, hit, now, loc?.latitude, loc?.longitude, deviceName = name, heardBy = heardBy)
         if (hit.confidence >= Prefs.alertThreshold(this, hit.category)) {

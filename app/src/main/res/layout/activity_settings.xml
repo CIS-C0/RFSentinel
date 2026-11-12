@@ -297,6 +297,11 @@
                 </LinearLayout>
             </LinearLayout>
 
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
+                android:id="@+id/placeWatchSwitch"
+                android:text="Watch this place" />
+
             <TextView
                 android:id="@+id/trackerIgnoreText"
                 style="@style/SettingsLabel"

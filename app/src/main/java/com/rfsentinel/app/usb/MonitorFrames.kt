@@ -29,6 +29,8 @@ class MonitorFrames {
         var wildcard = false; var flockIe = false
         /** How steadily it sends wildcard probes ([com.rfsentinel.app.detect.ProbeBehaviour]). */
         var probeRate: com.rfsentinel.app.detect.ProbeBehaviour.Counter? = null
+        /** Its last probe request's 802.11 sequence number (-1: none yet); the random address it used before ([rotatedFrom]). */
+        var lastSeq = -1; var previous: String? = null; var linkTried = false
         /** An access point's latest beacon elements and its "protected" capability bit; [iesAt]: when they, or a client's [traits], were read. */
         var ies: List<Pair<Int, ByteArray>>? = null; var iesAt = 0L; var privacy = false
         /** What a client's probe requests say about it in words ([ProbeIntel.traits]), refreshed every [IES_REFRESH_MS]. */
@@ -103,7 +105,8 @@ class MonitorFrames {
         }
         // Deauthentication (12) / disassociation (10) not protected by 802.11w: counted for flood alarms.
         if (ftype == 0 && (sub == 12 || sub == 10) && (fc1 and 0x40) == 0 && isReal(b, a3)) {
-            DeauthWatch.frame(mac(b, a3), (0 until 6).all { b[a1 + it] == 0xFF.toByte() }, channel, now)
+            val reason = if (ProbeIntel.withoutFcs(b, d, end) - d >= 26) u8(d + 24) or (u8(d + 25) shl 8) else -1
+            DeauthWatch.frame(mac(b, a3), (0 until 6).all { b[a1 + it] == 0xFF.toByte() }, channel, now, disassoc = sub == 10, reason = reason)
         }
         when (ftype) {
             0 -> when (sub) {
@@ -147,6 +150,9 @@ class MonitorFrames {
                     if (ies.flockIe) s.flockIe = true
                     ProbeIntel.fingerprint(b, d + 24, body)?.let { s.fingerprint = it }
                     ProbeIntel.skeletonHash(b, d + 24, body)?.let { s.skeleton = it }
+                    val seq = (u8(d + 22) or (u8(d + 23) shl 8)) shr 4
+                    if (!s.linkTried && s.fingerprint != null) { s.linkTried = true; s.previous = rotatedFrom(s, seq) }
+                    s.lastSeq = seq
                     if (s.traits == null || now - s.iesAt > IES_REFRESH_MS) {
                         ProbeIntel.traits(elements(b, d + 24, body))?.let { s.traits = it }; s.iesAt = now
                     }
@@ -192,6 +198,26 @@ class MonitorFrames {
             u8(body + 4) == 0x82 && u8(body + 5) == 0x84 && u8(body + 6) == 0x8B && u8(body + 7) == 0x96
     }
 
+    /**
+     * The random address the client [s] used before, as it starts probing with sequence number [seq]: exactly one client with
+     * the same probe fingerprint went quiet less than [LINK_WINDOW_MS] before [s] was first heard, and its last probe's sequence
+     * number is at most [LINK_SEQ_GAP] short of [seq]. Many phones keep one 802.11 frame counter across address changes
+     * (Vanhoef et al., "Why MAC address randomization is not enough", 2016; the idea, not code). Null when none or several.
+     */
+    private fun rotatedFrom(s: Sighting, seq: Int): String? {
+        if (!randomMac(s.mac)) return null
+        val prev = sightings.values.filter { o ->
+            o !== s && !o.isAp && o.fingerprint == s.fingerprint && o.lastSeq >= 0 && randomMac(o.mac) &&
+                o.lastSeen < s.firstSeen && s.firstSeen - o.lastSeen <= LINK_WINDOW_MS && ((seq - o.lastSeq) and 0xFFF) in 1..LINK_SEQ_GAP
+        }.singleOrNull() ?: return null
+        if (sightings.values.any { it.previous == prev.mac }) return null // that address already went on as another
+        if (UsbWifi.logAll) UsbWifi.log("${UsbWifi.label}: #${s.id} is #${prev.id} after an address change (same probe fingerprint, " +
+            "sequence +${(seq - prev.lastSeq) and 0xFFF}, ${(s.firstSeen - prev.lastSeen) / 1000} s apart)")
+        return prev.mac
+    }
+
+    private fun randomMac(m: String) = ((m.take(2).toIntOrNull(16) ?: 0) and 0x02) != 0
+
     private fun revealFromAssociation(b: ByteArray, from: Int, end: Int, bssid: String) {
         if (from >= end) return
         val name = Ies.read(b, from, end).ssid?.takeIf { validSsid(it) } ?: return
@@ -235,7 +261,8 @@ class MonitorFrames {
                 capabilities = s.ies?.let { capabilities(it, s.privacy) } ?: "",
                 standard = s.ies?.let { standard(it) },
                 upSince = s.upSince,
-                dataBytes = s.dataBytes
+                dataBytes = s.dataBytes,
+                previousMac = s.previous
             )
         }
         sightings.entries.removeAll { now - it.value.lastSeen > pruneMs }
@@ -361,6 +388,9 @@ class MonitorFrames {
         fun validSsid(s: String) = s.isNotEmpty() && s.length <= 32 && s.none { it < ' ' || it == '�' }
 
         private const val MAX_PROBED = 16
+        /** [rotatedFrom]: the old address went quiet this shortly before the new one, its frame count this little behind. */
+        private const val LINK_WINDOW_MS = 30_000L
+        private const val LINK_SEQ_GAP = 64
         private const val IES_REFRESH_MS = 10_000L
         /** A beacon clock past 5 years is junk (a corrupt frame), not uptime. */
         private const val MAX_TSF_US = 5L * 365 * 86_400 * 1_000_000

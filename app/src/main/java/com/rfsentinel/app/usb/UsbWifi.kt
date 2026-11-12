@@ -46,7 +46,9 @@ data class MonitorSighting(
     /** When its WiFi came up, from the beacon clock. */
     val upSince: Long? = null,
     /** Data bytes it sent while heard. */
-    val dataBytes: Long = 0
+    val dataBytes: Long = 0,
+    /** The random address this client used before it changed it, when linked ([MonitorFrames]: probe fingerprint and sequence number). */
+    val previousMac: String? = null
 )
 
 /**
