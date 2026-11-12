@@ -51,6 +51,7 @@ object SdrRadio {
     /** Frequency corrections learned per session at most: a warming crystal drifts a little, a wrong reading must not loop. */
     private const val MAX_FREQ_FIXES = 3
     private const val P25_RETRY_MS = 30_000L   // no control channel found: look again after this
+    private const val P25_WEAK_RETRY_MS = 5_000L // one heard but too weak to decode: sooner, the antenna may be moving
     internal const val STAY_MS = 30_000L       // Stay on activity: the turn runs on this long after the last activity
     internal const val MAX_STAY_MS = 10 * 60_000L // ...but at most this long in all, so the other scans still get turns
     private const val PAGER_RETRY_MS = 5_000L  // no paging channel decoded: look again after this (they can be silent between pages)
@@ -837,9 +838,10 @@ object SdrRadio {
             val lock = known ?: hunt.hunt(firstTries(rememberedLocks(), alternates()), stop)
             if (lock == null) {
                 if (stop()) break
-                com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 - no control channel decoded (${hunt.tried} channels tried), looking again in ${P25_RETRY_MS / 1000} s")
+                val wait = if (hunt.weakSeen) P25_WEAK_RETRY_MS else P25_RETRY_MS
+                com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 - no control channel decoded (${hunt.tried} channels tried), looking again in ${wait / 1000} s")
                 status = "$deviceLabel · P25 · ${hunt.hint ?: "no control channel heard here"} · looking again shortly" + turnNote()
-                val until = System.currentTimeMillis() + P25_RETRY_MS
+                val until = System.currentTimeMillis() + wait
                 while (!stop() && System.currentTimeMillis() < until) Thread.sleep(200)
                 continue
             }

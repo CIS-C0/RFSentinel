@@ -44,6 +44,8 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
     @Volatile var carrierHz = 0L; private set
     /** Why the last hunt found nothing, for the status line ("a control channel too weak to decode here"); null after a lock. */
     @Volatile var hint: String? = null; private set
+    /** The last hunt heard a control channel it couldn't decode yet: worth looking again soon (an antenna being moved). */
+    @Volatile var weakSeen = false; private set
 
     private val buf = ByteArray(XFER)
     private var hunts = 0
@@ -57,7 +59,7 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
     /** The control channel heard best here, or null (none on the air, or [stop]). [first]: channels to try before scanning. */
     fun hunt(first: List<Long> = emptyList(), stop: () -> Boolean): Lock? {
         hunts++
-        hint = null
+        hint = null; weakSeen = false
         rejected.entries.removeAll { hunts - it.value >= REJECT_HUNTS }
         sdr.setSampleRate(P25Demod.SAMPLE_RATE)
         sdr.setGain(gainTenths)
@@ -96,6 +98,7 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
             if (stop()) return null
             attempt(c, "${i + 1}/${tries.size}")?.let { return it }
         }
+        weakSeen = weak > 0
         hint = when {
             weak > 0 -> "a control channel is here but too weak to decode · try a better antenna or spot"
             all.isEmpty() -> "nothing on the air in the P25 bands · check the antenna" +
@@ -126,7 +129,9 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
         }?.takeIf { it != gainTenths } ?: return o
         log("P25 try $which: " + (if (o.clip > CLIP_LIMIT) "the tuner clipped (%.1f%% of samples at full scale)".format(o.clip * 100)
             else "trunking heard but not decoded") + ", again at %.1f dB gain".format(retry / 10.0))
-        return trial(c, "$which again", stop, retry).also { sdr.setGain(gainTenths) }
+        val again = trial(c, "$which again", stop, retry).also { sdr.setGain(gainTenths) } ?: return null
+        // Too weak once stays too weak: a worse second listen mustn't mark a real control channel "not P25" for later hunts.
+        return if (o.weak && again.lock == null && !again.weak) Outcome(null, true, again.voice, again.clip, true) else again
     }
 
     /** A short listen on [c]: a [Lock] when trunking blocks decode there. Null when [stop] said so. */
