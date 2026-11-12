@@ -29,7 +29,7 @@
 <p>Settings → <b>RTL-SDR radio</b> → <b>Scan with the SDR</b>. Tick any mix:</p>
 <table>
 <tr><th>Scan</th><th>What it does</th><th>Also needs</th></tr>
-<tr><td>Radio activity sweep</td><td>Sweeps the two-way radio bands and reports strong transmissions near you. Signal strength only, nothing is decoded.</td><td>What to detect → Two-way radio</td></tr>
+<tr><td>Radio activity sweep</td><td>Sweeps the two-way radio bands and reports strong transmissions near you, by signal strength. With Play voice transmissions on, it also plays them.</td><td>What to detect → Two-way radio</td></tr>
 <tr><td>ADS-B aircraft receiver</td><td>Hears aircraft on 1090 MHz and checks them against the police and government aircraft list, with no internet.</td><td>What to detect → Police / government aircraft</td></tr>
 <tr><td>P25 control channel (experimental)</td><td>Finds a P25 trunked system's control channel (700 / 800 MHz, United States and Canada) and shows which talkgroups get a call, and when.</td><td>What to detect → Two-way radio</td></tr>
 <tr><td>Pager messages (experimental)</td><td>Finds paging channels and decodes POCSAG and FLEX pages.</td><td>What to detect → Two-way radio</td></tr>
@@ -46,8 +46,16 @@
 <li><b>Watch these frequencies</b>: always reported when active, whatever the sensitivity ("154.4300 County fire dispatch").</li>
 <li><b>Frequency names</b>: import a CSV (a RadioReference export, CHIRP or any file with a frequency and a name column) so hits are named. In the US, RadioReference can also name nearby FCC licences with your own Premium login and developer key.</li>
 <li><b>Detect TETRA radios</b> (on by default in Europe), <b>DMR radios</b> and <b>cellular transmitters</b> (experimental) look for each one's burst rhythm or uplink energy. Each is a weak sign on its own.</li>
+<li><b>Say the frequency</b>: alerts say the frequency (and its name) instead of "Radio transmitting nearby".</li>
+<li><b>Play voice transmissions</b> (experimental, off by default): when the sweep hears a new transmission, the SDR tunes to it and plays the voice through the speaker, headphones or car, then sweeps on once it goes quiet (1 minute at most). Analog radios (walkie-talkies, businesses) and P25 radios that aren't encrypted; encrypted and other digital radios stay silent. Not while the radio waterfall is open. The sweep always skips FRS / GMRS family radio channels: to hear those, use the waterfall's Walkie-talkies preset.</li>
 </ul>
-<p><b>Tools → Radio waterfall</b> shows each sweep as a row; zoom into a few channels for a live view. The sweep and ADS-B pause while it's open.</p>
+<h3 id="waterfall">Radio waterfall</h3>
+<p><b>Tools → Radio waterfall</b> shows each sweep as a row; zoom into a few channels for a live view. The sweep and ADS-B pause while it's open. <b>Tune</b> offers:</p>
+<ul>
+<li><b>Listen</b>: plays the frequency you zoomed into, at the phone's media volume.</li>
+<li><b>Find a remote's frequency</b>: like a Flipper Zero's frequency analyzer. Wait for "Ready", then press and hold a button on a key fob, garage opener or sensor a few times. It shows the frequency heard and how strong; <b>Tune to it</b> zooms there. It first learns what's already on the air, so that isn't shown.</li>
+<li><b>Presets</b>: FM radio, aircraft voice, weather radio, marine, walkie-talkies (FRS / GMRS), ham 2 m, sensors and European car keys (433.92 MHz), North American car keys and garage openers (315 MHz), and aircraft transponders. Or type a frequency.</li>
+</ul>
 
 <h2 id="adsb">4. ADS-B aircraft</h2>
 <ol>
@@ -74,6 +82,7 @@
 </ul>
 <h3 id="p25-voice">Listening to P25 voice (experimental)</h3>
 <p><b>Listen to P25 voice</b>: Off, Watched talkgroups, or All clear calls. Clear (not encrypted) calls play through the speaker, headphones or car, one call at a time, up to 2 minutes each. Encrypted calls can't be played. On the P25 talkgroups screen, <b>Mute</b> pauses it, and <b>Hold</b> (or tapping a talkgroup) plays only that talkgroup until <b>Release</b>. While a call plays, the SDR is off the control channel and misses its messages.</p>
+<p><b>Save played calls</b> (on by default) keeps the sound of every call played, and of every transmission Play voice transmissions plays, on the phone only. Listen again on the P25 talkgroups screen → menu → <b>Played calls</b>: tap one to hear it, <b>Share</b> sends them as WAV files. The last 200 are kept, about 1 MB per minute of P25 voice (walkie-talkies take about 4 MB per minute).</p>
 <p>A call that sounds wrong? Tick <b>Record P25 voice calls</b>: the next clear calls are saved as raw radio files (about 1 MB each, the last ones kept), and <b>Share P25 recordings</b> sends them to the developer to fix the decoder.</p>
 
 <h2 id="pagers">6. Pager messages</h2>
@@ -107,7 +116,7 @@
 <details class="faq" id="q-sdr-guide-listen">
 <summary>Does the radio sweep listen to calls?</summary>
 <div>
-<p>No. It measures how much energy each channel carries. Only the experimental Listen to P25 voice option plays audio, and only unencrypted P25 calls.</p>
+<p>Not by default. It measures how much energy each channel carries. Two experimental options play audio: <b>Play voice transmissions</b> (the sweep's new transmissions: analog radios and unencrypted P25) and <b>Listen to P25 voice</b> (unencrypted calls on a P25 trunked system). Encrypted calls can't be played.</p>
 </div>
 </details>
 
