@@ -1249,7 +1249,10 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.placeWatchSwitch, "For a phone left in one place: home, a hotel room, a camp. Turn it on there: for 10 minutes RF Sentinel " +
             "learns the devices around, then alerts when a new one shows up close by and stays 10 minutes (20 on an address that changes, " +
             "so your own phones don't set it off). Devices that were here all along and go quiet for 30 minutes, then come back, are " +
-            "only logged. Paused while you're more than 300 m away. Learns again after scanning restarts. Turn it off when you leave.")
+            "only logged. Paused while you're more than 300 m away. Learns again after scanning restarts. Turn it off when you leave.\n\n" +
+            "Counts what this phone, its USB and ESP32 hardware and Sentinels linked over Bluetooth hear. Not LoRa nodes, nor devices " +
+            "heard over the mesh or the internet: they can be far away. A new device alerts like a watchlist match, so linked " +
+            "Sentinels and the mesh get it too; whitelisted devices never alert.")
         info(binding.mapProviderLabel, "OpenFreeMap: free and open, OpenStreetMap data.\n\nMapbox: Mapbox's Standard map with 3D buildings and day / night light.\n\nThe floating mini map and the Android Auto map always use OpenStreetMap maps.")
         info(binding.mapAutoRecenterSwitch, "While you drive, the map goes back to your position once you've left it alone for the time set under it (Re-center after).")
         info(binding.mapSpeedometerSwitch, "Your speed and the posted limit in a corner of the map; your speed turns red over the limit.")

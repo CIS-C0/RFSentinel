@@ -144,6 +144,9 @@ class ScanForegroundService : Service() {
         private const val CLASSIFY_INTERVAL_MS = 2_000L
 
         private const val STATUS_INTERVAL_MS = 10_000L
+        /** Watch this place: heard this recently by a radio here counts; its "New device" match lasts this long. */
+        private const val PLACE_HEARD_MS = 60_000L
+        private const val PLACE_HIT_MS = 5 * 60_000L
         /** Addresses that don't rotate, for Watch this place. */
         private val FIXED_ADDRESSES = setOf(com.rfsentinel.app.detect.AddressType.PUBLIC, com.rfsentinel.app.detect.AddressType.RANDOM_STATIC,
             com.rfsentinel.app.detect.AddressType.WIFI_GLOBAL, com.rfsentinel.app.detect.AddressType.LIKELY_PUBLIC,
@@ -269,6 +272,11 @@ class ScanForegroundService : Service() {
     /** Settings › Watch this place (housekeeping loop only); [placeLearnedLogged]: its end of learning was logged. */
     private val placeWatch = PlaceWatch()
     private var placeLearnedLogged = false
+    /**
+     * Watch this place's "New device" match per address, and when it was made: added to the device's matches for a while
+     * ([placeHit]) so it alerts, logs and is shared (Sentinel Link, the mesh) like any other match.
+     */
+    private val placeHits = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Hit>>()
     /** Drone Remote ID over Wi-Fi Aware, on phones that have it. */
     private var nanRemoteId: NanRemoteId? = null
 
@@ -819,12 +827,21 @@ class ScanForegroundService : Service() {
         locationListening = false
     }
 
+    /** [mac]'s Watch this place match while it's fresh: at most one alert ([PLACE_HIT_MS], or the alert repeat time if shorter). */
+    private fun placeHit(mac: String, now: Long): Hit? {
+        if (placeHits.isEmpty()) return null
+        val (at, hit) = placeHits[mac] ?: return null
+        if (now - at < minOf(PLACE_HIT_MS, Prefs.dedupeWindowMs(this))) return hit
+        placeHits.remove(mac)
+        return null
+    }
+
     // ---- Pipeline -------------------------------------------------------------
 
     /** Something the phone's own Bluetooth or Wi-Fi chip heard. */
     private fun processPhone(a: Advert) {
         com.rfsentinel.app.esp.HeardBy.phone.mark(a.mac)
-        if (sharing()) linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_PHONE, a))
+        if (sharing()) linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_PHONE, a, hits = listOfNotNull(placeHit(a.mac, a.timestamp))))
         process(a)
     }
 
@@ -979,7 +996,8 @@ class ScanForegroundService : Service() {
                 upSince = m.upSince, dataBytes = m.dataBytes),
             timestamp = now
         )
-        if (sharing()) linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_USB, a, probed = m.probedSsids, fingerprint = m.fingerprint, hidden = m.hiddenNetwork))
+        if (sharing()) linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_USB, a, hits = listOfNotNull(placeHit(mac, now)),
+            probed = m.probedSsids, fingerprint = m.fingerprint, hidden = m.hiddenNetwork))
         process(a, null)
     }
 
@@ -988,7 +1006,7 @@ class ScanForegroundService : Service() {
         val a = AdvertFactory.fromHci(r)
         com.rfsentinel.app.esp.HeardBy.usbBt.mark(a.mac, a.timestamp)
         com.rfsentinel.app.usb.AntennaCheck.heardBt(a.mac, a.name, a.rssi, a.timestamp)
-        if (sharing()) linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_PHONE, a))
+        if (sharing()) linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_PHONE, a, hits = listOfNotNull(placeHit(a.mac, a.timestamp))))
         process(a)
     }
 
@@ -1009,7 +1027,8 @@ class ScanForegroundService : Service() {
             mac = e.mac, source = Advert.Source.WIFI, rssi = e.rssi, name = e.name,
             wifi = Advert.WifiInfo(e.frequencyMhz, e.capabilities, null, emptyList(), client = e.client), timestamp = now
         )
-        if (sharing()) linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_ESP, advert, hits = e.hits, probed = e.probedSsids))
+        if (sharing()) linkOutbox?.add(LinkCodec.Sighting(LinkCodec.KIND_ESP, advert, hits = e.hits + listOfNotNull(placeHit(advert.mac, now)),
+            probed = e.probedSsids))
         process(advert, e.remoteId, e.position?.let { DeviceRegistry.GeoSample(now, it.first, it.second) })
     }
 
@@ -1364,7 +1383,8 @@ class ScanForegroundService : Service() {
         val sifted = kept + listOfNotNull(com.rfsentinel.app.detect.ProbeBehaviour.supportHit(a, kept))
         val (on, off) = sifted.filter { !(noAirTags && SignatureEngine.isAppleFindMy(it)) }
             .partition { Prefs.categoryEnabled(this, it.category) }
-        val hits = EvidenceFusion.fuse(on)
+        // Watch this place is its own switch: its match counts even with Your watchlist turned off.
+        val hits = EvidenceFusion.fuse(on + listOfNotNull(placeHit(a.mac, now)))
         // A kind turned off in the detection list still names the device (an Arlo base station with home
         // cameras off): listed like any other device, no colour, no alert, not logged.
         val quiet = if (hits.isEmpty()) EvidenceFusion.fuse(off).firstOrNull()?.takeIf { !it.listOnly } else null
@@ -1622,15 +1642,25 @@ class ScanForegroundService : Service() {
         val now = System.currentTimeMillis()
         val here = (lastLocation ?: lastFix)?.let { it.latitude to it.longitude }
         if (!Prefs.placeWatch(this)) {
-            if (placeWatch.on) { placeWatch.stop(); Log.i(TAG, "Place watch off") }
+            if (placeWatch.on) { placeWatch.stop(); placeHits.clear(); Log.i(TAG, "Place watch off") }
             return null
         }
         if (!placeWatch.on) {
-            placeWatch.start(now, here); placeLearnedLogged = false
+            placeWatch.start(now, here); placeLearnedLogged = false; placeHits.clear()
             Log.i(TAG, "Place watch on: learning for ${PlaceWatch.LEARN_MS / 60_000} min" + if (here == null) ", no position yet" else "")
         }
-        val byMac = devices.associateBy { it.mac }
-        val events = placeWatch.check(now, here, devices.map { d ->
+        // Only what is heard here: this phone and its own hardware, or a Sentinel linked over Bluetooth (in its range). A
+        // device relayed over the mesh or the internet may be far away, and so may a LoRa node: the level its packets come
+        // with is the last relay's, and node lists carry none.
+        val heard = com.rfsentinel.app.esp.HeardBy
+        val near = devices.filter { d ->
+            !com.rfsentinel.app.esp.isLoRaNode(d.mac, d.name) && com.rfsentinel.app.esp.LoRaStats.of(d.mac) == null &&
+                (heard.phone.within(d.mac, PLACE_HEARD_MS, now) || heard.esp.within(d.mac, PLACE_HEARD_MS, now) ||
+                    heard.usb.within(d.mac, PLACE_HEARD_MS, now) || heard.usbBt.within(d.mac, PLACE_HEARD_MS, now) ||
+                    heard.peerBluetooth.within(d.mac, PLACE_HEARD_MS, now))
+        }
+        val byMac = near.associateBy { it.mac }
+        val events = placeWatch.check(now, here, near.map { d ->
             PlaceWatch.Device(d.mac, d.addressType !in FIXED_ADDRESSES, d.bestRssi, d.lastSeen, d.source.name)
         }) { DeviceRegistry.linkedFrom(it) }
         if (!placeWatch.learning(now) && !placeLearnedLogged) {
@@ -1647,21 +1677,29 @@ class ScanForegroundService : Service() {
         }
     }
 
-    /** A Watch this place report: a new device alerts; one gone or back is only logged (low confidence). */
+    /**
+     * A Watch this place report. A new device gets a "New device" match for [PLACE_HIT_MS]: it alerts, is logged and goes to
+     * linked Sentinels and the mesh through the usual pipeline (whitelisted devices stay quiet). One gone or back is only logged.
+     */
     private fun reportPlace(e: PlaceWatch.Event, d: DeviceRegistry.Snapshot?, now: Long) {
         val what = d?.name ?: d?.vendor ?: d?.deviceType?.takeIf { it.isNotBlank() } ?: "A device"
-        val how = "Watch this place (Settings › Trackers & followers)"
-        val hit = when (e.kind) {
-            PlaceWatch.Kind.NEW -> Hit(Category.CUSTOM, "New device here: $what", 70,
-                "$what (${e.mac}) wasn't around while RF Sentinel learned this place, and has stayed ${e.minutes} min" +
+        val how = "Watch this place on ${com.rfsentinel.app.link.LinkStore.myName(this)} (Settings › Trackers & followers)"
+        if (e.kind == PlaceWatch.Kind.NEW) {
+            Log.i(TAG, "Place watch: new, ${e.source}, ${e.minutes} min")
+            placeHits[e.mac] = now to Hit(Category.CUSTOM, "New device: $what", 70,
+                "$what wasn't around while RF Sentinel learned the watched place, and has stayed ${e.minutes} min" +
                     (d?.let { ", at up to ${it.bestRssi} dBm" } ?: "") + ".", how)
+            classified.remove(e.mac) // its next advert picks the match up
+            return
+        }
+        val hit = when (e.kind) {
             PlaceWatch.Kind.GONE -> Hit(Category.CUSTOM, "Gone from here: $what", 30,
                 "$what (${e.mac}) was here all along while RF Sentinel learned this place, and hasn't been heard for ${e.minutes} min.", how)
-            PlaceWatch.Kind.BACK -> Hit(Category.CUSTOM, "Back here: $what", 30,
+            else -> Hit(Category.CUSTOM, "Back here: $what", 30,
                 "$what (${e.mac}) is back after ${e.minutes} min away.", how)
         }
         Log.i(TAG, "Place watch: ${e.kind.name.lowercase()}, ${e.source}, ${e.minutes} min")
-        reportAttack(e.mac, e.source, hit, d?.name, "place:${e.kind}:${e.mac}", "New device here", now,
+        reportAttack(e.mac, e.source, hit, d?.name, "place:${e.kind}:${e.mac}", hit.label, now,
             d?.let { com.rfsentinel.app.esp.HeardBy.tag(it.mac, it.source) })
     }
 
