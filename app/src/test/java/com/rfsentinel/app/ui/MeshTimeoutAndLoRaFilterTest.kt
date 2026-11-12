@@ -37,6 +37,9 @@ class MeshTimeoutAndLoRaFilterTest {
         assertTrue(DeviceFilter.LORA.matches(snap("06:4D:A1:B2:C3:D4", "Meshtastic: Hilltop", 0)))
         assertTrue(DeviceFilter.LORA.matches(snap("06:43:01:02:03:04", "MeshCore: Repeater", 0)))
         assertFalse(DeviceFilter.LORA.matches(snap("AA:BB:CC:00:00:01", "Phone", 0)))
+        // Counted under LoRa only, not Bluetooth as well (the chips didn't add up to All).
+        assertFalse(DeviceFilter.BLE.matches(snap("06:4D:A1:B2:C3:D4", "Meshtastic: Hilltop", 0)))
+        assertTrue(DeviceFilter.BLE.matches(snap("AA:BB:CC:00:00:01", "Phone", 0)))
     }
 
     @Test

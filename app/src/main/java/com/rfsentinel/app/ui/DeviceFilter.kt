@@ -105,7 +105,8 @@ enum class DeviceFilter(val label: String, val liveOnly: Boolean = false) {
         MESH -> com.rfsentinel.app.esp.HeardBy.peerMesh.recent(s.mac)
         LORA -> com.rfsentinel.app.esp.isLoRaNode(s.mac, s.name)
         FAVORITES -> Favorites.contains(s.mac)
-        BLE -> Advert.Source.BLE in s.sources
+        // A LoRa node arrives as a Bluetooth sighting with a made-up address: it has its own chip, so the radio chips add up to All.
+        BLE -> Advert.Source.BLE in s.sources && !com.rfsentinel.app.esp.isLoRaNode(s.mac, s.name)
         WIFI -> Advert.Source.WIFI in s.sources
         // The kinds below look at every clue (the type and the hints, see [Seen.types]), not only the type that won.
         VEHICLES -> s.anyType(VEHICLE_TYPE) || s.hits.any { it.category == Category.V2X }
