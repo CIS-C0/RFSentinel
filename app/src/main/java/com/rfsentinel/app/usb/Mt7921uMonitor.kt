@@ -385,6 +385,7 @@ class Mt7921uMonitor {
                     }
                 }
                 val (band, ch) = st.current
+                UsbWifi.visiting(monitorChannel(band, ch))
                 runCatching { tune(band, ch, wait = false) }
                 st.pendingSeq = seq; st.sentAt = now
                 val (aps, clients) = frames.live(now, freshMs(st.plan.size))

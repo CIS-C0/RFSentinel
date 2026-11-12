@@ -243,6 +243,8 @@ object UsbWifi {
     @Volatile var logAll = false
     /** The asking driver thread's chip name, for its log lines. */
     internal val label: String get() = current.get()?.chip?.name ?: "USB WiFi"
+    /** A driver that plans its own hops (MT7921AU) tunes [channel]: for the per-channel log, as [hops] does. */
+    internal fun visiting(channel: Int) { current.get()?.planned?.add(channel) }
     /** The channels the asking driver planned since the last call ([hops]). */
     internal fun takePlanned(): Set<Int> = current.get()?.planned?.let { p -> p.toSet().also { p.removeAll(it) } }.orEmpty()
 
