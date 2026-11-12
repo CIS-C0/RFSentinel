@@ -109,6 +109,11 @@ object Spoken {
             hit.label.contains("approaching") -> "Emergency approaching"
             else -> "Emergency vehicle"
         }
-        Category.CUSTOM -> if (hit.label.startsWith("New device")) "New device" else "Watchlist"
+        Category.CUSTOM -> when {
+            hit.label.startsWith("New device") -> "New device"
+            hit.label.startsWith("Back: ") -> "Device back"
+            hit.label.startsWith("Moving: ") -> "Device moving"
+            else -> "Watchlist"
+        }
     }
 }

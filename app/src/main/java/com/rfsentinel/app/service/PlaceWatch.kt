@@ -1,27 +1,30 @@
 package com.rfsentinel.app.service
 
 /**
- * Settings › Trackers & followers › Watch this place (AntiHunter's baseline anomaly; the idea, not code). With the phone left
- * in one place (home, a hotel room), it first learns for [LEARN_MS] what is around, then reports:
- *  - a new device: one it didn't hear while learning, heard close by (at least [MIN_RSSI] dBm) without a break for [STAY_MS]
- *    ([STAY_RANDOM_MS] on a random address). A car or a person walking by is gone long before;
- *  - one gone and back: a device on a fixed address heard for [RESIDENT_MS] or more while learning that went quiet for
- *    [MISSING_MS], then its return.
- * Phones and tags change their random address every 15 minutes or so. A new address linked to its earlier one ([previous]:
- * [DeviceRegistry.linkedFrom]) counts as that device; one that wasn't linked never stays [STAY_RANDOM_MS] on one address, so the
- * household's own phones don't set it off (nor does a visitor's phone that does the same). Paused while you are more than
- * [RADIUS_M] from the place. What it learned is kept ([save] / [restore]) so a restart of the app or the phone doesn't learn
- * again around someone already there. Pure, not thread-safe (the service's housekeeping loop).
+ * Settings › Trackers & followers › Watch this place, with AntiHunter's baseline anomaly rules and settings (the idea and
+ * its numbers, not code). With the phone left in one place (home, a hotel room), it first learns for [LEARN_MS] every
+ * device around, then reports, counting only what is heard at [MIN_RSSI] dBm or stronger:
+ *  - [Kind.NEW]: a device it didn't learn, heard twice within [NEW_WINDOW_MS]. From then on it is known;
+ *  - [Kind.GONE]: a device heard during the watch, then quiet for [ABSENCE_MS];
+ *  - [Kind.BACK]: one gone that is heard again within [REAPPEAR_MS] of going (later, it just counts as there again);
+ *  - [Kind.MOVED]: one whose signal jumped by [RSSI_CHANGE_DB] or more from one look to the next, the third time.
+ * Phones and tags change their random address now and then: a new address linked to an earlier one ([previous]:
+ * [DeviceRegistry.linkedFrom]) counts as that device, and the address it left isn't reported gone. Paused while you are
+ * more than [RADIUS_M] from the place. What it learned is kept ([save] / [restore]) so a restart of the app or the phone
+ * doesn't learn again around someone already there. Pure, not thread-safe (the service's housekeeping loop).
  */
 class PlaceWatch {
 
-    /** One device heard: its address, whether that's random, its strongest signal, when last heard, how ("BLE", "WIFI"...). */
-    class Device(val mac: String, val random: Boolean, val bestRssi: Int, val lastSeen: Long, val source: String = "BLE")
+    /** One device heard: its address, its signal now, when last heard, how ("BLE", "WIFI"...). */
+    class Device(val mac: String, val rssi: Int, val lastSeen: Long, val source: String = "BLE")
 
-    enum class Kind { NEW, GONE, BACK }
+    enum class Kind { NEW, GONE, BACK, MOVED }
 
-    /** Something to report about [mac]: [minutes] it stayed (new), was last heard ago (gone) or was away (back). */
-    class Event(val kind: Kind, val mac: String, val minutes: Long, val source: String)
+    /**
+     * Something to report about [mac], heard at [rssi]: [value] is the seconds since it was last heard (gone), the seconds
+     * it was away (back) or its signal the look before (moved).
+     */
+    class Event(val kind: Kind, val mac: String, val value: Int, val rssi: Int, val source: String)
 
     /** Watching, since [startedAt]. */
     var on = false; private set
@@ -30,21 +33,24 @@ class PlaceWatch {
     var place: Pair<Double, Double>? = null; private set
     /** You are more than [RADIUS_M] from [place]: nothing is checked. */
     var away = false; private set
+    /** Reports since it started (or was restored), for the summary when it's turned off. */
+    var reports = 0; private set
 
+    /** Learned, or reported new since: not new again. */
     private val known = HashSet<String>()
-    /** Fixed addresses heard while learning: when first heard. */
-    private val learnFirst = HashMap<String, Long>()
-    /** Devices on a fixed address heard for [RESIDENT_MS] while learning: when last heard. */
-    private val resident = HashMap<String, Long>()
-    private val residentSource = HashMap<String, String>()
-    private val missing = HashSet<String>()
-    /** Devices not learned, heard since (first, last), forgotten after a [BREAK_MS] break. */
-    private val seen = HashMap<String, LongArray>()
-    private val alerted = HashSet<String>()
+
+    /** A device heard during the watch. [present]: known, or reported new; until then [sightings] since [firstAt]. */
+    private class Track(var rssi: Int, var lastSeen: Long, var present: Boolean, val source: String) {
+        var firstAt = 0L
+        var sightings = 0
+        var goneAt = 0L
+        var changes = 0
+    }
+    private val tracks = HashMap<String, Track>()
 
     fun learning(now: Long) = on && now - startedAt < LEARN_MS
-    /** Devices learned (known) and among them those on a fixed address that stay (resident). */
-    val learned get() = known.size to resident.size
+    /** Devices known (learned, and reported new since). */
+    val learned get() = known.size
 
     fun start(now: Long, here: Pair<Double, Double>?) {
         stop()
@@ -52,8 +58,8 @@ class PlaceWatch {
     }
 
     fun stop() {
-        on = false; startedAt = 0L; place = null; away = false
-        known.clear(); learnFirst.clear(); resident.clear(); residentSource.clear(); missing.clear(); seen.clear(); alerted.clear()
+        on = false; startedAt = 0L; place = null; away = false; reports = 0
+        known.clear(); tracks.clear()
     }
 
     /** One look at [devices] (from the device list) at [now], you being [here]; [previous] gives an address's earlier one. */
@@ -61,71 +67,67 @@ class PlaceWatch {
         if (!on) return emptyList()
         if (place == null) place = here
         val p = place
-        if (here != null && p != null && metres(here, p) > RADIUS_M) { away = true; seen.clear(); return emptyList() }
-        if (away) { away = false; resident.keys.forEach { resident[it] = now } } // back: the residents get a fresh start
+        if (here != null && p != null && metres(here, p) > RADIUS_M) { away = true; tracks.clear(); return emptyList() }
+        away = false
         val heard = devices.filter { now - it.lastSeen <= HEARD_MS }
-        if (learning(now)) {
-            for (d in heard) {
-                known += d.mac
-                if (d.random) continue
-                val first = learnFirst.getOrPut(d.mac) { now }
-                if (now - first >= RESIDENT_MS) { resident[d.mac] = now; residentSource[d.mac] = d.source }
-            }
-            return emptyList()
-        }
+        if (learning(now)) { heard.forEach { known += it.mac }; return emptyList() }
         val out = ArrayList<Event>()
         for (d in heard) {
-            resident[d.mac]?.let { last ->
-                if (missing.remove(d.mac)) out += Event(Kind.BACK, d.mac, (now - last) / 60_000, d.source)
-                resident[d.mac] = now
+            val t = tracks[d.mac]
+            if (t != null && d.lastSeen <= t.lastSeen) continue // nothing new from it since the last look
+            if (d.rssi < MIN_RSSI) continue
+            if (t == null) {
+                val wasKnown = d.mac in known || chain(d.mac, previous).any { it in known }
+                if (wasKnown) known += d.mac
+                tracks[d.mac] = Track(d.rssi, d.lastSeen, wasKnown, d.source).also { if (!wasKnown) { it.firstAt = now; it.sightings = 1 } }
+                continue
             }
-            if (d.mac in known || d.mac in alerted) continue
-            val chain = chain(d.mac, previous)
-            if (chain.any { it in known }) { known += d.mac; continue } // a learned device on its new address
-            if (chain.any { it in alerted }) { alerted += d.mac; continue }
-            if (d.bestRssi < MIN_RSSI) continue
-            val first = seen[d.mac]?.get(0) ?: chain.mapNotNull { seen[it]?.get(0) }.minOrNull() ?: now
-            seen[d.mac] = longArrayOf(first, now)
-            if (now - first >= if (d.random) STAY_RANDOM_MS else STAY_MS) {
-                alerted += d.mac
-                out += Event(Kind.NEW, d.mac, (now - first) / 60_000, d.source)
+            if (!t.present) {
+                if (now - t.firstAt > NEW_WINDOW_MS) { t.firstAt = now; t.sightings = 1 } else t.sightings++
+                t.rssi = d.rssi; t.lastSeen = d.lastSeen
+                if (t.sightings < 2) continue
+                t.present = true; known += d.mac; reports++
+                out += Event(Kind.NEW, d.mac, secs(now - t.firstAt), d.rssi, d.source)
+                continue
             }
+            if (t.goneAt > 0) {
+                if (now - t.goneAt <= REAPPEAR_MS) { reports++; out += Event(Kind.BACK, d.mac, secs(now - t.lastSeen), d.rssi, d.source) }
+                t.goneAt = 0
+            }
+            if (kotlin.math.abs(d.rssi - t.rssi) >= RSSI_CHANGE_DB && ++t.changes >= MOVED_AFTER) {
+                t.changes = 0; reports++
+                out += Event(Kind.MOVED, d.mac, t.rssi, d.rssi, d.source)
+            }
+            t.rssi = d.rssi; t.lastSeen = d.lastSeen
         }
-        seen.entries.removeAll { now - it.value[1] > BREAK_MS }
-        for ((mac, last) in resident) if (mac !in missing && now - last > MISSING_MS) {
-            missing += mac
-            out += Event(Kind.GONE, mac, (now - last) / 60_000, residentSource[mac] ?: "BLE")
+        // Gone: quiet for [ABSENCE_MS], unless it went on with a new address (heard now, linked to this one).
+        var rotated: Set<String>? = null
+        for ((mac, t) in tracks) {
+            if (!t.present || t.goneAt > 0 || now - t.lastSeen <= ABSENCE_MS) continue
+            t.goneAt = now
+            val r = rotated ?: heard.flatMap { chain(it.mac, previous) }.toSet().also { rotated = it }
+            if (mac !in r) out += Event(Kind.GONE, mac, secs(now - t.lastSeen), t.rssi, t.source)
+        }
+        // Forgotten: gone past the time a return is reported, or heard once and not again in time.
+        tracks.entries.removeAll { (_, t) ->
+            if (t.present) t.goneAt > 0 && now - t.goneAt > REAPPEAR_MS else now - t.firstAt > NEW_WINDOW_MS
         }
         return out
     }
 
-    /** What it learned, for [restore]: lines of start time, place, learned, residents, first heard while learning, reported. */
-    fun save(): String = listOf(
-        startedAt.toString(),
-        place?.let { "${it.first},${it.second}" }.orEmpty(),
-        known.joinToString(" "),
-        resident.keys.joinToString(" ") { "$it=${residentSource[it] ?: "BLE"}" },
-        learnFirst.entries.joinToString(" ") { "${it.key}=${it.value}" },
-        alerted.joinToString(" "),
-    ).joinToString("\n")
+    /** What it learned, for [restore]: lines of start time, place, known devices. */
+    fun save(): String = listOf(startedAt.toString(), place?.let { "${it.first},${it.second}" }.orEmpty(), known.joinToString(" "))
+        .joinToString("\n")
 
-    /**
-     * Back to what [save] kept, watching on at [now]; false (and off) when [text] isn't one. Residents count as heard [now]:
-     * the time the app was down isn't theirs to be missing.
-     */
+    /** Back to what [save] kept, watching on; false (and off) when [text] isn't one or is from later than [now]. */
     fun restore(text: String, now: Long): Boolean {
         stop()
         val l = text.split("\n")
         val started = l.getOrNull(0)?.toLongOrNull()
-        if (l.size != 6 || started == null || started > now) return false
-        fun words(i: Int) = l[i].split(" ").filter { it.isNotEmpty() }
-        fun pairs(i: Int) = words(i).mapNotNull { w -> w.split("=").takeIf { it.size == 2 }?.let { it[0] to it[1] } }
+        if (l.size != 3 || started == null || started > now) return false
         val p = l[1].split(",").mapNotNull { it.toDoubleOrNull() }
         on = true; startedAt = started; place = if (p.size == 2) p[0] to p[1] else null
-        known += words(2)
-        pairs(3).forEach { (mac, source) -> resident[mac] = now; residentSource[mac] = source }
-        pairs(4).forEach { (mac, t) -> t.toLongOrNull()?.let { learnFirst[mac] = it } }
-        alerted += words(5)
+        known += l[2].split(" ").filter { it.isNotEmpty() }
         return true
     }
 
@@ -140,6 +142,8 @@ class PlaceWatch {
         return out
     }
 
+    private fun secs(ms: Long) = (ms / 1000).coerceAtMost(Short.MAX_VALUE.toLong()).toInt()
+
     private fun metres(a: Pair<Double, Double>, b: Pair<Double, Double>): Double {
         val dLat = Math.toRadians(b.first - a.first)
         val dLon = Math.toRadians(b.second - a.second) * Math.cos(Math.toRadians((a.first + b.first) / 2))
@@ -147,16 +151,17 @@ class PlaceWatch {
     }
 
     companion object {
-        const val LEARN_MS = 10 * 60_000L
-        const val STAY_MS = 10 * 60_000L
-        const val STAY_RANDOM_MS = 20 * 60_000L
-        const val RESIDENT_MS = 5 * 60_000L
-        const val MISSING_MS = 30 * 60_000L
-        const val MIN_RSSI = -80
+        // AntiHunter's defaults (baseline.cpp, scanner.cpp).
+        const val LEARN_MS = 5 * 60_000L
+        const val MIN_RSSI = -60
+        const val NEW_WINDOW_MS = 60_000L
+        const val ABSENCE_MS = 2 * 60_000L
+        const val REAPPEAR_MS = 5 * 60_000L
+        const val RSSI_CHANGE_DB = 20
+        const val MOVED_AFTER = 3
+        /** Ours: paused this far from the place. */
         const val RADIUS_M = 300.0
         /** Heard this recently counts as there now. */
         private const val HEARD_MS = 60_000L
-        /** A device not heard this long left: if it comes back, its stay starts over. */
-        private const val BREAK_MS = 3 * 60_000L
     }
 }

@@ -1246,13 +1246,18 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.followSwitch, "Warns when a tracker or flagged device keeps moving with you, for at least the time and distance below - whether it stays in range or keeps turning up again: heard at 3 or more places along your way within 2 hours.")
         withUnit(binding.followMinutesInput, "min")
         withUnit(binding.followMetersInput, "m")
-        info(binding.placeWatchSwitch, "For a phone left in one place: home, a hotel room, a camp. Turn it on there: for 10 minutes RF Sentinel " +
-            "learns the devices around, then alerts when a new one shows up close by and stays 10 minutes (20 on an address that changes, " +
-            "so your own phones don't set it off). Devices that were here all along and go quiet for 30 minutes, then come back, are " +
-            "only logged. Paused while you're more than 300 m away. Keeps what it learned until you turn it off, even if the phone restarts. Turn it off when you leave.\n\n" +
+        info(binding.placeWatchSwitch, "For a phone left in one place: home, a hotel room, a camp. Turn it on there: for 5 minutes RF Sentinel " +
+            "learns every device around, then, for devices close by (-60 dBm or stronger):\n" +
+            "• New device: one it didn't learn, heard twice within a minute. Alerts.\n" +
+            "• Back: one that went quiet 2 minutes and is heard again within 5. Alerts.\n" +
+            "• Moving: one whose signal jumps 20 dB or more, the third time. Alerts.\n" +
+            "• Gone: one quiet for 2 minutes. Logged.\n" +
+            "The same rules as AntiHunter. A phone's new random address linked to its earlier one counts as the same phone. " +
+            "Paused while you're more than 300 m away. Keeps what it learned until you turn it off, even if the phone restarts.\n\n" +
             "Counts what this phone, its USB and ESP32 hardware and Sentinels linked over Bluetooth hear. Not LoRa nodes, nor devices " +
-            "heard over the mesh or the internet: they can be far away. A new device alerts like a watchlist match, so linked " +
-            "Sentinels and the mesh get it too; whitelisted devices never alert.")
+            "heard over the mesh or the internet: they can be far away.\n\n" +
+            "To watch it from afar: every report, and when it starts, has learned and stops, goes to linked Sentinels over " +
+            "Bluetooth, the Meshtastic node and the internet relay, encrypted for your group. Whitelisted devices are left out.")
         info(binding.mapProviderLabel, "OpenFreeMap: free and open, OpenStreetMap data.\n\nMapbox: Mapbox's Standard map with 3D buildings and day / night light.\n\nThe floating mini map and the Android Auto map always use OpenStreetMap maps.")
         info(binding.mapAutoRecenterSwitch, "While you drive, the map goes back to your position once you've left it alone for the time set under it (Re-center after).")
         info(binding.mapSpeedometerSwitch, "Your speed and the posted limit in a corner of the map; your speed turns red over the limit.")

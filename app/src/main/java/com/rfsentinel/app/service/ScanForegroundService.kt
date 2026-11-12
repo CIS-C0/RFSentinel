@@ -148,10 +148,7 @@ class ScanForegroundService : Service() {
         private const val PLACE_HEARD_MS = 60_000L
         private const val PLACE_HIT_MS = 5 * 60_000L
         private const val PLACE_SAVE_MS = 60_000L
-        /** Addresses that don't rotate, for Watch this place. */
-        private val FIXED_ADDRESSES = setOf(com.rfsentinel.app.detect.AddressType.PUBLIC, com.rfsentinel.app.detect.AddressType.RANDOM_STATIC,
-            com.rfsentinel.app.detect.AddressType.WIFI_GLOBAL, com.rfsentinel.app.detect.AddressType.LIKELY_PUBLIC,
-            com.rfsentinel.app.detect.AddressType.LIKELY_STATIC)
+        private const val PLACE_NAMES_MAX = 2_000
         /** Each periodic job holds a short wake lock only while it runs. */
         private const val WAKE_SLICE_MS = 10_000L
         private const val HISTORY_FLUSH_MS = 60_000L
@@ -274,6 +271,11 @@ class ScanForegroundService : Service() {
     private val placeWatch = PlaceWatch()
     private var placeLearnedLogged = false
     private var placeSavedAt = 0L
+    /** The last name heard for each device near the watched place (housekeeping loop). */
+    private val placeNames = HashMap<String, String?>()
+    /** Place reports waiting to go to linked Sentinels; [placeSeen]: other Sentinels' place packets already read. */
+    private val placeOutbox = com.rfsentinel.app.link.PlaceOutbox()
+    private val placeSeen = LinkedHashSet<Pair<Long, Int>>()
     /** The watch running: when it was turned on ([Prefs.placeWatchSince]). */
     private var placeSince = 0L
     private val placeFile by lazy { java.io.File(filesDir, "place_watch.txt") }
@@ -1080,6 +1082,8 @@ class ScanForegroundService : Service() {
             hardwareHere()?.takeIf { linkHwBeat.due(it, now) }?.let { hw ->
                 hardwarePacket(hw, now)?.let { com.rfsentinel.app.link.PhoneLink.sendHardware(it); linkHwBeat.sent(hw, now) }
             }
+            placePacket(com.rfsentinel.app.link.PlaceOutbox.BLUETOOTH, now, loc?.latitude ?: Double.NaN, loc?.longitude ?: Double.NaN)
+                ?.let { com.rfsentinel.app.link.PhoneLink.sendHardware(it) }
             if (now - linkPlanesAt >= LINK_PLANES_MS && sharing()) {
                 linkPlanesAt = now
                 box.setPlanes(com.rfsentinel.app.online.PoliceAircraft.own(now).map { it.plane })
@@ -1111,6 +1115,7 @@ class ScanForegroundService : Service() {
         updateMqtt()
         if (linkOutbox == null && meshOutbox == null && mqttOutbox == null) com.rfsentinel.app.link.PhoneLink.unlisten()
         else com.rfsentinel.app.link.PhoneLink.listen(this, onBatch)
+        com.rfsentinel.app.link.PhoneLink.onPlace = { m, name, path -> pipeline.post { placeIn(m, name, path) } }
     }
 
     /** What goes out through the MQTT broker (null while it's off). */
@@ -1164,6 +1169,7 @@ class ScanForegroundService : Service() {
             hardwareHere()?.takeIf { mqttHwBeat.due(it, now) }?.let { hw ->
                 if (relay.send(codec.sealHardware(codec.messageKey(key), link.myId(ctx), link.nextMeshCounter(ctx), now, hw))) mqttHwBeat.sent(hw, now)
             }
+            placePacket(com.rfsentinel.app.link.PlaceOutbox.NET, now, lat, lon)?.let { relay.send(it) }
             if (now - mqttPlanesAt >= MQTT_PLANES_MS) {
                 mqttPlanesAt = now
                 var planes = planesToShare(now, lat, lon)
@@ -1249,6 +1255,10 @@ class ScanForegroundService : Service() {
             val lat = loc?.latitude ?: Double.NaN
             val lon = loc?.longitude ?: Double.NaN
             val codec = com.rfsentinel.app.link.MeshCodec
+            // Watch this place's reports: one back or moving as soon as the node may, the rest at the usual pace.
+            val placeUrgent = placeOutbox.urgent(com.rfsentinel.app.link.PlaceOutbox.MESH, now)
+            if (since >= MESH_MIN_GAP_MS && (placeUrgent || since >= interval))
+                placePacket(com.rfsentinel.app.link.PlaceOutbox.MESH, now, lat, lon)?.let { if (node.send(it, placeUrgent)) { meshLastSend = now; return } }
             // Hardware: a few bytes when it changes (a minute apart at most) and every 15 minutes; devices follow a tick later.
             if (!urgent && since >= MESH_MIN_GAP_MS) hardwareHere()?.takeIf { meshHwBeat.due(it, now) }?.let { hw ->
                 val packet = hardwarePacket(hw, now) ?: return
@@ -1280,6 +1290,7 @@ class ScanForegroundService : Service() {
         stopMqtt()
         stopBluetoothLink()
         com.rfsentinel.app.link.PhoneLink.unlisten()
+        com.rfsentinel.app.link.PhoneLink.onPlace = null
         com.rfsentinel.app.esp.HeardBy.peer.clear()
         com.rfsentinel.app.esp.HeardBy.peerMesh.clear()
         com.rfsentinel.app.online.PoliceAircraft.shared.clear()
@@ -1647,23 +1658,28 @@ class ScanForegroundService : Service() {
         val now = System.currentTimeMillis()
         val here = (lastLocation ?: lastFix)?.let { it.latitude to it.longitude }
         if (!Prefs.placeWatch(this)) {
-            if (placeWatch.on) { placeWatch.stop(); placeHits.clear(); Log.i(TAG, "Place watch off") }
+            if (placeWatch.on) {
+                placeStatus("Off: ${placeWatch.learned} devices known, ${placeWatch.reports} reports", now)
+                placeWatch.stop(); placeHits.clear(); placeNames.clear(); Log.i(TAG, "Place watch off")
+            }
             if (placeFile.exists()) placeFile.delete()
             return null
         }
         val since = Prefs.placeWatchSince(this)
         if (placeWatch.on && since != placeSince) placeWatch.stop() // turned off and on again: a new watch
         if (!placeWatch.on) {
-            placeHits.clear(); placeSince = since
+            placeHits.clear(); placeNames.clear(); placeSince = since
             // Still on since before a restart: back to what it learned (it keeps the place: away if the phone moved).
             val kept = placeFile.takeIf { it.exists() }?.let { f -> runCatching { f.readText() }.getOrNull() }
                 ?.takeIf { it.startsWith("$since\n") }?.substringAfter('\n')
             if (kept != null && placeWatch.restore(kept, now)) {
                 placeLearnedLogged = !placeWatch.learning(now)
-                Log.i(TAG, "Place watch restored: ${placeWatch.learned.first} learned, ${(now - placeWatch.startedAt) / 60_000} min on")
+                Log.i(TAG, "Place watch restored: ${placeWatch.learned} known, ${(now - placeWatch.startedAt) / 60_000} min on")
+                placeStatus("On again after a restart, ${placeWatch.learned} devices known", now)
             } else {
                 placeWatch.start(now, here); placeLearnedLogged = false
                 Log.i(TAG, "Place watch on: learning for ${PlaceWatch.LEARN_MS / 60_000} min" + if (here == null) ", no position yet" else "")
+                placeStatus("On, learning for ${PlaceWatch.LEARN_MS / 60_000} min", now)
             }
             placeSavedAt = 0L
         }
@@ -1677,17 +1693,24 @@ class ScanForegroundService : Service() {
                     heard.usb.within(d.mac, PLACE_HEARD_MS, now) || heard.usbBt.within(d.mac, PLACE_HEARD_MS, now) ||
                     heard.peerBluetooth.within(d.mac, PLACE_HEARD_MS, now))
         }
-        val byMac = near.associateBy { it.mac }
-        val events = placeWatch.check(now, here, near.map { d ->
-            PlaceWatch.Device(d.mac, d.addressType !in FIXED_ADDRESSES, d.bestRssi, d.lastSeen, d.source.name)
-        }) { DeviceRegistry.linkedFrom(it) }
+        // Names for the reports: a device gone isn't on the list any more.
+        if (placeNames.size > PLACE_NAMES_MAX) placeNames.clear()
+        near.forEach { d -> placeNames[d.mac] = placeName(d) }
+        val events = placeWatch.check(now, here, near.map { d -> PlaceWatch.Device(d.mac, d.rssi, d.lastSeen, d.source.name) }) {
+            DeviceRegistry.linkedFrom(it)
+        }
         if (!placeWatch.learning(now) && !placeLearnedLogged) {
             placeLearnedLogged = true
-            val (known, resident) = placeWatch.learned
-            Log.i(TAG, "Place watch: learned $known devices, $resident on a fixed address that stayed" + if (placeWatch.place == null) ", no position" else "")
+            Log.i(TAG, "Place watch: learned ${placeWatch.learned} devices" + if (placeWatch.place == null) ", no position" else "")
+            placeStatus("Watching, ${placeWatch.learned} devices learned", now)
         }
+        val byMac = near.associateBy { it.mac }
         // Reported on the pipeline thread, like every other detection.
-        for (e in events) byMac[e.mac].let { d -> pipeline.post { reportPlace(e, d, now) } }
+        for (e in events) {
+            val d = byMac[e.mac]
+            val name = d?.let { placeName(it) } ?: placeNames[e.mac]
+            pipeline.post { reportPlace(e, d, name, now) }
+        }
         if (events.isNotEmpty() || now - placeSavedAt >= PLACE_SAVE_MS) {
             placeSavedAt = now
             runCatching { placeFile.writeText("$placeSince\n" + placeWatch.save()) }.onFailure { Log.w(TAG, "Place watch not saved", it) }
@@ -1699,30 +1722,102 @@ class ScanForegroundService : Service() {
         }
     }
 
+    private fun placeName(d: DeviceRegistry.Snapshot) = d.name ?: d.vendor ?: d.deviceType.takeIf { it.isNotBlank() }
+
+    private fun placeHow(who: String) = "Watch this place on $who (Settings › Trackers & followers)"
+
     /**
      * A Watch this place report. A new device gets a "New device" match for [PLACE_HIT_MS]: it alerts, is logged and goes to
-     * linked Sentinels and the mesh through the usual pipeline (whitelisted devices stay quiet). One gone or back is only logged.
+     * linked Sentinels and the mesh through the usual pipeline. One back or moving alerts, one gone is logged; both go to
+     * linked Sentinels and the mesh as place reports ([placeOutbox]). Whitelisted devices are left out.
      */
-    private fun reportPlace(e: PlaceWatch.Event, d: DeviceRegistry.Snapshot?, now: Long) {
-        val what = d?.name ?: d?.vendor ?: d?.deviceType?.takeIf { it.isNotBlank() } ?: "A device"
-        val how = "Watch this place on ${com.rfsentinel.app.link.LinkStore.myName(this)} (Settings › Trackers & followers)"
+    private fun reportPlace(e: PlaceWatch.Event, d: DeviceRegistry.Snapshot?, name: String?, now: Long) {
+        if (WhitelistCache.contains(e.mac)) return
+        Log.i(TAG, "Place watch: ${e.kind.name.lowercase()}, ${e.source}, ${e.value}")
+        val how = placeHow(com.rfsentinel.app.link.LinkStore.myName(this))
         if (e.kind == PlaceWatch.Kind.NEW) {
-            Log.i(TAG, "Place watch: new, ${e.source}, ${e.minutes} min")
+            val what = name ?: "A device"
             placeHits[e.mac] = now to Hit(Category.CUSTOM, "New device: $what", 70,
-                "$what wasn't around while RF Sentinel learned the watched place, and has stayed ${e.minutes} min" +
-                    (d?.let { ", at up to ${it.bestRssi} dBm" } ?: "") + ".", how)
+                "$what wasn't around while RF Sentinel learned the watched place, and was heard twice within a minute, at ${e.rssi} dBm.", how)
             classified.remove(e.mac) // its next advert picks the match up
             return
         }
-        val hit = when (e.kind) {
-            PlaceWatch.Kind.GONE -> Hit(Category.CUSTOM, "Gone from here: $what", 30,
-                "$what (${e.mac}) was here all along while RF Sentinel learned this place, and hasn't been heard for ${e.minutes} min.", how)
-            else -> Hit(Category.CUSTOM, "Back here: $what", 30,
-                "$what (${e.mac}) is back after ${e.minutes} min away.", how)
-        }
-        Log.i(TAG, "Place watch: ${e.kind.name.lowercase()}, ${e.source}, ${e.minutes} min")
-        reportAttack(e.mac, e.source, hit, d?.name, "place:${e.kind}:${e.mac}", hit.label, now,
+        val codec = com.rfsentinel.app.link.MeshCodec
+        val note = com.rfsentinel.app.link.MeshCodec.PlaceNote(when (e.kind) {
+            PlaceWatch.Kind.GONE -> codec.PLACE_GONE
+            PlaceWatch.Kind.BACK -> codec.PLACE_BACK
+            else -> codec.PLACE_MOVED
+        }, e.mac, e.rssi, e.value, name)
+        val hit = placeNoteHit(note, "here", how) ?: return
+        reportAttack(e.mac, e.source, hit, name, "place:${e.kind}:${e.mac}", placeSpoken(note), now,
             d?.let { com.rfsentinel.app.esp.HeardBy.tag(it.mac, it.source) })
+        if (sharing()) placeOutbox.add(note, note.kind != codec.PLACE_GONE, now)
+    }
+
+    /** Watch this place's state (on, learned, off): logged, and told to the linked Sentinels. */
+    private fun placeStatus(text: String, now: Long) {
+        val note = com.rfsentinel.app.link.MeshCodec.PlaceNote(com.rfsentinel.app.link.MeshCodec.PLACE_STATUS, null, 0, 0, text)
+        placeNoteHit(note, "here", placeHow(com.rfsentinel.app.link.LinkStore.myName(this)))?.let { hit ->
+            pipeline.post { reportAttack("PLACE", "BLE", hit, null, "place:status", hit.label, now, null) }
+        }
+        if (sharing()) placeOutbox.add(note, false, now)
+    }
+
+    /** What a place report says, [where] it was made: "here", or "at Pixel's watched place". */
+    private fun placeNoteHit(n: com.rfsentinel.app.link.MeshCodec.PlaceNote, where: String, how: String): Hit? {
+        val codec = com.rfsentinel.app.link.MeshCodec
+        val what = n.text ?: n.mac ?: "A device"
+        fun t(secs: Int) = if (secs < 120) "$secs s" else "${secs / 60} min"
+        return when (n.kind) {
+            codec.PLACE_GONE -> Hit(Category.CUSTOM, "Gone: $what", 30,
+                "$what (${n.mac}) was heard $where at ${n.rssi} dBm, and not for ${t(n.value)} now.", how)
+            codec.PLACE_BACK -> Hit(Category.CUSTOM, "Back: $what", 70,
+                "$what (${n.mac}) is back $where after ${t(n.value)} away, at ${n.rssi} dBm.", how)
+            codec.PLACE_MOVED -> Hit(Category.CUSTOM, "Moving: $what", 70,
+                "$what (${n.mac}) $where: its signal jumped by ${PlaceWatch.RSSI_CHANGE_DB} dB or more ${PlaceWatch.MOVED_AFTER} times, " +
+                    "now from ${n.value} to ${n.rssi} dBm. It was moved, or someone carries it.", how)
+            codec.PLACE_STATUS -> n.text?.let { Hit(Category.CUSTOM, "Watch this place: $it", 30, "Watch this place $where: $it.", how) }
+            else -> null
+        }
+    }
+
+    private fun placeSpoken(n: com.rfsentinel.app.link.MeshCodec.PlaceNote) = when (n.kind) {
+        com.rfsentinel.app.link.MeshCodec.PLACE_BACK -> "Device back"
+        com.rfsentinel.app.link.MeshCodec.PLACE_MOVED -> "Device moving"
+        else -> "Watch this place"
+    }
+
+    /** Another Sentinel's Watch this place reports (pipeline thread): alerted (or only logged when its way is muted) like ours. */
+    private fun placeIn(m: com.rfsentinel.app.link.MeshCodec.Message, from: String, path: com.rfsentinel.app.link.PhoneLink.Path) {
+        // The same packet may come over the mesh and the internet both.
+        if (!placeSeen.add(m.origin to m.counter)) return
+        if (placeSeen.size > 256) placeSeen.remove(placeSeen.first())
+        val now = System.currentTimeMillis()
+        val via = when (path) {
+            com.rfsentinel.app.link.PhoneLink.Path.BLUETOOTH -> from
+            com.rfsentinel.app.link.PhoneLink.Path.MESH -> "$from · mesh"
+            com.rfsentinel.app.link.PhoneLink.Path.NET -> "$from · internet"
+        }
+        val alerts = com.rfsentinel.app.link.LinkStore.alerts(this, path)
+        for (n in m.place.orEmpty()) {
+            if (n.mac != null && WhitelistCache.contains(n.mac)) continue
+            val hit = placeNoteHit(n, "at $from's watched place", placeHow(from)) ?: continue
+            val mac = n.mac ?: "PLACE"
+            if (alerts) reportAttack(mac, "BLE", hit, n.text, "place:${m.origin}:${n.kind}:$mac", "$from: ${placeSpoken(n)}", now, via)
+            else logDetection(mac, "BLE", hit, now, lastLocation?.latitude, lastLocation?.longitude, deviceName = n.text, heardBy = via)
+        }
+    }
+
+    /** The place reports not sent [way] yet, in one packet, or null with none. */
+    private fun placePacket(way: Int, now: Long, lat: Double, lon: Double): ByteArray? {
+        if (!placeOutbox.waiting(way, now)) return null
+        val link = com.rfsentinel.app.link.LinkStore
+        val key = link.groupKey(this) ?: return null
+        val codec = com.rfsentinel.app.link.MeshCodec
+        val name = link.myName(this)
+        val notes = placeOutbox.take(way, codec.MAX_BODY - codec.baseSize(!lat.isNaN(), name), now)
+        if (notes.isEmpty()) return null
+        return codec.sealPlace(codec.messageKey(key), link.myId(this), link.nextMeshCounter(this), now, lat, lon, name, notes)
     }
 
     /**

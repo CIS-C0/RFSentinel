@@ -18,7 +18,8 @@ import javax.crypto.spec.SecretKeySpec
  * Body: flags, time, the Sentinel's position once for all its devices, its name now and then, then one record per
  * device (address, radio, signal, age, name, and up to two matches). An aircraft packet (version [AIRCRAFT], which
  * older versions drop) starts the same way, then has one record per aircraft instead. A hardware packet (version
- * [HARDWARE], also dropped by older versions) has no position or name, only [LinkHardware]'s records.
+ * [HARDWARE], also dropped by older versions) has no position or name, only [LinkHardware]'s records. A place packet
+ * (version [PLACE], dropped by older versions) has Watch this place's reports ([PlaceNote]) instead of devices.
  */
 object MeshCodec {
     /** The Meshtastic channel RF Sentinel adds to the node; its key comes from the group key. */
@@ -27,6 +28,7 @@ object MeshCodec {
     private const val VERSION = 1
     private const val AIRCRAFT = 2
     private const val HARDWARE = 3
+    private const val PLACE = 4
     private const val HEADER = 18
     private const val GCM_TAG = 16
     /** Room for the body in one packet. */
@@ -54,7 +56,42 @@ object MeshCodec {
         val planes: List<PoliceAircraft.Plane> = emptyList(),
         /** That Sentinel's external hardware: only in a hardware packet. */
         val hardware: List<LinkHardware.Item>? = null,
+        /** What its Watch this place reported: only in a place packet. */
+        val place: List<PlaceNote>? = null,
     )
+
+    /**
+     * One Watch this place report: [kind] ([PLACE_GONE]...), the device's address, signal and [value] (as in
+     * [com.rfsentinel.app.service.PlaceWatch.Event]) and its name; a [PLACE_STATUS] has only [text].
+     */
+    class PlaceNote(val kind: Int, val mac: String?, val rssi: Int, val value: Int, val text: String?)
+
+    const val PLACE_GONE = 1
+    const val PLACE_BACK = 2
+    const val PLACE_MOVED = 3
+    const val PLACE_STATUS = 4
+
+    /** Bytes one place report takes in a body, or null for one that can't go (an address that isn't one). */
+    fun size(n: PlaceNote): Int? {
+        if (n.mac != null && macBytes(n.mac) == null) return null
+        return 1 + (if (n.mac != null) 9 else 0) + (n.text?.let { 1 + utf8(it, LABEL_MAX).size } ?: 0)
+    }
+
+    fun sealPlace(key: ByteArray, origin: Long, counter: Int, timeMs: Long, lat: Double, lon: Double, name: String?,
+                  notes: List<PlaceNote>): ByteArray {
+        val body = base(timeMs, lat, lon, name)
+        for (n in notes) {
+            val mac = n.mac?.let { macBytes(it) ?: continue }
+            body.write((n.kind and 0x3F) or (if (mac != null) 0x80 else 0) or (if (n.text != null) 0x40 else 0))
+            if (mac != null) {
+                body.write(mac)
+                body.write(n.rssi.coerceIn(-128, 127))
+                body.write(ByteBuffer.allocate(2).putShort(n.value.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()).array())
+            }
+            n.text?.let { text(body, it, LABEL_MAX) }
+        }
+        return close(key, PLACE, origin, counter, body)
+    }
 
     /** Bytes one device takes in a body. */
     fun size(d: Device): Int =
@@ -159,7 +196,7 @@ object MeshCodec {
     fun open(key: ByteArray, bytes: ByteArray): Message? = runCatching {
         if (bytes.size < HEADER + GCM_TAG || bytes[0].toInt() != MAGIC) return null
         val version = bytes[1].toInt()
-        if (version != VERSION && version != AIRCRAFT && version != HARDWARE) return null
+        if (version != VERSION && version != AIRCRAFT && version != HARDWARE && version != PLACE) return null
         val header = bytes.copyOfRange(0, HEADER)
         if (!header.copyOfRange(2, 6).contentEquals(groupTag(key))) return null
         val hb = ByteBuffer.wrap(header, 6, 12)
@@ -178,6 +215,22 @@ object MeshCodec {
         val name = if (flags and 2 != 0) text(body) else null
         if (version == AIRCRAFT) return Message(origin, counter, time, lat, lon, name, emptyList(), planes(body))
         if (version == HARDWARE) return Message(origin, counter, time, lat, lon, name, emptyList(), hardware = LinkHardware.read(body))
+        if (version == PLACE) {
+            val notes = ArrayList<PlaceNote>()
+            while (body.hasRemaining()) {
+                val k = body.get().toInt() and 0xFF
+                var mac: String? = null
+                var rssi = 0
+                var value = 0
+                if (k and 0x80 != 0) {
+                    mac = ByteArray(6).also { body.get(it) }.joinToString(":") { "%02X".format(it.toInt() and 0xFF) }
+                    rssi = body.get().toInt()
+                    value = body.short.toInt()
+                }
+                notes += PlaceNote(k and 0x3F, mac, rssi, value, if (k and 0x40 != 0) text(body) else null)
+            }
+            return Message(origin, counter, time, lat, lon, name, emptyList(), place = notes)
+        }
         val devices = ArrayList<Device>()
         while (body.remaining() >= 9) {
             val mac = ByteArray(6).also { body.get(it) }.joinToString(":") { "%02X".format(it.toInt() and 0xFF) }

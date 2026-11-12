@@ -144,6 +144,8 @@ object PhoneLink {
 
     /** What another Sentinel heard ([LinkCodec.Batch]), that Sentinel's name and how it came; called on the link thread. */
     @Volatile private var onBatch: ((LinkCodec.Batch, String, Path) -> Unit)? = null
+    /** Another Sentinel's Watch this place reports ([MeshCodec.sealPlace]), however they came, with its name. */
+    @Volatile var onPlace: ((MeshCodec.Message, String, Path) -> Unit)? = null
 
     fun canUse(context: Context) = Build.VERSION.SDK_INT < 31 ||
         (Permissions.granted(context, android.Manifest.permission.BLUETOOTH_CONNECT) &&
@@ -208,7 +210,10 @@ object PhoneLink {
         links.filter { it.ready }.forEach { if (it.queuedBytes < MAX_QUEUED_BYTES) sendSealed(it, bytes) }
     }
 
-    /** Which external hardware runs here ([MeshCodec.sealHardware]), to every linked Sentinel. */
+    /**
+     * Which external hardware runs here ([MeshCodec.sealHardware]), or Watch this place's reports ([MeshCodec.sealPlace]),
+     * to every linked Sentinel.
+     */
     fun sendHardware(packet: ByteArray) = h.post {
         if (!sharing) return@post
         val bytes = byteArrayOf(LinkCodec.HARDWARE.toByte()) + packet
@@ -750,6 +755,7 @@ object PhoneLink {
             LinkCodec.HARDWARE -> {
                 val m = meshKey?.let { MeshCodec.open(it, plain.copyOfRange(1, plain.size)) }
                 if (m?.hardware != null && m.origin != myId) { lastHeard[m.origin] = System.currentTimeMillis(); hardwareIn(m) }
+                if (m?.place != null && m.origin != myId) { lastHeard[m.origin] = System.currentTimeMillis(); onPlace?.invoke(m, nameOf(m.origin), Path.BLUETOOTH) }
             }
         }
     }
@@ -825,6 +831,7 @@ object PhoneLink {
         lastHeard[m.origin] = now
         (if (viaNet) lastHeardNet else lastHeardMesh)[m.origin] = now
         if (m.hardware != null) { hardwareIn(m); return@post }
+        if (m.place != null) { onPlace?.invoke(m, nameOf(m.origin), if (viaNet) Path.NET else Path.MESH); changed(); return@post }
         val b = MeshCodec.toBatch(m)
         if (seen.first(b.origin, b.seq)) {
             onBatch?.invoke(b, nameOf(b.origin), if (viaNet) Path.NET else Path.MESH)

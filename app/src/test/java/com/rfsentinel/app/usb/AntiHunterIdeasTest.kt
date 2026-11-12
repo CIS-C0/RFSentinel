@@ -118,69 +118,107 @@ class AntiHunterIdeasTest {
         assertEquals(2, g.devices.size)
     }
 
-    // ---- Watch this place ---------------------------------------------------------------------------------------
+    // ---- Watch this place (AntiHunter's rules and numbers) ---------------------------------------------------------
 
     private val min = 60_000L
-    private fun dev(mac: String, t: Long, random: Boolean = false, rssi: Int = -60) = PlaceWatch.Device(mac, random, rssi, t, "BLE")
+    private fun dev(mac: String, t: Long, rssi: Int = -50) = PlaceWatch.Device(mac, rssi, t, "BLE")
 
-    @Test
-    fun aNewDeviceThatStaysIsReportedOnce() {
-        val w = PlaceWatch(); w.start(0L, 45.0 to -73.0)
-        val home = 45.0 to -73.0
+    /** Starts [w] at [home] and learns [around] (heard every 10 s) for its learning time; returns when the watch starts. */
+    private fun learn(w: PlaceWatch, home: Pair<Double, Double>?, around: List<String>): Long {
+        w.start(0L, home)
         var t = 0L
-        while (t < PlaceWatch.LEARN_MS) { assertTrue(w.check(t, home, listOf(dev("AA", t)), { null }).isEmpty()); t += 10_000 }
-        val newcomer = ArrayList<PlaceWatch.Event>()
-        val stayFrom = t
-        while (t < stayFrom + 15 * min) {
-            newcomer += w.check(t, home, listOf(dev("AA", t), dev("BB", t), dev("FAR", t, rssi = -90)), { null }); t += 10_000
-        }
-        assertEquals(listOf("BB"), newcomer.map { it.mac })
-        assertEquals(PlaceWatch.Kind.NEW, newcomer.single().kind)
-        assertEquals(10L, newcomer.single().minutes)
+        while (t < PlaceWatch.LEARN_MS) { assertTrue(w.check(t, home, around.map { dev(it, t) }, { null }).isEmpty()); t += 10_000 }
+        return t
     }
 
     @Test
-    fun aPassingDeviceAndUnlinkedRotationsDontAlertButALinkedOneCarriesItsTime() {
-        val w = PlaceWatch(); w.start(0L, null)
-        var t = 0L
-        while (t < PlaceWatch.LEARN_MS) { w.check(t, null, emptyList(), { null }); t += 10_000 }
+    fun aNewDeviceHeardTwiceWithinAMinuteIsReportedOnceAndAWeakOneNever() {
+        val w = PlaceWatch()
+        var t = learn(w, null, listOf("TV"))
+        assertEquals(5 * min, PlaceWatch.LEARN_MS)
         val out = ArrayList<PlaceWatch.Event>()
-        // A car parks for 5 minutes, then leaves.
-        val start = t
-        while (t < start + 5 * min) { out += w.check(t, null, listOf(dev("CAR", t)), { null }); t += 10_000 }
-        // A phone changes its random address every 15 minutes, never linked: 45 minutes, no alert.
-        val phone0 = t
-        while (t < phone0 + 45 * min) { val a = "R${(t - phone0) / (15 * min)}"; out += w.check(t, null, listOf(dev(a, t, random = true)), { null }); t += 10_000 }
-        assertTrue(out.isEmpty())
-        // The same, linked to its earlier address: it stayed 20 minutes.
-        val tag0 = t
-        while (t < tag0 + 25 * min) {
-            val n = (t - tag0) / (15 * min)
-            out += w.check(t, null, listOf(dev("T$n", t, random = true)), { m -> if (m == "T1") "T0" else null }); t += 10_000
-        }
-        assertEquals(listOf("T1"), out.map { it.mac })
-        assertTrue(out.single().minutes >= 20)
-    }
-
-    @Test
-    fun aLearnedDeviceOnItsNewAddressGoneAndBackAndAway() {
-        val w = PlaceWatch(); val home = 45.0 to -73.0; w.start(0L, home)
-        var t = 0L
-        while (t < PlaceWatch.LEARN_MS) { w.check(t, home, listOf(dev("TV", t), dev("P0", t, random = true)), { null }); t += 10_000 }
-        val out = ArrayList<PlaceWatch.Event>()
-        // The phone's new address is linked to the learned one: known, never new.
         val s = t
-        while (t < s + 25 * min) { out += w.check(t, home, listOf(dev("TV", t), dev("P1", t, random = true)), { m -> if (m == "P1") "P0" else null }); t += 10_000 }
+        while (t < s + 5 * min) { out += w.check(t, null, listOf(dev("TV", t), dev("V", t), dev("WEAK", t, rssi = -61)), { null }); t += 10_000 }
+        assertEquals(listOf("V"), out.map { it.mac })
+        assertEquals(PlaceWatch.Kind.NEW, out.single().kind)
+        // The second look, 10 s after the first.
+        assertEquals(10, out.single().value)
+        assertEquals(1, w.reports)
+    }
+
+    @Test
+    fun heardOnceThenAMinuteLaterIsntNew() {
+        val w = PlaceWatch()
+        var t = learn(w, null, emptyList())
+        assertTrue(w.check(t, null, listOf(dev("V", t)), { null }).isEmpty())
+        t += 70_000 // the window's past: this one counts as a first sighting again
+        assertTrue(w.check(t, null, listOf(dev("V", t)), { null }).isEmpty())
+        t += 10_000
+        assertEquals(listOf(PlaceWatch.Kind.NEW), w.check(t, null, listOf(dev("V", t)), { null }).map { it.kind })
+    }
+
+    @Test
+    fun aLinkedNewAddressIsntNewAndTheOneItLeftIsntGone() {
+        val w = PlaceWatch()
+        var t = learn(w, null, listOf("P0"))
+        val out = ArrayList<PlaceWatch.Event>()
+        val s = t
+        // P0 heard 1 minute, then the phone goes on as P1, linked to P0.
+        while (t < s + 6 * min) {
+            val a = if (t - s < min) "P0" else "P1"
+            out += w.check(t, null, listOf(dev(a, t)), { m -> if (m == "P1") "P0" else null }); t += 10_000
+        }
         assertTrue(out.isEmpty())
-        // The TV goes quiet 31 minutes: gone, then back.
-        val off = t
-        while (t < off + 31 * min) { out += w.check(t, home, emptyList(), { null }); t += 10_000 }
-        out += w.check(t, home, listOf(dev("TV", t)), { null })
+        // An address linked to nothing is a new device, as in AntiHunter.
+        out += w.check(t, null, listOf(dev("R", t))) { null }; t += 10_000
+        out += w.check(t, null, listOf(dev("R", t))) { null }
+        assertEquals(listOf("R"), out.map { it.mac })
+    }
+
+    @Test
+    fun goneAfterTwoMinutesBackWithinFiveAndNotLater() {
+        val w = PlaceWatch()
+        var t = learn(w, null, listOf("TV"))
+        val out = ArrayList<PlaceWatch.Event>()
+        out += w.check(t, null, listOf(dev("TV", t)), { null })
+        // Quiet: gone once past 2 minutes, and only once.
+        val quiet = t
+        while (t < quiet + 4 * min) { t += 10_000; out += w.check(t, null, emptyList(), { null }) }
+        assertEquals(listOf(PlaceWatch.Kind.GONE), out.map { it.kind })
+        assertTrue(out.single().value in 120..140)
+        // Back 4 minutes after it was last heard (under 5 after going): reported.
+        out += w.check(t, null, listOf(dev("TV", t)), { null })
         assertEquals(listOf(PlaceWatch.Kind.GONE, PlaceWatch.Kind.BACK), out.map { it.kind })
-        // Away (1 km off): nothing checked, a stranger there isn't new here.
-        val away = 45.009 to -73.0
-        repeat(150) { assertTrue(w.check(t, away, listOf(dev("TV", t), dev("X", t)), { null }).isEmpty()); t += 10_000 }
+        assertEquals(240, out.last().value)
+        // Gone again, and back 8 minutes after going: just there again.
+        out.clear()
+        val quiet2 = t
+        while (t < quiet2 + 10 * min) { t += 10_000; out += w.check(t, null, emptyList(), { null }) }
+        out += w.check(t, null, listOf(dev("TV", t)), { null })
+        assertEquals(listOf(PlaceWatch.Kind.GONE), out.map { it.kind })
+    }
+
+    @Test
+    fun aSignalThatJumpsTwentyDbIsMovingTheThirdTime() {
+        val w = PlaceWatch()
+        var t = learn(w, null, listOf("CAM"))
+        val out = ArrayList<PlaceWatch.Event>()
+        // -35, -58, -35, -58...: a jump of 23 dB each look; small changes don't count.
+        val levels = listOf(-50, -45, -35, -58, -50, -35, -58, -35)
+        for (r in levels) { out += w.check(t, null, listOf(dev("CAM", t, r)), { null }); t += 10_000 }
+        assertEquals(listOf(PlaceWatch.Kind.MOVED), out.map { it.kind })
+        assertEquals(-58, out.single().value)
+        assertEquals(-35, out.single().rssi)
+    }
+
+    @Test
+    fun awayFromThePlaceNothingIsChecked() {
+        val w = PlaceWatch(); val home = 45.0 to -73.0
+        var t = learn(w, home, listOf("TV"))
+        val away = 45.009 to -73.0 // 1 km
+        repeat(60) { assertTrue(w.check(t, away, listOf(dev("X", t)), { null }).isEmpty()); t += 10_000 }
         assertTrue(w.away)
         assertTrue(w.check(t, home, listOf(dev("TV", t)), { null }).isEmpty())
+        assertTrue(!w.away)
     }
 }
