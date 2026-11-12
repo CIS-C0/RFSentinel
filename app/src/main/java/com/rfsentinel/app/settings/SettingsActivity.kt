@@ -1681,13 +1681,14 @@ class SettingsActivity : AppCompatActivity() {
             setOnCheckedChangeListener { _, v -> save(v); showSdrOptions() }
         }.also { box.addView(infoRow(it, details)) }
         val sweepBox = scan("Radio activity sweep", Prefs.sdrSweep(this),
-            "Sweeps the radio bands below for strong two-way radio transmissions nearby: signal strength only, nothing decoded. " +
+            "Sweeps the radio bands below for strong two-way radio transmissions nearby, by signal strength. A new one gets a " +
+            "listen of about half a second: one that decodes as P25 is reported as a P25 radio. Nothing else is decoded. " +
             "Needs Two-way radio turned on.") { Prefs.setSdrSweep(this, it) }
         val adsbBox = scan("ADS-B aircraft receiver", Prefs.sdrAdsb(this),
             "Listens on 1090 MHz for aircraft: police aircraft are found without internet. Needs Police aircraft turned on. " +
             "A 1090 MHz antenna helps; the stock one hears out to about 50 km.") { Prefs.setSdrAdsb(this, it) }
         val p25Box = scan("P25 control channel", Prefs.sdrP25(this),
-            "Experimental. Finds the P25 trunked-radio control channel here (700 / 800 MHz, used in the United States and Canada) and " +
+            "Experimental. Finds the P25 trunked-radio control channel here (on the bands to search, below; used in the United States and Canada) and " +
             "follows it: which talkgroups get a channel, and when (Tools › P25 talkgroups). Voice is only played with Listen to P25 voice, below. " +
             "Needs Two-way radio turned on. On by default when your region is the United States or Canada. Receiving radio " +
             "signalling is legal in many places but not all, and some forbid it in a vehicle or passing on what you hear: " +
@@ -1701,15 +1702,29 @@ class SettingsActivity : AppCompatActivity() {
             Prefs.setSdrPager(this, it)
             if (!it) com.rfsentinel.app.sdr.SdrRadio.pagerLog.clear()
         }
+        val tpmsBox = scan("Tire sensors", Prefs.sdrTpms(this),
+            "Experimental. Listens on 315 and 433.92 MHz for the tire-pressure sensors every car's wheels send while driving. " +
+            "The same sensor heard with you at three places or more (the follow settings) is a car following you. The first " +
+            "sensors to do that are taken as your own car's and never alert: use Forget my car's tire sensors after new tires " +
+            "or another car. IDs stay in the phone's memory, except a following car's in its alert. Needs Two-way radio " +
+            "turned on.") { Prefs.setSdrTpms(this, it) }
         // Each ticked scan's own turn length, shown while it shares the SDR.
         val turnViews = listOf(sweepBox to com.rfsentinel.app.sdr.SdrRadio.Mode.SWEEP, adsbBox to com.rfsentinel.app.sdr.SdrRadio.Mode.ADSB,
-            p25Box to com.rfsentinel.app.sdr.SdrRadio.Mode.P25, pagerBox to com.rfsentinel.app.sdr.SdrRadio.Mode.PAGER).map { (ticked, m) ->
+            p25Box to com.rfsentinel.app.sdr.SdrRadio.Mode.P25, pagerBox to com.rfsentinel.app.sdr.SdrRadio.Mode.PAGER,
+            tpmsBox to com.rfsentinel.app.sdr.SdrRadio.Mode.TPMS).map { (ticked, m) ->
             slider(30, 300, Prefs.sdrTurnS(this, m), { "Time for ${m.label}: $it s" }) { Prefs.setSdrTurnS(this, m, it) }
             info(box.getChildAt(box.childCount - 2), "With more than one scan ticked, the SDR gives ${m.label} this long before the next scan takes " +
                 "its turn. Longer misses less of it; shorter comes back to the other scans sooner.",
                 "Time for ${m.label}")
             ticked to listOf(box.getChildAt(box.childCount - 2), box.getChildAt(box.childCount - 1))
         }
+        box.addView(com.google.android.material.button.MaterialButton(this, null, android.R.attr.borderlessButtonStyle).apply {
+            text = "Forget my car's tire sensors"
+            setOnClickListener {
+                Prefs.forgetTpmsOwn(this@SettingsActivity)
+                android.widget.Toast.makeText(this@SettingsActivity, "Your car's tire sensors will be learned again", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        })
         val sweepGroup = group("sweep", "Radio sweep")
         slider(com.rfsentinel.app.sdr.RadioWatch.MIN_SNR_SETTING, com.rfsentinel.app.sdr.RadioWatch.MAX_SNR_SETTING, Prefs.radioMinSnr(this),
             { "Sensitivity: $it dB above the noise" }) {
@@ -1752,6 +1767,22 @@ class SettingsActivity : AppCompatActivity() {
         }
         slider(1, 50, Prefs.radioMatchKhz(this), { "A hit takes a frequency's name within ± $it kHz" }) { Prefs.setRadioMatchKhz(this, it) }
         val p25Group = group("p25", "P25")
+        info(box.label("Bands to search"), "Where the SDR looks for a P25 control channel. Most systems are on 700 and 800 MHz; " +
+            "some state, county and federal ones on VHF or UHF. Each band ticked adds time to a search. Control channels found " +
+            "before, and the ones the site names, are tried first.", "Bands to search")
+        val p25Bands = Prefs.p25Bands(this).toMutableSet()
+        for (band in com.rfsentinel.app.sdr.P25Hunt.ALL_BANDS) {
+            box.addView(android.widget.CheckBox(this).apply {
+                text = "%s · %.0f-%.0f MHz".format(java.util.Locale.US, band.label, band.range.first / 1e6, band.range.last / 1e6)
+                isChecked = band.key in p25Bands
+                setOnCheckedChangeListener { v, on ->
+                    // At least one band: the last one stays ticked.
+                    if (!on && p25Bands == setOf(band.key)) { v.isChecked = true; return@setOnCheckedChangeListener }
+                    if (on) p25Bands += band.key else p25Bands -= band.key
+                    Prefs.setP25Bands(this@SettingsActivity, p25Bands.toSet())
+                }
+            })
+        }
         lines("Watch these talkgroups", "1234 Sheriff dispatch\n2001", Prefs.p25Talkgroups(this),
             "P25: alerts when a call starts on one of them, and names them on the P25 talkgroups screen. One per line: the " +
             "talkgroup number, with an optional name. 23* watches every talkgroup starting with 23 (2300, 2301, 2307...), and * every " +
@@ -1773,7 +1804,9 @@ class SettingsActivity : AppCompatActivity() {
         scan("Listen for radios keying up nearby", Prefs.p25Inputs(this),
             "When a call starts, the SDR leaves the control channel for a fraction of a second and listens where that call's radio " +
             "transmits. A strong signal there means the radio talking is close to you, not just somewhere the site covers. At most " +
-            "once every few seconds; the control channel misses a few messages each time. Uses the radio sweep's sensitivity.") {
+            "once every few seconds; the control channel misses a few messages each time. Also every 20 s it listens 1.5 s where " +
+            "radios call the site: a radio switching on, changing talkgroup or sending status or data shows there, nobody talking. " +
+            "Uses the radio sweep's sensitivity.") {
             Prefs.setP25Inputs(this, it)
         }
         scan("Record P25 voice calls", Prefs.p25Record(this),

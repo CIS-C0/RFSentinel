@@ -79,6 +79,13 @@ class ScanForegroundService : Service() {
         private const val PAGER_ALERT_GAP_MS = 60_000L
         /** A talkgroup's radio heard on the site's input, [snr] dB above the noise ([min]: the radio threshold): near you. */
         fun p25InputConfidence(snr: Int, min: Int) = if (snr >= min + 10) 75 else 60
+        /** A P25 radio heard checking in with the site, nobody talking: one report per radio this often. */
+        private const val P25_NEARBY_GAP_MS = 2 * 60_000L
+        /** Tire sensors that follow you within this of the first one are your own car's, learned instead of alerted. */
+        private const val TPMS_LEARN_MS = 60 * 60_000L
+        /** One tire-sensor follow alert this often: a car has four sensors. */
+        private const val TPMS_ALERT_GAP_MS = 10 * 60_000L
+        private const val TPMS_CONFIDENCE = 60
         /** A talkgroup much busier than usual: probable, not certain (an event, a shift change, a drill). */
         private const val P25_UNUSUAL_CONFIDENCE = 55
         private const val P25_UNUSUAL_CHECK_MS = 5 * 60_000L
@@ -469,7 +476,8 @@ class ScanForegroundService : Service() {
             com.rfsentinel.app.sdr.SdrRadio.Mode.SWEEP.takeIf { radioOn && Prefs.sdrSweep(this) },
             com.rfsentinel.app.sdr.SdrRadio.Mode.ADSB.takeIf { Prefs.sdrAdsb(this) && Prefs.categoryEnabled(this, Category.AIRCRAFT) },
             com.rfsentinel.app.sdr.SdrRadio.Mode.P25.takeIf { radioOn && Prefs.sdrP25(this) },
-            com.rfsentinel.app.sdr.SdrRadio.Mode.PAGER.takeIf { radioOn && Prefs.sdrPager(this) }
+            com.rfsentinel.app.sdr.SdrRadio.Mode.PAGER.takeIf { radioOn && Prefs.sdrPager(this) },
+            com.rfsentinel.app.sdr.SdrRadio.Mode.TPMS.takeIf { radioOn && Prefs.sdrTpms(this) }
         ).toSet()
         com.rfsentinel.app.sdr.SdrRadio.modes = sdrModes
         com.rfsentinel.app.sdr.SdrRadio.turnMs = com.rfsentinel.app.sdr.SdrRadio.Mode.entries.associateWith { Prefs.sdrTurnS(this, it) * 1000L }
@@ -482,6 +490,8 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.sdr.SdrRadio.pagerChannel = Prefs.pagerChannel(this)
         com.rfsentinel.app.sdr.SdrRadio.onPagerPage = { page -> pipeline.post { onPagerPage(page) } }
         com.rfsentinel.app.sdr.SdrRadio.onP25Input = { call, hz, snr -> pipeline.post { onP25Input(call, hz, snr) } }
+        com.rfsentinel.app.sdr.SdrRadio.onP25Nearby = { msg, snr, tg -> pipeline.post { onP25Nearby(msg, snr, tg) } }
+        com.rfsentinel.app.sdr.SdrRadio.onTpms = { r -> pipeline.post { onTpms(r) } }
         com.rfsentinel.app.sdr.SdrRadio.location = { (lastLocation ?: lastFix)?.let { it.latitude to it.longitude } }
         com.rfsentinel.app.sdr.SdrRadio.onAircraft = { planes, unlocated -> onlineWatch.localAircraft(planes, unlocated) }
         if (sdrModes.isNotEmpty() || radioOn) {
@@ -1780,8 +1790,8 @@ class ScanForegroundService : Service() {
                 com.rfsentinel.app.sdr.RadioWatch.Kind.TARGET -> "One of the frequencies you watch (Settings > RTL-SDR radio)."
                 com.rfsentinel.app.sdr.RadioWatch.Kind.CUSTOM -> "A band you added in Settings > RTL-SDR radio."
                 else -> (if (e.tdma) "It came in time-slot bursts like a DMR handset's (a P25 Phase 2 radio looks the same). Nothing decoded. " else "") +
-                    "Police use this band, but so do businesses, schools and transit; a weak sign on its own."
-            }
+                    if (e.p25Nac != null) "" else "Police use this band, but so do businesses, schools and transit; a weak sign on its own."
+            } + (e.p25Nac?.let { " It decoded as P25, the digital radio police, fire and EMS use (network access code %03X): a P25 radio, not just any transmitter. Voice not decoded; not proof of who it is.".format(it) } ?: "")
         val cellDetail = heardBy + "A cellular transmitter is on the air nearby on ${e.mhz} MHz (${e.band.label}), " +
             "${e.snrDb} dB above the quiet level - $near. Something is transmitting on the phone / modem side of an " +
             "LTE band: a phone, but also a vehicle modem, a Cradlepoint-style router or a camera with a SIM. Signal " +
@@ -1791,15 +1801,20 @@ class ScanForegroundService : Service() {
             cell -> "Cellular transmitter nearby (LTE uplink)"
             name != null -> "Radio transmitting: $name"
             e.tdma -> "${e.slots} radio transmitting nearby"
+            e.p25Nac != null -> "P25 radio transmitting nearby"
             else -> "Two-way radio transmitting nearby"
         } + (via?.let { " · via $it" } ?: "")
-        val hit = Hit(Category.RADIO, label, e.confidence, if (cell) cellDetail else detail,
-            if (e.tdma) "SDR signal strength and ${e.slots} burst timing (no decoding)" else "SDR signal strength (no decoding)")
+        val hit = Hit(Category.RADIO, label, e.confidence, if (cell) cellDetail else detail, when {
+            e.tdma -> "SDR signal strength and ${e.slots} burst timing (no decoding)"
+            e.p25Nac != null -> "SDR signal strength and a P25 frame header (no voice)"
+            else -> "SDR signal strength (no decoding)"
+        })
         // Spoken: the frequency (and its name) when that's on, else the short phrase.
         val spoken = when {
             cell -> "Cellular transmitter nearby"
             Prefs.radioSpeakFreq(this) -> (if (e.tdma) "${e.slots} radio " else "Radio ") + spokenMhz(e.freqHz) + (name?.let { ", $it" } ?: "")
             e.tdma -> "${e.slots} radio nearby"
+            e.p25Nac != null -> "P25 radio nearby"
             else -> "Radio transmitting nearby"
         } + (via?.let { ", via $it" } ?: "")
         radioDetection(hit, "RADIO " + e.mhz + " MHz", e.snrDb, now, "radio:" + e.freqHz, spoken, e.confidence >= threshold && !quiet, via)
@@ -1883,6 +1898,71 @@ class ScanForegroundService : Service() {
             "P25 control channel grant + SDR signal strength on the input (no voice)")
         radioDetection(hit, "P25 radio ${call.source}", snr, now, "p25in:${call.tg ?: call.target}",
             "Radio keyed up $near, $called", confidence >= Prefs.alertThreshold(this, Category.RADIO), talkgroup = true)
+    }
+
+    private val p25NearbyAt = HashMap<Int, Long>()
+
+    /**
+     * A radio heard calling the site on the control channel's input with nobody talking (switched on, changing talkgroup,
+     * status or data): strong enough to be near you. One report per radio per [P25_NEARBY_GAP_MS].
+     */
+    private fun onP25Nearby(msg: com.rfsentinel.app.sdr.P25Tsbk.Inbound, snr: Int, tg: Int?) {
+        if (!Prefs.categoryEnabled(this, Category.RADIO)) return
+        val now = System.currentTimeMillis()
+        if (now - (p25NearbyAt[msg.radio] ?: 0L) < P25_NEARBY_GAP_MS) return
+        p25NearbyAt[msg.radio] = now
+        if (p25NearbyAt.size > 500) p25NearbyAt.entries.removeAll { now - it.value >= P25_NEARBY_GAP_MS }
+        com.rfsentinel.app.sdr.P25Link.heard(msg.radio, DeviceRegistry.snapshot(now)
+            .filter { com.rfsentinel.app.ui.LiveWindow.inRange(it, now) && !WhitelistCache.contains(it.mac) }.map { it.mac }, now)
+        val min = Prefs.radioMinSnr(this)
+        val confidence = p25InputConfidence(snr, min)
+        val name = tg?.let { com.rfsentinel.app.sdr.P25Log.watched(Prefs.p25Talkgroups(this))[it]?.ifEmpty { null } }
+        val on = name ?: tg?.let { "talkgroup $it" }
+        val near = when { snr >= 40 -> "very close"; snr >= 30 -> "close"; else -> "nearby" }
+        val detail = "Radio ${msg.radio} sent the site a ${msg.kind}, heard on the control channel's input $snr dB above the noise - $near. " +
+            "Nobody was talking: radios send these on their own (switching on, changing talkgroup, status, data). On the input " +
+            "only radios transmit, so this one is near you." + (on?.let { " Its talkgroup: $it." } ?: "")
+        val hit = Hit(Category.RADIO, "P25 radio $near" + (on?.let { ": $it" } ?: ""), confidence, detail,
+            "P25 control channel input + SDR signal strength (no voice)")
+        radioDetection(hit, "P25 radio ${msg.radio}", snr, now, "p25radio:${msg.radio}",
+            "P25 radio $near", confidence >= Prefs.alertThreshold(this, Category.RADIO), talkgroup = true)
+    }
+
+    /** Tire sensors heard along your way (memory only, like [placeFollow]). */
+    private val tpmsFollow = PlaceFollow()
+    private var tpmsAlertAt = 0L
+
+    /**
+     * A tire-pressure sensor: the same one heard with you at three places or more (the follow settings) is a car
+     * following you. The first ones ever to do that are your own car's, learned for [TPMS_LEARN_MS] and never alerted
+     * (Settings › RTL-SDR radio › Forget my car's tire sensors to learn again).
+     */
+    private fun onTpms(r: com.rfsentinel.app.sdr.Tpms.Reading) {
+        if (!Prefs.categoryEnabled(this, Category.RADIO)) return
+        val loc = lastLocation ?: lastFix ?: return
+        val now = System.currentTimeMillis()
+        val key = "tpms:" + r.key
+        tpmsFollow.heard(key, null, now, loc.latitude, loc.longitude)
+        if (!Prefs.followerAlerts(this) || key in Prefs.tpmsOwn(this)) return
+        val followMs = Prefs.followMinMinutes(this) * 60_000L
+        val followM = Prefs.followMinMeters(this).toDouble()
+        if (!tpmsFollow.follower(key, now, followMs, followM)) return
+        val learning = Prefs.tpmsLearnAt(this)
+        if (learning == 0L || now - learning < TPMS_LEARN_MS) {
+            if (learning == 0L) Prefs.setTpmsLearnAt(this, now)
+            Prefs.addTpmsOwn(this, key)
+            com.rfsentinel.app.util.HwLogs.sdr.log("tire sensors: one more learned as your car's (${Prefs.tpmsOwn(this).size} in all)")
+            return
+        }
+        val places = tpmsFollow.places(key, followMs, followM)
+        val detail = "The same tire-pressure sensor (${r.protocol}, ID ${r.id}) was heard with you at $places places over the last " +
+            "${Prefs.followMinMinutes(this)}+ minutes: the car it is on has been travelling with you. Every car's wheels send a fixed " +
+            "ID while driving, whatever its driver's phone does. Could also be a car going the same way in traffic." +
+            (r.kpa?.let { " Tire: %.0f kPa".format(java.util.Locale.US, it) + (r.tempC?.let { t -> ", %.0f °C.".format(java.util.Locale.US, t) } ?: ".") } ?: "")
+        val hit = Hit(Category.RADIO, "Vehicle following you (tire sensor)", TPMS_CONFIDENCE, detail, "SDR tire-pressure sensor ID (315 / 433 MHz)")
+        val alert = TPMS_CONFIDENCE >= Prefs.alertThreshold(this, Category.RADIO) && now - tpmsAlertAt >= TPMS_ALERT_GAP_MS
+        if (alert) tpmsAlertAt = now
+        radioDetection(hit, "TPMS ${r.protocol} ${r.id}", 0, now, key, "Vehicle following you", alert)
     }
 
     private var p25UnusualAt = 0L

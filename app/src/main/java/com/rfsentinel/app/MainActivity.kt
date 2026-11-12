@@ -540,6 +540,7 @@ class MainActivity : AppCompatActivity() {
                             com.rfsentinel.app.sdr.SdrRadio.Mode.ADSB -> ({ com.rfsentinel.app.sdr.SdrRadio.adsbMessages })
                             com.rfsentinel.app.sdr.SdrRadio.Mode.P25 -> ({ com.rfsentinel.app.sdr.SdrRadio.p25Messages })
                             com.rfsentinel.app.sdr.SdrRadio.Mode.PAGER -> ({ com.rfsentinel.app.sdr.SdrRadio.pagerLog.total })
+                            com.rfsentinel.app.sdr.SdrRadio.Mode.TPMS -> ({ com.rfsentinel.app.sdr.SdrRadio.tpmsMessages })
                             else -> null
                         }, " msg/s")
                 },
@@ -1075,7 +1076,7 @@ class MainActivity : AppCompatActivity() {
                 mac = key,
                 title = title,
                 subtitle = listOfNotNull(r.lastSource?.let { "Radio $it keyed up" }, "${r.calls} call" + (if (r.calls == 1) "" else "s"),
-                    "EMERGENCY".takeIf { r.emergency }, "encrypted".takeIf { r.encrypted }).joinToString(" · "),
+                    "EMERGENCY".takeIf { r.emergency }, "encrypted".takeIf { r.encrypted }, "Phase 2".takeIf { r.phase2 }).joinToString(" · "),
                 meta = if (ago < 3) "Call going on" else "Last call ${com.rfsentinel.app.ui.DeviceRows.ago(ago)}",
                 tag = com.rfsentinel.app.ui.DeviceRows.matchTag(if (near) "P25 NEAR" else "P25", confidence),
                 tagColor = color,

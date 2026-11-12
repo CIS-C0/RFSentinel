@@ -59,9 +59,9 @@ class P25Activity : AppCompatActivity() {
             ItemDetectionBinding.bind(holder.itemView).apply {
                 val name = r.tg?.let { watched[it] }
                 val playing = SdrRadio.p25Playing?.let { if (r.tg != null) it.tg == r.tg else it.tg == null && it.target == r.target } == true
-                r.tg?.let { tg -> root.setOnClickListener { askHold(tg, r.encrypted) } }
+                r.tg?.let { tg -> root.setOnClickListener { askHold(tg, r.encrypted, r.phase2) } }
                 labelText.text = listOfNotNull(title(r), "playing".takeIf { playing }, "held".takeIf { r.tg != null && r.tg == SdrRadio.p25Hold }, name?.ifEmpty { "watched" }, "EMERGENCY".takeIf { r.emergency },
-                    "encrypted".takeIf { r.encrypted }).joinToString("  ·  ")
+                    "encrypted".takeIf { r.encrypted }, "Phase 2".takeIf { r.phase2 }).joinToString("  ·  ")
                 labelText.setTextColor(when {
                     r.emergency -> EMERGENCY
                     name != null -> ChipStyle.accent(this@P25Activity).first
@@ -111,7 +111,7 @@ class P25Activity : AppCompatActivity() {
     }
 
     /** A talkgroup tapped: hold it, or release it when it is the one held. */
-    private fun askHold(tg: Int, encrypted: Boolean) {
+    private fun askHold(tg: Int, encrypted: Boolean, phase2: Boolean) {
         if (SdrRadio.p25Hold == tg) {
             com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Release talkgroup $tg?")
@@ -125,7 +125,8 @@ class P25Activity : AppCompatActivity() {
             .setMessage("Plays only this talkgroup's clear calls, with no time limit, and keeps the SDR on P25: the radio sweep, " +
                 "cellular check and ADS-B pause, and so do recordings. Listening for radios keying up nearby stays on for its calls. " +
                 "Until you tap Release or scanning stops." +
-                (if (encrypted) "\n\nIts last call was encrypted: encrypted calls can't be played." else ""))
+                (if (encrypted) "\n\nIts last call was encrypted: encrypted calls can't be played." else "") +
+                (if (phase2) "\n\nIts last call was on a Phase 2 (TDMA) channel: those calls can't be played yet." else ""))
             .setPositiveButton("Hold") { _, _ -> hold(tg) }
             .setNegativeButton("Cancel", null).show()
     }

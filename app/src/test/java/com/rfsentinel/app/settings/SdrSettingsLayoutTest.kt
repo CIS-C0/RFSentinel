@@ -15,7 +15,7 @@ class SdrSettingsLayoutTest {
     private val radio = source.substring(source.indexOf("private fun setupRadioSection()")).let { it.substring(0, it.indexOf("\n    }\n")) }
 
     private val sdrSetters = listOf(
-        "setSdrSweep", "setSdrAdsb", "setSdrP25", "setSdrPager", "setSdrTurnS",
+        "setSdrSweep", "setSdrAdsb", "setSdrP25", "setSdrPager", "setSdrTpms", "setP25Bands", "setSdrTurnS",
         "setRadioMinSnr", "setRadioBandsOff", "setRadioCustomBands", "setRadioExcluded", "setRadioTargets",
         "setRadioSpeakFreq", "setRadioCellOn", "setRadioTetraOn", "setRadioDmrOn", "setRadioTrendDb", "setRadioMatchKhz",
         "setP25Talkgroups", "setP25AlertsOff", "setP25LogDays", "setP25Unusual", "setP25Inputs", "setP25Record", "setP25Listen",

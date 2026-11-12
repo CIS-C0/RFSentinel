@@ -58,7 +58,9 @@ class RadioWatch {
      * [tdma]: it came in time-slot bursts, named by [slots].
      */
     data class Event(val freqHz: Long, val snrDb: Int, val band: Band, val confidence: Int,
-                     val target: Target? = null, val repeat: Boolean = false, val tdma: Boolean = false) {
+                     val target: Target? = null, val repeat: Boolean = false, val tdma: Boolean = false,
+                     /** It decoded as P25 (a frame header with this network access code): a P25 radio, not just energy. */
+                     val p25Nac: Int? = null) {
         val mhz: String get() = "%.4f".format(java.util.Locale.US, freqHz / 1e6)
         /** The radio system its time slots point to; null without them. */
         val slots: String? get() = if (!tdma) null else if (band.kind == Kind.TETRA) "TETRA" else "DMR"

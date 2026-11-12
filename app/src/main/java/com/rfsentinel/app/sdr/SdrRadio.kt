@@ -55,6 +55,16 @@ object SdrRadio {
     private const val INPUT_DELAY_MS = 400L    // after a grant: the radio is on the air by then
     private const val INPUT_GAP_MS = 5_000L    // at most one input check this often: each costs ~0.2 s of control channel
     private const val INPUT_READS = 16         // ~70 ms of the input
+    private const val INBOUND_GAP_MS = 20_000L // the control channel's input: one listen this often (radios checking in nearby)
+    private const val INBOUND_S = 1.5          // each that long: the control channel misses ~7% of its messages
+    private const val IDENTIFY_S = 0.6         // sweep: listening this long to a transmission tells P25 from other radios
+    private const val IDENTIFY_GAP_MS = 3_000L // at most one such check this often, so the sweep keeps its pace
+    private const val P25_BONUS = 15           // decoded as P25: that much surer it's a public-safety radio
+    private const val P25_MAX_CONFIDENCE = 85
+    private const val KNOWN_PPM = 100e-6       // a heard / announced frequency pair further apart than this is a different channel
+    /** Tire sensors: tuned this far below the channel, a multiple of [Tpms.RATE] so the centre spike lands on a null. */
+    private const val TPMS_OFFSET_HZ = 512_000L
+    private const val TPMS_DWELL_MS = 10_000L   // each band this long: a sensor sends about every 15-60 s while driving
     /** An FM station fills at least this much. */
     private const val FM_WIDTH_HZ = 100_000L
     private const val INPUT_OFFSET_HZ = 250_000L // the input this far above the tuned centre, clear of the DC spike
@@ -87,7 +97,7 @@ object SdrRadio {
     private val UNPLUGGED get() = "$deviceLabel unplugged"
     /** For the reading thread: stop now (scan stopped, unplugged, or a newer thread took over). */
     private val halted get() = stop || Thread.currentThread() !== worker
-    enum class Mode(val label: String) { SWEEP("radio sweep"), ADSB("ADS-B"), P25("P25"), PAGER("pagers") }
+    enum class Mode(val label: String) { SWEEP("radio sweep"), ADSB("ADS-B"), P25("P25"), PAGER("pagers"), TPMS("tire sensors") }
     /** What the SDR does (Settings > RTL-SDR radio); with more than one it takes turns ([turnMs]). */
     @Volatile var modes: Set<Mode> = setOf(Mode.SWEEP)
     /** How long each scan's turn lasts (Settings › RTL-SDR radio); 60 s when not set. */
@@ -216,12 +226,18 @@ object SdrRadio {
     @Volatile var pagerChannel = 0L
     /** A page that wasn't ignored, for the watch alerts. */
     @Volatile var onPagerPage: ((PagerLog.Page) -> Unit)? = null
+    /** A tire-pressure sensor heard (Settings › RTL-SDR radio › Tire sensors): kept in memory only, for the follow check. */
+    @Volatile var onTpms: ((Tpms.Reading) -> Unit)? = null
+    /** Tire-sensor messages decoded since the app started. */
+    @Volatile var tpmsMessages = 0L; private set
     /** A call started on this talkgroup (the service alerts on watched ones). */
     @Volatile var onP25Call: ((Int) -> Unit)? = null
     /** Settings › RTL-SDR radio: after a call starts, briefly listen where its radio transmits (the site's input). */
     @Volatile var p25Inputs = false
     /** A call's radio heard on the input: [snrDb] above the noise, so close to you (the call, its input frequency). */
     @Volatile var onP25Input: ((P25History.Call, Long, Int) -> Unit)? = null
+    /** A radio heard calling the site on the control channel's input, nobody talking: who, how strong, its talkgroup if known. */
+    @Volatile var onP25Nearby: ((P25Tsbk.Inbound, Int, Int?) -> Unit)? = null
     /** Settings › RTL-SDR radio: save the radio signal of clear calls ([P25Record]). */
     @Volatile var p25Record = false
     /** Settings › Listen to P25 voice: which clear calls to play live ([P25Follow]). */
@@ -533,6 +549,7 @@ object SdrRadio {
                 Mode.ADSB -> runAdsb(sdr, name)
                 Mode.P25 -> runP25(sdr, name)
                 Mode.PAGER -> runPager(sdr, name)
+                Mode.TPMS -> runTpms(sdr, name)
             }
         }
         if (sdr.lost) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: the dongle stopped answering (unplugged?)")
@@ -669,6 +686,7 @@ object SdrRadio {
         }
         // "Log everything": every channel heard in this sweep.
         val heard = ArrayList<P25Hunt.Candidate>()
+        var lastIdentify = 0L; var identified = 0; var p25Found = 0
         while (!halted && !sdr.lost && keeps(Mode.SWEEP)) {
             // Settings changed: the new bands / targets / sensitivity from this sweep on.
             if (config != cfg) { cfg = config; plan = RadioWatch.plan(cfg); watch.config = cfg; logPlan() }
@@ -708,13 +726,23 @@ object SdrRadio {
                 }
                 if (SdrWaterfall.listening) show(center, SdrWaterfall.segment(center, psd, sdr.sampleRate, RadioWatch.USABLE_HZ, bandOf(center)))
                 if (logAll) heard += P25Hunt.candidates(center, psd, sdr.sampleRate)
-                for (e in watch.analyze(center, psd, sdr.sampleRate, System.currentTimeMillis(), bursts)) {
+                for (found in watch.analyze(center, psd, sdr.sampleRate, System.currentTimeMillis(), bursts)) {
                     // Swept only for the open waterfall (radio sweep not ticked): nothing reported.
                     if (Mode.SWEEP !in active) continue
+                    var e = found
                     if (!e.repeat) {
                         events++
+                        // A new transmission: listen for a moment to tell a P25 radio (conventional, which no control channel lists) from the rest.
+                        if (identifies(e) && System.currentTimeMillis() - lastIdentify >= IDENTIFY_GAP_MS) {
+                            lastIdentify = System.currentTimeMillis()
+                            identified++
+                            identifyP25(sdr, e, center, psd)?.let { h ->
+                                p25Found++
+                                e = e.copy(p25Nac = h.nac, confidence = minOf(e.confidence + P25_BONUS, P25_MAX_CONFIDENCE))
+                            }
+                        }
                         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: transmission ${e.mhz} MHz, ${e.snrDb} dB above the noise (${e.band.label})" +
-                            (e.slots?.let { ", $it time slots" } ?: ""))
+                            (e.slots?.let { ", $it time slots" } ?: "") + (if (e.p25Nac != null) ", P25" + (if (logAll) " NAC %03X".format(e.p25Nac) else "") else ""))
                     }
                     onEvent?.invoke(e)
                 }
@@ -734,7 +762,7 @@ object SdrRadio {
             if (now - lastLog > (if (watch.sweeps < 20) 10_000 else 60_000)) {
                 lastLog = now
                 com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: sweep ${watch.sweeps} in $sweepMs ms, ${watch.learnedChannels} channels, ${watch.busyChannels} always busy, " +
-                    "$events reported, PLL unlocked $unlocked, read errors $readErrors, chunks without samples $emptyChunks, " +
+                    "$events reported ($identified checked for P25, $p25Found were), PLL unlocked $unlocked, read errors $readErrors, chunks without samples $emptyChunks, " +
                     "tuner write failures ${sdr.tunerWriteFails}, USB errors ${sdr.ctlErrors}, noise " +
                     noise.entries.joinToString { (hz, v) -> "%.0f MHz %.0f dB".format(hz / 1e6, v.first / v.second) })
                 noise.clear()
@@ -743,11 +771,28 @@ object SdrRadio {
         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: radio sweep stopped after ${watch.sweeps} sweeps")
     }
 
+    /** Worth a P25 check: a two-way radio band (not cellular, not TETRA), and no time slots (P25 Phase 1 is continuous). */
+    private fun identifies(e: RadioWatch.Event) = !e.tdma && e.band.kind != RadioWatch.Kind.CELLULAR_UPLINK && e.band.kind != RadioWatch.Kind.TETRA
+
+    /**
+     * Is [e] a P25 radio? The sweep's channel grid is 12.5 kHz, so the peak in [psd] (tuned to [center]) near it gives the
+     * real centre first; then a short listen at the P25 sample rate. The sweep's rate is put back after.
+     */
+    private fun identifyP25(sdr: SdrDevice, e: RadioWatch.Event, center: Long, psd: FloatArray): P25Hunt.Heard? {
+        val hz = P25Hunt.candidates(center, psd, sdr.sampleRate, 3.0).minByOrNull { kotlin.math.abs(it.hz - e.freqHz) }
+            ?.hz?.takeIf { kotlin.math.abs(it - e.freqHz) <= RadioWatch.STEP_HZ } ?: e.freqHz
+        sdr.setSampleRate(P25Demod.SAMPLE_RATE)
+        try { return P25Hunt.identify(sdr, hz, IDENTIFY_S) { halted || sdr.lost } }
+        finally { sdr.setSampleRate(SAMPLE_RATE); sdr.resetBuffer() }
+    }
+
     /** Finds a P25 control channel and follows it; looks again when it goes quiet or none was found. */
     private fun runP25(sdr: SdrDevice, name: String) {
         sdr.setGain(GAIN_TENTHS_DB)
         sdr.resetBuffer()
-        val hunt = p25Hunt ?: P25Hunt(sdr, readAhead = true, logAll = { logAll }) { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: $it") }.also { p25Hunt = it }
+        val hunt = p25Hunt ?: P25Hunt(sdr, readAhead = true, logAll = { logAll },
+            bands = { P25Hunt.bandsFor(appContext?.let { com.rfsentinel.app.util.Prefs.p25Bands(it) } ?: P25Hunt.DEFAULT_KEYS) },
+            gainTenths = GAIN_TENTHS_DB) { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: $it") }.also { p25Hunt = it }
         var lastCheck = System.currentTimeMillis(); var away = false
         val stop = {
             val now = System.currentTimeMillis()
@@ -759,11 +804,13 @@ object SdrRadio {
             // Its last turn's control channel first: no new search when it is still there.
             val known = p25Lock
             if (known == null) status = "$deviceLabel · P25 · looking for a control channel…" + turnNote()
-            val lock = known ?: hunt.hunt(stop)
+            // Before a scan: the site's other control channels (and its neighbours') as this dongle hears them, then the
+            // ones found on earlier runs.
+            val lock = known ?: hunt.hunt((alternates() + rememberedLocks()).distinct(), stop)
             if (lock == null) {
                 if (stop()) break
                 com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 - no control channel decoded (${hunt.tried} channels tried), looking again in ${P25_RETRY_MS / 1000} s")
-                status = "$deviceLabel · P25 · no control channel heard here · looking again shortly" + turnNote()
+                status = "$deviceLabel · P25 · ${hunt.hint ?: "no control channel heard here"} · looking again shortly" + turnNote()
                 val until = System.currentTimeMillis() + P25_RETRY_MS
                 while (!stop() && System.currentTimeMillis() < until) Thread.sleep(200)
                 continue
@@ -773,17 +820,33 @@ object SdrRadio {
             com.rfsentinel.app.util.HwLogs.sdr.log((if (known != null) "$deviceLabel: P25 back on the control channel" else "$deviceLabel: P25 control channel found after ${hunt.tried} tries") +
                 (if (logAll) " ($where)" else ""))
             p25Lock = lock
+            if (known == null) rememberLock(lock)
             if (lock.nac != p25Nac) { p25Log.clear(System.currentTimeMillis()); p25Nac = lock.nac } // another system: a new list
             status = "$deviceLabel · P25 · control channel $where" + turnNote()
             var messages = 0; var lastStatus = 0L
             var pending: Pair<P25History.Call, Long>? = null; var lastInput = 0L; var inputs = 0; var heard = 0
             var toRecord: P25History.Call? = null; var lastRecord = 0L; var recorded = 0
             var toFollow: P25History.Call? = null; var followed = 0
+            var lastInbound = System.currentTimeMillis(); var inbounds = 0; val nearby = HashSet<Int>()
             // A call's input: once it's on the air, tune there for a moment and measure it (the control channel comes back after).
             // A call to play goes first, for as long as it lasts; then a call to record, its voice channel for a few seconds.
             val detour = detour@{
                 toFollow?.let { call -> toFollow = null; if (followCall(sdr, call, stop)) followed++; return@detour true }
                 toRecord?.let { call -> toRecord = null; if (recordCall(sdr, call)) recorded++; return@detour true }
+                if (inboundDue(lastInbound)) {
+                    lastInbound = System.currentTimeMillis()
+                    controlInput(lock)?.let { hz ->
+                        inbounds++
+                        P25Hunt.inbound(sdr, hz, lock.nac, INBOUND_S, stop) { msg, snr ->
+                            if (snr < RadioWatch.activeDb(config.minSnrDb)) return@inbound
+                            val tg = p25Log.heardRadio(msg.radio, snr, System.currentTimeMillis())
+                            if (nearby.add(msg.radio) && logAll) logHeard("P25 radio ${msg.radio} ${msg.kind} on the control channel's input, $snr dB" +
+                                (tg?.let { ", talkgroup $it" } ?: ""))
+                            onP25Nearby?.invoke(msg, snr, tg)
+                        }
+                    }
+                    return@detour true
+                }
                 val (call, hz) = pending ?: return@detour false
                 if (System.currentTimeMillis() - call.time < INPUT_DELAY_MS) return@detour false
                 pending = null
@@ -794,7 +857,8 @@ object SdrRadio {
                 }
                 true
             }
-            val detourDue = { toFollow != null || toRecord != null || pending?.let { System.currentTimeMillis() - it.first.time >= INPUT_DELAY_MS } == true }
+            val detourDue = { toFollow != null || toRecord != null || pending?.let { System.currentTimeMillis() - it.first.time >= INPUT_DELAY_MS } == true ||
+                inboundDue(lastInbound) }
             val lost = hunt.listen(lock, stop, detour, detourDue) {
                 messages++; p25Messages++
                 val now = System.currentTimeMillis()
@@ -804,7 +868,7 @@ object SdrRadio {
                 appContext?.let { c -> P25History.append(c, calls) }
                 if (logAll) for (c in calls) logHeard("P25 call" + (c.tg?.let { " talkgroup $it" } ?: "") + (c.target?.let { " to radio $it" } ?: "") +
                     (c.source?.let { " from radio $it" } ?: "") + (c.hz?.let { " on %.4f MHz".format(java.util.Locale.US, it / 1e6) } ?: "") +
-                    (if (c.encrypted) ", encrypted" else "") + (if (c.emergency) ", emergency" else ""))
+                    (if (c.encrypted) ", encrypted" else "") + (if (c.emergency) ", emergency" else "") + (if (c.phase2) ", Phase 2" else ""))
                 val hold = p25Hold
                 if (p25Inputs && pending == null && now - lastInput >= INPUT_GAP_MS) {
                     calls.lastOrNull { it.source != null && it.channel != null && (hold == null || it.tg == hold) }?.let { c ->
@@ -813,11 +877,11 @@ object SdrRadio {
                 }
                 val listen = p25Listen
                 if ((listen != Listen.OFF || hold != null) && !p25Mute && toFollow == null) {
-                    calls.lastOrNull { !it.encrypted && it.hz != null && (if (hold != null) it.tg == hold else listen == Listen.ALL || it.tg in p25Watched) }
+                    calls.lastOrNull { !it.encrypted && !it.phase2 && it.hz != null && (if (hold != null) it.tg == hold else listen == Listen.ALL || it.tg in p25Watched) }
                         ?.let { toFollow = it }
                 }
                 if (p25Record && hold == null && toRecord == null && now - lastRecord >= RECORD_GAP_MS) {
-                    calls.lastOrNull { !it.encrypted && it.hz != null && it !== toFollow }?.let { toRecord = it; lastRecord = now }
+                    calls.lastOrNull { !it.encrypted && !it.phase2 && it.hz != null && it !== toFollow }?.let { toRecord = it; lastRecord = now }
                 }
                 if (now - lastStatus >= 2_000L && !halted) { lastStatus = now; status = "$deviceLabel · P25 · control channel $where · $messages messages" + turnNote() }
             }
@@ -825,11 +889,44 @@ object SdrRadio {
             com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 ${if (lost) "control channel went quiet" else "turn over or stopped"} after $messages messages (${hunt.blocks} blocks in all), " +
                 p25Log.rows().let { r -> "${r.size} talkgroups / private calls, ${r.sumOf { it.calls }} calls" } +
                 (if (inputs > 0) ", $inputs input checks, $heard radios heard nearby" else "") +
+                (if (inbounds > 0) ", $inbounds control channel input checks, ${nearby.size} radios heard calling the site nearby" else "") +
                 (if (recorded > 0) ", $recorded calls recorded" else "") +
                 (if (followed > 0) ", $followed calls played" else ""))
         }
         speaker?.release(); speaker = null
     }
+
+    /** Settings › Listen for radios nearby is on, nothing else is waiting, and the last listen to the control channel's input was a while ago. */
+    private fun inboundDue(last: Long) = p25Inputs && p25Hold == null && System.currentTimeMillis() - last >= INBOUND_GAP_MS
+
+    /** How this dongle's frequencies relate to the site's own: the control channel as heard over as announced (1 when unknown). */
+    private fun dongleRatio(): Double {
+        val lock = p25Lock ?: return 1.0
+        val announced = p25Log.summary().site?.channel?.let(p25Log::hz) ?: return 1.0
+        val r = lock.hz.toDouble() / announced
+        return if (kotlin.math.abs(r - 1) <= KNOWN_PPM) r else 1.0
+    }
+
+    /** Where the radios transmit to the control channel [lock] (as this dongle hears it), once the site's channel table said so. */
+    private fun controlInput(lock: P25Hunt.Lock): Long? {
+        val site = p25Log.summary().site ?: return null
+        val input = p25Log.inputHz(site.channel) ?: return null
+        val down = p25Log.hz(site.channel) ?: return null
+        // Only when the channel the site names is the one being listened to (not a secondary that didn't say so).
+        if (kotlin.math.abs(lock.hz.toDouble() / down - 1) > KNOWN_PPM) return null
+        return kotlin.math.round(input * dongleRatio()).toLong()
+    }
+
+    /** The site's other control channels and its neighbours', as this dongle hears them (empty before a site was heard). */
+    private fun alternates(): List<Long> {
+        val r = dongleRatio()
+        return p25Log.alternates().map { kotlin.math.round(it * r).toLong() }.filter { hz -> p25Lock?.let { kotlin.math.abs(it.hz - hz) <= 6_250L } != true }
+    }
+
+    /** Control channels this dongle found on earlier runs, newest first (kept on the phone only). */
+    private fun rememberedLocks(): List<Long> = appContext?.let { c -> com.rfsentinel.app.util.Prefs.p25Known(c).map { it.hz } }.orEmpty()
+
+    private fun rememberLock(lock: P25Hunt.Lock) { appContext?.let { com.rfsentinel.app.util.Prefs.addP25Known(it, lock) } }
 
     /**
      * Plays [call] live from its voice channel until it ends, goes quiet, or listening stops ([FOLLOW_MAX_MS] at most,
@@ -845,7 +942,7 @@ object SdrRadio {
         val buf = ByteArray(XFER)
         repeat(sdr.settleReads) { sdr.read(buf) }
         var started = false
-        val follow = P25Follow(INPUT_OFFSET_HZ.toDouble()) { pcm ->
+        val follow = P25Follow(INPUT_OFFSET_HZ.toDouble(), lsm = p25Lock?.lsm == true) { pcm ->
             // A little silence first: voice comes in 180 ms bursts, and the buffer shouldn't run dry between them.
             if (!started) { started = true; out.write(ShortArray(ImbeDecoder.RATE / 5), 0, ImbeDecoder.RATE / 5, android.media.AudioTrack.WRITE_NON_BLOCKING) }
             out.write(pcm, 0, pcm.size, android.media.AudioTrack.WRITE_NON_BLOCKING)
@@ -985,6 +1082,52 @@ object SdrRadio {
             com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: pagers ${if (quiet) "channel went quiet" else "turn over or stopped"} after ${pagerLog.total - before} pages" +
                 (if (logAll) " on %.4f MHz".format(java.util.Locale.US, hz / 1e6) else ""))
         }
+    }
+
+    /**
+     * Tire-pressure sensors: [Tpms.CHANNELS] in turn, [TPMS_DWELL_MS] each, every message decoded to [onTpms]. IDs stay
+     * off the log (counts only), even with "log everything": they would trace the cars around you.
+     */
+    private fun runTpms(sdr: SdrDevice, name: String) {
+        sdr.setSampleRate(SAMPLE_RATE)
+        sdr.setGain(GAIN_TENTHS_DB)
+        sdr.resetBuffer()
+        var lastCheck = System.currentTimeMillis(); var away = false
+        val stop = {
+            val now = System.currentTimeMillis()
+            if (now - lastCheck >= 2_000L) { lastCheck = now; away = gone(name) }
+            halted || sdr.lost || away || !keeps(Mode.TPMS)
+        }
+        val buf = ByteArray(STREAM_XFER)
+        val sensors = HashSet<String>(); var heard = 0; var bursts = 0; var unlocked = 0
+        var next = 0
+        while (!stop()) {
+            val hz = Tpms.CHANNELS[next++ % Tpms.CHANNELS.size]
+            if (!sdr.tune(hz - TPMS_OFFSET_HZ)) { unlocked++; Thread.sleep(200); continue }
+            sdr.resetBuffer()
+            val demod = Tpms.Demod(sdr.sampleRate, TPMS_OFFSET_HZ.toDouble()) { r ->
+                heard++; tpmsMessages++; sensors += r.key
+                onTpms?.invoke(r)
+            }
+            val until = System.currentTimeMillis() + TPMS_DWELL_MS
+            var fails = 0
+            ReadAhead(sdr, buf.size).use { ahead ->
+                while (!stop() && System.currentTimeMillis() < until) {
+                    val n = ahead.read(buf)
+                    if (n <= 0) {
+                        if (++fails % STALL_CHUNKS == 0) status = "$deviceLabel · tire sensors · " + stalledLine(fails / STALL_CHUNKS, sdr is RtlTcp) + turnNote()
+                        continue
+                    }
+                    fails = 0
+                    demod.feed(buf, n / 2)
+                }
+            }
+            bursts += demod.bursts
+            if (!halted) status = "$deviceLabel · tire sensors · ${sensors.size} heard this turn" + turnNote()
+        }
+        // Counts only: sensor IDs would trace the cars around you.
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: tire sensors turn over: $bursts bursts, $heard messages from ${sensors.size} sensors" +
+            (if (unlocked > 0) ", PLL unlocked $unlocked" else ""))
     }
 
     /** One look at FM radio, chunk by chunk, then at the weather channels, all inside one tuned chunk away from the centre spike. */

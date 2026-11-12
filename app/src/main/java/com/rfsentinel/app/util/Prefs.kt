@@ -725,6 +725,16 @@ object Prefs {
     /** The SDR decodes pager messages (off by default); they stay in memory ([com.rfsentinel.app.sdr.PagerLog]). */
     fun sdrPager(context: Context): Boolean = bool(context, "sdr_pager", false)
     fun setSdrPager(context: Context, v: Boolean) { keepSdrSweep(context); setBool(context, "sdr_pager", v) }
+    /** The SDR listens for tire-pressure sensors (a car following you). Off by default. */
+    fun sdrTpms(context: Context): Boolean = bool(context, "sdr_tpms", false)
+    fun setSdrTpms(context: Context, v: Boolean) { keepSdrSweep(context); setBool(context, "sdr_tpms", v) }
+    /** Your own car's tire sensors ("protocol:id"), learned on the phone so they never alert. */
+    fun tpmsOwn(context: Context): Set<String> = sp(context).getStringSet("tpms_own", emptySet()).orEmpty()
+    fun addTpmsOwn(context: Context, key: String) = sp(context).edit { putStringSet("tpms_own", (tpmsOwn(context) + key).toSet()) }
+    /** When learning your car's sensors started (0: not yet). */
+    fun tpmsLearnAt(context: Context): Long = sp(context).getLong("tpms_learn_at", 0L)
+    fun setTpmsLearnAt(context: Context, at: Long) = sp(context).edit { putLong("tpms_learn_at", at) }
+    fun forgetTpmsOwn(context: Context) = sp(context).edit { remove("tpms_own"); remove("tpms_learn_at") }
     /** Paging frequencies typed by the user, one per line in MHz: listened to instead of scanning for a channel. */
     fun pagerFreqs(context: Context) = str(context, "pager_freqs")
     fun setPagerFreqs(context: Context, v: String) = sp(context).edit { putString("pager_freqs", v) }
@@ -810,6 +820,23 @@ object Prefs {
         val on = str(context, "sdr_ppm_for")
         return if (on.isEmpty() || on == device) v else 0.0
     }
+
+    /** P25 › Bands to search for a control channel: [com.rfsentinel.app.sdr.P25Hunt.Band] keys; 700 and 800 MHz by default. */
+    fun p25Bands(context: Context): Set<String> =
+        sp(context).getStringSet("p25_bands", null)?.takeIf { it.isNotEmpty() } ?: com.rfsentinel.app.sdr.P25Hunt.DEFAULT_KEYS
+    fun setP25Bands(context: Context, v: Set<String>) = sp(context).edit { putStringSet("p25_bands", v) }
+    /** Control channels found before, newest first (on the phone only): tried before a band scan. */
+    fun p25Known(context: Context): List<com.rfsentinel.app.sdr.P25Hunt.Lock> = str(context, "p25_known").lines().mapNotNull { l ->
+        val f = l.split(',')
+        val hz = f.getOrNull(0)?.toLongOrNull() ?: return@mapNotNull null
+        com.rfsentinel.app.sdr.P25Hunt.Lock(hz, f.getOrNull(1)?.toIntOrNull(16) ?: 0, f.getOrNull(2) == "lsm")
+    }
+    fun addP25Known(context: Context, lock: com.rfsentinel.app.sdr.P25Hunt.Lock) {
+        // The same channel heard a few kHz apart (dongle drift) is one entry.
+        val kept = listOf(lock) + p25Known(context).filter { kotlin.math.abs(it.hz - lock.hz) > 6_250L }
+        setStr(context, "p25_known", kept.take(P25_KNOWN).joinToString("\n") { "${it.hz},%X,${if (it.lsm) "lsm" else "c4fm"}".format(it.nac) })
+    }
+    private const val P25_KNOWN = 4
 
     fun radioReferenceOn(context: Context): Boolean = bool(context, "radio_reference_on", false)
     fun setRadioReferenceOn(context: Context, v: Boolean) = setBool(context, "radio_reference_on", v)
