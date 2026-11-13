@@ -6,7 +6,7 @@ package com.rfsentinel.app.sdr
  * [ended] once the call's terminator is heard, or it turns out encrypted; [quietS]: seconds since the last voice frame.
  * [lsm]: the site is a simulcast one (its control channel decoded as LSM), so its voice channels are LSM too.
  */
-class P25Follow(offsetHz: Double, lsm: Boolean = false, private val onSpeech: (ShortArray) -> Unit) {
+class P25Follow(offsetHz: Double, lsm: Boolean = false, private val grantClear: Boolean = false, private val onSpeech: (ShortArray) -> Unit) {
 
     private val imbe = ImbeDecoder()
     private var samples = 0L
@@ -25,7 +25,10 @@ class P25Follow(offsetHz: Double, lsm: Boolean = false, private val onSpeech: (S
         when {
             v == null -> if (P25Frame.nid(P25Frame.stripStatus(f))?.duid in TERMINATORS) { ended = true; endedBy = "terminator" }
             v.encrypted -> {
-                if (P25Voice.confirmsEncryption(lastAlgid, v.algid!!)) { ended = true; endedBy = "encrypted" }
+                // A grant that said clear takes a real cipher ID: weak clear calls were cut by two garbled LDU2s alike.
+                if (P25Voice.confirmsEncryption(lastAlgid, v.algid!!) && (!grantClear || v.algid in P25Voice.CIPHERS)) {
+                    ended = true; endedBy = "encrypted (ALGID 0x%02X)".format(v.algid)
+                }
                 else { garbled++; lastVoice = samples } // still a voice frame: the call goes on
                 lastAlgid = v.algid
             }

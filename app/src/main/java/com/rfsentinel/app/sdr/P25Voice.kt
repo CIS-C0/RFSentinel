@@ -16,6 +16,8 @@ object P25Voice {
     const val LDU_DIBITS = 840
     /** The algorithm ID of a clear (not encrypted) call. */
     const val ALGID_CLEAR = 0x80
+    /** Public-safety cipher IDs (TIA-102.BAAC): DES-OFB, 2/3-key 3DES, AES-256, AES-128, DES-XL, DVI-XL, DVP-XL, ADP. */
+    val CIPHERS = setOf(0x81, 0x82, 0x83, 0x84, 0x85, 0x9F, 0xA0, 0xA1, 0xAA)
 
     /** One codeword: [bits] its 88 info bits (0 / 1), [errors] bits corrected, [first] of them in the first word. */
     class Imbe(val bits: ByteArray, val errors: Int, val first: Int)

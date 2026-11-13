@@ -1084,7 +1084,7 @@ object SdrRadio {
         repeat(sdr.settleReads) { sdr.read(buf) }
         var started = false
         val heard = if (saveCalls) ArrayList<ShortArray>() else null
-        val follow = P25Follow(INPUT_OFFSET_HZ.toDouble(), lsm = p25Lock?.lsm == true) { pcm ->
+        val follow = P25Follow(INPUT_OFFSET_HZ.toDouble(), lsm = p25Lock?.lsm == true, grantClear = !call.encrypted) { pcm ->
             heard?.add(pcm.copyOf())
             // A little silence first: voice comes in 180 ms bursts, and the buffer shouldn't run dry between them.
             if (!started) { started = true; out.write(ShortArray(ImbeDecoder.RATE / 5), 0, ImbeDecoder.RATE / 5, android.media.AudioTrack.WRITE_NON_BLOCKING) }

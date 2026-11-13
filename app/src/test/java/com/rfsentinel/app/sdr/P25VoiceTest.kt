@@ -151,8 +151,19 @@ class P25VoiceTest {
         chunks(iq(IntArray(60) { it % 4 } + P25TestSignal.SYNC + ldu(P25Voice.DUID_LDU2, voice(8), algid = 0x84) +
             P25TestSignal.SYNC + ldu(P25Voice.DUID_LDU2, voice(8), algid = 0x84) + IntArray(60) { it % 4 }), enc::feed)
         assertTrue(enc.ended)
-        assertEquals("encrypted", enc.endedBy)
+        assertEquals("encrypted (ALGID 0x84)", enc.endedBy)
         assertEquals(0, later)
+
+        // A grant that said clear: two garbled LDU2s alike (not a cipher ID) don't end it; a real cipher still does.
+        fun twice(algid: Int) = iq(IntArray(60) { it % 4 } + P25TestSignal.SYNC + ldu(P25Voice.DUID_LDU2, voice(8), algid = algid) +
+            P25TestSignal.SYNC + ldu(P25Voice.DUID_LDU2, voice(8), algid = algid) + IntArray(60) { it % 4 })
+        val weak = P25Follow(250_000.0, grantClear = true) {}
+        chunks(twice(0x00), weak::feed)
+        assertFalse(weak.ended)
+        assertEquals(2, weak.garbled)
+        val secure = P25Follow(250_000.0, grantClear = true) {}
+        chunks(twice(0x84), secure::feed)
+        assertTrue(secure.ended)
 
         // One garbled LDU2 reading as encrypted: skipped, the call goes on.
         var heard = 0
