@@ -14,7 +14,12 @@ class P25Log {
                    /** The last time one of its radios was heard on the site's input (close to you), and how strong; 0 never. */
                    val inputAt: Long = 0L, val inputSnr: Int = 0,
                    /** Its last call was on a Phase 2 (TDMA) channel: seen, but its voice can't be played or recorded. */
-                   val phase2: Boolean = false)
+                   val phase2: Boolean = false,
+                   /** A patch supergroup: the talkgroups it carries together; empty for a plain talkgroup. */
+                   val patch: List<Int> = emptyList())
+
+    /** A [P25Tsbk.RadioEvent] or data channel grant heard at [at]; [tg] the target radio's last talkgroup when known. */
+    data class Event(val at: Long, val kind: String, val source: Int?, val target: Int, val code: Int?, val tg: Int?)
 
     /** The site and how much was heard there, for the screen's header. */
     data class Summary(val site: P25Tsbk.Site?, val messages: Long, val registrations: Int, val since: Long)
@@ -34,10 +39,15 @@ class P25Log {
     private val joined = LinkedHashMap<Int, Int>()
     /** Calls started since [takeCalls], for the kept call log ([P25History]). */
     private val started = ArrayList<P25History.Call>()
+    /** Patch supergroup -> the talkgroups it carries. */
+    private val patches = HashMap<Int, List<Int>>()
+    /** Newest last, at most [MAX_EVENTS]. */
+    private val events = ArrayDeque<Event>()
 
     /** A new control channel: forget the last site. */
     @Synchronized fun clear(now: Long) {
         groups.clear(); site = null; messages = 0; registrations = 0; since = now; alternates.clear(); joined.clear()
+        patches.clear(); events.clear()
     }
 
     /** Takes in one message; the talkgroups whose call just started (not heard for [CALL_GAP_MS]). */
@@ -54,7 +64,20 @@ class P25Log {
             is P25Tsbk.Site -> { site = site?.let { s -> m.copy(wacn = m.wacn ?: s.wacn, rfss = m.rfss ?: s.rfss, site = m.site ?: s.site) } ?: m; emptyList() }
             is P25Tsbk.Neighbor -> { alternate(m.channel); emptyList() }
             is P25Tsbk.Secondary -> { m.channels.forEach(::alternate); emptyList() }
+            is P25Tsbk.Patch -> {
+                if (m.add) patches[m.sg] = (patches[m.sg].orEmpty() + m.members).distinct().take(MAX_PATCH)
+                else (patches[m.sg].orEmpty() - m.members.toSet()).let { if (it.isEmpty() || m.members.isEmpty()) patches.remove(m.sg) else patches[m.sg] = it }
+                emptyList()
+            }
+            is P25Tsbk.RadioEvent -> { event(Event(now, m.kind, m.source.takeIf { it != 0 }, m.target, m.code, joined[m.target])); emptyList() }
+            is P25Tsbk.DataGrant -> { event(Event(now, "data channel", null, m.target, null, joined[m.target])); emptyList() }
         }
+    }
+
+    private fun event(e: Event) {
+        // The site repeats each one a few times: once is enough.
+        if (events.any { it.kind == e.kind && it.source == e.source && it.target == e.target && it.code == e.code && e.at - it.at < CALL_GAP_MS }) return
+        events.addLast(e); while (events.size > MAX_EVENTS) events.removeFirst()
     }
 
     private fun alternate(channel: Int) { alternates.remove(channel); alternates += channel; while (alternates.size > MAX_ALTERNATES) alternates.remove(alternates.first()) }
@@ -97,10 +120,16 @@ class P25Log {
     /** Most recent first. */
     @Synchronized fun rows(): List<Row> = groups.map { (k, g) ->
         Row(k.first, k.second, g.calls, g.lastAt, g.lastChannel, g.lastChannel?.let(channels::hz), g.lastSource,
-            g.radios.size, g.emergency, g.encrypted, g.inputAt, g.inputSnr, g.phase2)
+            g.radios.size, g.emergency, g.encrypted, g.inputAt, g.inputSnr, g.phase2, k.first?.let { patches[it] }.orEmpty())
     }.filter { it.calls > 0 || it.radios > 0 }.sortedByDescending { it.lastAt }
 
     @Synchronized fun summary() = Summary(site, messages, registrations, since)
+
+    /** Radio events (status, messages, call alerts, monitoring...), newest first. */
+    @Synchronized fun events(): List<Event> = events.reversed()
+
+    /** The talkgroups patch supergroup [tg] carries; empty when it isn't one. */
+    @Synchronized fun members(tg: Int?): List<Int> = tg?.let { patches[it] }.orEmpty()
 
     /** Where the radios transmit on [channel], or null while unknown. */
     @Synchronized fun inputHz(channel: Int): Long? = channels.inputHz(channel)
@@ -123,6 +152,8 @@ class P25Log {
         const val CALL_GAP_MS = 10_000L
         private const val MAX_ALTERNATES = 12
         private const val MAX_JOINED = 4096
+        private const val MAX_EVENTS = 100
+        private const val MAX_PATCH = 32
 
         private val LINE = Regex("""^\s*(\d{1,5}\*?|\*)(?!\d)\s*[,;:\-]?\s*(.*)$""")
 

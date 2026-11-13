@@ -22,8 +22,12 @@ object P25Voice {
     /** One codeword: [bits] its 88 info bits (0 / 1), [errors] bits corrected, [first] of them in the first word. */
     class Imbe(val bits: ByteArray, val errors: Int, val first: Int)
 
-    /** A voice frame: its codewords, and [algid] from an LDU2 (null from an LDU1, or when damaged). */
-    class Frame(val nid: P25Frame.Nid, val voice: List<Imbe>, val algid: Int?) {
+    /**
+     * A voice frame: its codewords, and [algid] from an LDU2 (null from an LDU1, or when damaged); [lc] an LDU1's link
+     * control, 9 bytes from its LCF (null from an LDU2, or when a word is beyond repair). Its Reed-Solomon parity isn't
+     * checked: read it twice alike before trusting it.
+     */
+    class Frame(val nid: P25Frame.Nid, val voice: List<Imbe>, val algid: Int?, val lc: IntArray? = null) {
         val encrypted get() = algid != null && algid != ALGID_CLEAR
     }
 
@@ -31,6 +35,8 @@ object P25Voice {
     internal val VOICE_AT = intArrayOf(32, 104, 196, 288, 380, 472, 564, 656, 744)
     /** The LDU2's 4th group of hex words, after codeword 5: the algorithm ID is in its first two. */
     private const val ALGID_AT = 452
+    /** The LDU1's first three groups of hex words (after codewords 2, 3, 4): the link control's 12 words. */
+    private val LC_AT = intArrayOf(176, 268, 360)
 
     /** A voice frame, or null when it isn't one (or its NID is beyond repair). */
     fun decode(frame: IntArray): Frame? {
@@ -41,7 +47,16 @@ object P25Voice {
             val a = hex(d, ALGID_AT); val b = hex(d, ALGID_AT + 5)
             if (a == null || b == null) null else a shl 2 or (b shr 4)
         }
-        return Frame(nid, VOICE_AT.map { imbe(d, it) }, algid)
+        return Frame(nid, VOICE_AT.map { imbe(d, it) }, algid, if (nid.duid == DUID_LDU1) lc(d) else null)
+    }
+
+    /** The link control's 72 bits as 9 bytes, or null when one of its hex words can't be corrected. */
+    internal fun lc(d: IntArray): IntArray? {
+        val w = IntArray(12)
+        for (i in 0 until 12) w[i] = hex(d, LC_AT[i / 4] + 5 * (i % 4)) ?: return null
+        val out = IntArray(9)
+        for (bit in 0 until 72) out[bit / 8] = out[bit / 8] shl 1 or (w[bit / 6] shr (5 - bit % 6) and 1)
+        return out
     }
 
     /** A hex word (6 bits + 4 Hamming 10,6 parity, 5 dibits) at [at], corrected; null with more than one error. */

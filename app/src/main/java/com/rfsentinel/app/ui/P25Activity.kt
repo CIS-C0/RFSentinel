@@ -31,6 +31,8 @@ import java.util.Locale
  * marked. History: the kept call log ([P25History]) per talkgroup over the last day and week, and its busiest hour.
  * With Settings › Listen to P25 voice on, the call playing is marked, and Mute pauses listening.
  * Hold (or tapping a talkgroup) keeps the SDR on that talkgroup's calls alone until Release ([SdrRadio.p25Hold]).
+ * Long-press: Priority (plays first, cuts other calls) or Never play. Radio events: status, messages, call alerts,
+ * remote monitoring the site relayed.
  */
 class P25Activity : AppCompatActivity() {
 
@@ -53,14 +55,18 @@ class P25Activity : AppCompatActivity() {
             object : RecyclerView.ViewHolder(ItemDetectionBinding.inflate(LayoutInflater.from(parent.context), parent, false).root) {}
 
         override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-            holder.itemView.setOnClickListener(null)
+            holder.itemView.setOnClickListener(null); holder.itemView.setOnLongClickListener(null)
             history?.let { bindHistory(ItemDetectionBinding.bind(holder.itemView), it[position]); return }
             val r = rows[position]
             ItemDetectionBinding.bind(holder.itemView).apply {
-                val name = r.tg?.let { watched[it] }
+                // A patch is named after its watched talkgroup.
+                val name = r.tg?.let { watched[it] } ?: r.patch.firstNotNullOfOrNull { watched[it] }
                 val playing = SdrRadio.p25Playing?.let { if (r.tg != null) it.tg == r.tg else it.tg == null && it.target == r.target } == true
-                r.tg?.let { tg -> root.setOnClickListener { askHold(tg, r.encrypted, r.phase2) } }
-                labelText.text = listOfNotNull(title(r), "playing".takeIf { playing }, "held".takeIf { r.tg != null && r.tg == SdrRadio.p25Hold }, name?.ifEmpty { "watched" }, "EMERGENCY".takeIf { r.emergency },
+                r.tg?.let { tg -> root.setOnClickListener { askHold(tg, r.encrypted, r.phase2) }; root.setOnLongClickListener { askPriority(tg); true } }
+                labelText.text = listOfNotNull(title(r), r.patch.takeIf { it.isNotEmpty() }?.let { "patch " + it.joinToString(" + ") },
+                    "playing".takeIf { playing }, "held".takeIf { r.tg != null && r.tg == SdrRadio.p25Hold }, name?.ifEmpty { "watched" },
+                    "priority".takeIf { r.tg != null && r.tg in SdrRadio.p25Priority }, "never played".takeIf { r.tg != null && r.tg in SdrRadio.p25Lockout },
+                    "EMERGENCY".takeIf { r.emergency },
                     "encrypted".takeIf { r.encrypted }, "Phase 2".takeIf { r.phase2 }).joinToString("  ·  ")
                 labelText.setTextColor(when {
                     r.emergency -> EMERGENCY
@@ -95,6 +101,7 @@ class P25Activity : AppCompatActivity() {
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
         menu.add(0, MENU_EXPORT, 1, "Export call log")
         menu.add(0, MENU_CALLS, 2, "Played calls")
+        menu.add(0, MENU_EVENTS, 3, "Radio events")
         if (Prefs.p25Listen(this) != 0) menu.add(0, MENU_MUTE, 0, if (Prefs.p25Mute(this)) "Unmute" else "Mute")
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
         heldInMenu = SdrRadio.p25Hold
@@ -125,11 +132,45 @@ class P25Activity : AppCompatActivity() {
             .setTitle("Hold talkgroup $tg?")
             .setMessage("Plays only this talkgroup's clear calls, with no time limit, and keeps the SDR on P25: the radio sweep, " +
                 "cellular check and ADS-B pause, and so do recordings. Listening for radios keying up nearby stays on for its calls. " +
-                "Until you tap Release or scanning stops." +
+                "Until you tap Release or scanning stops.\n\nLong-press a talkgroup to make it a priority or never play it." +
                 (if (encrypted) "\n\nIts last call was encrypted: encrypted calls can't be played." else "") +
                 (if (phase2) "\n\nIts last call was on a Phase 2 (TDMA) channel: those calls can't be played yet." else ""))
             .setPositiveButton("Hold") { _, _ -> hold(tg) }
             .setNegativeButton("Cancel", null).show()
+    }
+
+    /** Long-press: Priority (its calls play first and cut others), Never play, or back to normal. */
+    private fun askPriority(tg: Int) {
+        val now = when (tg) { in SdrRadio.p25Priority -> 1; in SdrRadio.p25Lockout -> 2; else -> 0 }
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("Talkgroup $tg")
+            .setSingleChoiceItems(arrayOf("Normal", "Priority: plays first, cuts other calls", "Never play"), now) { d, i ->
+                val pri = SdrRadio.p25Priority - tg + (if (i == 1) setOf(tg) else emptySet())
+                val lock = SdrRadio.p25Lockout - tg + (if (i == 2) setOf(tg) else emptySet())
+                Prefs.setP25Priority(this, pri); Prefs.setP25Lockout(this, lock)
+                SdrRadio.p25Priority = pri; SdrRadio.p25Lockout = lock
+                d.dismiss(); refresh()
+            }
+            .setNegativeButton("Cancel", null).show()
+    }
+
+    /** What the site relayed between radios lately ([P25Log.events]), newest first. */
+    private fun showEvents() {
+        val events = SdrRadio.p25Log.events()
+        if (events.isEmpty()) {
+            android.widget.Toast.makeText(this, "No radio events heard yet: status updates, messages, call alerts and remote " +
+                "monitoring show here as the control channel relays them", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
+        val lines = events.map { e ->
+            DateUtils.formatDateTime(this, e.at, DateUtils.FORMAT_SHOW_TIME) + " · " + e.kind.replaceFirstChar { it.uppercase() } +
+                (e.code?.let { " $it" } ?: "") + (e.source?.let { " · from $it" } ?: "") + " · to radio ${e.target}" +
+                (e.tg?.let { tg -> " (talkgroup $tg" + (watched[tg]?.ifEmpty { null }?.let { ", $it" } ?: "") + ")" } ?: "")
+        }.toTypedArray()
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("Radio events")
+            .setItems(lines, null)
+            .setPositiveButton("Close", null).show()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
@@ -141,6 +182,7 @@ class P25Activity : AppCompatActivity() {
         }
         MENU_EXPORT -> { exportLog(); true }
         MENU_CALLS -> { showPlayedCalls(); true }
+        MENU_EVENTS -> { showEvents(); true }
         MENU_HOLD -> {
             val tg = SdrRadio.p25Playing?.tg
             when {
@@ -299,6 +341,7 @@ class P25Activity : AppCompatActivity() {
         private const val MENU_MUTE = 3
         private const val MENU_HOLD = 4
         private const val MENU_CALLS = 5
+        private const val MENU_EVENTS = 6
         private const val HISTORY_MS = 30_000L
         private val EMERGENCY = 0xFFD0503C.toInt()
 

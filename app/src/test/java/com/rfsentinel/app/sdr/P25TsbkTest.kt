@@ -58,6 +58,6 @@ class P25TsbkTest {
         // WACN 0xBEE00, system 0x3A1, control channel 0x1040.
         assertEquals(P25Tsbk.Site(0xBEE00, 0x3A1, null, null, 0x1040),
             P25Tsbk.parse(tsbk(0x3B, 0x01_BEE00_3A1_1040_70L)))
-        assertNull(P25Tsbk.parse(tsbk(0x00, 0L, mfid = 0x90))) // vendor message: skipped
+        assertNull(P25Tsbk.parse(tsbk(0x00, 0L, mfid = 0xA4))) // another vendor's message: skipped
     }
 }

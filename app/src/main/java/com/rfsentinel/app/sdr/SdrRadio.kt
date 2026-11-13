@@ -75,6 +75,7 @@ object SdrRadio {
     private const val FOLLOW_START_S = 1.5     // no voice this long after tuning to a call: it isn't there (or already over)
     private const val FOLLOW_QUIET_S = 1.0     // voice gone this long: the call is over
     private const val FOLLOW_MAX_MS = 120_000L // then back to the control channel regardless
+    private const val PRIORITY_WAIT_MS = 5_000L // a priority call that cut another: looked for this long on the control channel
     private const val PLAY_QUIET_MS = 1_500L    // Play voice transmissions: the channel's squelch shut this long, back to the sweep
     private const val PLAY_MAX_MS = 60_000L     // ...and at most this long, so a stuck carrier doesn't hold the sweep
 
@@ -277,6 +278,20 @@ object SdrRadio {
     @Volatile var sweepListen = false
     /** The watched talkgroups (Settings › Watch these talkgroups). */
     @Volatile var p25Watched = P25Log.Watched()
+    /** P25 talkgroups › long-press › Priority: their calls play first, and cut a call of another talkgroup that is playing. */
+    @Volatile var p25Priority: Set<Int> = emptySet()
+    /** P25 talkgroups › long-press › Never play: their calls are listed and alerted on, never played (unless held). */
+    @Volatile var p25Lockout: Set<Int> = emptySet()
+    /** A priority talkgroup whose call cut the one playing: followed when the control channel names its channel again, for a few seconds. */
+    private var p25Wanted: Pair<Int, Long>? = null
+
+    /** [tg] is watched, or is a patch carrying a watched talkgroup. */
+    private fun p25IsWatched(tg: Int?) = tg in p25Watched || p25Log.members(tg).any { it in p25Watched }
+    /** [tg] is a priority, or is a patch carrying one. */
+    private fun p25IsPriority(tg: Int?) = tg != null && (tg in p25Priority || p25Log.members(tg).any { it in p25Priority })
+    /** Never played: the talkgroup, or every talkgroup of the patch. */
+    private fun p25LockedOut(tg: Int?) = tg != null && (tg in p25Lockout || p25Log.members(tg).let { m -> m.isNotEmpty() && m.all { it in p25Lockout } })
+
     /** P25 talkgroups › Mute: no call is played, the SDR stays on the control channel. */
     @Volatile var p25Mute = false
     /**
@@ -1008,8 +1023,17 @@ object SdrRadio {
                 }
                 val listen = p25Listen
                 if ((listen != Listen.OFF || hold != null) && !p25Mute && toFollow == null) {
-                    calls.lastOrNull { !it.encrypted && !it.phase2 && it.hz != null && (if (hold != null) it.tg == hold else listen == Listen.ALL || it.tg in p25Watched) }
-                        ?.let { toFollow = it }
+                    val ok = calls.filter { !it.encrypted && !it.phase2 && it.hz != null &&
+                        (if (hold != null) it.tg == hold else !p25LockedOut(it.tg) && (listen == Listen.ALL || p25IsWatched(it.tg) || p25IsPriority(it.tg))) }
+                    (ok.lastOrNull { p25IsPriority(it.tg) } ?: ok.lastOrNull())?.let { toFollow = it }
+                    // A priority call that cut the one playing: its channel, as the site repeats it.
+                    p25Wanted?.let { (tg, at) ->
+                        if (toFollow != null || now - at > PRIORITY_WAIT_MS) p25Wanted = null
+                        else p25Log.rows().firstOrNull { r -> r.tg == tg && r.lastAt == now && !r.encrypted && !r.phase2 && r.lastHz != null }?.let { r ->
+                            toFollow = P25History.Call(now, r.tg, null, r.lastSource, r.lastChannel, r.lastHz, r.emergency, r.encrypted, null, r.phase2)
+                            p25Wanted = null
+                        }
+                    }
                 }
                 if (p25Record && hold == null && toRecord == null && now - lastRecord >= RECORD_GAP_MS) {
                     calls.lastOrNull { !it.encrypted && !it.phase2 && it.hz != null && it !== toFollow }?.let { toRecord = it; lastRecord = now }
@@ -1084,7 +1108,12 @@ object SdrRadio {
         repeat(sdr.settleReads) { sdr.read(buf) }
         var started = false
         val heard = if (saveCalls) ArrayList<ShortArray>() else null
-        val follow = P25Follow(INPUT_OFFSET_HZ.toDouble(), lsm = p25Lock?.lsm == true, grantClear = !call.encrypted) { pcm ->
+        // A priority talkgroup's call announced on this voice channel (not while one is held, nor when this one is a priority).
+        var priority: Int? = null
+        val otherCall = { _: Int, tg: Int ->
+            if (priority == null && p25Hold == null && tg != call.tg && p25IsPriority(tg) && !p25IsPriority(call.tg) && !p25LockedOut(tg)) priority = tg
+        }
+        val follow = P25Follow(INPUT_OFFSET_HZ.toDouble(), lsm = p25Lock?.lsm == true, grantClear = !call.encrypted, onOtherCall = otherCall) { pcm ->
             heard?.add(pcm.copyOf())
             // A little silence first: voice comes in 180 ms bursts, and the buffer shouldn't run dry between them.
             if (!started) { started = true; out.write(ShortArray(ImbeDecoder.RATE / 5), 0, ImbeDecoder.RATE / 5, android.media.AudioTrack.WRITE_NON_BLOCKING) }
@@ -1097,7 +1126,8 @@ object SdrRadio {
         var fails = 0
         val ahead = ReadAhead(sdr, buf.size)
         try {
-            while (!stop() && !p25Mute && !follow.ended && fails < STALL_CHUNKS &&
+            var talker: Int? = null
+            while (!stop() && !p25Mute && !follow.ended && fails < STALL_CHUNKS && priority == null &&
                 follow.quietS < (if (follow.frames == 0) FOLLOW_START_S else FOLLOW_QUIET_S)) {
                 val hold = p25Hold
                 if (if (hold != null) hold != call.tg else p25Listen == Listen.OFF || System.currentTimeMillis() - start >= FOLLOW_MAX_MS) break
@@ -1105,9 +1135,13 @@ object SdrRadio {
                 if (n <= 0) { fails++; continue }
                 fails = 0 // stalls in a row end it, not stalls over a long call
                 follow.feed(buf, n / 2)
+                if (follow.talker != talker) { talker = follow.talker
+                    status = "$deviceLabel · P25 · playing ${call.tg?.let { "talkgroup $it" } ?: "a private call"} · radio $talker" + turnNote() }
             }
         } finally { ahead.close(); p25Playing = null; out.stop() } // stop: what's buffered still plays
+        priority?.let { p25Wanted = it to System.currentTimeMillis() }
         val why = follow.endedBy ?: when {
+            priority != null -> "priority call" + (if (logAll) " on talkgroup $priority" else "")
             stop() || p25Mute -> "stopped"
             fails >= STALL_CHUNKS -> "no samples"
             follow.frames == 0 -> "no voice heard"

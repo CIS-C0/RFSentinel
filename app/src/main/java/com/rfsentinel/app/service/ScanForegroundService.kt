@@ -512,6 +512,8 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.sdr.SdrRadio.sweepListen = Prefs.radioListen(this)
         com.rfsentinel.app.sdr.SdrRadio.p25Watched = com.rfsentinel.app.sdr.P25Log.watched(Prefs.p25Talkgroups(this))
         com.rfsentinel.app.sdr.SdrRadio.p25Mute = Prefs.p25Mute(this)
+        com.rfsentinel.app.sdr.SdrRadio.p25Priority = Prefs.p25Priority(this)
+        com.rfsentinel.app.sdr.SdrRadio.p25Lockout = Prefs.p25Lockout(this)
         com.rfsentinel.app.sdr.SdrRadio.pagerChannel = Prefs.pagerChannel(this)
         com.rfsentinel.app.sdr.SdrRadio.onPagerPage = { page -> pipeline.post { onPagerPage(page) } }
         com.rfsentinel.app.sdr.SdrRadio.onP25Input = { call, hz, snr -> pipeline.post { onP25Input(call, hz, snr) } }
@@ -2061,10 +2063,14 @@ class ScanForegroundService : Service() {
     private fun onP25Call(tg: Int) {
         if (!Prefs.categoryEnabled(this, Category.RADIO)) return
         checkP25Unusual()
-        val name = com.rfsentinel.app.sdr.P25Log.watched(Prefs.p25Talkgroups(this))[tg] ?: return
+        val watched = com.rfsentinel.app.sdr.P25Log.watched(Prefs.p25Talkgroups(this))
+        // A patch: watched when it carries a watched talkgroup.
+        val patchOf = if (tg in watched) null else com.rfsentinel.app.sdr.SdrRadio.p25Log.members(tg).firstOrNull { it in watched }
+        val name = watched[patchOf ?: tg] ?: return
         val row = com.rfsentinel.app.sdr.SdrRadio.p25Log.rows().firstOrNull { it.tg == tg }
-        val called = name.ifEmpty { "talkgroup $tg" }
-        val detail = "A call started on P25 talkgroup $tg${if (name.isNotEmpty()) " ($name)" else ""}, one you watch. " +
+        val called = name.ifEmpty { "talkgroup ${patchOf ?: tg}" }
+        val detail = (if (patchOf != null) "A call started on P25 talkgroup $patchOf${if (name.isNotEmpty()) " ($name)" else ""}, one you watch, " +
+            "patched with others as supergroup $tg. " else "A call started on P25 talkgroup $tg${if (name.isNotEmpty()) " ($name)" else ""}, one you watch. ") +
             (row?.lastSource?.let { "Radio $it keyed up. " } ?: "") +
             (if (row?.emergency == true) "Marked as an emergency call. " else "") +
             (if (row?.encrypted == true) "Encrypted. " else "") +

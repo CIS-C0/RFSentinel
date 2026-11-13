@@ -829,6 +829,14 @@ object Prefs {
     /** Which clear P25 calls to play live: 0 none (default), 1 watched talkgroups, 2 all ([com.rfsentinel.app.sdr.SdrRadio.Listen]). */
     fun p25Listen(context: Context): Int = int(context, "p25_listen", 0).coerceIn(0, 2)
     fun setP25Listen(context: Context, v: Int) = setInt(context, "p25_listen", v.coerceIn(0, 2))
+    /** P25 talkgroups › long-press: talkgroups whose calls play first and cut others ([com.rfsentinel.app.sdr.SdrRadio.p25Priority]). */
+    fun p25Priority(context: Context): Set<Int> = intSet(context, "p25_priority")
+    fun setP25Priority(context: Context, v: Set<Int>) = sp(context).edit { putStringSet("p25_priority", v.map { it.toString() }.toSet()) }
+    /** P25 talkgroups › long-press › Never play ([com.rfsentinel.app.sdr.SdrRadio.p25Lockout]). */
+    fun p25Lockout(context: Context): Set<Int> = intSet(context, "p25_lockout")
+    fun setP25Lockout(context: Context, v: Set<Int>) = sp(context).edit { putStringSet("p25_lockout", v.map { it.toString() }.toSet()) }
+    private fun intSet(context: Context, key: String): Set<Int> =
+        sp(context).getStringSet(key, emptySet()).orEmpty().mapNotNull { it.toIntOrNull() }.toSet()
     /** P25 talkgroups › Mute: listening paused. */
     fun p25Mute(context: Context): Boolean = bool(context, "p25_mute", false)
     fun setP25Mute(context: Context, v: Boolean) = setBool(context, "p25_mute", v)

@@ -4,7 +4,8 @@ package com.rfsentinel.app.sdr
  * P25 control channel, third stage: a trunking block ([P25Frame.Tsbk]) to what it says. Metadata only -
  * who was granted a channel for which talkgroup, who affiliated or registered, and the system's own
  * broadcasts (its IDs and the tables that turn channel numbers into frequencies). Standard (MFID 0)
- * outbound messages per TIA-102.AABC; vendor ones are skipped. Field positions cross-checked with OP25.
+ * outbound messages per TIA-102.AABC, plus Motorola's patches (MFID 0x90); other vendors' are skipped. Field positions
+ * cross-checked with OP25 and SDRTrunk.
  * Pure: unit-tested.
  */
 object P25Tsbk {
@@ -28,6 +29,16 @@ object P25Tsbk {
     data class Secondary(val rfss: Int, val site: Int, val channels: List<Int>) : Msg()
 
     /**
+     * Something the site relays between radios, or from dispatch to a radio: [kind] one of [EVENT_KINDS]; [source] who
+     * sent it, [target] the radio it is for; [code] the status or message number when there is one.
+     */
+    data class RadioEvent(val kind: String, val source: Int, val target: Int, val code: Int? = null) : Msg()
+    /** Motorola patch (or regroup): talkgroups [members] carried together as supergroup [sg] ([add] false: taken apart). */
+    data class Patch(val sg: Int, val members: List<Int>, val add: Boolean) : Msg()
+    /** A packet data channel granted to radio [target] (location reports, messages): [channel] the site's side, [inputChannel] where the radio sends. */
+    data class DataGrant(val channel: Int, val inputChannel: Int, val target: Int) : Msg()
+
+    /**
      * A radio's own message to the site, heard on the control channel's input: [radio] its unit ID, [kind] what it sent.
      * Radios send these without anyone talking (switching on, changing talkgroup or site, status, data, acknowledging
      * a page from the system), so they show a radio that isn't in a call.
@@ -35,14 +46,31 @@ object P25Tsbk {
     data class Inbound(val radio: Int, val kind: String)
 
     fun parse(t: P25Frame.Tsbk): Msg? {
-        if (t.protected || (t.mfid != 0x00 && t.mfid != 0x01)) return null
+        if (t.protected) return null
         val a = args(t.bytes)
         fun f(shift: Int, width: Int) = (a ushr (shift - 16) and ((1L shl width) - 1)).toInt()
+        if (t.mfid == MFID_MOTOROLA) return when (t.opcode) {
+            // Patch add / delete: the supergroup, then up to 3 talkgroups (unused ones 0 or the supergroup again).
+            0x00, 0x01 -> f(64, 16).takeIf { it != 0 }?.let { sg ->
+                Patch(sg, listOf(f(48, 16), f(32, 16), f(16, 16)).filter { it != 0 && it != sg }.distinct(), t.opcode == 0x00) }
+            // A patched call: granted to the supergroup, laid out like a talkgroup grant.
+            0x02 -> f(72, 8).let { o -> Grant(f(56, 16), f(40, 16), null, f(16, 24), o and 0x80 != 0, o and 0x40 != 0) }
+            0x03 -> GrantUpdate(listOf(f(64, 16) to f(48, 16), f(32, 16) to f(16, 16)).filter { it.second != 0 }.distinct())
+            else -> null
+        }
+        if (t.mfid != 0x00 && t.mfid != 0x01) return null
         return when (t.opcode) {
             0x00 -> f(72, 8).let { o -> Grant(f(56, 16), f(40, 16), null, f(16, 24), o and 0x80 != 0, o and 0x40 != 0) }
             0x02 -> GrantUpdate(listOf(f(64, 16) to f(48, 16), f(32, 16) to f(16, 16)).distinct())
             0x03 -> GrantUpdate(listOf(f(48, 16) to f(16, 16)))
             0x04, 0x06 -> Grant(f(64, 16), null, f(40, 24), f(16, 24), false, false)
+            // Unit to unit: the target at bits 40-63, the radio (or console) sending at 16-39.
+            0x05 -> RadioEvent("private call request", f(16, 24), f(40, 24))
+            0x14 -> DataGrant(f(56, 16), f(40, 16), f(16, 24))
+            0x18 -> RadioEvent("status update", f(16, 24), f(40, 24), f(64, 16))
+            0x1C -> RadioEvent("message", f(16, 24), f(40, 24), f(64, 16))
+            0x1D -> RadioEvent("radio unit monitor", f(16, 24), f(40, 24))
+            0x1F -> RadioEvent("call alert", f(16, 24), f(40, 24))
             0x28 -> Affiliation(f(16, 24), f(40, 16))
             0x2C -> Registration(f(16, 24), f(76, 2) == 0)
             0x3D -> Iden(f(76, 4), f(16, 32) * 5L, f(48, 10) * 125, 1, offset(f(58, 9), 8, 250_000L))
@@ -68,10 +96,15 @@ object P25Tsbk {
         return if (radio == 0 || radio >= 0xfffff0) null else Inbound(radio, kind)
     }
 
+    private const val MFID_MOTOROLA = 0x90
+
+    /** What a [RadioEvent] can be. "radio unit monitor": dispatch keys a radio's microphone from afar to listen in. */
+    val EVENT_KINDS = listOf("private call request", "status update", "message", "radio unit monitor", "call alert")
+
     private val INBOUND = mapOf(
         0x00 to "talkgroup call request", 0x04 to "private call request", 0x05 to "private call answer",
         0x12 to "data channel request", 0x18 to "status update", 0x19 to "status reply", 0x1C to "message",
-        0x1F to "call alert", 0x20 to "acknowledgement", 0x24 to "function reply", 0x28 to "talkgroup affiliation",
+        0x1F to "call alert", 0x20 to "acknowledgement", 0x27 to "emergency alarm", 0x24 to "function reply", 0x28 to "talkgroup affiliation",
         0x2B to "sign-off", 0x2C to "registration", 0x2D to "location registration")
 
     /** A transmit offset: the bits below sign bit [sign] (set: the radios transmit above the base station) times [step]. */
