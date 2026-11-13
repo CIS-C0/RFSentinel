@@ -78,6 +78,7 @@ object SdrRadio {
     private const val PRIORITY_WAIT_MS = 5_000L // a priority call that cut another: looked for this long on the control channel
     private const val PLAY_QUIET_MS = 1_500L    // Play voice transmissions: the channel's squelch shut this long, back to the sweep
     private const val PLAY_MAX_MS = 60_000L     // ...and at most this long, so a stuck carrier doesn't hold the sweep
+    private const val STUCK_MS = 10 * 60_000L   // a channel played that long isn't played again for this long
 
     @Volatile var status: String = ""; private set
     /** ADS-B messages decoded since the app started, for the main screen's messages-per-second line. */
@@ -758,6 +759,8 @@ object SdrRadio {
         // "Log everything": every channel heard in this sweep.
         val heard = ArrayList<P25Hunt.Candidate>()
         var lastIdentify = 0L; var identified = 0; var p25Found = 0; var played = 0
+        // Play voice transmissions: a channel played for the whole PLAY_MAX_MS (a stuck carrier) is left alone a while.
+        val stuck = HashMap<Long, Long>()
         while (!halted && !sdr.lost && keeps(Mode.SWEEP)) {
             // Settings changed: the new bands / targets / sensitivity from this sweep on.
             if (config != cfg) { cfg = config; plan = RadioWatch.plan(cfg); watch.config = cfg; logPlan() }
@@ -801,10 +804,15 @@ object SdrRadio {
                 // waterfall is open (it holds the sweep to draw; Tune › Listen plays there).
                 var toPlay: Pair<RadioWatch.Event, Long>? = null
                 val playing = sweepListen && !SdrWaterfall.listening
-                for (found in watch.analyze(center, psd, sdr.sampleRate, System.currentTimeMillis(), bursts)) {
+                watch.walkies = playing
+                val chunkAt = System.currentTimeMillis()
+                fun playable(e: RadioWatch.Event) = playing && toPlay == null && (stuck[e.freqHz] ?: 0L) <= chunkAt
+                for (found in watch.analyze(center, psd, sdr.sampleRate, chunkAt, bursts)) {
                     // Swept only for the open waterfall (radio sweep not ticked): nothing reported.
                     if (Mode.SWEEP !in active) continue
                     var e = found
+                    // A walkie-talkie: played (a reply within minutes too: it's a conversation), never reported. Strongest first.
+                    if (e.walkie) { if (playable(e)) toPlay = e to peakHz(e, center, psd, sdr.sampleRate); continue }
                     if (!e.repeat) {
                         events++
                         // A new transmission: listen for a moment to tell a P25 radio (conventional, which no control channel lists) from the rest.
@@ -819,12 +827,14 @@ object SdrRadio {
                         }
                         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: transmission ${e.mhz} MHz, ${e.snrDb} dB above the noise (${e.band.label})" +
                             (e.slots?.let { ", $it time slots" } ?: "") + (if (e.p25Nac != null) ", P25" + (if (logAll) " NAC %03X".format(e.p25Nac) else "") else ""))
-                        if (playing && toPlay == null && identifies(e)) toPlay = e to peakHz(e, center, psd, sdr.sampleRate)
+                        if (playable(e) && identifies(e)) toPlay = e to peakHz(e, center, psd, sdr.sampleRate)
                     }
                     onEvent?.invoke(e)
                 }
                 toPlay?.let { (e, hz) ->
+                    val from = System.currentTimeMillis()
                     if (playTransmission(sdr, e, hz)) played++
+                    if (System.currentTimeMillis() - from >= PLAY_MAX_MS) stuck[e.freqHz] = System.currentTimeMillis() + STUCK_MS
                     sdr.setSampleRate(SAMPLE_RATE); sdr.resetBuffer()
                 }
             }

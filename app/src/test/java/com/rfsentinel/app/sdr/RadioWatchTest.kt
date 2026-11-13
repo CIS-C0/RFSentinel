@@ -89,6 +89,25 @@ class RadioWatchTest {
     }
 
     @Test
+    fun walkieTalkiesAreOnlyLookedAtToPlayThem() {
+        val c = 462_000_000L
+        val w = RadioWatch()
+        var t = 0L
+        repeat(8) { w.analyze(c, psd(c), rate, t); w.sweepDone(); t += 2_500 }
+        // FRS channel 1 next to you, and the ghost its strong signal makes 200 kHz down.
+        val air = psd(c, 462_562_500L to 60, 462_362_500L to 38)
+        assertEquals(listOf(462_362_500L), w.analyze(c, air, rate, t).map { it.freqHz })
+        w.walkies = true
+        val ev = w.analyze(c, air, rate, t + 200_000)
+        assertEquals(462_562_500L, ev.first().freqHz) // the strongest, played first
+        assertTrue(ev.first().walkie)
+        assertFalse(ev.single { it.freqHz == 462_362_500L }.walkie)
+        // Its user's own exclusion still wins.
+        w.config = RadioWatch.Config(excluded = listOf(462_550_000L..462_575_000L))
+        assertTrue(w.analyze(c, air, rate, t + 400_000).none { it.walkie })
+    }
+
+    @Test
     fun planCoversEveryBandWithoutLteUplink() {
         val plan = RadioWatch.plan()
         assertEquals(37, plan.size)

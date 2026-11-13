@@ -60,13 +60,21 @@ class RadioWatch {
     data class Event(val freqHz: Long, val snrDb: Int, val band: Band, val confidence: Int,
                      val target: Target? = null, val repeat: Boolean = false, val tdma: Boolean = false,
                      /** It decoded as P25 (a frame header with this network access code): a P25 radio, not just energy. */
-                     val p25Nac: Int? = null) {
+                     val p25Nac: Int? = null,
+                     /** On a walkie-talkie channel ([walkies]): only to play, never reported. */
+                     val walkie: Boolean = false) {
         val mhz: String get() = "%.4f".format(java.util.Locale.US, freqHz / 1e6)
         /** The radio system its time slots point to; null without them. */
         val slots: String? get() = if (!tdma) null else if (band.kind == Kind.TETRA) "TETRA" else "DMR"
     }
 
     @Volatile var config = Config()
+    /**
+     * Play voice transmissions: the walkie-talkie channels (FRS / GMRS / MURS), left out of the watch, are looked at too, their
+     * transmissions marked [Event.walkie]. Without this a walkie-talkie next to you is skipped and the ghosts its strong signal
+     * makes on the channels around it are played instead: noise.
+     */
+    @Volatile var walkies = false
 
     private class Channel {
         var visits = 0
@@ -113,7 +121,8 @@ class RadioWatch {
             val last = minOf(band.endHz, centerHz + USABLE_HZ.toLong())
             while (f <= last) {
                 val off = f - centerHz
-                if (kotlin.math.abs(off) > DC_GUARD_HZ && !excluded(f, cfg)) {
+                val walkie = walkies && WALKIES.any { f in it } && cfg.excluded.none { f in it }
+                if (kotlin.math.abs(off) > DC_GUARD_HZ && (walkie || !excluded(f, cfg))) {
                     val mid = n / 2 + (off / binHz).roundToInt()
                     var p = -200f
                     for (k in mid - half..mid + half) if (k in 0 until n && psdDb[k] > p) p = psdDb[k]
@@ -136,7 +145,7 @@ class RadioWatch {
                     ch.recent = (ch.recent shl 1) or (if (active) 1L else 0L)
                     ch.visits++
                     // The busy-channel learning keeps the fixed level; a low sensitivity setting only reports weaker radios.
-                    if (snr >= activeDb(cfg.minSnrDb)) eventFor(f, snr, band, ch, now, cfg.minSnrDb, tdma)?.let { found += it }
+                    if (snr >= activeDb(cfg.minSnrDb)) eventFor(f, snr, band, ch, now, cfg.minSnrDb, tdma)?.let { found += it.copy(walkie = walkie) }
                 }
                 f += STEP_HZ
             }
@@ -326,13 +335,17 @@ class RadioWatch {
             Band("UHF land-mobile band", 450_000_000L, 470_000_000L, Kind.SHARED)
         )
 
-        /** Consumer, marine, railroad, weather and paging channels - never police radios. */
-        private val EXCLUDED = listOf(
+        /** Walkie-talkie channels: MURS, FRS / GMRS. */
+        private val WALKIES = listOf(
             151_815_000L..151_945_000L, 154_565_000L..154_605_000L,  // MURS
+            462_537_500L..462_737_500L, 467_537_500L..467_737_500L    // FRS / GMRS
+        )
+
+        /** Consumer, marine, railroad, weather and paging channels - never police radios. */
+        private val EXCLUDED = WALKIES + listOf(
             156_000_000L..157_450_000L, 160_600_000L..162_025_000L,  // marine VHF
             159_810_000L..161_565_000L,                               // railroad
-            162_400_000L..162_550_000L,                               // NOAA weather radio
-            462_537_500L..462_737_500L, 467_537_500L..467_737_500L    // FRS / GMRS walkie-talkies
+            162_400_000L..162_550_000L                                // NOAA weather radio
         ) + listOf(152_007_500L, 152_240_000L, 152_480_000L, 157_740_000L, 158_100_000L, 158_700_000L) // paging
             .map { it - 6_250L..it + 6_250L }
 
