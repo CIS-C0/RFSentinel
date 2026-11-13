@@ -302,6 +302,156 @@
                 android:id="@+id/placeWatchSwitch"
                 android:text="Watch this place" />
 
+            <LinearLayout
+                style="@style/SettingsControl"
+                android:id="@+id/placeWatchOptions"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    style="@style/SettingsControl"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView style="@style/SettingsLabel" android:text="Learn for" />
+
+                        <EditText
+                            style="@style/SettingsControl"
+                            android:id="@+id/placeLearnInput"
+                            android:importantForAutofill="no"
+                            android:inputType="number" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView style="@style/SettingsLabel" android:id="@+id/placeRssiLabel" android:text="Signal from" />
+
+                        <EditText
+                            style="@style/SettingsControl"
+                            android:id="@+id/placeRssiInput"
+                            android:importantForAutofill="no"
+                            android:inputType="numberSigned" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout
+                    style="@style/SettingsControl"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView style="@style/SettingsLabel" android:text="New: twice within" />
+
+                        <EditText
+                            style="@style/SettingsControl"
+                            android:id="@+id/placeNewInput"
+                            android:importantForAutofill="no"
+                            android:inputType="number" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView style="@style/SettingsLabel" android:text="Gone after" />
+
+                        <EditText
+                            style="@style/SettingsControl"
+                            android:id="@+id/placeGoneInput"
+                            android:importantForAutofill="no"
+                            android:inputType="number" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout
+                    style="@style/SettingsControl"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView style="@style/SettingsLabel" android:text="Back within" />
+
+                        <EditText
+                            style="@style/SettingsControl"
+                            android:id="@+id/placeBackInput"
+                            android:importantForAutofill="no"
+                            android:inputType="number" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView style="@style/SettingsLabel" android:text="Pause beyond" />
+
+                        <EditText
+                            style="@style/SettingsControl"
+                            android:id="@+id/placeRadiusInput"
+                            android:importantForAutofill="no"
+                            android:inputType="number" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout
+                    style="@style/SettingsControl"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView style="@style/SettingsLabel" android:text="Moving: a jump of" />
+
+                        <EditText
+                            style="@style/SettingsControl"
+                            android:id="@+id/placeJumpInput"
+                            android:importantForAutofill="no"
+                            android:inputType="number" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView style="@style/SettingsLabel" android:text="Moving after" />
+
+                        <EditText
+                            style="@style/SettingsControl"
+                            android:id="@+id/placeJumpsInput"
+                            android:importantForAutofill="no"
+                            android:inputType="number" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
             <TextView
                 android:id="@+id/trackerIgnoreText"
                 style="@style/SettingsLabel"

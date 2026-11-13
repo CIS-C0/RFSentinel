@@ -1665,6 +1665,7 @@ class ScanForegroundService : Service() {
             if (placeFile.exists()) placeFile.delete()
             return null
         }
+        placeWatch.settings = Prefs.placeWatchSettings(this)
         val since = Prefs.placeWatchSince(this)
         if (placeWatch.on && since != placeSince) placeWatch.stop() // turned off and on again: a new watch
         if (!placeWatch.on) {
@@ -1678,8 +1679,9 @@ class ScanForegroundService : Service() {
                 placeStatus("On again after a restart, ${placeWatch.learned} devices known", now)
             } else {
                 placeWatch.start(now, here); placeLearnedLogged = false
-                Log.i(TAG, "Place watch on: learning for ${PlaceWatch.LEARN_MS / 60_000} min" + if (here == null) ", no position yet" else "")
-                placeStatus("On, learning for ${PlaceWatch.LEARN_MS / 60_000} min", now)
+                val learn = placeWatch.settings.learnMs / 60_000
+                Log.i(TAG, "Place watch on: learning for $learn min, ${placeWatch.settings}" + if (here == null) ", no position yet" else "")
+                placeStatus("On, learning for $learn min", now)
             }
             placeSavedAt = 0L
         }
@@ -1774,8 +1776,8 @@ class ScanForegroundService : Service() {
             codec.PLACE_BACK -> Hit(Category.CUSTOM, "Back: $what", 70,
                 "$what (${n.mac}) is back $where after ${t(n.value)} away, at ${n.rssi} dBm.", how)
             codec.PLACE_MOVED -> Hit(Category.CUSTOM, "Moving: $what", 70,
-                "$what (${n.mac}) $where: its signal jumped by ${PlaceWatch.RSSI_CHANGE_DB} dB or more ${PlaceWatch.MOVED_AFTER} times, " +
-                    "now from ${n.value} to ${n.rssi} dBm. It was moved, or someone carries it.", how)
+                "$what (${n.mac}) $where: its signal kept jumping, now from ${n.value} to ${n.rssi} dBm. " +
+                    "It was moved, or someone carries it.", how)
             codec.PLACE_STATUS -> n.text?.let { Hit(Category.CUSTOM, "Watch this place: $it", 30, "Watch this place $where: $it.", how) }
             else -> null
         }

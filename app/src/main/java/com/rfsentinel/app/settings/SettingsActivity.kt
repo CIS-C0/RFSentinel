@@ -36,6 +36,9 @@ class SettingsActivity : AppCompatActivity() {
 
     companion object {
         private const val FORGET_OUI_SPY = "Forget the paired board"
+        /** The unit after each Watch this place field. */
+        private val PLACE_UNITS = mapOf("learn_min" to "min", "min_rssi" to "dBm", "new_window_s" to "s", "gone_min" to "min",
+            "back_min" to "min", "radius_m" to "m", "jump_db" to "dB", "jumps" to "times")
         /** Opens Settings on one section (expanded and scrolled to): e.g. [SECTION_MAP] from the map. */
         const val EXTRA_SECTION = "open_section"
         const val SECTION_MAP = "map"
@@ -106,6 +109,13 @@ class SettingsActivity : AppCompatActivity() {
     private var wazeKeyInput: android.widget.EditText? = null
     private var aircraftStatusText: android.widget.TextView? = null
     private var wazeStatusText: android.widget.TextView? = null
+
+    /** Watch this place's number fields, by their [Prefs.PLACE_LIMITS] key. */
+    private val placeFields get() = listOf(
+        "learn_min" to binding.placeLearnInput, "min_rssi" to binding.placeRssiInput, "new_window_s" to binding.placeNewInput,
+        "gone_min" to binding.placeGoneInput, "back_min" to binding.placeBackInput, "radius_m" to binding.placeRadiusInput,
+        "jump_db" to binding.placeJumpInput, "jumps" to binding.placeJumpsInput,
+    )
 
     private fun SwitchMaterial.bindLive(on: Boolean, save: (Boolean) -> Unit) {
         isChecked = on
@@ -1246,18 +1256,22 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.followSwitch, "Warns when a tracker or flagged device keeps moving with you, for at least the time and distance below - whether it stays in range or keeps turning up again: heard at 3 or more places along your way within 2 hours.")
         withUnit(binding.followMinutesInput, "min")
         withUnit(binding.followMetersInput, "m")
-        info(binding.placeWatchSwitch, "For a phone left in one place: home, a hotel room, a camp. Turn it on there: for 5 minutes RF Sentinel " +
-            "learns every device around, then, for devices close by (-60 dBm or stronger):\n" +
-            "• New device: one it didn't learn, heard twice within a minute. Alerts.\n" +
-            "• Back: one that went quiet 2 minutes and is heard again within 5. Alerts.\n" +
-            "• Moving: one whose signal jumps 20 dB or more, the third time. Alerts.\n" +
-            "• Gone: one quiet for 2 minutes. Logged.\n" +
-            "The same rules as AntiHunter. A phone's new random address linked to its earlier one counts as the same phone. " +
-            "Paused while you're more than 300 m away. Keeps what it learned until you turn it off, even if the phone restarts.\n\n" +
+        info(binding.placeWatchSwitch, "For a phone left in one place: home, a hotel room, a camp. Turn it on there: RF Sentinel first " +
+            "learns every device around (Learn for), then, for devices close by (Signal from):\n" +
+            "• New device: one it didn't learn, heard twice within the time set. Alerts.\n" +
+            "• Gone: one quiet for the time set. Logged.\n" +
+            "• Back: one gone that is heard again within the time set. Alerts.\n" +
+            "• Moving: one whose signal jumps by the dB set, that many times. Alerts.\n" +
+            "The defaults are AntiHunter's: 5 min, -60 dBm, 60 s, 2 min, 5 min, 20 dB, 3 times; 300 m is ours. " +
+            "A phone's new random address linked to its earlier one counts as the same phone. Paused while you're farther than " +
+            "Pause beyond. Keeps what it learned until you turn it off, even if the phone restarts. Changes apply at once.\n\n" +
             "Counts what this phone, its USB and ESP32 hardware and Sentinels linked over Bluetooth hear. Not LoRa nodes, nor devices " +
             "heard over the mesh or the internet: they can be far away.\n\n" +
             "To watch it from afar: every report, and when it starts, has learned and stops, goes to linked Sentinels over " +
             "Bluetooth, the Meshtastic node and the internet relay, encrypted for your group. Whitelisted devices are left out.")
+        info(binding.placeRssiLabel, "Only devices heard this strong or stronger count. -60 dBm is close: the same room or the next. " +
+            "-70 or -80 catches devices farther away, but also neighbours and passers-by: more alerts. -50 only what is very close.")
+        placeFields.forEach { (key, field) -> withUnit(field, PLACE_UNITS.getValue(key)) }
         info(binding.mapProviderLabel, "OpenFreeMap: free and open, OpenStreetMap data.\n\nMapbox: Mapbox's Standard map with 3D buildings and day / night light.\n\nThe floating mini map and the Android Auto map always use OpenStreetMap maps.")
         info(binding.mapAutoRecenterSwitch, "While you drive, the map goes back to your position once you've left it alone for the time set under it (Re-center after).")
         info(binding.mapSpeedometerSwitch, "Your speed and the posted limit in a corner of the map; your speed turns red over the limit.")
@@ -3167,6 +3181,9 @@ class SettingsActivity : AppCompatActivity() {
             Toast.makeText(this, "Tracker warnings back to normal", Toast.LENGTH_SHORT).show()
         }
         binding.followMinutesInput.setText(Prefs.followMinMinutes(this).toString())
+        placeFields.forEach { (key, field) -> field.setText(Prefs.placeWatchValue(this, key).toString()) }
+        binding.placeWatchOptions.shownIf(binding.placeWatchSwitch.isChecked)
+        binding.placeWatchSwitch.onToggle { binding.placeWatchOptions.shownIf(it) }
         binding.followMetersInput.setText(Prefs.followMinMeters(this).toString())
         binding.gpsSwitch.isChecked = Prefs.gpsTaggingEnabled(this)
         binding.pinpointSwitch.isChecked = Prefs.pinpointFlagged(this)
@@ -3435,6 +3452,11 @@ class SettingsActivity : AppCompatActivity() {
 
         Prefs.setFollowerAlerts(this, binding.followSwitch.isChecked)
         Prefs.setPlaceWatch(this, binding.placeWatchSwitch.isChecked)
+        placeFields.forEach { (key, field) ->
+            // "60" for the signal means -60: a level is never positive.
+            val v = field.text.toString().trim().toIntOrNull()?.let { if (key == "min_rssi" && it > 0) -it else it }
+            Prefs.setPlaceWatchValue(this, key, v)
+        }
         Prefs.setFollowMinMinutes(this, (binding.followMinutesInput.text.toString().toIntOrNull() ?: 10).coerceIn(2, 240))
         Prefs.setFollowMinMeters(this, (binding.followMetersInput.text.toString().toIntOrNull() ?: 800).coerceIn(100, 50_000))
         Prefs.setGpsTaggingEnabled(this, binding.gpsSwitch.isChecked)

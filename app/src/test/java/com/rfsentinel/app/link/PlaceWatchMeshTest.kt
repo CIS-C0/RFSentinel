@@ -139,4 +139,27 @@ class PlaceWatchMeshTest {
         val s2 = t
         while (t < s2 + 30 * min) { assertTrue(w.check(t, null, listOf(dev("V", t)), { null }).isEmpty()); t += 10_000 }
     }
+
+    @Test
+    fun theSettingsChangeWhatCountsAndAreKeptInBounds() {
+        val c = androidx.test.core.app.ApplicationProvider.getApplicationContext<Application>()
+        assertEquals(PlaceWatch.Settings(), com.rfsentinel.app.util.Prefs.placeWatchSettings(c)) // AntiHunter's by default
+        com.rfsentinel.app.util.Prefs.setPlaceWatchValue(c, "learn_min", 1)
+        com.rfsentinel.app.util.Prefs.setPlaceWatchValue(c, "min_rssi", -80)
+        com.rfsentinel.app.util.Prefs.setPlaceWatchValue(c, "jumps", 1)
+        com.rfsentinel.app.util.Prefs.setPlaceWatchValue(c, "radius_m", 999_999) // too far: the highest
+        com.rfsentinel.app.util.Prefs.setPlaceWatchValue(c, "gone_min", null) // blank: the default
+        val s = com.rfsentinel.app.util.Prefs.placeWatchSettings(c)
+        assertEquals(PlaceWatch.Settings(learnMs = min, minRssi = -80, movedAfter = 1, radiusM = 20_000.0), s)
+
+        val w = PlaceWatch(); w.settings = s; w.start(0L, null)
+        var t = 0L
+        while (t < min) { w.check(t, null, listOf(dev("TV", t)), { null }); t += 10_000 }
+        assertFalse(w.learning(t))
+        // A -75 dBm device now counts, and one jump of 20 dB is enough.
+        val out = ArrayList<PlaceWatch.Event>()
+        repeat(2) { out += w.check(t, null, listOf(dev("TV", t), PlaceWatch.Device("FAR", -75, t)), { null }); t += 10_000 }
+        out += w.check(t, null, listOf(PlaceWatch.Device("TV", -20, t)), { null })
+        assertEquals(listOf(PlaceWatch.Kind.NEW, PlaceWatch.Kind.MOVED), out.map { it.kind })
+    }
 }

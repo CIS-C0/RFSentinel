@@ -2,7 +2,7 @@ package com.rfsentinel.app.service
 
 /**
  * Settings › Trackers & followers › Watch this place, with AntiHunter's baseline anomaly rules and settings (the idea and
- * its numbers, not code). With the phone left in one place (home, a hotel room), it first learns for [LEARN_MS] every
+ * its numbers, not code); the numbers can be changed ([settings]), the defaults below are AntiHunter's. With the phone left in one place (home, a hotel room), it first learns for [LEARN_MS] every
  * device around, then reports, counting only what is heard at [MIN_RSSI] dBm or stronger:
  *  - [Kind.NEW]: a device it didn't learn, heard twice within [NEW_WINDOW_MS]. From then on it is known;
  *  - [Kind.GONE]: a device heard during the watch, then quiet for [ABSENCE_MS];
@@ -19,6 +19,21 @@ class PlaceWatch {
     class Device(val mac: String, val rssi: Int, val lastSeen: Long, val source: String = "BLE")
 
     enum class Kind { NEW, GONE, BACK, MOVED }
+
+    /** Settings › Trackers & followers › Watch this place: AntiHunter's numbers by default, and ours for [radiusM]. */
+    data class Settings(
+        val learnMs: Long = LEARN_MS,
+        val minRssi: Int = MIN_RSSI,
+        val newWindowMs: Long = NEW_WINDOW_MS,
+        val absenceMs: Long = ABSENCE_MS,
+        val reappearMs: Long = REAPPEAR_MS,
+        val rssiChangeDb: Int = RSSI_CHANGE_DB,
+        val movedAfter: Int = MOVED_AFTER,
+        val radiusM: Double = RADIUS_M,
+    )
+
+    /** May change while it watches: the next look uses the new numbers. */
+    var settings = Settings()
 
     /**
      * Something to report about [mac], heard at [rssi]: [value] is the seconds since it was last heard (gone), the seconds
@@ -48,7 +63,7 @@ class PlaceWatch {
     }
     private val tracks = HashMap<String, Track>()
 
-    fun learning(now: Long) = on && now - startedAt < LEARN_MS
+    fun learning(now: Long) = on && now - startedAt < settings.learnMs
     /** Devices known (learned, and reported new since). */
     val learned get() = known.size
 
@@ -65,9 +80,10 @@ class PlaceWatch {
     /** One look at [devices] (from the device list) at [now], you being [here]; [previous] gives an address's earlier one. */
     fun check(now: Long, here: Pair<Double, Double>?, devices: List<Device>, previous: (String) -> String?): List<Event> {
         if (!on) return emptyList()
+        val s = settings
         if (place == null) place = here
         val p = place
-        if (here != null && p != null && metres(here, p) > RADIUS_M) { away = true; tracks.clear(); return emptyList() }
+        if (here != null && p != null && metres(here, p) > s.radiusM) { away = true; tracks.clear(); return emptyList() }
         away = false
         val heard = devices.filter { now - it.lastSeen <= HEARD_MS }
         if (learning(now)) { heard.forEach { known += it.mac }; return emptyList() }
@@ -75,7 +91,7 @@ class PlaceWatch {
         for (d in heard) {
             val t = tracks[d.mac]
             if (t != null && d.lastSeen <= t.lastSeen) continue // nothing new from it since the last look
-            if (d.rssi < MIN_RSSI) continue
+            if (d.rssi < s.minRssi) continue
             if (t == null) {
                 val wasKnown = d.mac in known || chain(d.mac, previous).any { it in known }
                 if (wasKnown) known += d.mac
@@ -83,7 +99,7 @@ class PlaceWatch {
                 continue
             }
             if (!t.present) {
-                if (now - t.firstAt > NEW_WINDOW_MS) { t.firstAt = now; t.sightings = 1 } else t.sightings++
+                if (now - t.firstAt > s.newWindowMs) { t.firstAt = now; t.sightings = 1 } else t.sightings++
                 t.rssi = d.rssi; t.lastSeen = d.lastSeen
                 if (t.sightings < 2) continue
                 t.present = true; known += d.mac; reports++
@@ -91,26 +107,26 @@ class PlaceWatch {
                 continue
             }
             if (t.goneAt > 0) {
-                if (now - t.goneAt <= REAPPEAR_MS) { reports++; out += Event(Kind.BACK, d.mac, secs(now - t.lastSeen), d.rssi, d.source) }
+                if (now - t.goneAt <= s.reappearMs) { reports++; out += Event(Kind.BACK, d.mac, secs(now - t.lastSeen), d.rssi, d.source) }
                 t.goneAt = 0
             }
-            if (kotlin.math.abs(d.rssi - t.rssi) >= RSSI_CHANGE_DB && ++t.changes >= MOVED_AFTER) {
+            if (kotlin.math.abs(d.rssi - t.rssi) >= s.rssiChangeDb && ++t.changes >= s.movedAfter) {
                 t.changes = 0; reports++
                 out += Event(Kind.MOVED, d.mac, t.rssi, d.rssi, d.source)
             }
             t.rssi = d.rssi; t.lastSeen = d.lastSeen
         }
-        // Gone: quiet for [ABSENCE_MS], unless it went on with a new address (heard now, linked to this one).
+        // Gone: quiet for absenceMs, unless it went on with a new address (heard now, linked to this one).
         var rotated: Set<String>? = null
         for ((mac, t) in tracks) {
-            if (!t.present || t.goneAt > 0 || now - t.lastSeen <= ABSENCE_MS) continue
+            if (!t.present || t.goneAt > 0 || now - t.lastSeen <= s.absenceMs) continue
             t.goneAt = now
             val r = rotated ?: heard.flatMap { chain(it.mac, previous) }.toSet().also { rotated = it }
             if (mac !in r) out += Event(Kind.GONE, mac, secs(now - t.lastSeen), t.rssi, t.source)
         }
         // Forgotten: gone past the time a return is reported, or heard once and not again in time.
         tracks.entries.removeAll { (_, t) ->
-            if (t.present) t.goneAt > 0 && now - t.goneAt > REAPPEAR_MS else now - t.firstAt > NEW_WINDOW_MS
+            if (t.present) t.goneAt > 0 && now - t.goneAt > s.reappearMs else now - t.firstAt > s.newWindowMs
         }
         return out
     }
@@ -151,7 +167,7 @@ class PlaceWatch {
     }
 
     companion object {
-        // AntiHunter's defaults (baseline.cpp, scanner.cpp).
+        // AntiHunter's defaults (baseline.cpp, scanner.cpp), for [Settings].
         const val LEARN_MS = 5 * 60_000L
         const val MIN_RSSI = -60
         const val NEW_WINDOW_MS = 60_000L

@@ -303,6 +303,32 @@ object Prefs {
     }
     fun placeWatchSince(context: Context): Long = sp(context).getLong("place_watch_since", 0L)
 
+    /** Watch this place's numbers, AntiHunter's by default; each kept within [PLACE_LIMITS]. */
+    fun placeWatchSettings(context: Context): com.rfsentinel.app.service.PlaceWatch.Settings {
+        fun v(key: String) = placeWatchValue(context, key)
+        return com.rfsentinel.app.service.PlaceWatch.Settings(
+            learnMs = v("learn_min") * 60_000L, minRssi = v("min_rssi"), newWindowMs = v("new_window_s") * 1_000L,
+            absenceMs = v("gone_min") * 60_000L, reappearMs = v("back_min") * 60_000L, rssiChangeDb = v("jump_db"),
+            movedAfter = v("jumps"), radiusM = v("radius_m").toDouble(),
+        )
+    }
+    fun placeWatchValue(context: Context, key: String): Int =
+        PLACE_LIMITS.getValue(key).let { (def, lo, hi) -> int(context, "place_$key", def).coerceIn(lo, hi) }
+    /** Stores [value] for [key] within its limits; a blank or bad field ([value] null) goes back to the default. */
+    fun setPlaceWatchValue(context: Context, key: String, value: Int?) =
+        PLACE_LIMITS.getValue(key).let { (def, lo, hi) -> setInt(context, "place_$key", (value ?: def).coerceIn(lo, hi)) }
+    /** Watch this place's settings: default, lowest, highest. */
+    val PLACE_LIMITS = mapOf(
+        "learn_min" to Triple(5, 1, 120),
+        "min_rssi" to Triple(-60, -100, -20),
+        "new_window_s" to Triple(60, 10, 600),
+        "gone_min" to Triple(2, 1, 120),
+        "back_min" to Triple(5, 1, 240),
+        "jump_db" to Triple(20, 5, 60),
+        "jumps" to Triple(3, 1, 20),
+        "radius_m" to Triple(300, 50, 20_000),
+    )
+
     /** Start recording a trace automatically whenever scanning starts. */
     /** Warn when approaching a plate reader mapped in OpenStreetMap (needs downloaded data). */
     /** Flock plate cameras among the detected ones (What to detect). */
