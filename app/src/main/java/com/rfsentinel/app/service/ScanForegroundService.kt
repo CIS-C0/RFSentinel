@@ -919,7 +919,7 @@ class ScanForegroundService : Service() {
                 this, mac, trackerHit.label, a.rssi, now, DeviceRegistry.linkedFrom(mac))
         ) return
         if (WhitelistCache.contains(mac)) return
-        if (!com.rfsentinel.app.detect.FixedRouter.quiet(mac, c.hits, Prefs.alertThreshold(this, best.category))) noteLocating(mac)
+        if (!com.rfsentinel.app.detect.FixedRouter.quiet(mac, c.hits, a.name, a.wifi?.capabilities)) noteLocating(mac)
 
         maybeLog(a, best, c.vendor, loc, now, via)
         if (!quiet) maybeAlert(a, best, c.hits, now, via)
@@ -1446,8 +1446,8 @@ class ScanForegroundService : Service() {
         // Someone else's tracker nearby is normal; trackers only alert when they follow you.
         if (best.category == Category.TRACKER) return
         if (best.listOnly || best.confidence < Prefs.alertThreshold(this, best.category)) return
-        // A shop's router you pass every day: listed and logged, no alert.
-        if (com.rfsentinel.app.detect.FixedRouter.quiet(a.mac, hits, Prefs.alertThreshold(this, best.category))) return
+        // A shop's router you pass every day, or one on open or branch-router WiFi: listed and logged, no alert.
+        if (com.rfsentinel.app.detect.FixedRouter.quiet(a.mac, hits, a.name, a.wifi?.capabilities)) return
         // Acknowledged from the list: listed and logged, no alert.
         if (com.rfsentinel.app.data.AlertMutes.isMuted(this, a.mac, now)) return
         val window = Prefs.dedupeWindowMs(this)
