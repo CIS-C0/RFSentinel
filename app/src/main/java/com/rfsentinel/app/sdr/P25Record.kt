@@ -88,12 +88,15 @@ object P25Record {
     const val CALLS_KEEP = 200
 
     /** A played P25 call's speech ([P25Follow]'s 8 kHz pieces) saved as a mono WAV; the oldest past [CALLS_KEEP] go. */
-    fun saveSpeech(context: Context, call: P25History.Call, pcm: List<ShortArray>): File =
-        keep(context, CALLS_DIR, CALLS_KEEP, "${stamp(call.time)}_${who(call)}.wav", speechWav(pcm))
+    fun saveSpeech(context: Context, call: P25History.Call, pcm: List<ShortArray>, talker: Int? = null): File =
+        keep(context, CALLS_DIR, CALLS_KEEP, "${stamp(call.time)}_${who(call)}${talker?.let { "_r$it" } ?: ""}.wav", speechWav(pcm))
 
-    /** A transmission the radio sweep played (a walkie-talkie...), heard at [hz]: its sound at [rate]. */
-    fun saveTransmission(context: Context, time: Long, hz: Long, pcm: List<ShortArray>, rate: Int): File =
-        keep(context, CALLS_DIR, CALLS_KEEP, "${stamp(time)}_${hz}hz.wav", speechWav(pcm, rate))
+    /**
+     * A transmission the radio sweep played (a walkie-talkie...), heard at [hz]: its sound at [rate]. [unit]: who sent it,
+     * "u1A2B" an MDC-1200 unit ID, "r123456" a P25 radio.
+     */
+    fun saveTransmission(context: Context, time: Long, hz: Long, pcm: List<ShortArray>, rate: Int, unit: String? = null): File =
+        keep(context, CALLS_DIR, CALLS_KEEP, "${stamp(time)}_${hz}hz${unit?.let { "_$it" } ?: ""}.wav", speechWav(pcm, rate))
 
     /** The saved played calls, newest first. */
     fun speechFiles(context: Context): List<File> = list(context, CALLS_DIR)
@@ -105,20 +108,24 @@ object P25Record {
     }
 
     /** A saved call, from its file name: when, its talkgroup, the radio a private call went to, or where a transmission was heard; how long. */
-    class Saved(val file: File, val time: Long, val tg: Int?, val target: Long?, val hz: Long?, val seconds: Double)
+    class Saved(val file: File, val time: Long, val tg: Int?, val target: Long?, val hz: Long?, val seconds: Double, val unit: String? = null) {
+        /** "unit 1A2B" (MDC-1200) or "radio 123456" (P25), or null when not heard. */
+        val who: String? get() = unit?.let { if (it.startsWith("u")) "unit " + it.drop(1) else "radio " + it.drop(1) }
+    }
 
     internal fun saved(f: File): Saved? {
-        val m = Regex("""(\d{8}_\d{6})_(?:(tg|to)(\d+)|(\d+)hz)\.wav""").matchEntire(f.name) ?: return null
+        val m = Regex("""(\d{8}_\d{6})_(?:(tg|to)(\d+)|(\d+)hz)(?:_(u[0-9A-F]{4}|r\d{1,8}))?\.wav""").matchEntire(f.name) ?: return null
         val time = runCatching { java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).parse(m.groupValues[1])!!.time }.getOrNull() ?: return null
         // The WAV header's sample rate: 8 kHz P25 speech, the sweep's analog audio faster.
         val rate = runCatching { java.io.RandomAccessFile(f, "r").use { r -> r.seek(24); Integer.reverseBytes(r.readInt()) } }.getOrNull()
             ?.takeIf { it > 0 } ?: ImbeDecoder.RATE
         val seconds = (f.length() - 44).coerceAtLeast(0) / (2.0 * rate)
         val n = m.groupValues[3].ifEmpty { m.groupValues[4] }.toLongOrNull() ?: return null
+        val unit = m.groupValues[5].ifEmpty { null }
         return when (m.groupValues[2]) {
-            "tg" -> Saved(f, time, n.toInt(), null, null, seconds)
-            "to" -> Saved(f, time, null, n, null, seconds)
-            else -> Saved(f, time, null, null, n, seconds)
+            "tg" -> Saved(f, time, n.toInt(), null, null, seconds, unit)
+            "to" -> Saved(f, time, null, n, null, seconds, unit)
+            else -> Saved(f, time, null, null, n, seconds, unit)
         }
     }
 

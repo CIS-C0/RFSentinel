@@ -69,6 +69,11 @@ class P25RecordTest {
                 .apply { writeBytes(P25Record.speechWav(listOf(ShortArray(32_000)), 32_000)) })!!
             assertEquals(462_562_500L, radio.hz)
             assertEquals(1.0, radio.seconds, 1e-9)
+            assertEquals(null, radio.who)
+            // Who keyed up: an MDC-1200 unit ID, a P25 radio.
+            val mdc = P25Record.saved(java.io.File(dir, "20261112_114720_154430000hz_u1A2B.wav").apply { writeBytes(wav) })!!
+            assertEquals(154_430_000L, mdc.hz); assertEquals("unit 1A2B", mdc.who)
+            assertEquals("radio 1500020", P25Record.saved(java.io.File(dir, "20261112_114720_tg54221_r1500020.wav").apply { writeBytes(wav) })!!.who)
         } finally { dir.deleteRecursively() }
     }
 }

@@ -886,6 +886,15 @@ object SdrRadio {
         val demod = if (p25) null else AudioDemod(AudioDemod.modeFor(hz), INPUT_OFFSET_HZ, sdr.sampleRate) { pcm, n ->
             heard?.add(pcm.copyOf(n)); out?.write(pcm, 0, n)
         }
+        // Narrow FM: MDC-1200 bursts name the radio (unit ID) or flag an emergency.
+        var mdcUnit: Mdc1200.Packet? = null; var mdcCount = 0
+        demod?.takeIf { it.mode == AudioDemod.Mode.NFM }?.let { d ->
+            val mdc = Mdc1200(d.audioRate) { p ->
+                mdcCount++; if (mdcUnit?.emergency != true) mdcUnit = p
+                status = "$deviceLabel · playing $mhz · ${p.label}" + turnNote()
+            }
+            d.tap = mdc::sample
+        }
         val track = runCatching { newSpeaker(demod?.audioRate ?: ImbeDecoder.RATE).also { it.play() } }
             .onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: no audio output to play a transmission - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
             .getOrNull() ?: return false
@@ -914,10 +923,14 @@ object SdrRadio {
         val secs = if (follow != null) follow.frames * 0.18 else heardMs / 1000.0
         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: transmission ${if (logAll) "$mhz " else ""}(${e.band.label}) " +
             (if (secs > 0) "played (%.1f s)".format(java.util.Locale.US, secs) else "not played") +
-            (if (follow != null) ", P25" + (follow.endedBy?.let { ", ended: $it" } ?: "") else ""))
+            (if (follow != null) ", P25" + (follow.endedBy?.let { ", ended: $it" } ?: "") else "") +
+            // Unit IDs stay off the log unless "log everything" is on.
+            (if (mdcCount > 0) ", $mdcCount MDC-1200 bursts" + (mdcUnit?.let { u -> if (logAll) " (${u.label})" else if (u.emergency) " (emergency)" else "" } ?: "") else "") +
+            (if (logAll) follow?.talker?.let { ", radio $it" } ?: "" else ""))
         val ctx = appContext
         if (heard != null && secs > 0 && ctx != null)
-            runCatching { P25Record.saveTransmission(ctx, start, hz, heard, demod?.audioRate ?: ImbeDecoder.RATE) }
+            runCatching { P25Record.saveTransmission(ctx, start, hz, heard, demod?.audioRate ?: ImbeDecoder.RATE,
+                mdcUnit?.let { "u" + it.unitText } ?: follow?.talker?.let { "r$it" }) }
                 .onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: transmission sound not saved - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
         return secs > 0
     }
@@ -1151,7 +1164,7 @@ object SdrRadio {
         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 call " + (if (follow.frames > 0) "played (%.1f s)".format(java.util.Locale.US, follow.frames * 0.18) else "not played") +
             ", ended: $why" + (if (follow.garbled > 0) ", ${follow.garbled} garbled frames skipped" else ""))
         val ctx = appContext
-        if (heard != null && follow.frames > 0 && ctx != null) runCatching { P25Record.saveSpeech(ctx, call, heard) }
+        if (heard != null && follow.frames > 0 && ctx != null) runCatching { P25Record.saveSpeech(ctx, call, heard, follow.talker) }
             .onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 call sound not saved - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
         return follow.frames > 0
     }
@@ -1431,6 +1444,16 @@ object SdrRadio {
         val demod = if (!listening) null else AudioDemod(AudioDemod.modeFor(hz), INPUT_OFFSET_HZ, sdr.sampleRate) { pcm, n ->
             speakerOut?.write(pcm, 0, n)
         }
+        // Narrow FM: an MDC-1200 burst names the radio keying up (unit ID, or an emergency), shown on the status line.
+        var mdcCount = 0
+        demod?.takeIf { it.mode == AudioDemod.Mode.NFM }?.let { d ->
+            val mdc = Mdc1200(d.audioRate) { p ->
+                mdcCount++
+                status = "$deviceLabel · waterfall on $mhz · listening, ${d.mode.label} · ${p.label}"
+                if (logAll) logHeard("MDC-1200 on $mhz: ${p.label}, opcode %02X argument %02X".format(p.op, p.arg))
+            }
+            d.tap = mdc::sample
+        }
         if (demod != null) speakerOut = runCatching { newSpeaker(demod.audioRate).also { it.play() } }
             .onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: no audio output for listening - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
             .getOrNull()
@@ -1468,6 +1491,7 @@ object SdrRadio {
             ahead?.close()
             speakerOut?.let { runCatching { it.stop(); it.release() } }
         }
-        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: waterfall left $mhz" + (if (listening) ", stopped listening" else ""))
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: waterfall left $mhz" + (if (listening) ", stopped listening" else "") +
+            (if (mdcCount > 0) ", $mdcCount MDC-1200 bursts" else ""))
     }
 }

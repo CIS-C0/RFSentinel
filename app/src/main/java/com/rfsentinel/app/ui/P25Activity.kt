@@ -281,7 +281,7 @@ class P25Activity : AppCompatActivity() {
             val who = c.tg?.let { tg -> "Talkgroup $tg" + ((watched[tg]?.ifEmpty { null } ?: rr(tg))?.let { " ($it)" } ?: "") }
                 ?: c.hz?.let { String.format(Locale.US, "Radio %.4f MHz", it / 1e6) } ?: "Private call to radio ${c.target}"
             DateUtils.formatDateTime(this@P25Activity, c.time, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or
-                DateUtils.FORMAT_ABBREV_MONTH) + " · $who · " + String.format(Locale.US, "%.1f s", c.seconds)
+                DateUtils.FORMAT_ABBREV_MONTH) + " · $who" + (c.who?.let { " · $it" } ?: "") + " · " + String.format(Locale.US, "%.1f s", c.seconds)
         }.toTypedArray()
         com.google.android.material.dialog.MaterialAlertDialogBuilder(this@P25Activity)
             .setTitle("Played calls")

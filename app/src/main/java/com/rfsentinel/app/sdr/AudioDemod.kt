@@ -53,6 +53,8 @@ class AudioDemod(val mode: Mode, offsetHz: Long, inputRate: Int, private val out
     /** Narrow FM: smoothed mean jump between audio samples, large on noise, small on a carrier. */
     private var noise = NOISE_CLOSE
     var open = mode != Mode.NFM; private set
+    /** Each audio sample before the squelch (about ±1), for data bursts sent as the radio keys up ([Mdc1200]). */
+    var tap: ((Double) -> Unit)? = null
 
     private val pcm = ShortArray(4096)
     private var pcmN = 0
@@ -122,6 +124,7 @@ class AudioDemod(val mode: Mode, offsetHz: Long, inputRate: Int, private val out
 
     private fun audio(v: Double) {
         lp = lp * lpA + v * (1 - lpA)
+        tap?.invoke(lp)
         if (mode == Mode.NFM) {
             blockNoise += kotlin.math.abs(v - lastAudio); blockN++
             lastAudio = v
