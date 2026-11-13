@@ -77,7 +77,9 @@ object SdrRadio {
     private const val FOLLOW_MAX_MS = 120_000L // then back to the control channel regardless
     private const val PRIORITY_WAIT_MS = 5_000L // a priority call that cut another: looked for this long on the control channel
     private const val PLAY_START_MS = 1_500L    // Play voice transmissions: no voice this long after tuning, it's over (or wasn't one)
-    private const val PLAY_QUIET_MS = 3_000L    // the squelch shut this long after voice, back to the sweep: a reply comes sooner
+    private const val PLAY_QUIET_MS = 6_000L    // the squelch shut this long after voice, back to the sweep (a reply often comes in this time)
+    private const val HOT_MS = 120_000L         // a walkie-talkie channel played is checked often this long after: a reply plays at once
+    private const val HOT_CHECK_MS = 400L       // how often, between sweep chunks (~70 ms a look)
     private const val PLAY_MAX_MS = 60_000L     // ...and at most this long, so a stuck carrier doesn't hold the sweep
     private const val STUCK_MS = 10 * 60_000L   // a channel played that long isn't played again for this long
 
@@ -762,12 +764,33 @@ object SdrRadio {
         var lastIdentify = 0L; var identified = 0; var p25Found = 0; var played = 0
         // Play voice transmissions: a channel played for the whole PLAY_MAX_MS (a stuck carrier) is left alone a while.
         val stuck = HashMap<Long, Long>()
+        // The walkie-talkie channel last played: a conversation's reply is caught between chunks instead of a sweep later.
+        var hot: Pair<RadioWatch.Event, Long>? = null; var hotUntil = 0L; var hotChecked = 0L
+        fun hotOn(): Boolean {
+            val now = System.currentTimeMillis()
+            if (hot == null || now > hotUntil || !sweepListen || SdrWaterfall.listening) return false
+            hotChecked = now
+            return (measureInput(sdr, hot!!.second) ?: 0) >= RadioWatch.activeDb(cfg.minSnrDb)
+        }
+        fun play(e: RadioWatch.Event, hz: Long) {
+            val from = System.currentTimeMillis()
+            val ok = playTransmission(sdr, e, hz)
+            if (ok) played++
+            val now = System.currentTimeMillis()
+            if (now - from >= PLAY_MAX_MS) stuck[e.freqHz] = now + STUCK_MS
+            // Nothing heard, or a stuck carrier: no longer checked (it would hold the sweep).
+            if (ok && e.walkie && now - from < PLAY_MAX_MS) { hot = e to hz; hotUntil = now + HOT_MS }
+            else if (hot?.first?.freqHz == e.freqHz) hot = null
+            sdr.setSampleRate(SAMPLE_RATE); sdr.resetBuffer()
+        }
         while (!halted && !sdr.lost && keeps(Mode.SWEEP)) {
             // Settings changed: the new bands / targets / sensitivity from this sweep on.
             if (config != cfg) { cfg = config; plan = RadioWatch.plan(cfg); watch.config = cfg; logPlan() }
             for (center in plan) {
                 if (halted || sdr.lost || !keeps(Mode.SWEEP)) break
                 if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
+                if (System.currentTimeMillis() - hotChecked >= HOT_CHECK_MS && hotOn()) hot?.let { (e, hz) -> play(e, hz) }
+                var hotLooked = false
                 fun skipped() {
                     if (SdrWaterfall.listening) show(center, SdrWaterfall.blank(center, sdr.sampleRate, RadioWatch.USABLE_HZ, bandOf(center)))
                 }
@@ -814,6 +837,8 @@ object SdrRadio {
                     var e = found
                     // A walkie-talkie: played (a reply within minutes too: it's a conversation), never reported. Strongest first.
                     if (e.walkie) { if (playable(e)) toPlay = e to RadioWatch.walkieHz(e.freqHz, center, psd, sdr.sampleRate); continue }
+                    // Before a check or play of anything else (often a ghost the walkie's own strong signal makes): its reply first.
+                    if (!e.repeat && playable(e) && !hotLooked) { hotLooked = true; if (hotOn()) toPlay = hot }
                     if (!e.repeat) {
                         events++
                         // A new transmission: listen for a moment to tell a P25 radio (conventional, which no control channel lists) from the rest.
@@ -833,12 +858,7 @@ object SdrRadio {
                     }
                     onEvent?.invoke(e)
                 }
-                toPlay?.let { (e, hz) ->
-                    val from = System.currentTimeMillis()
-                    if (playTransmission(sdr, e, hz)) played++
-                    if (System.currentTimeMillis() - from >= PLAY_MAX_MS) stuck[e.freqHz] = System.currentTimeMillis() + STUCK_MS
-                    sdr.setSampleRate(SAMPLE_RATE); sdr.resetBuffer()
-                }
+                toPlay?.let { (e, hz) -> play(e, hz) }
             }
             if (!keeps(Mode.SWEEP)) break // cut short: not a whole sweep
             watch.sweepDone()
