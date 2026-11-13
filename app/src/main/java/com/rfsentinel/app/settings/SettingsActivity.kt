@@ -39,6 +39,8 @@ class SettingsActivity : AppCompatActivity() {
         /** The unit after each Watch this place field. */
         private val PLACE_UNITS = mapOf("learn_min" to "min", "min_rssi" to "dBm", "new_window_s" to "s", "gone_min" to "min",
             "back_min" to "min", "radius_m" to "m", "jump_db" to "dB", "jumps" to "times")
+        /** The widest unit in Trackers & followers: every field there gets its width, so they line up. */
+        private const val PLACE_UNIT_WIDEST = "times"
         /** Opens Settings on one section (expanded and scrolled to): e.g. [SECTION_MAP] from the map. */
         const val EXTRA_SECTION = "open_section"
         const val SECTION_MAP = "map"
@@ -1172,8 +1174,11 @@ class SettingsActivity : AppCompatActivity() {
         })
     }
 
-    /** The unit after a number field ("min", "s", "m", "days"), so the label doesn't have to say it. */
-    private fun withUnit(field: android.widget.EditText, unit: String) {
+    /**
+     * The unit after a number field ("min", "s", "m", "days"), so the label doesn't have to say it. Given [widest], the
+     * unit takes that one's width, so fields of a grid with different units line up.
+     */
+    private fun withUnit(field: android.widget.EditText, unit: String, widest: String = unit) {
         val parent = field.parent as? android.view.ViewGroup ?: return
         val at = parent.indexOfChild(field)
         val lp = field.layoutParams
@@ -1184,7 +1189,9 @@ class SettingsActivity : AppCompatActivity() {
             addView(field, android.widget.LinearLayout.LayoutParams(0, -2, 1f))
             addView(android.widget.TextView(this@SettingsActivity).apply {
                 text = unit; alpha = 0.75f
-                setPadding((8 * resources.displayMetrics.density).toInt(), 0, (8 * resources.displayMetrics.density).toInt(), 0)
+                val pad = (8 * resources.displayMetrics.density).toInt()
+                setPadding(pad, 0, pad, 0)
+                minWidth = kotlin.math.ceil(paint.measureText(widest)).toInt() + 2 * pad
             })
         }
         parent.addView(row, at, lp)
@@ -1254,8 +1261,8 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.bubbleSwitch, "A small bubble over other apps (Waze, Google Maps...) showing the threat level. Needs \"Display over other apps\".")
         info(binding.floatingMapSwitch, "A small map over other apps, centred on you, with the same device dots as RF Sentinel's map. It always uses OpenFreeMap: a window this small has no room for Mapbox's logo and info button.")
         info(binding.followSwitch, "Warns when a tracker or flagged device keeps moving with you, for at least the time and distance below - whether it stays in range or keeps turning up again: heard at 3 or more places along your way within 2 hours.")
-        withUnit(binding.followMinutesInput, "min")
-        withUnit(binding.followMetersInput, "m")
+        withUnit(binding.followMinutesInput, "min", PLACE_UNIT_WIDEST)
+        withUnit(binding.followMetersInput, "m", PLACE_UNIT_WIDEST)
         info(binding.placeWatchSwitch, "For a phone left in one place: home, a hotel room, a camp. Turn it on there: RF Sentinel first " +
             "learns every device around (Learn for), then, for devices close by (Signal from):\n" +
             "• New device: one it didn't learn, heard twice within the time set. Alerts.\n" +
@@ -1265,13 +1272,13 @@ class SettingsActivity : AppCompatActivity() {
             "The defaults are AntiHunter's: 5 min, -60 dBm, 60 s, 2 min, 5 min, 20 dB, 3 times; 300 m is ours. " +
             "A phone's new random address linked to its earlier one counts as the same phone. Paused while you're farther than " +
             "Pause beyond. Keeps what it learned until you turn it off, even if the phone restarts. Changes apply at once.\n\n" +
+            "Signal from: -60 dBm is close, the same room or the next. -70 or -80 catches devices farther away, but also " +
+            "neighbours and passers-by: more alerts. -50 only what is very close.\n\n" +
             "Counts what this phone, its USB and ESP32 hardware and Sentinels linked over Bluetooth hear. Not LoRa nodes, nor devices " +
             "heard over the mesh or the internet: they can be far away.\n\n" +
             "To watch it from afar: every report, and when it starts, has learned and stops, goes to linked Sentinels over " +
             "Bluetooth, the Meshtastic node and the internet relay, encrypted for your group. Whitelisted devices are left out.")
-        info(binding.placeRssiLabel, "Only devices heard this strong or stronger count. -60 dBm is close: the same room or the next. " +
-            "-70 or -80 catches devices farther away, but also neighbours and passers-by: more alerts. -50 only what is very close.")
-        placeFields.forEach { (key, field) -> withUnit(field, PLACE_UNITS.getValue(key)) }
+        placeFields.forEach { (key, field) -> withUnit(field, PLACE_UNITS.getValue(key), PLACE_UNIT_WIDEST) }
         info(binding.mapProviderLabel, "OpenFreeMap: free and open, OpenStreetMap data.\n\nMapbox: Mapbox's Standard map with 3D buildings and day / night light.\n\nThe floating mini map and the Android Auto map always use OpenStreetMap maps.")
         info(binding.mapAutoRecenterSwitch, "While you drive, the map goes back to your position once you've left it alone for the time set under it (Re-center after).")
         info(binding.mapSpeedometerSwitch, "Your speed and the posted limit in a corner of the map; your speed turns red over the limit.")

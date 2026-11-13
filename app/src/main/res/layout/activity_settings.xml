@@ -333,7 +333,7 @@
                         android:layout_weight="1"
                         android:orientation="vertical">
 
-                        <TextView style="@style/SettingsLabel" android:id="@+id/placeRssiLabel" android:text="Signal from" />
+                        <TextView style="@style/SettingsLabel" android:text="Signal from" />
 
                         <EditText
                             style="@style/SettingsControl"
