@@ -72,8 +72,8 @@ object SdrRadio {
     private const val FM_WIDTH_HZ = 100_000L
     private const val INPUT_OFFSET_HZ = 250_000L // the input this far above the tuned centre, clear of the DC spike
     private const val RECORD_GAP_MS = 20_000L  // at most one call recording this often: each costs P25Record.SECONDS of control channel
-    private const val FOLLOW_START_S = 1.5     // no voice this long after tuning to a call: it isn't there (or already over)
-    private const val FOLLOW_QUIET_S = 1.0     // voice gone this long: the call is over
+    private const val FOLLOW_START_S = 3.0     // no voice this long after tuning to a call: it isn't there (op25/dsd-neo grant timeout; radios can take 1-2 s to key up)
+    private const val FOLLOW_QUIET_S = 2.0     // voice gone this long: the call is over (op25/dsd-neo hangtime; a fade isn't the end, a terminator ends it at once)
     private const val FOLLOW_MAX_MS = 120_000L // then back to the control channel regardless
     private const val PRIORITY_WAIT_MS = 5_000L // a priority call that cut another: looked for this long on the control channel
     private const val PLAY_START_MS = 1_500L    // Play voice transmissions: no voice this long after tuning, it's over (or wasn't one)
@@ -1366,7 +1366,7 @@ object SdrRadio {
             stop() || p25Mute -> "stopped"
             fails >= STALL_CHUNKS -> "no samples"
             follow.frames == 0 -> "no voice heard"
-            follow.quietS >= FOLLOW_QUIET_S -> "voice lost for 1 s"
+            follow.quietS >= FOLLOW_QUIET_S -> "voice lost for 2 s"
             else -> "listening changed"
         }
         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 call " + (if (follow.frames > 0) "played (%.1f s)".format(java.util.Locale.US, follow.frames * 0.18) else "not played") +
