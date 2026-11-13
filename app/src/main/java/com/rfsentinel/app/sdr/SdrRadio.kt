@@ -624,6 +624,12 @@ object SdrRadio {
         return away && !halted
     }
 
+    /** A radio's GPS position from a P25 data packet: to the talkgroup screen only, never to the log. */
+    private fun position(p: P25Tsbk.Position) { p25Log.add(p, System.currentTimeMillis()) }
+
+    /** How many data packets a followed channel carried (counts only). */
+    private fun dataNote(f: P25Follow) = if (f.dataPackets > 0) ", ${f.dataPackets} data packets" else ""
+
     private fun runAdsb(sdr: SdrDevice, name: String) {
         sdr.setSampleRate(ModeS.SAMPLE_RATE)
         val gain = adsbGain
@@ -880,7 +886,7 @@ object SdrRadio {
         repeat(sdr.settleReads) { sdr.read(buf) }
         var out: android.media.AudioTrack? = null
         val heard = if (saveCalls) ArrayList<ShortArray>() else null
-        val follow = if (!p25) null else P25Follow(INPUT_OFFSET_HZ.toDouble()) { pcm ->
+        val follow = if (!p25) null else P25Follow(INPUT_OFFSET_HZ.toDouble(), onPosition = ::position) { pcm ->
             heard?.add(pcm.copyOf()); out?.write(pcm, 0, pcm.size, android.media.AudioTrack.WRITE_NON_BLOCKING)
         }
         val demod = if (p25) null else AudioDemod(AudioDemod.modeFor(hz), INPUT_OFFSET_HZ, sdr.sampleRate) { pcm, n ->
@@ -923,7 +929,7 @@ object SdrRadio {
         val secs = if (follow != null) follow.frames * 0.18 else heardMs / 1000.0
         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: transmission ${if (logAll) "$mhz " else ""}(${e.band.label}) " +
             (if (secs > 0) "played (%.1f s)".format(java.util.Locale.US, secs) else "not played") +
-            (if (follow != null) ", P25" + (follow.endedBy?.let { ", ended: $it" } ?: "") else "") +
+            (if (follow != null) ", P25" + (follow.endedBy?.let { ", ended: $it" } ?: "") + dataNote(follow) else "") +
             // Unit IDs stay off the log unless "log everything" is on.
             (if (mdcCount > 0) ", $mdcCount MDC-1200 bursts" + (mdcUnit?.let { u -> if (logAll) " (${u.label})" else if (u.emergency) " (emergency)" else "" } ?: "") else "") +
             (if (logAll) follow?.talker?.let { ", radio $it" } ?: "" else ""))
@@ -1126,7 +1132,8 @@ object SdrRadio {
         val otherCall = { _: Int, tg: Int ->
             if (priority == null && p25Hold == null && tg != call.tg && p25IsPriority(tg) && !p25IsPriority(call.tg) && !p25LockedOut(tg)) priority = tg
         }
-        val follow = P25Follow(INPUT_OFFSET_HZ.toDouble(), lsm = p25Lock?.lsm == true, grantClear = !call.encrypted, onOtherCall = otherCall) { pcm ->
+        val follow = P25Follow(INPUT_OFFSET_HZ.toDouble(), lsm = p25Lock?.lsm == true, grantClear = !call.encrypted, onOtherCall = otherCall,
+            onPosition = ::position) { pcm ->
             heard?.add(pcm.copyOf())
             // A little silence first: voice comes in 180 ms bursts, and the buffer shouldn't run dry between them.
             if (!started) { started = true; out.write(ShortArray(ImbeDecoder.RATE / 5), 0, ImbeDecoder.RATE / 5, android.media.AudioTrack.WRITE_NON_BLOCKING) }
@@ -1162,7 +1169,7 @@ object SdrRadio {
             else -> "listening changed"
         }
         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 call " + (if (follow.frames > 0) "played (%.1f s)".format(java.util.Locale.US, follow.frames * 0.18) else "not played") +
-            ", ended: $why" + (if (follow.garbled > 0) ", ${follow.garbled} garbled frames skipped" else ""))
+            ", ended: $why" + (if (follow.garbled > 0) ", ${follow.garbled} garbled frames skipped" else "") + dataNote(follow))
         val ctx = appContext
         if (heard != null && follow.frames > 0 && ctx != null) runCatching { P25Record.saveSpeech(ctx, call, heard, follow.talker) }
             .onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 call sound not saved - ${com.rfsentinel.app.util.HwLog.describe(it)}") }

@@ -217,16 +217,23 @@ class P25Activity : AppCompatActivity() {
     /** What the site relayed between radios lately ([P25Log.events]), newest first. */
     private fun showEvents() {
         val events = SdrRadio.p25Log.events()
-        if (events.isEmpty()) {
-            android.widget.Toast.makeText(this, "No radio events heard yet: status updates, messages, call alerts and remote " +
-                "monitoring show here as the control channel relays them", android.widget.Toast.LENGTH_LONG).show()
+        val fixes = SdrRadio.p25Log.fixes()
+        if (events.isEmpty() && fixes.isEmpty()) {
+            android.widget.Toast.makeText(this, "No radio events heard yet: status updates, messages, call alerts, remote " +
+                "monitoring and radio GPS positions show here as the site relays them", android.widget.Toast.LENGTH_LONG).show()
             return
         }
-        val lines = events.map { e ->
-            DateUtils.formatDateTime(this, e.at, DateUtils.FORMAT_SHOW_TIME) + " · " + e.kind.replaceFirstChar { it.uppercase() } +
+        fun time(at: Long) = DateUtils.formatDateTime(this, at, DateUtils.FORMAT_SHOW_TIME)
+        val lines = (events.map { e ->
+            e.at to time(e.at) + " · " + e.kind.replaceFirstChar { it.uppercase() } +
                 (e.code?.let { c -> if (e.kind == "status update") " ${c shr 8}/${c and 0xff}" else " $c" } ?: "") + (e.source?.let { " · from $it" } ?: "") + " · to radio ${e.target}" +
                 (e.tg?.let { tg -> " (talkgroup $tg" + ((watched[tg]?.ifEmpty { null } ?: rr(tg))?.let { ", $it" } ?: "") + ")" } ?: "")
-        }.toTypedArray()
+        } + fixes.map { f ->
+            val p = f.position
+            // Shown here only: positions are never logged or exported.
+            f.at to time(f.at) + " · Position · " + (if (p.outbound) "to" else "from") + " radio ${p.radio} · " +
+                String.format(Locale.US, "%.5f, %.5f", p.lat, p.lon) + (p.radiusM?.let { String.format(Locale.US, " ±%.0f m", it) } ?: "")
+        }).sortedByDescending { it.first }.map { it.second }.toTypedArray()
         com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
             .setTitle("Radio events")
             .setItems(lines, null)

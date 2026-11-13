@@ -202,6 +202,13 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
             blocks += d.tsbks.size
             for (t in d.tsbks) P25Tsbk.parse(t)?.let { kinds.merge(it.javaClass.simpleName, 1, Int::plus); onMsg(it) }
         }
+        // Data packets on the control channel: how far each got (counts only), and any radio positions to the screen.
+        demod.onPdu = { f, s ->
+            P25Pdu.decode(f, s)?.takeIf { it.nac == lock.nac }?.let { p ->
+                kinds.merge("PDU-" + p.stage.name.lowercase(), 1, Int::plus)
+                p.positions.forEach(onMsg)
+            }
+        }
         fun report(why: String) {
             log("P25 $why: $st, block types ${st.opcodes.entries.joinToString(" ") { "${it.key}x${it.value}" }.ifEmpty { "none" }}, " +
                 "messages ${kinds.entries.joinToString(" ") { "${it.key}x${it.value}" }.ifEmpty { "none" }}, " +

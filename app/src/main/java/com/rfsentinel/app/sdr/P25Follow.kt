@@ -7,9 +7,11 @@ package com.rfsentinel.app.sdr
  * [lsm]: the site is a simulcast one (its control channel decoded as LSM), so its voice channels are LSM too.
  * [onOtherCall]: another talkgroup's call going on, as the link control announces it (channel, talkgroup), each time
  * after the first; [talker] the radio talking, once its link control read the same twice.
+ * [onPosition]: a radio's GPS position from a data packet on the channel ([P25Pdu]); [dataPackets] how many were heard.
  */
 class P25Follow(offsetHz: Double, lsm: Boolean = false, private val grantClear: Boolean = false,
-                private val onOtherCall: ((Int, Int) -> Unit)? = null, private val onSpeech: (ShortArray) -> Unit) {
+                private val onOtherCall: ((Int, Int) -> Unit)? = null, private val onPosition: ((P25Tsbk.Position) -> Unit)? = null,
+                private val onSpeech: (ShortArray) -> Unit) {
 
     private val imbe = ImbeDecoder()
     private var samples = 0L
@@ -25,6 +27,7 @@ class P25Follow(offsetHz: Double, lsm: Boolean = false, private val grantClear: 
     var talker: Int? = null; private set
     private var talkerRead: Int? = null
     private val updates = HashSet<Long>()
+    var dataPackets = 0; private set
 
     private val demod = P25Demod(offsetHz, P25Voice.LDU_DIBITS, if (lsm) P25Demod.Mod.LSM else P25Demod.Mod.C4FM) { f ->
         val v = P25Voice.decode(f)
@@ -44,6 +47,10 @@ class P25Follow(offsetHz: Double, lsm: Boolean = false, private val grantClear: 
                 v.lc?.let(::linkControl)
             }
         }
+    }
+
+    init {
+        onPosition?.let { send -> demod.onPdu = { f, s -> P25Pdu.decode(f, s)?.takeIf { it.stage != P25Pdu.Stage.HEADER }?.let { p -> dataPackets++; p.positions.forEach(send) } } }
     }
 
     /**

@@ -22,7 +22,8 @@ import kotlin.math.sqrt
  * soft decoding and [lsmFrame] says which path found it.
  * A slow frequency loop keeps the channel centred while the dongle's crystal drifts.
  *
- * [frameDibits] longer than the default takes in a whole voice frame ([P25Voice]). Pure (no Android): unit-tested on
+ * [frameDibits] longer than the default takes in a whole voice frame ([P25Voice]). With [onPdu] set, a frame whose NID
+ * says data packet goes on being collected to [P25Pdu.PDU_DIBITS] and is handed there too (after [onFrame] had its start). Pure (no Android): unit-tested on
  * a synthetic signal.
  */
 class P25Demod(offsetHz: Double, private val frameDibits: Int = FRAME_DIBITS, val mod: Mod = Mod.C4FM,
@@ -123,8 +124,11 @@ class P25Demod(offsetHz: Double, private val frameDibits: Int = FRAME_DIBITS, va
         setStep()
     }
 
+    /** Data packets ([P25Pdu]): the whole frame and its symbol values, from the demodulator's thread. */
+    var onPdu: ((IntArray, DoubleArray) -> Unit)? = null
+
     private class Collect(val start: Long, val dc: Double, val level: Double, size: Int) {
-        val dibits = IntArray(size); val soft = DoubleArray(size); var got = 0
+        val dibits = IntArray(size); val soft = DoubleArray(size); var got = 0; var handed = false
         fun put(v: Double) { val x = (v - dc) / level; soft[got] = x.coerceIn(-2.0, 2.0); dibits[got++] = slice(x) }
     }
 
@@ -147,7 +151,11 @@ class P25Demod(offsetHz: Double, private val frameDibits: Int = FRAME_DIBITS, va
                     val c = it.next()
                     if ((n - c.start) % SPS != 0L) continue
                     c.put(v)
-                    if (c.got == c.dibits.size) { it.remove(); hand(c) }
+                    if (c.got == frameDibits && !c.handed) {
+                        c.handed = true; hand(c)
+                        if (c.dibits.size == frameDibits || !P25Pdu.isPdu(c.dibits)) { it.remove(); continue }
+                    }
+                    if (c.got == c.dibits.size) { it.remove(); onPdu?.invoke(c.dibits, c.soft) }
                 }
             }
             // Sync search: the last 24 symbols against the pattern, normalized.
@@ -168,7 +176,11 @@ class P25Demod(offsetHz: Double, private val frameDibits: Int = FRAME_DIBITS, va
             n++
         }
 
-        private fun hand(c: Collect) { soft = c.soft; lsmFrame = isLsm; onFrame(c.dibits) }
+        private fun hand(c: Collect) {
+            val long = c.dibits.size > frameDibits
+            soft = if (long) c.soft.copyOf(frameDibits) else c.soft; lsmFrame = isLsm
+            onFrame(if (long) c.dibits.copyOf(frameDibits) else c.dibits)
+        }
 
         private fun found(end: Long) {
             lastSync = end
@@ -181,7 +193,7 @@ class P25Demod(offsetHz: Double, private val frameDibits: Int = FRAME_DIBITS, va
             val level = (hi - lo) / 2
             if (level <= 0) return
             syncs++
-            val c = Collect(end, (hi + lo) / 2, level, frameDibits)
+            val c = Collect(end, (hi + lo) / 2, level, if (onPdu != null) maxOf(frameDibits, P25Pdu.PDU_DIBITS) else frameDibits)
             // Samples already past since the sync's end: catch up those dibits from the history.
             var t = end + SPS
             while (t <= n && c.got < frameDibits) { c.put(at((n - t).toInt())); t += SPS }

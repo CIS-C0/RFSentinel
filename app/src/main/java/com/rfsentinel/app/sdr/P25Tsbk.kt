@@ -37,6 +37,12 @@ object P25Tsbk {
     data class Patch(val sg: Int, val members: List<Int>, val add: Boolean) : Msg()
     /** A packet data channel granted to radio [target] (location reports, messages): [channel] the site's side, [inputChannel] where the radio sends. */
     data class DataGrant(val channel: Int, val inputChannel: Int, val target: Int) : Msg()
+    /**
+     * Not a trunking block: a radio's GPS position from a data packet ([P25Pdu], LRRP). [radio] the packet's
+     * logical link ID: the sender when inbound, the radio it goes to when [outbound]. Shown on the screen, never logged.
+     */
+    data class Position(val radio: Int, val outbound: Boolean, val lat: Double, val lon: Double, val radiusM: Double?,
+                        val altitudeM: Double?) : Msg()
 
     /**
      * A radio's own message to the site, heard on the control channel's input: [radio] its unit ID, [kind] what it sent.

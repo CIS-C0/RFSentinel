@@ -21,6 +21,9 @@ class P25Log {
     /** A [P25Tsbk.RadioEvent] or data channel grant heard at [at]; [tg] the target radio's last talkgroup when known. */
     data class Event(val at: Long, val kind: String, val source: Int?, val target: Int, val code: Int?, val tg: Int?)
 
+    /** A radio's GPS position ([P25Pdu]) heard at [at]: in memory only, for the screen. */
+    data class Fix(val at: Long, val position: P25Tsbk.Position)
+
     /** The site and how much was heard there, for the screen's header. */
     data class Summary(val site: P25Tsbk.Site?, val messages: Long, val registrations: Int, val since: Long)
 
@@ -43,11 +46,13 @@ class P25Log {
     private val patches = HashMap<Int, List<Int>>()
     /** Newest last, at most [MAX_EVENTS]. */
     private val events = ArrayDeque<Event>()
+    /** Newest last, at most [MAX_EVENTS]. */
+    private val fixes = ArrayDeque<Fix>()
 
     /** A new control channel: forget the last site. */
     @Synchronized fun clear(now: Long) {
         groups.clear(); site = null; messages = 0; registrations = 0; since = now; alternates.clear(); joined.clear()
-        patches.clear(); events.clear()
+        patches.clear(); events.clear(); fixes.clear()
     }
 
     /** Takes in one message; the talkgroups whose call just started (not heard for [CALL_GAP_MS]). */
@@ -71,6 +76,11 @@ class P25Log {
             }
             is P25Tsbk.RadioEvent -> { event(Event(now, m.kind, m.source.takeIf { it != 0 }, m.target, m.code, joined[m.target])); emptyList() }
             is P25Tsbk.DataGrant -> { event(Event(now, "data channel", null, m.target, null, joined[m.target])); emptyList() }
+            is P25Tsbk.Position -> {
+                // A packet heard twice (two demodulators, or sent again): once.
+                if (fixes.none { it.position == m && now - it.at < CALL_GAP_MS }) { fixes.addLast(Fix(now, m)); while (fixes.size > MAX_EVENTS) fixes.removeFirst() }
+                emptyList()
+            }
         }
     }
 
@@ -127,6 +137,9 @@ class P25Log {
 
     /** Radio events (status, messages, call alerts, monitoring...), newest first. */
     @Synchronized fun events(): List<Event> = events.reversed()
+
+    /** Radio positions from data packets, newest first. */
+    @Synchronized fun fixes(): List<Fix> = fixes.reversed()
 
     /** The talkgroups patch supergroup [tg] carries; empty when it isn't one. */
     @Synchronized fun members(tg: Int?): List<Int> = tg?.let { patches[it] }.orEmpty()
