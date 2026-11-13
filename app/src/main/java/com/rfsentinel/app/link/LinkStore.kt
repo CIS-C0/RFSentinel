@@ -152,6 +152,8 @@ object LinkStore {
     /** "mqtts://host:8883" as typed, "" until set. */
     fun mqttBroker(c: Context): String = sp(c).getString("mqtt_broker", "") ?: ""
     fun setMqttBroker(c: Context, url: String) = sp(c).edit { putString("mqtt_broker", url.trim()) }
+    /** Filled in when the relay is switched on with no broker set: free, public, TLS; it only ever sees sealed packets. */
+    const val MQTT_DEFAULT_BROKER = "mqtts://broker.emqx.io:8883"
     fun mqttUser(c: Context): String = sp(c).getString("mqtt_user", "") ?: ""
     fun setMqttUser(c: Context, user: String) = sp(c).edit { putString("mqtt_user", user.trim()) }
     /** Kept encrypted ([SecureStore]), out of backups. */

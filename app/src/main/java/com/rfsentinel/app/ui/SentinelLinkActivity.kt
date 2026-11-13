@@ -303,13 +303,20 @@ class SentinelLinkActivity : AppCompatActivity() {
                 "on a topic made from it: the broker only sees encrypted bytes, your IP address and when you send. " +
                 "mqtts:// connects with TLS (port 8883 unless you give one); mqtt:// doesn't, so the username and password " +
                 "go unencrypted - use it only on a network you trust. A broker with its own self-signed certificate: turn " +
-                "Check the certificate off. Uses mobile data: a few small packets a minute."
+                "Check the certificate off. Uses mobile data: a few small packets a minute.\n\nNo server of your own? Just " +
+                "switch it on: with no broker set it uses the free public broker ${LinkStore.MQTT_DEFAULT_BROKER.removePrefix("mqtts://")}. " +
+                "Do the same on every phone of the group."
         }
+        var brokerEdit: EditText? = null
         val switch = SwitchMaterial(this).apply {
             text = "Use an MQTT broker"
             isChecked = LinkStore.mqttOn(this@SentinelLinkActivity)
             setOnCheckedChangeListener { _, on ->
                 LinkStore.setMqttOn(this@SentinelLinkActivity, on)
+                if (on && LinkStore.mqttBroker(this@SentinelLinkActivity).isBlank()) {
+                    LinkStore.setMqttBroker(this@SentinelLinkActivity, LinkStore.MQTT_DEFAULT_BROKER)
+                    brokerEdit?.setText(LinkStore.MQTT_DEFAULT_BROKER)
+                }
                 ScanForegroundService.refreshLink(this@SentinelLinkActivity)
                 refresh()
             }
@@ -341,6 +348,7 @@ class SentinelLinkActivity : AppCompatActivity() {
         val views = field("Broker", "mqtts://broker.example.com:8883", LinkStore.mqttBroker(ctx), false) { LinkStore.setMqttBroker(ctx, it) } +
             field("Username", "Optional", LinkStore.mqttUser(ctx), false) { LinkStore.setMqttUser(ctx, it) } +
             field("Password", "Optional", LinkStore.mqttPassword(ctx).orEmpty(), true) { LinkStore.setMqttPassword(ctx, it) }
+        brokerEdit = views[1] as EditText
         val checkCert = SwitchMaterial(this).apply {
             text = "Check the certificate"
             isChecked = LinkStore.mqttCheckCert(ctx)
