@@ -1,11 +1,8 @@
 package com.rfsentinel.app.sdr
 
-import kotlin.math.E
 import kotlin.math.PI
 import kotlin.math.cos
-import kotlin.math.ln
 import kotlin.math.pow
-import kotlin.math.sqrt
 import kotlin.random.Random
 
 /**
@@ -14,52 +11,10 @@ import kotlin.random.Random
  * A port of mbelib (ISC licence, after TIA-102.BABA): its decoding, spectral enhancement and synthesis, its tables;
  * a damaged codeword repeats the last good one, up to three times, then the call goes silent.
  */
-class ImbeDecoder(private val rnd: Random = Random(1)) {
-
-    /** One codeword's model parameters: fundamental, harmonics, voicing, magnitudes, phases (index 1..L). */
-    private class Parms {
-        var w0 = 0.0
-        var L = 0
-        var repeat = 0
-        val Vl = IntArray(SLOTS)
-        val Ml = DoubleArray(SLOTS)
-        val log2Ml = DoubleArray(SLOTS)
-        val PHIl = DoubleArray(SLOTS)
-        val PSIl = DoubleArray(SLOTS)
-
-        fun copyFrom(o: Parms) {
-            w0 = o.w0; L = o.L; repeat = o.repeat
-            o.Vl.copyInto(Vl); o.Ml.copyInto(Ml); o.log2Ml.copyInto(log2Ml); o.PHIl.copyInto(PHIl); o.PSIl.copyInto(PSIl)
-        }
-    }
-
-    private val cur = Parms()
-    private val prev = Parms()
-    private val prevEnhanced = Parms()
-
-    init { reset() }
-
-    private fun reset() {
-        prev.w0 = 0.09378; prev.L = 30; prev.repeat = 0
-        prev.Vl.fill(0); prev.Ml.fill(0.0); prev.log2Ml.fill(0.0); prev.PHIl.fill(0.0); prev.PSIl.fill(PI / 2)
-        cur.copyFrom(prev); prevEnhanced.copyFrom(prev)
-    }
+class ImbeDecoder(rnd: Random = Random(1)) : MbeSynth(rnd) {
 
     /** 20 ms of speech from one codeword; [errors]: the bits its error correction fixed. */
-    fun decode(bits: ByteArray, errors: Int): ShortArray {
-        val out = DoubleArray(N)
-        if (!parms(bits) || errors > 5) {
-            cur.copyFrom(prev)
-            cur.repeat++
-        } else cur.repeat = 0
-        if (cur.repeat <= 3) {
-            prev.copyFrom(cur)
-            enhance()
-            synthesize(out)
-            prevEnhanced.copyFrom(cur)
-        } else reset()
-        return ShortArray(N) { (out[it] * GAIN).coerceIn(-32760.0, 32760.0).toInt().toShort() }
-    }
+    fun decode(bits: ByteArray, errors: Int): ShortArray = speak(parms(bits) && errors <= 5)
 
     /** The codeword's bits to [cur]; false when they hold no speech (silence, or not valid). */
     private fun parms(d: ByteArray): Boolean {
@@ -132,93 +87,9 @@ class ImbeDecoder(private val rnd: Random = Random(1)) {
         return true
     }
 
-    /** Spectral amplitude enhancement: sharpens formants, keeps the energy. */
-    private fun enhance() {
-        val L = cur.L; val w0 = cur.w0; val ml = cur.Ml
-        var rm0 = 0.0; var rm1 = 0.0
-        for (l in 1..L) { rm0 += ml[l] * ml[l]; rm1 += ml[l] * ml[l] * cos(w0 * l) }
-        val r2m0 = rm0 * rm0; val r2m1 = rm1 * rm1
-        for (l in 1..L) {
-            if (ml[l] == 0.0 || 8 * l <= L) continue
-            val w = sqrt(ml[l]) * (0.96 * PI * (r2m0 + r2m1 - 2 * rm0 * rm1 * cos(w0 * l)) / (w0 * rm0 * (r2m0 - r2m1))).pow(0.25)
-            ml[l] *= when { w > 1.2 -> 1.2; w < 0.5 -> 0.5; else -> w }
-        }
-        var sum = 0.0
-        for (l in 1..L) sum += ml[l] * ml[l]
-        val gamma = if (sum == 0.0) 1.0 else sqrt(rm0 / sum)
-        for (l in 1..L) ml[l] *= gamma
-    }
-
-    private fun randPhase() = rnd.nextDouble() * 2 * PI - PI
-
-    /** 160 samples from [prevEnhanced] fading into [cur]: voiced harmonics as sines, unvoiced ones as a noisy sine mix. */
-    private fun synthesize(out: DoubleArray) {
-        val c = cur; val p = prevEnhanced
-        val cw0 = c.w0; val pw0 = p.w0
-        val numUv = (1..c.L).count { c.Vl[it] == 0 }
-        val maxl = if (c.L > p.L) {
-            for (l in p.L + 1..c.L) { p.Ml[l] = 0.0; p.Vl[l] = 1 }
-            c.L
-        } else {
-            for (l in c.L + 1..p.L) { c.Ml[l] = 0.0; c.Vl[l] = 1 }
-            p.L
-        }
-        for (l in 1..56) {
-            c.PSIl[l] = p.PSIl[l] + (pw0 + cw0) * (l * N) / 2.0
-            c.PHIl[l] = if (l <= c.L / 4) c.PSIl[l] else c.PSIl[l] + numUv * randPhase() / c.L
-        }
-        val rphase = DoubleArray(UV_QUALITY)
-        // Unvoiced: UV_QUALITY sines spread around harmonic l, plus noise above 2.7 kHz.
-        fun unvoiced(w0: Double, l: Int, n: Int): Double {
-            var s = 0.0
-            for (i in 0 until UV_QUALITY) {
-                s += cos(w0 * n * (l + i * UV_STEP - UV_OFFSET) + rphase[i])
-                if (w0 * l > UV_THRESHOLD) s += (w0 * l - UV_THRESHOLD) * UV_RAND * rnd.nextDouble()
-            }
-            return s * UV_SINE * Q_FACTOR
-        }
-        for (l in 1..maxl) {
-            val cv = c.Vl[l] == 1; val pv = p.Vl[l] == 1
-            when {
-                !cv && pv -> {
-                    for (i in rphase.indices) rphase[i] = randPhase()
-                    for (n in 0 until N) out[n] += ws(n + N) * p.Ml[l] * cos(pw0 * l * n + p.PHIl[l]) +
-                        unvoiced(cw0, l, n) * ws(n) * c.Ml[l]
-                }
-                cv && !pv -> {
-                    for (i in rphase.indices) rphase[i] = randPhase()
-                    for (n in 0 until N) out[n] += ws(n) * c.Ml[l] * cos(cw0 * l * (n - N) + c.PHIl[l]) +
-                        unvoiced(pw0, l, n) * ws(n + N) * p.Ml[l]
-                }
-                cv || pv -> for (n in 0 until N) out[n] += ws(n + N) * p.Ml[l] * cos(pw0 * l * n + p.PHIl[l]) +
-                    ws(n) * c.Ml[l] * cos(cw0 * l * (n - N) + c.PHIl[l])
-                else -> {
-                    for (i in rphase.indices) rphase[i] = randPhase()
-                    val prevPart = DoubleArray(N) { n -> unvoiced(pw0, l, n) * ws(n + N) * p.Ml[l] }
-                    for (i in rphase.indices) rphase[i] = randPhase()
-                    for (n in 0 until N) out[n] += prevPart[n] + unvoiced(cw0, l, n) * ws(n) * c.Ml[l]
-                }
-            }
-        }
-    }
-
     companion object {
-        /** Samples per codeword: 20 ms at 8 kHz. */
-        const val N = 160
-        const val RATE = 8000
-        private const val SLOTS = 58
-        private const val GAIN = 7.0
-        private const val UV_QUALITY = 3
-        private const val UV_STEP = 1.0 / UV_QUALITY
-        private const val UV_OFFSET = UV_STEP * (UV_QUALITY - 1) / 2
-        private val Q_FACTOR = ln(UV_QUALITY.toDouble()) / UV_QUALITY
-        private const val UV_THRESHOLD = 2700 * PI / 4000
-        private const val UV_SINE = 1.3591409 * E
-        private const val UV_RAND = 2.0
-
-        /** The synthesis window (mbelib's Ws): 0, a 50-sample ramp, flat around n = 160, back down. */
-        private fun ws(n: Int) = (minOf(n - 55, 265 - n) / 50.0).coerceIn(0.0, 1.0)
-
+        const val N = MbeSynth.N
+        const val RATE = MbeSynth.RATE
         /** Gain b2 → G1. */
         private val B2 = floatArrayOf(
             -2.842205f, -2.694235f, -2.558260f, -2.382850f, -2.221042f, -2.095574f, -1.980845f, -1.836058f,

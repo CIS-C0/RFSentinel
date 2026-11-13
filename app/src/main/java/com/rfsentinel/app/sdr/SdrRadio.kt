@@ -920,7 +920,7 @@ object SdrRadio {
 
     /**
      * Play voice transmissions: [e], at [hz], played through the speaker until it goes quiet. Analog radios (walkie-talkies,
-     * businesses) as narrow FM with its squelch; a P25 radio's clear voice decoded, an encrypted one ends it. The sweep
+     * businesses) as narrow FM with its squelch; a P25 or NXDN radio's clear voice decoded, an encrypted one ends it. The sweep
      * goes on after. False when nothing was played.
      */
     private fun playTransmission(sdr: SdrDevice, e: RadioWatch.Event, hz: Long): Boolean {
@@ -937,8 +937,10 @@ object SdrRadio {
             heard?.add(pcm.copyOf()); out?.write(pcm, 0, pcm.size, android.media.AudioTrack.WRITE_NON_BLOCKING)
             com.rfsentinel.app.util.Voice.radioHeard()
         }
+        var nxdn: Nxdn? = null
         val demod = if (p25) null else AudioDemod(AudioDemod.modeFor(hz), INPUT_OFFSET_HZ, sdr.sampleRate) { pcm, n ->
-            heard?.add(pcm.copyOf(n)); out?.write(pcm, 0, n)
+            // A digital radio's FM audio is its data's hiss: its decoded voice is played instead.
+            if (nxdn?.active != true) { heard?.add(pcm.copyOf(n)); out?.write(pcm, 0, n) }
         }
         // Narrow FM: MDC-1200 bursts name the radio (unit ID) or flag an emergency.
         var mdcUnit: Mdc1200.Packet? = null; var mdcCount = 0
@@ -947,8 +949,14 @@ object SdrRadio {
                 mdcCount++; if (mdcUnit?.emergency != true) mdcUnit = p
                 status = "$deviceLabel · playing $mhz · ${p.label}" + turnNote()
             }
-            d.tap = mdc::sample
+            // NXDN digital voice (Kenwood NEXEDGE, Icom IDAS) on the same channel: decoded when clear.
+            val nx = Nxdn(d.audioRate, d.audioRate) { pcm ->
+                heard?.add(pcm); out?.write(pcm, 0, pcm.size)
+                com.rfsentinel.app.util.Voice.radioHeard()
+            }.also { nxdn = it }
+            d.tap = { v -> mdc.sample(v); nx.sample(v) }
         }
+        var digital = ""; var cipher = -1
         val track = runCatching { newSpeaker(demod?.audioRate ?: ImbeDecoder.RATE).also { it.play() } }
             .onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: no audio output to play a transmission - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
             .getOrNull() ?: return false
@@ -967,7 +975,14 @@ object SdrRadio {
                 val now = System.currentTimeMillis()
                 if (demod != null) {
                     demod.feed(buf, n / 2)
-                    if (demod.open) { heardMs += now - heardAt; heardAt = now; com.rfsentinel.app.util.Voice.radioHeard() }
+                    nxdn?.takeIf { it.frames > 0 }?.let { x ->
+                        if (x.cipher >= 0) cipher = x.cipher
+                        val note = "digital radio (NXDN)" + Nxdn.cipherLabel(cipher).let { if (it.isEmpty()) "" else " · $it" }
+                        if (note != digital) { digital = note; status = "$deviceLabel · playing $mhz · $note" + turnNote() }
+                    }
+                    // Encrypted: nothing to hear, the sweep goes on (as for P25).
+                    if (cipher > 0) break
+                    if (demod.open || nxdn?.active == true) { heardMs += now - heardAt; heardAt = now; com.rfsentinel.app.util.Voice.radioHeard() }
                     else if (now - heardAt >= if (heardMs == 0L) PLAY_START_MS else PLAY_QUIET_MS) break
                 } else if (follow != null) {
                     follow.feed(buf, n / 2)
@@ -975,10 +990,11 @@ object SdrRadio {
                 }
             }
         } finally { ahead.close(); track.stop(); track.release() }
-        val secs = if (follow != null) follow.frames * 0.18 else heardMs / 1000.0
+        val secs = if (follow != null) follow.frames * 0.18 else if (cipher > 0) 0.0 else heardMs / 1000.0
         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: transmission ${if (logAll) "$mhz " else ""}(${e.band.label}) " +
             (if (secs > 0) "played (%.1f s)".format(java.util.Locale.US, secs) else "not played") +
             (if (follow != null) ", P25" + (follow.endedBy?.let { ", ended: $it" } ?: "") + dataNote(follow) else "") +
+            (nxdn?.takeIf { it.frames > 0 }?.let { x -> nxdnNote(x, cipher) } ?: "") +
             // Unit IDs stay off the log unless "log everything" is on.
             (if (mdcCount > 0) ", $mdcCount MDC-1200 bursts" + (mdcUnit?.let { u -> if (logAll) " (${u.label})" else if (u.emergency) " (emergency)" else "" } ?: "") else "") +
             (if (logAll) follow?.talker?.let { ", radio $it" } ?: "" else ""))
@@ -989,6 +1005,13 @@ object SdrRadio {
                 .onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: transmission sound not saved - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
         return secs > 0
     }
+
+    /** What the NXDN decoder made of a transmission, for the log: frames, voice, the cipher; IDs only with "log everything". */
+    private fun nxdnNote(x: Nxdn, cipher: Int) = ", NXDN ${x.frames} frames (${x.badFrames} bad), ${x.voiceFrames} voice" +
+        (if (x.voiceFrames > 0) " (%.1f bits fixed each)".format(java.util.Locale.US, x.ambeErrors.toDouble() / x.voiceFrames) else "") +
+        (if (x.encryptedFrames > 0) ", ${x.encryptedFrames} encrypted" else "") +
+        ", " + (Nxdn.cipherLabel(cipher).ifEmpty { "cipher not heard" }) +
+        (if (logAll && x.source >= 0) ", unit ${x.source} to ${x.destination}" else "")
 
     /** Finds a P25 control channel and follows it; looks again when it goes quiet or none was found. */
     private fun runP25(sdr: SdrDevice, name: String) {

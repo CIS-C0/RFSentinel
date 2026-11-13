@@ -1,8 +1,9 @@
 DSD - Copyright (C) 2010 DSD Author
 mbelib - Copyright (C) 2010 mbelib Author
 
-RF Sentinel's P25 voice decoding (sdr/P25Voice.kt, sdr/ImbeDecoder.kt) is ported from DSD
-(https://github.com/szechyjs/dsd) and mbelib (https://github.com/szechyjs/mbelib), under this license:
+RF Sentinel's P25 and NXDN voice decoding (sdr/P25Voice.kt, sdr/ImbeDecoder.kt, sdr/AmbeDecoder.kt,
+sdr/MbeSynth.kt, sdr/Nxdn.kt) is ported from DSD (https://github.com/szechyjs/dsd), DSD-FME
+(https://github.com/lwvmobile/dsd-fme) and mbelib (https://github.com/szechyjs/mbelib), under this license:
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -16,4 +17,5 @@ LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
 OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 
-IMBE is a voice coding method of Digital Voice Systems, Inc. (DVSI).
+IMBE and AMBE+2 are voice coding methods of Digital Voice Systems, Inc. (DVSI).
+DSD-FME's NXDN code is reworked in part from OP25 (C) 2019 Max H. Parke KA1RBI, GPL-3.0-or-later.

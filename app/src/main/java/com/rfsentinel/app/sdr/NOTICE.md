@@ -1,4 +1,4 @@
-# P25 voice: sources and licenses
+# P25 and NXDN voice: sources and licenses
 
 - `P25Voice.kt` takes a P25 Phase 1 voice frame (LDU1 / LDU2) apart into its nine IMBE codewords and corrects them (Golay 23,12, Hamming 15,11, the PN descrambling, the hex-word algorithm ID), with the frame layout and interleave tables of DSD.
 - `ImbeDecoder.kt` is the IMBE 4400 vocoder: a Kotlin port of mbelib's IMBE parameter decoding, spectral enhancement and speech synthesis, with its tables (`B2`, `BA`, `HOBA`, `BO_M` / `BO_B`, generated from `imbe7200x4400_const.h`; the synthesis window and block lengths computed).
@@ -7,6 +7,8 @@
 |---|---|---|
 | LDU layout, IMBE interleave tables, Golay / PN decoding | [DSD](https://github.com/szechyjs/dsd) (Copyright (C) 2010 DSD Author) and [mbelib](https://github.com/szechyjs/mbelib) | ISC |
 | IMBE 7200x4400 parameter decoding, spectral amplitude enhancement, speech synthesis and tables | [mbelib](https://github.com/szechyjs/mbelib) (Copyright (C) 2010 mbelib Author) | ISC |
+| AMBE 3600x2450 (AMBE+2 half rate) error correction, parameter decoding and tables (`AmbeDecoder.kt`, `AmbeTables.kt` generated from `ambe3600x2450_const.h`; synthesis shared with IMBE in `MbeSynth.kt`) | [mbelib](https://github.com/szechyjs/mbelib) (Copyright (C) 2010 mbelib Author) | ISC |
+| NXDN48 frames (`Nxdn.kt`): frame sync, LICH, PN9 scrambler, SACCH / FACCH1 interleave, puncturing, K=5 code and CRCs, VCALL cipher field, AMBE dibit map | [DSD-FME](https://github.com/lwvmobile/dsd-fme) (DSD: Copyright (C) 2010 DSD Author; LWVMOBILE), its NXDN code reworked from [OP25](https://github.com/osmocom/op25) `rx_sync.cc` (C) 2019 Max H. Parke KA1RBI; written anew in Kotlin (hard-decision Viterbi) | ISC; OP25 parts GPL-3.0-or-later |
 
 The ISC license of DSD and mbelib:
 
@@ -22,7 +24,7 @@ The ISC license of DSD and mbelib:
 > OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 > PERFORMANCE OF THIS SOFTWARE.
 
-IMBE is a voice coding method of Digital Voice Systems, Inc. (DVSI); the P25 standard (TIA-102.BABA) describes it.
+IMBE is a voice coding method of Digital Voice Systems, Inc. (DVSI); the P25 standard (TIA-102.BABA) describes it. AMBE+2 is also DVSI's; mbelib notes that it may be covered by DVSI patents in some countries.
 
 # Pager messages: sources and licenses
 
