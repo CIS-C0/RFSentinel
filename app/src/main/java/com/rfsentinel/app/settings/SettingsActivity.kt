@@ -435,8 +435,7 @@ class SettingsActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val uri = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 runCatching {
-                    val dir = java.io.File(cacheDir, "exports").apply { mkdirs() }
-                    val file = java.io.File(dir, "rfsentinel-$name-log-${com.rfsentinel.app.util.Exporter.stamp()}.txt")
+                    val file = java.io.File(com.rfsentinel.app.util.Exporter.exportsDir(this@SettingsActivity), "rfsentinel-$name-log-${com.rfsentinel.app.util.Exporter.stamp()}.txt")
                     file.writeText(text())
                     androidx.core.content.FileProvider.getUriForFile(this@SettingsActivity, "$packageName.fileprovider", file)
                 }.getOrNull()
@@ -462,7 +461,7 @@ class SettingsActivity : AppCompatActivity() {
             Toast.makeText(this, "Start scanning with the adapter or V2X board plugged in, then record", Toast.LENGTH_LONG).show()
             return
         }
-        val dir = java.io.File(cacheDir, "exports")
+        val dir = com.rfsentinel.app.util.Exporter.exportsDir(this)
         // Only the newest recording is kept: they get big.
         dir.listFiles { f -> f.name.endsWith(".pcap") }?.forEach { it.delete() }
         val file = java.io.File(dir, "rfsentinel-${com.rfsentinel.app.util.Exporter.stamp()}.pcap")

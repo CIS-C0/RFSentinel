@@ -375,6 +375,16 @@ object Exporter {
 
     internal fun stamp() = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
 
+    /**
+     * cache/exports, where every export and log file to share is written, emptied of files older than a day: once
+     * shared they aren't needed, and a full export holds all the app's data. The .pcap being recorded stays.
+     */
+    internal fun exportsDir(context: Context): File = File(context.cacheDir, "exports").apply {
+        mkdirs()
+        val dayAgo = System.currentTimeMillis() - 24 * 3_600_000L
+        listFiles()?.forEach { if (it.lastModified() < dayAgo && it != com.rfsentinel.app.usb.PcapRecorder.file) it.delete() }
+    }
+
     internal suspend fun share(context: Context, fileName: String, content: String, mime: String, title: String) =
         shareWritten(context, fileName, mime, title) { it.write(content) }
 
@@ -382,8 +392,7 @@ object Exporter {
     internal suspend fun shareWritten(context: Context, fileName: String, mime: String, title: String,
                                       write: suspend (java.io.Writer) -> Unit) {
         val uri: Uri? = withContext(Dispatchers.IO) {
-            val dir = File(context.cacheDir, "exports").apply { mkdirs() }
-            val file = File(dir, fileName)
+            val file = File(exportsDir(context), fileName)
             try {
                 file.bufferedWriter().use { write(it) }
                 FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)

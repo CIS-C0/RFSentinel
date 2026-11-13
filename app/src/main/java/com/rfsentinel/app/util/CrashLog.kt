@@ -169,8 +169,7 @@ object CrashLog {
             return
         }
         val uri = runCatching {
-            val dir = File(activity.cacheDir, "exports").apply { mkdirs() }
-            val out = File(dir, "rfsentinel-crash-log-${Exporter.stamp()}.txt")
+            val out = File(Exporter.exportsDir(activity),"rfsentinel-crash-log-${Exporter.stamp()}.txt")
             file(activity).copyTo(out, overwrite = true)
             androidx.core.content.FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", out)
         }.getOrNull()
