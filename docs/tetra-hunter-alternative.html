@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tetra Hunter Alternative for Android: Free TETRA Detector | RF Sentinel</title>
+<meta name="description" content="Free, open-source Tetra Hunter alternative for Android: detect TETRA radios on 380-385 MHz with one, two or three RTL-SDR dongles, plus police, camera and tracker detection.">
+<link rel="canonical" href="https://cis-c0.github.io/RFSentinel/tetra-hunter-alternative.html">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#050507">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="RF Sentinel">
+<meta property="og:title" content="Tetra Hunter Alternative for Android: Free TETRA Detector | RF Sentinel">
+<meta property="og:description" content="Free, open-source Tetra Hunter alternative for Android: detect TETRA radios on 380-385 MHz with one, two or three RTL-SDR dongles, plus police, camera and tracker detection.">
+<meta property="og:url" content="https://cis-c0.github.io/RFSentinel/tetra-hunter-alternative.html">
+<meta property="og:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="RF Sentinel - BLE and WiFi police scanner for Android">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Tetra Hunter Alternative for Android: Free TETRA Detector | RF Sentinel">
+<meta name="twitter:description" content="Free, open-source Tetra Hunter alternative for Android: detect TETRA radios on 380-385 MHz with one, two or three RTL-SDR dongles, plus police, camera and tracker detection.">
+<meta name="twitter:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="assets/style.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "Tetra Hunter alternative", "item": "https://cis-c0.github.io/RFSentinel/tetra-hunter-alternative.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is there a free alternative to Tetra Hunter?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. RF Sentinel is free and open source (GPL-3.0): no subscription, no account. With an RTL-SDR dongle it watches the TETRA handset band (380-385 MHz) for the time-slot bursts TETRA radios send, and with a second or third dongle it watches that band nonstop."}}, {"@type": "Question", "name": "How does a TETRA detector work?", "acceptedAnswer": {"@type": "Answer", "text": "TETRA handsets and car radios transmit on 380-385 MHz in short time slots: a burst of about 14 ms every 57 ms. RF Sentinel measures the energy on each 12.5 kHz channel and reports only bursts with that rhythm, so plain carriers and other radios don't count. It doesn't decode anything, and TETRA's encryption isn't touched."}}, {"@type": "Question", "name": "What hardware do I need?", "acceptedAnswer": {"@type": "Answer", "text": "An Android phone with USB OTG and one RTL-SDR dongle (an RTL-SDR Blog V3 or V4, for example) is enough to start. For hunting, add a second dongle on a powered USB hub: it watches the band nonstop while the first keeps sweeping the other bands. Use a vertical antenna about 19.5 cm long, on the roof if you can; two dongles can share it through a 2-way splitter."}}, {"@type": "Question", "name": "Does it work in France or Switzerland?", "acceptedAnswer": {"@type": "Answer", "text": "No, and neither does Tetra Hunter: those countries use TETRAPOL, a different system. TETRA detection works where emergency services use TETRA on 380-385 MHz, which covers most of Europe and many other countries."}}]}]}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="favicon.svg" alt="" width="28" height="28">RF<span>_</span>SENTINEL</a>
+    <nav class="nav" aria-label="Main"><a href="./">Home</a><a href="how-it-works.html">How it works</a><a href="police-detector.html" aria-current="page">Guides</a><a href="install.html">Install</a><a href="android-auto.html">Android Auto</a><a href="hardware.html">Hardware</a><a href="qa.html">Q&amp;A</a></nav>
+    <div class="social">
+      <a class="icon-btn discord" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span class="lbl">Discord</span></a>
+      <a class="icon-btn github" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg><span class="lbl">GitHub</span></a>
+    </div>
+  </div>
+</header>
+<main id="main" class="wrap">
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / tetra-hunter-alternative</p>
+  <h1>Tetra Hunter alternative</h1>
+  <p class="lead">Tetra Hunter is a paid Android app that uses two RTL-SDR dongles to detect TETRA radios, the encrypted digital radios emergency services carry in much of Europe. RF Sentinel detects TETRA radios the same way for free, with its full source on GitHub: one dongle to start, a second or third to watch the band nonstop, and police, camera and tracker detection on top.</p>
+  <div class="cta">
+    <a class="btn primary" href="https://github.com/CIS-C0/RFSentinel/releases/latest" data-apk><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>Download RF Sentinel <span data-version></span></a>
+    <a class="btn" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg>Read the source</a>
+  </div>
+</div>
+
+<h2 id="compare">Side by side</h2>
+<div class="table-wrap"><table>
+<thead><tr><th></th><th>RF Sentinel</th><th>Tetra Hunter</th></tr></thead>
+<tbody>
+<tr><td>Price</td><td>Free, no ads, no account</td><td>Subscription: about &euro;30 for 6 months, &euro;50 a year or &euro;90 lifetime</td></tr>
+<tr><td>License</td><td>GPL-3.0, full source on GitHub</td><td>Closed source</td></tr>
+<tr><td>Dongles</td><td>Works with one RTL-SDR; a second (and third) watches the TETRA band nonstop</td><td>Two RTL-SDRs</td></tr>
+<tr><td>TETRA burst detection</td><td>Yes, by the time-slot rhythm, 380-385 MHz</td><td>Yes</td></tr>
+<tr><td>Signal meter</td><td>TETRA bar on the main screen: Far / Closer / Very close, with a getting-closer arrow</td><td>Yes</td></tr>
+<tr><td>Beeps that speed up when closer</td><td>Yes</td><td>Yes</td></tr>
+<tr><td>City / highway mode</td><td>City mode (a stronger signal needed)</td><td>Yes</td></tr>
+<tr><td>TETRA only mode</td><td>Yes: every dongle on 380-385 MHz</td><td>Dedicated app</td></tr>
+<tr><td>Other police bands (P25, DMR, NXDN, 700 / 800 MHz)</td><td>Yes, with an SDR</td><td>See vendor</td></tr>
+<tr><td>Police body cams, Flock ALPR, patrol vehicles over Bluetooth / WiFi</td><td>Yes, no SDR needed</td><td>See vendor</td></tr>
+<tr><td>Speed and ALPR camera map</td><td>Yes, offline</td><td>Speed cameras (from V1.9)</td></tr>
+<tr><td>Android Auto</td><td>Yes</td><td>See vendor</td></tr>
+<tr><td>Decodes TETRA / breaks encryption</td><td>No: energy and timing only</td><td>No</td></tr>
+</tbody></table></div>
+<p class="small">Tetra Hunter details come from its public pages at the time of writing; "see vendor" means we couldn't verify it. RF Sentinel is independent and not affiliated with Tetra Hunter or its developer.</p>
+
+<h2 id="setup">Hunting TETRA radios with RF Sentinel</h2>
+<ol>
+<li>Plug an RTL-SDR (RTL-SDR Blog V3 or V4) into the phone with a USB OTG adapter and turn on <b>Detect TETRA radios</b> in Settings &rarr; RTL-SDR radio.</li>
+<li>For nonstop watching, add a second RTL-SDR through a powered USB hub. It watches 380-385 MHz while the first keeps sweeping; a third splits the band with it (380-382.4 and 382.6-385 MHz). The status line shows what each one watches.</li>
+<li>Antenna: a vertical whip about 19.5 cm long (a quarter wave), on the roof if you can. Two dongles share one antenna through a 2-way splitter.</li>
+<li>Turn on <b>TETRA only</b> to put every dongle on the TETRA band, and <b>City mode</b> in towns full of radios.</li>
+<li>While a radio is heard, the <b>TETRA bar</b> on the main screen shows how strong it is (Far / Closer / Very close) and the beeps speed up as you get closer.</li>
+</ol>
+<p>Every setting is explained in the <a href="sdr-guide.html">RTL-SDR guide</a>.</p>
+
+<h2 id="faq-tetra">Questions</h2>
+<details class="faq" id="q-tetra-1">
+<summary>Is there a free alternative to Tetra Hunter?</summary>
+<div><p>Yes. RF Sentinel is free and open source (GPL-3.0): no subscription, no account. With an RTL-SDR dongle it watches the TETRA handset band (380-385 MHz) for the time-slot bursts TETRA radios send, and with a second or third dongle it watches that band nonstop.</p></div>
+</details>
+<details class="faq" id="q-tetra-2">
+<summary>How does a TETRA detector work?</summary>
+<div><p>TETRA handsets and car radios transmit on 380-385 MHz in short time slots: a burst of about 14 ms every 57 ms. RF Sentinel measures the energy on each 12.5 kHz channel and reports only bursts with that rhythm, so plain carriers and other radios don't count. It doesn't decode anything, and TETRA's encryption isn't touched.</p></div>
+</details>
+<details class="faq" id="q-tetra-3">
+<summary>What hardware do I need?</summary>
+<div><p>An Android phone with USB OTG and one RTL-SDR dongle (an RTL-SDR Blog V3 or V4, for example) is enough to start. For hunting, add a second dongle on a powered USB hub: it watches the band nonstop while the first keeps sweeping the other bands. Use a vertical antenna about 19.5 cm long, on the roof if you can; two dongles can share it through a 2-way splitter.</p></div>
+</details>
+<details class="faq" id="q-tetra-4">
+<summary>Does it work in France or Switzerland?</summary>
+<div><p>No, and neither does Tetra Hunter: those countries use TETRAPOL, a different system. TETRA detection works where emergency services use TETRA on 380-385 MHz, which covers most of Europe and many other countries.</p></div>
+</details>
+<section class="community" aria-label="Community">
+  <a class="dc" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span><strong>Join the Discord</strong>Help, ideas, new signatures, field captures and ESP32 builds.</span></a>
+  <a class="gh" href="https://github.com/CIS-C0/RFSentinel" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.3-.5-1.5.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></svg><span><strong>CIS-C0/RFSentinel on GitHub</strong>Source code, releases, issues. A star helps others find it.</span></a>
+</section>
+</main>
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <p class="foot-title">RF Sentinel</p>
+        <ul>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/releases/latest">Download the APK</a></li>
+          <li><a href="install.html">Install &amp; update</a></li>
+          <li><a href="how-it-works.html">How detection works</a></li>
+          <li><a href="qa.html">Q&amp;A</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="foot-title">Guides</p>
+        <ul><li><a href="what-is-rf-sentinel.html">What is RF Sentinel?</a></li><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="sentinel-link-setup.html">Sentinel Link setup</a></li><li><a href="sentinel-link-troubleshooting.html">Sentinel Link troubleshooting</a></li><li><a href="sdr-guide.html">RTL-SDR guide</a></li><li><a href="tuning-guide.html">Fewer false alerts</a></li><li><a href="alternatives.html">Compared with other tools</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li><li><a href="tetra-hunter-alternative.html">Free Tetra Hunter alternative</a></li></ul>
+      </div>
+      <div>
+        <p class="foot-title">Community</p>
+        <ul>
+          <li><a href="https://discord.gg/NDTjn8HMGq" rel="noopener">Discord server</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel" rel="noopener">GitHub repository</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/issues" rel="noopener">Issues &amp; device reports</a></li>
+          <li><a href="https://github.com/CIS-C0/RFSentinel/blob/main/docs/SIGNATURES.md" rel="noopener">Signature reference</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="legal">RF Sentinel is free software under the GNU GPL v3.0. Copyright © 2026 CIS-C0.
+    Receive-only: it transmits nothing, and a detection is a signature match, not proof of who is present. Check your local laws.
+    Not affiliated with any company or product named on this site; names are used only to describe compatibility and detection.
+    No cookies, no analytics, no trackers on this site.</p>
+  </div>
+</footer>
+<script src="assets/site.js"></script>
+</body>
+</html>
