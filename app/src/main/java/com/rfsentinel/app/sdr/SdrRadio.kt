@@ -76,7 +76,8 @@ object SdrRadio {
     private const val FOLLOW_QUIET_S = 1.0     // voice gone this long: the call is over
     private const val FOLLOW_MAX_MS = 120_000L // then back to the control channel regardless
     private const val PRIORITY_WAIT_MS = 5_000L // a priority call that cut another: looked for this long on the control channel
-    private const val PLAY_QUIET_MS = 1_500L    // Play voice transmissions: the channel's squelch shut this long, back to the sweep
+    private const val PLAY_START_MS = 1_500L    // Play voice transmissions: no voice this long after tuning, it's over (or wasn't one)
+    private const val PLAY_QUIET_MS = 3_000L    // the squelch shut this long after voice, back to the sweep: a reply comes sooner
     private const val PLAY_MAX_MS = 60_000L     // ...and at most this long, so a stuck carrier doesn't hold the sweep
     private const val STUCK_MS = 10 * 60_000L   // a channel played that long isn't played again for this long
 
@@ -812,12 +813,13 @@ object SdrRadio {
                     if (Mode.SWEEP !in active) continue
                     var e = found
                     // A walkie-talkie: played (a reply within minutes too: it's a conversation), never reported. Strongest first.
-                    if (e.walkie) { if (playable(e)) toPlay = e to peakHz(e, center, psd, sdr.sampleRate); continue }
+                    if (e.walkie) { if (playable(e)) toPlay = e to RadioWatch.walkieHz(e.freqHz, center, psd, sdr.sampleRate); continue }
                     if (!e.repeat) {
                         events++
                         // A new transmission: listen for a moment to tell a P25 radio (conventional, which no control channel lists) from the rest.
                         // Always when it's to be played: analog and P25 voice are played differently.
-                        if (identifies(e) && (playing || System.currentTimeMillis() - lastIdentify >= IDENTIFY_GAP_MS)) {
+                        // Not once one is picked to play: the check would hold it back, and a short transmission be over.
+                        if (identifies(e) && (playable(e) || System.currentTimeMillis() - lastIdentify >= IDENTIFY_GAP_MS && toPlay == null)) {
                             lastIdentify = System.currentTimeMillis()
                             identified++
                             identifyP25(sdr, e, center, psd)?.let { h ->
@@ -931,7 +933,7 @@ object SdrRadio {
                 if (demod != null) {
                     demod.feed(buf, n / 2)
                     if (demod.open) { heardMs += now - heardAt; heardAt = now; com.rfsentinel.app.util.Voice.radioHeard() }
-                    else if (now - heardAt >= PLAY_QUIET_MS) break
+                    else if (now - heardAt >= if (heardMs == 0L) PLAY_START_MS else PLAY_QUIET_MS) break
                 } else if (follow != null) {
                     follow.feed(buf, n / 2)
                     if (follow.ended || follow.quietS >= (if (follow.frames == 0) FOLLOW_START_S else FOLLOW_QUIET_S)) break

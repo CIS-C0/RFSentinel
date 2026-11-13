@@ -102,6 +102,13 @@ class RadioWatchTest {
         assertEquals(462_562_500L, ev.first().freqHz) // the strongest, played first
         assertTrue(ev.first().walkie)
         assertFalse(ev.single { it.freqHz == 462_362_500L }.walkie)
+        // Its voice spilling into the next channel up, a little stronger there for a moment: still played on its own.
+        val wide = psd(c, 462_562_500L to 50).also { p ->
+            val mid = n / 2 + ((462_571_000L - c) / binHz).roundToInt()
+            for (k in mid - 1..mid + 1) p[k] = -60f + 52
+        }
+        assertEquals(462_562_500L, RadioWatch.walkieHz(462_575_000L, c, wide, rate))
+        assertEquals(151_820_000L, RadioWatch.walkieHz(151_825_000L, 151_500_000L, psd(151_500_000L, 151_820_000L to 40), rate))
         // Its user's own exclusion still wins.
         w.config = RadioWatch.Config(excluded = listOf(462_550_000L..462_575_000L))
         assertTrue(w.analyze(c, air, rate, t + 400_000).none { it.walkie })

@@ -341,6 +341,27 @@ class RadioWatch {
             462_537_500L..462_737_500L, 467_537_500L..467_737_500L    // FRS / GMRS
         )
 
+        /** The walkie-talkie channels themselves: FRS / GMRS every 12.5 kHz, the five MURS ones. */
+        private val WALKIE_CHANNELS = (0..14).flatMap { listOf(462_550_000L + it * STEP_HZ, 467_550_000L + it * STEP_HZ) } +
+            listOf(151_820_000L, 151_880_000L, 151_940_000L, 154_570_000L, 154_600_000L)
+
+        /**
+         * The walkie-talkie channel a transmission found at [f] is on: the centre of its power within 15 kHz in [psd] (tuned
+         * to [center]), on the nearest channel. A wide-deviation FM voice spills into the next channel and its strongest
+         * moment can sit there; tuned that 12.5 kHz off, all that's played is noise.
+         */
+        fun walkieHz(f: Long, center: Long, psd: FloatArray, rate: Int): Long {
+            val binHz = rate.toDouble() / psd.size
+            val mid = psd.size / 2 + ((f - center) / binHz).roundToInt()
+            val span = (15_000 / binHz).roundToInt()
+            var sum = 0.0; var at = 0.0
+            for (k in mid - span..mid + span) if (k in psd.indices) {
+                val p = Math.pow(10.0, psd[k] / 10.0); sum += p; at += p * (center + (k - psd.size / 2) * binHz)
+            }
+            val c = if (sum > 0) at / sum else f.toDouble()
+            return WALKIE_CHANNELS.minBy { kotlin.math.abs(it - c) }
+        }
+
         /** Consumer, marine, railroad, weather and paging channels - never police radios. */
         private val EXCLUDED = WALKIES + listOf(
             156_000_000L..157_450_000L, 160_600_000L..162_025_000L,  // marine VHF
