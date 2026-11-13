@@ -69,7 +69,9 @@ object Prefs {
 
     /** The ways a category doesn't alert you (Settings › What to detect): banner, sound, voice, vibration, radar beep. */
     fun categoryAlertsOff(context: Context, category: Category): Set<com.rfsentinel.app.data.AlertKind> =
-        com.rfsentinel.app.data.AlertKind.parse(sp(context).getString("cat_alerts_off_" + category.name, null)).let {
+        (sp(context).getString("cat_alerts_off_" + category.name, null)?.let { com.rfsentinel.app.data.AlertKind.parse(it) }
+            // Mobile printers are mostly store/office Zebra and Brother devices: listed and logged, silent until you turn alerts on.
+            ?: if (category == Category.MOBILE_PRINTER) com.rfsentinel.app.data.AlertKind.entries.toSet() else emptySet()).let {
             // Saved before these had no Beep chip: Beep off meant "stop the beeping", which is their alert sound.
             if (!hasRadarTicks(category) && com.rfsentinel.app.data.AlertKind.BEEP in it)
                 it - com.rfsentinel.app.data.AlertKind.BEEP + com.rfsentinel.app.data.AlertKind.SOUND else it
@@ -78,7 +80,8 @@ object Prefs {
     fun setCategoryAlertsOff(context: Context, category: Category, off: Set<com.rfsentinel.app.data.AlertKind>) = sp(context).edit {
         val key = "cat_alerts_off_" + category.name
         val kept = if (hasRadarTicks(category)) off else off - com.rfsentinel.app.data.AlertKind.BEEP
-        com.rfsentinel.app.data.AlertKind.format(kept)?.let { putString(key, it) } ?: remove(key)
+        // "" = all alerts on, kept so a category with alerts off by default stays on once you turn them on.
+        putString(key, com.rfsentinel.app.data.AlertKind.format(kept) ?: "")
     }
 
     /** Radar beeps tick for devices heard nearby; these alerts aren't one (online reports, GPS, cell network). */
