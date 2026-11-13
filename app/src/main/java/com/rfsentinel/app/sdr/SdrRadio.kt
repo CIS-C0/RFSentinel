@@ -837,8 +837,23 @@ object SdrRadio {
                     var e = found
                     // A walkie-talkie: played (a reply within minutes too: it's a conversation), never reported. Strongest first.
                     if (e.walkie) { if (playable(e)) toPlay = e to RadioWatch.walkieHz(e.freqHz, center, psd, sdr.sampleRate); continue }
-                    // Before a check or play of anything else (often a ghost the walkie's own strong signal makes): its reply first.
-                    if (!e.repeat && playable(e) && !hotLooked) { hotLooked = true; if (hotOn()) toPlay = hot }
+                    if (!e.repeat && playing && identifies(e)) {
+                        // Before a check or play of anything else (often a ghost the walkie's own strong signal makes): its reply first.
+                        if (playable(e) && !hotLooked) { hotLooked = true; if (hotOn()) toPlay = hot }
+                        val on = RadioWatch.activeDb(cfg.minSnrDb)
+                        val hz = peakHz(e, center, psd, sdr.sampleRate)
+                        // The tuner's image of a walkie-talkie out of this chunk: the walkie is played now, not a sweep later.
+                        val w = sdr.imageHz(center, hz)?.let { RadioWatch.walkieChannel(it, cfg) }?.let { e.copy(freqHz = it, walkie = true) }
+                        if (w != null && playable(w) && (measureInput(sdr, w.freqHz) ?: 0) >= on) {
+                            com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: ${e.mhz} MHz is the tuner's image of a walkie-talkie (${w.mhz} MHz): played there")
+                            toPlay = w to w.freqHz; continue
+                        }
+                        // Gone when looked at on its own (another tuning): a ghost or a short burst, not checked, played or reported.
+                        if ((measureInput(sdr, hz) ?: 0) < on) {
+                            com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: ${e.mhz} MHz gone when looked at again (a ghost or a short burst): not reported")
+                            continue
+                        }
+                    }
                     if (!e.repeat) {
                         events++
                         // A new transmission: listen for a moment to tell a P25 radio (conventional, which no control channel lists) from the rest.

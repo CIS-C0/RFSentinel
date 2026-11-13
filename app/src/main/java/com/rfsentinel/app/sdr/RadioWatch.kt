@@ -362,6 +362,10 @@ class RadioWatch {
             return WALKIE_CHANNELS.minBy { kotlin.math.abs(it - c) }
         }
 
+        /** The walkie-talkie channel within 5 kHz of [f], unless the user excluded it; null when there is none. */
+        fun walkieChannel(f: Long, cfg: Config): Long? = WALKIE_CHANNELS.minBy { kotlin.math.abs(it - f) }
+            .takeIf { kotlin.math.abs(it - f) <= 5_000L && cfg.excluded.none { r -> it in r } }
+
         /** Consumer, marine, railroad, weather and paging channels - never police radios. */
         private val EXCLUDED = WALKIES + listOf(
             156_000_000L..157_450_000L, 160_600_000L..162_025_000L,  // marine VHF

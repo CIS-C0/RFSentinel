@@ -19,6 +19,8 @@ interface SdrDevice {
     fun open(): Boolean
     fun close()
     fun setSampleRate(rate: Int)
+    /** Where a signal seen at [hz] (tuned to [centerHz]) may really come from: the tuner's image frequency; null if it has none. */
+    fun imageHz(centerHz: Long, hz: Long): Long? = null
     /** Tunes to [hz]; false when it didn't take (PLL not locked, request failed). */
     fun tune(hz: Long): Boolean
     /** Fixed gain in tenths of a dB: a steady scale for comparing channels over time. */

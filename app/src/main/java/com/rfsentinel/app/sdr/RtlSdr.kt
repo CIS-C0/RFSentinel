@@ -162,6 +162,9 @@ class RtlSdr(private val conn: UsbDeviceConnection, private val device: UsbDevic
 
     @Volatile override var ppm = 0.0
 
+    // The R820T's LO sits intFreq above the wanted signal: a strong one 2 x intFreq above shows mirrored into the chunk.
+    override fun imageHz(centerHz: Long, hz: Long): Long? = 2 * (centerHz + intFreq) - hz
+
     /** GPIO 0 powers the antenna port on RTL-SDR Blog dongles (librtlsdr's rtlsdr_set_bias_tee). */
     override fun setBiasTee(on: Boolean): Boolean {
         setGpioOutput(0); setGpioBit(0, on)

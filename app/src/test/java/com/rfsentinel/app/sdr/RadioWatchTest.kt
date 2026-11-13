@@ -109,8 +109,12 @@ class RadioWatchTest {
         }
         assertEquals(462_562_500L, RadioWatch.walkieHz(462_575_000L, c, wide, rate))
         assertEquals(151_820_000L, RadioWatch.walkieHz(151_825_000L, 151_500_000L, psd(151_500_000L, 151_820_000L to 40), rate))
+        // A ghost's source (the tuner's image) named as a walkie channel, a little off; not one: nothing.
+        assertEquals(462_587_500L, RadioWatch.walkieChannel(462_589_000L, RadioWatch.Config()))
+        assertEquals(null, RadioWatch.walkieChannel(458_262_500L, RadioWatch.Config()))
         // Its user's own exclusion still wins.
         w.config = RadioWatch.Config(excluded = listOf(462_550_000L..462_575_000L))
+        assertEquals(null, RadioWatch.walkieChannel(462_562_500L, w.config))
         assertTrue(w.analyze(c, air, rate, t + 400_000).none { it.walkie })
     }
 
