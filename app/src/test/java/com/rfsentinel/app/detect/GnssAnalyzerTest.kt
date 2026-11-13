@@ -27,9 +27,19 @@ class GnssAnalyzerTest {
     fun noiseRiseWithWeakerSatellitesIsJamming() {
         val a = GnssAnalyzer()
         feed(a, 0, 60, sky(), 30.0)
-        val out = feed(a, 60_000, 10, sky(shift = -12f), 18.0)
+        val out = feed(a, 60_000, 10, sky(shift = -12f), 12.0)
         assertEquals("jam", out.single().key)
         assertEquals(75, out.single().confidence)
+        // Still jammed 15 min on: no second alert (half an hour apart).
+        assertTrue(feed(a, 15 * 60_000L, 10, sky(shift = -12f), 12.0).isEmpty())
+    }
+
+    @Test
+    fun aSmallNoiseRiseIsNotJamming() {
+        // 7 dB, as the car's own electronics do while driving.
+        val a = GnssAnalyzer()
+        feed(a, 0, 60, sky(), 30.0)
+        assertTrue(feed(a, 60_000, 20, sky(shift = -12f), 23.0).isEmpty())
     }
 
     @Test

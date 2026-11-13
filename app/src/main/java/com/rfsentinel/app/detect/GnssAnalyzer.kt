@@ -83,7 +83,7 @@ class GnssAnalyzer {
                 "GNSS jamming signs",
                 "The satellite receiver's noise rose by ${fmt(agcDrop!!)} dB while every satellite weakened by ${fmt(cn0Drop!!)} dB " +
                     "(${systems(tracked)}). A jammer nearby, often a cheap \"GPS blocker\" in a vehicle, does this; a tunnel doesn't raise the noise.",
-                if (agcDrop >= 10) 75 else 60)
+                if (agcDrop >= 15) 75 else 60, JAM_REPEAT_MS)
         } else jamSince = 0L
 
         // Total loss without an AGC reading: can't tell a jammer from a roof, so only a weak sign.
@@ -188,8 +188,9 @@ class GnssAnalyzer {
 
     private fun plausible(a: Fix, b: Fix) = speedMps(a, b)?.let { it <= MAX_SPEED_MPS } == true
 
-    private fun report(out: MutableList<Anomaly>, now: Long, key: String, title: String, detail: String, confidence: Int) {
-        if (now - (lastAlert[key] ?: Long.MIN_VALUE / 2) < REPEAT_MS) return
+    private fun report(out: MutableList<Anomaly>, now: Long, key: String, title: String, detail: String, confidence: Int,
+                       repeatMs: Long = REPEAT_MS) {
+        if (now - (lastAlert[key] ?: Long.MIN_VALUE / 2) < repeatMs) return
         lastAlert[key] = now
         out += Anomaly(key, title, detail, confidence)
     }
@@ -211,7 +212,11 @@ class GnssAnalyzer {
         /** Rougher fixes than this aren't checked for jumps or clock gaps. */
         private const val MAX_FIX_ACCURACY_M = 50f
         private const val REPEAT_MS = 10 * 60_000L
-        private const val AGC_JAM_DB = 6.0
+        // 6 dB fired ~once a day while driving (the car's own electronics, USB radios next to the phone): 21 of 36
+        // jamming alerts in five weeks were 6-10 dB. A GPS blocker passing by raises the noise far more.
+        private const val AGC_JAM_DB = 10.0
+        /** In-car noise lasts the whole drive: one jamming alert per half hour, not every 10 minutes. */
+        private const val JAM_REPEAT_MS = 30 * 60_000L
         private const val CN0_JAM_DB = 8.0
         private const val UNIFORM_SD_DB = 1.5
         private const val TIME_SKEW_S = 60L
