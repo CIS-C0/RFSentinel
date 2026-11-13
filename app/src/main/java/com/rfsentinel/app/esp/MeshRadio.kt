@@ -36,8 +36,26 @@ object LoRaStats {
         byMac.merge(mac.uppercase(), NodeStats(metrics ?: MeshProto.Metrics(), snr, hops, now)) { old, new ->
             NodeStats(metrics?.let { old.metrics.with(it) } ?: old.metrics, snr ?: old.snr, hops ?: old.hops, now)
         }
+        // Only telemetry reports go in the history: a node's other packets (positions, texts) would push them out.
+        if (metrics != null) {
+            val h = history.getOrPut(mac.uppercase()) { ArrayDeque() }
+            synchronized(h) {
+                h.addLast(Sample(now, metrics, snr))
+                while (h.size > HISTORY_MAX || h.first().at < now - HISTORY_MS) h.removeFirst()
+            }
+        }
     }
-    fun clear() { byMac.clear(); own = null; ownAt = 0L }
+
+    /** One telemetry report and the signal it came in on: a node's page plots them ([com.rfsentinel.app.ui.DeviceSections.nodeRows]). */
+    class Sample(val at: Long, val metrics: MeshProto.Metrics, val snr: Float?)
+    private val history = java.util.concurrent.ConcurrentHashMap<String, ArrayDeque<Sample>>()
+    /** [mac]'s telemetry reports of the last day, oldest first. */
+    fun historyOf(mac: String): List<Sample> = history[mac.uppercase()]?.let { synchronized(it) { it.toList() } }.orEmpty()
+    /** A day of reports at the default every 30 min, more for nodes set to report faster. */
+    private const val HISTORY_MS = 24 * 3_600_000L
+    private const val HISTORY_MAX = 96
+
+    fun clear() { byMac.clear(); history.clear(); own = null; ownAt = 0L }
 }
 
 /** What a Meshtastic radio tells its phone, as sightings: only nodes it heard over LoRa, never over MQTT. */

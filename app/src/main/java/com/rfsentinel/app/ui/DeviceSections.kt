@@ -27,7 +27,8 @@ typealias DeviceSection = Pair<String, List<Pair<String, String>>>
 object DeviceSections {
     /** A LoRa node's telemetry and how its last packet came in; only what it sent. */
     internal fun nodeRows(n: com.rfsentinel.app.esp.NodeStats, now: Long = System.currentTimeMillis(),
-                          imperial: Boolean = com.rfsentinel.app.util.Units.imperial): List<Pair<String, String>> {
+                          imperial: Boolean = com.rfsentinel.app.util.Units.imperial,
+                          history: List<com.rfsentinel.app.esp.LoRaStats.Sample> = emptyList()): List<Pair<String, String>> {
         val m = n.metrics
         val out = mutableListOf<Pair<String, String>>()
         m.battery?.let { out += "Battery" to if (it > 100) "On outside power" else "$it%" }
@@ -47,6 +48,7 @@ object DeviceSections {
         m.temperatureC?.let { out += "Temperature" to if (imperial) String.format("%.1f °F", it * 9 / 5 + 32) else String.format("%.1f °C", it) }
         m.humidity?.let { out += "Humidity" to String.format("%.0f%%", it) }
         m.pressureHpa?.let { out += "Air pressure" to String.format("%.0f hPa", it) }
+        out += trendRows(history, imperial)
         if (out.isNotEmpty()) {
             val min = (now - n.at) / 60_000
             out += "Node report" to if (min < 1) "Just now" else "$min min ago"
@@ -54,6 +56,37 @@ object DeviceSections {
         return out
     }
 
+
+    /** Its telemetry over the last day as small bar plots, one row per value it reported at least [TREND_MIN] times. */
+    internal fun trendRows(history: List<com.rfsentinel.app.esp.LoRaStats.Sample>, imperial: Boolean): List<Pair<String, String>> {
+        if (history.size < TREND_MIN) return emptyList()
+        val hours = ((history.last().at - history.first().at) / 3_600_000).coerceAtLeast(1)
+        val span = if (hours == 1L) "the last hour" else "$hours h"
+        fun row(name: String, fmt: String, pick: (com.rfsentinel.app.esp.LoRaStats.Sample) -> Float?): Pair<String, String>? {
+            val v = history.mapNotNull(pick).takeLast(TREND_BARS)
+            if (v.size < TREND_MIN) return null
+            return "$name over $span" to spark(v) + "  " + String.format(fmt, v.first()) + " → " + String.format(fmt, v.last())
+        }
+        return listOfNotNull(
+            row("Battery", "%.0f%%") { s -> s.metrics.battery?.takeIf { it in 0..100 }?.toFloat() },
+            row("Voltage", "%.2f V") { s -> s.metrics.voltage?.takeIf { it > 0f } },
+            row("Signal to noise", "%.1f dB") { it.snr },
+            row("Channel use", "%.1f%%") { it.metrics.channelUtil },
+            if (imperial) row("Temperature", "%.1f °F") { s -> s.metrics.temperatureC?.let { it * 9 / 5 + 32 } }
+            else row("Temperature", "%.1f °C") { it.metrics.temperatureC },
+            row("Humidity", "%.0f%%") { it.metrics.humidity },
+            row("Air pressure", "%.0f hPa") { it.metrics.pressureHpa },
+        )
+    }
+
+    /** [v] as block characters, lowest to highest; flat when it doesn't change. */
+    internal fun spark(v: List<Float>): String {
+        val lo = v.min(); val hi = v.max()
+        return v.joinToString("") { x -> BARS[if (hi - lo < 1e-6f) 3 else Math.round((x - lo) / (hi - lo) * 7)].toString() }
+    }
+    private const val BARS = "▁▂▃▄▅▆▇█"
+    private const val TREND_MIN = 3
+    private const val TREND_BARS = 24
 
     const val FLAGGED = "Why it's flagged"
     const val NOT_FLAGGED = "Not flagged"
@@ -135,7 +168,7 @@ object DeviceSections {
                 }
             }
         // A Meshtastic node's own report (telemetry) and how the radio heard it.
-        com.rfsentinel.app.esp.LoRaStats.of(mac)?.let { id += nodeRows(it) }
+        com.rfsentinel.app.esp.LoRaStats.of(mac)?.let { id += nodeRows(it, history = com.rfsentinel.app.esp.LoRaStats.historyOf(mac)) }
         // Heard by a USB WiFi adapter / Marauder board: its WPS block, fingerprint, network requests.
         com.rfsentinel.app.usb.ProbeIntel.of(mac)?.let { r ->
             if (r.hidden) id += "Hidden network" to (s?.name?.let { "Its name, \"$it\", was revealed by a device joining or asking for it" }

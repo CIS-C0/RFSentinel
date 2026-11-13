@@ -5,6 +5,7 @@ import com.rfsentinel.app.ui.DeviceSections
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.util.Locale
@@ -89,5 +90,18 @@ class LoRaTelemetryTest {
     fun nothingKnownMeansNoRows() {
         assertNull(LoRaStats.of("06:4D:00:00:00:99"))
         assertEquals(emptyList<Pair<String, String>>(), DeviceSections.nodeRows(NodeStats(), 0))
+    }
+
+    @Test fun telemetryHistoryPlotsEachValueItReported() {
+        val mac = "06:4D:00:00:00:77"
+        for (i in 0 until 5) LoRaStats.note(mac, MeshProto.Metrics(battery = 90 - i * 5, temperatureC = 20f), 5f + i, 0, i * 1_800_000L)
+        LoRaStats.note(mac, null, 9f, 0, 9_000_000L) // a position packet: not a report
+        val h = LoRaStats.historyOf(mac)
+        assertEquals(5, h.size)
+        val rows = DeviceSections.trendRows(h, imperial = false).toMap()
+        assertEquals("█▆▅▃▁  90% → 70%", rows["Battery over 2 h"])
+        assertEquals("▄▄▄▄▄  20.0 °C → 20.0 °C", rows["Temperature over 2 h"])
+        assertEquals(null, rows["Humidity over 2 h"])
+        assertTrue(DeviceSections.trendRows(h.take(2), imperial = false).isEmpty())
     }
 }
