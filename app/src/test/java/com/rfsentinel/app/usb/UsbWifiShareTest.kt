@@ -41,4 +41,29 @@ class UsbWifiShareTest {
         val mine = UsbWifi.split(dual, 0, List(2) { dual.toSet() })
         assertEquals(dual.filter { it in mine }, mine)
     }
+
+    @Test
+    fun linkedPhonesSplitTheChannelsTheSameWayFromTheirOwnLists() {
+        val ids = listOf(7L, 3L, 11L)
+        // Each phone's adapter lists the channels in its own order, one with extra 5 GHz channels.
+        val lists = mapOf(7L to dual, 3L to dual.reversed(), 11L to dual + listOf(52, 56))
+        val parts = ids.associateWith { me -> UsbWifi.linkSplit(lists.getValue(me), me, ids.filter { it != me }.associateWith { true }) }
+        assertEquals("no channel left out", dual.toSet(), parts.values.flatten().filter { it in dual }.toSet())
+        assertEquals("no common channel visited twice", dual.size, parts.values.sumOf { p -> p.count { it in dual } })
+    }
+
+    @Test
+    fun aTwoGhzOnlyPhoneGetsNoFiveGhz() {
+        val dualPhone = UsbWifi.linkSplit(dual, 1L, mapOf(2L to false))
+        val lowPhone = UsbWifi.linkSplit(g24, 2L, mapOf(1L to true))
+        assertTrue("all of 5 GHz stays with the dual-band phone", dualPhone.containsAll(g5))
+        assertEquals(g24.toSet(), (dualPhone.filter { it <= 14 } + lowPhone).toSet())
+        assertEquals(g24.size, dualPhone.count { it <= 14 } + lowPhone.size)
+    }
+
+    @Test
+    fun noPeersOrSixGhzKeepEverything() {
+        assertEquals(dual, UsbWifi.linkSplit(dual, 1L, emptyMap()))
+        assertTrue(5975 in UsbWifi.linkSplit(dual + 5975, 1L, mapOf(2L to true, 3L to true)))
+    }
 }

@@ -216,10 +216,44 @@ object UsbWifi {
     fun share(all: List<Int>): List<Int> {
         val me = current.get() ?: return all
         me.channels = all.toSet()
+        val ours = linkShare?.invoke()?.let { l ->
+            if (l.peers.size != sharedWith) { sharedWith = l.peers.size; log("sharing the channels with ${l.peers.size} linked phone${if (l.peers.size == 1) "" else "s"}") }
+            linkSplit(all, l.myId, l.peers)
+        } ?: all
         val live = sessions.filter { !it.stopped && it.channels.isNotEmpty() }
         val at = live.indexOf(me)
-        return if (live.size < 2 || at < 0) all else split(all, at, live.map { it.channels })
+        return if (live.size < 2 || at < 0) ours else split(ours, at, live.map { it.channels })
     }
+
+    /** True when a running adapter tunes 5 GHz too: linked phones give 5 GHz channels only to those that can. */
+    val wide: Boolean get() = sessions.any { s -> !s.stopped && s.channels.any { it in 15 until SIX_GHZ } }
+
+    /** This phone's Sentinel id and the linked ones running a USB WiFi adapter (true: it tunes 5 GHz too). */
+    class LinkShare(val myId: Long, val peers: Map<Long, Boolean>)
+    /** Set by the scan service while Settings › Share WiFi channels with linked phones is on; null or no peers: all channels. */
+    @Volatile var linkShare: (() -> LinkShare?)? = null
+    @Volatile private var sharedWith = 0
+
+    /**
+     * The part of [all] that is phone [me]'s to visit, shared with the linked phones [peers]: each 2.4 / 5 GHz channel
+     * belongs to one of the phones that can tune it, by Sentinel id, so every phone works out the same split from its
+     * own list. Owner by the channel's number, not its place in a list, as phones' adapters list different channels.
+     * 6 GHz isn't shared (few adapters tune it): every phone that can visits it. Never empty.
+     */
+    internal fun linkSplit(all: List<Int>, me: Long, peers: Map<Long, Boolean>): List<Int> {
+        // shortcut: dual-band adapters are taken to tune the same 5 GHz channels; one only some tune (DFS) can fall to a
+        // phone that can't, so nobody visits it. Send each adapter's channel list if testers see gaps.
+        if (peers.isEmpty()) return all
+        val ids = (peers.keys + me).sorted()
+        val mine = all.filter { c ->
+            if (c >= SIX_GHZ) return@filter true
+            val can = ids.filter { it == me || c <= 14 || peers[it] == true }
+            can[(if (c <= 14) c else c / 4) % can.size] == me
+        }
+        return mine.ifEmpty { all }
+    }
+    /** 6 GHz channels are given in MHz (5955 and up). */
+    private const val SIX_GHZ = 5_000
 
     /** [all] for adapter [me] of the adapters whose tunable channels are [caps]: see [share]. */
     internal fun split(all: List<Int>, me: Int, caps: List<Set<Int>>): List<Int> {

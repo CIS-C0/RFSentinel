@@ -749,6 +749,9 @@ object Prefs {
     /** Sentinel Link: what linked Sentinels hear is saved in this phone's History too. */
     fun saveLinked(context: Context) = bool(context, "save_linked", true)
     fun setSaveLinked(context: Context, v: Boolean) = setBool(context, "save_linked", v)
+    /** Linked phones with a USB WiFi adapter each visit part of the channels ([com.rfsentinel.app.usb.UsbWifi.linkSplit]). */
+    fun linkWifiShare(context: Context) = bool(context, "link_wifi_share", false)
+    fun setLinkWifiShare(context: Context, v: Boolean) = setBool(context, "link_wifi_share", v)
     fun radioCustomBands(context: Context) = str(context, "radio_custom_bands")
     fun setRadioCustomBands(context: Context, v: String) = setStr(context, "radio_custom_bands", v)
     /** Ranges never to report, one "start-end MHz" per line (e.g. a business band). */

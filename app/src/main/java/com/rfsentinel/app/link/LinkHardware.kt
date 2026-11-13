@@ -14,7 +14,8 @@ object LinkHardware {
     /** Wire order: never reorder, only add at the end (an unknown kind is skipped by the receiver). */
     enum class Kind(val label: String) { WIFI("USB WiFi"), BT("USB Bluetooth"), SDR("SDR"), ESP("ESP32"), OUISPY("OUI-SPY"), MESH("Mesh radio") }
 
-    data class Item(val kind: Kind, val state: StatusPanel.State, val chip: String?) {
+    /** [wide]: a USB WiFi adapter that tunes 5 GHz too, so linked phones sharing the channels give it some of those. */
+    data class Item(val kind: Kind, val state: StatusPanel.State, val chip: String?, val wide: Boolean = false) {
         /** A status line [StatusPanel] reads back with the same state ("USB WiFi (MT7612U) · running"). */
         val status get() = kind.label + (chip?.let { " ($it)" } ?: "") + " · " + when (state) {
             StatusPanel.State.LIVE -> "running"
@@ -29,15 +30,16 @@ object LinkHardware {
     private val CHIP = Regex("""\(([A-Za-z0-9][A-Za-z0-9 _+-]{0,11})\)""")
 
     /** This phone's hardware from its status lines (blank: not there). */
-    fun items(statuses: List<Pair<Kind, String>>): List<Item> = statuses.filter { it.second.isNotBlank() }.map { (kind, s) ->
-        Item(kind, StatusPanel.stateOf(s), CHIP.find(StatusPanel.name(s))?.groupValues?.get(1)?.takeIf { c -> c.any { it.isLetter() } })
+    fun items(statuses: List<Pair<Kind, String>>, wifiWide: Boolean = false): List<Item> = statuses.filter { it.second.isNotBlank() }.map { (kind, s) ->
+        Item(kind, StatusPanel.stateOf(s), CHIP.find(StatusPanel.name(s))?.groupValues?.get(1)?.takeIf { c -> c.any { it.isLetter() } },
+            kind == Kind.WIFI && wifiWide)
     }
 
-    /** One byte per adapter (kind, state, chip flag), then its chip name. */
+    /** One byte per adapter (kind, state, chip flag, 5 GHz flag: older versions ignore it), then its chip name. */
     fun write(out: ByteArrayOutputStream, items: List<Item>) {
         for (i in items) {
             val chip = i.chip?.let { MeshCodec.utf8(it, CHIP_MAX) }
-            out.write(i.kind.ordinal or (i.state.ordinal shl 4) or (if (chip != null) 0x40 else 0))
+            out.write(i.kind.ordinal or (i.state.ordinal shl 4) or (if (chip != null) 0x40 else 0) or (if (i.wide) 0x80 else 0))
             chip?.let { out.write(it.size); out.write(it) }
         }
     }
@@ -48,7 +50,7 @@ object LinkHardware {
             val head = b.get().toInt() and 0xFF
             val chip = if (head and 0x40 != 0) String(ByteArray(b.get().toInt() and 0xFF).also { b.get(it) }, Charsets.UTF_8) else null
             val kind = Kind.entries.getOrNull(head and 0x0F) ?: continue
-            out += Item(kind, StatusPanel.State.entries[(head shr 4) and 3], chip)
+            out += Item(kind, StatusPanel.State.entries[(head shr 4) and 3], chip, head and 0x80 != 0)
         }
         return out
     }

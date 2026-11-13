@@ -57,7 +57,8 @@ class LinkHardwareTest {
 
     @Test
     fun hardwarePacketRoundTripsAndStaysSmall() {
-        val items = listOf(wifi, Item(Kind.BT, State.INFO, "MT7921AU"), sdr, Item(Kind.MESH, State.ERROR, null))
+        val items = listOf(wifi, Item(Kind.BT, State.INFO, "MT7921AU"), sdr, Item(Kind.MESH, State.ERROR, null),
+            Item(Kind.WIFI, State.LIVE, "MT7612U", wide = true))
         val bytes = MeshCodec.sealHardware(key, 42L, 7, 1_700_000_000_000L, items)
         assertTrue("${bytes.size} bytes", bytes.size < 70)
         val m = MeshCodec.open(key, bytes)!!

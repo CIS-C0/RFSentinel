@@ -1304,6 +1304,11 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.linkSaveSwitch, "On: what a linked Sentinel hears is saved in this phone's History too, where that " +
             "Sentinel was, tagged \"via\" and its name. Off: it still shows live here, but only the Sentinel that heard it keeps it. " +
             "Either way each phone keeps its own History: nothing is merged later.")
+        info(binding.linkWifiShareSwitch, "For linked phones that each have a USB WiFi adapter: instead of every adapter " +
+            "visiting every channel, each phone takes part of them, so each channel is visited two, three or four times as " +
+            "often and short-lived devices are caught sooner. What each phone hears still shows on all of them. 5 GHz goes " +
+            "only to adapters that tune it. Turn it on on every phone in the group. A phone whose adapter stops or that goes " +
+            "out of reach for 5 minutes gives its channels back.")
         info(binding.rtl5gSwitch, "For RTL8811AU / RTL8821AU adapters such as the ALFA AWUS036ACS. Experimental.")
         info(binding.usbLogAllSwitch, "The USB WiFi log also lists each device as it is first heard and as it goes: access " +
             "point or client, channel, signal, security, WiFi generation, the maker part of its address or \"random address\", " +
@@ -3202,6 +3207,8 @@ class SettingsActivity : AppCompatActivity() {
         binding.linkButton.setOnClickListener { startActivity(Intent(this, com.rfsentinel.app.ui.SentinelLinkActivity::class.java)) }
         binding.linkSaveSwitch.isChecked = Prefs.saveLinked(this)
         binding.linkSaveSwitch.setOnCheckedChangeListener { _, on -> Prefs.setSaveLinked(this, on) }
+        binding.linkWifiShareSwitch.isChecked = Prefs.linkWifiShare(this)
+        binding.linkWifiShareSwitch.setOnCheckedChangeListener { _, on -> Prefs.setLinkWifiShare(this, on) }
         binding.usbWifiLogButton.setOnClickListener { pickHardwareLog() }
         binding.allLogsButton.setOnClickListener { exportAllHardwareLogs() }
         // FOSS build: an adapter waiting for its chip firmware asks to download it.

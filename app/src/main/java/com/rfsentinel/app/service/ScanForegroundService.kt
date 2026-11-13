@@ -92,6 +92,8 @@ class ScanForegroundService : Service() {
         private const val TPMS_BT_SAVE_MS = 2 * 60_000L
         private const val TPMS_BT_ALERT_GAP_MS = 6 * 3_600_000L
         private const val TPMS_PAIRS_FILE = "tpms_pairs.tsv"
+        /** A linked phone's adapter counts for sharing the WiFi channels while its summaries keep coming (Bluetooth: 1 min, internet: 2 min). */
+        private const val WIFI_SHARE_FRESH_MS = 5 * 60_000L
         /** A talkgroup much busier than usual: probable, not certain (an event, a shift change, a drill). */
         private const val P25_UNUSUAL_CONFIDENCE = 55
         private const val P25_UNUSUAL_CHECK_MS = 5 * 60_000L
@@ -525,6 +527,17 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.sdr.SdrRadio.onP25Input = { call, hz, snr -> pipeline.post { onP25Input(call, hz, snr) } }
         com.rfsentinel.app.sdr.SdrRadio.onP25Nearby = { msg, snr, tg -> pipeline.post { onP25Nearby(msg, snr, tg) } }
         com.rfsentinel.app.sdr.SdrRadio.onTpms = { r -> pipeline.post { onTpms(r) } }
+        com.rfsentinel.app.usb.UsbWifi.linkShare = linkShare@{
+            val link = com.rfsentinel.app.link.LinkStore
+            if (!Prefs.linkWifiShare(this) || !sharing() || !link.hasGroup(this)) return@linkShare null
+            val now = System.currentTimeMillis()
+            val me = link.myId(this)
+            val peers = LinkHardware.remote.filter { (id, r) ->
+                id != me && now - r.heardAt < WIFI_SHARE_FRESH_MS &&
+                    r.items.any { it.kind == LinkHardware.Kind.WIFI && it.state == com.rfsentinel.app.ui.StatusPanel.State.LIVE }
+            }.mapValues { (_, r) -> r.items.first { it.kind == LinkHardware.Kind.WIFI }.wide }
+            com.rfsentinel.app.usb.UsbWifi.LinkShare(me, peers)
+        }
         com.rfsentinel.app.sdr.SdrRadio.location = { (lastLocation ?: lastFix)?.let { it.latitude to it.longitude } }
         com.rfsentinel.app.sdr.SdrRadio.onAircraft = { planes, unlocated ->
             if (onlineWatch.localAircraft(planes, unlocated)) com.rfsentinel.app.sdr.SdrRadio.activity(com.rfsentinel.app.sdr.SdrRadio.Mode.ADSB)
@@ -1067,7 +1080,8 @@ class ScanForegroundService : Service() {
         return LinkHardware.items(listOf(
             LinkHardware.Kind.WIFI to com.rfsentinel.app.usb.UsbWifi.status, LinkHardware.Kind.BT to com.rfsentinel.app.usb.UsbBluetooth.status,
             LinkHardware.Kind.SDR to com.rfsentinel.app.sdr.SdrRadio.status, LinkHardware.Kind.ESP to com.rfsentinel.app.esp.EspBoards.status,
-            LinkHardware.Kind.OUISPY to com.rfsentinel.app.esp.OuiSpyBle.status, LinkHardware.Kind.MESH to com.rfsentinel.app.esp.MeshBle.status))
+            LinkHardware.Kind.OUISPY to com.rfsentinel.app.esp.OuiSpyBle.status, LinkHardware.Kind.MESH to com.rfsentinel.app.esp.MeshBle.status),
+            com.rfsentinel.app.usb.UsbWifi.wide)
     }
 
     /** The hardware summary as a sealed packet (the same one on every way of linking). */
@@ -2560,6 +2574,7 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.sdr.SdrRadio.stop(this)
         // Its hooks point into this service: cleared, so a stopped scan isn't kept in memory by them.
         com.rfsentinel.app.sdr.SdrRadio.onAircraft = null
+        com.rfsentinel.app.usb.UsbWifi.linkShare = null
         com.rfsentinel.app.sdr.SdrRadio.onPagerPage = null
         com.rfsentinel.app.sdr.SdrRadio.location = null
         if (gnssWatching) { GnssWatch.stop(this, gnssListener); gnssWatching = false }

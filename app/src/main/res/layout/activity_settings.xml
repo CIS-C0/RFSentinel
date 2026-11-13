@@ -1057,6 +1057,12 @@
                 android:layout_height="wrap_content"
                 android:text="Save what linked Sentinels hear" />
 
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/linkWifiShareSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Share WiFi channels with linked phones" />
+
             <Button
                 android:id="@+id/linkButton"
                 style="@style/Widget.MaterialComponents.Button.TextButton"
