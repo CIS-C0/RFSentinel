@@ -2252,7 +2252,7 @@ class ScanForegroundService : Service() {
                 runCatching {
                     val tmp = java.io.File(filesDir, "$TPMS_PAIRS_FILE.$now.tmp") // own name per save: two saves never share a file
                     tmp.writeText(text)
-                    tmp.renameTo(java.io.File(filesDir, TPMS_PAIRS_FILE))
+                    if (!tmp.renameTo(java.io.File(filesDir, TPMS_PAIRS_FILE))) { tmp.delete(); error("rename failed") }
                 }.onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("tire sensors: couldn't save Bluetooth pairs (${it.javaClass.simpleName})") }
             }
         }
