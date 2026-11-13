@@ -505,9 +505,9 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
          * Listens [seconds] on a control channel's input [hz], where only radios transmit, and hands each radio message of
          * system [nac] to [onRadio] with how far above the noise it came in (the strongest moment of the last ~0.2 s):
          * radios registering, changing talkgroup, sending status or data, with nobody talking. Messages heard, or null
-         * when the tuner didn't get there. Uses a reader thread so no burst falls between two reads.
+         * when the tuner didn't get there, with the highest level heard (dB over the noise). Uses a reader thread so no
+         * burst falls between two reads.
          */
-        /** Listens to the control channel's input; the radio messages decoded and the highest level heard (dB over the noise). */
         fun inbound(sdr: SdrDevice, hz: Long, nac: Int, seconds: Double, stop: () -> Boolean, onRadio: (P25Tsbk.Inbound, Int) -> Unit): Pair<Int, Int>? {
             if (!sdr.tune(hz - OFFSET_HZ)) return null
             sdr.resetBuffer()

@@ -7,7 +7,8 @@ package com.rfsentinel.app.service
  *  - [Kind.NEW]: a device it didn't learn, heard twice within [NEW_WINDOW_MS]. From then on it is known;
  *  - [Kind.GONE]: a device heard during the watch, then quiet for [ABSENCE_MS];
  *  - [Kind.BACK]: one gone that is heard again within [REAPPEAR_MS] of going (later, it just counts as there again);
- *  - [Kind.MOVED]: one whose signal jumped by [RSSI_CHANGE_DB] or more from one look to the next, the third time.
+ *  - [Kind.MOVED]: one whose signal jumped by [RSSI_CHANGE_DB] or more from one look to the next, the third time
+ *    within a minute of the one before ([NEW_WINDOW_MS]).
  * Phones and tags change their random address now and then: a new address linked to an earlier one ([previous]:
  * [DeviceRegistry.linkedFrom]) counts as that device, and the address it left isn't reported gone. Paused while you are
  * more than [RADIUS_M] from the place. What it learned is kept ([save] / [restore]) so a restart of the app or the phone
@@ -59,7 +60,7 @@ class PlaceWatch {
         var firstAt = 0L
         var sightings = 0
         var goneAt = 0L
-        var changes = 0
+        var changes = 0; var changeAt = 0L
     }
     private val tracks = HashMap<String, Track>()
 
@@ -110,7 +111,9 @@ class PlaceWatch {
                 if (now - t.goneAt <= s.reappearMs) { reports++; out += Event(Kind.BACK, d.mac, secs(now - t.lastSeen), d.rssi, d.source) }
                 t.goneAt = 0
             }
-            if (kotlin.math.abs(d.rssi - t.rssi) >= s.rssiChangeDb && ++t.changes >= s.movedAfter) {
+            // Swings counted together only while each follows the last within the new-device window: hours apart is not moving.
+            if (kotlin.math.abs(d.rssi - t.rssi) >= s.rssiChangeDb &&
+                (if (now - t.changeAt > s.newWindowMs) 1 else t.changes + 1).also { t.changes = it; t.changeAt = now } >= s.movedAfter) {
                 t.changes = 0; reports++
                 out += Event(Kind.MOVED, d.mac, t.rssi, d.rssi, d.source)
             }

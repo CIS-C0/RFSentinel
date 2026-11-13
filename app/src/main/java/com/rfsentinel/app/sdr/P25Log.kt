@@ -155,7 +155,7 @@ class P25Log {
      * channel table has been heard.
      */
     @Synchronized fun alternates(): List<Long> =
-        (listOfNotNull(site?.channel) + alternates.reversed()).distinct().mapNotNull(channels::hz).distinct()
+        (listOfNotNull(site?.channel) + alternates.toList().asReversed()).distinct().mapNotNull(channels::hz).distinct()
 
     /** The calls started since the last time this was asked, oldest first. */
     @Synchronized fun takeCalls(): List<P25History.Call> = started.toList().also { started.clear() }

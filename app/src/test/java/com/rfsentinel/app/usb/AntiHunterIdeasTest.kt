@@ -212,6 +212,16 @@ class AntiHunterIdeasTest {
     }
 
     @Test
+    fun jumpsTenMinutesApartAreNotMoving() {
+        val w = PlaceWatch()
+        var t = learn(w, null, listOf("CAM"))
+        val out = ArrayList<PlaceWatch.Event>()
+        // Three 23 dB jumps, each 10 minutes after the last (a door, a parked van): a steady device, not one moving.
+        for (r in listOf(-35, -58, -58, -35, -35, -58)) { out += w.check(t, null, listOf(dev("CAM", t, r)), { null }); t += 5 * 60_000 }
+        assertEquals(emptyList<PlaceWatch.Kind>(), out.map { it.kind })
+    }
+
+    @Test
     fun awayFromThePlaceNothingIsChecked() {
         val w = PlaceWatch(); val home = 45.0 to -73.0
         var t = learn(w, home, listOf("TV"))

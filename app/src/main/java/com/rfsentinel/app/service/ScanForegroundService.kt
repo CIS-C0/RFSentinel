@@ -2174,7 +2174,7 @@ class ScanForegroundService : Service() {
         if (!Prefs.followerAlerts(this) || key in Prefs.tpmsOwn(this)) return
         val followMs = Prefs.followMinMinutes(this) * 60_000L
         val followM = Prefs.followMinMeters(this).toDouble()
-        if (key !in Prefs.tpmsOwn(this) && tpmsFollow.places(key, followMs, followM) > 0)
+        if (tpmsFollow.places(key, followMs, followM) > 0)
             com.rfsentinel.app.sdr.SdrRadio.activity(com.rfsentinel.app.sdr.SdrRadio.Mode.TPMS)
         if (!tpmsFollow.follower(key, now, followMs, followM)) return
         val learning = Prefs.tpmsLearnAt(this)
