@@ -28,6 +28,8 @@ object P25Record {
     /** Mixes [offsetHz] down to 0 and integrates-and-dumps to [RATE], collecting 16-bit I/Q pairs, or handing each to [onSample]. */
     class Baseband(val offsetHz: Long, sampleRate: Int = P25Demod.SAMPLE_RATE, private val onSample: ((Double, Double) -> Unit)? = null) {
         private val decim = sampleRate / RATE
+        /** The output rate: [RATE], or close to it when [sampleRate] isn't a multiple (the sweep's 2.048 MS/s gives 48 762). */
+        val rate = sampleRate / decim
         private val stepR: Double; private val stepI: Double
         init { val w = -2 * PI * offsetHz / sampleRate; stepR = cos(w); stepI = sin(w) }
         private var pr = 1.0; private var pi = 0.0
@@ -61,7 +63,7 @@ object P25Record {
         }
 
         /** The recording as a WAV file. */
-        fun wav(): ByteArray = out.toByteArray().let { header(it.size) + it }
+        fun wav(): ByteArray = out.toByteArray().let { header(it.size, 2, rate) + it }
     }
 
     /** A 44-byte PCM WAV header, 16 bits: by default 2 channels at [RATE]. */
@@ -97,6 +99,20 @@ object P25Record {
      */
     fun saveTransmission(context: Context, time: Long, hz: Long, pcm: List<ShortArray>, rate: Int, unit: String? = null): File =
         keep(context, CALLS_DIR, CALLS_KEEP, "${stamp(time)}_${hz}hz${unit?.let { "_$it" } ?: ""}.wav", speechWav(pcm, rate))
+
+    /**
+     * Settings › Log everything the RTL-SDR hears: a followed transmission or P25 call's raw I/Q at [hz], the channel
+     * mixed to 0 Hz at about [RATE] (16-bit stereo WAV, I left, Q right), for decoding again elsewhere (SDR++, SDRTrunk, dsd-fme).
+     */
+    fun saveRaw(context: Context, time: Long, hz: Long, wav: ByteArray): File =
+        keep(context, RAW_DIR, RAW_KEEP, "iq_${stamp(time)}_${hz}hz.wav", wav)
+
+    /** The saved raw captures, newest first. */
+    fun rawFiles(context: Context): List<File> = list(context, RAW_DIR)
+    private const val RAW_DIR = "sdrraw"
+    /** About 6 MB each at most: [RAW_MAX_S] s of 4-byte samples at ~48 kHz. */
+    const val RAW_KEEP = 20
+    const val RAW_MAX_S = 30
 
     /** The saved played calls, newest first. */
     fun speechFiles(context: Context): List<File> = list(context, CALLS_DIR)

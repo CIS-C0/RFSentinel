@@ -1029,6 +1029,7 @@ object SdrRadio {
         repeat(sdr.settleReads) { sdr.read(buf) }
         var out: android.media.AudioTrack? = null
         val heard = if (saveCalls) ArrayList<ShortArray>() else null
+        val raw = if (logAll) P25Record.Baseband(INPUT_OFFSET_HZ, sdr.sampleRate) else null
         val follow = if (!p25) null else P25Follow(INPUT_OFFSET_HZ.toDouble(), onPosition = ::position) { pcm ->
             heard?.add(pcm.copyOf()); out?.write(pcm, 0, pcm.size, android.media.AudioTrack.WRITE_NON_BLOCKING)
             com.rfsentinel.app.util.Voice.radioHeard()
@@ -1076,6 +1077,7 @@ object SdrRadio {
                 val n = ahead.read(buf)
                 if (n <= 0) { if (++fails >= STALL_CHUNKS) break; continue }
                 fails = 0
+                raw?.takeIf { it.samples < it.rate * P25Record.RAW_MAX_S }?.feed(buf, n / 2)
                 val now = System.currentTimeMillis()
                 var clip = 0
                 for (i in 0 until n) { val b = buf[i].toInt() and 0xff; if (b == 0 || b == 255) clip++ }
@@ -1105,6 +1107,7 @@ object SdrRadio {
                 }
             }
         } finally { ahead.close(); track.stop(); track.release() }
+        saveRaw(raw, hz, start)
         val secs = if (follow != null) follow.frames * 0.18 else if (cipher > 0) 0.0 else heardMs / 1000.0
         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: transmission ${if (logAll) "$mhz " else ""}(${e.band.label}) " +
             (if (secs > 0) "played (%.1f s)".format(java.util.Locale.US, secs) else "not played") +
@@ -1327,6 +1330,7 @@ object SdrRadio {
         repeat(sdr.settleReads) { sdr.read(buf) }
         var started = false
         val heard = if (saveCalls) ArrayList<ShortArray>() else null
+        val raw = if (logAll) P25Record.Baseband(INPUT_OFFSET_HZ, sdr.sampleRate) else null
         // A priority talkgroup's call announced on this voice channel (not while one is held, nor when this one is a priority).
         var priority: Int? = null
         val otherCall = { _: Int, tg: Int ->
@@ -1356,10 +1360,12 @@ object SdrRadio {
                 if (n <= 0) { fails++; continue }
                 fails = 0 // stalls in a row end it, not stalls over a long call
                 follow.feed(buf, n / 2)
+                raw?.takeIf { it.samples < it.rate * P25Record.RAW_MAX_S }?.feed(buf, n / 2)
                 if (follow.talker != talker) { talker = follow.talker
                     status = "$deviceLabel · P25 · playing ${call.tg?.let { "talkgroup $it" } ?: "a private call"} · radio $talker" + turnNote() }
             }
         } finally { ahead.close(); p25Playing = null; out.stop() } // stop: what's buffered still plays
+        saveRaw(raw, hz, start)
         priority?.let { p25Wanted = it to System.currentTimeMillis() }
         val why = follow.endedBy ?: when {
             priority != null -> "priority call" + (if (logAll) " on talkgroup $priority" else "")
@@ -1376,6 +1382,15 @@ object SdrRadio {
             .onSuccess { P25Transcribe.enqueue(ctx, it, heard) }
             .onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 call sound not saved - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
         return follow.frames > 0
+    }
+
+    /** Log everything: a followed signal's raw I/Q kept for decoding elsewhere ([P25Record.saveRaw]); under a second isn't. */
+    private fun saveRaw(raw: P25Record.Baseband?, hz: Long, time: Long) {
+        val ctx = appContext ?: return
+        if (raw == null || raw.samples < raw.rate) return
+        runCatching { P25Record.saveRaw(ctx, time, hz, raw.wav()) }
+            .onSuccess { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: raw I/Q saved (%.1f s at %d Hz)".format(java.util.Locale.US, raw.samples.toDouble() / raw.rate, raw.rate)) }
+            .onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: raw I/Q not saved - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
     }
 
     /** 8 kHz mono speech out, as media (so it goes to the car or headphones like other audio). */

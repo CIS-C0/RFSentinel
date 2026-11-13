@@ -45,6 +45,17 @@ class P25RecordTest {
     }
 
     @Test
+    fun theSweepsRawCaptureSaysItsRealRateInTheWav() {
+        val b = P25Record.Baseband(250_000, 2_048_000)
+        assertEquals(48_761, b.rate) // 2.048 MS/s isn't a multiple of 48 kHz
+        b.feed(ByteArray(2 * 42 * 10) { 127 }, 42 * 10)
+        assertEquals(10, b.samples)
+        val h = ByteBuffer.wrap(b.wav()).order(ByteOrder.LITTLE_ENDIAN)
+        assertEquals(48_761, h.getInt(24))
+        assertEquals(44 + 10 * 4, b.wav().size)
+    }
+
+    @Test
     fun aPlayedCallIsSavedAsAn8kMonoWavAndReadBackFromItsName() {
         val wav = P25Record.speechWav(listOf(ShortArray(160) { 1000 }, ShortArray(160) { -1000 }))
         val h = ByteBuffer.wrap(wav).order(ByteOrder.LITTLE_ENDIAN)

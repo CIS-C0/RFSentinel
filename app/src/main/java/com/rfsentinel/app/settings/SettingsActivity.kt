@@ -495,6 +495,12 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     /** RTL-SDR radio › Record P25 voice calls: the kept .wav files, to send. */
+    private fun shareRawSdr() {
+        val files = com.rfsentinel.app.sdr.P25Record.rawFiles(this)
+        if (files.isEmpty()) { Toast.makeText(this, "Nothing captured yet: turn on Log everything the RTL-SDR hears", Toast.LENGTH_LONG).show(); return }
+        com.rfsentinel.app.util.Exporter.shareFiles(this, files, "audio/wav", "RF Sentinel raw SDR captures (${files.size})", "Share raw SDR captures")
+    }
+
     private fun shareP25Recordings() {
         val files = com.rfsentinel.app.sdr.P25Record.files(this)
         if (files.isEmpty()) { Toast.makeText(this, "No P25 calls recorded yet", Toast.LENGTH_SHORT).show(); return }
@@ -2070,7 +2076,14 @@ class SettingsActivity : AppCompatActivity() {
             "The SDR log also names what it hears: the frequencies found in each sweep and scan, P25 control channels and " +
             "calls, aircraft addresses and callsigns, and each page's capcode and length. Page text is never logged. " +
             "Frequencies can tell where you are, so read the log before you share it. The log keeps about the last 2 MB, " +
-            "roughly half an hour with this on. Off, it keeps counts and levels only.") { Prefs.setSdrLogAll(this, it) }
+            "roughly half an hour with this on. Off, it keeps counts and levels only. With this on, each transmission and P25 " +
+            "call the SDR follows is also saved as raw I/Q, to decode again in SDR++, SDRTrunk or dsd-fme: a WAV with the " +
+            "channel at 0 Hz, about 48 kHz, I left and Q right, at most ${com.rfsentinel.app.sdr.P25Record.RAW_MAX_S} s each " +
+            "(about 6 MB); the last ${com.rfsentinel.app.sdr.P25Record.RAW_KEEP} are kept. Each file is named with its frequency.") { Prefs.setSdrLogAll(this, it) }
+        box.addView(com.google.android.material.button.MaterialButton(this, null, android.R.attr.borderlessButtonStyle).apply {
+            text = "Share raw SDR captures"
+            setOnClickListener { shareRawSdr() }
+        })
         box.toggle("Bias-tee power", Prefs.sdrBiasTee(this),
             "Sends power up the antenna cable for an active antenna or an amplifier. Works on RTL-SDR Blog V3 and V4 dongles, " +
             "the HackRF, and a network SDR whose rtl_tcp supports it. Use it only with an antenna or amplifier made for it: an " +

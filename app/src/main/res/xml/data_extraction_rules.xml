@@ -14,6 +14,8 @@
         <exclude domain="sharedpref" path="sdr_private.xml" />
         <!-- The SDR log and the SDR activity saved with traces: where and when it heard what. -->
         <exclude domain="file" path="trip_sdr/" />
+        <!-- Raw SDR captures (Log everything): named with their frequency, and large. -->
+        <exclude domain="file" path="sdrraw/" />
         <!-- Tire sensors paired with Bluetooth devices, with where they were last heard together. -->
         <exclude domain="file" path="tpms_pairs.tsv" />
         <exclude domain="file" path="sdr.log" />

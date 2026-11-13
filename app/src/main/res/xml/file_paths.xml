@@ -3,4 +3,5 @@
     <cache-path name="exports" path="exports/" />
     <files-path name="p25rec" path="p25rec/" />
     <files-path name="p25calls" path="p25calls/" />
+    <files-path name="sdrraw" path="sdrraw/" />
 </paths>
