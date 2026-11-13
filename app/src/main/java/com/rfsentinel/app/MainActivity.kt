@@ -1023,7 +1023,7 @@ class MainActivity : AppCompatActivity() {
                 DeviceRow(
                     mac = RADIO_ROW + r.freqHz,
                     title = "Radio ${r.mhz} MHz" + (r.name?.let { " · $it" } ?: ""),
-                    subtitle = listOfNotNull("${r.snrDb} dB above the noise (peak ${r.peakSnrDb})", trend, r.bandLabel).joinToString(" · "),
+                    subtitle = listOfNotNull(r.digital?.replaceFirstChar { it.uppercase() }, "${r.snrDb} dB above the noise (peak ${r.peakSnrDb})", trend, r.bandLabel).joinToString(" · "),
                     meta = (if (ago < 3) "On the air now" else "Last heard ${com.rfsentinel.app.ui.DeviceRows.ago(ago)}") +
                         " · first ${java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(r.firstSeen))}",
                     tag = com.rfsentinel.app.ui.DeviceRows.matchTag("RADIO", r.confidence),

@@ -46,6 +46,8 @@ class Nxdn(private val rate: Int, private val outRate: Int = MbeSynth.RATE, priv
     /** True for half a second after the last good frame: the FM audio is the NXDN signal, not speech. */
     val active get() = frames > 0 && n - lastFrame < rate / 2
     private var lastFrame = Long.MIN_VALUE / 2
+    /** The longest time between two good frames, in seconds: lost sync (a fade, an overloaded dongle). */
+    var longestGap = 0.0; private set
 
     private val ambe = AmbeDecoder()
     private var lastOut = 0.0
@@ -128,6 +130,7 @@ class Nxdn(private val rate: Int, private val outRate: Int = MbeSynth.RATE, priv
         // Analog speech can pass the sync and LICH by chance (a real FRS call did): a call starts on a frame whose
         // SACCH or FACCH checks, the frames right after it may be weaker.
         if (!ok && facchMsgs.isEmpty() && !active) { badFrames++; return false }
+        if (frames > 0) longestGap = maxOf(longestGap, (n - lastFrame).toDouble() / rate)
         frames++; lastFrame = n
 
         // SACCH: in a superframe of four (the voice channel), or whole (idle and data).

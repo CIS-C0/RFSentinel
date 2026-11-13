@@ -781,7 +781,7 @@ object SdrRadio {
             // Nothing heard, or a stuck carrier: no longer checked (it would hold the sweep).
             if (ok && e.walkie && now - from < PLAY_MAX_MS) { hot = e to hz; hotUntil = now + HOT_MS }
             else if (hot?.first?.freqHz == e.freqHz) hot = null
-            sdr.setSampleRate(SAMPLE_RATE); sdr.resetBuffer()
+            sdr.setSampleRate(SAMPLE_RATE); sdr.setGain(GAIN_TENTHS_DB); sdr.resetBuffer()
         }
         while (!halted && !sdr.lost && keeps(Mode.SWEEP)) {
             // Settings changed: the new bands / targets / sensitivity from this sweep on.
@@ -965,6 +965,8 @@ object SdrRadio {
         status = "$deviceLabel · playing $mhz${if (p25) " · P25" else ""}" + turnNote()
         val start = System.currentTimeMillis()
         var heardAt = start; var heardMs = 0L; var fails = 0
+        // A radio held next to the dongle overloads it: clipped samples and ghosts 350 kHz away, digital voice unreadable.
+        var gain = GAIN_TENTHS_DB; var gainAt = 0L; var clipped = 0L; var bytes = 0L
         val ahead = ReadAhead(sdr, buf.size)
         try {
             while (!halted && !sdr.lost && sweepListen && keeps(Mode.SWEEP) && !SdrWaterfall.listening &&
@@ -973,12 +975,18 @@ object SdrRadio {
                 if (n <= 0) { if (++fails >= STALL_CHUNKS) break; continue }
                 fails = 0
                 val now = System.currentTimeMillis()
+                var clip = 0
+                for (i in 0 until n) { val b = buf[i].toInt() and 0xff; if (b == 0 || b == 255) clip++ }
+                clipped += clip; bytes += n
+                if (clip * 200 > n && gain > AdsbGain.STEPS.first() && now - gainAt >= 300) {
+                    gain = P25Hunt.lowerGain(gain); sdr.setGain(gain); gainAt = now
+                }
                 if (demod != null) {
                     demod.feed(buf, n / 2)
                     nxdn?.takeIf { it.frames > 0 }?.let { x ->
                         if (x.cipher >= 0) cipher = x.cipher
                         val note = "digital radio (NXDN)" + Nxdn.cipherLabel(cipher).let { if (it.isEmpty()) "" else " · $it" }
-                        if (note != digital) { digital = note; status = "$deviceLabel · playing $mhz · $note" + turnNote() }
+                        if (note != digital) { digital = note; status = "$deviceLabel · playing $mhz · $note" + turnNote(); RadioLog.digital(e.freqHz, note) }
                     }
                     // Encrypted: nothing to hear, the sweep goes on (as for P25).
                     if (cipher > 0) break
@@ -995,6 +1003,8 @@ object SdrRadio {
             (if (secs > 0) "played (%.1f s)".format(java.util.Locale.US, secs) else "not played") +
             (if (follow != null) ", P25" + (follow.endedBy?.let { ", ended: $it" } ?: "") + dataNote(follow) else "") +
             (nxdn?.takeIf { it.frames > 0 }?.let { x -> nxdnNote(x, cipher) } ?: "") +
+            (if (clipped > 0) ", %.2f%% samples clipped".format(java.util.Locale.US, 100.0 * clipped / maxOf(1L, bytes)) else "") +
+            (if (gain != GAIN_TENTHS_DB) ", gain lowered to ${gain / 10.0} dB (overload)" else "") +
             // Unit IDs stay off the log unless "log everything" is on.
             (if (mdcCount > 0) ", $mdcCount MDC-1200 bursts" + (mdcUnit?.let { u -> if (logAll) " (${u.label})" else if (u.emergency) " (emergency)" else "" } ?: "") else "") +
             (if (logAll) follow?.talker?.let { ", radio $it" } ?: "" else ""))
@@ -1009,6 +1019,7 @@ object SdrRadio {
     /** What the NXDN decoder made of a transmission, for the log: frames, voice, the cipher; IDs only with "log everything". */
     private fun nxdnNote(x: Nxdn, cipher: Int) = ", NXDN ${x.frames} frames (${x.badFrames} bad), ${x.voiceFrames} voice" +
         (if (x.voiceFrames > 0) " (%.1f bits fixed each)".format(java.util.Locale.US, x.ambeErrors.toDouble() / x.voiceFrames) else "") +
+        (if (x.longestGap >= 0.2) ", longest gap %.1f s".format(java.util.Locale.US, x.longestGap) else "") +
         (if (x.encryptedFrames > 0) ", ${x.encryptedFrames} encrypted" else "") +
         ", " + (Nxdn.cipherLabel(cipher).ifEmpty { "cipher not heard" }) +
         (if (logAll && x.source >= 0) ", unit ${x.source} to ${x.destination}" else "")

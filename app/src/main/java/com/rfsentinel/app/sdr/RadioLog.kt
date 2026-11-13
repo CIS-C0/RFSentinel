@@ -23,7 +23,9 @@ object RadioLog {
         val name: String?,
         val trend: Trend,
         /** The signal when the trend was last called: the next call compares to it. */
-        val refSnrDb: Int
+        val refSnrDb: Int,
+        /** What it decoded as when looked at or played: "P25 digital radio", "digital radio (NXDN) · clear". */
+        val digital: String? = null
     ) {
         val mhz: String get() = "%.4f".format(java.util.Locale.US, freqHz / 1e6)
     }
@@ -41,7 +43,7 @@ object RadioLog {
         val prev = entries[e.freqHz]
         if (prev == null || now - prev.lastSeen > EPISODE_GAP_MS) {
             entries[e.freqHz] = Entry(e.freqHz, e.band.label, e.band.kind, now, now, e.snrDb, e.snrDb, e.confidence,
-                name, Trend.NEW, e.snrDb)
+                name, Trend.NEW, e.snrDb, if (e.p25Nac != null) P25 else null)
             prune(now)
             return null
         }
@@ -55,10 +57,19 @@ object RadioLog {
             lastSeen = now, snrDb = e.snrDb, peakSnrDb = maxOf(prev.peakSnrDb, e.snrDb),
             confidence = maxOf(prev.confidence, e.confidence), name = name ?: prev.name,
             trend = trend ?: (if (prev.trend == Trend.NEW) Trend.STEADY else prev.trend),
-            refSnrDb = if (trend != null) e.snrDb else prev.refSnrDb
+            refSnrDb = if (trend != null) e.snrDb else prev.refSnrDb,
+            digital = prev.digital ?: if (e.p25Nac != null) P25 else null
         )
         return trend
     }
+
+    /** What a transmission being played decoded as, for its row; nothing when the channel isn't listed (a walkie-talkie). */
+    @Synchronized
+    fun digital(freqHz: Long, note: String) {
+        entries[freqHz]?.let { entries[freqHz] = it.copy(digital = note) }
+    }
+
+    private const val P25 = "P25 digital radio"
 
     /** Heard within [KEEP_MS], most recent first. */
     @Synchronized
