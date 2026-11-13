@@ -90,7 +90,7 @@ object DeviceActions {
             .setItems(items.toTypedArray()) { _, which ->
                 if (which < entries.size) { removeWatch(activity, entries[which]); done() } else addToWatchlist(activity, mac, name, wifi)
             }
-            .show()
+            .show().big()
     }
 
     /** Long-press menu. */
@@ -292,7 +292,7 @@ object DeviceActions {
             }
             .setNegativeButton("Cancel", null)
             .setNeutralButton("Custom rule...") { _, _ -> ComboRuleDialog.show(activity, facts(mac), name) }
-            .show()
+            .show().big()
     }
 
     /** This device's values for a custom rule ([ComboRuleDialog]). */
@@ -477,7 +477,7 @@ object DeviceActions {
                 }
             }
             .setNegativeButton("Cancel", null)
-            .show()
+            .show().big()
     }
 
     /**
@@ -575,7 +575,7 @@ object DeviceActions {
                 }
             }
             .setNegativeButton("Cancel", null)
-            .show()
+            .show().big()
     }
 
     /** One tap from the long-press menu: whitelisting one Zebra printer this way hides every Zebra printer. */
@@ -590,7 +590,7 @@ object DeviceActions {
                 "\n\nUndo it under Whitelist > Rules.")
             .setPositiveButton("Ignore all") { _, _ -> trustRule(activity, TrustRules.Rule(TrustRules.Kind.LABEL, best.label, best.label)) }
             .setNegativeButton("Cancel", null)
-            .show()
+            .show().big()
     }
 
     fun trustRule(activity: AppCompatActivity, rule: TrustRules.Rule) {
@@ -631,6 +631,31 @@ object DeviceActions {
         val cm = activity.getSystemService(ClipboardManager::class.java)
         cm.setPrimaryClip(ClipData.newPlainText("RF Sentinel", text))
         toast(activity, "Copied")
+    }
+
+    /**
+     * The whitelist / watchlist dialogs, big enough to use while driving: text at least 18 sp, choices and buttons
+     * at least 56 dp tall. List rows are made as they scroll in, so they're enlarged as they're added.
+     */
+    private fun androidx.appcompat.app.AlertDialog.big(): androidx.appcompat.app.AlertDialog {
+        val d = context.resources.displayMetrics.density
+        val sp18 = 18 * context.resources.displayMetrics.scaledDensity
+        val tall = (56 * d).toInt()
+        fun grow(v: View) {
+            when (v) {
+                is android.view.ViewGroup -> for (i in 0 until v.childCount) grow(v.getChildAt(i))
+            }
+            if (v is TextView) {
+                if (v.textSize < sp18) v.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, sp18)
+                if (v is android.widget.CompoundButton || v is android.widget.Button || v.parent is android.widget.ListView) v.minHeight = tall
+            }
+        }
+        window?.decorView?.let(::grow)
+        listView?.setOnHierarchyChangeListener(object : android.view.ViewGroup.OnHierarchyChangeListener {
+            override fun onChildViewAdded(parent: View?, child: View?) { child?.let(::grow) }
+            override fun onChildViewRemoved(parent: View?, child: View?) {}
+        })
+        return this
     }
 
     private fun toast(activity: AppCompatActivity, msg: String) =
