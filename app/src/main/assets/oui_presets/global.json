@@ -1693,7 +1693,7 @@
     "source": "IEEE MA-L (Zebra Technologies Inc); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
     "confidence": "candidate",
     "score": 25,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "00:07:4D",
@@ -1701,7 +1701,7 @@
     "source": "IEEE MA-L (Zebra Technologies Corp.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
     "confidence": "candidate",
     "score": 25,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "00:15:70",
@@ -1709,7 +1709,7 @@
     "source": "IEEE MA-L (Zebra Technologies Inc); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
     "confidence": "candidate",
     "score": 25,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "00:23:68",
@@ -1717,7 +1717,7 @@
     "source": "IEEE MA-L (Zebra Technologies Inc); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
     "confidence": "candidate",
     "score": 25,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "00:A0:F8",
@@ -1725,7 +1725,7 @@
     "source": "IEEE MA-L (Zebra Technologies Inc); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
     "confidence": "candidate",
     "score": 25,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "40:83:DE",
@@ -1733,7 +1733,7 @@
     "source": "IEEE MA-L (Zebra Technologies Inc); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
     "confidence": "candidate",
     "score": 25,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "48:8E:B7",
@@ -1741,7 +1741,7 @@
     "source": "IEEE MA-L (Zebra Technologies Inc.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
     "confidence": "candidate",
     "score": 25,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "60:95:32",
@@ -1749,7 +1749,7 @@
     "source": "IEEE MA-L (Zebra Technologies Inc.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
     "confidence": "candidate",
     "score": 25,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "74:93:A4",
@@ -1757,7 +1757,7 @@
     "source": "IEEE MA-L (Zebra Technologies Corp.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
     "confidence": "candidate",
     "score": 25,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "78:B8:D6",
@@ -1765,7 +1765,7 @@
     "source": "IEEE MA-L (Zebra Technologies Inc.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
     "confidence": "candidate",
     "score": 25,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "84:24:8D",
@@ -1773,7 +1773,7 @@
     "source": "IEEE MA-L (Zebra Technologies Inc); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
     "confidence": "candidate",
     "score": 25,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "88:BC:AC",
@@ -1781,7 +1781,7 @@
     "source": "IEEE MA-L (Zebra Technologies Inc.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
     "confidence": "candidate",
     "score": 25,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "90:75:DE",
@@ -1789,7 +1789,7 @@
     "source": "IEEE MA-L (Zebra Technologies Inc.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
     "confidence": "candidate",
     "score": 25,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "94:FB:29",
@@ -1797,7 +1797,7 @@
     "source": "IEEE MA-L (Zebra Technologies Inc.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
     "confidence": "candidate",
     "score": 25,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "C4:7D:CC",
@@ -1805,7 +1805,7 @@
     "source": "IEEE MA-L (Zebra Technologies Inc); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
     "confidence": "candidate",
     "score": 25,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "C8:1C:FE",
@@ -1813,7 +1813,7 @@
     "source": "IEEE MA-L (Zebra Technologies Inc.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
     "confidence": "candidate",
     "score": 25,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "FC:59:7A",
@@ -1821,7 +1821,7 @@
     "source": "IEEE MA-L (Zebra Technologies Inc.); public police procurement records list Zebra mobile printers for electronic tickets in patrol cars. Weak: Zebra scanners, handhelds and label printers are everywhere in stores and warehouses",
     "confidence": "candidate",
     "score": 25,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "00:1B:A9",
@@ -1829,7 +1829,7 @@
     "source": "IEEE MA-L (Brother industries, LTD.); Brother mobile printers are sold for in-car reports and tickets. Very weak: Brother home and office printers use the same blocks",
     "confidence": "candidate",
     "score": 20,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "00:80:77",
@@ -1837,7 +1837,7 @@
     "source": "IEEE MA-L (Brother industries, LTD.); Brother mobile printers are sold for in-car reports and tickets. Very weak: Brother home and office printers use the same blocks",
     "confidence": "candidate",
     "score": 20,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "30:05:5C",
@@ -1845,7 +1845,7 @@
     "source": "IEEE MA-L (Brother industries, LTD.); Brother mobile printers are sold for in-car reports and tickets. Very weak: Brother home and office printers use the same blocks",
     "confidence": "candidate",
     "score": 20,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "3C:2A:F4",
@@ -1853,7 +1853,7 @@
     "source": "IEEE MA-L (Brother Industries, LTD.); Brother mobile printers are sold for in-car reports and tickets. Very weak: Brother home and office printers use the same blocks",
     "confidence": "candidate",
     "score": 20,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "94:DD:F8",
@@ -1861,7 +1861,7 @@
     "source": "IEEE MA-L (Brother Industries, LTD.); Brother mobile printers are sold for in-car reports and tickets. Very weak: Brother home and office printers use the same blocks",
     "confidence": "candidate",
     "score": 20,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "B0:7C:8E",
@@ -1869,7 +1869,7 @@
     "source": "IEEE MA-L (Brother Industries, LTD.); Brother mobile printers are sold for in-car reports and tickets. Very weak: Brother home and office printers use the same blocks",
     "confidence": "candidate",
     "score": 20,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "B4:22:00",
@@ -1877,7 +1877,7 @@
     "source": "IEEE MA-L (Brother Industries, LTD.); Brother mobile printers are sold for in-car reports and tickets. Very weak: Brother home and office printers use the same blocks",
     "confidence": "candidate",
     "score": 20,
-    "category": "PUBLIC_SAFETY"
+    "category": "MOBILE_PRINTER"
   },
   {
     "prefix": "00:11:6E",
