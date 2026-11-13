@@ -20,6 +20,10 @@ class VoiceQueue(
         const val REPEAT_GAP_MS = 30_000L
         /** From this many waiting, they're merged into one announcement. */
         const val MERGE_FROM = 3
+        /** Radio voice (SDR) quiet this long: an alert can be said without talking over it. */
+        const val RADIO_QUIET_MS = 1_200L
+        /** ...but an alert waits for that at most this long after it was queued (under [MAX_AGE_MS], so it isn't dropped). */
+        const val RADIO_HOLD_MS = 10_000L
 
         // Priorities.
         const val FOLLOWING = 4
@@ -85,6 +89,16 @@ class VoiceQueue(
         // Keep the repeat memory small.
         if (lastSaid.size > 64) lastSaid.entries.removeAll { now - it.value > repeatGapMs }
         return item
+    }
+
+    /**
+     * How long to wait before speaking, radio voice having last played at [radioAt]: until it has been quiet
+     * [RADIO_QUIET_MS], at most [RADIO_HOLD_MS] after the oldest waiting item. 0 when something following you or a
+     * driving direction is waiting: those don't wait.
+     */
+    fun radioWait(now: Long, radioAt: Long): Long {
+        if (waiting.isEmpty() || waiting.any { it.nav || it.priority >= FOLLOWING }) return 0
+        return minOf(radioAt + RADIO_QUIET_MS, waiting.minOf { it.time } + RADIO_HOLD_MS).minus(now).coerceAtLeast(0)
     }
 
     fun clear() = waiting.clear()

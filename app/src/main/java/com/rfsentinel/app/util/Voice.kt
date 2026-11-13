@@ -50,6 +50,13 @@ object Voice {
     @Volatile var voices: List<android.speech.tts.Voice> = emptyList()
         private set
 
+    /** When the SDR last played radio voice ([radioHeard]): alerts wait for a pause in it ([VoiceQueue.radioWait]). */
+    @Volatile private var radioAt = 0L
+    private val pumpLater = Runnable { pump() }
+
+    /** The SDR is playing radio voice now (a walkie-talkie, a P25 call): alerts don't talk over it. */
+    fun radioHeard() { radioAt = System.currentTimeMillis() }
+
     /** Queues [text] with a [VoiceQueue] priority; it's spoken as soon as nothing more urgent is. */
     fun say(context: Context, text: String, priority: Int, attrs: AudioAttributes) = main.post {
         app = context.applicationContext
@@ -122,6 +129,11 @@ object Voice {
         val now = System.currentTimeMillis()
         val retry = pending?.takeIf { now - it.time <= RETRY_MAX_AGE_MS }
         val retryTries = pendingTries
+        if (retry == null) queue.radioWait(now, radioAt).takeIf { it > 0 }?.let { wait ->
+            releaseFocus() // the radio isn't ducked while it waits
+            main.removeCallbacks(pumpLater); main.postDelayed(pumpLater, wait)
+            return
+        }
         pending = null
         val item = retry ?: queue.next(now) ?: run { releaseFocus(); return }
         val attrs = pickAttrs(item.nav, alertAttrs, navAttrs, nextAttrs) ?: return

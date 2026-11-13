@@ -56,4 +56,17 @@ class VoiceQueueTest {
         assertFalse(q.preempts(VoiceQueue.STRONG, VoiceQueue.PROBABLE))
         assertFalse(q.preempts(VoiceQueue.FOLLOWING, VoiceQueue.FOLLOWING))
     }
+
+    @Test
+    fun alertsWaitForAPauseInRadioVoiceButNotForever() {
+        val q = VoiceQueue()
+        assertEquals(0L, q.radioWait(0, 0)) // nothing waiting
+        q.add("Flock camera nearby", VoiceQueue.STRONG, 1_000)
+        assertEquals(0L, q.radioWait(5_000, 1_000)) // radio quiet for 4 s: say it
+        assertEquals(1_200L, q.radioWait(5_000, 5_000)) // radio playing: wait for 1.2 s of quiet
+        assertEquals(1_000L, q.radioWait(10_000, 10_000)) // still playing: said 10 s after it was queued anyway
+        assertEquals(0L, q.radioWait(11_000, 11_000))
+        q.add("Vehicle following you", VoiceQueue.FOLLOWING, 11_000)
+        assertEquals(0L, q.radioWait(11_000, 11_000)) // following you never waits
+    }
 }

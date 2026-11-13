@@ -898,6 +898,7 @@ object SdrRadio {
         val heard = if (saveCalls) ArrayList<ShortArray>() else null
         val follow = if (!p25) null else P25Follow(INPUT_OFFSET_HZ.toDouble(), onPosition = ::position) { pcm ->
             heard?.add(pcm.copyOf()); out?.write(pcm, 0, pcm.size, android.media.AudioTrack.WRITE_NON_BLOCKING)
+            com.rfsentinel.app.util.Voice.radioHeard()
         }
         val demod = if (p25) null else AudioDemod(AudioDemod.modeFor(hz), INPUT_OFFSET_HZ, sdr.sampleRate) { pcm, n ->
             heard?.add(pcm.copyOf(n)); out?.write(pcm, 0, n)
@@ -929,7 +930,8 @@ object SdrRadio {
                 val now = System.currentTimeMillis()
                 if (demod != null) {
                     demod.feed(buf, n / 2)
-                    if (demod.open) { heardMs += now - heardAt; heardAt = now } else if (now - heardAt >= PLAY_QUIET_MS) break
+                    if (demod.open) { heardMs += now - heardAt; heardAt = now; com.rfsentinel.app.util.Voice.radioHeard() }
+                    else if (now - heardAt >= PLAY_QUIET_MS) break
                 } else if (follow != null) {
                     follow.feed(buf, n / 2)
                     if (follow.ended || follow.quietS >= (if (follow.frames == 0) FOLLOW_START_S else FOLLOW_QUIET_S)) break
@@ -1148,6 +1150,7 @@ object SdrRadio {
             // A little silence first: voice comes in 180 ms bursts, and the buffer shouldn't run dry between them.
             if (!started) { started = true; out.write(ShortArray(ImbeDecoder.RATE / 5), 0, ImbeDecoder.RATE / 5, android.media.AudioTrack.WRITE_NON_BLOCKING) }
             out.write(pcm, 0, pcm.size, android.media.AudioTrack.WRITE_NON_BLOCKING)
+            com.rfsentinel.app.util.Voice.radioHeard()
         }
         p25Playing = call
         status = "$deviceLabel · P25 · playing ${call.tg?.let { "talkgroup $it" } ?: "a private call"}" + turnNote()
@@ -1487,6 +1490,7 @@ object SdrRadio {
                 val n = ahead?.read(buf) ?: sdr.read(buf)
                 if (n <= 0) break
                 demod?.feed(buf, n / 2)
+                if (demod?.open == true && speakerOut != null) com.rfsentinel.app.util.Voice.radioHeard()
                 System.arraycopy(buf, 0, iq, got, n); got += n
             }
             if (got < 2 * 1024) {
