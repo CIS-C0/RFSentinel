@@ -86,6 +86,12 @@ class ScanForegroundService : Service() {
         /** One tire-sensor follow alert this often: a car has four sensors. */
         private const val TPMS_ALERT_GAP_MS = 10 * 60_000L
         private const val TPMS_CONFIDENCE = 60
+        /** Same vehicle as a flagged Bluetooth device: likely, two sightings apart can still be two cars that keep your hours. */
+        private const val TPMS_BT_CONFIDENCE = 65
+        private const val TPMS_BT_CHECK_MS = 30_000L
+        private const val TPMS_BT_SAVE_MS = 2 * 60_000L
+        private const val TPMS_BT_ALERT_GAP_MS = 6 * 3_600_000L
+        private const val TPMS_PAIRS_FILE = "tpms_pairs.tsv"
         /** A talkgroup much busier than usual: probable, not certain (an event, a shift change, a drill). */
         private const val P25_UNUSUAL_CONFIDENCE = 55
         private const val P25_UNUSUAL_CHECK_MS = 5 * 60_000L
@@ -2181,6 +2187,7 @@ class ScanForegroundService : Service() {
         val now = System.currentTimeMillis()
         val key = "tpms:" + r.key
         tpmsFollow.heard(key, null, now, loc.latitude, loc.longitude)
+        if (key !in Prefs.tpmsOwn(this)) matchTpmsBt(r, key, now, loc.latitude, loc.longitude)
         if (!Prefs.followerAlerts(this) || key in Prefs.tpmsOwn(this)) return
         val followMs = Prefs.followMinMinutes(this) * 60_000L
         val followM = Prefs.followMinMeters(this).toDouble()
@@ -2203,6 +2210,55 @@ class ScanForegroundService : Service() {
         val alert = TPMS_CONFIDENCE >= Prefs.alertThreshold(this, Category.RADIO) && now - tpmsAlertAt >= TPMS_ALERT_GAP_MS
         if (alert) tpmsAlertAt = now
         radioDetection(hit, "TPMS ${r.protocol} ${r.id}", 0, now, key, "Vehicle following you", alert)
+    }
+
+    private val tpmsBt by lazy {
+        TpmsBtMatch().also { m -> runCatching { java.io.File(filesDir, TPMS_PAIRS_FILE).takeIf { it.exists() }?.readText()?.let(m::load) } }
+    }
+    /** Per tire sensor, when it was last paired (each check walks every device heard). */
+    private val tpmsBtAt = HashMap<String, Long>()
+    private val tpmsBtAlerted = HashMap<String, Long>()
+    private var tpmsBtSavedAt = 0L
+
+    /** A tire sensor heard: pair it with the flagged Bluetooth devices heard around now; a pair heard together again is one vehicle. */
+    private fun matchTpmsBt(r: com.rfsentinel.app.sdr.Tpms.Reading, key: String, now: Long, lat: Double, lon: Double) {
+        if (now - (tpmsBtAt[key] ?: 0L) < TPMS_BT_CHECK_MS) return
+        tpmsBtAt[key] = now
+        if (tpmsBtAt.size > 500) tpmsBtAt.values.removeAll { now - it >= TPMS_BT_CHECK_MS }
+        val flagged = DeviceRegistry.snapshot(now).filter {
+            Advert.Source.BLE in it.sources && it.best != null && now - it.lastSeen <= TpmsBtMatch.WINDOW_MS &&
+                !WhitelistCache.contains(it.mac)
+        }.associateBy { it.mac }
+        val matches = if (flagged.isEmpty()) emptyList() else tpmsBt.heard(key, flagged.keys.toList(), now, lat, lon)
+        if (tpmsBt.changed && (matches.isNotEmpty() || now - tpmsBtSavedAt >= TPMS_BT_SAVE_MS)) {
+            tpmsBtSavedAt = now
+            val text = tpmsBt.save()
+            serviceScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    val tmp = java.io.File(filesDir, "$TPMS_PAIRS_FILE.$now.tmp") // own name per save: two saves never share a file
+                    tmp.writeText(text)
+                    tmp.renameTo(java.io.File(filesDir, TPMS_PAIRS_FILE))
+                }.onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("tire sensors: couldn't save Bluetooth pairs (${it.javaClass.simpleName})") }
+            }
+        }
+        for (p in matches) {
+            com.rfsentinel.app.util.HwLogs.sdr.log("tire sensors: one matched to a flagged Bluetooth device (" +
+                (if (p.encounters >= 2) "${p.encounters} encounters" else "${p.spots} places together") + ")")
+            if (now - (tpmsBtAlerted[p.mac] ?: 0L) < TPMS_BT_ALERT_GAP_MS) continue
+            tpmsBtAlerted[p.mac] = now
+            val bt = flagged[p.mac]
+            val name = bt?.name?.takeIf { it.isNotBlank() } ?: bt?.vendor ?: p.mac
+            val how = if (p.encounters >= 2) "on ${p.encounters} separate occasions, with time apart in between"
+                else "while travelling together over ${p.spots} places 2 km apart"
+            val detail = "The Bluetooth device $name" + (bt?.best?.let { " (flagged: ${it.label})" } ?: "") +
+                " and the tire-pressure sensor ${r.protocol} ID ${r.id} were heard together $how: they are most likely in the " +
+                "same vehicle. When either is heard again, the other is that vehicle's too. Could also be two vehicles that " +
+                "often park or drive near you at the same times."
+            val hit = Hit(Category.RADIO, "Tire sensor matches a flagged Bluetooth device", TPMS_BT_CONFIDENCE, detail,
+                "SDR tire-pressure sensor ID heard with a Bluetooth device")
+            val alert = TPMS_BT_CONFIDENCE >= Prefs.alertThreshold(this, Category.RADIO)
+            radioDetection(hit, "TPMS ${r.protocol} ${r.id}", 0, now, "tpmsbt:" + p.mac, "Tire sensor matches a Bluetooth device", alert)
+        }
     }
 
     private var p25UnusualAt = 0L
