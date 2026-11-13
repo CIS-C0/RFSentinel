@@ -38,10 +38,13 @@ object P25Voice {
      */
     private val HEX_AT = intArrayOf(176, 268, 360, 452, 544, 636)
 
-    /** A voice frame, or null when it isn't one (or its NID is beyond repair). */
-    fun decode(frame: IntArray): Frame? {
+    /**
+     * A voice frame, or null when it isn't one (or its NID is beyond repair). [soft] and [nac]: the frame's symbol values
+     * and the channel's NAC, for a damaged NID ([P25Frame.nid]).
+     */
+    fun decode(frame: IntArray, soft: DoubleArray? = null, nac: Int? = null): Frame? {
         val d = P25Frame.stripStatus(frame)
-        val nid = P25Frame.nid(d) ?: return null
+        val nid = P25Frame.nid(d, soft?.takeIf { it.size == frame.size }?.let { P25Frame.stripStatus(it) }, nac) ?: return null
         if (nid.duid != DUID_LDU1 && nid.duid != DUID_LDU2 || d.size < VOICE_AT.last() + 72) return null
         val algid = if (nid.duid != DUID_LDU2) null else rsWords(d, 8)?.let { w -> w[12] shl 2 or (w[13] shr 4) }
         return Frame(nid, VOICE_AT.map { imbe(d, it) }, algid, if (nid.duid == DUID_LDU1) lc(d) else null)
@@ -181,7 +184,11 @@ object P25Voice {
         while (at + 8 <= wav.size && String(wav, at, 4) != "data") at += 8 + b.getInt(at + 4)
         val end = if (at + 8 <= wav.size) minOf(wav.size, at + 8 + b.getInt(at + 4)) else at
         val frames = ArrayList<Frame>()
-        val demod = P25Demod(0.0, LDU_DIBITS, mod) { f -> decode(f)?.let { frames += it } }
+        var nac: Int? = null; var nacRead: Int? = null // as P25Follow tracks it
+        lateinit var demod: P25Demod
+        demod = P25Demod(0.0, LDU_DIBITS, mod) { f ->
+            decode(f, demod.soft, nac)?.let { frames += it; if (it.nid.nac == nacRead) nac = nacRead; nacRead = it.nid.nac }
+        }
         var k = at + 8
         while (k + 4 <= end) { demod.feedChannel(b.getShort(k).toDouble(), b.getShort(k + 2).toDouble()); k += 4 }
         return Decoded(frames, demod.syncs)

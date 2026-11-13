@@ -44,6 +44,30 @@ class P25FrameTest {
     }
 
     @Test
+    fun aDamagedNidIsReadWithTheKnownNac() {
+        val level = doubleArrayOf(1.0 / 3, 1.0, -1.0 / 3, -1.0)
+        val sent = P25TestSignal.dibitsOf(P25Frame.nidCodeword(0x293 shl 4 or P25Frame.DUID_TSDU) shl 1, 32)
+        // 14 bits wrong: past what the hard decode takes.
+        val d = sent.copyOf()
+        for (k in 0 until 28 step 2) d[k] = d[k] xor 1
+        assertNull(P25Frame.nid(d))
+        // Symbol values a little off where right, near the wrong level where wrong.
+        val soft = DoubleArray(32) { k -> level[d[k]] + (if (d[k] == sent[k]) 0.05 else -0.05) }
+        val n = P25Frame.nid(d, soft, 0x293)!!
+        assertEquals(0x293, n.nac); assertEquals(P25Frame.DUID_TSDU, n.duid); assertEquals(14, n.errors)
+        assertNull(P25Frame.nid(d, soft, null))
+        assertNull(P25Frame.nid(d, soft, 0x111)) // another NAC: far off
+        // Noise the hard decode refuses: rarely a NID with the NAC known either.
+        val r = java.util.Random(4)
+        var passed = 0
+        repeat(2000) {
+            val x = IntArray(32) { r.nextInt(4) }
+            if (P25Frame.nid(x) == null && P25Frame.nid(x, DoubleArray(32) { level[x[it]] }, 0x293) != null) passed++
+        }
+        assertTrue("$passed", passed <= 3)
+    }
+
+    @Test
     fun oneWrongBitAfterTheTrellisIsPutRight() {
         val crc = P25Frame.remainder(last + byteArrayOf(0, 0)) xor 0xffff
         val good = last + byteArrayOf((crc shr 8).toByte(), crc.toByte())

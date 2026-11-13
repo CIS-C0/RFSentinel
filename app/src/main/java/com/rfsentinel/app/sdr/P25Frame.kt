@@ -27,11 +27,14 @@ object P25Frame {
     /** What a frame held: its NID (null when uncorrectable) and the blocks that passed their CRC. */
     class Decoded(val nid: Nid?, val tsbks: List<Tsbk>, val badBlocks: Int)
 
-    /** [soft]: the frame's symbol values (±1 for ±3, as [P25Demod.soft]), same length as [frame]; null for hard decisions. */
-    fun decode(frame: IntArray, soft: DoubleArray? = null): Decoded {
+    /**
+     * [soft]: the frame's symbol values (±1 for ±3, as [P25Demod.soft]), same length as [frame]; null for hard decisions.
+     * [nac]: the channel's known NAC, for a NID too damaged otherwise ([nid]).
+     */
+    fun decode(frame: IntArray, soft: DoubleArray? = null, nac: Int? = null): Decoded {
         val d = stripStatus(frame)
         val sd = soft?.takeIf { it.size == frame.size }?.let { stripStatus(it) }
-        val nid = nid(d) ?: return Decoded(null, emptyList(), 0)
+        val nid = nid(d, sd, nac) ?: return Decoded(null, emptyList(), 0)
         if (nid.duid != DUID_TSDU) return Decoded(nid, emptyList(), 0)
         val out = ArrayList<Tsbk>(); var bad = 0
         var at = NID_DIBITS
@@ -80,6 +83,32 @@ object P25Frame {
         }
         return if (bestErr <= 11) Nid(best shr 4, best and 0xf, bestErr) else null
     }
+
+    /**
+     * [nid], and when that fails with the channel's [nac] known: the closest of that NAC's NIDs to the [soft] symbol
+     * values (status symbols out), when it is the only closest and no more than 15 bits off. SDRTrunk's
+     * P25P1MessageFramer.softDecodeNID: 7 candidates make a random word pass about once in 7,700.
+     */
+    fun nid(d: IntArray, soft: DoubleArray?, nac: Int?): Nid? {
+        nid(d)?.let { return it }
+        if (nac == null || soft == null || soft.size < NID_DIBITS || d.size < NID_DIBITS) return null
+        var best = -1; var bestDist = Double.MAX_VALUE; var second = Double.MAX_VALUE; var bestErr = 0
+        for (duid in SOFT_DUIDS) {
+            val cw = nidCodeword(nac shl 4 or duid) shl 1 // the 64th bit, a plain parity bit, either way
+            var dist = 0.0; var err = 0
+            for (k in 0 until NID_DIBITS) {
+                val sent = (cw ushr (62 - 2 * k) and 3L).toInt()
+                dist += if (k < NID_DIBITS - 1) (soft[k] - LEVEL[sent]).let { it * it }
+                    else minOf((soft[k] - LEVEL[sent and 2]).let { it * it }, (soft[k] - LEVEL[sent or 1]).let { it * it })
+                err += Integer.bitCount((sent xor d[k]) and (if (k < NID_DIBITS - 1) 3 else 2))
+            }
+            if (dist < bestDist) { second = bestDist; bestDist = dist; best = duid; bestErr = err } else if (dist < second) second = dist
+        }
+        return if (best >= 0 && bestDist < second && bestErr <= 15) Nid(nac, best, bestErr) else null
+    }
+
+    /** The data unit IDs P25 phase 1 uses: header, terminator, LDU1, trunking, LDU2, data packet, terminator with LC. */
+    private val SOFT_DUIDS = intArrayOf(0x0, 0x3, 0x5, 0x7, 0xA, 0xC, 0xF)
 
     // ---- Trunking blocks ----
 

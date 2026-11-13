@@ -27,11 +27,16 @@ class P25Follow(offsetHz: Double, lsm: Boolean = false, private val grantClear: 
     var talker: Int? = null; private set
     private val updates = HashSet<Long>()
     var dataPackets = 0; private set
+    /** The channel's NAC once two frames in a row said it, for damaged NIDs ([P25Frame.nid]). */
+    private var nac: Int? = null
+    private var nacRead: Int? = null
 
-    private val demod = P25Demod(offsetHz, P25Voice.LDU_DIBITS, if (lsm) P25Demod.Mod.LSM else P25Demod.Mod.C4FM) { f ->
-        val v = P25Voice.decode(f)
+    private val demod: P25Demod = P25Demod(offsetHz, P25Voice.LDU_DIBITS, if (lsm) P25Demod.Mod.LSM else P25Demod.Mod.C4FM) { f ->
+        val v = P25Voice.decode(f, demod.soft, nac)
+        val nid = v?.nid ?: P25Frame.nid(P25Frame.stripStatus(f), demod.soft.takeIf { it.size == f.size }?.let { P25Frame.stripStatus(it) }, nac)
+        if (nid != null) { if (nid.nac == nacRead) nac = nid.nac; nacRead = nid.nac }
         when {
-            v == null -> if (P25Frame.nid(P25Frame.stripStatus(f))?.duid in TERMINATORS) { ended = true; endedBy = "terminator" }
+            v == null -> if (nid?.duid in TERMINATORS) { ended = true; endedBy = "terminator" }
             v.encrypted -> {
                 // A grant that said clear takes a real cipher ID: weak clear calls were cut by two garbled LDU2s alike.
                 if (P25Voice.confirmsEncryption(lastAlgid, v.algid!!) && (!grantClear || v.algid in P25Voice.CIPHERS)) {

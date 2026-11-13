@@ -195,7 +195,7 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
         var good = false
         lateinit var demod: P25Demod
         demod = P25Demod(OFFSET_HZ.toDouble(), mod = if (lock.lsm) P25Demod.Mod.LSM else P25Demod.Mod.C4FM) { f ->
-            val d = P25Frame.decode(f, demod.soft)
+            val d = P25Frame.decode(f, demod.soft, lock.nac)
             if (d.nid != null && d.nid.nac != lock.nac) { st.frames++; st.otherNac++; return@P25Demod }
             st.add(d)
             if (d.tsbks.isNotEmpty()) { lastGood = samples; good = true }
@@ -517,7 +517,7 @@ class P25Hunt(private val sdr: SdrDevice, private val readAhead: Boolean = false
             var heard = 0
             lateinit var demod: P25Demod
             demod = P25Demod(OFFSET_HZ.toDouble()) { f ->
-                val d = P25Frame.decode(f, demod.soft)
+                val d = P25Frame.decode(f, demod.soft, nac)
                 if (d.nid?.nac != nac) return@P25Demod
                 for (t in d.tsbks) P25Tsbk.parseInbound(t)?.let { heard++; onRadio(it, levels.max()) }
             }
