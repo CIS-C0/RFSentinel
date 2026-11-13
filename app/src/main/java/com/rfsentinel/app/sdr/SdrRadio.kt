@@ -1029,9 +1029,10 @@ object SdrRadio {
             com.rfsentinel.app.util.Voice.radioHeard()
         }
         var nxdn: Nxdn? = null
+        var dmr: Dmr? = null
         val demod = if (p25) null else AudioDemod(AudioDemod.modeFor(hz), INPUT_OFFSET_HZ, sdr.sampleRate) { pcm, n ->
             // A digital radio's FM audio is its data's hiss: its decoded voice is played instead.
-            if (nxdn?.active != true) { heard?.add(pcm.copyOf(n)); out?.write(pcm, 0, n) }
+            if (nxdn?.active != true && dmr?.active != true) { heard?.add(pcm.copyOf(n)); out?.write(pcm, 0, n) }
         }
         // Narrow FM: MDC-1200 bursts name the radio (unit ID) or flag an emergency.
         var mdcUnit: Mdc1200.Packet? = null; var mdcCount = 0
@@ -1045,7 +1046,12 @@ object SdrRadio {
                 heard?.add(pcm); out?.write(pcm, 0, pcm.size)
                 com.rfsentinel.app.util.Voice.radioHeard()
             }.also { nxdn = it }
-            d.tap = { v -> mdc.sample(v); nx.sample(v) }
+            // DMR digital voice (MOTOTRBO, Hytera, most business radios): decoded when clear.
+            val dm = Dmr(d.audioRate, d.audioRate) { pcm ->
+                heard?.add(pcm); out?.write(pcm, 0, pcm.size)
+                com.rfsentinel.app.util.Voice.radioHeard()
+            }.also { dmr = it }
+            d.tap = { v -> mdc.sample(v); nx.sample(v); dm.sample(v) }
         }
         var digital = ""; var cipher = -1
         val track = runCatching { newSpeaker(demod?.audioRate ?: ImbeDecoder.RATE).also { it.play() } }
@@ -1079,9 +1085,14 @@ object SdrRadio {
                         val note = "digital radio (NXDN)" + Nxdn.cipherLabel(cipher).let { if (it.isEmpty()) "" else " · $it" }
                         if (note != digital) { digital = note; status = "$deviceLabel · playing $mhz · $note" + turnNote(); RadioLog.digital(e.freqHz, note) }
                     }
+                    dmr?.takeIf { it.bursts > 0 }?.let { x ->
+                        if (x.cipher >= 0) cipher = x.cipher
+                        val note = "digital radio (DMR)" + Dmr.cipherLabel(cipher).let { if (it.isEmpty()) "" else " · $it" }
+                        if (note != digital) { digital = note; status = "$deviceLabel · playing $mhz · $note" + turnNote(); RadioLog.digital(e.freqHz, note) }
+                    }
                     // Encrypted: nothing to hear, the sweep goes on (as for P25).
                     if (cipher > 0) break
-                    if (demod.open || nxdn?.active == true) { heardMs += now - heardAt; heardAt = now; com.rfsentinel.app.util.Voice.radioHeard() }
+                    if (demod.open || nxdn?.active == true || dmr?.active == true) { heardMs += now - heardAt; heardAt = now; com.rfsentinel.app.util.Voice.radioHeard() }
                     else if (now - heardAt >= if (heardMs == 0L) PLAY_START_MS else PLAY_QUIET_MS) break
                 } else if (follow != null) {
                     follow.feed(buf, n / 2)
@@ -1094,6 +1105,7 @@ object SdrRadio {
             (if (secs > 0) "played (%.1f s)".format(java.util.Locale.US, secs) else "not played") +
             (if (follow != null) ", P25" + (follow.endedBy?.let { ", ended: $it" } ?: "") + dataNote(follow) else "") +
             (nxdn?.takeIf { it.frames > 0 }?.let { x -> nxdnNote(x, cipher) } ?: "") +
+            (dmr?.takeIf { it.bursts > 0 || it.dataSyncs > 0 }?.let { x -> dmrNote(x) } ?: "") +
             (if (clipped > 0) ", %.2f%% samples clipped".format(java.util.Locale.US, 100.0 * clipped / maxOf(1L, bytes)) else "") +
             (if (gain != GAIN_TENTHS_DB) ", gain lowered to ${gain / 10.0} dB (overload)" else "") +
             // Unit IDs stay off the log unless "log everything" is on.
@@ -1113,6 +1125,15 @@ object SdrRadio {
         (if (x.longestGap >= 0.2) ", longest gap %.1f s".format(java.util.Locale.US, x.longestGap) else "") +
         (if (x.encryptedFrames > 0) ", ${x.encryptedFrames} encrypted" else "") +
         ", " + (Nxdn.cipherLabel(cipher).ifEmpty { "cipher not heard" }) +
+        (if (logAll && x.source >= 0) ", unit ${x.source} to ${x.destination}" else "")
+
+    /** What the DMR decoder made of a transmission, for the log: bursts, voice, privacy; IDs only with "log everything". */
+    private fun dmrNote(x: Dmr) = ", DMR ${x.bursts} bursts (${x.badBursts} bad), ${x.dataSyncs} data, ${x.voiceFrames} voice" +
+        (if (x.voiceFrames > 0) " (%.1f bits fixed each)".format(java.util.Locale.US, x.ambeErrors.toDouble() / x.voiceFrames) else "") +
+        (if (x.longestGap >= 0.2) ", longest gap %.1f s".format(java.util.Locale.US, x.longestGap) else "") +
+        (if (x.encryptedFrames > 0) ", ${x.encryptedFrames} encrypted" else "") +
+        (if (x.heldFrames > 0) ", ${x.heldFrames} before the privacy was known" else "") +
+        ", ${x.linkControls} link controls" + (if (x.polarityFlips > 0) ", polarity flipped ${x.polarityFlips}×" else "") +
         (if (logAll && x.source >= 0) ", unit ${x.source} to ${x.destination}" else "")
 
     /** Finds a P25 control channel and follows it; looks again when it goes quiet or none was found. */

@@ -126,5 +126,35 @@ class AmbeDecoder(rnd: Random = Random(1)) : MbeSynth(rnd) {
         private const val SPEECH = 0
         private const val ERASURE = 2
         private const val TONE = 3
+
+        /** One AMBE frame's 36 dibits as sent (NXDN, DMR; [dibit] of 0..35) to mbelib's rows: DSD's interleave map. */
+        fun frame(dibit: (Int) -> Int): Array<IntArray> {
+            val fr = Array(4) { IntArray(24) }
+            for (i in 0 until 36) { val x = dibit(i); fr[NW[i]][NX[i]] = x shr 1; fr[NY[i]][NZ[i]] = x and 1 }
+            return fr
+        }
+
+        // Dibit i's first bit to row NW bit NX, its second to NY / NZ.
+        private val NW = intArrayOf(0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2)
+        private val NX = intArrayOf(23, 10, 22, 9, 21, 8, 20, 7, 19, 6, 18, 5, 17, 4, 16, 3, 15, 2, 14, 1, 13, 0, 12, 10, 11, 9, 10, 8, 9, 7, 8, 6, 7, 5, 6, 4)
+        private val NY = intArrayOf(0, 2, 0, 2, 0, 2, 0, 2, 0, 3, 0, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3)
+        private val NZ = intArrayOf(5, 3, 4, 2, 3, 1, 2, 0, 1, 13, 0, 12, 22, 11, 21, 10, 20, 9, 19, 8, 18, 7, 17, 6, 16, 5, 15, 4, 14, 3, 13, 2, 12, 1, 11, 0)
+    }
+}
+
+/** 8 kHz speech to [outRate] (a whole multiple), by linear steps: the receiver's audio rate. */
+class Upsampler(outRate: Int) {
+    private val k = outRate / MbeSynth.RATE
+    private var last = 0.0
+
+    fun apply(pcm: ShortArray): ShortArray {
+        if (k <= 1) return pcm
+        val out = ShortArray(pcm.size * k)
+        for (i in pcm.indices) {
+            val x = pcm[i].toDouble()
+            for (j in 1..k) out[i * k + j - 1] = (last + (x - last) * j / k).toInt().toShort()
+            last = x
+        }
+        return out
     }
 }

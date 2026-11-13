@@ -9,6 +9,8 @@
 | IMBE 7200x4400 parameter decoding, spectral amplitude enhancement, speech synthesis and tables | [mbelib](https://github.com/szechyjs/mbelib) (Copyright (C) 2010 mbelib Author) | ISC |
 | AMBE 3600x2450 (AMBE+2 half rate) error correction, parameter decoding and tables (`AmbeDecoder.kt`, `AmbeTables.kt` generated from `ambe3600x2450_const.h`; synthesis shared with IMBE in `MbeSynth.kt`) | [mbelib](https://github.com/szechyjs/mbelib) (Copyright (C) 2010 mbelib Author) | ISC |
 | NXDN48 frames (`Nxdn.kt`): frame sync, LICH, PN9 scrambler, SACCH / FACCH1 interleave, puncturing, K=5 code and CRCs, VCALL cipher field, AMBE dibit map | [DSD-FME](https://github.com/lwvmobile/dsd-fme) (DSD: Copyright (C) 2010 DSD Author; LWVMOBILE), its NXDN code reworked from [OP25](https://github.com/osmocom/op25) `rx_sync.cc` (C) 2019 Max H. Parke KA1RBI; written anew in Kotlin (hard-decision Viterbi) | ISC; OP25 parts GPL-3.0-or-later |
+| DMR voice (`Dmr.kt`): burst layout, voice syncs, AMBE dibit map, EMB / embedded link control assembly (BPTC(128,72), CRC-5), the polarity rule | [dsd-neo](https://github.com/arancormonk/dsd-neo) (Copyright (C) 2025-2026 arancormonk; from DSD-FME, LWVMOBILE, and DSD, Copyright (C) 2010 DSD Author); written anew in Kotlin | ISC |
+| Hamming(16,11,4) and QR(16,7,6) parity-check matrices (`Dmr.kt`; the Hamming matrix's last row corrected to ETSI TS 102 361-1) | dsd-neo `fec.c`, Copyright (C) 2016 Edouard Griffiths, F4EXB | GPL-3.0-or-later |
 
 The ISC license of DSD and mbelib:
 
