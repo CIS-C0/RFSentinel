@@ -61,7 +61,6 @@ class P25SdrTrunkTest {
         val other = ArrayList<Pair<Int, Int>>()
         val f = P25Follow(0.0, onOtherCall = { ch, tg -> other += ch to tg }) {}
         val user = intArrayOf(0x00, 0x00, 0x00, 0x00, 0x01, 0x2C, 0x0A, 0x0B, 0x0C) // talkgroup 300, radio 0x0A0B0C
-        f.linkControl(user); assertNull(f.talker) // once: not trusted yet
         f.linkControl(user); assertEquals(0x0A0B0C, f.talker)
         // Update: talkgroup 5000 on 0x1005, slot B unused.
         val update = intArrayOf(0x42, 0x10, 0x05, 0x13, 0x88, 0x00, 0x00, 0x00, 0x00)
@@ -76,13 +75,19 @@ class P25SdrTrunkTest {
     fun ldu1LinkControlWords() {
         val lc = intArrayOf(0x02, 0x10, 0x05, 0x13, 0x88, 0x20, 0x01, 0x00, 0xC8)
         val words = IntArray(12) { w -> var v = 0; for (b in 0 until 6) { val bit = w * 6 + b; v = v shl 1 or (lc[bit / 8] shr (7 - bit % 8) and 1) }; v }
+        val all = words + P25ReedSolomon.encode(words, 12)
         val d = IntArray(900)
-        val at = intArrayOf(176, 268, 360)
-        for (i in 0 until 12) {
-            val code = words[i] shl 4 or P25Voice.hexParity(words[i])
+        val at = intArrayOf(176, 268, 360, 452, 544, 636)
+        for (i in 0 until 24) {
+            val code = all[i] shl 4 or P25Voice.hexParity(all[i])
             for (k in 0 until 5) d[at[i / 4] + 5 * (i % 4) + k] = code shr (8 - 2 * k) and 3
         }
-        d[at[1] + 2] = d[at[1] + 2] xor 1 // one bit wrong: corrected
+        d[at[1] + 2] = d[at[1] + 2] xor 1 // one bit wrong: Hamming corrects it
+        // Six words beyond Hamming (two bits each): Reed-Solomon corrects them.
+        for (i in listOf(0, 5, 9, 13, 18, 23)) { val a = at[i / 4] + 5 * (i % 4); d[a] = d[a] xor 3 }
         assertEquals(lc.toList(), P25Voice.lc(d)!!.toList())
+        // A seventh: beyond repair, nothing rather than a wrong talker.
+        d[at[2] + 15] = d[at[2] + 15] xor 3
+        assertNull(P25Voice.lc(d))
     }
 }

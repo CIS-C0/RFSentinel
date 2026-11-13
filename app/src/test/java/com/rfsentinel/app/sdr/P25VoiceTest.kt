@@ -35,7 +35,10 @@ class P25VoiceTest {
         val d = IntArray(816)
         P25TestSignal.dibitsOf(P25Frame.nidCodeword(0x293 shl 4 or duid) shl 1, 32).copyInto(d)
         for (i in 0 until 9) codeword(voice[i]).copyInto(d, P25Voice.VOICE_AT[i])
-        hexWord(algid shr 2).copyInto(d, 452); hexWord(algid and 3 shl 4).copyInto(d, 457)
+        // Encryption sync (zero MI and key ID) or link control (zeros), with its Reed-Solomon parity.
+        val es = IntArray(16).also { it[12] = algid shr 2; it[13] = algid and 3 shl 4 }
+        val words = if (duid == P25Voice.DUID_LDU2) es + P25ReedSolomon.encode(es, 8) else IntArray(24)
+        for (i in 0 until 24) hexWord(words[i]).copyInto(d, intArrayOf(176, 268, 360, 452, 544, 636)[i / 4] + 5 * (i % 4))
         hit(d)
         return withStatus(d)
     }

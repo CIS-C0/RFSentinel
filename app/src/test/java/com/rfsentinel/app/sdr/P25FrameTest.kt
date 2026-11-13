@@ -44,6 +44,18 @@ class P25FrameTest {
     }
 
     @Test
+    fun oneWrongBitAfterTheTrellisIsPutRight() {
+        val crc = P25Frame.remainder(last + byteArrayOf(0, 0)) xor 0xffff
+        val good = last + byteArrayOf((crc shr 8).toByte(), crc.toByte())
+        for (bit in 0 until 96) {
+            val b = good.copyOf(); b[bit / 8] = (b[bit / 8].toInt() xor (0x80 ushr (bit % 8))).toByte()
+            assertTrue(P25Frame.crcOk(b)); assertTrue(b.contentEquals(good))
+        }
+        val two = good.copyOf(); two[0] = (two[0].toInt() xor 0x81).toByte()
+        assertTrue(!P25Frame.crcOk(two))
+    }
+
+    @Test
     fun noiseIsNoNid() {
         val r = java.util.Random(3)
         assertNull(P25Frame.nid(IntArray(32) { r.nextInt(4) }))

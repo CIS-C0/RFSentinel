@@ -6,7 +6,7 @@ package com.rfsentinel.app.sdr
  * [ended] once the call's terminator is heard, or it turns out encrypted; [quietS]: seconds since the last voice frame.
  * [lsm]: the site is a simulcast one (its control channel decoded as LSM), so its voice channels are LSM too.
  * [onOtherCall]: another talkgroup's call going on, as the link control announces it (channel, talkgroup), each time
- * after the first; [talker] the radio talking, once its link control read the same twice.
+ * after the first; [talker] the radio talking, from its link control.
  * [onPosition]: a radio's GPS position from a data packet on the channel ([P25Pdu]); [dataPackets] how many were heard.
  */
 class P25Follow(offsetHz: Double, lsm: Boolean = false, private val grantClear: Boolean = false,
@@ -25,7 +25,6 @@ class P25Follow(offsetHz: Double, lsm: Boolean = false, private val grantClear: 
     var garbled = 0; private set
     private var lastAlgid: Int? = null
     var talker: Int? = null; private set
-    private var talkerRead: Int? = null
     private val updates = HashSet<Long>()
     var dataPackets = 0; private set
 
@@ -61,9 +60,9 @@ class P25Follow(offsetHz: Double, lsm: Boolean = false, private val grantClear: 
         if (lc[0] and 0x80 != 0 || (lc[0] and 0x40 == 0 && lc[1] != 0)) return
         when (lc[0] and 0x3F) {
             0x00 -> run {
+                // Reed-Solomon checked ([P25Voice.lc]): one read is enough.
                 val id = lc[6] shl 16 or (lc[7] shl 8) or lc[8]
-                if (id != 0 && id == talkerRead) talker = id
-                talkerRead = id
+                if (id != 0) talker = id
             }
             0x02 -> for ((ch, tg) in listOf((lc[1] shl 8 or lc[2]) to (lc[3] shl 8 or lc[4]), (lc[5] shl 8 or lc[6]) to (lc[7] shl 8 or lc[8])))
                 if (tg != 0 && !updates.add(ch.toLong() shl 16 or tg.toLong())) onOtherCall?.invoke(ch, tg)

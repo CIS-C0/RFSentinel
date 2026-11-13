@@ -24,8 +24,7 @@ object P25Voice {
 
     /**
      * A voice frame: its codewords, and [algid] from an LDU2 (null from an LDU1, or when damaged); [lc] an LDU1's link
-     * control, 9 bytes from its LCF (null from an LDU2, or when a word is beyond repair). Its Reed-Solomon parity isn't
-     * checked: read it twice alike before trusting it.
+     * control, 9 bytes from its LCF (null from an LDU2, or when damaged). Both Reed-Solomon checked ([P25ReedSolomon]).
      */
     class Frame(val nid: P25Frame.Nid, val voice: List<Imbe>, val algid: Int?, val lc: IntArray? = null) {
         val encrypted get() = algid != null && algid != ALGID_CLEAR
@@ -33,30 +32,36 @@ object P25Voice {
 
     /** Where the nine codewords start, in dibits after the NID's first (status symbols out). */
     internal val VOICE_AT = intArrayOf(32, 104, 196, 288, 380, 472, 564, 656, 744)
-    /** The LDU2's 4th group of hex words, after codeword 5: the algorithm ID is in its first two. */
-    private const val ALGID_AT = 452
-    /** The LDU1's first three groups of hex words (after codewords 2, 3, 4): the link control's 12 words. */
-    private val LC_AT = intArrayOf(176, 268, 360)
+    /**
+     * The six groups of four hex words, after codewords 2 to 7: an LDU1's link control (12 words, 12 Reed-Solomon parity),
+     * an LDU2's encryption sync (16 words: MI, algorithm ID from bit 72, key ID; 8 parity).
+     */
+    private val HEX_AT = intArrayOf(176, 268, 360, 452, 544, 636)
 
     /** A voice frame, or null when it isn't one (or its NID is beyond repair). */
     fun decode(frame: IntArray): Frame? {
         val d = P25Frame.stripStatus(frame)
         val nid = P25Frame.nid(d) ?: return null
         if (nid.duid != DUID_LDU1 && nid.duid != DUID_LDU2 || d.size < VOICE_AT.last() + 72) return null
-        val algid = if (nid.duid != DUID_LDU2) null else {
-            val a = hex(d, ALGID_AT); val b = hex(d, ALGID_AT + 5)
-            if (a == null || b == null) null else a shl 2 or (b shr 4)
-        }
+        val algid = if (nid.duid != DUID_LDU2) null else rsWords(d, 8)?.let { w -> w[12] shl 2 or (w[13] shr 4) }
         return Frame(nid, VOICE_AT.map { imbe(d, it) }, algid, if (nid.duid == DUID_LDU1) lc(d) else null)
     }
 
-    /** The link control's 72 bits as 9 bytes, or null when one of its hex words can't be corrected. */
+    /** The link control's 72 bits as 9 bytes, or null when it is beyond repair. */
     internal fun lc(d: IntArray): IntArray? {
-        val w = IntArray(12)
-        for (i in 0 until 12) w[i] = hex(d, LC_AT[i / 4] + 5 * (i % 4)) ?: return null
+        val w = rsWords(d, 12) ?: return null
         val out = IntArray(9)
         for (bit in 0 until 72) out[bit / 8] = out[bit / 8] shl 1 or (w[bit / 6] shr (5 - bit % 6) and 1)
         return out
+    }
+
+    /**
+     * The 24 hex words, each Hamming-corrected (one beyond that taken as read), then Reed-Solomon corrected with [parity]
+     * of them parity, as SDRTrunk's LDU1/LDU2 messages do; null when beyond repair.
+     */
+    internal fun rsWords(d: IntArray, parity: Int): IntArray? {
+        val w = IntArray(24) { i -> val at = HEX_AT[i / 4] + 5 * (i % 4); hex(d, at) ?: (d[at] shl 4 or (d[at + 1] shl 2) or d[at + 2]) }
+        return if (P25ReedSolomon.decode(w, parity) < 0) null else w
     }
 
     /** A hex word (6 bits + 4 Hamming 10,6 parity, 5 dibits) at [at], corrected; null with more than one error. */
@@ -168,23 +173,23 @@ object P25Voice {
     /** What a [P25Record] recording held: its voice frames, and how many frame syncs were found. */
     class Decoded(val frames: List<Frame>, val syncs: Int)
 
-    /** Runs a recording (2-channel 16-bit WAV at [P25Record.RATE]) through the demodulator and this decoder. */
-    fun decodeRecording(wav: ByteArray): Decoded {
+    /** Runs a recording (2-channel 16-bit WAV at [P25Record.RATE]) through the demodulator ([mod]) and this decoder. */
+    fun decodeRecording(wav: ByteArray, mod: P25Demod.Mod = P25Demod.Mod.C4FM): Decoded {
         val b = java.nio.ByteBuffer.wrap(wav).order(java.nio.ByteOrder.LITTLE_ENDIAN)
         // The data chunk: after the 12-byte RIFF header, chunk by chunk.
         var at = 12
         while (at + 8 <= wav.size && String(wav, at, 4) != "data") at += 8 + b.getInt(at + 4)
         val end = if (at + 8 <= wav.size) minOf(wav.size, at + 8 + b.getInt(at + 4)) else at
         val frames = ArrayList<Frame>()
-        val demod = P25Demod(0.0, LDU_DIBITS) { f -> decode(f)?.let { frames += it } }
+        val demod = P25Demod(0.0, LDU_DIBITS, mod) { f -> decode(f)?.let { frames += it } }
         var k = at + 8
         while (k + 4 <= end) { demod.feedChannel(b.getShort(k).toDouble(), b.getShort(k + 2).toDouble()); k += 4 }
         return Decoded(frames, demod.syncs)
     }
 
     /**
-     * The algorithm ID is only two Hamming-checked words, so a garbled LDU2 can read as encrypted (simulcast did, cutting
-     * clear calls after one frame): a call is encrypted when two LDU2s in a row say the same non-clear ID.
+     * A garbled LDU2 read as encrypted once (simulcast did, cutting clear calls after one frame, before the Reed-Solomon
+     * check): a call is encrypted when two LDU2s in a row say the same non-clear ID.
      */
     fun confirmsEncryption(previous: Int?, algid: Int) = algid != ALGID_CLEAR && algid == previous
 

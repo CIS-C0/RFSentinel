@@ -136,9 +136,19 @@ object P25Frame {
 
     /**
      * The block's 96 bits divided by x^16+x^12+x^5+1 leave all ones when it is intact (the sender appends the
-     * inverted CRC-CCITT of the first 10 bytes).
+     * inverted CRC-CCITT of the first 10 bytes). One wrong bit is put right in [b], as SDRTrunk's CRCP25.correctCCITT80
+     * does after the trellis; two or more fail.
      */
-    fun crcOk(b: ByteArray): Boolean = remainder(b) == 0xffff
+    fun crcOk(b: ByteArray): Boolean {
+        val s = remainder(b) xor 0xffff
+        if (s == 0) return true
+        val bit = SINGLE_BIT.indexOf(s).takeIf { it >= 0 && b.size == 12 } ?: return false
+        b[bit / 8] = (b[bit / 8].toInt() xor (0x80 ushr (bit % 8))).toByte()
+        return true
+    }
+
+    /** What one wrong bit (MSB first) does to a 12-byte block's remainder: the distance-4 code makes each unique. */
+    private val SINGLE_BIT = IntArray(96) { i -> remainder(ByteArray(12).also { it[i / 8] = (0x80 ushr (i % 8)).toByte() }) }
 
     /** Remainder of [b] (bits MSB first) divided by the CCITT polynomial. */
     fun remainder(b: ByteArray): Int {
