@@ -1013,8 +1013,10 @@ Your own themes sit under the built-in ones: **Create a custom theme**, long-pre
   Bluetooth devices when you pick your car; *Display over other apps* only for
   the floating bubble; *Camera* only in the normal build's Locate camera view,
   asked the first time you open it (the picture stays on the phone and nothing
-  from it is saved). No contacts, storage or microphone access. The `-foss.apk`
-  has no camera access at all.
+  from it is saved); *Microphone* only if you turn on Transcribe P25 calls,
+  because Android's on-device speech recognition requires it: the microphone is
+  never opened, the recognizer is given the saved call's sound. No contacts or
+  storage access. The `-foss.apk` has no camera access at all.
 
 <details>
 <summary><b>Network use: which servers see what</b></summary>

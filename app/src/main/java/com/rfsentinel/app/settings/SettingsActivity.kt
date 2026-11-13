@@ -176,6 +176,19 @@ class SettingsActivity : AppCompatActivity() {
         updateBannerButtons()
     }
 
+    /** Transcribe P25 calls: Android's speech recognizer needs the microphone permission, though the mic is never opened. */
+    private val speechPermission = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        setP25Transcribe(granted)
+        if (!granted) { Toast.makeText(this, "Calls aren't transcribed without it", Toast.LENGTH_LONG).show(); transcribeBox?.isChecked = false }
+    }
+    private var transcribeBox: android.widget.CheckBox? = null
+
+    private fun setP25Transcribe(on: Boolean) {
+        Prefs.setP25Transcribe(this, on); com.rfsentinel.app.sdr.P25Transcribe.enabled = on
+    }
+
     private val connectPermission = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -1885,6 +1898,21 @@ class SettingsActivity : AppCompatActivity() {
             "on the phone only, to listen to again on the P25 talkgroups screen › Played calls. The last ${com.rfsentinel.app.sdr.P25Record.CALLS_KEEP} are kept, about 1 MB per minute of voice. " +
             "Recording radio calls is not allowed everywhere: check the law where you are.") {
             Prefs.setP25SaveCalls(this, it); com.rfsentinel.app.sdr.SdrRadio.saveCalls = it
+        }
+        transcribeBox = scan("Transcribe P25 calls", Prefs.p25Transcribe(this),
+            "Experimental, Android 13 and newer. Each saved call (Save played calls, above) is turned into text by Android's own " +
+            "on-device speech recognition, shown under the call on the P25 talkgroups screen › Played calls. Everything stays " +
+            "on the phone. Android lets an app use its speech recognition only with the microphone permission, so it asks for " +
+            "it: RF Sentinel never opens the microphone, it gives the recognizer the call's sound. Radio speech is noisy and " +
+            "full of codes, so expect mistakes. For other languages, download them for offline speech in Android's settings.") {
+            when {
+                !it -> setP25Transcribe(false)
+                android.os.Build.VERSION.SDK_INT < 33 -> {
+                    Toast.makeText(this, "Needs Android 13 or newer", Toast.LENGTH_LONG).show(); transcribeBox?.isChecked = false
+                }
+                checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED -> setP25Transcribe(true)
+                else -> speechPermission.launch(android.Manifest.permission.RECORD_AUDIO)
+            }
         }
         val pagerGroup = group("pagers", "Pagers")
         pagerFreqField = lines("Pager frequencies", "466.075 Fire dispatch", Prefs.pagerFreqs(this),

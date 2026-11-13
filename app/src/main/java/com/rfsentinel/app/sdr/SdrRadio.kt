@@ -1373,6 +1373,7 @@ object SdrRadio {
             ", ended: $why" + (if (follow.garbled > 0) ", ${follow.garbled} garbled frames skipped" else "") + dataNote(follow))
         val ctx = appContext
         if (heard != null && follow.frames > 0 && ctx != null) runCatching { P25Record.saveSpeech(ctx, call, heard, follow.talker) }
+            .onSuccess { P25Transcribe.enqueue(ctx, it, heard) }
             .onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 call sound not saved - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
         return follow.frames > 0
     }

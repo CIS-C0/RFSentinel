@@ -45,12 +45,18 @@
     <!-- Settings > About > Check for updates: downloads the new release and installs it over the app (Android asks once). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Only for Settings › Transcribe P25 calls (asked when it's turned on): Android's speech recognizer requires it.
+         The microphone is never opened; the recognizer is given the saved call's sound. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Optional floating threat bubble over other apps (the user grants it in Settings). -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <!-- Android 11+ hides other apps: without this, speech engines other than the built-in one can't be found (GrapheneOS, a Play Store Google TTS). -->
     <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>

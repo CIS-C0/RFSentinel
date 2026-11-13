@@ -135,7 +135,7 @@ object P25Record {
     private fun keep(context: Context, dirName: String, max: Int, name: String, wav: ByteArray): File {
         val dir = File(context.filesDir, dirName).apply { mkdirs() }
         val f = File(dir, name).apply { writeBytes(wav) }
-        list(context, dirName).drop(max).forEach { it.delete() }
+        list(context, dirName).drop(max).forEach { it.delete(); P25Transcribe.sidecar(it).delete() }
         return f
     }
 

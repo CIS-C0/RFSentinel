@@ -276,19 +276,21 @@ class P25Activity : AppCompatActivity() {
 
     /** The saved played calls ([com.rfsentinel.app.sdr.P25Record.saveSpeech]), newest first: tap one to hear it. */
     private fun showPlayedCalls() = lifecycleScope.launch {
-        val calls = withContext(Dispatchers.IO) {
+        val (calls, texts) = withContext(Dispatchers.IO) {
             com.rfsentinel.app.sdr.P25Record.speechFiles(this@P25Activity).mapNotNull { com.rfsentinel.app.sdr.P25Record.saved(it) }
+                .let { c -> c to c.map { com.rfsentinel.app.sdr.P25Transcribe.textOf(it.file) } }
         }
         if (calls.isEmpty()) {
             android.widget.Toast.makeText(this@P25Activity, "No calls saved yet: each P25 call played is kept (Settings › " +
                 "RTL-SDR radio › Save played calls)", android.widget.Toast.LENGTH_LONG).show()
             return@launch
         }
-        val labels = calls.map { c ->
+        val labels = calls.mapIndexed { i, c ->
             val who = c.tg?.let { tg -> "Talkgroup $tg" + ((watched[tg]?.ifEmpty { null } ?: rr(tg))?.let { " ($it)" } ?: "") }
                 ?: c.hz?.let { String.format(Locale.US, "Radio %.4f MHz", it / 1e6) } ?: "Private call to radio ${c.target}"
             DateUtils.formatDateTime(this@P25Activity, c.time, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or
-                DateUtils.FORMAT_ABBREV_MONTH) + " · $who" + (c.who?.let { " · $it" } ?: "") + " · " + String.format(Locale.US, "%.1f s", c.seconds)
+                DateUtils.FORMAT_ABBREV_MONTH) + " · $who" + (c.who?.let { " · $it" } ?: "") + " · " + String.format(Locale.US, "%.1f s", c.seconds) +
+                (texts[i]?.let { "\n\u201C$it\u201D" } ?: "")
         }.toTypedArray()
         com.google.android.material.dialog.MaterialAlertDialogBuilder(this@P25Activity)
             .setTitle("Played calls")
