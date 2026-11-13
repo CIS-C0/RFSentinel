@@ -238,6 +238,10 @@ object Prefs {
     fun carVoice(context: Context): Boolean = bool(context, "car_voice", true)
     fun setCarVoice(context: Context, value: Boolean) = setBool(context, "car_voice", value)
 
+    /** Alerts as messages on the Android Auto screen; off = sound and voice only while in the car. */
+    fun carMessages(context: Context): Boolean = bool(context, "car_messages", true)
+    fun setCarMessages(context: Context, value: Boolean) = setBool(context, "car_messages", value)
+
     /** Minimum confidence (0-100) that sounds an alert; weaker matches are only highlighted. */
     fun alertThreshold(context: Context): Int = int(context, "alert_threshold", 50)
     fun setAlertThreshold(context: Context, value: Int) = setInt(context, "alert_threshold", value)
@@ -351,6 +355,9 @@ object Prefs {
     /** How long an ordinary device stays in the list / radar after it was last heard (seconds). */
     fun liveBleSec(context: Context): Int = int(context, "live_ble_sec", 30).coerceIn(5, 180)
     fun setLiveBleSec(context: Context, sec: Int) = setInt(context, "live_ble_sec", sec.coerceIn(5, 180))
+    /** dB added to a Bluetooth device's signal for the list's bars only (its dBm and alerts unchanged). */
+    fun btBarBoost(context: Context): Int = int(context, "bt_bar_boost", 0).coerceIn(0, 30)
+    fun setBtBarBoost(context: Context, db: Int) = setInt(context, "bt_bar_boost", db.coerceIn(0, 30))
     fun liveWifiSec(context: Context): Int = int(context, "live_wifi_sec", 60).coerceIn(minLiveWifiSec(context), 180)
 
     /**

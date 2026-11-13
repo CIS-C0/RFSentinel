@@ -1234,6 +1234,9 @@ class SettingsActivity : AppCompatActivity() {
         withUnit(binding.intervalInput, "s")
         info(binding.batteryButton, "Opens Android's battery settings: set RF Sentinel to Unrestricted so scanning keeps going with the screen off.")
         info(binding.carAutoSwitch, "Starts scanning when the phone connects to your car's Bluetooth or Android Auto, and stops when you leave.")
+        info(binding.carMessagesSwitch, "While the phone is on Android Auto, each alert shows on the car screen as a message " +
+            "from RF Sentinel, with a notification sound from the car. Turn this off to keep the car screen clear: the alert " +
+            "sound, the spoken alert and the app's own car screens still work, and nothing goes to the phone's notifications either.")
         info(binding.carRecordSwitch, "Records a GPS trace when the phone connects to your car's Bluetooth or Android Auto, and saves it when you leave. Starts scanning too if it isn't running. A trace you started yourself is never stopped.")
         info(binding.bleEaseSwitch, "While headphones, a car or a speaker plays over Bluetooth, the scan drops from Maximum to Balanced and stops listening for long-range devices, so the music doesn't cut out. It catches a few fewer faint devices meanwhile, and goes back as soon as the audio disconnects.")
         info(binding.blePassiveSwitch, "Android normally reports a device only after three radio packets worked: the device's advert, the phone's request, the device's answer. Listen-only reports it from the advert alone, so faint and far devices show up that the ordinary scan misses, and the phone sends nothing while scanning.\n\nThe cost: the answer is where many devices put their name, so more rows stay unnamed. Needs Android 16 QPR2 or later.")
@@ -2467,6 +2470,7 @@ class SettingsActivity : AppCompatActivity() {
                 "Flagged, favourite and following devices always stay 3 minutes.",
             step: Int = 5,
             unit: (Int) -> String = { "$it s" },
+            title: String = "Out of range",
             save: (Int) -> Unit
         ): Pair<com.google.android.material.slider.Slider, android.widget.TextView> {
             val text = android.widget.TextView(this).apply {
@@ -2474,7 +2478,7 @@ class SettingsActivity : AppCompatActivity() {
                 setPadding(0, (10 * resources.displayMetrics.density).toInt(), 0, 0)
                 this.text = label(value)
             }
-            binding.sectionScanning.addView(infoRow(text, info, "Out of range"))
+            binding.sectionScanning.addView(infoRow(text, info, title))
             val s = com.google.android.material.slider.Slider(this).apply {
                 valueFrom = from.toFloat(); valueTo = to.toFloat(); stepSize = step.toFloat()
                 this.value = (value - value % step).coerceIn(from, to).toFloat()
@@ -2490,6 +2494,13 @@ class SettingsActivity : AppCompatActivity() {
         }
         slider({ "Bluetooth: off the list after $it s" }, 5, 180, Prefs.liveBleSec(this)) {
             Prefs.setLiveBleSec(this, it)
+        }
+        slider({ if (it == 0) "Bluetooth signal bars: normal" else "Bluetooth signal bars: +$it dB" }, 0, 30, Prefs.btBarBoost(this),
+            "Bluetooth devices send weaker than WiFi, so even one right next to you can show 3 bars. This fills the " +
+                "bars on Bluetooth rows sooner. Only the bars change: the dBm shown, the distance and the alerts stay the same. " +
+                "All 4 bars light from about -39 dBm, so +10 dB lights them from -49 dBm.",
+            step = 2, unit = { "+$it dB" }, title = "Bluetooth signal bars") {
+            Prefs.setBtBarBoost(this, it)
         }
         // Below 30 s only with "Wi-Fi scan throttling" off in Developer options (see updateWifiSliderMin).
         liveWifiSlider = slider(wifiLabel, Prefs.minLiveWifiSec(this), 180, Prefs.liveWifiSec(this)) {
@@ -3104,6 +3115,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.radarNamesSwitch.isChecked = Prefs.radarNames(this)
         binding.radarSweepSwitch.isChecked = Prefs.radarSweepLine(this)
         binding.vibrateSwitch.isChecked = Prefs.vibrateEnabled(this)
+        binding.carMessagesSwitch.isChecked = Prefs.carMessages(this)
         setupSnoozeLength()
         binding.radarBeepSwitch.isChecked = Prefs.radarBeep(this)
         binding.usbQuickClearSwitch.isChecked = Prefs.usbQuickClear(this)
@@ -3468,6 +3480,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setGpsVoice(this, binding.gpsVoiceSwitch.isChecked)
         Prefs.setScanIntro(this, binding.scanIntroSwitch.isChecked)
         Prefs.setVibrateEnabled(this, binding.vibrateSwitch.isChecked)
+        Prefs.setCarMessages(this, binding.carMessagesSwitch.isChecked)
         Prefs.setVoiceEnabled(this, binding.voiceSwitch.isChecked)
         Prefs.setShortVoice(this, binding.shortVoiceSwitch.isChecked)
         Prefs.setDiscreetMode(this, binding.discreetSwitch.isChecked)

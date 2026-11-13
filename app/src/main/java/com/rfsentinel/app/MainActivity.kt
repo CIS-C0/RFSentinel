@@ -536,14 +536,11 @@ class MainActivity : AppCompatActivity() {
                         onDismiss = if (notice) ({ com.rfsentinel.app.usb.UsbBluetooth.dismissNotice(this) }) else null)
                 },
                 com.rfsentinel.app.sdr.SdrRadio.status.takeIf { it.isNotBlank() }?.let {
-                    com.rfsentinel.app.ui.StatusPanel.Hardware(it,
-                        when (com.rfsentinel.app.sdr.SdrRadio.mode) {
-                            com.rfsentinel.app.sdr.SdrRadio.Mode.ADSB -> ({ com.rfsentinel.app.sdr.SdrRadio.adsbMessages })
-                            com.rfsentinel.app.sdr.SdrRadio.Mode.P25 -> ({ com.rfsentinel.app.sdr.SdrRadio.p25Messages })
-                            com.rfsentinel.app.sdr.SdrRadio.Mode.PAGER -> ({ com.rfsentinel.app.sdr.SdrRadio.pagerLog.total })
-                            com.rfsentinel.app.sdr.SdrRadio.Mode.TPMS -> ({ com.rfsentinel.app.sdr.SdrRadio.tpmsMessages })
-                            else -> null
-                        }, " msg/s")
+                    // One counter for every scan (only the one whose turn it is grows), so a change of turn isn't a jump.
+                    com.rfsentinel.app.ui.StatusPanel.Hardware(it, {
+                        com.rfsentinel.app.sdr.SdrRadio.run { adsbMessages + p25Messages + pagerLog.total + tpmsMessages }
+                    }, " msg/s", phase = { com.rfsentinel.app.sdr.SdrRadio.mode?.let { m -> com.rfsentinel.app.ui.StatusPanel.Phase(
+                        m.short, m.color, counts = m != com.rfsentinel.app.sdr.SdrRadio.Mode.SWEEP) } })
                 },
                 com.rfsentinel.app.sdr.RadioReference.status.takeIf { it.isNotBlank() && com.rfsentinel.app.util.Prefs.radioReferenceOn(this) }
                     ?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) },
@@ -1412,6 +1409,7 @@ class MainActivity : AppCompatActivity() {
             heardByPhone = com.rfsentinel.app.esp.HeardBy.phone.recent(s.mac, now),
             heardByPeer = com.rfsentinel.app.esp.HeardBy.peer.via(s.mac, now),
             rssi = s.rssi,
+            barBoost = if (s.source == Advert.Source.BLE) Prefs.btBarBoost(this) else 0,
             confidence = best?.confidence?.takeIf { !whitelisted },
             canMute = alert,
             muted = muted

@@ -122,7 +122,12 @@ object SdrRadio {
     private val UNPLUGGED get() = "$deviceLabel unplugged"
     /** For the reading thread: stop now (scan stopped, unplugged, or a newer thread took over). */
     private val halted get() = stop || Thread.currentThread() !== worker
-    enum class Mode(val label: String) { SWEEP("radio sweep"), ADSB("ADS-B"), P25("P25"), PAGER("pagers"), TPMS("tire sensors") }
+    /** [short] and [color]: the hardware card's graph, coloured by the scan whose turn it was. */
+    enum class Mode(val label: String, val short: String, val color: Int) {
+        SWEEP("radio sweep", "Sweep", 0xFF3D7BD9.toInt()), ADSB("ADS-B", "ADS-B", 0xFFE0A33A.toInt()),
+        P25("P25", "P25", 0xFF9C5BD0.toInt()), PAGER("pagers", "Pagers", 0xFF2EA6A0.toInt()),
+        TPMS("tire sensors", "TPMS", 0xFFD06BA0.toInt())
+    }
     /** What the SDR does (Settings > RTL-SDR radio); with more than one it takes turns ([turnMs]). */
     @Volatile var modes: Set<Mode> = setOf(Mode.SWEEP)
     /** How long each scan's turn lasts (Settings › RTL-SDR radio); 60 s when not set. */

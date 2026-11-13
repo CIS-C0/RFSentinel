@@ -622,6 +622,11 @@
 
             <com.google.android.material.switchmaterial.SwitchMaterial
                 style="@style/SettingsControl"
+                android:id="@+id/carMessagesSwitch"
+                android:text="Alerts on the Android Auto screen" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
                 android:id="@+id/radarBeepSwitch"
                 android:text="Radar-detector beeps" />
 

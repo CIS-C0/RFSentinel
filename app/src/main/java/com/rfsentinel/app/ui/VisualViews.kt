@@ -211,6 +211,8 @@ class SignalGaugeView @JvmOverloads constructor(context: Context, attrs: Attribu
 class SparklineView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
     private var values = FloatArray(0)
     private var color = ChipStyle.accent(context).first
+    /** Per value, the colour of the line leading to it (what the hardware was doing then); null = [color] throughout. */
+    private var colors: IntArray? = null
     private var minRange = 1f
     private val line = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeJoin = Paint.Join.ROUND }
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -218,8 +220,9 @@ class SparklineView @JvmOverloads constructor(context: Context, attrs: Attribute
     private val area = Path()
 
     /** [minRange]: the smallest span the height covers, so a steady value stays a flat line. */
-    fun set(values: FloatArray, color: Int, minRange: Float = 1f) {
-        this.values = values; this.color = color; this.minRange = minRange; invalidate()
+    fun set(values: FloatArray, color: Int, minRange: Float = 1f, colors: IntArray? = null) {
+        this.values = values; this.color = color; this.minRange = minRange
+        this.colors = colors?.takeIf { it.size == values.size }; invalidate()
     }
 
     override fun onMeasure(w: Int, h: Int) =
@@ -238,6 +241,7 @@ class SparklineView @JvmOverloads constructor(context: Context, attrs: Attribute
         var lo = vals.min(); var hi = vals.max()
         if (hi - lo < minRange) { val mid = (hi + lo) / 2; lo = mid - minRange / 2; hi = mid + minRange / 2 }
         val top = line.strokeWidth
+        colors?.let { cs -> drawColored(canvas, cs, lo, hi, top, bottom); return }
         path.reset(); area.reset()
         var started = false; var lastX = 0f
         values.forEachIndexed { i, v ->
@@ -253,6 +257,22 @@ class SparklineView @JvmOverloads constructor(context: Context, attrs: Attribute
         canvas.drawPath(area, fill)
         line.alpha = 0xFF
         canvas.drawPath(path, line)
+    }
+
+    /** Each step from one value to the next in the next value's colour, filled underneath in the same colour. */
+    private fun drawColored(canvas: Canvas, cs: IntArray, lo: Float, hi: Float, top: Float, bottom: Float) {
+        val step = width / (values.size - 1).coerceAtLeast(1).toFloat()
+        fun y(v: Float) = bottom - (bottom - top) * (v - lo) / (hi - lo)
+        for (i in 1 until values.size) {
+            val a = values[i - 1]; val b = values[i]
+            if (a.isNaN() || b.isNaN()) continue
+            val x0 = step * (i - 1); val x1 = step * i
+            area.reset()
+            area.moveTo(x0, height.toFloat()); area.lineTo(x0, y(a)); area.lineTo(x1, y(b)); area.lineTo(x1, height.toFloat()); area.close()
+            fill.color = alpha(cs[i], 0x30); canvas.drawPath(area, fill)
+            line.color = cs[i]; line.alpha = 0xFF
+            canvas.drawLine(x0, y(a), x1, y(b), line)
+        }
     }
 }
 

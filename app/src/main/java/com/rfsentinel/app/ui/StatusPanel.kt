@@ -19,7 +19,11 @@ import android.widget.TextView
 class StatusPanel(private val context: Context) {
 
     /** One line of hardware status ("USB WiFi (MT7612U) · live · …") with an optional per-second counter. */
-    class Hardware(val status: String, val counter: (() -> Long)? = null, val unit: String = "/s", val onDismiss: (() -> Unit)? = null)
+    class Hardware(val status: String, val counter: (() -> Long)? = null, val unit: String = "/s", val onDismiss: (() -> Unit)? = null,
+                   val phase: (() -> Phase?)? = null)
+
+    /** What the hardware is doing now (the SDR's scan): its graph is coloured by it; [counts] false = no messages to rate. */
+    class Phase(val label: String, val color: Int, val counts: Boolean = true)
 
     private val dp = context.resources.displayMetrics.density
     private val prefs = context.getSharedPreferences("rf_sentinel_prefs", Context.MODE_PRIVATE)
@@ -54,7 +58,8 @@ class StatusPanel(private val context: Context) {
     private val cards = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
 
     /** Per hardware name: the counter's last reading and its rate over the last minute. */
-    private class Rate(var last: Long = -1, var at: Long = 0, val history: ArrayDeque<Float> = ArrayDeque())
+    private class Rate(var last: Long = -1, var at: Long = 0, val history: ArrayDeque<Float> = ArrayDeque(),
+                       val colors: ArrayDeque<Int> = ArrayDeque(), var phase: Phase? = null)
     private val rates = HashMap<String, Rate>()
     private var cardKey = ""
     private var last: List<Hardware> = emptyList()
@@ -164,12 +169,18 @@ class StatusPanel(private val context: Context) {
         val counter = h.counter ?: return null
         val r = rates.getOrPut(name(h.status)) { Rate() }
         val n = counter()
+        val phase = h.phase?.invoke()
         if (r.last >= 0 && now - r.at >= 900) {
             r.history.addLast((n - r.last).coerceAtLeast(0) * 1000f / (now - r.at))
+            r.colors.addLast(phase?.color ?: 0)
             while (r.history.size > 60) r.history.removeFirst()
+            while (r.colors.size > 60) r.colors.removeFirst()
         }
         if (r.last < 0 || now - r.at >= 900) { r.last = n; r.at = now }
-        return r.history.lastOrNull()?.let { "%.0f%s".format(it, h.unit) } ?: "–"
+        r.phase = phase
+        if (phase != null && !phase.counts) return phase.label
+        val rate = r.history.lastOrNull()?.let { "%.0f%s".format(it, h.unit) } ?: "–"
+        return if (phase != null) "${phase.label} · ${rate.trim()}" else rate
     }
 
     private fun card() = LinearLayout(context).apply {
@@ -209,8 +220,12 @@ class StatusPanel(private val context: Context) {
         val side = card.getChildAt(2) as LinearLayout
         side.visibility = if (rate != null) View.VISIBLE else View.GONE
         if (rate == null) return
-        (side.getChildAt(0) as SparklineView).set(rates[name(h.status)]?.history?.toFloatArray() ?: FloatArray(0), color, 5f)
-        VisualMode.text(side.getChildAt(1) as TextView, rate)
+        val r = rates[name(h.status)]
+        (side.getChildAt(0) as SparklineView).set(r?.history?.toFloatArray() ?: FloatArray(0), color, 5f,
+            r?.colors?.takeIf { h.phase != null }?.map { if (it == 0) color else it }?.toIntArray())
+        val rateView = side.getChildAt(1) as TextView
+        VisualMode.text(rateView, rate)
+        r?.phase?.let { rateView.setTextColor(it.color) }
     }
 
     private fun colorOf(s: String) = when (stateOf(s)) {

@@ -287,7 +287,7 @@ object NotificationHelper {
      */
     private fun toCar(context: Context, text: String, mac: String?): Boolean {
         if (!com.rfsentinel.app.car.CarState.connected) return false
-        if (System.currentTimeMillis() >= Prefs.alertsSnoozedUntil(context)) CarMessages.post(context, text, mac)
+        if (Prefs.carMessages(context) && System.currentTimeMillis() >= Prefs.alertsSnoozedUntil(context)) CarMessages.post(context, text, mac)
         return true
     }
 

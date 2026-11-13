@@ -1357,6 +1357,22 @@ Realtek 88xxau register tables in the USB WiFi driver (from Realtek's GPL-2.0 Li
 driver, via Wardrive Go; see `app/src/main/java/com/rfsentinel/app/usb/NOTICE.md`), and
 the signature and Remote ID references credited above (Apache-2.0).
 
+### Copies on Google Play and other stores
+
+- **Source code.** Anyone who publishes RF Sentinel or a modified version, on
+  Google Play, another store or anywhere else, must make the complete source code
+  of that exact build public under GPL-3.0, and update it with every version they
+  publish. A store build without its matching source breaks the licence, and under
+  section 8 of GPL-3.0 the publisher's rights to use and share this code end.
+- **The name and logo.** As GPL-3.0 section 7(e) allows, the licence gives no
+  rights to the RF Sentinel name or logo. A copy or modified version published under
+  the RF Sentinel name or logo needs the author's approval first. Without it, use
+  your own name and logo, and don't present your version as the official app
+  (section 7(c)).
+
+The official builds are only on this repository's
+[Releases](https://github.com/CIS-C0/RFSentinel/releases) page.
+
 ## Disclaimer
 
 RF Sentinel is provided for awareness, research and personal privacy. Whether
