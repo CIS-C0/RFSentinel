@@ -94,4 +94,20 @@ class RadioFeaturesTest {
         assertNull(RadioReference.fault(prox))
         assertEquals(10.5 to -20.5, RadioReference.snap(10.5012, -20.4987))
     }
+
+    @Test
+    fun radioReferenceTalkgroups() {
+        val systems = """<return SOAP-ENC:arrayType="ns1:TrsList[2]"><item><sid xsi:type="xsd:int">1234</sid><sName>Sample County P25</sName></item>
+            <item><sid xsi:type="xsd:int">5678</sid><sName></sName></item></return>"""
+        assertEquals(listOf(RadioReference.TrsSystem(1234, "Sample County P25"), RadioReference.TrsSystem(5678, "System 5678")),
+            RadioReference.parseSystems(systems))
+        // Each talkgroup's tags are a nested list: names must not leak into the next one.
+        val tgs = """<return><item><tgId>1</tgId><tgDec xsi:type="xsd:int">100</tgDec><tgAlpha>SO DISP</tgAlpha><tgDescr>Sheriff &amp; dispatch</tgDescr>
+            <tags><item><tagId>2</tagId></item></tags></item>
+            <item><tgId>2</tgId><tgDec>200</tgDec><tgAlpha>FD TAC</tgAlpha><tgDescr></tgDescr><tags><item><tagId>3</tagId></item></tags></item>
+            <item><tgId>3</tgId><tgDec>300</tgDec><tgAlpha></tgAlpha><tgDescr></tgDescr></item></return>"""
+        assertEquals(mapOf(100 to "Sheriff & dispatch", 200 to "FD TAC"), RadioReference.parseTalkgroups(tgs))
+        val names = P25Log.watched(mapOf(100 to "Sheriff & dispatch", 200 to "FD TAC").entries.joinToString("\n") { "${it.key} ${it.value}" })
+        assertEquals("FD TAC", names[200])
+    }
 }

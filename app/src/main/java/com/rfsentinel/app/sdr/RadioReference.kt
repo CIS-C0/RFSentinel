@@ -15,6 +15,8 @@ import java.net.URL
  * Needs the user's own RadioReference Premium login and a RadioReference developer key (both
  * stored encrypted on the phone). What's sent: the login and your position rounded to ~1 km,
  * only when you're somewhere not looked up in the last day. FCC licences cover the US.
+ * P25 talkgroups › Talkgroup names: the P25 system's talkgroup names (getTrsBySysid, getTrsTalkgroups), when asked;
+ * sends the system ID heard on the control channel (or the RadioReference system number typed in). Kept in a file.
  */
 object RadioReference {
 
@@ -92,6 +94,26 @@ object RadioReference {
 
     data class Callsign(val callsign: String, val licensee: String, val km: Double)
 
+    /** A trunked system in RadioReference's database: [sid] its number there (radioreference.com/db/sid/…). */
+    data class TrsSystem(val sid: Int, val name: String)
+
+    /** The systems RadioReference lists under P25 system ID [sysId] (several systems can share one). */
+    suspend fun systems(a: Auth, sysId: Int): List<TrsSystem> = withContext(Dispatchers.IO) {
+        parseSystems(call("getTrsBySysid", "<sysid xsi:type=\"xsd:string\">%X</sysid>".format(sysId), a))
+    }
+
+    /** Talkgroup number -> name of system [sid]. */
+    suspend fun talkgroups(a: Auth, sid: Int): Map<Int, String> = withContext(Dispatchers.IO) {
+        parseTalkgroups(call("getTrsTalkgroups", "<sid xsi:type=\"xsd:int\">$sid</sid><tgCid xsi:type=\"xsd:int\">0</tgCid>" +
+            "<tgTag xsi:type=\"xsd:int\">0</tgTag><tgDec xsi:type=\"xsd:int\">0</tgDec>", a))
+    }
+
+    /** The imported names, "1234 Name" lines ([P25Log.watched] reads them). */
+    fun namesFile(context: Context) = java.io.File(context.filesDir, "p25_talkgroup_names.txt")
+    fun saveNames(context: Context, names: Map<Int, String>) =
+        namesFile(context).writeText(names.toSortedMap().entries.joinToString("\n") { (tg, n) -> "$tg ${n.replace('\n', ' ')}" })
+    fun names(context: Context): P25Log.Watched = namesFile(context).takeIf { it.exists() }?.let { P25Log.watched(it.readText()) } ?: P25Log.Watched()
+
     private fun proxCallsigns(a: Auth, lat: Double, lon: Double): List<Callsign> {
         val xml = call("fccGetProxCallsigns",
             "<lat xsi:type=\"xsd:decimal\">$lat</lat><lon xsi:type=\"xsd:decimal\">$lon</lon>" +
@@ -153,6 +175,26 @@ object RadioReference {
 
     private fun unescape(s: String) = s.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"")
         .replace("&apos;", "'").replace("&amp;", "&")
+
+    fun parseSystems(xml: String): List<TrsSystem> = items(xml).mapNotNull { m ->
+        m["sid"]?.toIntOrNull()?.let { TrsSystem(it, m["sName"]?.takeIf { n -> n.isNotBlank() } ?: "System $it") }
+    }.distinctBy { it.sid }
+
+    /**
+     * Each talkgroup's description, or its alpha tag when it has none. Read per <tgDec> (a talkgroup's tags are a nested
+     * list, which [items] would cut short); a talkgroup's fields come after its number.
+     */
+    fun parseTalkgroups(xml: String): Map<Int, String> {
+        val out = LinkedHashMap<Int, String>()
+        val decs = Regex("<tgDec[^>]*>\\s*(\\d+)\\s*</tgDec>").findAll(xml).toList()
+        decs.forEachIndexed { i, m ->
+            val seg = xml.substring(m.range.last + 1, if (i + 1 < decs.size) decs[i + 1].range.first else xml.length)
+            fun field(tag: String) = Regex("<$tag[^>]*>([^<]*)</$tag>").find(seg)?.groupValues?.get(1)?.let(::unescape)?.trim()?.takeIf { it.isNotEmpty() }
+            val tg = m.groupValues[1].toIntOrNull()?.takeIf { it in 1..0xFFFF } ?: return@forEachIndexed
+            (field("tgDescr") ?: field("tgAlpha"))?.let { out[tg] = it.take(60) }
+        }
+        return out
+    }
 
     fun parseProx(xml: String): List<Callsign> = items(xml).mapNotNull { m ->
         val cs = m["callsign"]?.takeIf { it.isNotBlank() } ?: return@mapNotNull null

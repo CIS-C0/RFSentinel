@@ -32,7 +32,8 @@ import java.util.Locale
  * With Settings › Listen to P25 voice on, the call playing is marked, and Mute pauses listening.
  * Hold (or tapping a talkgroup) keeps the SDR on that talkgroup's calls alone until Release ([SdrRadio.p25Hold]).
  * Long-press: Priority (plays first, cuts other calls) or Never play. Radio events: status, messages, call alerts,
- * remote monitoring the site relayed.
+ * remote monitoring the site relayed. Talkgroup names: imported from RadioReference for this system, shown after
+ * the watched list's own names.
  */
 class P25Activity : AppCompatActivity() {
 
@@ -42,6 +43,9 @@ class P25Activity : AppCompatActivity() {
     private var history: List<P25History.Summary>? = null
     private var historyAt = 0L
     private var watched = P25Log.Watched()
+    /** Names imported from RadioReference (read once, and again after an import). */
+    private var rrNames: P25Log.Watched? = null
+    private fun rr(tg: Int?): String? = tg?.let { (rrNames ?: com.rfsentinel.app.sdr.RadioReference.names(this).also { n -> rrNames = n })[it] }
     private val header by lazy {
         TextView(this).apply {
             textSize = 12f; alpha = 0.8f
@@ -65,6 +69,7 @@ class P25Activity : AppCompatActivity() {
                 r.tg?.let { tg -> root.setOnClickListener { askHold(tg, r.encrypted, r.phase2) }; root.setOnLongClickListener { askPriority(tg); true } }
                 labelText.text = listOfNotNull(title(r), r.patch.takeIf { it.isNotEmpty() }?.let { "patch " + it.joinToString(" + ") },
                     "playing".takeIf { playing }, "held".takeIf { r.tg != null && r.tg == SdrRadio.p25Hold }, name?.ifEmpty { "watched" },
+                    rr(r.tg)?.takeIf { name.isNullOrEmpty() },
                     "priority".takeIf { r.tg != null && r.tg in SdrRadio.p25Priority }, "never played".takeIf { r.tg != null && r.tg in SdrRadio.p25Lockout },
                     "EMERGENCY".takeIf { r.emergency },
                     "encrypted".takeIf { r.encrypted }, "Phase 2".takeIf { r.phase2 }).joinToString("  ·  ")
@@ -102,6 +107,7 @@ class P25Activity : AppCompatActivity() {
         menu.add(0, MENU_EXPORT, 1, "Export call log")
         menu.add(0, MENU_CALLS, 2, "Played calls")
         menu.add(0, MENU_EVENTS, 3, "Radio events")
+        menu.add(0, MENU_NAMES, 4, "Talkgroup names")
         if (Prefs.p25Listen(this) != 0) menu.add(0, MENU_MUTE, 0, if (Prefs.p25Mute(this)) "Unmute" else "Mute")
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
         heldInMenu = SdrRadio.p25Hold
@@ -154,6 +160,60 @@ class P25Activity : AppCompatActivity() {
             .setNegativeButton("Cancel", null).show()
     }
 
+    /** Talkgroup names from RadioReference for the system heard (its system ID), or the RadioReference system number typed in. */
+    private fun askNames() {
+        val rrApi = com.rfsentinel.app.sdr.RadioReference
+        val auth = rrApi.auth(this)
+        val kept = rrApi.namesFile(this).exists()
+        val sysId = SdrRadio.p25Log.summary().site?.sysId
+        val b = com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle("Talkgroup names")
+        if (kept) b.setNeutralButton("Remove names") { _, _ -> rrApi.namesFile(this).delete(); rrNames = null; refresh() }
+        if (auth == null) {
+            b.setMessage("Names come from RadioReference.com: enter your RadioReference Premium login and developer key in " +
+                "Settings › RTL-SDR radio first.").setPositiveButton("OK", null).show()
+            return
+        }
+        b.setMessage((if (sysId != null) "Import the talkgroup names RadioReference lists for this system (ID %03X)? ".format(sysId)
+            else "No control channel heard yet: import by the RadioReference system number instead? ") +
+            "This sends the system ID and your login to RadioReference. Watched talkgroups keep their own names.")
+            .setPositiveButton("Import") { _, _ -> if (sysId != null) importNames(auth, sysId) else askSystemNumber(auth) }
+            .setNegativeButton("Cancel", null).show()
+    }
+
+    private fun importNames(auth: com.rfsentinel.app.sdr.RadioReference.Auth, sysId: Int) = lifecycleScope.launch {
+        val systems = runCatching { com.rfsentinel.app.sdr.RadioReference.systems(auth, sysId) }
+            .onFailure { toast("RadioReference: " + (it.message ?: "lookup failed")) }.getOrNull() ?: return@launch
+        when (systems.size) {
+            0 -> askSystemNumber(auth, "RadioReference lists no system with ID %03X. ".format(sysId))
+            1 -> importSystem(auth, systems[0].sid)
+            else -> com.google.android.material.dialog.MaterialAlertDialogBuilder(this@P25Activity)
+                .setTitle("Which system?")
+                .setItems(systems.map { it.name }.toTypedArray()) { _, i -> importSystem(auth, systems[i].sid) }
+                .setNegativeButton("Cancel", null).show()
+        }
+    }
+
+    private fun askSystemNumber(auth: com.rfsentinel.app.sdr.RadioReference.Auth, why: String = "") {
+        val input = android.widget.EditText(this).apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER; hint = "System number" }
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle("RadioReference system")
+            .setMessage(why + "Its number is in the system page's address: radioreference.com/db/sid/1234.")
+            .setView(input)
+            .setPositiveButton("Import") { _, _ -> input.text.toString().toIntOrNull()?.let { importSystem(auth, it) } }
+            .setNegativeButton("Cancel", null).show()
+    }
+
+    private fun importSystem(auth: com.rfsentinel.app.sdr.RadioReference.Auth, sid: Int) = lifecycleScope.launch {
+        val names = runCatching { com.rfsentinel.app.sdr.RadioReference.talkgroups(auth, sid) }
+            .onFailure { toast("RadioReference: " + (it.message ?: "lookup failed")) }.getOrNull() ?: return@launch
+        if (names.isEmpty()) { toast("RadioReference lists no talkgroups for this system"); return@launch }
+        withContext(Dispatchers.IO) { com.rfsentinel.app.sdr.RadioReference.saveNames(this@P25Activity, names) }
+        rrNames = null; refresh()
+        toast("${names.size} talkgroup names from RadioReference")
+    }
+
+    private fun toast(text: String) = android.widget.Toast.makeText(this, text, android.widget.Toast.LENGTH_LONG).show()
+
     /** What the site relayed between radios lately ([P25Log.events]), newest first. */
     private fun showEvents() {
         val events = SdrRadio.p25Log.events()
@@ -165,7 +225,7 @@ class P25Activity : AppCompatActivity() {
         val lines = events.map { e ->
             DateUtils.formatDateTime(this, e.at, DateUtils.FORMAT_SHOW_TIME) + " · " + e.kind.replaceFirstChar { it.uppercase() } +
                 (e.code?.let { " $it" } ?: "") + (e.source?.let { " · from $it" } ?: "") + " · to radio ${e.target}" +
-                (e.tg?.let { tg -> " (talkgroup $tg" + (watched[tg]?.ifEmpty { null }?.let { ", $it" } ?: "") + ")" } ?: "")
+                (e.tg?.let { tg -> " (talkgroup $tg" + ((watched[tg]?.ifEmpty { null } ?: rr(tg))?.let { ", $it" } ?: "") + ")" } ?: "")
         }.toTypedArray()
         com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
             .setTitle("Radio events")
@@ -183,6 +243,7 @@ class P25Activity : AppCompatActivity() {
         MENU_EXPORT -> { exportLog(); true }
         MENU_CALLS -> { showPlayedCalls(); true }
         MENU_EVENTS -> { showEvents(); true }
+        MENU_NAMES -> { askNames(); true }
         MENU_HOLD -> {
             val tg = SdrRadio.p25Playing?.tg
             when {
@@ -217,7 +278,7 @@ class P25Activity : AppCompatActivity() {
             return@launch
         }
         val labels = calls.map { c ->
-            val who = c.tg?.let { tg -> "Talkgroup $tg" + (watched[tg]?.ifEmpty { null }?.let { " ($it)" } ?: "") }
+            val who = c.tg?.let { tg -> "Talkgroup $tg" + ((watched[tg]?.ifEmpty { null } ?: rr(tg))?.let { " ($it)" } ?: "") }
                 ?: c.hz?.let { String.format(Locale.US, "Radio %.4f MHz", it / 1e6) } ?: "Private call to radio ${c.target}"
             DateUtils.formatDateTime(this@P25Activity, c.time, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or
                 DateUtils.FORMAT_ABBREV_MONTH) + " · $who · " + String.format(Locale.US, "%.1f s", c.seconds)
@@ -279,7 +340,7 @@ class P25Activity : AppCompatActivity() {
         val q = binding.searchInput.text?.toString()?.trim().orEmpty()
         if (history != null) { refreshHistory(q); return }
         rows = SdrRadio.p25Log.rows().filter { r ->
-            q.isEmpty() || listOfNotNull(title(r), r.tg?.let { watched[it] }, r.lastSource?.toString()).any { it.contains(q, ignoreCase = true) }
+            q.isEmpty() || listOfNotNull(title(r), r.tg?.let { watched[it] }, rr(r.tg), r.lastSource?.toString()).any { it.contains(q, ignoreCase = true) }
         }
         val s = SdrRadio.p25Log.summary()
         header.text = listOfNotNull(
@@ -342,6 +403,7 @@ class P25Activity : AppCompatActivity() {
         private const val MENU_HOLD = 4
         private const val MENU_CALLS = 5
         private const val MENU_EVENTS = 6
+        private const val MENU_NAMES = 7
         private const val HISTORY_MS = 30_000L
         private val EMERGENCY = 0xFFD0503C.toInt()
 
