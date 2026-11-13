@@ -562,3 +562,55 @@ class MiniBarsView @JvmOverloads constructor(context: Context, attrs: AttributeS
         }
     }
 }
+
+/**
+ * The main screen's TETRA bar: shown while a TETRA radio is heard, ten segments filling from green to red as it gets
+ * stronger, with how near it is (Far / Closer / Very close) and whether it's getting closer.
+ */
+class TetraBarView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
+    private var level = 0f
+    private var label = ""
+    private val ink = ChipStyle.onSurface(context)
+    private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 14 * dp; color = ink }
+    private val seg = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val box = RectF()
+    private val stops = intArrayOf(0xFF2E9E4F.toInt(), 0xFFE0A33A.toInt(), 0xFFD0503C.toInt())
+
+    /** [level] 0..1, [proximity] "Far" / "Closer" / "Very close", [trend] 1 closer, -1 moving away, 0 steady. */
+    fun set(level: Float, proximity: String, trend: Int) {
+        val l = proximity + when (trend) { 1 -> " ▲"; -1 -> " ▼"; else -> "" }
+        if (l == label && level == this.level) return
+        this.level = level; label = l
+        contentDescription = "TETRA radio heard, $proximity" + when (trend) { 1 -> ", getting closer"; -1 -> ", moving away"; else -> "" }
+        invalidate()
+    }
+
+    private fun color(x: Float): Int {
+        val p = x.coerceIn(0f, 1f) * (stops.size - 1)
+        val i = p.toInt().coerceAtMost(stops.size - 2)
+        return android.animation.ArgbEvaluator().evaluate(p - i, stops[i], stops[i + 1]) as Int
+    }
+
+    override fun onMeasure(w: Int, h: Int) = setMeasuredDimension(MeasureSpec.getSize(w), resolveSize((36 * dp).toInt(), h))
+
+    override fun onDraw(canvas: Canvas) {
+        val y = height / 2f - (text.descent() + text.ascent()) / 2
+        text.typeface = Typeface.DEFAULT_BOLD
+        canvas.drawText("TETRA", 0f, y, text)
+        val left = text.measureText("TETRA") + 10 * dp
+        text.typeface = Typeface.DEFAULT
+        val right = width - text.measureText("Very close ▲") - 10 * dp
+        val n = 10
+        val gap = 3 * dp
+        val w = ((right - left) - gap * (n - 1)) / n
+        val lit = (level * n + 0.5f).toInt().coerceIn(if (level > 0f) 1 else 0, n)
+        for (i in 0 until n) {
+            box.set(left + i * (w + gap), height * 0.25f, left + i * (w + gap) + w, height * 0.75f)
+            seg.color = if (i < lit) color(i / (n - 1f)) else (ink and 0x00FFFFFF) or 0x30000000
+            canvas.drawRoundRect(box, 2 * dp, 2 * dp, seg)
+        }
+        text.color = if (lit > 0) color((lit - 1) / (n - 1f)) else ink
+        canvas.drawText(label, right + 10 * dp, y, text)
+        text.color = ink
+    }
+}

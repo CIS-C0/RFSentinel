@@ -310,6 +310,7 @@ class MainActivity : AppCompatActivity() {
         }
         applyViewMode()
         observeDevices()
+        showTetraBar()
         updateStatus()
         lifecycleScope.launch { Favorites.load(this@MainActivity); com.rfsentinel.app.data.DeviceNames.load(this@MainActivity) }
         // Only on a real fresh start - a theme change recreates this screen too.
@@ -720,6 +721,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** The TETRA bar, a few times a second while the screen is visible: only while a TETRA radio was heard in the last seconds. */
+    private fun showTetraBar() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    val h = com.rfsentinel.app.sdr.TetraWatch.heard
+                        ?.takeIf { ScanForegroundService.isRunning && System.currentTimeMillis() - it.at < com.rfsentinel.app.sdr.TetraWatch.HOLD_MS }
+                    binding.tetraBar.visibility = if (h == null) View.GONE else View.VISIBLE
+                    if (h != null) binding.tetraBar.set(com.rfsentinel.app.sdr.TetraWatch.level(h.snr), com.rfsentinel.app.sdr.RadioWatch.proximity(h.snr), h.trend)
+                    delay(300L)
+                }
+            }
+        }
+    }
+
     /** Rebuilds the live list / radar once a second while the screen is visible. */
     private fun observeDevices() {
         lifecycleScope.launch {
@@ -1023,7 +1039,9 @@ class MainActivity : AppCompatActivity() {
                 DeviceRow(
                     mac = RADIO_ROW + r.freqHz,
                     title = "Radio ${r.mhz} MHz" + (r.name?.let { " · $it" } ?: ""),
-                    subtitle = listOfNotNull(r.digital?.replaceFirstChar { it.uppercase() }, "${r.snrDb} dB above the noise (peak ${r.peakSnrDb})", trend, r.bandLabel).joinToString(" · "),
+                    subtitle = listOfNotNull(r.digital?.replaceFirstChar { it.uppercase() },
+                        com.rfsentinel.app.sdr.RadioWatch.proximity(r.snrDb).takeIf { r.kind == com.rfsentinel.app.sdr.RadioWatch.Kind.TETRA },
+                        "${r.snrDb} dB above the noise (peak ${r.peakSnrDb})", trend, r.bandLabel).joinToString(" · "),
                     meta = (if (ago < 3) "On the air now" else "Last heard ${com.rfsentinel.app.ui.DeviceRows.ago(ago)}") +
                         " · first ${java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(r.firstSeen))}",
                     tag = com.rfsentinel.app.ui.DeviceRows.matchTag("RADIO", r.confidence),

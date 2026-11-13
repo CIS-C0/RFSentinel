@@ -721,6 +721,15 @@ object Prefs {
     /** Also sweep the TETRA handset band (380-385 MHz); on by default where the phone's region uses TETRA. */
     fun radioTetraOn(context: Context): Boolean = bool(context, "radio_tetra_on", tetraRegion(java.util.Locale.getDefault().country))
     fun setRadioTetraOn(context: Context, value: Boolean) = setBool(context, "radio_tetra_on", value)
+    /** TETRA only: every SDR watches 380-385 MHz nonstop and the other SDR scans pause (off by default). */
+    fun radioTetraOnly(context: Context): Boolean = bool(context, "radio_tetra_only", false)
+    fun setRadioTetraOnly(context: Context, value: Boolean) = setBool(context, "radio_tetra_only", value)
+    /** TETRA City mode: only stronger bursts count (off: Highway, the most sensitive). */
+    fun radioTetraCity(context: Context): Boolean = bool(context, "radio_tetra_city", false)
+    fun setRadioTetraCity(context: Context, value: Boolean) = setBool(context, "radio_tetra_city", value)
+    /** Beeps while a TETRA radio is heard, faster as it gets stronger (on by default). */
+    fun radioTetraBeep(context: Context): Boolean = bool(context, "radio_tetra_beep", true)
+    fun setRadioTetraBeep(context: Context, value: Boolean) = setBool(context, "radio_tetra_beep", value)
     /** Europe's emergency services use TETRA on 380-385 MHz (from the phone's language region, not its location). */
     fun tetraRegion(country: String) = country.uppercase() in TETRA_REGIONS
     private val TETRA_REGIONS = setOf("AT", "BE", "BG", "CH", "CY", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GB", "GR", "HR",

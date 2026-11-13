@@ -1986,6 +1986,10 @@ class ScanForegroundService : Service() {
         if (via == null && sharing()) linkOutbox?.addRadio(LinkCodec.Radio(e.freqHz, e.snrDb, e.band.label, e.band.startHz, e.band.endHz,
             e.band.kind.name, e.confidence, e.target?.label, e.repeat, e.tdma, now))
         if (!Prefs.categoryEnabled(this, Category.RADIO)) return
+        // The main screen's TETRA bar and its beeps: this phone's own dongles only.
+        if (via == null) com.rfsentinel.app.sdr.TetraWatch.heard(e, now)
+        val tetra = e.tdma && e.band.kind == com.rfsentinel.app.sdr.RadioWatch.Kind.TETRA
+        val proximity = com.rfsentinel.app.sdr.RadioWatch.proximity(e.snrDb)
         // Who uses this frequency: a watched frequency's own label, the imported list, or RadioReference.
         val named = com.rfsentinel.app.sdr.FreqNames.lookup(e.freqHz, Prefs.radioMatchKhz(this) * 1000L)
         val name = e.target?.label ?: named?.name
@@ -2000,7 +2004,11 @@ class ScanForegroundService : Service() {
                 if (trend == com.rfsentinel.app.sdr.RadioLog.Trend.CLOSER) "getting closer" else "moving away")
         }
         if (e.repeat) return // same channel within 2 minutes: list and trend only, no new log entry or alert
-        val near = when { e.snrDb >= 40 -> "very close"; e.snrDb >= 30 -> "close" else -> "nearby" }
+        val near = if (tetra) proximity.lowercase() else when {
+            e.snrDb >= com.rfsentinel.app.sdr.RadioWatch.VERY_CLOSE_DB -> "very close"
+            e.snrDb >= com.rfsentinel.app.sdr.RadioWatch.CLOSER_DB -> "close"
+            else -> "nearby"
+        }
         val heardBy = via?.let { "Heard by $it (Sentinel Link): \"$near\" is from that phone. " } ?: ""
         val detail = heardBy + "A radio transmitted on ${e.mhz} MHz (${e.band.label}), ${e.snrDb} dB above the noise - $near. " +
             (named?.let { "Matches ${"%.4f".format(java.util.Locale.US, it.hz / 1e6)} MHz: ${it.name} (${it.source}). " } ?: "") +
@@ -2024,6 +2032,7 @@ class ScanForegroundService : Service() {
         val label = when {
             cell -> "Cellular transmitter nearby (LTE uplink)"
             name != null -> "Radio transmitting: $name"
+            tetra -> "TETRA radio transmitting · $proximity"
             e.tdma -> "${e.slots} radio transmitting nearby"
             e.p25Nac != null -> "P25 radio transmitting nearby"
             else -> "Two-way radio transmitting nearby"
@@ -2037,6 +2046,7 @@ class ScanForegroundService : Service() {
         val spoken = when {
             cell -> "Cellular transmitter nearby"
             Prefs.radioSpeakFreq(this) -> (if (e.tdma) "${e.slots} radio " else "Radio ") + spokenMhz(e.freqHz) + (name?.let { ", $it" } ?: "")
+            tetra -> "TETRA radio, ${proximity.lowercase()}"
             e.tdma -> "${e.slots} radio nearby"
             e.p25Nac != null -> "P25 radio nearby"
             else -> "Radio transmitting nearby"
@@ -2398,11 +2408,19 @@ class ScanForegroundService : Service() {
                     .filter { s -> com.rfsentinel.app.ui.LiveWindow.alerting(s, now) &&
                         AlertKind.BEEP !in (s.best?.let { alertsOff(it.category, s.mac, s.hits) } ?: OuiWatchlist.alertsOff(s.mac, s.hits)) }
                     .maxByOrNull { it.rssi }
-                if (target == null) delay(1_000L)
-                else {
+                // No flagged device to beep for: a TETRA radio heard in the last seconds, faster as it gets stronger.
+                val tetra = com.rfsentinel.app.sdr.TetraWatch.heard?.takeIf {
+                    target == null && now - it.at < com.rfsentinel.app.sdr.TetraWatch.HOLD_MS && Prefs.radioTetraBeep(ctx) &&
+                        com.rfsentinel.app.ui.LiveRead.locating == null && Prefs.categoryEnabled(ctx, Category.RADIO) &&
+                        AlertKind.BEEP !in alertsOff(Category.RADIO)
+                }
+                if (target != null) {
                     AlertPlayer.tick(ctx)
                     delay(com.rfsentinel.app.util.Beeper.tickIntervalMs(target.rssi))
-                }
+                } else if (tetra != null) {
+                    AlertPlayer.tick(ctx)
+                    delay(com.rfsentinel.app.util.Beeper.tickIntervalMs(com.rfsentinel.app.sdr.TetraWatch.beepRssi(tetra.snr)))
+                } else delay(1_000L)
             }
         }
     }

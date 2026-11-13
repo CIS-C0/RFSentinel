@@ -31,7 +31,8 @@ object RadioSettings {
             excluded = ranges(Prefs.radioExcluded(context)).map { it.first },
             targets = targets(Prefs.radioTargets(context)),
             minSnrDb = Prefs.radioMinSnr(context),
-            dmr = Prefs.radioDmrOn(context)
+            dmr = Prefs.radioDmrOn(context),
+            tetraCity = Prefs.radioTetraCity(context)
         )
     }
 

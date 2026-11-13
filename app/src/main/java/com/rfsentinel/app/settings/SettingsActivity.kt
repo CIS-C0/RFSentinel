@@ -1780,7 +1780,29 @@ class SettingsActivity : AppCompatActivity() {
         box.toggle("Detect TETRA radios", Prefs.radioTetraOn(this),
             "Watches 380-385 MHz, where emergency-service TETRA handsets transmit in Europe and many other countries. " +
             "A handset sends short time-slot bursts; that rhythm marks it as a TETRA radio. Energy only: TETRA is encrypted " +
-            "and nothing is decoded. On by default when the phone's region is in Europe.") { Prefs.setRadioTetraOn(this, it) }
+            "and nothing is decoded. On by default when the phone's region is in Europe.\n\n" +
+            "A second SDR plugged in (through a powered USB hub) watches this band nonstop on its own while the first keeps sweeping; " +
+            "a third takes the other half, so no burst is missed.\n\n" +
+            "Antenna: vertical, ideally on the roof. A telescopic or whip antenna about 19.5 cm long is a quarter wave for 380-385 MHz. " +
+            "Two RTL-SDRs share one antenna through a 2-way splitter.\n\n" +
+            "The sensitivity setting never asks more than ${com.rfsentinel.app.sdr.RadioWatch.TETRA_CAP_DB} dB above the noise of a " +
+            "TETRA burst: the burst rhythm already keeps false alarms out.") {
+            Prefs.setRadioTetraOn(this, it); com.rfsentinel.app.sdr.SdrRadio.tetraSettingsChanged()
+        }
+        box.toggle("TETRA only", Prefs.radioTetraOnly(this),
+            "Every SDR watches 380-385 MHz nonstop and the other SDR scans pause: a dedicated TETRA detector. With two RTL-SDRs on a " +
+            "splitter each watches half of the band, so no burst is missed; one alone swaps halves every 2 s. Needs Detect TETRA radios.") {
+            Prefs.setRadioTetraOnly(this, it); com.rfsentinel.app.sdr.SdrRadio.tetraSettingsChanged()
+        }
+        box.toggle("City mode", Prefs.radioTetraCity(this),
+            "TETRA counts only stronger bursts, so radios streets away stay quiet in town. Off: Highway, the most sensitive, " +
+            "for open roads (up to about 1 km with a roof antenna).") {
+            Prefs.setRadioTetraCity(this, it)
+            if (com.rfsentinel.app.sdr.SdrRadio.running) com.rfsentinel.app.sdr.SdrRadio.config = com.rfsentinel.app.sdr.RadioSettings.config(this)
+        }
+        box.toggle("TETRA beeps", Prefs.radioTetraBeep(this),
+            "Beeps while a TETRA radio is heard, faster as it gets closer, with the TETRA bar on the main screen. Quiet while Locate " +
+            "beeps for a device, or a flagged device's radar beeps play.") { Prefs.setRadioTetraBeep(this, it) }
         box.toggle("Detect DMR radios", Prefs.radioDmrOn(this),
             "Experimental. On the VHF and UHF bands, marks a handset sending DMR's 60 ms time-slot bursts. Energy only, nothing " +
             "decoded. Businesses use DMR too, and a P25 Phase 2 radio looks the same, so it is a weak sign on its own. " +

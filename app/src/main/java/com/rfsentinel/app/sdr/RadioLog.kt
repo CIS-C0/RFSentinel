@@ -43,7 +43,7 @@ object RadioLog {
         val prev = entries[e.freqHz]
         if (prev == null || now - prev.lastSeen > EPISODE_GAP_MS) {
             entries[e.freqHz] = Entry(e.freqHz, e.band.label, e.band.kind, now, now, e.snrDb, e.snrDb, e.confidence,
-                name, Trend.NEW, e.snrDb, if (e.p25Nac != null) P25 else null)
+                name, Trend.NEW, e.snrDb, decodedAs(e))
             prune(now)
             return null
         }
@@ -58,7 +58,7 @@ object RadioLog {
             confidence = maxOf(prev.confidence, e.confidence), name = name ?: prev.name,
             trend = trend ?: (if (prev.trend == Trend.NEW) Trend.STEADY else prev.trend),
             refSnrDb = if (trend != null) e.snrDb else prev.refSnrDb,
-            digital = prev.digital ?: if (e.p25Nac != null) P25 else null
+            digital = prev.digital ?: decodedAs(e)
         )
         return trend
     }
@@ -70,6 +70,7 @@ object RadioLog {
     }
 
     private const val P25 = "P25 digital radio"
+    private fun decodedAs(e: RadioWatch.Event) = if (e.p25Nac != null) P25 else if (e.tdma && e.band.kind == RadioWatch.Kind.TETRA) "TETRA radio" else null
 
     /** Heard within [KEEP_MS], most recent first. */
     @Synchronized

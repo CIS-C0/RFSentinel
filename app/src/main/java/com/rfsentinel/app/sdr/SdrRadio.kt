@@ -83,7 +83,22 @@ object SdrRadio {
     private const val PLAY_MAX_MS = 60_000L     // ...and at most this long, so a stuck carrier doesn't hold the sweep
     private const val STUCK_MS = 10 * 60_000L   // a channel played that long isn't played again for this long
 
-    @Volatile var status: String = ""; private set
+    /** The hardware status line, the TETRA watch's dongles after it. */
+    @Volatile var status: String = ""
+        get() = tetraNote.let { t -> if (t.isEmpty()) field else if (field.isBlank()) t else "$field · $t" }
+        private set
+    /** Dongles watching the TETRA band ([TetraWatch]) by USB device name, [MAIN] for the first one in TETRA only. */
+    private val tetraWatches = java.util.concurrent.ConcurrentHashMap<String, TetraWatch>()
+    private val tetraNote get() = tetraWatches.values.map { it.note }.filter { it.isNotEmpty() }.sorted()
+        .let { if (it.isEmpty()) "" else "TETRA watch · " + it.joinToString(" · ") }
+    /** Extra SDRs (beyond the first) and their threads: each watches the TETRA band. */
+    private val extras = java.util.concurrent.ConcurrentHashMap<String, Thread>()
+    private const val MAIN = ""
+    private val tetraOn get() = appContext?.let { com.rfsentinel.app.util.Prefs.radioTetraOn(it) } == true
+    /** Settings › TETRA only: every dongle on the TETRA band, the other scans paused. */
+    private val tetraOnly get() = tetraOn && appContext?.let { com.rfsentinel.app.util.Prefs.radioTetraOnly(it) } == true
+    /** Extra dongles cover the TETRA band: the sweep leaves it to them. */
+    val tetraWatched get() = extras.isNotEmpty()
     /** ADS-B messages decoded since the app started, for the main screen's messages-per-second line. */
     @Volatile var adsbMessages = 0L; private set
     /** What to watch (Settings > RTL-SDR radio); picked up at the next sweep. */
@@ -405,6 +420,7 @@ object SdrRadio {
                         UsbManager.ACTION_USB_DEVICE_DETACHED -> {
                             val d = deviceOf(intent)
                             if (d != null && d.deviceName == runningDevice) { droppedOff(); halt(UNPLUGGED); clearUnpluggedSoon() }
+                            else if (d != null && extras.remove(d.deviceName) != null) com.rfsentinel.app.util.HwLogs.sdr.log("TETRA watch: an extra SDR was unplugged")
                         }
                     }
                 }
@@ -479,7 +495,7 @@ object SdrRadio {
                 com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: a USB SDR is plugged in - using it instead")
                 halt("")
             } else {
-                if (!gone(name)) return
+                if (!gone(name)) { connectExtras(context, mgr, all, name); return }
                 // Unplugged without the system saying so: let that one go so the dongle can start again.
                 com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: $name is gone - starting over")
                 halt("")
@@ -503,11 +519,82 @@ object SdrRadio {
             runCatching { mgr.requestPermission(d, pi) }
             return
         }
+        // An extra one winding down (its TETRA watch was stopped): let it go before it becomes the first.
+        extras.remove(d.deviceName)?.join(2_000)
         val conn = mgr.openDevice(d) ?: run { status = "$deviceLabel: couldn't open it"; return }
         deviceKey = "%04x:%04x/%s".format(d.vendorId, d.productId, runCatching { d.serialNumber }.getOrNull().orEmpty())
-        launch(d.deviceName, "%04x:%04x".format(d.vendorId, d.productId), { conn.close() }) {
-            if (HackRf.isHackRf(d.vendorId, d.productId)) HackRf(conn, d, com.rfsentinel.app.util.HwLogs.sdr::log) else RtlSdr(conn, d, com.rfsentinel.app.util.HwLogs.sdr::log)
+        launch(d.deviceName, "%04x:%04x".format(d.vendorId, d.productId), { conn.close() }) { device(conn, d) }
+        connectExtras(context, mgr, all, d.deviceName)
+    }
+
+    private fun device(conn: android.hardware.usb.UsbDeviceConnection, d: UsbDevice): SdrDevice =
+        if (HackRf.isHackRf(d.vendorId, d.productId)) HackRf(conn, d, com.rfsentinel.app.util.HwLogs.sdr::log) else RtlSdr(conn, d, com.rfsentinel.app.util.HwLogs.sdr::log)
+
+    /**
+     * The SDRs plugged in besides [first] watch the TETRA band nonstop ([TetraWatch]) while Detect TETRA radios is on. Two RTL-SDR
+     * Blog V3s have the same USB ID, so they're told apart by their USB device name. Access is asked for one at a time.
+     */
+    private fun connectExtras(context: Context, mgr: UsbManager, all: List<UsbDevice>, first: String) {
+        if (!tetraOn) return
+        for (x in com.rfsentinel.app.usb.UsbPick.candidates(com.rfsentinel.app.usb.UsbPick.Kind.SDR, all)) {
+            if (x.deviceName == first || extras.containsKey(x.deviceName)) continue
+            if (!mgr.hasPermission(x)) {
+                com.rfsentinel.app.util.HwLogs.sdr.log("TETRA watch: a second ${labelOf(x)} is plugged in - asking for USB access")
+                val pi = PendingIntent.getBroadcast(context, 3, Intent(ACTION_PERMISSION).setPackage(context.packageName), PendingIntent.FLAG_MUTABLE)
+                runCatching { mgr.requestPermission(x, pi) }
+                return
+            }
+            val conn = mgr.openDevice(x) ?: run { com.rfsentinel.app.util.HwLogs.sdr.log("TETRA watch: couldn't open the second ${labelOf(x)}"); null } ?: continue
+            launchExtra(x, conn)
         }
+    }
+
+    private fun launchExtra(d: UsbDevice, conn: android.hardware.usb.UsbDeviceConnection) {
+        val name = d.deviceName
+        val rx = "RX${extras.size + 2}"
+        val t = Thread({
+            val me = Thread.currentThread()
+            try {
+                val sdr = device(conn, d)
+                if (!sdr.open()) { com.rfsentinel.app.util.HwLogs.sdr.log("TETRA watch: $rx (${labelOf(d)}) couldn't start (see the USB log)"); return@Thread }
+                val w = TetraWatch(sdr, { centersFor(name) }, rx, { config }, { stop || extras[name] !== me || !tetraOn || gone(name) },
+                    { e -> onEvent?.invoke(e) }, com.rfsentinel.app.util.HwLogs.sdr::log)
+                tetraWatches[name] = w
+                w.run()
+                if (!sdr.lost && !gone(name)) sdr.close()
+            } catch (e: Exception) {
+                com.rfsentinel.app.util.HwLogs.sdr.log("TETRA watch: $rx stopped: ${com.rfsentinel.app.util.HwLog.describe(e)}")
+            } finally {
+                tetraWatches.remove(name)
+                runCatching { conn.close() }
+                extras.remove(name, me)
+            }
+        }, "tetra-sdr")
+        extras[name] = t
+        t.start()
+    }
+
+    /** Which halves of the TETRA band the dongle [key] watches: the first joins in TETRA only, the others always. */
+    private fun centersFor(key: String): List<Long> {
+        val order = (if (tetraOnly && runningDevice != null) listOf(MAIN) else emptyList()) + extras.keys.sorted()
+        val i = order.indexOf(key)
+        return if (i < 0) emptyList() else TetraWatch.split(order.size)[i]
+    }
+
+    /** Detect TETRA radios or TETRA only changed: extra dongles start (or stop on their own). */
+    fun tetraSettingsChanged() { synchronized(this) { if (receiver != null) appContext?.let { connect(it) } } }
+
+    /** TETRA only: the first dongle watches its share of the band until that's turned off or the screen needs it. */
+    private fun runTetra(sdr: SdrDevice) {
+        mode = null
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: TETRA only - the other scans pause")
+        status = deviceLabel
+        val w = TetraWatch(sdr, { centersFor(MAIN) }, "RX1", { config },
+            { halted || sdr.lost || !tetraOnly || tuneHz != null || finder != null || antennaCheck != null || reapply },
+            { e -> onEvent?.invoke(e) }, com.rfsentinel.app.util.HwLogs.sdr::log)
+        tetraWatches[MAIN] = w
+        try { w.run() } finally { tetraWatches.remove(MAIN) }
+        status = "$deviceLabel · live"
     }
 
     /** Settings › Network SDR: an rtl_tcp server, used while no USB SDR is plugged in. */
@@ -595,6 +682,7 @@ object SdrRadio {
             antennaCheck?.let { ask -> antennaCheck = null; ask(runCatching { checkAntenna(sdr) }.getOrDefault(AntennaReading(0, 0, 0, 0, ok = false))); tuned = true }
             if (finder != null) { runFinder(sdr, name); tuned = true; continue }
             if (tuneHz != null) { runTuned(sdr, name); tuned = true; continue }
+            if (tetraOnly) { runTetra(sdr); tuned = true; continue }
             val held = sweepHeld
             if (held && mode != Mode.SWEEP) com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: radio sweep while the waterfall is open")
             val (m, after) = pickTurn(held, mode, tuned, resume, active)
@@ -724,7 +812,7 @@ object SdrRadio {
         sdr.setSampleRate(SAMPLE_RATE)
         sdr.setGain(GAIN_TENTHS_DB)
         sdr.resetBuffer()
-        var cfg = config
+        var cfg = sweepConfig()
         var plan = RadioWatch.plan(cfg)
         val watch = sweepWatch ?: RadioWatch().also { sweepWatch = it }
         watch.config = cfg
@@ -785,7 +873,7 @@ object SdrRadio {
         }
         while (!halted && !sdr.lost && keeps(Mode.SWEEP)) {
             // Settings changed: the new bands / targets / sensitivity from this sweep on.
-            if (config != cfg) { cfg = config; plan = RadioWatch.plan(cfg); watch.config = cfg; logPlan() }
+            if (sweepConfig() != cfg) { cfg = sweepConfig(); plan = RadioWatch.plan(cfg); watch.config = cfg; logPlan() }
             for (center in plan) {
                 if (halted || sdr.lost || !keeps(Mode.SWEEP)) break
                 if (System.currentTimeMillis() - lastCheck >= 2_000L) { lastCheck = System.currentTimeMillis(); if (gone(name)) break }
@@ -898,6 +986,9 @@ object SdrRadio {
         }
         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: radio sweep stopped after ${watch.sweeps} sweeps")
     }
+
+    /** What the sweep covers: the TETRA band only while no extra dongle watches it. */
+    private fun sweepConfig() = config.let { c -> if (tetraWatched) c.copy(bands = c.bands - RadioWatch.TETRA_BAND) else c }
 
     /** Worth a P25 check: a two-way radio band (not cellular, not TETRA), and no time slots (P25 Phase 1 is continuous). */
     private fun identifies(e: RadioWatch.Event) = !e.tdma && e.band.kind != RadioWatch.Kind.CELLULAR_UPLINK && e.band.kind != RadioWatch.Kind.TETRA

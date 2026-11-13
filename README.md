@@ -813,6 +813,23 @@ a **TETRA radio transmitting nearby** alert means a handset or car radio, not a 
 (base stations send on 390-395 MHz, which is never watched). Energy and timing only:
 TETRA isn't decoded, and its encryption isn't touched.
 
+An idle TETRA radio only sends a short burst every few seconds, and a sweep passing by
+catches few of them. To hunt them:
+
+- **A second (and third) RTL-SDR**: plug a second dongle into a powered USB hub and it
+  watches 380-385 MHz nonstop while the first keeps sweeping everything else. With two
+  extra dongles, each takes half of the band (380-382.4 and 382.6-385 MHz). Two
+  RTL-SDR Blog V3s work: they're told apart by their USB port.
+- **TETRA only** (Settings): every dongle, the first one too, watches the TETRA band
+  and the other scans pause.
+- A **TETRA bar** on the main screen while one is heard: how strong, Far / Closer /
+  Very close, and an arrow when it's getting stronger or weaker, with beeps that speed
+  up as it gets closer (**TETRA beeps**, Settings).
+- **City mode** (Settings): needs a stronger signal, for towns full of radios.
+- Antenna: a vertical whip about 19.5 cm long (a quarter wave at 385 MHz), on the roof
+  if you can; the stock telescopic antennas of an RTL-SDR Blog kit work pulled out to
+  that length. Two dongles can share one antenna through a 2-way splitter.
+
 **Cellular transmitters** (optional, off by default): it can also watch the phone /
 modem side of the in-range LTE bands (600, 700 including Band 14 - the public-safety
 broadband block FirstNet uses in the US - 850 and part of 1700 MHz) for a transmitter

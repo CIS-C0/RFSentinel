@@ -20,6 +20,8 @@ class RadioLogTest {
         RadioLog.observe(RadioWatch.Event(806_000_000L, 40, band, 50, p25Nac = 0x293), null, 0, 3_000L)
         assertEquals("P25 digital radio", RadioLog.current(3_000L).first().digital)
         assertEquals(2, RadioLog.current(3_000L).size)
+        RadioLog.observe(RadioWatch.Event(381_500_000L, 30, RadioWatch.TETRA_BAND, 65, tdma = true), null, 0, 4_000L)
+        assertEquals("TETRA radio", RadioLog.current(4_000L).first().digital)
         RadioLog.clear()
     }
 }
