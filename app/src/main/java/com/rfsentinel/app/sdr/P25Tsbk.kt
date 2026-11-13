@@ -64,12 +64,13 @@ object P25Tsbk {
             0x02 -> GrantUpdate(listOf(f(64, 16) to f(48, 16), f(32, 16) to f(16, 16)).distinct())
             0x03 -> GrantUpdate(listOf(f(48, 16) to f(16, 16)))
             0x04, 0x06 -> Grant(f(64, 16), null, f(40, 24), f(16, 24), false, false)
-            // Unit to unit: the target at bits 40-63, the radio (or console) sending at 16-39.
+            // Unit to unit: the target at bits 40-63, the radio (or console) sending at 16-39. Status: unit status, user status.
             0x05 -> RadioEvent("private call request", f(16, 24), f(40, 24))
             0x14 -> DataGrant(f(56, 16), f(40, 16), f(16, 24))
             0x18 -> RadioEvent("status update", f(16, 24), f(40, 24), f(64, 16))
             0x1C -> RadioEvent("message", f(16, 24), f(40, 24), f(64, 16))
-            0x1D -> RadioEvent("radio unit monitor", f(16, 24), f(40, 24))
+            // Here the source comes first (SDRTrunk's RadioUnitMonitorCommand).
+            0x1D -> RadioEvent("radio unit monitor", f(40, 24), f(16, 24))
             0x1F -> RadioEvent("call alert", f(16, 24), f(40, 24))
             0x28 -> Affiliation(f(16, 24), f(40, 16))
             0x2C -> Registration(f(16, 24), f(76, 2) == 0)

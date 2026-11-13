@@ -46,11 +46,14 @@ class P25Follow(offsetHz: Double, lsm: Boolean = false, private val grantClear: 
         }
     }
 
-    /** LCO 0x00 group voice channel user (who talks), 0x02 group voice channel update (other calls); protected ones skipped. */
+    /**
+     * LCO 0x00 group voice channel user (who talks), 0x02 group voice channel update (other calls). Standard ones only: the
+     * implicit-MFID flag set, or vendor byte 0 (SDRTrunk's LinkControlWord); protected ones skipped.
+     */
     internal fun linkControl(lc: IntArray) {
-        if (lc[0] and 0x80 != 0) return
+        if (lc[0] and 0x80 != 0 || (lc[0] and 0x40 == 0 && lc[1] != 0)) return
         when (lc[0] and 0x3F) {
-            0x00 -> if (lc[1] == 0 || lc[1] == 1) {
+            0x00 -> run {
                 val id = lc[6] shl 16 or (lc[7] shl 8) or lc[8]
                 if (id != 0 && id == talkerRead) talker = id
                 talkerRead = id

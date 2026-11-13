@@ -27,7 +27,7 @@ class P25SdrTrunkTest {
     fun radioEventsAndDataGrants() {
         assertEquals(P25Tsbk.RadioEvent("status update", 0x0A0B0C, 0x000102, 3), P25Tsbk.parse(tsbk(0x18, 0x0003_000102_0A0B0CL)))
         assertEquals(P25Tsbk.RadioEvent("message", 0x0A0B0C, 0x000102, 7), P25Tsbk.parse(tsbk(0x1C, 0x0007_000102_0A0B0CL)))
-        assertEquals(P25Tsbk.RadioEvent("radio unit monitor", 0x0A0B0C, 0x000102), P25Tsbk.parse(tsbk(0x1D, 0x0000_000102_0A0B0CL)))
+        assertEquals(P25Tsbk.RadioEvent("radio unit monitor", 0x000102, 0x0A0B0C), P25Tsbk.parse(tsbk(0x1D, 0x0000_000102_0A0B0CL)))
         assertEquals(P25Tsbk.RadioEvent("call alert", 0x0A0B0C, 0x000102), P25Tsbk.parse(tsbk(0x1F, 0x0000_000102_0A0B0CL)))
         assertEquals(P25Tsbk.RadioEvent("private call request", 0x0A0B0C, 0x000102), P25Tsbk.parse(tsbk(0x05, 0x0000_000102_0A0B0CL)))
         assertEquals(P25Tsbk.DataGrant(0x1005, 0x1006, 0x000102), P25Tsbk.parse(tsbk(0x14, 0x00_1005_1006_000102L)))
@@ -64,10 +64,11 @@ class P25SdrTrunkTest {
         f.linkControl(user); assertNull(f.talker) // once: not trusted yet
         f.linkControl(user); assertEquals(0x0A0B0C, f.talker)
         // Update: talkgroup 5000 on 0x1005, slot B unused.
-        val update = intArrayOf(0x02, 0x10, 0x05, 0x13, 0x88, 0x00, 0x00, 0x00, 0x00)
+        val update = intArrayOf(0x42, 0x10, 0x05, 0x13, 0x88, 0x00, 0x00, 0x00, 0x00)
         f.linkControl(update); assertTrue(other.isEmpty())
         f.linkControl(update); assertEquals(listOf(0x1005 to 5000), other)
-        f.linkControl(intArrayOf(0x82, 0x10, 0x05, 0x13, 0x88, 0, 0, 0, 0)) // protected: skipped
+        f.linkControl(intArrayOf(0xC2, 0x10, 0x05, 0x13, 0x88, 0, 0, 0, 0)) // protected: skipped
+        f.linkControl(intArrayOf(0x02, 0x90, 0x05, 0x13, 0x88, 0, 0, 0, 0)) // a vendor's (Motorola) opcode 2: not an update
         assertEquals(1, other.size)
     }
 

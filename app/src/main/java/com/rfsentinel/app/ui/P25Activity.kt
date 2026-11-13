@@ -224,7 +224,7 @@ class P25Activity : AppCompatActivity() {
         }
         val lines = events.map { e ->
             DateUtils.formatDateTime(this, e.at, DateUtils.FORMAT_SHOW_TIME) + " · " + e.kind.replaceFirstChar { it.uppercase() } +
-                (e.code?.let { " $it" } ?: "") + (e.source?.let { " · from $it" } ?: "") + " · to radio ${e.target}" +
+                (e.code?.let { c -> if (e.kind == "status update") " ${c shr 8}/${c and 0xff}" else " $c" } ?: "") + (e.source?.let { " · from $it" } ?: "") + " · to radio ${e.target}" +
                 (e.tg?.let { tg -> " (talkgroup $tg" + ((watched[tg]?.ifEmpty { null } ?: rr(tg))?.let { ", $it" } ?: "") + ")" } ?: "")
         }.toTypedArray()
         com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
