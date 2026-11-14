@@ -100,6 +100,8 @@ android {
     if (!fossOnly) {
         ndkVersion = "27.3.13750724"
         externalNativeBuild { cmake { path = file("src/full/cpp/CMakeLists.txt"); version = "3.22.1" } }
+        // WhisperDeviceTest's speech sample, from whisper.cpp itself.
+        sourceSets.getByName("androidTestFull").assets.srcDir("src/full/cpp/whisper.cpp/samples")
     }
 
     // Native libraries stored compressed: a much smaller APK to download (unpacked once at install).
@@ -178,4 +180,6 @@ dependencies {
     testImplementation("androidx.car.app:app-testing:1.7.0")
     testImplementation("org.robolectric:robolectric:4.17")
     testImplementation("androidx.test:core:1.7.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("junit:junit:4.13.2")
 }
