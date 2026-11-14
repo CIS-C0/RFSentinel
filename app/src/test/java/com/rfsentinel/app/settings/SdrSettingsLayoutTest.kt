@@ -17,7 +17,7 @@ class SdrSettingsLayoutTest {
     private val sdrSetters = listOf(
         "setSdrSweep", "setSdrAdsb", "setSdrP25", "setSdrPager", "setSdrTpms", "setP25Bands", "setSdrTurnS",
         "setRadioMinSnr", "setRadioBandsOff", "setRadioCustomBands", "setRadioExcluded", "setRadioTargets",
-        "setRadioSpeakFreq", "setRadioCellOn", "setRadioTetraOn", "setRadioDmrOn", "setRadioTrendDb", "setRadioMatchKhz",
+        "setRadioSpeakFreq", "setRadioRecord", "setP25SaveCalls", "setRadioCellOn", "setRadioTetraOn", "setRadioDmrOn", "setRadioTrendDb", "setRadioMatchKhz",
         "setP25Talkgroups", "setP25AlertsOff", "setP25LogDays", "setP25Unusual", "setP25Inputs", "setP25Record", "setP25Listen",
         "setPagerFreqs", "setPagerSpeeds", "setPagerWatch", "setPagerIgnore", "setPagerAlertsOff", "setPagerAlertText",
         "setRadioReferenceOn", "setNetworkSdr", "setSdrLogAll", "setSdrBiasTee", "setSdrPpmAuto", "setSdrPpm",
@@ -37,7 +37,7 @@ class SdrSettingsLayoutTest {
 
     @Test fun groupsInTheAgreedOrder() {
         val keys = Regex("""group\("(\w+)"""").findAll(radio).map { it.groupValues[1] }.toList()
-        assertEquals(listOf("scan", "sweep", "p25", "pagers", "names", "radioreference", "connection"), keys)
+        assertEquals(listOf("scan", "sweep", "p25", "voice", "pagers", "names", "radioreference", "connection"), keys)
         assertTrue("no bare subheadings left", !radio.contains("heading("))
     }
 }
