@@ -834,7 +834,8 @@ class MainActivity : AppCompatActivity() {
             // Heading-up from the compass (and the GPS course while driving), north-up without either.
             binding.radarView.setFix(fix)
             binding.radarView.pinpointOff = !Prefs.pinpointFlagged(this)
-            binding.radarView.setBlips(visible.take(200).map { s ->
+            // Alerts first: with a long-range antenna on All, an alert can sit past the 200th row and never show.
+            binding.radarView.setBlips(visible.sortedByDescending { com.rfsentinel.app.ui.LiveWindow.alerting(it, now) }.take(200).map { s ->
                 val alert = com.rfsentinel.app.ui.LiveWindow.alerting(s, now)
                 val at = if (alert && fix != null) knownPosition(s, fix.latitude, fix.longitude) else null
                 // Placed by your turns and kept placed as you walk, or the device being located once its sweep locked.
