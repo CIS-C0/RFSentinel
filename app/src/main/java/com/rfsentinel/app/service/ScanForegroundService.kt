@@ -522,6 +522,7 @@ class ScanForegroundService : Service() {
         com.rfsentinel.app.sdr.SdrRadio.saveCalls = Prefs.p25SaveCalls(this)
         com.rfsentinel.app.sdr.P25Transcribe.enabled = Prefs.p25Transcribe(this)
         com.rfsentinel.app.sdr.SdrRadio.p25Listen = com.rfsentinel.app.sdr.SdrRadio.Listen.entries[Prefs.p25Listen(this)]
+        com.rfsentinel.app.sdr.SdrRadio.voiceSettingsChanged()
         com.rfsentinel.app.sdr.SdrRadio.sweepListen = Prefs.radioListen(this)
         com.rfsentinel.app.sdr.SdrRadio.p25Watched = com.rfsentinel.app.sdr.P25Log.watched(Prefs.p25Talkgroups(this))
         com.rfsentinel.app.sdr.SdrRadio.p25Mute = Prefs.p25Mute(this)

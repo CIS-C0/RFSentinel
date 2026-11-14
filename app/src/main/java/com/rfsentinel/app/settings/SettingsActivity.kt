@@ -1896,7 +1896,7 @@ class SettingsActivity : AppCompatActivity() {
             Prefs.setP25Listen(this, it)
         }, "Experimental. Plays clear (not encrypted) P25 calls as they happen, through the speaker, headphones or car like other audio. " +
             "The SDR leaves the control channel for the call and misses its messages meanwhile: one call at a time, at most " +
-            "2 minutes each. Watched talkgroups: only those in Watch these talkgroups. Mute on the P25 talkgroups screen pauses it; Hold there (or tapping a talkgroup) plays only that talkgroup and keeps the SDR on P25 until Release. " +
+            "2 minutes each. With a second SDR plugged in (and Detect TETRA radios off), the second one plays the calls and the first stays on the control channel. Watched talkgroups: only those in Watch these talkgroups. Mute on the P25 talkgroups screen pauses it; Hold there (or tapping a talkgroup) plays only that talkgroup and keeps the SDR on P25 until Release. " +
             "Encrypted calls can't be played. Listening to radio calls is not allowed everywhere, and some places forbid it in " +
             "a vehicle: check the law where you are.", "Listen to P25 voice"))
         scan("Save played calls", Prefs.p25SaveCalls(this),

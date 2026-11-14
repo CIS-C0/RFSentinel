@@ -75,6 +75,8 @@ object SdrRadio {
     private const val FOLLOW_START_S = 3.0     // no voice this long after tuning to a call: it isn't there (op25/dsd-neo grant timeout; radios can take 1-2 s to key up)
     private const val FOLLOW_QUIET_S = 2.0     // voice gone this long: the call is over (op25/dsd-neo hangtime; a fade isn't the end, a terminator ends it at once)
     private const val FOLLOW_MAX_MS = 120_000L // then back to the control channel regardless
+    /** A call handed to the second SDR that waited longer than this is over or nearly: skipped. */
+    private const val VOICE_STALE_MS = 2_000L
     private const val PRIORITY_WAIT_MS = 5_000L // a priority call that cut another: looked for this long on the control channel
     private const val PLAY_START_MS = 1_500L    // Play voice transmissions: no voice this long after tuning, it's over (or wasn't one)
     private const val PLAY_QUIET_MS = 6_000L    // the squelch shut this long after voice, back to the sweep (a reply often comes in this time)
@@ -93,6 +95,11 @@ object SdrRadio {
         .let { if (it.isEmpty()) "" else "TETRA watch · " + it.joinToString(" · ") }
     /** Extra SDRs (beyond the first) and their threads: each watches the TETRA band. */
     private val extras = java.util.concurrent.ConcurrentHashMap<String, Thread>()
+    /** With TETRA watch off and P25 voice on, a second SDR (USB device name, thread) plays the calls ([launchVoice]): the first stays on the control channel. */
+    @Volatile private var voiceRx: Pair<String, Thread>? = null
+    /** The call handed to [voiceRx], taken as soon as it's free; [voiceBusy] while it plays one. */
+    private val voiceNext = java.util.concurrent.atomic.AtomicReference<P25History.Call?>(null)
+    @Volatile private var voiceBusy = false
     private const val MAIN = ""
     private val tetraOn get() = appContext?.let { com.rfsentinel.app.util.Prefs.radioTetraOn(it) } == true
     /** Settings › TETRA only: every dongle on the TETRA band, the other scans paused. */
@@ -540,9 +547,9 @@ object SdrRadio {
      * Blog V3s have the same USB ID, so they're told apart by their USB device name. Access is asked for one at a time.
      */
     private fun connectExtras(context: Context, mgr: UsbManager, all: List<UsbDevice>, first: String) {
-        if (!tetraOn) return
+        if (!tetraOn) { connectVoice(context, mgr, all, first); return }
         for (x in com.rfsentinel.app.usb.UsbPick.candidates(com.rfsentinel.app.usb.UsbPick.Kind.SDR, all)) {
-            if (x.deviceName == first || extras.containsKey(x.deviceName)) continue
+            if (x.deviceName == first || extras.containsKey(x.deviceName) || x.deviceName == voiceRx?.first) continue
             if (!mgr.hasPermission(x)) {
                 com.rfsentinel.app.util.HwLogs.sdr.log("TETRA watch: a second ${labelOf(x)} is plugged in - asking for USB access")
                 val pi = PendingIntent.getBroadcast(context, 3, Intent(ACTION_PERMISSION).setPackage(context.packageName), PendingIntent.FLAG_MUTABLE)
@@ -573,10 +580,83 @@ object SdrRadio {
                 tetraWatches.remove(name)
                 runCatching { conn.close() }
                 extras.remove(name, me)
+                // TETRA watch turned off: the dongle can play P25 calls instead.
+                if (!tetraOn && !stop && !gone(name)) main.post { voiceSettingsChanged() }
             }
         }, "tetra-sdr")
         extras[name] = t
         t.start()
+    }
+
+    /** P25 voice wanted from a second SDR: TETRA watch off (it has the extra dongles then), P25 on, and calls to play. */
+    private fun voiceWanted() = !tetraOn && Mode.P25 in modes && (p25Listen != Listen.OFF || p25Hold != null)
+
+    /** The first SDR other than [first] plays P25 calls ([launchVoice]) while [voiceWanted]. Access is asked for once it is. */
+    private fun connectVoice(context: Context, mgr: UsbManager, all: List<UsbDevice>, first: String) {
+        if (voiceRx != null || !voiceWanted()) return
+        val x = com.rfsentinel.app.usb.UsbPick.candidates(com.rfsentinel.app.usb.UsbPick.Kind.SDR, all)
+            .firstOrNull { it.deviceName != first && !extras.containsKey(it.deviceName) } ?: return
+        if (!mgr.hasPermission(x)) {
+            com.rfsentinel.app.util.HwLogs.sdr.log("P25 voice: a second ${labelOf(x)} is plugged in - asking for USB access")
+            val pi = PendingIntent.getBroadcast(context, 3, Intent(ACTION_PERMISSION).setPackage(context.packageName), PendingIntent.FLAG_MUTABLE)
+            runCatching { mgr.requestPermission(x, pi) }
+            return
+        }
+        val conn = mgr.openDevice(x) ?: run { com.rfsentinel.app.util.HwLogs.sdr.log("P25 voice: couldn't open the second ${labelOf(x)} - the first one plays calls"); return }
+        launchVoice(x, conn)
+    }
+
+    /**
+     * The second SDR waits for a call the first one hands it from the control channel ([voiceNext]) and plays it ([followCall]):
+     * the control channel isn't left, so no grant is missed meanwhile and a priority call can cut in at once.
+     * Gone (unplugged, failed, not wanted): the first one plays calls again.
+     */
+    private fun launchVoice(d: UsbDevice, conn: android.hardware.usb.UsbDeviceConnection) {
+        val name = d.deviceName
+        val t = Thread({
+            val me = Thread.currentThread()
+            var out: android.media.AudioTrack? = null
+            var played = 0
+            try {
+                val sdr = device(conn, d)
+                if (!sdr.open()) { com.rfsentinel.app.util.HwLogs.sdr.log("P25 voice: RX2 (${labelOf(d)}) couldn't start (see the USB log) - the first SDR plays calls"); return@Thread }
+                sdr.setSampleRate(P25Demod.SAMPLE_RATE); sdr.setGain(GAIN_TENTHS_DB)
+                out = newSpeaker()
+                com.rfsentinel.app.util.HwLogs.sdr.log("P25 voice: RX2 (${labelOf(d)}) plays calls, the first SDR stays on the control channel")
+                val quit = { stop || voiceRx?.second !== me || sdr.lost || !voiceWanted() || gone(name) }
+                while (!quit()) {
+                    val call = voiceNext.getAndSet(null)
+                    if (call == null) { Thread.sleep(50); continue }
+                    if (System.currentTimeMillis() - call.time > VOICE_STALE_MS) continue
+                    voiceBusy = true
+                    try { if (followCall(sdr, call, quit, "RX2", out)) played++ } finally { voiceBusy = false }
+                }
+                if (!sdr.lost && !gone(name)) sdr.close()
+            } catch (e: Exception) {
+                com.rfsentinel.app.util.HwLogs.sdr.log("P25 voice: RX2 failed: ${com.rfsentinel.app.util.HwLog.describe(e)}")
+            } finally {
+                voiceBusy = false; voiceNext.set(null)
+                runCatching { out?.release() }
+                runCatching { conn.close() }
+                if (voiceRx?.second === me) voiceRx = null
+                com.rfsentinel.app.util.HwLogs.sdr.log("P25 voice: RX2 stopped after $played calls played - the first SDR plays calls again")
+                // TETRA watch turned on: the dongle joins it.
+                if (tetraOn && !stop && !gone(name)) main.post { tetraSettingsChanged() }
+            }
+        }, "p25-voice")
+        voiceRx = name to t
+        t.start()
+    }
+
+    /** Listen to P25 voice or the scans changed: a second SDR starts playing calls (or stops on its own). No new access prompt for the first. */
+    fun voiceSettingsChanged() {
+        synchronized(this) {
+            val name = runningDevice ?: return
+            val c = appContext ?: return
+            val mgr = usb ?: return
+            if (receiver == null || name.startsWith(NET) || gone(name)) return
+            connectExtras(c, mgr, runCatching { mgr.deviceList.values.toList() }.getOrDefault(emptyList()), name)
+        }
     }
 
     /** Which halves of the TETRA band the dongle [key] watches: the first joins in TETRA only, the others always. */
@@ -1244,7 +1324,8 @@ object SdrRadio {
                     }
                 }
                 val listen = p25Listen
-                if ((listen != Listen.OFF || hold != null) && !p25Mute && toFollow == null) {
+                val voice = voiceRx != null
+                if ((listen != Listen.OFF || hold != null) && !p25Mute && toFollow == null && (!voice || !voiceBusy && voiceNext.get() == null)) {
                     val ok = calls.filter { !it.encrypted && !it.phase2 && it.hz != null &&
                         (if (hold != null) it.tg == hold else !p25LockedOut(it.tg) && (listen == Listen.ALL || p25IsWatched(it.tg) || p25IsPriority(it.tg))) }
                     (ok.lastOrNull { p25IsPriority(it.tg) } ?: ok.lastOrNull())?.let { toFollow = it }
@@ -1257,10 +1338,14 @@ object SdrRadio {
                         }
                     }
                 }
+                // A second SDR plays it: the first stays here.
+                var handed: P25History.Call? = null
+                if (voice) toFollow?.let { c -> toFollow = null; if (voiceNext.compareAndSet(null, c)) handed = c }
                 if (p25Record && hold == null && toRecord == null && now - lastRecord >= RECORD_GAP_MS) {
-                    calls.lastOrNull { !it.encrypted && !it.phase2 && it.hz != null && it !== toFollow }?.let { toRecord = it; lastRecord = now }
+                    calls.lastOrNull { !it.encrypted && !it.phase2 && it.hz != null && it !== toFollow && it !== handed }?.let { toRecord = it; lastRecord = now }
                 }
-                if (now - lastStatus >= 2_000L && !halted) { lastStatus = now; status = "$deviceLabel · P25 · control channel $where · $messages messages" + turnNote() }
+                if (now - lastStatus >= 2_000L && !halted) { lastStatus = now; status = "$deviceLabel · P25 · control channel $where · $messages messages" +
+                    (p25Playing?.let { c -> " · RX2 playing " + (c.tg?.let { "talkgroup $it" } ?: "a private call") } ?: "") + turnNote() }
             }
             if (lost) p25Lock = null
             com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 ${if (lost) "control channel went quiet" else "turn over or stopped"} after $messages messages (${hunt.blocks} blocks in all), " +
@@ -1320,9 +1405,10 @@ object SdrRadio {
      * unless its talkgroup is held);
      * false when no voice was heard. Frequency kept off the log.
      */
-    private fun followCall(sdr: SdrDevice, call: P25History.Call, stop: () -> Boolean): Boolean {
+    private fun followCall(sdr: SdrDevice, call: P25History.Call, stop: () -> Boolean, rx: String? = null, own: android.media.AudioTrack? = null): Boolean {
         val hz = call.hz ?: return false
-        val out = speaker ?: runCatching { newSpeaker() }.onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 no audio output - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
+        val who = deviceLabel + (rx?.let { " $it" } ?: "")
+        val out = own ?: speaker ?: runCatching { newSpeaker() }.onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 no audio output - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
             .getOrNull()?.also { speaker = it } ?: return false
         if (!sdr.tune(hz - INPUT_OFFSET_HZ)) return false
         sdr.resetBuffer()
@@ -1345,7 +1431,7 @@ object SdrRadio {
             com.rfsentinel.app.util.Voice.radioHeard()
         }
         p25Playing = call
-        status = "$deviceLabel · P25 · playing ${call.tg?.let { "talkgroup $it" } ?: "a private call"}" + turnNote()
+        if (rx == null) status = "$deviceLabel · P25 · playing ${call.tg?.let { "talkgroup $it" } ?: "a private call"}" + turnNote()
         out.play()
         val start = System.currentTimeMillis()
         var fails = 0
@@ -1361,7 +1447,7 @@ object SdrRadio {
                 fails = 0 // stalls in a row end it, not stalls over a long call
                 follow.feed(buf, n / 2)
                 raw?.takeIf { it.samples < it.rate * P25Record.RAW_MAX_S }?.feed(buf, n / 2)
-                if (follow.talker != talker) { talker = follow.talker
+                if (follow.talker != talker && rx == null) { talker = follow.talker
                     status = "$deviceLabel · P25 · playing ${call.tg?.let { "talkgroup $it" } ?: "a private call"} · radio $talker" + turnNote() }
             }
         } finally { ahead.close(); p25Playing = null; out.stop() } // stop: what's buffered still plays
@@ -1375,12 +1461,12 @@ object SdrRadio {
             follow.quietS >= FOLLOW_QUIET_S -> "voice lost for 2 s"
             else -> "listening changed"
         }
-        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 call " + (if (follow.frames > 0) "played (%.1f s)".format(java.util.Locale.US, follow.frames * 0.18) else "not played") +
+        com.rfsentinel.app.util.HwLogs.sdr.log("$who: P25 call " + (if (follow.frames > 0) "played (%.1f s)".format(java.util.Locale.US, follow.frames * 0.18) else "not played") +
             ", ended: $why" + (if (follow.garbled > 0) ", ${follow.garbled} garbled frames skipped" else "") + dataNote(follow))
         val ctx = appContext
         if (heard != null && follow.frames > 0 && ctx != null) runCatching { P25Record.saveSpeech(ctx, call, heard, follow.talker) }
             .onSuccess { P25Transcribe.enqueue(ctx, it, heard) }
-            .onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: P25 call sound not saved - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
+            .onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$who: P25 call sound not saved - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
         return follow.frames > 0
     }
 
