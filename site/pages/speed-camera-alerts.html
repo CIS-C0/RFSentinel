@@ -1,0 +1,50 @@
+<!--META {"title": "Speed Camera & Red-Light Camera Alerts for Android, Offline", "description": "Free speed camera, red-light camera and plate-reader alerts for Android, offline from OpenStreetMap and DeFlock: which way each camera faces, routes that avoid them, Android Auto.", "nav": "guides", "crumb": "Speed camera alerts"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / speed-camera-alerts</p>
+  <h1>Speed camera &amp; red-light camera alerts</h1>
+  <p class="lead">RF Sentinel keeps a map of known speed, red-light and plate-reader cameras on the phone and warns before each one, offline, with no account and no reporting. Its built-in navigation can also plan a route around them.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="qa.html#speed-camera-app">Camera Q&amp;A</a>
+  </div>
+</div>
+
+<h2 id="data">Where the cameras come from</h2>
+<ul>
+<li><b>Speed and red-light cameras:</b> fixed cameras mapped in OpenStreetMap, with the speed limit when it's mapped.</li>
+<li><b>Plate readers (ALPR, Flock):</b> <a href="https://deflock.org" rel="noopener">DeFlock</a>'s hourly snapshot of OpenStreetMap, plus cameras it leaves out, straight from OpenStreetMap.</li>
+<li><b>Download cameras around me</b> (Settings → <i>Known cameras</i>) fetches them within your radius (10-200 km, 100 by default); <b>US &amp; Canada plate cameras</b> fetches every plate reader mapped in both countries (~18 MB, refreshed weekly on WiFi).</li>
+<li>Everything is kept on the phone: the warnings work with no signal.</li>
+</ul>
+
+<h2 id="warnings">How the warnings work</h2>
+<ul>
+<li>A speed or red-light camera warns about <b>30 seconds</b> ahead at your speed, a plate reader about 20 seconds ahead.</li>
+<li>Where the direction is mapped, a cone shows which way the camera faces, and a camera watching a cross street doesn't warn.</li>
+<li>Known cameras raise the threat headline as you get closer (strong within 50 m, fading out by 500 m).</li>
+<li>Spoken alerts can be short: "Speed camera, 50". Alerts play through the car speakers in <a href="android-auto.html">Android Auto</a>, and over Waze or Google Maps through the floating bubble.</li>
+<li>Tap a camera → <b>Ignore alerts</b> to never hear about it again, or <b>Set direction</b> when its direction isn't mapped (kept on your phone only).</li>
+</ul>
+
+<h2 id="avoid">Routes that avoid cameras</h2>
+<p>Turn-by-turn navigation is built in. <b>Avoid speed cameras</b> and <b>Avoid plate readers</b> plan the route around the known cameras: the route is asked for, the cameras on it are found, the road each one is on is left out and the route is asked for again, until none is left or there is no way round. Each route says what is left on it ("no plate readers", "2 speed cameras"), and the fastest one stays on offer to compare. A camera at the start or end, or on the only bridge, can't be avoided and is counted. It also works when you are re-routed and in Android Auto. Routes come from Valhalla on OpenStreetMap data; there is no live traffic.</p>
+
+<h2 id="cctv">CCTV map layer</h2>
+<p>Optional (Settings → <i>Known cameras</i> → <i>Show CCTV cameras</i>, off by default): street, shop and building cameras mapped in OpenStreetMap, with a shaded view cone where the direction is mapped. Map only, no alerts: most are wired, so no scanner can detect them.</p>
+
+<h2 id="radio">Cameras it hears, not just maps</h2>
+<p>Flock plate readers also broadcast WiFi and Bluetooth, so RF Sentinel can detect one that isn't on any map. See the <a href="flock-camera-detector.html">Flock camera detector</a>. Speed cameras don't broadcast anything a phone can identify, so for them the map is the only source. Mobile speed traps reported by other drivers can come from <a href="waze-police-alerts.html">Waze reports</a> (optional).</p>
+
+<h2 id="faq-speedcam">Questions</h2>
+<details class="faq" id="q-speedcam-offline">
+<summary>Does the speed camera warning work offline?</summary>
+<div><p>Yes. Once RF Sentinel has downloaded the cameras of your area, they are kept on the phone and every warning is computed there. Only the download (Overpass API, DeFlock) needs internet, and it sends the area, never what you scan.</p></div>
+</details>
+<details class="faq" id="q-speedcam-mobile">
+<summary>Does it detect mobile speed traps and police radar?</summary>
+<div><p>Not by radio: RF Sentinel can't hear them, as police radar guns work on microwave bands a phone can't receive. Mobile traps reported by drivers can come in through the optional <a href="waze-police-alerts.html">Waze reports</a>, and police cars carrying Bluetooth and WiFi gear are picked up by the <a href="police-detector.html">police detector</a>.</p></div>
+</details>
+<details class="faq" id="q-speedcam-legal">
+<summary>Are speed camera alerts legal?</summary>
+<div><p>It depends on the country. Some countries (France and Germany, for example) restrict apps that warn about traffic enforcement while driving. In RF Sentinel you can turn each camera kind off in Settings. Check the law where you drive.</p></div>
+</details>

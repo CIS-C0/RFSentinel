@@ -1,0 +1,35 @@
+<!--META {"title": "POCSAG & FLEX Pager Decoder for Android (RTL-SDR) | RF Sentinel", "description": "Decode POCSAG (512 / 1200 / 2400 baud) and FLEX pager messages on an Android phone with an RTL-SDR or HackRF: capcode and keyword alerts, named channels, kept in memory only. Free, no root.", "nav": "guides", "crumb": "Pager decoder"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / pager-decoder</p>
+  <h1>POCSAG &amp; FLEX pager decoder for Android</h1>
+  <p class="lead">Plug an RTL-SDR or HackRF into the phone and RF Sentinel finds paging channels and decodes the pages, with no computer and no multimon-ng setup. Experimental, off by default.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="sdr-guide.html#pagers">Setup steps</a>
+  </div>
+</div>
+
+<h2 id="what">What it does</h2>
+<ul>
+<li>Decodes <b>POCSAG</b> at 512, 1200 and 2400 baud (pick the speeds) and <b>FLEX</b> into <b>Tools → Pager messages</b>.</li>
+<li>Alerts on the capcodes (RICs) and words you watch; the page's text stays out of the alert unless you turn that on.</li>
+<li>Drops the capcodes you ignore.</li>
+<li>Named channels: switch between them in one tap on the messages screen, and import or export the list.</li>
+</ul>
+<p>Turn it on in Settings → <i>RTL-SDR radio</i> → <b>Pager messages</b>. The decoders follow multimon-ng.</p>
+
+<h2 id="privacy">Kept in memory only</h2>
+<p>Pages can hold private or medical details, so they are never saved, exported or sent, their text is never logged, and they are gone when the app closes or you untick the setting.</p>
+
+<h2 id="legal">Check the law</h2>
+<p>Canada, the United States and many other places restrict using or passing on messages you intercept, and some forbid listening at all. Check the law where you are.</p>
+
+<h2 id="faq-pager">Questions</h2>
+<details class="faq" id="q-pager-phone">
+<summary>Can I decode pagers on an Android phone?</summary>
+<div><p>Yes, RF Sentinel does it with an RTL-SDR (or HackRF One) on USB OTG. The decoding runs on the phone; no root, no PC, no extra app.</p></div>
+</details>
+<details class="faq" id="q-pager-same-dongle">
+<summary>Can one RTL-SDR do pagers and other scans at once?</summary>
+<div><p>RF Sentinel takes turns: with the radio sweep, ADS-B, P25 and pagers ticked, the dongle switches between them for the length you set. A second dongle on a powered hub avoids the gaps.</p></div>
+</details>

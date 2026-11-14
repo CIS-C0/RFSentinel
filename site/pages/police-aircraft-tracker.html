@@ -1,0 +1,41 @@
+<!--META {"title": "Police Helicopter & Plane Tracker (ADS-B) | RF Sentinel", "description": "See police helicopters and planes overhead on Android: ~1,400 law-enforcement aircraft from the FAA and Transport Canada registries, low circling aircraft, online ADS-B or an RTL-SDR with no internet.", "nav": "guides", "crumb": "Police aircraft tracker"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / police-aircraft-tracker</p>
+  <h1>Police helicopter &amp; plane tracker</h1>
+  <p class="lead">Police and sheriff helicopters, state patrol planes and federal aircraft broadcast ADS-B like every other aircraft. RF Sentinel matches them against the law-enforcement registry and alerts when one is overhead, from community feeds or from an RTL-SDR on your phone with no internet at all.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="sdr-guide.html#adsb">ADS-B on an RTL-SDR</a>
+  </div>
+</div>
+
+<h2 id="what">What counts as a police aircraft</h2>
+<ul>
+<li>Its ICAO address is in the bundled registry of about <b>1,400 law-enforcement airframes</b> from the FAA and Transport Canada: police, sheriff, state patrol, federal agencies, RCMP and provincial police.</li>
+<li>The feed names a police owner, or a government owner (shown as a government aircraft, not always police).</li>
+<li><b>Aircraft circling overhead:</b> an unlisted aircraft that keeps orbiting low over the same area. Police and surveillance flights do this, but so do news, training and survey flights: verify.</li>
+</ul>
+<p>A strong match within the alert distance (5 km by default) alerts; the rest are listed and logged. Aircraft show on the map with altitude, speed and heading (Tools → <b>Aircraft</b>), and on the Android Auto <b>Threats</b> tab.</p>
+
+<h2 id="sources">Two sources</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Source</th><th>Needs</th><th>Privacy</th></tr></thead>
+<tbody>
+<tr><td>Community ADS-B feeds (adsb.fi, adsb.lol)</td><td>Internet</td><td>Every minute while scanning, a position rounded to about 1 km. Unlike commercial flight trackers, these feeds don't hide law-enforcement flights.</td></tr>
+<tr><td>RTL-SDR as an ADS-B receiver</td><td>An RTL-SDR dongle on USB OTG (a 1090 MHz antenna helps)</td><td>Nothing leaves the phone: turn the online feeds off.</td></tr>
+</tbody></table></div>
+<p>Off by default: turn on <b>Police aircraft</b> under Settings → detection. The RTL-SDR receiver is in Settings → <i>RTL-SDR radio</i>; see the <a href="sdr-guide.html#adsb">RTL-SDR guide</a>.</p>
+
+<h2 id="faq-aircraft">Questions</h2>
+<details class="faq" id="q-aircraft-helicopter">
+<summary>Can my phone tell me when a police helicopter is overhead?</summary>
+<div><p>Yes, RF Sentinel does when the helicopter broadcasts ADS-B and is in the registry or circling low. With internet, the community feeds cover it; without, an RTL-SDR on the phone receives ADS-B directly.</p></div>
+</details>
+<details class="faq" id="q-aircraft-hidden">
+<summary>Why don't Flightradar24 and similar apps show police aircraft?</summary>
+<div><p>Commercial trackers honour blocking requests from aircraft owners, and many law-enforcement aircraft are blocked. The community feeds RF Sentinel uses don't filter them, and an RTL-SDR hears whatever the aircraft broadcasts.</p></div>
+</details>
+<details class="faq" id="q-aircraft-transponder-off">
+<summary>Will it see an aircraft with its transponder off?</summary>
+<div><p>No. Without ADS-B, RF Sentinel has nothing to decode. Drones are different: Remote ID drones are covered by the <a href="drone-detector.html">drone detector</a>.</p></div>
+</details>

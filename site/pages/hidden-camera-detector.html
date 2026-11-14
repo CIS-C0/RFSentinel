@@ -1,0 +1,48 @@
+<!--META {"title": "Hidden Camera & Spy Cam Detector for Android | RF Sentinel", "description": "Find WiFi spy cameras (V380, LookCam Pro, TinyCam), action cams and home security cameras with an Android phone, and check a hotel room or Airbnb with Watch this place. Free, no root.", "nav": "guides", "crumb": "Hidden camera detector"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / hidden-camera-detector</p>
+  <h1>Hidden camera &amp; spy cam detector</h1>
+  <p class="lead">Cheap clock, charger and smoke-detector spy cameras give themselves away while they broadcast their setup hotspot, and action and security cameras carry known Bluetooth and WiFi identifiers. RF Sentinel looks for both, and <b>Watch this place</b> tells you what turns up in a room after you arrive.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="qa.html#find-hidden-camera">Camera Q&amp;A</a>
+  </div>
+</div>
+
+<h2 id="spy">WiFi spy cameras in setup mode</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Camera app</th><th>Setup hotspot name</th><th>Score</th></tr></thead>
+<tbody>
+<tr><td>LookCam Pro</td><td><code>DGK-XXXXXX-XXXXX</code></td><td>80</td></tr>
+<tr><td>V380</td><td><code>MV</code> + 8 digits</td><td>75</td></tr>
+<tr><td>TinyCam Pro</td><td><code>AI_</code> + 6-12 characters</td><td>60</td></tr>
+<tr><td>HDSmartIPC</td><td><code>AI</code> + 12 characters</td><td>55</td></tr>
+<tr><td>Generic IP camera</td><td><code>IPC-</code> / <code>IPC_</code> + an ID</td><td>50</td></tr>
+</tbody></table></div>
+<p>Once a spy camera has joined the home network it looks like any other device to a phone's WiFi scan. A <a href="hardware.html#usb-wifi">USB WiFi adapter in monitor mode</a> also sees client devices connected to networks.</p>
+
+<h2 id="action">Action cameras</h2>
+<p>GoPro (company ID <code>0x02F2</code>, UUIDs <code>0xFEA5</code> / <code>0xFEA6</code>), Insta360 (<code>0x10D7</code> / <code>0xFC30</code>), DJI Osmo, YI, SJCAM, AKASO, Garmin VIRB, Ricoh THETA, Kodak PIXPRO, Sony action cams and others, from company IDs, maker address blocks and default names.</p>
+
+<h2 id="network">Home and business security cameras</h2>
+<p>Arlo, Blink, Ezviz, Wyze, Ring, Verkada, Axis, Hanwha, Bosch and more, from network names and maker address blocks. <a href="smart-glasses-detector.html">Camera glasses</a> (Ray-Ban Meta and others) are their own category, on by default.</p>
+<p><b>Action &amp; hidden cameras</b> and <b>Network / home security cameras</b> are off by default (many false alarms at home): turn them on under Settings → detection.</p>
+
+<h2 id="watch-place">Watch this place: check a hotel room</h2>
+<p>Settings → <i>Trackers &amp; followers</i> → <b>Watch this place</b>. Leave the phone in one place (home, a hotel room, a rental). It learns every device around for <b>5 minutes</b>, then, counting only devices heard at -60 dBm or stronger, reports:</p>
+<ul>
+<li><b>New:</b> a device it didn't learn, heard twice within a minute.</li>
+<li><b>Gone:</b> a device quiet for 2 minutes. <b>Back:</b> one that returns within 5 minutes.</li>
+<li><b>Moving:</b> one whose signal keeps jumping by 20 dB or more.</li>
+</ul>
+<p>Phones and tags that change their random address count as the same device. It pauses while you are more than 300 m away, and keeps what it learned across a restart. The rules follow AntiHunter's; the numbers can be changed.</p>
+
+<h2 id="faq-hidden-cam">Questions</h2>
+<details class="faq" id="q-hiddencam-airbnb">
+<summary>Can I check an Airbnb or hotel room for hidden cameras with my phone?</summary>
+<div><p>Partly. In RF Sentinel, turn on the camera categories and Watch this place: cameras broadcasting a setup hotspot, Bluetooth or a known maker's address show up, and anything that switches on after you arrive is reported. Wired, SD-card-only and cellular cameras send nothing a phone can identify: look for lenses and IR LEDs too.</p></div>
+</details>
+<details class="faq" id="q-hiddencam-lens">
+<summary>Does it find cameras by lens reflection or infrared?</summary>
+<div><p>No. RF Sentinel works only from radio signals. A flashlight lens check or the phone camera (to see IR LEDs) complements it.</p></div>
+</details>

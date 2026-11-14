@@ -19,14 +19,23 @@ Sentinel Link: RF Sentinel phones linked with a 6-digit code share their detecti
 
 - [Home](https://cis-c0.github.io/RFSentinel/): overview, what it detects, features, comparison
 - [What is RF Sentinel?](https://cis-c0.github.io/RFSentinel/what-is-rf-sentinel.html): the app in plain words, its name (RF Sentinel / RFSentinel), where to get it, who makes it
-- [Q&A](https://cis-c0.github.io/RFSentinel/qa.html): technical answers on detecting police, body cams, Flock cameras, trackers, drones, IMSI catchers, installation, privacy and legality
+- [Q&A](https://cis-c0.github.io/RFSentinel/qa.html): "Can my Android phone do it?" answers (RTL-SDR and HackRF on Android, WiFi monitor mode and pcap without root, probe requests, USB Bluetooth, ADS-B, police radio, pagers, GPS jammers, skimmers, Flipper Zero, cars following you, hotel rooms, V2X), and technical answers on detecting police, body cams, Flock cameras, trackers, drones, IMSI catchers, installation, privacy and legality
 - [How it works](https://cis-c0.github.io/RFSentinel/how-it-works.html): signatures, confidence tiers, evidence fusion, patrol-vehicle grouping, MAC-rotation linking, WiFi fingerprinting
 - [Detect police with Android](https://cis-c0.github.io/RFSentinel/police-detector.html)
 - [Flock and plate-reader cameras](https://cis-c0.github.io/RFSentinel/flock-camera-detector.html)
 - [Stingray / IMSI catcher signs](https://cis-c0.github.io/RFSentinel/imsi-catcher-detector.html)
-- [AirTag and tracker detection](https://cis-c0.github.io/RFSentinel/tracker-detector.html)
+- [AirTag and tracker detection](https://cis-c0.github.io/RFSentinel/tracker-detector.html): also cars following you, from their tire-pressure sensors (RTL-SDR)
 - [Remote ID drone detector](https://cis-c0.github.io/RFSentinel/drone-detector.html)
 - [Smart glasses detector](https://cis-c0.github.io/RFSentinel/smart-glasses-detector.html)
+- [Speed and red-light camera alerts](https://cis-c0.github.io/RFSentinel/speed-camera-alerts.html): offline OpenStreetMap / DeFlock cameras, which way each faces, routes that avoid speed cameras and plate readers, CCTV layer
+- [Waze police alerts](https://cis-c0.github.io/RFSentinel/waze-police-alerts.html): Waze police reports as sound / voice alerts, only on your road ahead, call-outs at 1 km / 500 m / 200 m (optional, Waze direct or OpenWeb Ninja)
+- [Police helicopter and plane tracker](https://cis-c0.github.io/RFSentinel/police-aircraft-tracker.html): ~1,400 law-enforcement airframes (FAA, Transport Canada), low circling aircraft, community ADS-B feeds or an RTL-SDR with no internet
+- [Hidden camera detector](https://cis-c0.github.io/RFSentinel/hidden-camera-detector.html): WiFi spy cameras in setup mode (V380, LookCam Pro, TinyCam Pro), action cams, home security cameras, Watch this place for a hotel room
+- [Card skimmer detector](https://cis-c0.github.io/RFSentinel/card-skimmer-detector.html): Bluetooth skimmer modules (HC-03 / HC-05 / HC-06 / RN42 / BT04-A, serial-port service) in gas pumps and ATMs
+- [Flipper Zero and WiFi attack detector](https://cis-c0.github.io/RFSentinel/flipper-zero-detector.html): Flipper Zero, Pwnagotchi, WiFi Pineapple, ESP deauthers, evil twin WiFi, Bluetooth spam floods, deauthentication attacks (USB WiFi adapter)
+- [GPS jammer and spoofing detector](https://cis-c0.github.io/RFSentinel/gps-jammer-detector.html): receiver noise (AGC), satellite strength across GPS / GLONASS / Galileo / BeiDou / QZSS / NavIC, clock and position jumps
+- [P25 scanner on Android](https://cis-c0.github.io/RFSentinel/p25-scanner.html): RTL-SDR on the phone: P25 control channel, talkgroups, clear P25 / DMR / NXDN voice; encrypted calls never decoded
+- [POCSAG and FLEX pager decoder](https://cis-c0.github.io/RFSentinel/pager-decoder.html): RTL-SDR or HackRF on the phone, capcode and word alerts, kept in memory only
 - [Sentinel Link setup](https://cis-c0.github.io/RFSentinel/sentinel-link-setup.html): link phones into a group, Bluetooth, Meshtastic node preparation and settings, MQTT relay with a Mosquitto example
 - [Sentinel Link troubleshooting](https://cis-c0.github.io/RFSentinel/sentinel-link-troubleshooting.html): linking phones over Bluetooth, Meshtastic LoRa nodes and an MQTT relay; every status line, why only some devices arrive, radio checks
 - [Compared with other tools](https://cis-c0.github.io/RFSentinel/alternatives.html): Flock You, OUI-Spy / OUI-APEX, Wardrive Go, Fieldwatch, SØPHIA, Flock-You for Android, AirGuard, BLE Radar, Rayhunter, WiGLE

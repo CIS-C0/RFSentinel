@@ -3,28 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>How RF Sentinel&#x27;s external hardware works: RTL-SDR, P25, ADS-B, USB WiFi, USB Bluetooth, ESP32</title>
-<meta name="description" content="Technical reference for RF Sentinel&#x27;s external hardware: the userspace RTL-SDR / HackRF drivers, radio sweep and busy-channel learning, P25 control-channel decoding, ADS-B, USB WiFi monitor mode, USB Bluetooth HCI, ESP32 protocols, V2X and Sentinel Link.">
+<title>RF Sentinel Hardware Internals: RTL-SDR, P25, USB WiFi Drivers</title>
+<meta name="description" content="How RF Sentinel drives RTL-SDR, HackRF and rtl_tcp, the radio sweep, P25 decoding, ADS-B, USB WiFi monitor mode, USB Bluetooth HCI, ESP32 protocols, V2X and Sentinel Link.">
 <link rel="canonical" href="https://cis-c0.github.io/RFSentinel/hardware-technical.html">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="theme-color" content="#050507">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="RF Sentinel">
-<meta property="og:title" content="How RF Sentinel&#x27;s external hardware works: RTL-SDR, P25, ADS-B, USB WiFi, USB Bluetooth, ESP32">
-<meta property="og:description" content="Technical reference for RF Sentinel&#x27;s external hardware: the userspace RTL-SDR / HackRF drivers, radio sweep and busy-channel learning, P25 control-channel decoding, ADS-B, USB WiFi monitor mode, USB Bluetooth HCI, ESP32 protocols, V2X and Sentinel Link.">
+<meta property="og:title" content="RF Sentinel Hardware Internals: RTL-SDR, P25, USB WiFi Drivers">
+<meta property="og:description" content="How RF Sentinel drives RTL-SDR, HackRF and rtl_tcp, the radio sweep, P25 decoding, ADS-B, USB WiFi monitor mode, USB Bluetooth HCI, ESP32 protocols, V2X and Sentinel Link.">
 <meta property="og:url" content="https://cis-c0.github.io/RFSentinel/hardware-technical.html">
 <meta property="og:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="640">
 <meta property="og:image:alt" content="RF Sentinel - BLE and WiFi police scanner for Android">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="How RF Sentinel&#x27;s external hardware works: RTL-SDR, P25, ADS-B, USB WiFi, USB Bluetooth, ESP32">
-<meta name="twitter:description" content="Technical reference for RF Sentinel&#x27;s external hardware: the userspace RTL-SDR / HackRF drivers, radio sweep and busy-channel learning, P25 control-channel decoding, ADS-B, USB WiFi monitor mode, USB Bluetooth HCI, ESP32 protocols, V2X and Sentinel Link.">
+<meta name="twitter:title" content="RF Sentinel Hardware Internals: RTL-SDR, P25, USB WiFi Drivers">
+<meta name="twitter:description" content="How RF Sentinel drives RTL-SDR, HackRF and rtl_tcp, the radio sweep, P25 decoding, ADS-B, USB WiFi monitor mode, USB Bluetooth HCI, ESP32 protocols, V2X and Sentinel Link.">
 <meta name="twitter:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preload" href="assets/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="stylesheet" href="assets/style.css">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "Hardware internals", "item": "https://cis-c0.github.io/RFSentinel/hardware-technical.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does the radio sweep listen to police radio?", "acceptedAnswer": {"@type": "Answer", "text": "Not by default. The sweep measures how much energy each 12.5 kHz channel carries. Only the experimental options decode audio: Play voice transmissions (the sweep's new transmissions, analog or unencrypted P25) and Listen to P25 voice (unencrypted trunked calls)."}}, {"@type": "Question", "name": "Which SDR should I buy?", "acceptedAnswer": {"@type": "Answer", "text": "An RTL-SDR with an R820T2 or R828D tuner, such as the RTL-SDR Blog V3 or V4. A HackRF One works too but costs more and gives nothing extra here. For ADS-B, a 1090 MHz antenna helps a lot."}}, {"@type": "Question", "name": "Do I need to calibrate the dongle's ppm error?", "acceptedAnswer": {"@type": "Answer", "text": "No. The sweep works on 12.5 kHz channels wide enough for a dongle's drift, and the P25 demodulator's frequency loop follows the drift itself."}}, {"@type": "Question", "name": "Can I use an SDR that is plugged into my computer?", "acceptedAnswer": {"@type": "Answer", "text": "Yes: run rtl_tcp -a 0.0.0.0 on the computer and enter its address under Settings › RTL-SDR radio › Network SDR. It needs a fast, trusted local network."}}, {"@type": "Question", "name": "Can the USB WiFi drivers deauth or capture handshakes?", "acceptedAnswer": {"@type": "Answer", "text": "No. Every transmit path, and the handshake / PMKID capture of the original drivers, was removed. They only listen."}}]}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "Hardware internals", "item": "https://cis-c0.github.io/RFSentinel/hardware-technical.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does the radio sweep listen to police radio?", "acceptedAnswer": {"@type": "Answer", "text": "Not by default in RF Sentinel. The sweep measures how much energy each 12.5 kHz channel carries. Only the experimental options decode audio: Play voice transmissions (the sweep's new transmissions, analog or unencrypted P25) and Listen to P25 voice (unencrypted trunked calls)."}}, {"@type": "Question", "name": "Which SDR should I buy?", "acceptedAnswer": {"@type": "Answer", "text": "For RF Sentinel, an RTL-SDR with an R820T2 or R828D tuner, such as the RTL-SDR Blog V3 or V4. A HackRF One works too but costs more and gives nothing extra here. For ADS-B, a 1090 MHz antenna helps a lot."}}, {"@type": "Question", "name": "Do I need to calibrate the dongle's ppm error?", "acceptedAnswer": {"@type": "Answer", "text": "No. RF Sentinel's sweep works on 12.5 kHz channels wide enough for a dongle's drift, and the P25 demodulator's frequency loop follows the drift itself."}}, {"@type": "Question", "name": "Can I use an SDR that is plugged into my computer?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, RF Sentinel can use one over WiFi: run rtl_tcp -a 0.0.0.0 on the computer and enter its address under Settings › RTL-SDR radio › Network SDR. It needs a fast, trusted local network."}}, {"@type": "Question", "name": "Can the USB WiFi drivers deauth or capture handshakes?", "acceptedAnswer": {"@type": "Answer", "text": "No. In RF Sentinel's USB WiFi drivers every transmit path, and the handshake / PMKID capture of the original drivers, was removed. They only listen."}}]}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -264,23 +264,23 @@
 <h2 id="faq-tech">Questions</h2>
 <details class="faq" id="q-sdr-decode">
 <summary>Does the radio sweep listen to police radio?</summary>
-<div><p>Not by default. The sweep measures how much energy each 12.5 kHz channel carries. Only the experimental options decode audio: Play voice transmissions (the sweep's new transmissions, analog or unencrypted P25) and Listen to P25 voice (unencrypted trunked calls).</p></div>
+<div><p>Not by default in RF Sentinel. The sweep measures how much energy each 12.5 kHz channel carries. Only the experimental options decode audio: Play voice transmissions (the sweep's new transmissions, analog or unencrypted P25) and Listen to P25 voice (unencrypted trunked calls).</p></div>
 </details>
 <details class="faq" id="q-sdr-which">
 <summary>Which SDR should I buy?</summary>
-<div><p>An RTL-SDR with an R820T2 or R828D tuner, such as the RTL-SDR Blog V3 or V4. A HackRF One works too but costs more and gives nothing extra here. For ADS-B, a 1090 MHz antenna helps a lot.</p></div>
+<div><p>For RF Sentinel, an RTL-SDR with an R820T2 or R828D tuner, such as the RTL-SDR Blog V3 or V4. A HackRF One works too but costs more and gives nothing extra here. For ADS-B, a 1090 MHz antenna helps a lot.</p></div>
 </details>
 <details class="faq" id="q-sdr-ppm">
 <summary>Do I need to calibrate the dongle's ppm error?</summary>
-<div><p>No. The sweep works on 12.5 kHz channels wide enough for a dongle's drift, and the P25 demodulator's frequency loop follows the drift itself.</p></div>
+<div><p>No. RF Sentinel's sweep works on 12.5 kHz channels wide enough for a dongle's drift, and the P25 demodulator's frequency loop follows the drift itself.</p></div>
 </details>
 <details class="faq" id="q-sdr-network">
 <summary>Can I use an SDR that is plugged into my computer?</summary>
-<div><p>Yes: run <code>rtl_tcp -a 0.0.0.0</code> on the computer and enter its address under Settings › RTL-SDR radio › Network SDR. It needs a fast, trusted local network.</p></div>
+<div><p>Yes, RF Sentinel can use one over WiFi: run <code>rtl_tcp -a 0.0.0.0</code> on the computer and enter its address under Settings › RTL-SDR radio › Network SDR. It needs a fast, trusted local network.</p></div>
 </details>
 <details class="faq" id="q-wifi-transmit">
 <summary>Can the USB WiFi drivers deauth or capture handshakes?</summary>
-<div><p>No. Every transmit path, and the handshake / PMKID capture of the original drivers, was removed. They only listen.</p></div>
+<div><p>No. In RF Sentinel's USB WiFi drivers every transmit path, and the handshake / PMKID capture of the original drivers, was removed. They only listen.</p></div>
 </details>
 
 <h2 id="sources">Sources</h2>
@@ -312,7 +312,7 @@
       </div>
       <div>
         <p class="foot-title">Guides</p>
-        <ul><li><a href="what-is-rf-sentinel.html">What is RF Sentinel?</a></li><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="sentinel-link-setup.html">Sentinel Link setup</a></li><li><a href="sentinel-link-troubleshooting.html">Sentinel Link troubleshooting</a></li><li><a href="sdr-guide.html">RTL-SDR guide</a></li><li><a href="tuning-guide.html">Fewer false alerts</a></li><li><a href="alternatives.html">Compared with other tools</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li><li><a href="tetra-hunter-alternative.html">Free Tetra Hunter alternative</a></li></ul>
+        <ul><li><a href="what-is-rf-sentinel.html">What is RF Sentinel?</a></li><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="speed-camera-alerts.html">Speed &amp; red-light camera alerts</a></li><li><a href="waze-police-alerts.html">Waze police alerts</a></li><li><a href="police-aircraft-tracker.html">Police aircraft tracker</a></li><li><a href="hidden-camera-detector.html">Hidden camera detector</a></li><li><a href="card-skimmer-detector.html">Card skimmer detector</a></li><li><a href="flipper-zero-detector.html">Flipper Zero &amp; WiFi attack detector</a></li><li><a href="gps-jammer-detector.html">GPS jammer detector</a></li><li><a href="p25-scanner.html">P25 scanner</a></li><li><a href="pager-decoder.html">Pager decoder</a></li><li><a href="sentinel-link-setup.html">Sentinel Link setup</a></li><li><a href="sentinel-link-troubleshooting.html">Sentinel Link troubleshooting</a></li><li><a href="sdr-guide.html">RTL-SDR guide</a></li><li><a href="tuning-guide.html">Fewer false alerts</a></li><li><a href="alternatives.html">Compared with other tools</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li><li><a href="tetra-hunter-alternative.html">Free Tetra Hunter alternative</a></li></ul>
       </div>
       <div>
         <p class="foot-title">Community</p>

@@ -1,0 +1,48 @@
+<!--META {"title": "Waze Police Alerts with Sound & Voice on Android | RF Sentinel", "description": "Get Waze police reports as loud alerts on Android: alert range you choose, only reports on your road ahead, spoken call-outs at 1 km, 500 m and 200 m, Android Auto. Optional, free.", "nav": "guides", "crumb": "Waze police alerts"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / waze-police-alerts</p>
+  <h1>Waze police alerts, louder and sooner</h1>
+  <p class="lead">RF Sentinel can pull the police reports Waze users post near you and turn them into real alerts: sound, voice and the car speakers, only for reports on your road ahead, next to what the app hears itself. Optional and off by default.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="qa.html#waze-overlay">Car Q&amp;A</a>
+  </div>
+</div>
+
+<h2 id="sources">Two ways to get the reports</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Source</th><th>What it needs</th><th>What it sends</th></tr></thead>
+<tbody>
+<tr><td><b>Waze direct</b></td><td>Nothing: no key, free. Opt-in.</td><td>An anonymous Waze account made on the phone sends Waze (Google) your IP address and a position rounded to a 1 km grid.</td></tr>
+<tr><td><b>OpenWeb Ninja</b></td><td>Your own API key (billed per check by OpenWeb Ninja)</td><td>Waze never sees you; OpenWeb Ninja gets the area.</td></tr>
+</tbody></table></div>
+<p>Both are third-party services RF Sentinel isn't affiliated with; use them at your own risk.</p>
+
+<h2 id="alerts">What you get</h2>
+<ul>
+<li><b>Police</b> reports, and any other kind you tick: accidents, hazards, road closures, traffic jams. Each kind has its own level: sound and voice, notification only, or silent.</li>
+<li>What Waze says it is: hiding, mobile speed camera and so on.</li>
+<li><b>Alert range</b> from 100 m to 10 km, and a separate map range.</li>
+<li><b>Only alert for reports ahead:</b> checked against the map's roads, so a parallel road, a cross street, an overpass or a report behind you stays quiet. While you are guided to a destination, only reports on the part of the route still ahead count.</li>
+<li><b>Spoken call-outs</b> at 1 km, 500 m and 200 m as a report gets closer.</li>
+<li>Reports are scored by distance, age and driver confirmations and re-scored every second as you move, so the alert fires the moment a report comes into range, not at the next check.</li>
+<li>How often Waze is asked: 15 s to 5 min (direct) or 2 to 10 min (OpenWeb Ninja), slower when parked and faster on fast roads.</li>
+<li>In the car: alerts through the car speakers with <a href="android-auto.html">Android Auto</a>, a Waze chip on the live list, and the floating bubble over the Waze app itself.</li>
+</ul>
+
+<h2 id="why">Why combine both</h2>
+<p>Waze only knows what other drivers reported. RF Sentinel's <a href="police-detector.html">police detector</a> hears the equipment itself (body cams, in-car routers, radios), even where nobody reported anything. With both on, one list and one alert voice cover both.</p>
+
+<h2 id="faq-waze">Questions</h2>
+<details class="faq" id="q-waze-louder">
+<summary>Can I get louder Waze police alerts on Android?</summary>
+<div><p>Yes. With Waze reports on, each police report becomes an RF Sentinel alert: a sound, an optional spoken call-out, a voice boost up to +15 dB, and an option to pause music while it's spoken. It plays through the car speakers too.</p></div>
+</details>
+<details class="faq" id="q-waze-account">
+<summary>Do I need a Waze account?</summary>
+<div><p>No. RF Sentinel's Waze direct makes an anonymous account on the phone by itself (stored encrypted). With OpenWeb Ninja, Waze isn't contacted at all.</p></div>
+</details>
+<details class="faq" id="q-waze-run-both">
+<summary>Can I keep using the Waze app at the same time?</summary>
+<div><p>Yes. RF Sentinel runs in the background, and its floating bubble and mini map sit over Waze with a pop-up card saying what was just detected.</p></div>
+</details>

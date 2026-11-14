@@ -51,6 +51,15 @@ GUIDES = [
     ("tracker-detector.html", "AirTag & tracker detection"),
     ("drone-detector.html", "Remote ID drone detector"),
     ("smart-glasses-detector.html", "Smart glasses detector"),
+    ("speed-camera-alerts.html", "Speed & red-light camera alerts"),
+    ("waze-police-alerts.html", "Waze police alerts"),
+    ("police-aircraft-tracker.html", "Police aircraft tracker"),
+    ("hidden-camera-detector.html", "Hidden camera detector"),
+    ("card-skimmer-detector.html", "Card skimmer detector"),
+    ("flipper-zero-detector.html", "Flipper Zero & WiFi attack detector"),
+    ("gps-jammer-detector.html", "GPS jammer detector"),
+    ("p25-scanner.html", "P25 scanner"),
+    ("pager-decoder.html", "Pager decoder"),
     ("sentinel-link-setup.html", "Sentinel Link setup"),
     ("sentinel-link-troubleshooting.html", "Sentinel Link troubleshooting"),
     ("sdr-guide.html", "RTL-SDR guide"),
@@ -241,6 +250,10 @@ def build():
             if fid in seen:
                 errors.append(f"{name}: duplicate FAQ id {fid}")
             seen.add(fid)
+        # Answers get quoted alone by search engines and AI assistants: each one names the app.
+        for fid, _, a in faqs:
+            if "RF Sentinel" not in text_of(a):
+                errors.append(f"{name}: Q&A answer #{fid} doesn't mention RF Sentinel")
         if faqs:
             graph.append({
                 "@type": "FAQPage",

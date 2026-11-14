@@ -1,0 +1,36 @@
+<!--META {"title": "Bluetooth Card Skimmer Detector for Android: Gas Pumps & ATMs", "description": "Check gas pumps and ATMs for Bluetooth card skimmers with an Android phone: HC-05 / HC-06 / RN42 / BT04-A modules and the serial-port service. Free, open source, on by default.", "nav": "guides", "crumb": "Card skimmer detector"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / card-skimmer-detector</p>
+  <h1>Bluetooth card skimmer detector</h1>
+  <p class="lead">Many gas-pump and ATM skimmers carry a cheap Bluetooth serial module so the thief can download stolen card data from the car park. Those modules announce themselves with factory names. RF Sentinel flags them while it scans.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="how-it-works.html">How detection works</a>
+  </div>
+</div>
+
+<h2 id="signs">What it looks for</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Sign</th><th>Score</th></tr></thead>
+<tbody>
+<tr><td>A Bluetooth name starting with <code>HC-03</code>, <code>HC-05</code>, <code>HC-06</code>, <code>RN42</code> or <code>BT04-A</code></td><td>70 (probable)</td></tr>
+<tr><td>The Serial Port Profile service (<code>0x1101</code>) with no telling name</td><td>50 (probable, low end)</td></tr>
+</tbody></table></div>
+<p>The <b>Card skimmers</b> category is on by default. Signatures follow SquachWatch's detection list, re-checked against the Bluetooth SIG and IEEE registries.</p>
+
+<h2 id="use">At the pump</h2>
+<ol>
+<li>Open the app while you pull up; it scans in the background.</li>
+<li>A <b>Possible card skimmer</b> alert near the pump means a serial module is broadcasting close by. Tap it → <b>Locate</b>: the beeps speed up as you get closer.</li>
+<li>If it peaks at a pump, pay inside or use another one, and tell the station.</li>
+</ol>
+
+<h2 id="faq-skimmer">Questions</h2>
+<details class="faq" id="q-skimmer-phone">
+<summary>Can my phone detect a credit card skimmer?</summary>
+<div><p>A Bluetooth one, often: RF Sentinel flags its serial module. Skimmers that store data on a chip without a radio, or send it over a cellular modem, broadcast nothing a phone can identify: also check the card slot and keypad by hand.</p></div>
+</details>
+<details class="faq" id="q-skimmer-false">
+<summary>Can an HC-05 alert be something harmless?</summary>
+<div><p>Yes. The same modules are used in hobby electronics, some car gadgets and industrial gear. That's why RF Sentinel rates it a probable match, not a strong one: what matters is where the signal peaks.</p></div>
+</details>

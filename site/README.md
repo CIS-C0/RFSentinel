@@ -100,6 +100,11 @@ Every question, on `qa.html` or any guide page, uses exactly this markup:
   answer automatically).
 - On `qa.html`, questions are grouped in `<section class="faq-group" id="...">`
   with an `<h2>`; add new groups to the numbered table of contents at the top.
+- **Every answer names RF Sentinel** (search engines and AI assistants quote one
+  answer on its own, so it must say which app it is about). The build fails on
+  an answer without "RF Sentinel".
+- Questions are phrased the way people ask them ("Can you use an RTL-SDR on
+  Android?"): the `possible` group on `qa.html` holds one per capability.
 - The CSS class is `faq` for historical reasons, but **user-facing text always
   says "Q&A", never "FAQ"** (owner's preference).
 

@@ -1,4 +1,4 @@
-<!--META {"title": "Sentinel Link & Meshtastic troubleshooting | RF Sentinel", "description": "Fix RF Sentinel's Sentinel Link between phones: Bluetooth link, Meshtastic LoRa nodes and the MQTT internet relay. What every status line means, why only some devices arrive, and how to check two Meshtastic nodes can hear each other.", "nav": "guides", "crumb": "Sentinel Link troubleshooting"} -->
+<!--META {"title": "Sentinel Link & Meshtastic Troubleshooting | RF Sentinel", "description": "Fix RF Sentinel's Sentinel Link: Bluetooth link, Meshtastic LoRa nodes and the MQTT relay. What every status line means and how to check two Meshtastic nodes hear each other.", "nav": "guides", "crumb": "Sentinel Link troubleshooting"} -->
 <div class="page-head">
   <p class="crumbs"><a href="./">rf_sentinel</a> / guides / sentinel-link-troubleshooting</p>
   <h1>Sentinel Link &amp; Meshtastic troubleshooting</h1>
@@ -128,14 +128,14 @@
 <details class="faq" id="mesh-sent-not-received">
 <summary>RF Sentinel says "sent" over Meshtastic but the other phone shows nothing. Why?</summary>
 <div>
-<p>"Sent" only means the phone handed the packet to its own node. Read the node line on the receiving phone: "nothing heard yet" means its node hears no LoRa traffic at all, "nothing from the group yet" means it hears other nodes but not yours. In both cases the two nodes aren't reaching each other: check the antennas, that both use the same region, modem preset, frequency slot and primary channel, and send a text between them in the Meshtastic app (<a href="#radio">radio checks</a>).</p>
+<p>"Sent" only means RF Sentinel handed the packet to the phone's own node. Read the node line on the receiving phone: "nothing heard yet" means its node hears no LoRa traffic at all, "nothing from the group yet" means it hears other nodes but not yours. In both cases the two nodes aren't reaching each other: check the antennas, that both use the same region, modem preset, frequency slot and primary channel, and send a text between them in the Meshtastic app (<a href="#radio">radio checks</a>).</p>
 </div>
 </details>
 
 <details class="faq" id="mesh-only-some">
 <summary>Why do only a few of the other phone's devices come through Meshtastic?</summary>
 <div>
-<p>LoRa carries one small packet per interval (60 s by default), so devices take turns: watchlist matches, then flagged devices, then everything else, once and again every 15 minutes. Only devices heard in the last 2 minutes are sent, and a sending phone with its screen off scans WiFi only a few times an hour. Update both phones to 2.40.1 or later (devices then stay listed until the next resend), keep the sender's screen on, and lower the interval to 15 s (<a href="#partial">details</a>).</p>
+<p>LoRa carries one small RF Sentinel packet per interval (60 s by default), so devices take turns: watchlist matches, then flagged devices, then everything else, once and again every 15 minutes. Only devices heard in the last 2 minutes are sent, and a sending phone with its screen off scans WiFi only a few times an hour. Update both phones to 2.40.1 or later (devices then stay listed until the next resend), keep the sender's screen on, and lower the interval to 15 s (<a href="#partial">details</a>).</p>
 </div>
 </details>
 
@@ -149,20 +149,20 @@
 <details class="faq" id="show-only-other-phone">
 <summary>How do I see only what the other phone detects?</summary>
 <div>
-<p>On the watching phone, open Settings → Sentinel Link → Open Sentinel Link and turn on <b>Show only the other Sentinels</b>. It turns off that phone's own scans and online feeds while it's in a group, without changing your Settings. Hardware plugged into it keeps working. Leave the switch off on the phone that does the detecting.</p>
+<p>On the watching phone, open RF Sentinel's Settings → Sentinel Link → Open Sentinel Link and turn on <b>Show only the other Sentinels</b>. It turns off that phone's own scans and online feeds while it's in a group, without changing your Settings. Hardware plugged into it keeps working. Leave the switch off on the phone that does the detecting.</p>
 </div>
 </details>
 
 <details class="faq" id="waiting-for-sentinels">
 <summary>Sentinel Link says "waiting for Sentinels". Is something wrong?</summary>
 <div>
-<p>No. It means Bluetooth sharing is on but no linked phone is in Bluetooth range. If the other phone is far away and you use Meshtastic or the internet relay, turn "Share over Bluetooth" off; the other paths keep working.</p>
+<p>No. In RF Sentinel it means Bluetooth sharing is on but no linked phone is in Bluetooth range. If the other phone is far away and you use Meshtastic or the internet relay, turn "Share over Bluetooth" off; the other paths keep working.</p>
 </div>
 </details>
 
 <details class="faq" id="mesh-clock">
 <summary>What does "too old (check the phones' clocks)" mean?</summary>
 <div>
-<p>Mesh packets carry the time they were sent. A packet more than 15 minutes off the receiving phone's clock is refused, so an old packet can't be replayed. Set both phones to automatic date and time.</p>
+<p>RF Sentinel's mesh packets carry the time they were sent. A packet more than 15 minutes off the receiving phone's clock is refused, so an old packet can't be replayed. Set both phones to automatic date and time.</p>
 </div>
 </details>

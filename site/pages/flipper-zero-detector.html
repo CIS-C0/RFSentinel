@@ -1,0 +1,38 @@
+<!--META {"title": "Flipper Zero, Pwnagotchi & WiFi Deauth Attack Detector for Android", "description": "Detect a Flipper Zero, Pwnagotchi, WiFi Pineapple, ESP deauthers, evil twin WiFi, Bluetooth spam floods and WiFi deauthentication attacks from an Android phone. Free, open source, no root.", "nav": "guides", "crumb": "Hacking tool detector"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / flipper-zero-detector</p>
+  <h1>Flipper Zero &amp; WiFi attack detector</h1>
+  <p class="lead">Pocket hacking tools have identifiers of their own, and the attacks they run (Bluetooth pop-up spam, evil twin networks, deauthentication floods) leave patterns a receiver can spot. RF Sentinel's optional <b>Hacking tools</b> category watches for both.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="qa.html#flipper">Flipper Q&amp;A</a>
+  </div>
+</div>
+
+<h2 id="devices">Devices</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Device</th><th>Identified by</th><th>Score</th></tr></thead>
+<tbody>
+<tr><td>Flipper Zero</td><td>Service UUIDs <code>0x3081</code>-<code>0x3083</code> (one per case colour), company ID <code>0x0E29</code>, IEEE block <code>0C:FA:22</code>; name "Flipper ..." (60); STM32WB address only (30, a hint)</td><td>85-90</td></tr>
+<tr><td>Pwnagotchi</td><td>The JSON in its WiFi beacon, with its name</td><td>90</td></tr>
+<tr><td>WiFi Pineapple</td><td>Default <code>Pineapple_</code> network name; Hak5 addresses (30)</td><td>60</td></tr>
+<tr><td>ESP deauther</td><td>Default <code>pwned</code> network name</td><td>55</td></tr>
+</tbody></table></div>
+
+<h2 id="attacks">Attacks</h2>
+<ul>
+<li><b>Evil twin WiFi:</b> the same network name from two different makers with mismatched security (60).</li>
+<li><b>Bluetooth spam floods:</b> bursts of new pairing pop-up adverts and fake-tracker floods.</li>
+<li><b>WiFi deauthentication attacks</b> (needs a <a href="hardware.html#usb-wifi">USB WiFi adapter in monitor mode</a>): floods of unprotected deauthentication frames knocking devices off a network, with the tool's pattern where it has one (ESP32 Marauder, also on Flipper WiFi boards, sends only reason code 2).</li>
+</ul>
+<p>Off by default: turn on <b>Hacking tools</b> under Settings → detection.</p>
+
+<h2 id="faq-flipper">Questions</h2>
+<details class="faq" id="q-flipper-near">
+<summary>Can I tell if someone has a Flipper Zero near me?</summary>
+<div><p>Yes, while its Bluetooth is on: it advertises a Flipper service UUID, company ID or address block that RF Sentinel matches at 85-90. With Bluetooth off it sends nothing a phone can see.</p></div>
+</details>
+<details class="faq" id="q-flipper-deauth-phone">
+<summary>Can an Android phone detect a WiFi deauth attack?</summary>
+<div><p>Not with its own WiFi: Android doesn't hand apps management frames. Plug a supported USB WiFi adapter into the phone and RF Sentinel reads them in monitor mode, no root.</p></div>
+</details>

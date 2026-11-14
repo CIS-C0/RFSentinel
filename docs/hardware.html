@@ -3,28 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>External hardware for RF Sentinel: ESP32, USB WiFi, USB Bluetooth, RTL-SDR</title>
-<meta name="description" content="Add an ESP32 board (OUI-Spy, GhostESP, Marauder, Flipper Zero BFFB), a USB WiFi or Bluetooth adapter, or an RTL-SDR / HackRF to RF Sentinel for more range and more detections. No root.">
+<title>RTL-SDR, USB WiFi Monitor Mode &amp; ESP32 on Android | RF Sentinel</title>
+<meta name="description" content="Use an RTL-SDR, HackRF, USB WiFi adapter in monitor mode, USB Bluetooth dongle, ESP32 (OUI-Spy, Marauder, Flipper BFFB) or Meshtastic radio with Android in RF Sentinel. No root.">
 <link rel="canonical" href="https://cis-c0.github.io/RFSentinel/hardware.html">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="theme-color" content="#050507">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="RF Sentinel">
-<meta property="og:title" content="External hardware for RF Sentinel: ESP32, USB WiFi, USB Bluetooth, RTL-SDR">
-<meta property="og:description" content="Add an ESP32 board (OUI-Spy, GhostESP, Marauder, Flipper Zero BFFB), a USB WiFi or Bluetooth adapter, or an RTL-SDR / HackRF to RF Sentinel for more range and more detections. No root.">
+<meta property="og:title" content="RTL-SDR, USB WiFi Monitor Mode &amp; ESP32 on Android | RF Sentinel">
+<meta property="og:description" content="Use an RTL-SDR, HackRF, USB WiFi adapter in monitor mode, USB Bluetooth dongle, ESP32 (OUI-Spy, Marauder, Flipper BFFB) or Meshtastic radio with Android in RF Sentinel. No root.">
 <meta property="og:url" content="https://cis-c0.github.io/RFSentinel/hardware.html">
 <meta property="og:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="640">
 <meta property="og:image:alt" content="RF Sentinel - BLE and WiFi police scanner for Android">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="External hardware for RF Sentinel: ESP32, USB WiFi, USB Bluetooth, RTL-SDR">
-<meta name="twitter:description" content="Add an ESP32 board (OUI-Spy, GhostESP, Marauder, Flipper Zero BFFB), a USB WiFi or Bluetooth adapter, or an RTL-SDR / HackRF to RF Sentinel for more range and more detections. No root.">
+<meta name="twitter:title" content="RTL-SDR, USB WiFi Monitor Mode &amp; ESP32 on Android | RF Sentinel">
+<meta name="twitter:description" content="Use an RTL-SDR, HackRF, USB WiFi adapter in monitor mode, USB Bluetooth dongle, ESP32 (OUI-Spy, Marauder, Flipper BFFB) or Meshtastic radio with Android in RF Sentinel. No root.">
 <meta name="twitter:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preload" href="assets/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="stylesheet" href="assets/style.css">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "External hardware", "item": "https://cis-c0.github.io/RFSentinel/hardware.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Which ESP32 board should I buy?", "acceptedAnswer": {"@type": "Answer", "text": "Any board the firmware supports: XIAO ESP32-S3, ESP32-S3 DevKitC, LilyGO T-Dongle-S3 and others are targets of OUI-Spy. An external antenna connector (u.FL / IPEX) is worth having for range."}}, {"@type": "Question", "name": "How do I flash OUI-Spy?", "acceptedAnswer": {"@type": "Answer", "text": "Follow the firmware's own README (PlatformIO or its flash script). RF Sentinel doesn't flash boards."}}]}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "External hardware", "item": "https://cis-c0.github.io/RFSentinel/hardware.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Which ESP32 board should I buy?", "acceptedAnswer": {"@type": "Answer", "text": "RF Sentinel works with any board the firmware supports: XIAO ESP32-S3, ESP32-S3 DevKitC, LilyGO T-Dongle-S3 and others are targets of OUI-Spy. An external antenna connector (u.FL / IPEX) is worth having for range."}}, {"@type": "Question", "name": "How do I flash OUI-Spy?", "acceptedAnswer": {"@type": "Answer", "text": "Follow the firmware's own README (PlatformIO or its flash script). RF Sentinel doesn't flash boards."}}]}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -147,7 +147,7 @@
 <h2 id="faq-esp">Questions</h2>
 <details class="faq" id="q-esp-board">
 <summary>Which ESP32 board should I buy?</summary>
-<div><p>Any board the firmware supports: XIAO ESP32-S3, ESP32-S3 DevKitC, LilyGO T-Dongle-S3 and others are targets of OUI-Spy. An external antenna connector (u.FL / IPEX) is worth having for range.</p></div>
+<div><p>RF Sentinel works with any board the firmware supports: XIAO ESP32-S3, ESP32-S3 DevKitC, LilyGO T-Dongle-S3 and others are targets of OUI-Spy. An external antenna connector (u.FL / IPEX) is worth having for range.</p></div>
 </details>
 <details class="faq" id="q-esp-flash">
 <summary>How do I flash OUI-Spy?</summary>
@@ -172,7 +172,7 @@
       </div>
       <div>
         <p class="foot-title">Guides</p>
-        <ul><li><a href="what-is-rf-sentinel.html">What is RF Sentinel?</a></li><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="sentinel-link-setup.html">Sentinel Link setup</a></li><li><a href="sentinel-link-troubleshooting.html">Sentinel Link troubleshooting</a></li><li><a href="sdr-guide.html">RTL-SDR guide</a></li><li><a href="tuning-guide.html">Fewer false alerts</a></li><li><a href="alternatives.html">Compared with other tools</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li><li><a href="tetra-hunter-alternative.html">Free Tetra Hunter alternative</a></li></ul>
+        <ul><li><a href="what-is-rf-sentinel.html">What is RF Sentinel?</a></li><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="speed-camera-alerts.html">Speed &amp; red-light camera alerts</a></li><li><a href="waze-police-alerts.html">Waze police alerts</a></li><li><a href="police-aircraft-tracker.html">Police aircraft tracker</a></li><li><a href="hidden-camera-detector.html">Hidden camera detector</a></li><li><a href="card-skimmer-detector.html">Card skimmer detector</a></li><li><a href="flipper-zero-detector.html">Flipper Zero &amp; WiFi attack detector</a></li><li><a href="gps-jammer-detector.html">GPS jammer detector</a></li><li><a href="p25-scanner.html">P25 scanner</a></li><li><a href="pager-decoder.html">Pager decoder</a></li><li><a href="sentinel-link-setup.html">Sentinel Link setup</a></li><li><a href="sentinel-link-troubleshooting.html">Sentinel Link troubleshooting</a></li><li><a href="sdr-guide.html">RTL-SDR guide</a></li><li><a href="tuning-guide.html">Fewer false alerts</a></li><li><a href="alternatives.html">Compared with other tools</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li><li><a href="tetra-hunter-alternative.html">Free Tetra Hunter alternative</a></li></ul>
       </div>
       <div>
         <p class="foot-title">Community</p>

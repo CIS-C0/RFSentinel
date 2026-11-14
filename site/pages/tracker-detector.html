@@ -1,4 +1,4 @@
-<!--META {"title": "AirTag & Tracker Detector for Android | RF Sentinel", "description": "Is an AirTag following you? Find AirTags, SmartTags, Tile, Chipolo and Google Find Hub trackers on Android, follow them through address changes and locate them.", "nav": "guides", "crumb": "AirTag & tracker detection"} -->
+<!--META {"title": "AirTag, Tracker & Car-Following Detector for Android | RF Sentinel", "description": "Is an AirTag or a car following you? RF Sentinel finds AirTags, SmartTags, Tile, Chipolo and Find Hub tags on Android, locates them, and spots cars by their tire sensors.", "nav": "guides", "crumb": "AirTag & tracker detection"} -->
 <div class="page-head">
   <p class="crumbs"><a href="./">rf_sentinel</a> / guides / tracker-detector</p>
   <h1>AirTag &amp; tracker detection</h1>
@@ -30,6 +30,10 @@
 <li>Check the signal graph and history on the detail screen to see when it first appeared.</li>
 </ol>
 
+<h2 id="tpms">A car following you: tire-pressure sensors</h2>
+<p>With an RTL-SDR on the phone (Settings → <i>RTL-SDR radio</i>), RF Sentinel decodes the 315 and 433.92 MHz tire-pressure sensors (TPMS) in car wheels, which each send an ID. The same car's sensors heard with you at place after place means a <b>vehicle following you</b>. Your own car's sensors are learned first and never alert. A tire sensor heard together with a flagged Bluetooth device again after a gap, or across 3 places 2 km apart, ties them to one vehicle (kept 30 days, never backed up). Decoders follow rtl_433. See the <a href="sdr-guide.html">RTL-SDR guide</a>.</p>
+<p>Without an SDR, a flagged device or tracker that keeps turning up at 3 or more places along your way within 2 hours also raises <b>may be following you</b>, even with gaps between.</p>
+
 <h2 id="own">Your own tags</h2>
 <p>Long-press your own AirTag or SmartTag and ignore it. The ignore follows it through address changes, so it stays quiet.</p>
 
@@ -44,5 +48,5 @@
 </details>
 <details class="faq" id="q-tracker-lte">
 <summary>What about LTE GPS trackers?</summary>
-<div><p>They report over the cellular network and broadcast no Bluetooth a phone can identify. Inspect the vehicle physically.</p></div>
+<div><p>RF Sentinel can't see them: they report over the cellular network and broadcast no Bluetooth a phone can identify. Inspect the vehicle physically.</p></div>
 </details>

@@ -3,28 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fewer false alerts: tuning RF Sentinel | RF Sentinel</title>
-<meta name="description" content="Cut false alerts in RF Sentinel: alert threshold, whitelist rules, Ignore all like this, ignoring your own tracker, marking false alerts, and how long devices stay on the list.">
+<title>Fewer False Alerts: Tuning RF Sentinel</title>
+<meta name="description" content="Cut false alerts in RF Sentinel: alert threshold, whitelist rules, Ignore all like this, ignoring your own tracker, marking false alerts, and how long devices stay listed.">
 <link rel="canonical" href="https://cis-c0.github.io/RFSentinel/tuning-guide.html">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="theme-color" content="#050507">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="RF Sentinel">
-<meta property="og:title" content="Fewer false alerts: tuning RF Sentinel | RF Sentinel">
-<meta property="og:description" content="Cut false alerts in RF Sentinel: alert threshold, whitelist rules, Ignore all like this, ignoring your own tracker, marking false alerts, and how long devices stay on the list.">
+<meta property="og:title" content="Fewer False Alerts: Tuning RF Sentinel">
+<meta property="og:description" content="Cut false alerts in RF Sentinel: alert threshold, whitelist rules, Ignore all like this, ignoring your own tracker, marking false alerts, and how long devices stay listed.">
 <meta property="og:url" content="https://cis-c0.github.io/RFSentinel/tuning-guide.html">
 <meta property="og:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="640">
 <meta property="og:image:alt" content="RF Sentinel - BLE and WiFi police scanner for Android">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Fewer false alerts: tuning RF Sentinel | RF Sentinel">
-<meta name="twitter:description" content="Cut false alerts in RF Sentinel: alert threshold, whitelist rules, Ignore all like this, ignoring your own tracker, marking false alerts, and how long devices stay on the list.">
+<meta name="twitter:title" content="Fewer False Alerts: Tuning RF Sentinel">
+<meta name="twitter:description" content="Cut false alerts in RF Sentinel: alert threshold, whitelist rules, Ignore all like this, ignoring your own tracker, marking false alerts, and how long devices stay listed.">
 <meta name="twitter:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preload" href="assets/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="stylesheet" href="assets/style.css">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "Tuning guide", "item": "https://cis-c0.github.io/RFSentinel/tuning-guide.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Can I whitelist a police device that's always parked near my home?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, with \"Only this device\". Avoid \"Ignore all like this\" for police or emergency equipment: it would also silence every other one, everywhere. The app warns you before saving such a rule."}}, {"@type": "Question", "name": "I whitelisted a phone and it came back. Why?", "acceptedAnswer": {"@type": "Answer", "text": "Most phones change their Bluetooth and WiFi address every few minutes or hours. A new address is a new device. Use a wider rule if one fits (same name, same advert pattern), or leave ordinary phones alone: they don't alert unless they match something."}}]}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "Tuning guide", "item": "https://cis-c0.github.io/RFSentinel/tuning-guide.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Can I whitelist a police device that's always parked near my home?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, in RF Sentinel, with \"Only this device\". Avoid \"Ignore all like this\" for police or emergency equipment: it would also silence every other one, everywhere. The app warns you before saving such a rule."}}, {"@type": "Question", "name": "I whitelisted a phone and it came back. Why?", "acceptedAnswer": {"@type": "Answer", "text": "Most phones change their Bluetooth and WiFi address every few minutes or hours. To RF Sentinel, a new address is a new device. Use a wider rule if one fits (same name, same advert pattern), or leave ordinary phones alone: they don't alert unless they match something."}}]}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -103,14 +103,14 @@
 <details class="faq" id="q-tuning-police">
 <summary>Can I whitelist a police device that's always parked near my home?</summary>
 <div>
-<p>Yes, with "Only this device". Avoid "Ignore all like this" for police or emergency equipment: it would also silence every other one, everywhere. The app warns you before saving such a rule.</p>
+<p>Yes, in RF Sentinel, with "Only this device". Avoid "Ignore all like this" for police or emergency equipment: it would also silence every other one, everywhere. The app warns you before saving such a rule.</p>
 </div>
 </details>
 
 <details class="faq" id="q-tuning-random">
 <summary>I whitelisted a phone and it came back. Why?</summary>
 <div>
-<p>Most phones change their Bluetooth and WiFi address every few minutes or hours. A new address is a new device. Use a wider rule if one fits (same name, same advert pattern), or leave ordinary phones alone: they don't alert unless they match something.</p>
+<p>Most phones change their Bluetooth and WiFi address every few minutes or hours. To RF Sentinel, a new address is a new device. Use a wider rule if one fits (same name, same advert pattern), or leave ordinary phones alone: they don't alert unless they match something.</p>
 </div>
 </details>
 <section class="community" aria-label="Community">
@@ -132,7 +132,7 @@
       </div>
       <div>
         <p class="foot-title">Guides</p>
-        <ul><li><a href="what-is-rf-sentinel.html">What is RF Sentinel?</a></li><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="sentinel-link-setup.html">Sentinel Link setup</a></li><li><a href="sentinel-link-troubleshooting.html">Sentinel Link troubleshooting</a></li><li><a href="sdr-guide.html">RTL-SDR guide</a></li><li><a href="tuning-guide.html">Fewer false alerts</a></li><li><a href="alternatives.html">Compared with other tools</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li><li><a href="tetra-hunter-alternative.html">Free Tetra Hunter alternative</a></li></ul>
+        <ul><li><a href="what-is-rf-sentinel.html">What is RF Sentinel?</a></li><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="speed-camera-alerts.html">Speed &amp; red-light camera alerts</a></li><li><a href="waze-police-alerts.html">Waze police alerts</a></li><li><a href="police-aircraft-tracker.html">Police aircraft tracker</a></li><li><a href="hidden-camera-detector.html">Hidden camera detector</a></li><li><a href="card-skimmer-detector.html">Card skimmer detector</a></li><li><a href="flipper-zero-detector.html">Flipper Zero &amp; WiFi attack detector</a></li><li><a href="gps-jammer-detector.html">GPS jammer detector</a></li><li><a href="p25-scanner.html">P25 scanner</a></li><li><a href="pager-decoder.html">Pager decoder</a></li><li><a href="sentinel-link-setup.html">Sentinel Link setup</a></li><li><a href="sentinel-link-troubleshooting.html">Sentinel Link troubleshooting</a></li><li><a href="sdr-guide.html">RTL-SDR guide</a></li><li><a href="tuning-guide.html">Fewer false alerts</a></li><li><a href="alternatives.html">Compared with other tools</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li><li><a href="tetra-hunter-alternative.html">Free Tetra Hunter alternative</a></li></ul>
       </div>
       <div>
         <p class="foot-title">Community</p>

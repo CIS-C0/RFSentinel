@@ -3,28 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AirTag &amp; Tracker Detector for Android | RF Sentinel</title>
-<meta name="description" content="Is an AirTag following you? Find AirTags, SmartTags, Tile, Chipolo and Google Find Hub trackers on Android, follow them through address changes and locate them.">
+<title>AirTag, Tracker &amp; Car-Following Detector for Android | RF Sentinel</title>
+<meta name="description" content="Is an AirTag or a car following you? RF Sentinel finds AirTags, SmartTags, Tile, Chipolo and Find Hub tags on Android, locates them, and spots cars by their tire sensors.">
 <link rel="canonical" href="https://cis-c0.github.io/RFSentinel/tracker-detector.html">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="theme-color" content="#050507">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="RF Sentinel">
-<meta property="og:title" content="AirTag &amp; Tracker Detector for Android | RF Sentinel">
-<meta property="og:description" content="Is an AirTag following you? Find AirTags, SmartTags, Tile, Chipolo and Google Find Hub trackers on Android, follow them through address changes and locate them.">
+<meta property="og:title" content="AirTag, Tracker &amp; Car-Following Detector for Android | RF Sentinel">
+<meta property="og:description" content="Is an AirTag or a car following you? RF Sentinel finds AirTags, SmartTags, Tile, Chipolo and Find Hub tags on Android, locates them, and spots cars by their tire sensors.">
 <meta property="og:url" content="https://cis-c0.github.io/RFSentinel/tracker-detector.html">
 <meta property="og:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="640">
 <meta property="og:image:alt" content="RF Sentinel - BLE and WiFi police scanner for Android">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="AirTag &amp; Tracker Detector for Android | RF Sentinel">
-<meta name="twitter:description" content="Is an AirTag following you? Find AirTags, SmartTags, Tile, Chipolo and Google Find Hub trackers on Android, follow them through address changes and locate them.">
+<meta name="twitter:title" content="AirTag, Tracker &amp; Car-Following Detector for Android | RF Sentinel">
+<meta name="twitter:description" content="Is an AirTag or a car following you? RF Sentinel finds AirTags, SmartTags, Tile, Chipolo and Find Hub tags on Android, locates them, and spots cars by their tire sensors.">
 <meta name="twitter:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preload" href="assets/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="stylesheet" href="assets/style.css">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "AirTag & tracker detection", "item": "https://cis-c0.github.io/RFSentinel/tracker-detector.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Android already has unknown tracker alerts. Why use this?", "acceptedAnswer": {"@type": "Answer", "text": "Android's alerts are good but run on Google's schedule and thresholds and show little detail. RF Sentinel shows trackers live, with raw evidence, signal history, the path they followed and adjustable thresholds, alongside everything else around you."}}, {"@type": "Question", "name": "Why don't I see AirTags that are with their owners?", "acceptedAnswer": {"@type": "Answer", "text": "Near its owner an AirTag broadcasts a different, shorter frame and isn't a threat to you. RF Sentinel only flags the separated frame, so people's own keys in a café don't alert."}}, {"@type": "Question", "name": "What about LTE GPS trackers?", "acceptedAnswer": {"@type": "Answer", "text": "They report over the cellular network and broadcast no Bluetooth a phone can identify. Inspect the vehicle physically."}}]}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "AirTag & tracker detection", "item": "https://cis-c0.github.io/RFSentinel/tracker-detector.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Android already has unknown tracker alerts. Why use this?", "acceptedAnswer": {"@type": "Answer", "text": "Android's alerts are good but run on Google's schedule and thresholds and show little detail. RF Sentinel shows trackers live, with raw evidence, signal history, the path they followed and adjustable thresholds, alongside everything else around you."}}, {"@type": "Question", "name": "Why don't I see AirTags that are with their owners?", "acceptedAnswer": {"@type": "Answer", "text": "Near its owner an AirTag broadcasts a different, shorter frame and isn't a threat to you. RF Sentinel only flags the separated frame, so people's own keys in a café don't alert."}}, {"@type": "Question", "name": "What about LTE GPS trackers?", "acceptedAnswer": {"@type": "Answer", "text": "RF Sentinel can't see them: they report over the cellular network and broadcast no Bluetooth a phone can identify. Inspect the vehicle physically."}}]}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -70,6 +70,10 @@
 <li>Check the signal graph and history on the detail screen to see when it first appeared.</li>
 </ol>
 
+<h2 id="tpms">A car following you: tire-pressure sensors</h2>
+<p>With an RTL-SDR on the phone (Settings → <i>RTL-SDR radio</i>), RF Sentinel decodes the 315 and 433.92 MHz tire-pressure sensors (TPMS) in car wheels, which each send an ID. The same car's sensors heard with you at place after place means a <b>vehicle following you</b>. Your own car's sensors are learned first and never alert. A tire sensor heard together with a flagged Bluetooth device again after a gap, or across 3 places 2 km apart, ties them to one vehicle (kept 30 days, never backed up). Decoders follow rtl_433. See the <a href="sdr-guide.html">RTL-SDR guide</a>.</p>
+<p>Without an SDR, a flagged device or tracker that keeps turning up at 3 or more places along your way within 2 hours also raises <b>may be following you</b>, even with gaps between.</p>
+
 <h2 id="own">Your own tags</h2>
 <p>Long-press your own AirTag or SmartTag and ignore it. The ignore follows it through address changes, so it stays quiet.</p>
 
@@ -84,7 +88,7 @@
 </details>
 <details class="faq" id="q-tracker-lte">
 <summary>What about LTE GPS trackers?</summary>
-<div><p>They report over the cellular network and broadcast no Bluetooth a phone can identify. Inspect the vehicle physically.</p></div>
+<div><p>RF Sentinel can't see them: they report over the cellular network and broadcast no Bluetooth a phone can identify. Inspect the vehicle physically.</p></div>
 </details>
 <section class="community" aria-label="Community">
   <a class="dc" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span><strong>Join the Discord</strong>Help, ideas, new signatures, field captures and ESP32 builds.</span></a>
@@ -105,7 +109,7 @@
       </div>
       <div>
         <p class="foot-title">Guides</p>
-        <ul><li><a href="what-is-rf-sentinel.html">What is RF Sentinel?</a></li><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="sentinel-link-setup.html">Sentinel Link setup</a></li><li><a href="sentinel-link-troubleshooting.html">Sentinel Link troubleshooting</a></li><li><a href="sdr-guide.html">RTL-SDR guide</a></li><li><a href="tuning-guide.html">Fewer false alerts</a></li><li><a href="alternatives.html">Compared with other tools</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li><li><a href="tetra-hunter-alternative.html">Free Tetra Hunter alternative</a></li></ul>
+        <ul><li><a href="what-is-rf-sentinel.html">What is RF Sentinel?</a></li><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="speed-camera-alerts.html">Speed &amp; red-light camera alerts</a></li><li><a href="waze-police-alerts.html">Waze police alerts</a></li><li><a href="police-aircraft-tracker.html">Police aircraft tracker</a></li><li><a href="hidden-camera-detector.html">Hidden camera detector</a></li><li><a href="card-skimmer-detector.html">Card skimmer detector</a></li><li><a href="flipper-zero-detector.html">Flipper Zero &amp; WiFi attack detector</a></li><li><a href="gps-jammer-detector.html">GPS jammer detector</a></li><li><a href="p25-scanner.html">P25 scanner</a></li><li><a href="pager-decoder.html">Pager decoder</a></li><li><a href="sentinel-link-setup.html">Sentinel Link setup</a></li><li><a href="sentinel-link-troubleshooting.html">Sentinel Link troubleshooting</a></li><li><a href="sdr-guide.html">RTL-SDR guide</a></li><li><a href="tuning-guide.html">Fewer false alerts</a></li><li><a href="alternatives.html">Compared with other tools</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li><li><a href="tetra-hunter-alternative.html">Free Tetra Hunter alternative</a></li></ul>
       </div>
       <div>
         <p class="foot-title">Community</p>

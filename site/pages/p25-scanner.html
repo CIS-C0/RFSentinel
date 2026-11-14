@@ -1,0 +1,45 @@
+<!--META {"title": "P25 Scanner App for Android with RTL-SDR | RF Sentinel", "description": "Turn an Android phone and an RTL-SDR into a P25 trunking scanner: talkgroups, emergency and encrypted flags, clear P25 voice, plus analog FM, DMR and NXDN calls. Free, no root, no internet.", "nav": "guides", "crumb": "P25 scanner"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / p25-scanner</p>
+  <h1>P25 scanner on an Android phone</h1>
+  <p class="lead">With an RTL-SDR dongle on USB OTG, RF Sentinel follows a P25 trunked system's control channel, lists the talkgroups and their calls, and can play clear voice through the phone. No root, no computer, no internet stream. Experimental.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="sdr-guide.html#p25">Step-by-step setup</a>
+  </div>
+</div>
+
+<h2 id="control">P25 control channel</h2>
+<p>P25 trunked systems (700 / 800 MHz) announce on a control channel which talkgroup gets which voice channel. RF Sentinel finds that channel and reads the announcements. <b>Tools → P25 talkgroups</b> lists each talkgroup with its calls, last channel and radio, and emergency / encrypted flags. Alerts are available for talkgroups you watch, radios nearby, patches and radio GPS positions. On by default in the United States and Canada when an RTL-SDR is plugged in.</p>
+
+<h2 id="voice">Listening to calls</h2>
+<ul>
+<li><b>Listen to P25 voice</b> (off by default): follows clear calls on the talkgroups you pick and plays them. <b>Encrypted calls are never decoded.</b></li>
+<li><b>Save played calls</b> keeps them to play again; <b>Transcribe P25 calls</b> (Android 13+, off by default) turns each saved call into text with Android's on-device speech recognition: nothing leaves the phone.</li>
+<li><b>Play voice transmissions</b> (radio sweep, off by default): a new transmission anywhere in the swept bands is tuned to and played until it goes quiet: analog FM, clear P25, DMR and NXDN48, and FRS / GMRS / MURS walkie-talkies on their real channel.</li>
+</ul>
+
+<h2 id="hardware">What you need</h2>
+<ul>
+<li>An RTL-SDR with an R820T / R820T2 / R860 tuner (RTL-SDR Blog V3, V4 or V4L), or a HackRF One (used to receive only).</li>
+<li>A USB OTG adapter or cable. A powered hub helps with a second dongle.</li>
+<li>The userspace driver is built in: no driver app, no root.</li>
+</ul>
+<p>With more than one SDR scan ticked (radio sweep, ADS-B, P25, pagers) one dongle takes turns. Details on each status line: <a href="sdr-guide.html#status">RTL-SDR guide</a>. How it works inside: <a href="hardware-technical.html">hardware internals</a>.</p>
+
+<h2 id="legal">Check the law</h2>
+<p>Receiving radio signalling is legal in many places but not all, and some restrict using or passing on what you hear. Check the law where you are.</p>
+
+<h2 id="faq-p25">Questions</h2>
+<details class="faq" id="q-p25-phone">
+<summary>Can I listen to a P25 police scanner on my Android phone without a computer?</summary>
+<div><p>Yes, with an RTL-SDR plugged into the phone. RF Sentinel decodes the control channel and clear P25 voice on the phone itself. Encrypted talkgroups stay silent.</p></div>
+</details>
+<details class="faq" id="q-p25-dmr">
+<summary>Does it decode DMR and NXDN too?</summary>
+<div><p>In RF Sentinel, clear DMR and NXDN48 voice can be played through <b>Play voice transmissions</b> in the radio sweep. Trunking control-channel decoding is P25 only.</p></div>
+</details>
+<details class="faq" id="q-p25-tetra">
+<summary>Can it decode TETRA?</summary>
+<div><p>No. TETRA is encrypted in most networks. RF Sentinel detects TETRA handsets transmitting nearby by their time-slot bursts, without decoding them: see the <a href="tetra-hunter-alternative.html">TETRA detector</a>.</p></div>
+</details>

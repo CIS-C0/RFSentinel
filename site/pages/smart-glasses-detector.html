@@ -1,4 +1,4 @@
-<!--META {"title": "Smart Glasses Detector for Android: Ray-Ban Meta & More", "description": "Detect Ray-Ban Meta, Oakley Meta, Snap Spectacles, Vuzix and HeyCyan camera glasses nearby from their Bluetooth signals on Android. Free, open source, no root.", "nav": "guides", "crumb": "Smart glasses detector"} -->
+<!--META {"title": "Smart Glasses Detector: Ray-Ban Meta & More | RF Sentinel", "description": "RF Sentinel detects Ray-Ban Meta, Oakley Meta, Snap Spectacles, Vuzix and HeyCyan camera glasses nearby from their Bluetooth signals on Android. Free, open source, no root.", "nav": "guides", "crumb": "Smart glasses detector"} -->
 <div class="page-head">
   <p class="crumbs"><a href="./">rf_sentinel</a> / guides / smart-glasses-detector</p>
   <h1>Smart glasses detector</h1>
@@ -47,17 +47,17 @@
 <h2 id="faq-glasses">Questions</h2>
 <details class="faq" id="q-glasses-record">
 <summary>Does a match mean I'm being recorded?</summary>
-<div><p>No. It means camera glasses are nearby and advertising. Recording state isn't broadcast; look for the capture LED.</p></div>
+<div><p>No. RF Sentinel's alert means camera glasses are nearby and advertising. Recording state isn't broadcast; look for the capture LED.</p></div>
 </details>
 <details class="faq" id="q-glasses-off">
 <summary>Will it see glasses that are folded or in their case?</summary>
-<div><p>Usually not: glasses stop advertising when off or charging in the case.</p></div>
+<div><p>Usually not, for RF Sentinel or any scanner: glasses stop advertising when off or charging in the case.</p></div>
 </details>
 <details class="faq" id="q-glasses-root">
 <summary>Does it need root or a special phone?</summary>
-<div><p>No. It uses Android's normal Bluetooth LE scanning on any phone with Android 8.0 or later. It also merges detections from an ESP32 board running OUI-Spy if you connect one.</p></div>
+<div><p>No. RF Sentinel uses Android's normal Bluetooth LE scanning on any phone with Android 8.0 or later. It also merges detections from an ESP32 board running OUI-Spy if you connect one.</p></div>
 </details>
 <details class="faq" id="q-glasses-quest">
 <summary>Why did a Meta Quest headset show up?</summary>
-<div><p>Quest headsets use the same Meta company ID as the glasses. That rule is kept as a weak match for that reason; the stronger Ray-Ban and Oakley rules only match the glasses.</p></div>
+<div><p>Quest headsets use the same Meta company ID as the glasses. RF Sentinel keeps that rule as a weak match for that reason; the stronger Ray-Ban and Oakley rules only match the glasses.</p></div>
 </details>

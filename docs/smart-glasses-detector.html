@@ -3,28 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Smart Glasses Detector for Android: Ray-Ban Meta &amp; More</title>
-<meta name="description" content="Detect Ray-Ban Meta, Oakley Meta, Snap Spectacles, Vuzix and HeyCyan camera glasses nearby from their Bluetooth signals on Android. Free, open source, no root.">
+<title>Smart Glasses Detector: Ray-Ban Meta &amp; More | RF Sentinel</title>
+<meta name="description" content="RF Sentinel detects Ray-Ban Meta, Oakley Meta, Snap Spectacles, Vuzix and HeyCyan camera glasses nearby from their Bluetooth signals on Android. Free, open source, no root.">
 <link rel="canonical" href="https://cis-c0.github.io/RFSentinel/smart-glasses-detector.html">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="theme-color" content="#050507">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="RF Sentinel">
-<meta property="og:title" content="Smart Glasses Detector for Android: Ray-Ban Meta &amp; More">
-<meta property="og:description" content="Detect Ray-Ban Meta, Oakley Meta, Snap Spectacles, Vuzix and HeyCyan camera glasses nearby from their Bluetooth signals on Android. Free, open source, no root.">
+<meta property="og:title" content="Smart Glasses Detector: Ray-Ban Meta &amp; More | RF Sentinel">
+<meta property="og:description" content="RF Sentinel detects Ray-Ban Meta, Oakley Meta, Snap Spectacles, Vuzix and HeyCyan camera glasses nearby from their Bluetooth signals on Android. Free, open source, no root.">
 <meta property="og:url" content="https://cis-c0.github.io/RFSentinel/smart-glasses-detector.html">
 <meta property="og:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="640">
 <meta property="og:image:alt" content="RF Sentinel - BLE and WiFi police scanner for Android">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Smart Glasses Detector for Android: Ray-Ban Meta &amp; More">
-<meta name="twitter:description" content="Detect Ray-Ban Meta, Oakley Meta, Snap Spectacles, Vuzix and HeyCyan camera glasses nearby from their Bluetooth signals on Android. Free, open source, no root.">
+<meta name="twitter:title" content="Smart Glasses Detector: Ray-Ban Meta &amp; More | RF Sentinel">
+<meta name="twitter:description" content="RF Sentinel detects Ray-Ban Meta, Oakley Meta, Snap Spectacles, Vuzix and HeyCyan camera glasses nearby from their Bluetooth signals on Android. Free, open source, no root.">
 <meta name="twitter:image" content="https://cis-c0.github.io/RFSentinel/assets/og.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preload" href="assets/fonts/share-tech-mono.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="stylesheet" href="assets/style.css">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "Smart glasses detector", "item": "https://cis-c0.github.io/RFSentinel/smart-glasses-detector.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does a match mean I'm being recorded?", "acceptedAnswer": {"@type": "Answer", "text": "No. It means camera glasses are nearby and advertising. Recording state isn't broadcast; look for the capture LED."}}, {"@type": "Question", "name": "Will it see glasses that are folded or in their case?", "acceptedAnswer": {"@type": "Answer", "text": "Usually not: glasses stop advertising when off or charging in the case."}}, {"@type": "Question", "name": "Does it need root or a special phone?", "acceptedAnswer": {"@type": "Answer", "text": "No. It uses Android's normal Bluetooth LE scanning on any phone with Android 8.0 or later. It also merges detections from an ESP32 board running OUI-Spy if you connect one."}}, {"@type": "Question", "name": "Why did a Meta Quest headset show up?", "acceptedAnswer": {"@type": "Answer", "text": "Quest headsets use the same Meta company ID as the glasses. That rule is kept as a weak match for that reason; the stronger Ray-Ban and Oakley rules only match the glasses."}}]}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "RF Sentinel", "item": "https://cis-c0.github.io/RFSentinel/"}, {"@type": "ListItem", "position": 2, "name": "Smart glasses detector", "item": "https://cis-c0.github.io/RFSentinel/smart-glasses-detector.html"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does a match mean I'm being recorded?", "acceptedAnswer": {"@type": "Answer", "text": "No. RF Sentinel's alert means camera glasses are nearby and advertising. Recording state isn't broadcast; look for the capture LED."}}, {"@type": "Question", "name": "Will it see glasses that are folded or in their case?", "acceptedAnswer": {"@type": "Answer", "text": "Usually not, for RF Sentinel or any scanner: glasses stop advertising when off or charging in the case."}}, {"@type": "Question", "name": "Does it need root or a special phone?", "acceptedAnswer": {"@type": "Answer", "text": "No. RF Sentinel uses Android's normal Bluetooth LE scanning on any phone with Android 8.0 or later. It also merges detections from an ESP32 board running OUI-Spy if you connect one."}}, {"@type": "Question", "name": "Why did a Meta Quest headset show up?", "acceptedAnswer": {"@type": "Answer", "text": "Quest headsets use the same Meta company ID as the glasses. RF Sentinel keeps that rule as a weak match for that reason; the stronger Ray-Ban and Oakley rules only match the glasses."}}]}]}</script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -87,19 +87,19 @@
 <h2 id="faq-glasses">Questions</h2>
 <details class="faq" id="q-glasses-record">
 <summary>Does a match mean I'm being recorded?</summary>
-<div><p>No. It means camera glasses are nearby and advertising. Recording state isn't broadcast; look for the capture LED.</p></div>
+<div><p>No. RF Sentinel's alert means camera glasses are nearby and advertising. Recording state isn't broadcast; look for the capture LED.</p></div>
 </details>
 <details class="faq" id="q-glasses-off">
 <summary>Will it see glasses that are folded or in their case?</summary>
-<div><p>Usually not: glasses stop advertising when off or charging in the case.</p></div>
+<div><p>Usually not, for RF Sentinel or any scanner: glasses stop advertising when off or charging in the case.</p></div>
 </details>
 <details class="faq" id="q-glasses-root">
 <summary>Does it need root or a special phone?</summary>
-<div><p>No. It uses Android's normal Bluetooth LE scanning on any phone with Android 8.0 or later. It also merges detections from an ESP32 board running OUI-Spy if you connect one.</p></div>
+<div><p>No. RF Sentinel uses Android's normal Bluetooth LE scanning on any phone with Android 8.0 or later. It also merges detections from an ESP32 board running OUI-Spy if you connect one.</p></div>
 </details>
 <details class="faq" id="q-glasses-quest">
 <summary>Why did a Meta Quest headset show up?</summary>
-<div><p>Quest headsets use the same Meta company ID as the glasses. That rule is kept as a weak match for that reason; the stronger Ray-Ban and Oakley rules only match the glasses.</p></div>
+<div><p>Quest headsets use the same Meta company ID as the glasses. RF Sentinel keeps that rule as a weak match for that reason; the stronger Ray-Ban and Oakley rules only match the glasses.</p></div>
 </details>
 <section class="community" aria-label="Community">
   <a class="dc" href="https://discord.gg/NDTjn8HMGq" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 2.9l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 2.9a19.7 19.7 0 0 0-4.9 1.5C.5 9-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.7zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg><span><strong>Join the Discord</strong>Help, ideas, new signatures, field captures and ESP32 builds.</span></a>
@@ -120,7 +120,7 @@
       </div>
       <div>
         <p class="foot-title">Guides</p>
-        <ul><li><a href="what-is-rf-sentinel.html">What is RF Sentinel?</a></li><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="sentinel-link-setup.html">Sentinel Link setup</a></li><li><a href="sentinel-link-troubleshooting.html">Sentinel Link troubleshooting</a></li><li><a href="sdr-guide.html">RTL-SDR guide</a></li><li><a href="tuning-guide.html">Fewer false alerts</a></li><li><a href="alternatives.html">Compared with other tools</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li><li><a href="tetra-hunter-alternative.html">Free Tetra Hunter alternative</a></li></ul>
+        <ul><li><a href="what-is-rf-sentinel.html">What is RF Sentinel?</a></li><li><a href="police-detector.html">Detect police with Android</a></li><li><a href="flock-camera-detector.html">Flock &amp; plate-reader cameras</a></li><li><a href="imsi-catcher-detector.html">Stingray / IMSI catcher signs</a></li><li><a href="tracker-detector.html">AirTag &amp; tracker detection</a></li><li><a href="drone-detector.html">Remote ID drone detector</a></li><li><a href="smart-glasses-detector.html">Smart glasses detector</a></li><li><a href="speed-camera-alerts.html">Speed &amp; red-light camera alerts</a></li><li><a href="waze-police-alerts.html">Waze police alerts</a></li><li><a href="police-aircraft-tracker.html">Police aircraft tracker</a></li><li><a href="hidden-camera-detector.html">Hidden camera detector</a></li><li><a href="card-skimmer-detector.html">Card skimmer detector</a></li><li><a href="flipper-zero-detector.html">Flipper Zero &amp; WiFi attack detector</a></li><li><a href="gps-jammer-detector.html">GPS jammer detector</a></li><li><a href="p25-scanner.html">P25 scanner</a></li><li><a href="pager-decoder.html">Pager decoder</a></li><li><a href="sentinel-link-setup.html">Sentinel Link setup</a></li><li><a href="sentinel-link-troubleshooting.html">Sentinel Link troubleshooting</a></li><li><a href="sdr-guide.html">RTL-SDR guide</a></li><li><a href="tuning-guide.html">Fewer false alerts</a></li><li><a href="alternatives.html">Compared with other tools</a></li><li><a href="sophia-alternative.html">Free SØPHIA alternative</a></li><li><a href="tetra-hunter-alternative.html">Free Tetra Hunter alternative</a></li></ul>
       </div>
       <div>
         <p class="foot-title">Community</p>

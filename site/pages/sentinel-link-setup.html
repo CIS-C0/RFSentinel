@@ -1,4 +1,4 @@
-<!--META {"title": "Sentinel Link setup: share detections between phones | RF Sentinel", "description": "Set up RF Sentinel's Sentinel Link step by step: link phones over Bluetooth, reach phones kilometres away with Meshtastic LoRa nodes, or anywhere through your own MQTT broker.", "nav": "guides", "crumb": "Sentinel Link setup"} -->
+<!--META {"title": "Share Detections Between Phones: Sentinel Link | RF Sentinel", "description": "Set up RF Sentinel's Sentinel Link: link phones over Bluetooth, reach phones kilometres away with Meshtastic LoRa nodes, or anywhere through your own MQTT broker.", "nav": "guides", "crumb": "Sentinel Link setup"} -->
 <div class="page-head">
   <p class="crumbs"><a href="./">rf_sentinel</a> / guides / sentinel-link-setup</p>
   <h1>Sentinel Link setup</h1>
@@ -105,25 +105,25 @@ password_file /etc/mosquitto/passwd</code></pre>
 
 <details class="faq" id="setup-need-internet">
 <summary>Does Sentinel Link need the internet?</summary>
-<div><p>No. Bluetooth and Meshtastic work without any network. Only the internet relay uses mobile data, and only if you turn it on.</p></div>
+<div><p>No. RF Sentinel's Bluetooth and Meshtastic links work without any network. Only the internet relay uses mobile data, and only if you turn it on.</p></div>
 </details>
 
 <details class="faq" id="setup-how-many">
 <summary>How many phones can be in a group?</summary>
-<div><p>Any number: each new phone joins from any phone already in the group, with the 6-digit code. Over Meshtastic, every extra phone adds packets to the same slow channel, so keep the interval at the default or longer with many phones.</p></div>
+<div><p>RF Sentinel links any number: each new phone joins from any phone already in the group, with the 6-digit code. Over Meshtastic, every extra phone adds packets to the same slow channel, so keep the interval at the default or longer with many phones.</p></div>
 </details>
 
 <details class="faq" id="setup-one-node">
 <summary>Can two phones share one Meshtastic node?</summary>
-<div><p>No. A node talks to one phone at a time over Bluetooth. Each phone that sends or receives over the mesh needs its own node.</p></div>
+<div><p>No. A node talks to one RF Sentinel phone at a time over Bluetooth. Each phone that sends or receives over the mesh needs its own node.</p></div>
 </details>
 
 <details class="faq" id="setup-public-mesh">
 <summary>Is it safe to use Sentinel Link on a public Meshtastic mesh?</summary>
-<div><p>Other nodes can relay your packets, but they're encrypted twice, by the RFSentinel channel's key and by the group's key, both made from a key only your phones have. They do see that a node is sending, and when. Your packets also use shared air time, so don't set the interval shorter than you need.</p></div>
+<div><p>Other nodes can relay RF Sentinel's packets, but they're encrypted twice, by the RFSentinel channel's key and by the group's key, both made from a key only your phones have. They do see that a node is sending, and when. Your packets also use shared air time, so don't set the interval shorter than you need.</p></div>
 </details>
 
 <details class="faq" id="setup-public-broker">
 <summary>Can I use a public MQTT broker?</summary>
-<div><p>It works, since everything is encrypted before it leaves the phone, but the broker's owner sees your IP address and when you send, and a public broker can go down or drop clients. Your own broker is better.</p></div>
+<div><p>It works, since RF Sentinel encrypts everything before it leaves the phone, but the broker's owner sees your IP address and when you send, and a public broker can go down or drop clients. Your own broker is better.</p></div>
 </details>

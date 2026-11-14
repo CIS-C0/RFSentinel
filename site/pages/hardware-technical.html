@@ -1,4 +1,4 @@
-<!--META {"title": "How RF Sentinel's external hardware works: RTL-SDR, P25, ADS-B, USB WiFi, USB Bluetooth, ESP32", "description": "Technical reference for RF Sentinel's external hardware: the userspace RTL-SDR / HackRF drivers, radio sweep and busy-channel learning, P25 control-channel decoding, ADS-B, USB WiFi monitor mode, USB Bluetooth HCI, ESP32 protocols, V2X and Sentinel Link.", "nav": "hardware", "crumb": "Hardware internals"} -->
+<!--META {"title": "RF Sentinel Hardware Internals: RTL-SDR, P25, USB WiFi Drivers", "description": "How RF Sentinel drives RTL-SDR, HackRF and rtl_tcp, the radio sweep, P25 decoding, ADS-B, USB WiFi monitor mode, USB Bluetooth HCI, ESP32 protocols, V2X and Sentinel Link.", "nav": "hardware", "crumb": "Hardware internals"} -->
 <div class="page-head">
   <p class="crumbs"><a href="./">rf_sentinel</a> / <a href="hardware.html">hardware</a> / internals</p>
   <h1>How the external hardware works</h1>
@@ -224,23 +224,23 @@
 <h2 id="faq-tech">Questions</h2>
 <details class="faq" id="q-sdr-decode">
 <summary>Does the radio sweep listen to police radio?</summary>
-<div><p>Not by default. The sweep measures how much energy each 12.5 kHz channel carries. Only the experimental options decode audio: Play voice transmissions (the sweep's new transmissions, analog or unencrypted P25) and Listen to P25 voice (unencrypted trunked calls).</p></div>
+<div><p>Not by default in RF Sentinel. The sweep measures how much energy each 12.5 kHz channel carries. Only the experimental options decode audio: Play voice transmissions (the sweep's new transmissions, analog or unencrypted P25) and Listen to P25 voice (unencrypted trunked calls).</p></div>
 </details>
 <details class="faq" id="q-sdr-which">
 <summary>Which SDR should I buy?</summary>
-<div><p>An RTL-SDR with an R820T2 or R828D tuner, such as the RTL-SDR Blog V3 or V4. A HackRF One works too but costs more and gives nothing extra here. For ADS-B, a 1090 MHz antenna helps a lot.</p></div>
+<div><p>For RF Sentinel, an RTL-SDR with an R820T2 or R828D tuner, such as the RTL-SDR Blog V3 or V4. A HackRF One works too but costs more and gives nothing extra here. For ADS-B, a 1090 MHz antenna helps a lot.</p></div>
 </details>
 <details class="faq" id="q-sdr-ppm">
 <summary>Do I need to calibrate the dongle's ppm error?</summary>
-<div><p>No. The sweep works on 12.5 kHz channels wide enough for a dongle's drift, and the P25 demodulator's frequency loop follows the drift itself.</p></div>
+<div><p>No. RF Sentinel's sweep works on 12.5 kHz channels wide enough for a dongle's drift, and the P25 demodulator's frequency loop follows the drift itself.</p></div>
 </details>
 <details class="faq" id="q-sdr-network">
 <summary>Can I use an SDR that is plugged into my computer?</summary>
-<div><p>Yes: run <code>rtl_tcp -a 0.0.0.0</code> on the computer and enter its address under Settings › RTL-SDR radio › Network SDR. It needs a fast, trusted local network.</p></div>
+<div><p>Yes, RF Sentinel can use one over WiFi: run <code>rtl_tcp -a 0.0.0.0</code> on the computer and enter its address under Settings › RTL-SDR radio › Network SDR. It needs a fast, trusted local network.</p></div>
 </details>
 <details class="faq" id="q-wifi-transmit">
 <summary>Can the USB WiFi drivers deauth or capture handshakes?</summary>
-<div><p>No. Every transmit path, and the handshake / PMKID capture of the original drivers, was removed. They only listen.</p></div>
+<div><p>No. In RF Sentinel's USB WiFi drivers every transmit path, and the handshake / PMKID capture of the original drivers, was removed. They only listen.</p></div>
 </details>
 
 <h2 id="sources">Sources</h2>

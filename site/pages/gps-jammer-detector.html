@@ -1,0 +1,35 @@
+<!--META {"title": "GPS Jammer & Spoofing Detector for Android | RF Sentinel", "description": "Spot GPS jamming and spoofing with an Android phone: receiver noise (AGC), satellite strength across GPS, GLONASS, Galileo, BeiDou, QZSS and NavIC, clock and position jumps. Passive, free, no root.", "nav": "guides", "crumb": "GPS jammer detector"} -->
+<div class="page-head">
+  <p class="crumbs"><a href="./">rf_sentinel</a> / guides / gps-jammer-detector</p>
+  <h1>GPS jammer &amp; spoofing detector</h1>
+  <p class="lead">A phone's satellite receiver already reports the strength and position of every satellite it tracks, and on many phones its input noise. RF Sentinel reads that and warns when it looks like a jammer or a spoofer nearby. Nothing is transmitted.</p>
+  <div class="cta">
+    <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
+    <a class="btn" href="how-it-works.html">How detection works</a>
+  </div>
+</div>
+
+<h2 id="jamming">Jamming signs</h2>
+<ul>
+<li><b>GNSS jamming signs:</b> the receiver's noise (AGC) rises by 10 dB or more while every satellite weakens by 8 dB or more, held for 4 s (60, or 75 from a 15 dB rise). A tunnel or a garage weakens the satellites too but doesn't raise the noise, so it isn't mistaken for jamming. A cheap "GPS blocker" in a vehicle is the usual cause.</li>
+<li>On phones that don't report AGC, a sudden total loss of every system after a clear sky is only a weak sign.</li>
+</ul>
+
+<h2 id="spoofing">Spoofing signs</h2>
+<ul>
+<li>Every satellite equally strong whatever its height in the sky (one transmitter), held 15 s, only when the satellites are spread over the sky.</li>
+<li>Only GPS left while GLONASS, Galileo and BeiDou vanish right after being heard: cheap spoofers fake GPS only.</li>
+<li>The GPS clock drifting 60 s or more from the network-set clock over 3 fixes.</li>
+<li>A position jump faster than 340 m/s that the next fixes confirm. Rough fixes are skipped.</li>
+</ul>
+<p>Covers every system the phone hears: GPS, GLONASS, Galileo, BeiDou, QZSS, NavIC and SBAS. Tools → <b>Satellites</b> shows each satellite's signal and the receiver noise. On by default; it listens whenever something already uses GPS (the map, a trace, camera warnings or the Satellites screen) and never turns GPS on by itself. These are signs, not proof.</p>
+
+<h2 id="faq-gnss">Questions</h2>
+<details class="faq" id="q-gnss-phone">
+<summary>Can an Android phone detect a GPS jammer?</summary>
+<div><p>Often, yes. Phones that report the receiver's AGC let RF Sentinel tell a jammer (noise up, satellites down) from a roof or tunnel (satellites down, noise unchanged). Phones without AGC only get a weak sign on a total loss.</p></div>
+</details>
+<details class="faq" id="q-gnss-tracker">
+<summary>Can it tell if a GPS tracker on my car is being jammed?</summary>
+<div><p>RF Sentinel notices jamming around your phone, wherever it comes from: a jammer in your own or a nearby vehicle shows up the same way. To find a tracker itself, see the <a href="tracker-detector.html">tracker detector</a>.</p></div>
+</details>
