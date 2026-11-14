@@ -63,6 +63,11 @@ android {
         if (!fossOnly) create("full") {
             dimension = "maps"
             buildConfigField("String", "MAPBOX_TOKEN", "\"$mapboxToken\"")
+            // Whisper call transcripts (src/full/cpp): ARM phones, and the x86_64 emulator for debug builds.
+            externalNativeBuild { cmake {
+                arguments += "-DRFS_WHISPER=ON"
+                abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+            } }
         }
         // No token in the FOSS build: it has no Mapbox map, and F-Droid's build of it must match ours byte for byte.
         create("foss") {
@@ -88,6 +93,13 @@ android {
                 "proguard-rules.pro"
             )
         }
+    }
+
+    // Whisper for the full flavor only; the FOSS flavor configures it with Whisper off (nothing built), and a FOSS-only
+    // build (F-Droid's) has no native build at all, so it needs no NDK.
+    if (!fossOnly) {
+        ndkVersion = "27.3.13750724"
+        externalNativeBuild { cmake { path = file("src/full/cpp/CMakeLists.txt"); version = "3.22.1" } }
     }
 
     // Native libraries stored compressed: a much smaller APK to download (unpacked once at install).

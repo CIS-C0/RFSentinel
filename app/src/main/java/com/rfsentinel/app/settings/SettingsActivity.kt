@@ -185,6 +185,34 @@ class SettingsActivity : AppCompatActivity() {
     }
     private var transcribeBox: android.widget.CheckBox? = null
 
+    /** Settings › Whisper model: download (with progress, cancel by tapping again) or delete. */
+    private fun whisperButton(): View = com.google.android.material.button.MaterialButton(this, null, android.R.attr.borderlessButtonStyle).apply {
+        val w = com.rfsentinel.app.sdr.P25Whisper
+        var loading = false
+        fun label() { text = if (w.ready(this@SettingsActivity)) "Delete Whisper model" else "Download Whisper model (75 MB)" }
+        label()
+        setOnClickListener {
+            when {
+                loading -> { w.cancel(); text = "Cancelling…" }
+                w.ready(this@SettingsActivity) -> MaterialAlertDialogBuilder(this@SettingsActivity)
+                    .setTitle("Delete the Whisper model?")
+                    .setMessage("Calls are transcribed by Android's recognizer again (Android 13 and newer). You can download it again later.")
+                    .setPositiveButton("Delete") { _, _ -> w.delete(this@SettingsActivity); label() }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+                else -> {
+                    loading = true; text = "Downloading… 0%"
+                    w.download(this@SettingsActivity, { pct -> post { if (loading) text = "Downloading… $pct% · tap to cancel" } }) { err ->
+                        post {
+                            loading = false; label()
+                            if (err != null && err != "cancelled") Toast.makeText(this@SettingsActivity, "Whisper model not downloaded: $err", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private fun setP25Transcribe(on: Boolean) {
         Prefs.setP25Transcribe(this, on); com.rfsentinel.app.sdr.P25Transcribe.enabled = on
     }
@@ -1911,9 +1939,16 @@ class SettingsActivity : AppCompatActivity() {
             "on-device speech recognition, shown under the call on the P25 talkgroups screen › Played calls. Everything stays " +
             "on the phone. Android lets an app use its speech recognition only with the microphone permission, so it asks for " +
             "it: RF Sentinel never opens the microphone, it gives the recognizer the call's sound. Radio speech is noisy and " +
-            "full of codes, so expect mistakes. For other languages, download them for offline speech in Android's settings.") {
+            "full of codes, so expect mistakes. For other languages, download them for offline speech in Android's settings." +
+            (if (com.rfsentinel.app.sdr.WhisperNative.available) " With the Whisper model (button below) Whisper transcribes instead: English only, " +
+                "on any Android version, no microphone permission. The model (75 MB) is downloaded from Hugging Face only when you tap " +
+                "the button, and stays on the phone." else "")) {
             when {
                 !it -> setP25Transcribe(false)
+                com.rfsentinel.app.sdr.P25Whisper.ready(this) -> setP25Transcribe(true)
+                android.os.Build.VERSION.SDK_INT < 33 && com.rfsentinel.app.sdr.WhisperNative.available -> {
+                    Toast.makeText(this, "Download the Whisper model below first", Toast.LENGTH_LONG).show(); transcribeBox?.isChecked = false
+                }
                 android.os.Build.VERSION.SDK_INT < 33 -> {
                     Toast.makeText(this, "Needs Android 13 or newer", Toast.LENGTH_LONG).show(); transcribeBox?.isChecked = false
                 }
@@ -1921,6 +1956,7 @@ class SettingsActivity : AppCompatActivity() {
                 else -> speechPermission.launch(android.Manifest.permission.RECORD_AUDIO)
             }
         }
+        if (com.rfsentinel.app.sdr.WhisperNative.available) box.addView(whisperButton())
         val pagerGroup = group("pagers", "Pagers")
         pagerFreqField = lines("Pager frequencies", "466.075 Fire dispatch", Prefs.pagerFreqs(this),
             "Leave empty to scan for paging channels. If you know yours, enter it in MHz with an optional name, one per line: the SDR " +

@@ -15,7 +15,8 @@ import java.io.File
  * Settings › RTL-SDR radio › Transcribe P25 calls: each saved call's speech goes to Android's on-device speech
  * recognizer (Android 13+), fed from memory: the microphone is never opened (Android only asks that the app may).
  * The text is kept next to the call's sound file ([textOf]) and nothing leaves the phone. One call at a time, the
- * rest queued; a recognizer that never answers is given up on.
+ * rest queued; a recognizer that never answers is given up on. With the Whisper model downloaded ([P25Whisper], full
+ * version) Whisper does it instead, on any Android version and without the microphone permission.
  */
 object P25Transcribe {
     /** Settings › Transcribe P25 calls, set by the scan service. */
@@ -37,7 +38,7 @@ object P25Transcribe {
 
     /** Call [wav] was saved from [pcm] (8 kHz): transcribe it when the setting is on and this phone can. */
     fun enqueue(context: Context, wav: File, pcm: List<ShortArray>) {
-        if (!enabled || Build.VERSION.SDK_INT < 33) return
+        if (!enabled || Build.VERSION.SDK_INT < 33 && !P25Whisper.ready(context)) return
         val flat = ShortArray(pcm.sumOf { it.size })
         var at = 0
         for (p in pcm) { p.copyInto(flat, at); at += p.size }
@@ -49,10 +50,36 @@ object P25Transcribe {
         }
     }
 
-    @RequiresApi(33)
     private fun next(context: Context) {
         if (busy) return
         val (wav, pcm) = queue.removeFirstOrNull() ?: return
+        if (P25Whisper.ready(context)) { whisper(context, wav, pcm); return }
+        if (Build.VERSION.SDK_INT < 33) { queue.clear(); return } // the model was deleted meanwhile
+        recognize(context, wav, pcm)
+    }
+
+    /** Whisper on a thread of its own; the next call once it's done. */
+    private fun whisper(context: Context, wav: File, pcm: ShortArray) {
+        busy = true
+        val secs = pcm.size.toDouble() / ImbeDecoder.RATE
+        Thread({
+            val start = System.currentTimeMillis()
+            val text = runCatching { P25Whisper.transcribe(context, pcm) }
+                .onFailure { log("Whisper failed (${it.javaClass.simpleName})") }.getOrNull()
+            val took = (System.currentTimeMillis() - start) / 1000.0
+            main.post {
+                if (!text.isNullOrEmpty() && wav.exists()) runCatching { sidecar(wav).writeText(text) }
+                    .onFailure { log("text not saved (${it.javaClass.simpleName})") }
+                log(String.format(java.util.Locale.US, "%.1f s call: Whisper %s in %.1f s, %d words", secs,
+                    if (text == null) "failed" else "done", took, if (text.isNullOrEmpty()) 0 else text.split(Regex("\\s+")).size))
+                busy = false
+                next(context)
+            }
+        }, "P25Whisper").start()
+    }
+
+    @RequiresApi(33)
+    private fun recognize(context: Context, wav: File, pcm: ShortArray) {
         if (!SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
             if (!unavailableLogged) { unavailableLogged = true; log("this phone has no on-device speech recognition; calls not transcribed") }
             queue.clear(); return

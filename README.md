@@ -1312,7 +1312,8 @@ NXDN. DMR voice is ported from [dsd-neo](https://github.com/arancormonk/dsd-neo)
 [DSD-FME](https://github.com/lwvmobile/dsd-fme) by lwvmobile (ISC; parts from
 [OP25](https://github.com/osmocom/op25), GPL-3.0-or-later), and the P25 call-follow timings come
 from dsd-neo and OP25. The P25 fields, Reed-Solomon and NID decoding were checked against
-SDRTrunk. Tire-sensor decoders follow [rtl_433](https://github.com/merbanan/rtl_433) (GPL-2.0),
+SDRTrunk. P25 call transcripts in the GitHub version can use [whisper.cpp](https://github.com/ggml-org/whisper.cpp)
+(Georgi Gerganov and contributors, MIT) with OpenAI's Whisper tiny.en model (MIT). Tire-sensor decoders follow [rtl_433](https://github.com/merbanan/rtl_433) (GPL-2.0),
 and *Watch this place* follows [AntiHunter](https://github.com/lukeswitz/AntiHunter)'s rules. The SDR's automatic frequency correction follows
 [SDRTrunk](https://github.com/DSheirer/sdrtrunk)'s auto-PPM (Dennis Sheirer, GPL-3.0), and its
 bias-tee switch [rtl-sdr-blog](https://github.com/rtlsdrblog/rtl-sdr-blog)'s librtlsdr (GPL-2.0-or-later).
