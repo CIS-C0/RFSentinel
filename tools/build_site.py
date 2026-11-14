@@ -57,6 +57,7 @@ GUIDES = [
     ("tuning-guide.html", "Fewer false alerts"),
     ("alternatives.html", "Compared with other tools"),
     ("sophia-alternative.html", "Free SØPHIA alternative"),
+    ("tetra-hunter-alternative.html", "Free Tetra Hunter alternative"),
 ]
 
 TEMPLATE = """<!doctype html>
@@ -197,7 +198,7 @@ def build():
             nav.append(f'<a href="{rel}{href or "./"}"{cur}>{label}</a>')
         # The home page keeps competitor comparisons out of its footer.
         guides = "".join(f'<li><a href="{rel}{h}">{html.escape(t)}</a></li>' for h, t in GUIDES
-                         if not (slug == "index" and h == "sophia-alternative.html"))
+                         if not (slug == "index" and h in ("sophia-alternative.html", "tetra-hunter-alternative.html")))
 
         # Structured data
         graph = []

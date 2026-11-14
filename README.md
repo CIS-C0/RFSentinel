@@ -201,6 +201,7 @@ Everything the app does, grouped by area.
 - **GPS dot:** the main screen's status shows red without a position, yellow when rougher than 20 m, green at 20 m or better
 - **Pinpointing:** a flagged device you pass from more than one side is placed where it most likely is, from its signal at every spot you passed (multilateration), with a circle it's very likely in; a straight road that can't tell the side gets a circle covering both. GPS runs precise every second while a flagged device is in range (Settings → Location, on by default)
 - **Follower alerts:** a tracker or flagged device that stays with you (default 10 min and 800 m, adjustable) raises *may be following you*, and so does one that keeps turning up - heard at 3 or more places along your way within 2 hours, even with gaps between
+- **Watch this place** (Settings → Trackers & followers): leave the phone in one place (home, a hotel room); it learns every device around for 5 minutes, then reports what is new, gone, back or moving
 - **Remote ID drones** decoded live, with a *drone overhead* alert within 200 m
 - Optional **cell tower change alert**: says so each time the phone moves to another serving tower (Settings; a change while parked is a classic fake-tower sign)
 - **Fake cell tower signs** checked every 15 s, with persistence, call and border suppression (modelled on [EFF's Rayhunter](https://github.com/EFForg/rayhunter) as far as Android allows without root)
@@ -275,7 +276,11 @@ Everything the app does, grouped by area.
 - **Record frames to .pcap** for Wireshark (Settings → External hardware): every frame a USB WiFi adapter or V2X board hears, with its channel and signal
 - The ALFA AWUS036ACS's light blinks with received traffic (Settings → External hardware switches it off, for the adapters whose light the app can control)
 - RTL-SDR and HackRF transmissions show on the **radar** too, for a minute after they were last heard
-- **P25 control channel** (experimental, RTL-SDR): finds the trunked-radio control channel and lists which talkgroups get a channel and when (Tools → P25 talkgroups), with alerts for talkgroups you watch. Signalling only, voice is never decoded. With more than one SDR scan ticked (radio sweep, ADS-B, P25) the dongle takes turns
+- **P25 control channel** (experimental, RTL-SDR): finds the trunked-radio control channel and lists which talkgroups get a channel and when (Tools → P25 talkgroups), with alerts for talkgroups you watch, nearby radios, patches and radio GPS positions. With more than one SDR scan ticked (radio sweep, ADS-B, P25) the dongle takes turns
+- **Listen to P25 voice** (experimental, off by default): follows clear calls on talkgroups you pick and plays them; encrypted calls are never decoded. *Save played calls* keeps them to listen again, and *Transcribe P25 calls* (Android 13+) turns them into text with Android's on-device speech recognition
+- **Play voice transmissions** (radio sweep, off by default): a new transmission is tuned to and played until it goes quiet: analog FM, clear P25, DMR and NXDN48 digital voice, and walkie-talkies on their real channel
+- **Tire-pressure sensors** (RTL-SDR, 315 / 433.92 MHz): the same car's wheels heard with you place after place means a vehicle following you, and a tire sensor heard again and again with a flagged Bluetooth device ties the two to one vehicle. Your own car's sensors are learned first
+- **TETRA hunting**: extra RTL-SDRs watch 380-385 MHz nonstop, with a main-screen bar (Far / Closer / Very close) and beeps
 - **Pager messages** (experimental, RTL-SDR or HackRF, off by default): decodes POCSAG and FLEX pages (Tools → Pager messages), kept in memory only, with alerts for capcodes and words you watch, ignored capcodes and named channels
 - **More from every frame:** WPS maker / model / device name, a **probe fingerprint** that survives MAC randomization (watchable: "every device of this type"), and the real name of **hidden networks** when a device joins them
 
@@ -766,17 +771,32 @@ does its antenna-port power unless you turn on *Bias-tee power*. RF Sentinel
 sweeps the North American public-safety radio bands - the 700 and 800 MHz bands
 where police, fire and EMS radios (not towers) transmit, and the shared VHF / UHF
 land-mobile bands - and measures only **how much energy each 12.5 kHz channel
-carries**. The sweep demodulates, decodes, records and decrypts nothing: it can't
-know what was said or who said it.
+carries**. On its own the sweep demodulates, decodes, records and decrypts nothing: it can't
+know what was said or who said it. **Play voice transmissions** (off by default) changes
+that: a new transmission is tuned to and played through the phone until it goes quiet -
+analog FM, clear P25, and DMR and NXDN48 digital voice (encrypted calls are never decoded).
+Walkie-talkies (FRS / GMRS / MURS) are played on their real channel, not the ghosts their
+strong signal makes.
+
+**Tire-pressure sensors** (Settings → *RTL-SDR radio*): the 315 and 433.92 MHz sensors
+in car wheels send an ID. The same car's sensors heard with you at place after place
+means a vehicle following you; your own car's sensors are learned first and never
+alert. A tire sensor heard together with a flagged Bluetooth device again after a gap,
+or across 3 places 2 km apart, ties them to one vehicle (kept 30 days, never backed up).
 
 **P25 control channel** (experimental, Settings → *RTL-SDR radio*, on by default in
 the United States and Canada): P25 trunked systems (700 / 800 MHz) announce on a
 control channel which talkgroup gets which voice channel. RF Sentinel finds that
 channel and reads only those announcements: **Tools → P25 talkgroups** lists the
 talkgroups with their calls, last channel and radio, and emergency / encrypted flags,
-and *Watch these talkgroups* alerts when a call starts on one. Voice is never
-decoded, and the frequency and network code stay out of the logs (unless *Log everything
-the RTL-SDR hears* is on). Receiving radio
+and *Watch these talkgroups* alerts when a call starts on one. **Listen to P25 voice**
+(experimental, off by default) follows clear calls on the talkgroups you pick and plays
+them; encrypted calls are never decoded. *Save played calls* keeps them to play again
+(P25 talkgroups → *Played calls*), and **Transcribe P25 calls** (Android 13+, off by
+default) turns each saved call into text with Android's own on-device speech recognition:
+nothing leaves the phone. The frequency and network code stay out of the logs (unless *Log
+everything the RTL-SDR hears* is on, which also keeps each followed call's raw I/Q as a
+WAV for SDR++, SDRTrunk or dsd-fme). Receiving radio
 signalling is legal in many places but not all: check the law where you are. With
 more than one SDR scan ticked (radio sweep, ADS-B, P25, pagers), the dongle takes turns of
 the length you set.
@@ -1285,7 +1305,15 @@ is written from the published format and Junzi Sun's *The 1090 MHz Riddle*, with
 demodulator and automatic gain are ports of [dump1090-fa](https://github.com/flightaware/dump1090)'s
 (Oliver Jowett and FlightAware, GPL-2.0-or-later). The POCSAG and
 FLEX pager decoders follow [multimon-ng](https://github.com/EliasOenal/multimon-ng) (GPL; see
-`sdr/NOTICE.md`). The SDR's automatic frequency correction follows
+`sdr/NOTICE.md`). P25 voice is ported from [DSD](https://github.com/szechyjs/dsd) and
+[mbelib](https://github.com/szechyjs/mbelib) (szechyjs, ISC), with mbelib's AMBE+2 for DMR and
+NXDN. DMR voice is ported from [dsd-neo](https://github.com/arancormonk/dsd-neo) by arancormonk
+(ISC; its FEC matrices by Edouard Griffiths, GPL-3.0-or-later), NXDN48 from
+[DSD-FME](https://github.com/lwvmobile/dsd-fme) by lwvmobile (ISC; parts from
+[OP25](https://github.com/osmocom/op25), GPL-3.0-or-later), and the P25 call-follow timings come
+from dsd-neo and OP25. The P25 fields, Reed-Solomon and NID decoding were checked against
+SDRTrunk. Tire-sensor decoders follow [rtl_433](https://github.com/merbanan/rtl_433) (GPL-2.0),
+and *Watch this place* follows [AntiHunter](https://github.com/lukeswitz/AntiHunter)'s rules. The SDR's automatic frequency correction follows
 [SDRTrunk](https://github.com/DSheirer/sdrtrunk)'s auto-PPM (Dennis Sheirer, GPL-3.0), and its
 bias-tee switch [rtl-sdr-blog](https://github.com/rtlsdrblog/rtl-sdr-blog)'s librtlsdr (GPL-2.0-or-later).
 The waterfall's Listen follows [RFAnalyzer](https://github.com/demantz/RFAnalyzer)'s demodulator

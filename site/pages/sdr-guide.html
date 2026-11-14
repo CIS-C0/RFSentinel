@@ -47,7 +47,9 @@
 <li><b>Frequency names</b>: import a CSV (a RadioReference export, CHIRP or any file with a frequency and a name column) so hits are named. In the US, RadioReference can also name nearby FCC licences with your own Premium login and developer key.</li>
 <li><b>Detect TETRA radios</b> (on by default in Europe), <b>DMR radios</b> and <b>cellular transmitters</b> (experimental) look for each one's burst rhythm or uplink energy. Each is a weak sign on its own.</li>
 <li><b>Say the frequency</b>: alerts say the frequency (and its name) instead of "Radio transmitting nearby".</li>
-<li><b>Play voice transmissions</b> (experimental, off by default): when the sweep hears a new transmission, the SDR tunes to it and plays the voice through the speaker, headphones or car, then sweeps on once it goes quiet (1 minute at most). Analog radios (walkie-talkies, businesses) and P25 radios that aren't encrypted; encrypted and other digital radios stay silent. Not while the radio waterfall is open. The sweep always skips FRS / GMRS family radio channels: to hear those, use the waterfall's Walkie-talkies preset.</li>
+<li><b>TETRA hunting</b>: a second (and third) RTL-SDR plugged in watches 380-385 MHz nonstop while the first keeps sweeping; with two extra dongles each takes half of the band. <b>TETRA only</b> puts every dongle on that band and pauses the other scans. <b>City mode</b> needs a stronger signal, for towns full of radios. <b>TETRA beeps</b> speed up as a radio gets closer, and the main screen shows a TETRA bar (Far / Closer / Very close) while one is heard. The status line shows which part of the band each dongle watches ("TETRA watch &middot; RX2 380.0-382.4 MHz").</li>
+<li><b>Play voice transmissions</b> (experimental, off by default): when the sweep hears a new transmission, the SDR tunes to it and plays the voice through the speaker, headphones or car, then sweeps on once it goes quiet (1 minute at most). Analog radios (walkie-talkies, businesses) and digital radios that aren't encrypted: P25, DMR (MOTOTRBO, Hytera) and NXDN48 (Kenwood NEXEDGE, Icom IDAS); encrypted and other digital radios stay silent. Walkie-talkies (FRS / GMRS / MURS) are played on their own channel, not the ghosts a strong one makes next to it, and a reply on that channel plays at once. Spoken alerts wait for a pause in the voice (10 s at most). Not while the radio waterfall is open.</li>
+<li><b>Tire sensors</b>: the 315 and 433.92 MHz tire-pressure sensors of cars around you. The same car's wheels heard with you at place after place is a vehicle following you; your own car's sensors are learned first and never alert. A tire sensor heard with a flagged Bluetooth device again after a gap, or across 3 places 2 km apart, ties them to one vehicle.</li>
 </ul>
 <h3 id="waterfall">Radio waterfall</h3>
 <p><b>Tools → Radio waterfall</b> shows each sweep as a row; zoom into a few channels for a live view. The sweep and ADS-B pause while it's open. <b>Tune</b> offers:</p>
@@ -83,6 +85,7 @@
 <h3 id="p25-voice">Listening to P25 voice (experimental)</h3>
 <p><b>Listen to P25 voice</b>: Off, Watched talkgroups, or All clear calls. Clear (not encrypted) calls play through the speaker, headphones or car, one call at a time, up to 2 minutes each. Encrypted calls can't be played. On the P25 talkgroups screen, <b>Mute</b> pauses it, and <b>Hold</b> (or tapping a talkgroup) plays only that talkgroup until <b>Release</b>. While a call plays, the SDR is off the control channel and misses its messages.</p>
 <p><b>Save played calls</b> (on by default) keeps the sound of every call played, and of every transmission Play voice transmissions plays, on the phone only. Listen again on the P25 talkgroups screen → menu → <b>Played calls</b>: tap one to hear it, <b>Share</b> sends them as WAV files. The last 200 are kept, about 1 MB per minute of P25 voice (walkie-talkies take about 4 MB per minute).</p>
+<p><b>Transcribe P25 calls</b> (experimental, Android 13+, off by default): each saved call is turned into text by Android's own on-device speech recognition and shown under the call in Played calls. Nothing leaves the phone. Android allows its speech recognition only with the microphone permission, so it is asked when you turn this on; the microphone is never opened. For other languages, download them for offline speech in Android's settings.</p>
 <p>A call that sounds wrong? Tick <b>Record P25 voice calls</b>: the next clear calls are saved as raw radio files (about 1 MB each, the last ones kept), and <b>Share P25 recordings</b> sends them to the developer to fix the decoder.</p>
 
 <h2 id="pagers">6. Pager messages</h2>
@@ -116,7 +119,7 @@
 <details class="faq" id="q-sdr-guide-listen">
 <summary>Does the radio sweep listen to calls?</summary>
 <div>
-<p>Not by default. It measures how much energy each channel carries. Two experimental options play audio: <b>Play voice transmissions</b> (the sweep's new transmissions: analog radios and unencrypted P25) and <b>Listen to P25 voice</b> (unencrypted calls on a P25 trunked system). Encrypted calls can't be played.</p>
+<p>Not by default. It measures how much energy each channel carries. Two experimental options play audio: <b>Play voice transmissions</b> (the sweep's new transmissions: analog radios and unencrypted P25, DMR and NXDN) and <b>Listen to P25 voice</b> (unencrypted calls on a P25 trunked system). Encrypted calls can't be played.</p>
 </div>
 </details>
 

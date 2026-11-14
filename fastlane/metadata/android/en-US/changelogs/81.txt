@@ -1,0 +1,6 @@
+• Plays clear radio voice (experimental, RTL-SDR): P25, DMR, NXDN and analog; P25 call transcripts on the phone (asks the microphone permission, never opens the mic).
+• Tire sensors: a car following you, matched to flagged Bluetooth devices.
+• TETRA hunting with extra dongles, signal bar and beeps.
+• Watch this place: what's new, gone or moving around you.
+• Pager messages, mesh radios, more USB WiFi adapters.
+• Sentinel Link shares WiFi channels and hardware status.
