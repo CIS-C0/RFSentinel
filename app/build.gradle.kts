@@ -65,7 +65,8 @@ android {
             buildConfigField("String", "MAPBOX_TOKEN", "\"$mapboxToken\"")
             // Whisper call transcripts (src/full/cpp): ARM phones, and the x86_64 emulator for debug builds.
             externalNativeBuild { cmake {
-                arguments += "-DRFS_WHISPER=ON"
+                // 16 KB-page alignment (Android 15+ devices with 16 KB pages; NDK r27 still links for 4 KB by default).
+                arguments += listOf("-DRFS_WHISPER=ON", "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
                 abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
             } }
         }
