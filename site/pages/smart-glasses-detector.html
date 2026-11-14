@@ -2,7 +2,7 @@
 <div class="page-head">
   <p class="crumbs"><a href="./">rf_sentinel</a> / guides / smart-glasses-detector</p>
   <h1>Smart glasses detector</h1>
-  <p class="lead">Camera glasses keep a Bluetooth LE link to their phone app and advertise while worn. Their company IDs and service UUIDs give them away.</p>
+  <p class="lead">Camera glasses keep a Bluetooth LE link to their phone app and advertise while worn. Their company IDs and service UUIDs give them away, and RF Sentinel matches them.</p>
   <div class="cta">
     <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
     <a class="btn" href="qa.html#glasses">Glasses Q&amp;A</a>
@@ -60,4 +60,8 @@
 <details class="faq" id="q-glasses-quest">
 <summary>Why did a Meta Quest headset show up?</summary>
 <div><p>Quest headsets use the same Meta company ID as the glasses. RF Sentinel keeps that rule as a weak match for that reason; the stronger Ray-Ban and Oakley rules only match the glasses.</p></div>
+</details>
+<details class="faq" id="q-glasses-app">
+<summary>Is there an app that detects Meta Ray-Ban glasses nearby?</summary>
+<div><p>Yes. RF Sentinel recognises Ray-Ban Meta and Oakley Meta glasses, Snap Spectacles, Vuzix and HeyCyan from their Bluetooth signals on Android. It shows that glasses are nearby, not whether they are recording.</p></div>
 </details>

@@ -136,6 +136,22 @@
 <summary>Can a phone pick up emergency vehicles' car-to-car radio (V2X)?</summary>
 <div><p>In Europe, yes: with an ESP32-C5 running the V2X2MAP firmware on USB, RF Sentinel shows police, fire and ambulance vehicles broadcasting ITS-G5 with their role, light bar and siren state and position, and alerts on "emergency vehicle approaching" warnings. North America uses C-V2X, which it can't receive. See <a href="hardware-technical.html#v2x">V2X</a>.</p></div>
 </details>
+<details class="faq" id="can-see-nearby-devices">
+<summary>Can I see every Bluetooth and WiFi device near me on Android?</summary>
+<div><p>Yes. RF Sentinel's live list shows every Bluetooth, WiFi and cell signal it hears, with signal strength, maker where known and why anything was flagged. Tap one to see its details or Locate it.</p></div>
+</details>
+<details class="faq" id="can-counter-surveillance">
+<summary>Is there a counter-surveillance app for Android?</summary>
+<div><p>RF Sentinel is a free, open-source counter-surveillance app for Android: it detects police gear, plate-reader cameras, trackers, drones, smart glasses, skimmers, hacking tools and fake cell towers from Bluetooth, WiFi and cell data, with no root. Optional USB radios add more.</p></div>
+</details>
+<details class="faq" id="can-find-lost-device">
+<summary>Can my phone find a lost Bluetooth device?</summary>
+<div><p>Often, if it still has battery. Open it in RF Sentinel's nearby devices list and tap <b>Locate</b>: the beeps speed up as you get closer. See <a href="tracker-detector.html#q-find-lost-device">finding a lost device</a>.</p></div>
+</details>
+<details class="faq" id="can-rtl433-dump1090">
+<summary>Can I run rtl_433, dump1090 or multimon-ng on Android?</summary>
+<div><p>Parts of them, inside RF Sentinel: its tire-sensor, ADS-B and pager decoders are ported from or follow rtl_433, dump1090-fa and multimon-ng, and run on the phone with an RTL-SDR. See <a href="open-source-tools-android.html">open-source tools on Android</a>.</p></div>
+</details>
 </section>
 
 <section class="faq-group" id="police">

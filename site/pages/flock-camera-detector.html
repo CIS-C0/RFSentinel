@@ -2,7 +2,7 @@
 <div class="page-head">
   <p class="crumbs"><a href="./">rf_sentinel</a> / guides / flock-camera-detector</p>
   <h1>Flock &amp; plate-reader cameras</h1>
-  <p class="lead">Two layers: radio signatures for cameras that broadcast, and an offline map of every plate reader, speed and red-light camera volunteers have mapped in OpenStreetMap, for the ones that don't.</p>
+  <p class="lead">RF Sentinel finds Flock and other plate-reader cameras in two layers: radio signatures for cameras that broadcast, and an offline map of every plate reader, speed and red-light camera volunteers have mapped in OpenStreetMap, for the ones that don't.</p>
   <div class="cta">
     <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
     <a class="btn" href="qa.html#cameras">Camera Q&amp;A</a>
@@ -47,4 +47,24 @@
 <details class="faq" id="q-flock-export">
 <summary>Can I export where I've seen Flock cameras?</summary>
 <div><p>Yes. RF Sentinel's recorded traces export as GPX, KML, GeoJSON or CSV with the devices heard along them, including flagged-only.</p></div>
+</details>
+<details class="faq" id="q-flock-app-exists">
+<summary>Is there an app that detects Flock cameras?</summary>
+<div><p>Yes. RF Sentinel is a free, open-source Android app that detects Flock Safety cameras and Raven sensors from their WiFi and Bluetooth, and warns offline before every plate reader mapped on OpenStreetMap through DeFlock. No root, no account.</p></div>
+</details>
+<details class="faq" id="q-flock-been-flocked">
+<summary>Can RF Sentinel tell me if my plate was read or searched?</summary>
+<div><p>No. Plate reads and searches stay in the camera company's and police systems, and no app can see them from the road. RF Sentinel tells you where the cameras are and alerts as you approach one, so you know when you pass one. Public-records requests for audit logs are the way to learn about searches.</p></div>
+</details>
+<details class="faq" id="q-flock-avoid-route">
+<summary>How do I avoid Flock cameras while driving?</summary>
+<div><p>Turn on <b>Avoid plate readers</b> in RF Sentinel's built-in navigation: it plans the route around the known cameras and says how many are left on it. A camera on the only way in or out can't be avoided, and RF Sentinel still warns about 20 seconds before it. See <a href="speed-camera-alerts.html#avoid">routes that avoid cameras</a>.</p></div>
+</details>
+<details class="faq" id="q-flock-android-auto">
+<summary>Can I get Flock camera alerts on Android Auto?</summary>
+<div><p>Yes. RF Sentinel reads plate-reader and camera alerts aloud through the car. See <a href="android-auto.html">Android Auto</a> for what shows on the car screen and how to set it up.</p></div>
+</details>
+<details class="faq" id="q-flock-esp32">
+<summary>Can I use an ESP32 Flock detector like Flock You or OUI-Spy with my phone?</summary>
+<div><p>Yes. RF Sentinel reads Flock You and OUI-Spy ESP32 boards connected to the phone and merges what they hear with its own detections and alerts. See <a href="esp32.html">ESP32 boards</a>.</p></div>
 </details>

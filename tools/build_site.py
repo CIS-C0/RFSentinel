@@ -65,8 +65,35 @@ GUIDES = [
     ("sdr-guide.html", "RTL-SDR guide"),
     ("tuning-guide.html", "Fewer false alerts"),
     ("alternatives.html", "Compared with other tools"),
+    ("open-source-tools-android.html", "rtl_433, dump1090 & more on Android"),
     ("sophia-alternative.html", "Free SØPHIA alternative"),
     ("tetra-hunter-alternative.html", "Free Tetra Hunter alternative"),
+]
+
+# What the app does, for the SoftwareApplication structured data (search engines and AI assistants).
+FEATURES = [
+    "Police body camera detection (Axon, Motorola / WatchGuard, Digital Ally) from Bluetooth LE",
+    "Patrol vehicle detection from police gear whose signals move together",
+    "Flock Safety and license plate reader (ALPR) camera detection over WiFi and Bluetooth",
+    "Offline speed camera, red-light camera and plate reader alerts from OpenStreetMap and DeFlock",
+    "Navigation with routes that avoid speed cameras and plate readers",
+    "AirTag, Samsung SmartTag, Tile, Chipolo and Google Find Hub tracker detection with follower alerts",
+    "Vehicle following detection from tire-pressure (TPMS) sensors with an RTL-SDR",
+    "Remote ID drone detection with the pilot's location",
+    "Smart glasses detection (Ray-Ban Meta, Snap Spectacles, Vuzix)",
+    "Fake cell tower (IMSI catcher, Stingray) signs without root",
+    "GPS jamming and spoofing signs",
+    "Bluetooth card skimmer detection",
+    "Flipper Zero, Pwnagotchi, WiFi Pineapple, evil twin and WiFi deauth attack detection",
+    "Hidden WiFi spy camera and action camera detection, Watch this place for hotel rooms",
+    "Police helicopter and plane tracking from ADS-B",
+    "Waze police reports as sound and voice alerts",
+    "RTL-SDR and HackRF support on Android without root: radio sweep, waterfall, ADS-B, P25 scanner, POCSAG / FLEX pager decoder, TETRA detection",
+    "USB WiFi adapter monitor mode on Android without root, probe requests, pcap capture",
+    "ESP32 OUI-Spy, GhostESP, Marauder and Flipper Zero BFFB support",
+    "Android Auto alerts and car screen",
+    "Sentinel Link: share detections between phones over Bluetooth, Meshtastic LoRa or MQTT",
+    "Export to CSV, JSON, KML, GPX and GeoJSON",
 ]
 
 TEMPLATE = """<!doctype html>
@@ -183,6 +210,40 @@ def app_version():
     return m.group(1) if m else None
 
 
+def plain_text(fragment):
+    """Readable text of a page body for docs/llms-full.txt: headings, lists and Q&A kept as Markdown."""
+    t = re.sub(r"<(script|style|svg)\b.*?</\1>", " ", fragment, flags=re.S)
+    t = re.sub(r"<h([1-3])[^>]*>(.*?)</h\1>",
+               lambda m: "\n\n" + "#" * (int(m.group(1)) + 1) + " " + m.group(2) + "\n", t, flags=re.S)
+    t = re.sub(r"<summary>(.*?)</summary>", "\n\nQ: \\1\nA: ", t, flags=re.S)
+    t = re.sub(r"<li[^>]*>", "\n- ", t)
+    t = re.sub(r"<tr[^>]*>", "\n| ", t)
+    t = re.sub(r"</t[dh]>", " | ", t)
+    t = re.sub(r"<(p|div|br|table|ul|ol)\b[^>]*>", "\n", t)
+    t = html.unescape(re.sub(r"<[^>]+>", "", t))
+    lines = [re.sub(r"[ \t]+", " ", line).strip() for line in t.split("\n")]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+
+
+def write_llms_full(pages):
+    """docs/llms-full.txt: every indexed page as plain text, for AI crawlers and assistants."""
+    out = ["# RF Sentinel: full site text", "",
+           "> RF Sentinel (also written RFSentinel) is a free, open-source (GPL-3.0) Android app that passively detects "
+           "police and surveillance equipment from Bluetooth LE, WiFi, cell data and optional USB radios (RTL-SDR, HackRF, "
+           "USB WiFi adapters, ESP32 boards). No root, no account, no analytics. Download: " + RELEASES, ""]
+    for name in sorted(pages, key=lambda n: (n != "index.html", n != "what-is-rf-sentinel.html", n)):
+        raw = pages[name]
+        m = re.match(r"\s*<!--META (\{.*?\}) -->\s*", raw, re.S)
+        meta = json.loads(m.group(1))
+        if meta.get("noindex"):
+            continue
+        body = re.sub(r'<div class="cta">.*?</div>', "", raw[m.end():], flags=re.S)
+        body = body.replace("{{RELEASES}}", RELEASES).replace("{{REPO}}", REPO).replace("{{DISCORD}}", DISCORD)
+        url = BASE if name == "index.html" else BASE + name
+        out += ["", "---", "", "# " + meta["title"], "URL: " + url, "", meta["description"], "", plain_text(body)]
+    open(os.path.join(OUT, "llms-full.txt"), "w", encoding="utf-8", newline="\n").write("\n".join(out) + "\n")
+
+
 def build():
     pages = {name: open(os.path.join(SRC, name), encoding="utf-8").read()
              for name in sorted(os.listdir(SRC)) if name.endswith(".html")}
@@ -234,9 +295,25 @@ def build():
                 "dateModified": last_changed(os.path.join(ROOT, "app", "build.gradle.kts"), today),
                 "author": {"@type": "Organization", "name": "CIS-C0", "url": "https://github.com/CIS-C0"},
                 "sameAs": [REPO, DISCORD],
+                "featureList": FEATURES,
+                "keywords": "police detector, body camera detector, Flock camera detector, ALPR detector, AirTag detector, IMSI catcher detector, drone detector, RTL-SDR Android, WiFi monitor mode Android, counter-surveillance app, Flock camera map, avoid Flock cameras, AirTag detector Android, hidden camera detector, Bluetooth skimmer detector, Flipper Zero detector, Remote ID drone detector, police helicopter tracker, Stingray detector, GPS spoofing detector, P25 scanner Android, police scanner without internet, rtl_433 Android, dump1090 Android, RTL-SDR Blog V4 Android, WiFi monitor mode without root",
             })
             graph.append({"@type": "WebSite", "name": "RF Sentinel", "alternateName": ["RFSentinel", "RF-Sentinel"], "url": BASE})
         else:
+            if not noindex:
+                h1 = re.search(r"<h1[^>]*>(.*?)</h1>", body, re.S)
+                graph.append({
+                    "@type": "TechArticle",
+                    "headline": text_of(h1.group(1)) if h1 else meta["title"],
+                    "description": meta["description"],
+                    "url": url,
+                    "inLanguage": "en",
+                    "dateModified": last_changed(os.path.join(SRC, name), today),
+                    "author": {"@type": "Organization", "name": "CIS-C0", "url": "https://github.com/CIS-C0"},
+                    "about": {"@type": "SoftwareApplication", "name": "RF Sentinel", "url": BASE,
+                              "operatingSystem": "Android", "applicationCategory": "UtilitiesApplication"},
+                    "isPartOf": {"@type": "WebSite", "name": "RF Sentinel", "url": BASE},
+                })
             graph.append({
                 "@type": "BreadcrumbList",
                 "itemListElement": [
@@ -250,6 +327,9 @@ def build():
             if fid in seen:
                 errors.append(f"{name}: duplicate FAQ id {fid}")
             seen.add(fid)
+        lead = re.search(r'<p class="lead">(.*?)</p>', body, re.S)
+        if not noindex and not (lead and "RF Sentinel" in text_of(lead.group(1))):
+            errors.append(f"{name}: the lead paragraph doesn't name RF Sentinel")
         # Answers get quoted alone by search engines and AI assistants: each one names the app.
         for fid, _, a in faqs:
             if "RF Sentinel" not in text_of(a):
@@ -304,6 +384,8 @@ def build():
         if not noindex:
             prio = "1.0" if slug == "index" else ("0.9" if slug == "qa" else "0.8")
             sitemap.append(f"  <url><loc>{url}</loc><lastmod>{last_changed(os.path.join(SRC, name), today)}</lastmod><priority>{prio}</priority></url>")
+
+    write_llms_full(pages)
 
     for c, _ in LANGS:
         sitemap.append(f"  <url><loc>{BASE}{c}/</loc><lastmod>{last_changed(os.path.join(OUT, c, 'index.html'), today)}</lastmod><priority>0.8</priority></url>")

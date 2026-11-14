@@ -39,6 +39,7 @@ Sentinel Link: RF Sentinel phones linked with a 6-digit code share their detecti
 - [Sentinel Link setup](https://cis-c0.github.io/RFSentinel/sentinel-link-setup.html): link phones into a group, Bluetooth, Meshtastic node preparation and settings, MQTT relay with a Mosquitto example
 - [Sentinel Link troubleshooting](https://cis-c0.github.io/RFSentinel/sentinel-link-troubleshooting.html): linking phones over Bluetooth, Meshtastic LoRa nodes and an MQTT relay; every status line, why only some devices arrive, radio checks
 - [Compared with other tools](https://cis-c0.github.io/RFSentinel/alternatives.html): Flock You, OUI-Spy / OUI-APEX, Wardrive Go, Fieldwatch, SØPHIA, Flock-You for Android, AirGuard, BLE Radar, Rayhunter, WiGLE
+- [rtl_433, dump1090, multimon-ng, SDRTrunk & more on Android](https://cis-c0.github.io/RFSentinel/open-source-tools-android.html): every open-source project RF Sentinel credits (rtl_433, dump1090 / dump1090-fa, multimon-ng, DSD, mbelib, dsd-neo, DSD-FME, OP25, SDRTrunk, RFAnalyzer, AIMSICD, SnoopSnitch, Rayhunter, AirGuard, Chasing Your Tail, AntiHunter, OpenDroneID, FlipDeFlock, V2X2MAP, DeFlock), what RF Sentinel took from each, and what runs on an Android phone
 - [Free SØPHIA alternative](https://cis-c0.github.io/RFSentinel/sophia-alternative.html)
 - [Free Tetra Hunter alternative](https://cis-c0.github.io/RFSentinel/tetra-hunter-alternative.html)
 - [Android Auto](https://cis-c0.github.io/RFSentinel/android-auto.html)
@@ -55,3 +56,7 @@ Sentinel Link: RF Sentinel phones linked with a 6-digit code share their detecti
 - [Source code](https://github.com/CIS-C0/RFSentinel)
 - [Signature reference](https://github.com/CIS-C0/RFSentinel/blob/main/docs/SIGNATURES.md)
 - [Discord community](https://discord.gg/NDTjn8HMGq)
+
+## Full text
+
+- [llms-full.txt](https://cis-c0.github.io/RFSentinel/llms-full.txt): every page of this site as plain text, Q&A included, generated at each build.

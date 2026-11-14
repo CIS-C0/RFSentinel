@@ -2,7 +2,7 @@
 <div class="page-head">
   <p class="crumbs"><a href="./">rf_sentinel</a> / guides / police-detector</p>
   <h1>Detect police with Android</h1>
-  <p class="lead">Police equipment talks constantly over Bluetooth LE and WiFi: body cameras pair with phones and holster sensors, cars carry cellular routers, printers and radios pair with tablets. A phone can hear all of that without root and without transmitting anything.</p>
+  <p class="lead">Police equipment talks constantly over Bluetooth LE and WiFi: body cameras pair with phones and holster sensors, cars carry cellular routers, printers and radios pair with tablets. RF Sentinel lets an Android phone hear all of that without root and without transmitting anything.</p>
   <div class="cta">
     <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
     <a class="btn" href="qa.html#police">Police Q&amp;A</a>
@@ -66,4 +66,16 @@
 <details class="faq" id="q-bodycam-recording">
 <summary>Can it tell if a body camera is recording?</summary>
 <div><p>No. Recording state isn't in the advertisement RF Sentinel matches.</p></div>
+</details>
+<details class="faq" id="q-cop-nearby-app">
+<summary>Is there an app that tells me if a cop is nearby?</summary>
+<div><p>RF Sentinel is the closest thing: it alerts when it hears police gear's Bluetooth or WiFi (body cameras, in-car systems, radios, ticket printers) and raises a patrol-car alert when several of them move together. It can't see officers whose gear is off or doesn't transmit, so no alert doesn't mean no police.</p></div>
+</details>
+<details class="faq" id="q-police-app-legal">
+<summary>Is a police detector app legal?</summary>
+<div><p>RF Sentinel only listens to signals devices broadcast openly and transmits nothing. Passive Bluetooth and WiFi scanning is legal in most places, but laws differ, so check yours. This isn't legal advice.</p></div>
+</details>
+<details class="faq" id="q-police-free-app">
+<summary>What's the best free police detector app for Android?</summary>
+<div><p>RF Sentinel is free and open source (GPL-3.0), with no account, no ads and no analytics. It detects body cams, patrol cars, Flock cameras, trackers, drones and fake cell towers on a non-rooted phone, and works on Android Auto. Download it from GitHub Releases; see <a href="install.html">install</a>.</p></div>
 </details>

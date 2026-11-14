@@ -2,7 +2,7 @@
 <div class="page-head">
   <p class="crumbs"><a href="./">rf_sentinel</a> / guides / imsi-catcher-detector</p>
   <h1>Stingray / IMSI catcher signs</h1>
-  <p class="lead">A cell-site simulator pretends to be a tower so phones attach to it, often forcing them down to 2G where encryption is weak or absent. Without root a phone can't read the signalling, but the cell data Android does expose still shows some of the tell-tale signs.</p>
+  <p class="lead">A cell-site simulator pretends to be a tower so phones attach to it, often forcing them down to 2G where encryption is weak or absent. Without root a phone can't read the signalling, but the cell data Android does expose still shows some of the tell-tale signs, and RF Sentinel checks it every 15 seconds.</p>
   <div class="cta">
     <a class="btn primary" href="{{RELEASES}}" data-apk>{{DOWNLOAD_SVG}}Download APK <span data-version></span></a>
     <a class="btn" href="qa.html#cell">Cell Q&amp;A</a>
@@ -52,4 +52,8 @@
 <details class="faq" id="q-cell-5g">
 <summary>Does 5G protect against IMSI catchers?</summary>
 <div><p>5G standalone encrypts the permanent identity (SUCI), but most networks still run non-standalone 5G anchored on LTE, and downgrade attacks to 2G/3G remain the main vector. Disabling 2G closes the easiest one, and RF Sentinel still watches for sudden 2G downgrades.</p></div>
+</details>
+<details class="faq" id="q-stingray-app">
+<summary>Is there a Stingray detector app for Android?</summary>
+<div><p>RF Sentinel checks for fake cell tower signs on a normal, non-rooted Android phone: test networks, sudden 2G downgrades, cloned cell IDs and area codes no neighbour shares. It can't prove a Stingray is there; for signalling-level detection, run EFF's Rayhunter alongside.</p></div>
 </details>
