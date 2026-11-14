@@ -12,14 +12,14 @@ import androidx.annotation.RequiresApi
 import java.io.File
 
 /**
- * Settings › RTL-SDR radio › Transcribe P25 calls: each saved call's speech goes to Android's on-device speech
+ * Settings › RTL-SDR radio › Transcribe saved voice: each saved call or transmission's speech goes to Android's on-device speech
  * recognizer (Android 13+), fed from memory: the microphone is never opened (Android only asks that the app may).
  * The text is kept next to the call's sound file ([textOf]) and nothing leaves the phone. One call at a time, the
  * rest queued; a recognizer that never answers is given up on. With the Whisper model downloaded ([P25Whisper], full
  * version) Whisper does it instead, on any Android version and without the microphone permission.
  */
 object P25Transcribe {
-    /** Settings › Transcribe P25 calls, set by the scan service. */
+    /** Settings › Transcribe saved voice, set by the scan service. */
     @Volatile var enabled = false
 
     private val main by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -36,16 +36,20 @@ object P25Transcribe {
     /** The text file kept beside [wav] (deleted with it, [P25Record]). */
     fun sidecar(wav: File) = File(wav.parentFile, wav.nameWithoutExtension + ".txt")
 
-    /** Call [wav] was saved from [pcm] (8 kHz): transcribe it when the setting is on and this phone can. */
-    fun enqueue(context: Context, wav: File, pcm: List<ShortArray>) {
+    /**
+     * [wav] was saved from [pcm] at [rate] (8 kHz P25 speech, the sweep's analog audio faster): transcribe it when the
+     * setting is on and this phone can.
+     */
+    fun enqueue(context: Context, wav: File, pcm: List<ShortArray>, rate: Int = ImbeDecoder.RATE) {
         if (!enabled || Build.VERSION.SDK_INT < 33 && !P25Whisper.ready(context)) return
         val flat = ShortArray(pcm.sumOf { it.size })
         var at = 0
         for (p in pcm) { p.copyInto(flat, at); at += p.size }
+        val speech = to8k(flat, rate)
         val app = context.applicationContext
         main.post {
             if (queue.size >= MAX_QUEUED) { log("$MAX_QUEUED calls waiting, this one skipped"); return@post }
-            queue.addLast(wav to flat)
+            queue.addLast(wav to speech)
             next(app)
         }
     }
@@ -85,7 +89,7 @@ object P25Transcribe {
             queue.clear(); return
         }
         if (context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            log("the speech permission was taken back; calls not transcribed (Settings › Transcribe P25 calls asks again)")
+            log("the speech permission was taken back; calls not transcribed (Settings › Transcribe saved voice asks again)")
             queue.clear(); return
         }
         busy = true
@@ -158,6 +162,21 @@ object P25Transcribe {
             out.putShort(((pcm[i] + (if (i + 1 < pcm.size) pcm[i + 1] else pcm[i]).toInt()) / 2).toShort())
         }
         return out.array() // the tail stays zero
+    }
+
+    /** [pcm] at [rate] to 8 kHz: each sample the mean of those it covers (a crude low-pass, enough for speech). */
+    internal fun to8k(pcm: ShortArray, rate: Int): ShortArray {
+        // shortcut: audio at 8 kHz or slower is kept as it is; nothing slower is saved today. Resample up if that changes.
+        if (rate <= ImbeDecoder.RATE) return pcm
+        val out = ShortArray((pcm.size.toLong() * ImbeDecoder.RATE / rate).toInt())
+        for (i in out.indices) {
+            val a = (i.toLong() * rate / ImbeDecoder.RATE).toInt()
+            val b = ((i + 1L) * rate / ImbeDecoder.RATE).toInt().coerceAtMost(pcm.size)
+            var sum = 0L
+            for (j in a until b) sum += pcm[j]
+            out[i] = (sum / maxOf(1, b - a)).toInt().toShort()
+        }
+        return out
     }
 
     private const val RATE_OUT = 16_000

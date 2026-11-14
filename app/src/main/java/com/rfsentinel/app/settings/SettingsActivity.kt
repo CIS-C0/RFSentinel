@@ -176,7 +176,7 @@ class SettingsActivity : AppCompatActivity() {
         updateBannerButtons()
     }
 
-    /** Transcribe P25 calls: Android's speech recognizer needs the microphone permission, though the mic is never opened. */
+    /** Transcribe saved voice: Android's speech recognizer needs the microphone permission, though the mic is never opened. */
     private val speechPermission = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -1829,6 +1829,13 @@ class SettingsActivity : AppCompatActivity() {
             "the radio waterfall is open. Listening to radio calls is not allowed everywhere: check the law where you are.") {
             Prefs.setRadioListen(this, it); com.rfsentinel.app.sdr.SdrRadio.sweepListen = it
         }
+        box.toggle("Record voice transmissions", Prefs.radioRecord(this),
+            "Experimental. Like Play voice transmissions, without the sound: each new transmission is tuned to and kept until it " +
+            "goes quiet, to listen to later in Tools › Voice history, with its text when Transcribe saved voice is on. The sweep " +
+            "waits meanwhile, as when playing. The last ${com.rfsentinel.app.sdr.P25Record.CALLS_KEEP} calls and transmissions are " +
+            "kept, about 4 MB per minute of walkie-talkie voice. Recording radio calls is not allowed everywhere: check the law where you are.") {
+            Prefs.setRadioRecord(this, it); com.rfsentinel.app.sdr.SdrRadio.sweepRecord = it
+        }
         box.toggle("Detect cellular transmitters", Prefs.radioCellOn(this),
             "Experimental. Watches the phone / modem side of the LTE bands (uplink) for a transmitter travelling near you: a vehicle modem, a " +
             "Cradlepoint-style router, a camera with a SIM. Energy only, nothing decoded. Adds time to each sweep; " +
@@ -1928,15 +1935,18 @@ class SettingsActivity : AppCompatActivity() {
             "2 minutes each. With a second SDR plugged in (and Detect TETRA radios off), the second one plays the calls and the first stays on the control channel. Watched talkgroups: only those in Watch these talkgroups. Mute on the P25 talkgroups screen pauses it; Hold there (or tapping a talkgroup) plays only that talkgroup and keeps the SDR on P25 until Release. " +
             "Encrypted calls can't be played. Listening to radio calls is not allowed everywhere, and some places forbid it in " +
             "a vehicle: check the law where you are.", "Listen to P25 voice"))
+        val voiceGroup = group("voice", "Saved voice")
         scan("Save played calls", Prefs.p25SaveCalls(this),
             "Keeps the sound of each P25 call played, and of each transmission Play voice transmissions plays (walkie-talkies...), " +
-            "on the phone only, to listen to again on the P25 talkgroups screen › Played calls. The last ${com.rfsentinel.app.sdr.P25Record.CALLS_KEEP} are kept, about 1 MB per minute of voice. " +
+            "on the phone only, to listen to again in Tools › Voice history. The last ${com.rfsentinel.app.sdr.P25Record.CALLS_KEEP} are kept, " +
+            "about 1 MB per minute of P25 voice, 4 MB of walkie-talkie voice. " +
             "Recording radio calls is not allowed everywhere: check the law where you are.") {
             Prefs.setP25SaveCalls(this, it); com.rfsentinel.app.sdr.SdrRadio.saveCalls = it
         }
-        transcribeBox = scan("Transcribe P25 calls", Prefs.p25Transcribe(this),
-            "Experimental, Android 13 and newer. Each saved call (Save played calls, above) is turned into text by Android's own " +
-            "on-device speech recognition, shown under the call on the P25 talkgroups screen › Played calls. Everything stays " +
+        transcribeBox = scan("Transcribe saved voice", Prefs.p25Transcribe(this),
+            "Experimental, Android 13 and newer. Each saved call and transmission (Save played calls, above, and Record voice " +
+            "transmissions in Radio sweep) is turned into text by Android's own on-device speech recognition, shown under it in " +
+            "Tools › Voice history. Everything stays " +
             "on the phone. Android lets an app use its speech recognition only with the microphone permission, so it asks for " +
             "it: RF Sentinel never opens the microphone, it gives the recognizer the call's sound. Radio speech is noisy and " +
             "full of codes, so expect mistakes. For other languages, download them for offline speech in Android's settings." +
@@ -2008,6 +2018,7 @@ class SettingsActivity : AppCompatActivity() {
             stayRow.shownIf(ticked > 1)
             sweepGroup.shownIf(sweepBox.isChecked)
             p25Group.shownIf(p25Box.isChecked)
+            voiceGroup.shownIf(sweepBox.isChecked || p25Box.isChecked)
             pagerGroup.shownIf(pagerBox.isChecked)
         }
         showSdrOptions()

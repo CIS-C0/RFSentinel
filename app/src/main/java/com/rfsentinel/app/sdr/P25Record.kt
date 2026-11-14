@@ -83,7 +83,7 @@ object P25Record {
     fun files(context: Context): List<File> = list(context, DIR)
 
     /**
-     * Played calls' sound (Settings › RTL-SDR radio › Save played calls), to listen to on the P25 talkgroups screen: P25 calls
+     * Played calls' sound (Settings › RTL-SDR radio › Save played calls), to listen to in Tools › Voice history: P25 calls
      * ("20261112_114720_tg54221.wav") and transmissions the radio sweep played ("20261112_114720_462562500hz.wav").
      */
     private const val CALLS_DIR = "p25calls"

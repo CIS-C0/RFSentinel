@@ -766,6 +766,9 @@ object Prefs {
     /** Radio sweep › Play voice transmissions ([com.rfsentinel.app.sdr.SdrRadio.sweepListen]). */
     fun radioListen(context: Context): Boolean = bool(context, "radio_listen", false)
     fun setRadioListen(context: Context, v: Boolean) = setBool(context, "radio_listen", v)
+    /** Radio sweep › Record voice transmissions ([com.rfsentinel.app.sdr.SdrRadio.sweepRecord]). */
+    fun radioRecord(context: Context): Boolean = bool(context, "radio_record", false)
+    fun setRadioRecord(context: Context, v: Boolean) = setBool(context, "radio_record", v)
     /** Call out "closer" / "farther" after the signal moved this many dB (0 = off). */
     fun radioTrendDb(context: Context): Int = int(context, "radio_trend_db", 6).coerceIn(0, 20)
     fun setRadioTrendDb(context: Context, v: Int) = setInt(context, "radio_trend_db", v.coerceIn(0, 20))

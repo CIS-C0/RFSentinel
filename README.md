@@ -277,7 +277,7 @@ Everything the app does, grouped by area.
 - The ALFA AWUS036ACS's light blinks with received traffic (Settings → External hardware switches it off, for the adapters whose light the app can control)
 - RTL-SDR and HackRF transmissions show on the **radar** too, for a minute after they were last heard
 - **P25 control channel** (experimental, RTL-SDR): finds the trunked-radio control channel and lists which talkgroups get a channel and when (Tools → P25 talkgroups), with alerts for talkgroups you watch, nearby radios, patches and radio GPS positions. With more than one SDR scan ticked (radio sweep, ADS-B, P25) the dongle takes turns
-- **Listen to P25 voice** (experimental, off by default): follows clear calls on talkgroups you pick and plays them; encrypted calls are never decoded. *Save played calls* keeps them to listen again, and *Transcribe P25 calls* (Android 13+) turns them into text with Android's on-device speech recognition
+- **Listen to P25 voice** (experimental, off by default): follows clear calls on talkgroups you pick and plays them; encrypted calls are never decoded. *Save played calls* keeps them to listen again (Tools → *Voice history*), and *Transcribe saved voice* turns them into text (Whisper in the full version, or Android 13+'s on-device speech recognition)
 - **Play voice transmissions** (radio sweep, off by default): a new transmission is tuned to and played until it goes quiet: analog FM, clear P25, DMR and NXDN48 digital voice, and walkie-talkies on their real channel
 - **Tire-pressure sensors** (RTL-SDR, 315 / 433.92 MHz): the same car's wheels heard with you place after place means a vehicle following you, and a tire sensor heard again and again with a flagged Bluetooth device ties the two to one vehicle. Your own car's sensors are learned first
 - **TETRA hunting**: extra RTL-SDRs watch 380-385 MHz nonstop, with a main-screen bar (Far / Closer / Very close) and beeps
@@ -792,7 +792,7 @@ talkgroups with their calls, last channel and radio, and emergency / encrypted f
 and *Watch these talkgroups* alerts when a call starts on one. **Listen to P25 voice**
 (experimental, off by default) follows clear calls on the talkgroups you pick and plays
 them; encrypted calls are never decoded. *Save played calls* keeps them to play again
-(P25 talkgroups → *Played calls*), and **Transcribe P25 calls** (Android 13+, off by
+(Tools → *Voice history*), and **Transcribe saved voice** (Android 13+, off by
 default) turns each saved call into text with Android's own on-device speech recognition:
 nothing leaves the phone. The frequency and network code stay out of the logs (unless *Log
 everything the RTL-SDR hears* is on, which also keeps each followed call's raw I/Q as a
@@ -1033,7 +1033,7 @@ Your own themes sit under the built-in ones: **Create a custom theme**, long-pre
   Bluetooth devices when you pick your car; *Display over other apps* only for
   the floating bubble; *Camera* only in the normal build's Locate camera view,
   asked the first time you open it (the picture stays on the phone and nothing
-  from it is saved); *Microphone* only if you turn on Transcribe P25 calls,
+  from it is saved); *Microphone* only if you turn on Transcribe saved voice,
   because Android's on-device speech recognition requires it: the microphone is
   never opened, the recognizer is given the saved call's sound. No contacts or
   storage access. The `-foss.apk` has no camera access at all.

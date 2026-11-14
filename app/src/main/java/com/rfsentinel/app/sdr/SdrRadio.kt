@@ -307,6 +307,8 @@ object SdrRadio {
     @Volatile var p25Listen = Listen.OFF
     /** Settings › Radio sweep › Play voice transmissions: a new transmission is tuned to and played until it goes quiet. */
     @Volatile var sweepListen = false
+    /** Settings › Radio sweep › Record voice transmissions: followed the same way and saved, played aloud only with [sweepListen]. */
+    @Volatile var sweepRecord = false
     /** The watched talkgroups (Settings › Watch these talkgroups). */
     @Volatile var p25Watched = P25Log.Watched()
     /** P25 talkgroups › long-press › Priority: their calls play first, and cut a call of another talkgroup that is playing. */
@@ -941,7 +943,7 @@ object SdrRadio {
         var hot: Pair<RadioWatch.Event, Long>? = null; var hotUntil = 0L; var hotChecked = 0L
         fun hotOn(): Boolean {
             val now = System.currentTimeMillis()
-            if (hot == null || now > hotUntil || !sweepListen || SdrWaterfall.listening) return false
+            if (hot == null || now > hotUntil || !(sweepListen || sweepRecord) || SdrWaterfall.listening) return false
             hotChecked = now
             return (measureInput(sdr, hot!!.second) ?: 0) >= RadioWatch.activeDb(cfg.minSnrDb)
         }
@@ -1000,7 +1002,7 @@ object SdrRadio {
                 // Play voice transmissions: the first new one in this chunk, once the others are reported. Not while the
                 // waterfall is open (it holds the sweep to draw; Tune › Listen plays there).
                 var toPlay: Pair<RadioWatch.Event, Long>? = null
-                val playing = sweepListen && !SdrWaterfall.listening
+                val playing = (sweepListen || sweepRecord) && !SdrWaterfall.listening
                 watch.walkies = playing
                 val chunkAt = System.currentTimeMillis()
                 fun playable(e: RadioWatch.Event) = playing && toPlay == null && (stuck[e.freqHz] ?: 0L) <= chunkAt
@@ -1108,11 +1110,14 @@ object SdrRadio {
         val buf = ByteArray(XFER)
         repeat(sdr.settleReads) { sdr.read(buf) }
         var out: android.media.AudioTrack? = null
-        val heard = if (saveCalls) ArrayList<ShortArray>() else null
+        // Record voice transmissions without Play: followed and saved the same, nothing played (alerts don't wait for it).
+        var verb = "playing"
+        fun aloud() { if (out != null) com.rfsentinel.app.util.Voice.radioHeard() }
+        val heard = if (saveCalls || sweepRecord) ArrayList<ShortArray>() else null
         val raw = if (logAll) P25Record.Baseband(INPUT_OFFSET_HZ, sdr.sampleRate) else null
         val follow = if (!p25) null else P25Follow(INPUT_OFFSET_HZ.toDouble(), onPosition = ::position) { pcm ->
             heard?.add(pcm.copyOf()); out?.write(pcm, 0, pcm.size, android.media.AudioTrack.WRITE_NON_BLOCKING)
-            com.rfsentinel.app.util.Voice.radioHeard()
+            aloud()
         }
         var nxdn: Nxdn? = null
         var dmr: Dmr? = null
@@ -1125,34 +1130,36 @@ object SdrRadio {
         demod?.takeIf { it.mode == AudioDemod.Mode.NFM }?.let { d ->
             val mdc = Mdc1200(d.audioRate) { p ->
                 mdcCount++; if (mdcUnit?.emergency != true) mdcUnit = p
-                status = "$deviceLabel · playing $mhz · ${p.label}" + turnNote()
+                status = "$deviceLabel · $verb $mhz · ${p.label}" + turnNote()
             }
             // NXDN digital voice (Kenwood NEXEDGE, Icom IDAS) on the same channel: decoded when clear.
             val nx = Nxdn(d.audioRate, d.audioRate) { pcm ->
                 heard?.add(pcm); out?.write(pcm, 0, pcm.size)
-                com.rfsentinel.app.util.Voice.radioHeard()
+                aloud()
             }.also { nxdn = it }
             // DMR digital voice (MOTOTRBO, Hytera, most business radios): decoded when clear.
             val dm = Dmr(d.audioRate, d.audioRate) { pcm ->
                 heard?.add(pcm); out?.write(pcm, 0, pcm.size)
-                com.rfsentinel.app.util.Voice.radioHeard()
+                aloud()
             }.also { dmr = it }
             d.tap = { v -> mdc.sample(v); nx.sample(v); dm.sample(v) }
         }
         var digital = ""; var cipher = -1
-        val track = runCatching { newSpeaker(demod?.audioRate ?: ImbeDecoder.RATE).also { it.play() } }
+        val track = if (!sweepListen) null else runCatching { newSpeaker(demod?.audioRate ?: ImbeDecoder.RATE).also { it.play() } }
             .onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: no audio output to play a transmission - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
-            .getOrNull() ?: return false
+            .getOrNull()
+        if (track == null && !sweepRecord) return false
         out = track
+        if (track == null) verb = "recording"
         activity(Mode.SWEEP)
-        status = "$deviceLabel · playing $mhz${if (p25) " · P25" else ""}" + turnNote()
+        status = "$deviceLabel · $verb $mhz${if (p25) " · P25" else ""}" + turnNote()
         val start = System.currentTimeMillis()
         var heardAt = start; var heardMs = 0L; var fails = 0
         // A radio held next to the dongle overloads it: clipped samples and ghosts 350 kHz away, digital voice unreadable.
         var gain = GAIN_TENTHS_DB; var gainAt = 0L; var clipped = 0L; var bytes = 0L
         val ahead = ReadAhead(sdr, buf.size)
         try {
-            while (!halted && !sdr.lost && sweepListen && keeps(Mode.SWEEP) && !SdrWaterfall.listening &&
+            while (!halted && !sdr.lost && (sweepListen || sweepRecord) && keeps(Mode.SWEEP) && !SdrWaterfall.listening &&
                 System.currentTimeMillis() - start < PLAY_MAX_MS) {
                 val n = ahead.read(buf)
                 if (n <= 0) { if (++fails >= STALL_CHUNKS) break; continue }
@@ -1170,27 +1177,27 @@ object SdrRadio {
                     nxdn?.takeIf { it.frames > 0 }?.let { x ->
                         if (x.cipher >= 0) cipher = x.cipher
                         val note = "digital radio (NXDN)" + Nxdn.cipherLabel(cipher).let { if (it.isEmpty()) "" else " · $it" }
-                        if (note != digital) { digital = note; status = "$deviceLabel · playing $mhz · $note" + turnNote(); RadioLog.digital(e.freqHz, note) }
+                        if (note != digital) { digital = note; status = "$deviceLabel · $verb $mhz · $note" + turnNote(); RadioLog.digital(e.freqHz, note) }
                     }
                     dmr?.takeIf { it.bursts > 0 }?.let { x ->
                         if (x.cipher >= 0) cipher = x.cipher
                         val note = "digital radio (DMR)" + Dmr.cipherLabel(cipher).let { if (it.isEmpty()) "" else " · $it" }
-                        if (note != digital) { digital = note; status = "$deviceLabel · playing $mhz · $note" + turnNote(); RadioLog.digital(e.freqHz, note) }
+                        if (note != digital) { digital = note; status = "$deviceLabel · $verb $mhz · $note" + turnNote(); RadioLog.digital(e.freqHz, note) }
                     }
                     // Encrypted: nothing to hear, the sweep goes on (as for P25).
                     if (cipher > 0) break
-                    if (demod.open || nxdn?.active == true || dmr?.active == true) { heardMs += now - heardAt; heardAt = now; com.rfsentinel.app.util.Voice.radioHeard() }
+                    if (demod.open || nxdn?.active == true || dmr?.active == true) { heardMs += now - heardAt; heardAt = now; aloud() }
                     else if (now - heardAt >= if (heardMs == 0L) PLAY_START_MS else PLAY_QUIET_MS) break
                 } else if (follow != null) {
                     follow.feed(buf, n / 2)
                     if (follow.ended || follow.quietS >= (if (follow.frames == 0) FOLLOW_START_S else FOLLOW_QUIET_S)) break
                 }
             }
-        } finally { ahead.close(); track.stop(); track.release() }
+        } finally { ahead.close(); track?.stop(); track?.release() }
         saveRaw(raw, hz, start)
         val secs = if (follow != null) follow.frames * 0.18 else if (cipher > 0) 0.0 else heardMs / 1000.0
         com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: transmission ${if (logAll) "$mhz " else ""}(${e.band.label}) " +
-            (if (secs > 0) "played (%.1f s)".format(java.util.Locale.US, secs) else "not played") +
+            (if (secs > 0) "${if (track != null) "played" else "recorded"} (%.1f s)".format(java.util.Locale.US, secs) else "not played") +
             (if (follow != null) ", P25" + (follow.endedBy?.let { ", ended: $it" } ?: "") + dataNote(follow) else "") +
             (nxdn?.takeIf { it.frames > 0 }?.let { x -> nxdnNote(x, cipher) } ?: "") +
             (dmr?.takeIf { it.bursts > 0 || it.dataSyncs > 0 }?.let { x -> dmrNote(x) } ?: "") +
@@ -1200,9 +1207,11 @@ object SdrRadio {
             (if (mdcCount > 0) ", $mdcCount MDC-1200 bursts" + (mdcUnit?.let { u -> if (logAll) " (${u.label})" else if (u.emergency) " (emergency)" else "" } ?: "") else "") +
             (if (logAll) follow?.talker?.let { ", radio $it" } ?: "" else ""))
         val ctx = appContext
+        val rate = demod?.audioRate ?: ImbeDecoder.RATE
         if (heard != null && secs > 0 && ctx != null)
-            runCatching { P25Record.saveTransmission(ctx, start, hz, heard, demod?.audioRate ?: ImbeDecoder.RATE,
+            runCatching { P25Record.saveTransmission(ctx, start, hz, heard, rate,
                 mdcUnit?.let { "u" + it.unitText } ?: follow?.talker?.let { "r$it" }) }
+                .onSuccess { P25Transcribe.enqueue(ctx, it, heard, rate) }
                 .onFailure { com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: transmission sound not saved - ${com.rfsentinel.app.util.HwLog.describe(it)}") }
         return secs > 0
     }

@@ -237,11 +237,13 @@ class MainActivity : AppCompatActivity() {
                 menu.add(0, 7, 6, "Radio waterfall")
                 menu.add(0, 8, 7, "P25 talkgroups")
                 menu.add(0, 9, 8, "Pager messages")
+                menu.add(0, 10, 9, "Voice history")
                 setOnMenuItemClickListener { item ->
                     when (item.itemId) {
                         7 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.WaterfallActivity::class.java))
                         8 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.P25Activity::class.java))
                         9 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.PagerActivity::class.java))
+                        10 -> com.rfsentinel.app.ui.VoiceHistory.show(this@MainActivity)
                         6 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.AircraftActivity::class.java)
                             .putExtra("demo", demoMode))
                         5 -> startActivity(Intent(this@MainActivity, com.rfsentinel.app.ui.AntennaCheckActivity::class.java)
