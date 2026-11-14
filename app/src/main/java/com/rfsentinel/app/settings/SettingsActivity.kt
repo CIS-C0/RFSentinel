@@ -694,16 +694,17 @@ class SettingsActivity : AppCompatActivity() {
             .distinctBy { it.mac }
             .sortedByDescending { it.rssi }
         val current = Prefs.ouiSpyBoard(this)
-        val labels = boards.map { "${it.name}  (${it.mac}, ${it.rssi} dBm)" }.toMutableList()
+        val labels = boards.map { "${it.name}  (${it.mac}, " + (if (it.rssi == com.rfsentinel.app.esp.OuiSpyBle.NOT_HEARD) "paired" else "${it.rssi} dBm") + ")" }.toMutableList()
         if (current != null) labels += FORGET_OUI_SPY
         if (labels.isEmpty()) {
             MaterialAlertDialogBuilder(this)
                 .setTitle("No OUI-SPY board found")
                 .setMessage("Check that:\n\n" +
                     "• the board runs the Bluetooth \"App-Controlled\" firmware and has power\n" +
+                    "• it was just switched on: newer firmware lets a new phone pair only in its first 2 minutes. Power it off and on, then search again\n" +
                     "• the OUI-SPY app isn't connected to it: a board connected to a phone stops advertising. " +
                     "Force stop that app in Android's app settings, then unplug the board for a few seconds\n" +
-                    "• it isn't paired in Android's Bluetooth settings: RF Sentinel connects to it directly\n" +
+                    "• if it's paired in Android's Bluetooth settings but won't connect, tap Forget there, then power the board off and on\n" +
                     "• Bluetooth is on and RF Sentinel may use Nearby devices")
                 .setPositiveButton("Try again") { _, _ -> pairOuiSpy() }
                 .setNegativeButton("OK", null)

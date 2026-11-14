@@ -59,6 +59,10 @@ object OuiSpyBle {
     var onLiveChanged: ((Boolean) -> Unit)? = null
     private fun setLive(v: Boolean) { if (live != v) { live = v; onLiveChanged?.invoke(v) } }
     private var closingUntil = 0L
+    /** Links to a phone-paired board that dropped before going live, in a row (a pairing only one side still has). */
+    private var bondedFails = 0
+    /** This link got as far as connected (a board out of reach never does: not a pairing problem). */
+    private var reached = false
     private var detections = 0
     /** GATT writes must be sent one at a time. */
     private val pending = ArrayDeque<ByteArray>()
@@ -72,6 +76,9 @@ object OuiSpyBle {
     fun canConnect(context: Context) = Build.VERSION.SDK_INT < 31 ||
         Permissions.granted(context, android.Manifest.permission.BLUETOOTH_CONNECT)
 
+    /** [Found.rssi] of a board paired in Android but not heard by the search (its pairing window was closed). */
+    const val NOT_HEARD = -127
+
     /** A board heard by [find]. */
     class Found(val address: String, val name: String?, val rssi: Int)
 
@@ -80,7 +87,9 @@ object OuiSpyBle {
     /**
      * Looks for OUI-SPY boards nearby for [ms], whether or not RF Sentinel is scanning. Boards advertise the
      * OUI-SPY service; their "OUI-SPY-xxxx" name is only in the scan response, which a busy scan can miss.
-     * A board connected to another phone app doesn't advertise and isn't found.
+     * A board connected to another phone app doesn't advertise and isn't found. Newer firmware (bonded, secure) only
+     * advertises its service and name for 2 minutes after power-on, or while it has no pairing: boards already paired in
+     * Android are added from the paired list then, as [NOT_HEARD].
      */
     @SuppressLint("MissingPermission")
     fun find(context: Context, ms: Long = 6_000L, done: (List<Found>) -> Unit) {
@@ -102,7 +111,13 @@ object OuiSpyBle {
         try { scanner.startScan(filters, settings, cb) } catch (e: Exception) { Log.w(TAG, "OUI-SPY search failed", e); com.rfsentinel.app.util.HwLogs.ouiSpy.log("OUI-SPY: Bluetooth search failed: ${com.rfsentinel.app.util.HwLog.describe(e)}"); done(emptyList()); return }
         finder.postDelayed({
             runCatching { scanner.stopScan(cb) }
-            done(seen.values.sortedByDescending { it.rssi })
+            val paired = runCatching {
+                context.getSystemService(BluetoothManager::class.java)?.adapter?.bondedDevices.orEmpty()
+                    .filter { d -> d.name?.startsWith(OuiSpyBleProtocol.NAME_PREFIX) == true && d.address !in seen }
+                    .map { d -> Found(d.address, d.name, NOT_HEARD) }
+            }.getOrDefault(emptyList())
+            com.rfsentinel.app.util.HwLogs.ouiSpy.log("OUI-SPY: search found ${seen.size} advertising, ${paired.size} more paired in Android")
+            done(seen.values.sortedByDescending { it.rssi } + paired)
         }, ms)
     }
 
@@ -156,15 +171,24 @@ object OuiSpyBle {
         val adapter = ctx.getSystemService(BluetoothManager::class.java)?.adapter ?: return
         if (!adapter.isEnabled) { setStatus("OUI-SPY: Bluetooth is off"); retry(); return }
         val device = runCatching { adapter.getRemoteDevice(addr) }.getOrNull() ?: return
-        // The board keeps no pairing keys, so a phone-side pairing breaks every connection
-        // (encryption fails with "key missing"). It must not be paired in Android settings.
-        if (device.bondState == BluetoothDevice.BOND_BONDED) {
-            setStatus("OUI-SPY: tap \"Forget\" on ${device.name ?: "the board"} in Android Bluetooth settings - it must not be paired there")
+        // Newer firmware needs the link paired (Android pairs on the first encrypted write, Just Works); older firmware
+        // keeps no pairing keys, so a phone-side pairing breaks every connection there. Either way, a pairing that only
+        // one side still has fails before going live: after two of those in a row, say how to pair again.
+        if (device.bondState == BluetoothDevice.BOND_BONDED && bondedFails >= 2) {
+            setStatus("OUI-SPY: can't open its pairing - tap \"Forget\" on ${device.name ?: "the board"} in Android Bluetooth settings, " +
+                "power the board off and on, then pick it again in Settings within 2 minutes")
+            bondedFails = 0
             retry()
             return
         }
         setStatus("OUI-SPY: connecting…")
         Log.i(TAG, "connecting")
+        reached = false
+        com.rfsentinel.app.util.HwLogs.ouiSpy.log("OUI-SPY: connecting, " + when (device.bondState) {
+            BluetoothDevice.BOND_BONDED -> "paired in Android"
+            BluetoothDevice.BOND_BONDING -> "pairing in Android"
+            else -> "not paired (newer firmware pairs now, within 2 minutes of power-on)"
+        })
         gatt = device.connectGatt(ctx, false, callback, BluetoothDevice.TRANSPORT_LE)
     }
 
@@ -189,6 +213,7 @@ object OuiSpyBle {
     @SuppressLint("MissingPermission")
     private fun writeNext(g: BluetoothGatt) {
         val next = pending.removeFirstOrNull() ?: run {
+            bondedFails = 0
             setLive(true)
             Log.i(TAG, "live")
             val names = engines.mapNotNull { OuiSpyBleProtocol.ENGINE_NAMES[it] }
@@ -222,6 +247,13 @@ object OuiSpyBle {
         setStatus("OUI-SPY · live · $detections report${if (detections == 1) "" else "s"}")
     }
 
+    @SuppressLint("MissingPermission")
+    private fun countBondedFail(g: BluetoothGatt) {
+        val bonded = runCatching { g.device.bondState == BluetoothDevice.BOND_BONDED }.getOrDefault(false)
+        if (bonded) bondedFails++ else bondedFails = 0
+        com.rfsentinel.app.util.HwLogs.ouiSpy.log("OUI-SPY: dropped before going live (" + (if (bonded) "paired in Android, $bondedFails in a row" else "not paired") + ")")
+    }
+
     private val callback = object : BluetoothGattCallback() {
         @SuppressLint("MissingPermission")
         override fun onConnectionStateChange(g: BluetoothGatt, st: Int, newState: Int) {
@@ -231,6 +263,7 @@ object OuiSpyBle {
                 if (g !== gatt) return@post
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     setStatus("OUI-SPY: connected, setting up…")
+                    reached = true
                     setLive(false)
                     discovering = false
                     // On a reused link Android may never answer the MTU request: go on anyway.
@@ -239,6 +272,7 @@ object OuiSpyBle {
                     main.postDelayed({
                         if (g === gatt && !live && active) {
                             Log.w(TAG, "setup stalled, reconnecting")
+                            countBondedFail(g)
                             runCatching { g.disconnect(); g.close() }
                             gatt = null
                             closingUntil = System.currentTimeMillis() + CLOSE_SETTLE_MS
@@ -247,6 +281,7 @@ object OuiSpyBle {
                         }
                     }, SETUP_TIMEOUT_MS)
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    if (!live && reached) countBondedFail(g)
                     runCatching { g.close() }
                     gatt = null
                     setLive(false)
@@ -286,6 +321,7 @@ object OuiSpyBle {
         }
 
         override fun onDescriptorWrite(g: BluetoothGatt, d: BluetoothGattDescriptor, st: Int) {
+            if (st != BluetoothGatt.GATT_SUCCESS) com.rfsentinel.app.util.HwLogs.ouiSpy.log("OUI-SPY: notification setup failed ($st)")
             main.post {
                 if (g !== gatt) return@post
                 inSpool = false
