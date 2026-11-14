@@ -403,8 +403,12 @@ class ScanForegroundService : Service() {
         OuiWatchlist.load(this)
         serviceScope.launch {
             val today = java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
-            runCatching { com.rfsentinel.app.detect.FixedRouter.load(AppDatabase.getInstance(this@ScanForegroundService)
-                .knownDeviceDao().familiarRouters(com.rfsentinel.app.detect.FixedRouter.MIN_SESSIONS, today)) }
+            runCatching {
+                val db = AppDatabase.getInstance(this@ScanForegroundService)
+                val macs = db.knownDeviceDao().familiarFixed(com.rfsentinel.app.detect.FixedRouter.MIN_SESSIONS, today)
+                // In chunks: older Androids' SQLite takes at most 999 values in one query.
+                com.rfsentinel.app.detect.FixedRouter.load(macs, macs.chunked(500).flatMap { db.detectionDao().spots(it) })
+            }
         }
 
         pipelineThread = HandlerThread("rf-pipeline").apply { start() }
@@ -941,10 +945,12 @@ class ScanForegroundService : Service() {
                 this, mac, trackerHit.label, a.rssi, now, DeviceRegistry.linkedFrom(mac))
         ) return
         if (WhitelistCache.contains(mac)) return
-        if (!com.rfsentinel.app.detect.FixedRouter.quiet(mac, c.hits, a.name, a.wifi?.capabilities)) noteLocating(mac)
+        // Where it's heard from: this phone, or the linked Sentinel that heard it.
+        val from = if (via != null) peerAt else lastLocation
+        if (!com.rfsentinel.app.detect.FixedRouter.quiet(mac, c.hits, a.name, a.wifi?.capabilities, from?.latitude, from?.longitude)) noteLocating(mac)
 
         maybeLog(a, best, c.vendor, loc, now, via)
-        if (!quiet) maybeAlert(a, best, c.hits, now, via)
+        if (!quiet) maybeAlert(a, best, c.hits, now, via, from)
         // Following is about this phone: a device near another Sentinel isn't following it.
         if (via != null) return
 
@@ -1465,12 +1471,12 @@ class ScanForegroundService : Service() {
     private fun alertsOff(category: Category, mac: String? = null, hits: List<Hit> = emptyList()): Set<AlertKind> =
         Prefs.categoryAlertsOff(this, category) + (if (mac != null) OuiWatchlist.alertsOff(mac, hits) else emptySet())
 
-    private fun maybeAlert(a: Advert, best: Hit, hits: List<Hit>, now: Long, via: String? = null) {
+    private fun maybeAlert(a: Advert, best: Hit, hits: List<Hit>, now: Long, via: String? = null, from: Location? = null) {
         // Someone else's tracker nearby is normal; trackers only alert when they follow you.
         if (best.category == Category.TRACKER) return
         if (best.listOnly || best.confidence < Prefs.alertThreshold(this, best.category)) return
-        // A shop's router you pass every day, or one on open or branch-router WiFi: listed and logged, no alert.
-        if (com.rfsentinel.app.detect.FixedRouter.quiet(a.mac, hits, a.name, a.wifi?.capabilities)) return
+        // A shop's router or printer you pass every day, near its usual spot, or a router on open or branch-router WiFi: listed and logged, no alert.
+        if (com.rfsentinel.app.detect.FixedRouter.quiet(a.mac, hits, a.name, a.wifi?.capabilities, from?.latitude, from?.longitude)) return
         // Acknowledged from the list: listed and logged, no alert.
         if (com.rfsentinel.app.data.AlertMutes.isMuted(this, a.mac, now)) return
         val window = Prefs.dedupeWindowMs(this)

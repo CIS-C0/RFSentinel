@@ -10,6 +10,28 @@ class FixedRouterTest {
     private val router = hit("Cradlepoint vehicle router - police cars, buses, stores, traffic-signal cabinets")
     private val axon = hit("Police car network - Axon Fleet in-car video")
 
+    private fun spot(mac: String, lat: Double, lon: Double, d: Double = 0.0) =
+        com.rfsentinel.app.data.Spot(mac, lat, lon, lat - d, lon - d, lat + d, lon + d)
+    private val printer = Hit(Category.MOBILE_PRINTER, "Zebra mobile printer", 40, "", "")
+
+    @Test
+    fun familiarOnlyNearItsUsualSpot() {
+        val mac = "00:30:44:AA:BB:CC"
+        FixedRouter.load(listOf(mac), listOf(spot(mac, 10.0, 20.0, 0.001)))
+        assertTrue(FixedRouter.quiet(mac, listOf(router), lat = 10.002, lon = 20.0)) // ~220 m away
+        assertFalse(FixedRouter.quiet(mac, listOf(router), lat = 10.05, lon = 20.0)) // ~5.5 km: it moved
+        assertTrue(FixedRouter.quiet(mac, listOf(router))) // no fix: as before
+        assertFalse(FixedRouter.quiet(mac, listOf(router, axon), lat = 10.0, lon = 20.0))
+        // A printer learns its spot too; one logged all over town never does.
+        FixedRouter.load(listOf("AC:3F:A4:00:00:01", "AC:3F:A4:00:00:02"),
+            listOf(spot("ac:3f:a4:00:00:01", 10.0, 20.0), spot("AC:3F:A4:00:00:02", 10.0, 20.0, 0.05)))
+        assertTrue(FixedRouter.quiet("AC:3F:A4:00:00:01", listOf(printer), lat = 10.0, lon = 20.0))
+        assertFalse(FixedRouter.quiet("AC:3F:A4:00:00:02", listOf(printer), lat = 10.0, lon = 20.0))
+        // A printer on open WiFi isn't a shop router.
+        FixedRouter.load(emptyList())
+        assertFalse(FixedRouter.quiet("AC:3F:A4:00:00:03", listOf(printer), "Public-2ce", "[ESS]"))
+    }
+
     @Test
     fun familiarRouterOnlyIsQuiet() {
         FixedRouter.load(listOf("00:30:44:aa:bb:cc"))

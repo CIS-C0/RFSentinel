@@ -24,6 +24,12 @@ interface DetectionDao {
     fun search(query: String, like: String, likeHex: String, category: String?, since: Long): Flow<List<DetectionEntity>>
 
     /** The categories in the log, for the filter chips. */
+    /** Where each of [macs] was logged: the middle and the corners of the box around it ([com.rfsentinel.app.detect.FixedRouter]). */
+    @Query("""SELECT mac, AVG(latitude) AS lat, AVG(longitude) AS lon, MIN(latitude) AS minLat, MIN(longitude) AS minLon,
+        MAX(latitude) AS maxLat, MAX(longitude) AS maxLon FROM detections
+        WHERE mac IN (:macs) AND latitude IS NOT NULL AND longitude IS NOT NULL GROUP BY mac""")
+    suspend fun spots(macs: List<String>): List<Spot>
+
     @Query("SELECT DISTINCT category FROM detections")
     suspend fun categories(): List<String>
 
@@ -53,3 +59,6 @@ interface DetectionDao {
     @Query("DELETE FROM detections")
     suspend fun clearAll()
 }
+
+/** Where a device was logged ([DetectionDao.spots]). */
+data class Spot(val mac: String, val lat: Double, val lon: Double, val minLat: Double, val minLon: Double, val maxLat: Double, val maxLon: Double)
