@@ -1610,7 +1610,10 @@ object SdrRadio {
      */
     private fun runTpms(sdr: SdrDevice, name: String) {
         sdr.setSampleRate(SAMPLE_RATE)
-        sdr.setGain(GAIN_TENTHS_DB)
+        // Another car's sensors are faint (a few milliwatts, behind a wheel): the tuner's top gain, stepped down
+        // while samples clip, as when playing a transmission. Not yet checked against a real car: the log says what it heard.
+        var gain = AdsbGain.STEPS.last(); var gainAt = 0L
+        sdr.setGain(gain)
         sdr.resetBuffer()
         var lastCheck = System.currentTimeMillis(); var away = false
         val stop = {
@@ -1626,14 +1629,18 @@ object SdrRadio {
             return
         }
         val buf = ByteArray(STREAM_XFER)
-        val sensors = HashSet<String>(); var heard = 0; var bursts = 0; var unlocked = 0
+        val sensors = HashSet<String>(); var unlocked = 0
+        // Per band, for the log: bursts seen, the strongest one, messages decoded (bursts without messages: a sensor
+        // this doesn't decode, or too faint; no bursts: nothing reached the antenna).
+        val bursts = IntArray(Tpms.CHANNELS.size); val heard = IntArray(Tpms.CHANNELS.size); val peak = DoubleArray(Tpms.CHANNELS.size)
         var next = 0
         while (!stop()) {
-            val hz = Tpms.CHANNELS[next++ % Tpms.CHANNELS.size]
+            val band = next++ % Tpms.CHANNELS.size
+            val hz = Tpms.CHANNELS[band]
             if (!sdr.tune(hz - TPMS_OFFSET_HZ)) { unlocked++; Thread.sleep(200); continue }
             sdr.resetBuffer()
             val demod = Tpms.Demod(sdr.sampleRate, TPMS_OFFSET_HZ.toDouble()) { r ->
-                heard++; tpmsMessages++; sensors += r.key
+                heard[band]++; tpmsMessages++; sensors += r.key
                 onTpms?.invoke(r)
             }
             val until = System.currentTimeMillis() + TPMS_DWELL_MS
@@ -1646,14 +1653,22 @@ object SdrRadio {
                         continue
                     }
                     fails = 0
+                    val now = System.currentTimeMillis()
+                    if (P25Hunt.clips(buf, n) * 200 > n && gain > AdsbGain.STEPS.first() && now - gainAt >= 300) {
+                        gain = P25Hunt.lowerGain(gain); sdr.setGain(gain); gainAt = now
+                    }
                     demod.feed(buf, n / 2)
                 }
             }
-            bursts += demod.bursts
+            bursts[band] += demod.bursts; peak[band] = maxOf(peak[band], demod.peakDb)
             if (!halted) status = "$deviceLabel · tire sensors · ${sensors.size} heard this turn" + turnNote()
         }
-        // Counts only: sensor IDs would trace the cars around you.
-        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: tire sensors turn over: $bursts bursts, $heard messages from ${sensors.size} sensors" +
+        // Counts and levels only: sensor IDs would trace the cars around you.
+        val bands = Tpms.CHANNELS.indices.joinToString("; ") { b ->
+            "%.2f MHz: %d bursts".format(java.util.Locale.US, Tpms.CHANNELS[b] / 1e6, bursts[b]) +
+                (if (bursts[b] > 0) ", strongest %.0f dB over the noise".format(java.util.Locale.US, peak[b]) else "") + ", ${heard[b]} messages"
+        }
+        com.rfsentinel.app.util.HwLogs.sdr.log("$deviceLabel: tire sensors turn over: $bands; ${sensors.size} sensors, gain ${gain / 10.0} dB" +
             (if (unlocked > 0) ", PLL unlocked $unlocked" else ""))
     }
 

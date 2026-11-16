@@ -58,6 +58,8 @@ object Tpms {
         /** Bursts looked at, and frames decoded (for the log). */
         var bursts = 0; private set
         var frames = 0; private set
+        /** The strongest burst's level over the noise floor, in dB (for the log); 0 with no burst. */
+        var peakDb = 0.0; private set
 
         fun feed(buf: ByteArray, count: Int) {
             var k = 0
@@ -115,6 +117,7 @@ object Tpms {
             }
             // OOK: on above the middle of the noise and the burst's peak (in dB).
             val p90 = power.copyOf(n).also { it.sort() }[n * 9 / 10]
+            peakDb = maxOf(peakDb, 10 * kotlin.math.log10(p90 / noise))
             val cut = kotlin.math.sqrt(noise * p90)
             val ook = BooleanArray(n) { power[it] > cut }
             decodeOok(chips(ook, OOK_CHIP, false)).forEach(::take)
