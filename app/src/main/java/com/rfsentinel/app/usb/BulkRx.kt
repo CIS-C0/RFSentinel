@@ -85,7 +85,7 @@ internal object BulkRx {
         try {
             while (!stopped()) {
                 dead.removeAll { replace(it) }
-                val req = try { conn.requestWait(100L) } catch (_: TimeoutException) { null }
+                val req = waitRequest(conn, 100L)
                 if (req != null) {
                     val idx = req.clientData as? Int ?: -1
                     if (idx in reqs.indices && reqs[idx] === req) {
@@ -114,13 +114,27 @@ internal object BulkRx {
      * back through [UsbDeviceConnection.requestWait]: closed first, the next loop on the same connection (a driver
      * restarting its radio) gets a freed request back and the app dies in native code (SIGSEGV in usb_request_wait).
      */
+    /**
+     * [UsbDeviceConnection.requestWait] that always takes its time. On an adapter that dropped off USB, Android's
+     * returns null at once and throws no TimeoutException (its poll says "hung up", and only a passed deadline throws):
+     * a loop counting timeouts then never ends. Seen when the car's power went: [reap] spun for 4 s once and ~29 min
+     * another time, until something else on the thread happened to change errno, and the adapter couldn't start again.
+     */
+    private fun waitRequest(conn: UsbDeviceConnection, ms: Long): UsbRequest? {
+        val t0 = System.nanoTime()
+        val r = try { conn.requestWait(ms) } catch (_: TimeoutException) { return null }
+        // Null in under half the wait: nothing to wait on. Sleep the rest, so no caller spins on a dead adapter.
+        if (r == null && System.nanoTime() - t0 < ms * 500_000L) try { Thread.sleep(ms / 2) } catch (_: InterruptedException) {}
+        return r
+    }
+
     private fun reap(tag: String, conn: UsbDeviceConnection, reqs: List<UsbRequest>) {
         reqs.forEach { runCatching { it.cancel() } }
         val left = HashSet<UsbRequest>(reqs)
         var waits = 0
         while (left.isNotEmpty() && waits < 20) {
-            val r = try { conn.requestWait(50L) } catch (_: TimeoutException) { waits++; null } catch (_: Exception) { break }
-            if (r != null) left.remove(r)
+            val r = try { waitRequest(conn, 50L) } catch (_: Exception) { break }
+            if (r != null) left.remove(r) else waits++
         }
         if (left.isNotEmpty()) UsbWifi.log("$tag: ${left.size} of ${reqs.size} USB transfers didn't come back after cancelling")
         reqs.forEach { runCatching { it.close() } }
