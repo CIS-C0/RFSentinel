@@ -21,6 +21,9 @@ class CrashLogExitTest {
         assertFalse(CrashLog.noteworthy(ApplicationExitInfo.REASON_USER_REQUESTED, IMPORTANCE_FOREGROUND_SERVICE))
         assertFalse(CrashLog.noteworthy(ApplicationExitInfo.REASON_PACKAGE_UPDATED, IMPORTANCE_FOREGROUND_SERVICE))
         assertFalse(CrashLog.noteworthy(ApplicationExitInfo.REASON_CRASH, IMPORTANCE_FOREGROUND_SERVICE))
+        // Xiaomi's recent-apps swipe: logged, but not offered as a crash.
+        assertTrue(CrashLog.swipedAway("SwipeUpClean"))
+        assertFalse(CrashLog.swipedAway(null))
     }
 
     @Test

@@ -78,7 +78,7 @@ object CrashLog {
         val since = maxOf(seen, System.currentTimeMillis() - 7 * 24 * 3_600_000L)
         val noted = exits.filter { it.timestamp > since && noteworthy(it.reason, it.importance) }.sortedBy { it.timestamp }
         prefs.edit().putLong("exits_seen", maxOf(newest, seen)).apply()
-        if (noted.isNotEmpty()) append(context, noted.joinToString("") { exitEntry(it) })
+        if (noted.isNotEmpty()) append(context, noted.joinToString("") { exitEntry(it) }, prompt = noted.any { !swipedAway(it.description) })
         // Killed along with the phone's Bluetooth during an extended scan: counts against that scan.
         if (Prefs.bleExtendedRunning(context) && noted.any { it.reason == ApplicationExitInfo.REASON_DEPENDENCY_DIED })
             com.rfsentinel.app.service.BleScanEngine.strike(context, "the app was killed with a service it used")
@@ -95,6 +95,12 @@ object CrashLog {
         else -> importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_PERCEPTIBLE
     }
 
+    /**
+     * Xiaomi / HyperOS ends an app swiped away from recent apps, its scan included, and says so in the exit's
+     * description: the user's doing, not a crash. Logged (it explains a scan that stopped), no "closed unexpectedly".
+     */
+    internal fun swipedAway(description: String?) = description == "SwipeUpClean"
+
     private fun reasonLabel(reason: Int) = when (reason) {
         ApplicationExitInfo.REASON_CRASH_NATIVE -> "native crash"
         ApplicationExitInfo.REASON_ANR -> "not responding (ANR)"
@@ -110,7 +116,9 @@ object CrashLog {
     @androidx.annotation.RequiresApi(Build.VERSION_CODES.R)
     private fun exitEntry(e: ApplicationExitInfo): String = buildString {
         append("==== ").append(SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", Locale.US).format(Date(e.timestamp))).append(" ====\n")
-        append("RF Sentinel ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) found at its next start: ${reasonLabel(e.reason)}\n")
+        append("RF Sentinel ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) found at its next start: " + (if (swipedAway(e.description))
+            "closed by the phone when it was swiped away from recent apps (not a crash: Xiaomi / HyperOS ends the scan too; lock RF Sentinel in recent apps to keep it running)"
+            else reasonLabel(e.reason)) + "\n")
         append("${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\n")
         val where = when {
             e.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND -> "on screen"
