@@ -195,6 +195,8 @@ object UsbWifi {
     private val current = ThreadLocal<Session>()
     /** Each device's last thread, so a quick stop and start waits for the old session to let go of the adapter. */
     private val lastThread = HashMap<String, Thread>()
+    /** How long a new session waits for the last one on the same adapter to end. */
+    private const val PREVIOUS_WAIT_S = 20
     /** What to show while no adapter runs: waiting for access, firmware, an unsupported chip, the last error. */
     @Volatile private var idle = ""
 
@@ -485,8 +487,15 @@ object UsbWifi {
             var last = ""
             runCatching {
                 // A quick stop and start: the last session switches the adapter off as it ends; let it finish first.
-                previous?.join(3_000)
-                if (previous?.isAlive == true) { last = "USB WiFi (${chip.name}): the last session is still stopping - unplug and replug the adapter"; return@runCatching }
+                // An adapter that just dropped off USB (the car's power going) ends slowly: its transfers time out one by one
+                // (4 s seen). Giving up after 3 s left it off for the rest of the scan, with nothing in the log.
+                var waited = 0
+                while (previous?.isAlive == true && !s.stopped && waited < PREVIOUS_WAIT_S) { previous?.join(1_000); waited++ }
+                if (previous?.isAlive == true) {
+                    if (!s.stopped) log("${chip.name}: not started - the last session is still stopping after $waited s (unplug and replug the adapter)")
+                    last = "USB WiFi (${chip.name}): the last session is still stopping - unplug and replug the adapter"; return@runCatching
+                }
+                if (waited > 3) log("${chip.name}: the last session took $waited s to stop")
                 band = com.rfsentinel.app.util.Prefs.wifiBand(context)
                 logAll = com.rfsentinel.app.util.Prefs.usbWifiLogAll(context)
                 UsbCtl.reset()
