@@ -10,8 +10,11 @@ class VoiceQueue(
     private val maxAgeMs: Long = MAX_AGE_MS,
     private val repeatGapMs: Long = REPEAT_GAP_MS
 ) {
-    /** [nav]: a driving direction - never merged into "3 alerts", never dropped as a repeat. */
-    data class Item(val text: String, val priority: Int, val time: Long, val nav: Boolean = false)
+    /**
+     * [nav]: a driving direction - never merged into "3 alerts", never dropped as a repeat.
+     * [key]: what it is about; the same key isn't said twice in a row (the words themselves unless given).
+     */
+    data class Item(val text: String, val priority: Int, val time: Long, val nav: Boolean = false, val key: String = text)
 
     companion object {
         const val MAX_AGE_MS = 12_000L
@@ -39,12 +42,17 @@ class VoiceQueue(
 
     val size get() = waiting.size
 
-    /** Queues [text]; false when it's a repeat of something said (or waiting) recently. */
-    fun add(text: String, priority: Int, now: Long): Boolean {
-        val key = text.trim().lowercase()
-        if (waiting.any { it.text.trim().lowercase() == key }) return false
-        lastSaid[key]?.let { if (now - it < repeatGapMs) return false }
-        waiting += Item(text, priority, now)
+    private fun norm(s: String) = s.trim().lowercase()
+
+    /**
+     * Queues [text]; false when it's a repeat of something said (or waiting) recently. [key]: the thing it is
+     * about, when the same words can be about two things (two patrol cars' routers on one network name).
+     */
+    fun add(text: String, priority: Int, now: Long, key: String = text): Boolean {
+        val k = norm(key)
+        if (waiting.any { norm(it.key) == k }) return false
+        lastSaid[k]?.let { if (now - it < repeatGapMs) return false }
+        waiting += Item(text, priority, now, key = key)
         return true
     }
 
@@ -69,6 +77,13 @@ class VoiceQueue(
     fun next(now: Long): Item? {
         waiting.removeAll { now - it.time > if (it.nav) NAV_MAX_AGE_MS else maxAgeMs }
         if (waiting.isEmpty()) return null
+        // The same words about several things: "Police vehicle router nearby, 2 of them".
+        waiting.filter { !it.nav }.groupBy { norm(it.text) }.values.filter { it.size > 1 }.forEach { same ->
+            waiting.removeAll(same.toSet())
+            same.forEach { lastSaid[norm(it.key)] = now }
+            waiting += Item("${same.first().text.trim().trimEnd('.')}, ${same.size} of them", same.maxOf { it.priority },
+                same.minOf { it.time }, key = same.first().key)
+        }
         val ordered = waiting.sortedWith(compareByDescending<Item> { it.priority }.thenBy { it.time })
         val alerts = ordered.filter { !it.nav }
         val item = if (!ordered.first().nav && alerts.size >= MERGE_FROM && ordered.first().priority < FOLLOWING) {
@@ -80,12 +95,12 @@ class VoiceQueue(
                 (if (more > 0) ", and $more more" else "")
             waiting.removeAll(alerts.toSet())
             Item("${alerts.size} alerts: $list.", alerts.first().priority, now)
-                .also { alerts.forEach { o -> lastSaid[o.text.trim().lowercase()] = now } }
+                .also { alerts.forEach { o -> lastSaid[norm(o.key)] = now } }
         } else {
             waiting.remove(ordered.first())
             ordered.first()
         }
-        if (!item.nav) lastSaid[item.text.trim().lowercase()] = now
+        if (!item.nav) lastSaid[norm(item.key)] = now
         // Keep the repeat memory small.
         if (lastSaid.size > 64) lastSaid.entries.removeAll { now - it.value > repeatGapMs }
         return item

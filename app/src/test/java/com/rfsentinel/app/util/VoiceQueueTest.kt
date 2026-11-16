@@ -36,6 +36,33 @@ class VoiceQueueTest {
     }
 
     @Test
+    fun sameWordsAboutAnotherDeviceAreSaid() {
+        val q = VoiceQueue()
+        assertTrue(q.add("Police car nearby", VoiceQueue.STRONG, 0, key = "AA:01"))
+        assertFalse(q.add("Police car nearby", VoiceQueue.STRONG, 5, key = "aa:01")) // the same router again
+        assertEquals("Police car nearby", q.next(10)!!.text)
+        // A second patrol car on the same network name, 5 s later: said again.
+        assertTrue(q.add("Police car nearby", VoiceQueue.STRONG, 5_000, key = "AA:02"))
+        assertEquals("Police car nearby", q.next(5_010)!!.text)
+        // Two more waiting together become one sentence, and neither repeats after it.
+        assertTrue(q.add("Police car nearby", VoiceQueue.PROBABLE, 6_000, key = "AA:03"))
+        assertTrue(q.add("Police car nearby", VoiceQueue.STRONG, 6_001, key = "AA:04"))
+        val both = q.next(6_010)!!
+        assertEquals("Police car nearby, 2 of them", both.text)
+        assertEquals(VoiceQueue.STRONG, both.priority)
+        assertNull(q.next(6_020))
+        assertFalse(q.add("Police car nearby", VoiceQueue.STRONG, 7_000, key = "AA:03"))
+        assertFalse(q.add("Police car nearby", VoiceQueue.STRONG, 7_000, key = "AA:04"))
+    }
+
+    @Test
+    fun networkNameWords() {
+        assertEquals(", network Fleet 12", Spoken.networkWords(" Fleet_12 ", "Vehicle router"))
+        assertEquals("", Spoken.networkWords("  ", "Vehicle router"))
+        assertEquals("", Spoken.networkWords("Fleet_12", "Watchlist: fleet_12")) // the label says it already
+    }
+
+    @Test
     fun pileUpBecomesOneSentence() {
         val q = VoiceQueue()
         q.add("Axon body camera nearby", VoiceQueue.STRONG, 0)

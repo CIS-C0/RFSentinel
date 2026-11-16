@@ -58,11 +58,11 @@ object Voice {
     fun radioHeard() { radioAt = System.currentTimeMillis() }
 
     /** Queues [text] with a [VoiceQueue] priority; it's spoken as soon as nothing more urgent is. */
-    fun say(context: Context, text: String, priority: Int, attrs: AudioAttributes) = main.post {
+    fun say(context: Context, text: String, priority: Int, attrs: AudioAttributes, key: String = text) = main.post {
         app = context.applicationContext
         nextAttrs = attrs; alertAttrs = attrs
         val now = System.currentTimeMillis()
-        if (!queue.add(text, priority, now)) return@post
+        if (!queue.add(text, priority, now, key)) return@post
         val current = speaking
         if (current != null && queue.preempts(priority, current.priority)) {
             tts?.stop() // onDone/onStop isn't guaranteed after stop(): move on ourselves

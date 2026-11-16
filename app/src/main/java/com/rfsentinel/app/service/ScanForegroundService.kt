@@ -1488,7 +1488,14 @@ class ScanForegroundService : Service() {
         // The ways your watchlist entry for it says not to alert.
         val off = alertsOff(best.category, a.mac, hits)
         NotificationHelper.sendAlert(this, a.mac, best, a.rssi, via = via, banner = AlertKind.BANNER !in off)
-        AlertPlayer.play(this, best.tier, com.rfsentinel.app.util.Spoken.device(this, best, via = via), off = off)
+        // Spoken once per access point, not once per phrase: patrol cars sharing one network name are each said
+        // (a router's 2.4 and 5 GHz radios still count as one, under the first of them to alert).
+        val ap = a.isWifi && a.wifi?.client != true
+        val voiceKey = if (ap) lastAlerted.entries
+            .filter { it.key == a.mac || com.rfsentinel.app.detect.WifiFingerprint.sameAccessPoint(a.mac, it.key) }
+            .minByOrNull { it.value }?.key else null
+        AlertPlayer.play(this, best.tier, com.rfsentinel.app.util.Spoken.device(this, best, via = via, ssid = a.name.takeIf { ap }),
+            off = off, voiceKey = voiceKey)
     }
 
     private fun knownAlprActive() = (Prefs.knownAlprAlerts(this) || Prefs.speedCameraAlerts(this)) &&

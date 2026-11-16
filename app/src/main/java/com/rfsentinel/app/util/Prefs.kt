@@ -619,6 +619,9 @@ object Prefs {
     /** Two- or three-word spoken alerts ("Body cam", "Speed camera, 50") instead of full labels. */
     fun shortVoice(context: Context): Boolean = bool(context, "short_voice", false)
     fun setShortVoice(context: Context, value: Boolean) = setBool(context, "short_voice", value)
+    /** A WiFi alert also says the network's name ("Police car, network Fleet 12"). */
+    fun voiceSsid(context: Context): Boolean = bool(context, "voice_ssid", false)
+    fun setVoiceSsid(context: Context, value: Boolean) = setBool(context, "voice_ssid", value)
 
     /** Leave Apple Find My tags (AirTags and compatible) out of the Trackers category. */
     /** Keep the WiFi network names devices around you ask for (USB WiFi adapter / ESP32 Marauder). */

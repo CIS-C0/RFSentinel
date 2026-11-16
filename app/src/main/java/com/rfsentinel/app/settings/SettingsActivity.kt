@@ -1308,6 +1308,7 @@ class SettingsActivity : AppCompatActivity() {
         info(binding.dedupeLabel, "The same device won't alert again until this many minutes have passed.")
         withUnit(binding.dedupeInput, "min")
         info(binding.shortVoiceSwitch, "\"Body cam\", \"Police car\", \"Speed camera, 50\" instead of whole sentences.")
+        info(binding.voiceSsidSwitch, "A WiFi alert also says the name of the network the device broadcasts: \"Police car, network Fleet 12\". A hidden network has no name to say.")
         info(binding.bubbleSwitch, "A small bubble over other apps (Waze, Google Maps...) showing the threat level. Needs \"Display over other apps\".")
         info(binding.floatingMapSwitch, "A small map over other apps, centred on you, with the same device dots as RF Sentinel's map. It always uses OpenFreeMap: a window this small has no room for Mapbox's logo and info button.")
         info(binding.followSwitch, "Warns when a tracker or flagged device keeps moving with you, for at least the time and distance below - whether it stays in range or keeps turning up again: heard at 3 or more places along your way within 2 hours.")
@@ -3230,6 +3231,7 @@ class SettingsActivity : AppCompatActivity() {
         }
         binding.voiceSwitch.isChecked = Prefs.voiceEnabled(this)
         binding.shortVoiceSwitch.isChecked = Prefs.shortVoice(this)
+        binding.voiceSsidSwitch.isChecked = Prefs.voiceSsid(this)
         setupVoiceControls()
         binding.discreetSwitch.isChecked = Prefs.discreetMode(this)
         binding.fullscreenSwitch.isChecked = Prefs.fullscreen(this)
@@ -3579,6 +3581,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setCarMessages(this, binding.carMessagesSwitch.isChecked)
         Prefs.setVoiceEnabled(this, binding.voiceSwitch.isChecked)
         Prefs.setShortVoice(this, binding.shortVoiceSwitch.isChecked)
+        Prefs.setVoiceSsid(this, binding.voiceSsidSwitch.isChecked)
         Prefs.setDiscreetMode(this, binding.discreetSwitch.isChecked)
         Prefs.setThreatBubble(this, binding.bubbleSwitch.isChecked)
         if (!binding.bubbleSwitch.isChecked) com.rfsentinel.app.ui.ThreatBubble.hide(this)

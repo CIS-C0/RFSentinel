@@ -679,6 +679,11 @@
                 android:id="@+id/shortVoiceSwitch"
                 android:text="Short spoken alerts" />
 
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                style="@style/SettingsControl"
+                android:id="@+id/voiceSsidSwitch"
+                android:text="Say the network name" />
+
             <TextView style="@style/SettingsLabel" android:text="Voice speed" />
 
             <RadioGroup

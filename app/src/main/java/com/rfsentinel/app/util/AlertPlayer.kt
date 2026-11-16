@@ -64,8 +64,12 @@ object AlertPlayer {
     private val main = Handler(Looper.getMainLooper())
     private var focusRequest: AudioFocusRequest? = null
 
-    /** [off]: the ways this device's watchlist entry says not to alert ([AlertKind]). */
-    fun play(context: Context, tier: Tier, spoken: String?, following: Boolean = false, off: Set<AlertKind> = emptySet()) {
+    /**
+     * [off]: the ways this device's watchlist entry says not to alert ([AlertKind]). [voiceKey]: what the
+     * words are about ([VoiceQueue.Item.key]), when two devices can share them.
+     */
+    fun play(context: Context, tier: Tier, spoken: String?, following: Boolean = false, off: Set<AlertKind> = emptySet(),
+             voiceKey: String? = null) {
         val inCar = CarState.connected
         val muted = Prefs.alertsSilenced(context)
         val willSpeak = !muted && spoken != null && AlertKind.VOICE !in off && (Prefs.voiceEnabled(context) || (inCar && Prefs.carVoice(context)))
@@ -111,8 +115,8 @@ object AlertPlayer {
                 else -> VoiceQueue.WEAK
             }
             // Speak after the beeps, not over them.
-            if (beepMs > 0) main.postDelayed({ Voice.say(app, spoken!!, priority, attrs) }, beepMs + 150L)
-            else Voice.say(app, spoken!!, priority, attrs)
+            if (beepMs > 0) main.postDelayed({ Voice.say(app, spoken!!, priority, attrs, voiceKey ?: spoken) }, beepMs + 150L)
+            else Voice.say(app, spoken!!, priority, attrs, voiceKey ?: spoken)
         }
     }
 

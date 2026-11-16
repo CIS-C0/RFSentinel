@@ -15,12 +15,21 @@ object Spoken {
     /** Short phrases; always in the radar-detector sound style, which speaks like a detector. */
     fun short(context: Context) = Prefs.shortVoice(context) || Prefs.detectorSound(context) || Prefs.detectorSound(context)
 
-    /** [via]: the linked Sentinel that heard it (Sentinel Link). */
-    fun device(context: Context, hit: Hit, following: Boolean = false, via: String? = null): String {
-        val v = via?.let { ", via $it" } ?: ""
+    /**
+     * [via]: the linked Sentinel that heard it (Sentinel Link). [ssid]: the network name it broadcasts,
+     * said with Settings > Say the network name.
+     */
+    fun device(context: Context, hit: Hit, following: Boolean = false, via: String? = null, ssid: String? = null): String {
+        val v = (if (ssid != null && Prefs.voiceSsid(context)) networkWords(ssid, hit.label) else "") + (via?.let { ", via $it" } ?: "")
         if (!short(context)) return if (following) "Warning. ${hit.label} may be following you." else "${hit.label} nearby$v"
         val word = shortWord(hit)
         return if (following) "$word following" else word + v
+    }
+
+    /** ", network Fleet 12" for a network named [ssid]; empty for a blank name or one the [label] already says. */
+    fun networkWords(ssid: String, label: String): String {
+        val name = ssid.replace('_', ' ').trim() // an underscore is read out as a word
+        return if (name.isEmpty() || label.contains(ssid.trim(), ignoreCase = true)) "" else ", network $name"
     }
 
     fun camera(context: Context, cam: KnownCamera): String {

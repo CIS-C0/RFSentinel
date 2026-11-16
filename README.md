@@ -230,6 +230,7 @@ Everything the app does, grouped by area.
 - Sound, vibration pattern per tier (1 / 2 / 3 pulses) and spoken announcements through the phone's own speech engine (prioritised, voice and speed pickers)
 - **Radar-detector beeps** option: after an alert, beeps speed up as the flagged device gets closer
 - **Short spoken alerts** option ("Body cam", "Police car", "Speed camera, 50")
+- **Say the network name** option: a WiFi alert also says the network's name ("Police car, network Fleet 12")
 - **Voice loudness** boost up to +15 dB (without distorting) for when music drowns the voice, in the car too, and an option to **pause music** while an alert is spoken
 - Discreet mode, adjustable alert threshold, mute from the app or the car
 - **Snooze like a radar detector:** tap the speaker at the top of the main screen to silence alerts for a while (5 to 60 minutes, set under Alerts), tap again for sound; long-press it for other lengths or to mute until you turn it back on. The minutes left show on the button
