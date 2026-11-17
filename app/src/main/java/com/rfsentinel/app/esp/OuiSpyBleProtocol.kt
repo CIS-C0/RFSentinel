@@ -75,9 +75,10 @@ object OuiSpyBleProtocol {
         }
     }
 
-    // auth_mode: 0 open, 1 WEP, 2 WPA, 3 WPA2, 4 WPA/WPA2, 5 WPA2-Enterprise, 6 WPA3.
+    // auth_mode: 0 open, 1 WEP, 2 WPA, 3 WPA2, 4 WPA/WPA2, 5 WPA2-Enterprise, 6 WPA3, 7 WPA2/WPA3, 8 OWE, 9 WPA3-Enterprise
+    // (0xFF unknown: no capabilities).
     private val AUTH = listOf("[ESS]", "[WEP][ESS]", "[WPA-PSK][ESS]", "[WPA2-PSK][ESS]",
-        "[WPA-PSK][WPA2-PSK][ESS]", "[WPA2-EAP][ESS]", "[RSN-SAE][ESS]")
+        "[WPA-PSK][WPA2-PSK][ESS]", "[WPA2-EAP][ESS]", "[RSN-SAE][ESS]", "[RSN-PSK+SAE][ESS]", "[RSN-OWE][ESS]", "[RSN-EAP][ESS]")
 
     /** A plain sighting with no verdict: RF Sentinel's own watchlist and rules judge it. */
     private fun survey(d: ByteArray, mac: String, rssi: Int, channel: Int, method: Int): EspSighting? {
@@ -147,17 +148,19 @@ object OuiSpyBleProtocol {
     }
 
     private fun detector(d: ByteArray, mac: String, rssi: Int, channel: Int, method: Int): EspSighting {
-        val desc = text(d, 20, 32)
+        val desc = text(d, 19, 32) // filter_desc starts the union, right after the 5-byte source node ID
         val hit = when (method) {
             2 -> Hit(Category.TRACKER, "Tracker following you (OUI-SPY)", 75,
                 "Reported by OUI-SPY Detector" + (desc?.let { ": $it" } ?: ""), SOURCE)
             7 -> Hit(Category.GLASSES, "Smart glasses", 70, "Reported by OUI-SPY Detector (glasses signature)", SOURCE)
             8 -> Hit(Category.BODY_CAM, "Axon equipment", 75, "Reported by OUI-SPY Detector (Axon signature)", SOURCE)
+            9 -> Hit(Category.NETWORK_CAMERA, "Security camera" + (desc?.let { ": $it" } ?: ""), 60,
+                "Reported by OUI-SPY Detector (camera maker's address or name)", SOURCE)
             0, 1 -> Hit(Category.CUSTOM, "OUI-SPY target" + (desc?.let { ": $it" } ?: ""), 70,
                 "Matched the watchlist set on the OUI-SPY board", SOURCE)
-            else -> null // Flipper, Pwnagotchi, deauth / probe floods: outside RF Sentinel's scope
+            else -> null // Flipper, Pwnagotchi, Amazon Sidewalk, floods, evil twin / karma: outside RF Sentinel's scope
         }
-        val wifi = method == 1 || method == 4 || method == 5
+        val wifi = method == 1 || method == 4 || method == 5 || (method == 9 && channel != 0)
         return EspSighting(mac = mac, rssi = rssi, ble = !wifi,
             frequencyMhz = if (wifi) freq(channel) else 0, hits = listOfNotNull(hit))
     }

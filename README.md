@@ -646,7 +646,7 @@ merges into the list with a blue **ESP32** badge.
 
 | Firmware | Link | What RF Sentinel gets |
 |---|---|---|
-| [OUI-Spy](https://github.com/colonelpanichacks/oui-spy-unified-blue) (recommended) | USB | Flock-You, Detector and Sky Spy detections as they happen: Flock cameras, the board's watchlist matches, Remote ID drones with position |
+| [OUI-Spy](https://github.com/colonelpanichacks/oui-spy-unified-blue) (recommended) | USB | Flock-You, Detector, Sky Spy and AXEOFF detections as they happen: Flock cameras, the board's watchlist matches, Remote ID drones with position, Axon equipment |
 | [OUI-SPY App-Controlled](https://github.com/lukeswitz/oui-spy-unified-blue) | Bluetooth | Flock-BLE, Flock-WiFi, Sky Spy, Detector and (optional) Wardrive survey engines |
 | [GhostESP](https://github.com/GhostESP-Revival/GhostESP) | USB | The WiFi networks it scans, about every 10 s |
 | [FREE-WiLi 2](https://freewili.com) | USB | The WiFi networks its ESP32-C5 scans from its console's WiFi menu (2.4 + 5 GHz) |

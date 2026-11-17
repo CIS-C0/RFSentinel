@@ -35,8 +35,8 @@ data class EspSighting(
 
 /**
  * Lines printed by OUI-Spy (colonelpanichacks/oui-spy-unified-blue) in its
- * streaming modes: Flock-You and Detector (`{"event":"detection",...}`) and
- * Sky Spy (`{"mac":..,"drone_lat":..}`).
+ * streaming modes: Flock-You and Detector (`{"event":"detection",...}`),
+ * Sky Spy (`{"mac":..,"drone_lat":..}`) and AXEOFF (`{"mac":..,"type":"BLE_SVC","match":"FE6B"}  note`).
  */
 object OuiSpyReports {
 
@@ -44,11 +44,11 @@ object OuiSpyReports {
 
     fun recognises(text: String): Boolean =
         "\"event\":\"detection\"" in text || "\"drone_lat\"" in text || "\"status\":\"scanning\"" in text ||
-            "OUI-SPY" in text || "[flockyou]" in text || "[SELECTOR]" in text
+            "OUI-SPY" in text || "[flockyou]" in text || "[SELECTOR]" in text || "[axeoff]" in text || "AXEOFF" in text
 
     /** OUI-Spy modes, as far as RF Sentinel is concerned. */
     enum class Mode(val label: String, val usable: Boolean) {
-        FLOCK_YOU("Flock-You", true), DETECTOR("Detector", true), SKY_SPY("Sky Spy", true),
+        FLOCK_YOU("Flock-You", true), DETECTOR("Detector", true), SKY_SPY("Sky Spy", true), AXEOFF("AXEOFF", true),
         SELECTOR("mode selector", false), OTHER("PCAP / BLE sniff / fox hunter", false)
     }
 
@@ -58,20 +58,23 @@ object OuiSpyReports {
         "\"detection_tier\"" in text || "[flockyou]" in text || "FLOCK-YOU" in text -> Mode.FLOCK_YOU
         "\"match_method\"" in text || "BLE DETECTOR" in text || "STARTING DETECTOR" in text ||
             "\"mode\":\"ble_detector\"" in text -> Mode.DETECTOR
+        "AXEOFF" in text || "[axeoff]" in text -> Mode.AXEOFF
         "[SELECTOR]" in text || "Firmware Selector" in text || "STARTING SELECTOR" in text -> Mode.SELECTOR
         "PCAP" in text || "BLE SNIFF" in text || "FOXHUNT" in text || "blesniff" in text -> Mode.OTHER
         else -> null
     }
 
     fun parse(line: String): EspSighting? {
-        val t = line.trim()
-        if (!t.startsWith("{") || !t.endsWith("}")) return null
+        // AXEOFF prints a note after its JSON: `{...}  Axon signature (...)`.
+        val t = line.trim().let { it.substring(0, it.lastIndexOf('}') + 1) }
+        if (!t.startsWith("{")) return null
         val o = runCatching { JsonParser.parseString(t).asJsonObject }.getOrNull() ?: return null
         // Detections from a previous session (replayed from the board's flash) are old news.
         if (o.text("replay_source") == "flash") return null
         return when {
             o.has("drone_lat") -> drone(o)
             o.text("event") == "detection" -> detection(o)
+            o.has("match") && o.has("type") -> axeoff(o)
             else -> null
         }
     }
@@ -108,6 +111,20 @@ object OuiSpyReports {
             frequencyMhz = if (ble) 0 else o.number("frequency") ?: 0,
             companyId = o.number("company_id"), serviceUuid16 = o.number("service_uuid"),
             hits = listOfNotNull(hit)
+        )
+    }
+
+    /** AXEOFF: every line is an Axon signature (TASER company ID, Axon service UUID, 00:25:DF address or Wi-Fi frame). */
+    private fun axeoff(o: JsonObject): EspSighting? {
+        val mac = o.text("mac")?.uppercase() ?: return null
+        val type = o.text("type").orEmpty()
+        val match = o.text("match").orEmpty()
+        val ble = type.startsWith("BLE")
+        return EspSighting(
+            mac = mac, rssi = o.number("rssi") ?: -90, ble = ble,
+            companyId = if (type == "BLE_CID") match.toIntOrNull(16) else null,
+            serviceUuid16 = if (type == "BLE_SVC") match.toIntOrNull(16) else null,
+            hits = listOf(Hit(Category.BODY_CAM, "Axon equipment", 75, "Reported by OUI-Spy AXEOFF ($type $match)", SOURCE))
         )
     }
 

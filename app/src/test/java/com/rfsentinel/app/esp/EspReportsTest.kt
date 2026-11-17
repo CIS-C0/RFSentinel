@@ -42,6 +42,19 @@ class EspReportsTest {
     }
 
     @Test
+    fun ouiSpyAxeoffAxonLines() {
+        val svc = OuiSpyReports.parse("""{"mac":"aa:bb:cc:01:02:03","rssi":-62,"type":"BLE_SVC","match":"FE6B"}  Axon signature (svc UUID FE6B)""")!!
+        assertEquals("AA:BB:CC:01:02:03", svc.mac)
+        assertEquals(0xFE6B, svc.serviceUuid16)
+        assertTrue(svc.ble)
+        assertEquals(Category.BODY_CAM, svc.hits.single().category)
+        val probe = OuiSpyReports.parse("""{"mac":"00:25:df:01:02:03","rssi":-70,"type":"WIFI_PROBE","match":"0025DF"}  Axon body cam (WiFi probe)""")!!
+        assertFalse(probe.ble)
+        assertEquals(OuiSpyReports.Mode.AXEOFF, OuiSpyReports.modeOf("=== AXEOFF — Axon detector ==="))
+        assertTrue(OuiSpyReports.recognises("[axeoff] armed — scanning for Axon signatures"))
+    }
+
+    @Test
     fun ouiSpyIgnoresOtherLines() {
         assertNull(OuiSpyReports.parse("""{"status":"scanning"}"""))
         assertNull(OuiSpyReports.parse("[flockyou] DETECT-OUI mac=70:c9:4e:11:22:33 rssi=-70"))

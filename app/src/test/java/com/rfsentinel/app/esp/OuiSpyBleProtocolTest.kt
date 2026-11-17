@@ -73,8 +73,15 @@ class OuiSpyBleProtocolTest {
         assertEquals(Category.BODY_CAM, OuiSpyBleProtocol.decode(axon.array())!!.hits.single().category)
 
         val watch = header(52, OuiSpyBleProtocol.ENGINE_DETECTOR, mac, -55, 0, 0)
-        str(watch, 20, "Patrol car radio")
+        str(watch, 19, "Patrol car radio") // protocol.h: filter_desc at 19, after the 14-byte header and 5-byte node ID
         assertEquals("OUI-SPY target: Patrol car radio", OuiSpyBleProtocol.decode(watch.array())!!.hits.single().label)
+
+        val cam = header(52, OuiSpyBleProtocol.ENGINE_DETECTOR, mac, -60, 6, 9)
+        str(cam, 19, "Hikvision")
+        val c = OuiSpyBleProtocol.decode(cam.array())!!
+        assertEquals(Category.NETWORK_CAMERA, c.hits.single().category)
+        assertEquals("Security camera: Hikvision", c.hits.single().label)
+        assertFalse(c.ble)
 
         val flipper = header(52, OuiSpyBleProtocol.ENGINE_DETECTOR, mac, -55, 0, 3)
         assertTrue(OuiSpyBleProtocol.decode(flipper.array())!!.hits.isEmpty()) // outside RF Sentinel's scope
@@ -100,6 +107,10 @@ class OuiSpyBleProtocolTest {
         assertEquals("Cafe Guest", a.name)
         assertEquals(2462, a.frequencyMhz)
         assertEquals("[WPA2-PSK][ESS]", a.capabilities)
+        ap.put(52, 7)
+        assertEquals("[RSN-PSK+SAE][ESS]", OuiSpyBleProtocol.decode(ap.array())!!.capabilities)
+        ap.put(52, 0xFF.toByte())
+        assertEquals("", OuiSpyBleProtocol.decode(ap.array())!!.capabilities)
         assertTrue(a.hits.isEmpty()) // RF Sentinel's own lists decide
 
         val dev = header(74, OuiSpyBleProtocol.ENGINE_WARDRIVE, mac, -58, 0, 1)

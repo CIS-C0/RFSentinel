@@ -123,9 +123,9 @@ class EspReader(
         var count = 0
         fun status() = onStatus(when {
             mode == OuiSpyReports.Mode.SELECTOR ->
-                "OUI-Spy is in its mode selector - join its Wi-Fi \"oui-spy\", open 192.168.4.1 and pick Flock-You, Detector or Sky Spy"
+                "OUI-Spy is in its mode selector - join its Wi-Fi \"oui-spy\", open 192.168.4.1 and pick Flock-You, Detector, Sky Spy or AXEOFF"
             mode == OuiSpyReports.Mode.OTHER ->
-                "This OUI-Spy mode isn't used by RF Sentinel - pick Flock-You, Detector or Sky Spy"
+                "This OUI-Spy mode isn't used by RF Sentinel - pick Flock-You, Detector, Sky Spy or AXEOFF"
             mode == null && count == 0 -> "ESP32 connected · waiting for detections (OUI-Spy reports only when it finds something; a V2X board only when equipped vehicles are in range)"
             else -> "OUI-Spy ${mode?.label ?: ""} · live · $count detection${if (count == 1) "" else "s"}"
         })
