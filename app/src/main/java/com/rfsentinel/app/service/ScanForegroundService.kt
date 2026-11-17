@@ -70,8 +70,10 @@ import java.util.concurrent.ConcurrentHashMap
 class ScanForegroundService : Service() {
 
     companion object {
-        /** Radar beeps: start after the alert's own beeps, last up to 2 min, stop once the device is out of range. */
+        /** Radar beeps: start after the alert's own beeps, last up to 2 min, one tick per packet heard ([radarTick]). */
         private const val RADAR_QUIET_MS = 2_500L
+        /** Radar ticks are never closer together than this: a burst of packets is a fast rattle, not a pile of ticks. */
+        private const val RADAR_TICK_GAP_MS = 100L
         private const val OWNER_CHECK_MS = 30_000L
         private const val RADAR_HOLD_MS = 120_000L
         /** A watched talkgroup's call: the user asked for it, like a watched frequency. */
@@ -953,6 +955,7 @@ class ScanForegroundService : Service() {
 
         maybeLog(a, best, c.vendor, loc, now, via)
         if (!quiet) maybeAlert(a, best, c.hits, now, via, from)
+        if (!quiet) radarTick(mac)
         // Following is about this phone: a device near another Sentinel isn't following it.
         if (via != null) return
 
@@ -2474,36 +2477,41 @@ class ScanForegroundService : Service() {
         }
     }
 
+    @Volatile private var radarTickAt = 0L
+
     /**
-     * Radar-detector beeps: after a device alert, tick faster as the flagged device's
-     * signal gets stronger and stop when it's gone. Each alerted device beeps for at
-     * most [RADAR_HOLD_MS], so one parked next to you doesn't beep forever; it starts
-     * again when the device re-alerts.
+     * Radar-detector beeps, like a Geiger counter: one tick for each packet heard from a device that alerted, so the
+     * ticking follows how often it is heard and stops the moment it isn't. A device ticks from [RADAR_QUIET_MS] after
+     * its alert for at most [RADAR_HOLD_MS] (one parked next to you doesn't tick forever), and again when it re-alerts.
      */
+    private fun radarTick(mac: String) {
+        val alertedAt = lastAlerted[mac] ?: return
+        val now = System.currentTimeMillis()
+        if (now - radarTickAt < RADAR_TICK_GAP_MS || now - alertedAt !in RADAR_QUIET_MS..RADAR_HOLD_MS) return
+        // Silent while Locate beeps, so the two never play over each other.
+        if (!Prefs.radarBeep(this) || com.rfsentinel.app.ui.LiveRead.locating != null) return
+        if (com.rfsentinel.app.data.AlertMutes.isMuted(this, mac, now)) return
+        val s = DeviceRegistry.get(mac) ?: return
+        if (!com.rfsentinel.app.ui.LiveWindow.alerting(s, now) ||
+            AlertKind.BEEP in (s.best?.let { alertsOff(it.category, s.mac, s.hits) } ?: OuiWatchlist.alertsOff(s.mac, s.hits))) return
+        radarTickAt = now
+        AlertPlayer.tick(this)
+    }
+
+    /** The TETRA radar beeps; a flagged device's are ticked as it is heard ([radarTick]). */
     private fun startRadarBeep() {
         radarJob?.cancel()
         radarJob = serviceScope.launch {
             while (isActive) {
                 val ctx = this@ScanForegroundService
                 val now = System.currentTimeMillis()
-                // Silent while Locate beeps, so the two never play over each other.
-                val target = if (!Prefs.radarBeep(ctx) || com.rfsentinel.app.ui.LiveRead.locating != null) null else lastAlerted.entries
-                    .filter { now - it.value in RADAR_QUIET_MS..RADAR_HOLD_MS && !WhitelistCache.contains(it.key) &&
-                        !com.rfsentinel.app.data.AlertMutes.isMuted(ctx, it.key, now) }
-                    .mapNotNull { DeviceRegistry.get(it.key) }
-                    .filter { s -> com.rfsentinel.app.ui.LiveWindow.alerting(s, now) &&
-                        AlertKind.BEEP !in (s.best?.let { alertsOff(it.category, s.mac, s.hits) } ?: OuiWatchlist.alertsOff(s.mac, s.hits)) }
-                    .maxByOrNull { it.rssi }
-                // No flagged device to beep for: a TETRA radio heard in the last seconds, faster as it gets stronger.
+                // No flagged device ticking: a TETRA radio heard in the last seconds, faster as it gets stronger.
                 val tetra = com.rfsentinel.app.sdr.TetraWatch.heard?.takeIf {
-                    target == null && now - it.at < com.rfsentinel.app.sdr.TetraWatch.HOLD_MS && Prefs.radioTetraBeep(ctx) &&
+                    now - radarTickAt > RADAR_QUIET_MS && now - it.at < com.rfsentinel.app.sdr.TetraWatch.HOLD_MS && Prefs.radioTetraBeep(ctx) &&
                         com.rfsentinel.app.ui.LiveRead.locating == null && Prefs.categoryEnabled(ctx, Category.RADIO) &&
                         AlertKind.BEEP !in alertsOff(Category.RADIO)
                 }
-                if (target != null) {
-                    AlertPlayer.tick(ctx)
-                    delay(com.rfsentinel.app.util.Beeper.tickIntervalMs(target.rssi))
-                } else if (tetra != null) {
+                if (tetra != null) {
                     AlertPlayer.tick(ctx)
                     delay(com.rfsentinel.app.util.Beeper.tickIntervalMs(com.rfsentinel.app.sdr.TetraWatch.beepRssi(tetra.snr)))
                 } else delay(1_000L)

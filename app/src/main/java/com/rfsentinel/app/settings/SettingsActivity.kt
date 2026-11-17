@@ -886,8 +886,8 @@ class SettingsActivity : AppCompatActivity() {
         Section("alerts", binding.headerAlerts, binding.sectionAlerts,
             "Threshold: \"Weak\" alerts on every match (more false alarms); \"Strong only\" on near-certain ones.\n\n" +
                 "Vibration: 1 pulse weak, 2 probable, 3 strong.\n\n" +
-                "Radar-detector beeps (off by default): after a device alert, keeps beeping faster as its signal " +
-                "gets stronger, like a radar detector; stops when it's gone or after 2 minutes.\n\n" +
+                "Radar-detector beeps (off by default): after a device alert, one tick each time that device is heard, " +
+                "like a Geiger counter: fast while it's heard often, silent as soon as it isn't, and after 2 minutes.\n\n" +
                 "Radar-detector sound (off by default): radar-detector alert sounds instead of the plain beeps - " +
                 "by strength (effect 1 strong, 2 probable, 3 weak, 4 following) or always the effect you pick - then " +
                 "the short voice says what it is (\"Body cam\"); the proximity beeps use a pulse of the same effect. " +
@@ -1301,7 +1301,7 @@ class SettingsActivity : AppCompatActivity() {
             "play through the car's speakers.")
         info(binding.radarTopLabel, "The way you face: the radar turns with the phone, like a compass, so N moves. North: N stays at the top.")
         info(binding.radarDotsLabel, "Most dots have no real direction (one antenna can't tell). Stay in place keeps them still; turn with north moves them with the compass.")
-        info(binding.radarBeepSwitch, "Beeps faster as a flagged device gets closer, like a radar detector.")
+        info(binding.radarBeepSwitch, "After an alert, ticks each time the flagged device is heard, like a Geiger counter.")
         info(binding.usbQuickClearSwitch, "A USB WiFi adapter goes through every channel in seconds. When a sweep no longer hears a device, its alert and beeps end right away instead of after the next phone scan.")
         info(binding.detectorSoundSwitch, "Alerts use radar-detector tones (Ka, K and X) and say \"GPS connected\" when the first GPS fix comes in.")
         info(binding.gpsVoiceSwitch, "With the radar-detector sound: says \"GPS connected\" when the GPS locks, and again when it comes back after losing the fix.")
