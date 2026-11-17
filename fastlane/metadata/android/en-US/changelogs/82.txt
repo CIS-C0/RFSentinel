@@ -1,0 +1,7 @@
+• Radar-detector beeps work like a Geiger counter: they follow the signal and stop when it is no longer heard.
+• Pinpointing flagged devices is more accurate.
+• Locate: hot and cold beeps, a chirp when warmer, and how far back you passed it.
+• Patrol cars sharing one network name are each spoken; the name can be said too.
+• Android Auto no longer closes RF Sentinel when it restarts.
+• USB WiFi adapters come back by themselves after dropping off USB.
+• P25 voice with two SDR dongles.
