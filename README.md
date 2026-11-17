@@ -297,6 +297,7 @@ Everything the app does, grouped by area.
 - **List time** (Settings → Scanning): how long a device stays on the list and radar after it was last heard, down to 5 s (WiFi only when scan throttling is off), with its own slider for devices heard only by external hardware
 - **Location is off** warning: Android gives apps no Bluetooth or WiFi results while Location is off, so the main screen says so and opens the setting when tapped
 - Device details: evidence, identity, decoded data, signal graph, **Locate** mode, history, raw advertisement
+- **Locate, hot and cold:** it beeps only while the device is being heard, faster as its signal gets stronger; a rising chirp and a tap each time it is heard stronger than ever on this hunt ("warmer"), and "strongest 6 m back" once you walked past it
 - **Locate's chest sweep:** a guide shows how to hold the phone (upright on your chest), fills a ring with the
   signal heard each way as you turn, then locks the direction with an arrow that turns as you turn; the radar
   shows it too. The normal build adds **Use camera**: the same sweep with the camera, which tracks where the

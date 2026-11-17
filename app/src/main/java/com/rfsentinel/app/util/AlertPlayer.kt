@@ -183,6 +183,12 @@ object AlertPlayer {
         if (Prefs.detectorSound(context)) detectorTick(context, attrs) else Beeper.play(attrs, listOf(60 to 0))
     }
 
+    /** Locate: the device was just heard stronger than ever on this hunt ("warmer"): a short rising chirp and a tap. */
+    fun locateWarmer(context: Context) {
+        Beeper.playTones(toneAttributes(context, false), listOf(Beeper.Tone(70, 2_100.0, 3_100.0)))
+        vibrate(context, longArrayOf(0, 25))
+    }
+
     /**
      * When a scan starts: the optional intro sound, else the radar-detector power-on sweep
      * (in that sound style). Same rules as the alert sound.

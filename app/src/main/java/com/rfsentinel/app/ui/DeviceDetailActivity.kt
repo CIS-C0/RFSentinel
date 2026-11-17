@@ -252,7 +252,7 @@ class DeviceDetailActivity : AppCompatActivity() {
             binding.rssiDetail.text = signalLines(ProximityUtil.band(live.rssi) + if (visual) "" else trend,
                 "${distanceLine(live.distanceM)} · best ${live.bestRssi} dBm" +
                     (if (liveMac != mac) "\nNow heard as $liveMac" else "") +
-                    (if (locatingThis()) LiveRead.sweepText()?.let { "\n$it" }.orEmpty() else ""))
+                    (if (locatingThis()) listOfNotNull(LiveRead.sweepText(), LiveRead.passedText()).joinToString("") { "\n$it" } else ""))
             binding.graph.setSamples(live.history)
             binding.locateButton.isEnabled = true
             binding.locateButton.text = if (locatingThis()) "Stop" else "Locate"

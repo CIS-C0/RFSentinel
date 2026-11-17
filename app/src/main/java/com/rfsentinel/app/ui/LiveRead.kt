@@ -37,7 +37,9 @@ object LiveRead {
      */
     data class Read(
         val mode: Mode, val mac: String, val title: String, val tag: String?, val color: Int,
-        val rssi: Int?, val distanceM: Double?, val trend: Int, val sweep: String? = null
+        val rssi: Int?, val distanceM: Double?, val trend: Int, val sweep: String? = null,
+        /** Locating on foot: metres back to where it was heard strongest, once you walked past it ([HotCold]). */
+        val passedM: Int? = null
     )
 
     private const val TICK_MS = 1_000L
@@ -81,6 +83,18 @@ object LiveRead {
     private var lock: Sweep.Estimate? = null
     private var lockedAt: android.location.Location? = null
 
+    // ---- Hot and cold (main thread): each new raw reading while locating ----
+    /** The newest raw reading: when, how strong, and how long after the one before (for [Beeper.tickFreshMs]). */
+    private var heardAt = 0L
+    private var heardRssi = 0
+    private var heardGap = Long.MAX_VALUE
+    /** The strongest it was heard on this hunt and where you stood ([HotCold]); [hotFrame]: the step tracker's frame then. */
+    private var hot = com.rfsentinel.app.detect.HotCold()
+    private var hotFrame = 0
+    private var warmerAt = 0L
+    /** "Warmer" pings come no closer together than this: walking straight at it would ping at every step. */
+    private const val WARMER_GAP_MS = 700L
+
     /** The sweep as the Locate guide draws it. [moved]: metres walked since it locked. */
     class SweepState(val heading: Float?, val sectors: Array<Float?>, val covered: Int,
                      val estimate: Sweep.Estimate?, val locked: Sweep.Estimate?, val moved: Float?, val upright: Boolean)
@@ -101,6 +115,7 @@ object LiveRead {
         locating = mac
         followed = null
         sweep.clear(); sweepFed = 0L; lock = null; lockedAt = null; sweepFrom = null
+        heardAt = 0L; heardGap = Long.MAX_VALUE; hot = com.rfsentinel.app.detect.HotCold(); warmerAt = 0L
         compass = Compass(context).also { c ->
             com.rfsentinel.app.service.ScanForegroundService.lastFix?.let { c.setLocation(it.latitude, it.longitude, it.altitude) }
             c.start()
@@ -161,10 +176,13 @@ object LiveRead {
                 followed = liveMac
             }
             // Out of range (gone from the list): Locate ends, as on the device screen.
-            val s = DeviceRegistry.get(liveMac) ?: DeviceRegistry.get(mac) ?: run { stopLocate(); return }
+            DeviceRegistry.get(liveMac) ?: DeviceRegistry.get(mac) ?: run { stopLocate(); return }
+            // Only while it is being heard ([sample] notes each packet): beeps that go on after it went quiet say
+            // nothing about where it is. A slow advertiser (a tag every 2 s) still beeps without a break.
+            if (heardAt == 0L || System.currentTimeMillis() - heardAt > Beeper.tickFreshMs(heardGap)) { main.postDelayed(this, 100L); return }
             AlertPlayer.locateTick(ctx)
-            // Faster as the signal gets stronger (same curve as the radar beeps).
-            main.postDelayed(this, Beeper.tickIntervalMs(s.rssi))
+            // Faster as the signal gets stronger, by the newest raw reading: the smoothed one is a second or two behind your steps.
+            main.postDelayed(this, Beeper.tickIntervalMs(heardRssi))
         }
     }
 
@@ -176,6 +194,7 @@ object LiveRead {
         override fun run() {
             val mac = locating ?: return
             main.postDelayed(this, SAMPLE_MS)
+            hotCold(mac)
             val h = heading ?: return
             val now = System.currentTimeMillis()
             val t0 = tickAt; val h0 = tickHeading ?: h
@@ -202,6 +221,24 @@ object LiveRead {
             RadarTrack.line(mac, e.bearing, e.confidence, seen)
             appContext?.let { AlertPlayer.vibrate(it, longArrayOf(0, 60, 90, 60)) }
             tick()
+        }
+    }
+
+    /**
+     * Each new raw reading of the located device, compass or not: the beeps' rate and freshness, and the hunt's
+     * strongest reading with where you stood. A new strongest is "warmer": a rising chirp and a tap.
+     */
+    private fun hotCold(mac: String) {
+        val (seen, a) = DeviceRegistry.lastHeard(followed ?: mac) ?: return
+        if (seen == heardAt) return
+        heardGap = if (heardAt == 0L) Long.MAX_VALUE else seen - heardAt
+        heardAt = seen; heardRssi = a.rssi
+        if (Motion.generation != hotFrame) { hotFrame = Motion.generation; hot.lostPlace() }
+        val pos = Motion.position
+        val now = System.currentTimeMillis()
+        if (hot.add(a.rssi, pos?.x, pos?.y) && now - warmerAt >= WARMER_GAP_MS) {
+            warmerAt = now
+            appContext?.let { AlertPlayer.locateWarmer(it) }
         }
     }
 
@@ -239,7 +276,7 @@ object LiveRead {
 
     /** What to show now, or null for no card. */
     fun current(now: Long = System.currentTimeMillis()): Read? {
-        locating?.let { m -> return read(Mode.LOCATE, m, now).copy(sweep = sweepText(now)) }
+        locating?.let { m -> return read(Mode.LOCATE, m, now).copy(sweep = sweepText(now), passedM = Motion.position?.let { hot.passedM(it.x, it.y) }) }
         val p = synchronized(this) { pinMac } ?: return null
         if (now > pinUntil || p == dismissedPin || now - pinSince > PINPOINT_CARD_MS) return null
         return read(Mode.PINPOINT, p, now)
@@ -271,6 +308,10 @@ object LiveRead {
         return "${Sweep.compassPoint(l.bearing)}$far · ${turnText(Sweep.turn(h, l.bearing))} · " +
             if (moved != null) "you moved, sweep again" else "${(l.confidence * 100).toInt()}% sure"
     }
+
+    /** "Strongest 6 m back: you walked past it" while locating on foot, once that is so; else null. Main thread. */
+    fun passedText(): String? = if (locating == null) null else Motion.position?.let { hot.passedM(it.x, it.y) }
+        ?.let { "Strongest ${DeviceIntel.formatDistance(it.toDouble())} back: you walked past it" }
 
     /** "ahead", "turn right 40°" or "turn left 40°". */
     fun turnText(turn: Int) = when {
@@ -332,7 +373,9 @@ internal class LiveReadCard(private val b: ViewLiveReadBinding) {
         b.liveDetail.text = if (r.rssi == null) "Not heard right now" else listOfNotNull(
             "${r.rssi} dBm",
             r.distanceM?.let { DeviceIntel.formatDistance(it) + " (rough)" },
-            when (r.trend) { 1 -> "▲ closer"; -1 -> "▼ farther"; else -> null }
+            // Walked past it: where it was strongest says more than "farther".
+            r.passedM?.let { "▼ strongest ${DeviceIntel.formatDistance(it.toDouble())} back" }
+                ?: when (r.trend) { 1 -> "▲ closer"; -1 -> "▼ farther"; else -> null }
         ).joinToString(" · ")
         b.liveSweep.text = r.sweep
         b.liveSweep.visibility = if (r.sweep == null) View.GONE else View.VISIBLE
