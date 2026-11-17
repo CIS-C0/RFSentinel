@@ -37,29 +37,16 @@ class NxdnTest {
 
     // ---- a synthetic NXDN48 transmission ----
 
-    /** A 72-bit AMBE frame (mbelib rows) holding the 49 data bits [d]: the inverse of [AmbeDecoder.data]. */
-    private fun ambeFrame(d: IntArray): Array<IntArray> {
-        val fr = arrayOf(IntArray(24), IntArray(23), IntArray(11), IntArray(14))
-        val c0 = Nxdn.value(d, 0, 12); val c1 = Nxdn.value(d, 12, 12)
-        val w0 = c0 shl 11 or P25Voice.golayParity(c0)
-        val w1 = c1 shl 11 or P25Voice.golayParity(c1)
-        for (j in 0 until 23) fr[0][j + 1] = w0 shr j and 1
-        var pr = 16 * c0
-        for (j in 22 downTo 0) { pr = (173 * pr + 13849) and 0xffff; fr[1][j] = (w1 shr j and 1) xor (pr shr 15) }
-        for (i in 0 until 11) fr[2][10 - i] = d[24 + i]
-        for (i in 0 until 14) fr[3][13 - i] = d[35 + i]
-        return fr
-    }
 
     @Test
     fun ambeFrameCorrectionFixesBitErrors() {
         val r = java.util.Random(5)
         val d = IntArray(49) { r.nextInt(2) }
-        val fr = ambeFrame(d)
+        val fr = AmbeDecoderTest.ambeFrame(d)
         fr[0][5] = fr[0][5] xor 1; fr[1][17] = fr[1][17] xor 1
         val dec = AmbeDecoder()
         assertArrayEquals(d, dec.data(fr))
-        assertEquals(1, dec.errors) // C0's bit 5 is parity: only data bits count, as in mbelib
+        assertEquals(2, dec.errors) // parity bits count too (TIA-102.BABA-1 5.5)
     }
 
     /** A voice frame (LICH 0x56: voice in both halves) with SACCH quarter [part] of [msg], as clear dibits. */
@@ -79,7 +66,7 @@ class NxdnTest {
         val bits = IntArray(60) { coded[(it % 5) * 12 + it / 5] }
         for (i in 0 until 30) d[8 + i] = bits[2 * i] shl 1 or bits[2 * i + 1]
         // Four AMBE frames, through DSD's dibit map.
-        val fr = ambeFrame(speech)
+        val fr = AmbeDecoderTest.ambeFrame(speech)
         val nw = intArrayOf(0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2)
         val nx = intArrayOf(23, 10, 22, 9, 21, 8, 20, 7, 19, 6, 18, 5, 17, 4, 16, 3, 15, 2, 14, 1, 13, 0, 12, 10, 11, 9, 10, 8, 9, 7, 8, 6, 7, 5, 6, 4)
         val ny = intArrayOf(0, 2, 0, 2, 0, 2, 0, 2, 0, 3, 0, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3, 1, 3)

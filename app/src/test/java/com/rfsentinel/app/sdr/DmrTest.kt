@@ -26,19 +26,6 @@ class DmrTest {
 
     // ---- a synthetic DMR call ----
 
-    /** A 72-bit AMBE frame (mbelib rows) holding the 49 data bits [d]: the inverse of [AmbeDecoder.data]. */
-    private fun ambeFrame(d: IntArray): Array<IntArray> {
-        val fr = arrayOf(IntArray(24), IntArray(23), IntArray(11), IntArray(14))
-        val c0 = Nxdn.value(d, 0, 12); val c1 = Nxdn.value(d, 12, 12)
-        val w0 = c0 shl 11 or P25Voice.golayParity(c0)
-        val w1 = c1 shl 11 or P25Voice.golayParity(c1)
-        for (j in 0 until 23) fr[0][j + 1] = w0 shr j and 1
-        var pr = 16 * c0
-        for (j in 22 downTo 0) { pr = (173 * pr + 13849) and 0xffff; fr[1][j] = (w1 shr j and 1) xor (pr shr 15) }
-        for (i in 0 until 11) fr[2][10 - i] = d[24 + i]
-        for (i in 0 until 14) fr[3][13 - i] = d[35 + i]
-        return fr
-    }
 
     /** A frame's 36 dibits as sent: [AmbeDecoder.frame] run backwards (where each dibit's two bits land). */
     private fun ambeDibits(fr: Array<IntArray>) = IntArray(36) { i ->
@@ -70,7 +57,7 @@ class DmrTest {
 
     /** Six bursts (A-F) of a superframe as dibits: voice sync [pat] on A, EMB with [pi] and the link control on B-E. */
     private fun superframe(speech: IntArray, pi: Int, lc: IntArray, pat: Int = 1): List<IntArray> {
-        val voice = ambeDibits(ambeFrame(speech))
+        val voice = ambeDibits(AmbeDecoderTest.ambeFrame(speech))
         return List(6) { vc ->
             val d = IntArray(Dmr.BURST)
             for (f in 0 until 3) for (i in 0 until 36) d[Dmr.voiceDibit(f, i)] = voice[i]

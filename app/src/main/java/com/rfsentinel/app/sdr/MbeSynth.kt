@@ -2,7 +2,9 @@ package com.rfsentinel.app.sdr
 
 import kotlin.math.E
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.ln
 import kotlin.math.pow
 import kotlin.math.sqrt
@@ -13,7 +15,7 @@ import kotlin.random.Random
  * parameters of the last frames, spectral enhancement and speech synthesis. A subclass decodes a frame's bits to
  * [cur] and calls [speak]; a damaged frame repeats the last good one, up to three times, then it goes silent.
  */
-abstract class MbeSynth(private val rnd: Random) {
+abstract class MbeSynth(protected val rnd: Random) {
 
     /** One codeword's model parameters: fundamental, harmonics, voicing, magnitudes, phases (index 1..L). */
     protected class Parms {
@@ -59,11 +61,39 @@ abstract class MbeSynth(private val rnd: Random) {
             synthesize(out)
             prevEnhanced.copyFrom(cur)
         } else reset()
-        return ShortArray(N) { (out[it] * GAIN).coerceIn(-32760.0, 32760.0).toInt().toShort() }
+        return pcm(out, round = false)
     }
 
-    /** 20 ms of silence, and the model starts over. */
-    protected fun silence(): ShortArray { reset(); return ShortArray(N) }
+    /** [cur] played after the last frame; [history] false (a silence frame): the prediction keeps the last voice frame. */
+    protected fun play(history: Boolean): DoubleArray {
+        if (history) prev.copyFrom(cur)
+        enhance()
+        val out = DoubleArray(N)
+        synthesize(out)
+        prevEnhanced.copyFrom(cur)
+        return out
+    }
+
+    /** The last frame played, said again as it was (not enhanced again); [afresh]: rising from silence. */
+    protected fun replay(afresh: Boolean): DoubleArray {
+        cur.copyFrom(prevEnhanced)
+        if (afresh) fromSilence()
+        val out = DoubleArray(N)
+        synthesize(out)
+        prevEnhanced.copyFrom(cur)
+        return out
+    }
+
+    /** The last frame played counts as silent, so the next one rises from nothing (after a mute or a tone). */
+    protected fun fromSilence() { prevEnhanced.Ml.fill(0.0); prevEnhanced.Vl.fill(0); prevEnhanced.PSIl.fill(0.0) }
+
+    protected fun hasPlayed() = (1..prevEnhanced.L).any { prevEnhanced.Ml[it] != 0.0 }
+
+    /** Synthesis scale to 16-bit samples: truncated (mbelib, P25), or rounded to nearest, halves away from zero (DVSI's AMBE+2). */
+    protected fun pcm(out: DoubleArray, round: Boolean) = ShortArray(N) {
+        val x = (out[it] * GAIN).coerceIn(-32760.0, 32760.0)
+        (if (round) Math.copySign(floor(abs(x) + 0.5), x) else x).toInt().toShort()
+    }
 
     /** Spectral amplitude enhancement: sharpens formants, keeps the energy. */
     private fun enhance() {
@@ -140,7 +170,7 @@ abstract class MbeSynth(private val rnd: Random) {
         const val N = 160
         const val RATE = 8000
         internal const val SLOTS = 58
-        private const val GAIN = 7.0
+        internal const val GAIN = 7.0
         private const val UV_QUALITY = 3
         private const val UV_STEP = 1.0 / UV_QUALITY
         private const val UV_OFFSET = UV_STEP * (UV_QUALITY - 1) / 2

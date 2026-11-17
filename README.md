@@ -1309,7 +1309,8 @@ demodulator and automatic gain are ports of [dump1090-fa](https://github.com/fli
 FLEX pager decoders follow [multimon-ng](https://github.com/EliasOenal/multimon-ng) (GPL; see
 `sdr/NOTICE.md`). P25 voice is ported from [DSD](https://github.com/szechyjs/dsd) and
 [mbelib](https://github.com/szechyjs/mbelib) (szechyjs, ISC), with mbelib's AMBE+2 for DMR and
-NXDN. DMR voice is ported from [dsd-neo](https://github.com/arancormonk/dsd-neo) by arancormonk
+NXDN; its AMBE+2 frame handling (pitch, silence, tones, lost frames, mutes) follows
+[mbelib-neo](https://github.com/arancormonk/mbelib-neo) by arancormonk (GPL-2.0-or-later). DMR voice is ported from [dsd-neo](https://github.com/arancormonk/dsd-neo) by arancormonk
 (ISC; its FEC matrices by Edouard Griffiths, GPL-3.0-or-later), NXDN48 from
 [DSD-FME](https://github.com/lwvmobile/dsd-fme) by lwvmobile (ISC; parts from
 [OP25](https://github.com/osmocom/op25), GPL-3.0-or-later), and the P25 call-follow timings come
