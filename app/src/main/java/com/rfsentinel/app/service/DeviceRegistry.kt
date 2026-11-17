@@ -16,6 +16,7 @@ import java.util.ArrayDeque
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -229,9 +230,17 @@ object DeviceRegistry {
                 if (t.path.size > 200) t.path.removeFirst()
             }
             if (location != null && t.hits.isNotEmpty() && (t.readings.isEmpty() || now - t.readings.last.time >= LOCATE_SPACING_MS)) {
-                t.readings.addLast(Locator.Reading(now, location.lat, location.lon, a.rssi))
-                if (t.readings.size > LOCATE_MAX) t.readings.removeFirst()
-                t.readingsSinceFit++
+                val last = t.readings.lastOrNull()
+                // Stopped at a light, a spot's readings would push the rest of the route out: one per spot, its strongest.
+                if (last != null && metersBetween(last.lat, last.lon, location.lat, location.lon) < Locator.CELL_M) {
+                    t.readings.removeLast()
+                    t.readings.addLast(Locator.Reading(now, last.lat, last.lon, max(last.rssi, a.rssi)))
+                    if (a.rssi > last.rssi) t.readingsSinceFit++
+                } else {
+                    t.readings.addLast(Locator.Reading(now, location.lat, location.lon, a.rssi))
+                    if (t.readings.size > LOCATE_MAX) t.readings.removeFirst()
+                    t.readingsSinceFit++
+                }
             }
         }
         relocate(t, now)

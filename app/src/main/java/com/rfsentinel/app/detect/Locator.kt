@@ -11,9 +11,9 @@ import kotlin.math.sqrt
  * Pinpoints a stationary device from signal readings taken at many spots as you move past it
  * (RSSI multilateration, the way wardriving tools place access points).
  *
- * Model: rssi = P0 - 10 n log10(d). The device's power at 1 m (P0) is unknown and fitted for
- * every candidate spot, within what real radios can do, so a far device can't pass for a
- * loud near one. Every spot on a grid around your route is scored, and the result is the
+ * Model: rssi = P0 - 10 n log10(d). The device's power at 1 m (P0) and how fast its signal fades
+ * (n) are unknown and fitted for every candidate spot, P0 within what real radios can do, so a far
+ * device can't pass for a loud near one. Every spot on a grid around your route is scored, and the result is the
  * best-fitting spot with a 95 % circle - so when you only drove a straight line and
  * the device could be on either side of the road, the circle honestly covers both sides
  * instead of guessing one.
@@ -40,7 +40,8 @@ object Locator {
 
     /** Readings closer than this are one spot; its strongest reading counts (fades only ever weaken a signal). */
     const val CELL_M = 4.0
-    const val MIN_SPOTS = 4
+    /** Fewer spots than this missed their own circle a quarter of the time in simulated drives. */
+    const val MIN_SPOTS = 12
     /** Spots must spread at least this far, else every direction fits about as well. */
     const val MIN_BASELINE_M = 15.0
     /** Readings older than this are dropped: a parked car may leave. */
@@ -56,10 +57,12 @@ object Locator {
     /** GPS error added to every circle. */
     private const val GPS_ERROR_M = 5.0
 
-    /** Path-loss exponent and the range of plausible powers at 1 m, per radio. */
-    private class Radio(val n: Double, val p0Min: Double, val p0Max: Double, val reachM: Double)
-    private val BLE = Radio(n = 2.5, p0Min = -85.0, p0Max = -35.0, reachM = 150.0)
-    private val WIFI = Radio(n = 2.5, p0Min = -60.0, p0Max = -15.0, reachM = 250.0)
+    /** The range of plausible powers at 1 m, per radio. */
+    private class Radio(val p0Min: Double, val p0Max: Double, val reachM: Double)
+    private val BLE = Radio(p0Min = -85.0, p0Max = -35.0, reachM = 150.0)
+    private val WIFI = Radio(p0Min = -60.0, p0Max = -15.0, reachM = 250.0)
+    /** How fast the signal fades with distance: about 2 in the open, 3.5 among buildings. Each spot takes the best fit. */
+    private val EXPONENTS = doubleArrayOf(2.0, 2.5, 3.0, 3.5)
 
     fun estimate(readings: List<Reading>, wifi: Boolean, now: Long = readings.maxOfOrNull { it.time } ?: 0L): Estimate? {
         val recent = readings.filter { now - it.time <= WINDOW_MS }
@@ -96,21 +99,25 @@ object Locator {
         val xs = DoubleArray(spots.size) { spots[it].x }
         val ys = DoubleArray(spots.size) { spots[it].y }
         val rs = DoubleArray(spots.size) { spots[it].rssi.toDouble() }
-        val tenN = 10 * radio.n
 
-        // Squared error at a candidate spot, with the device's power fitted (within what radios can do).
-        val logD = DoubleArray(spots.size)
+        // Squared error at a candidate spot, with the device's power (within what radios can do) and the
+        // fade exponent fitted. rssi + 10 n log10(d) is each reading's own guess at the power.
+        val l10 = DoubleArray(spots.size)
         fun sseAt(gx: Double, gy: Double): Double {
-            var p0 = 0.0
             for (k in xs.indices) {
                 val dx = gx - xs[k]; val dy = gy - ys[k]
-                logD[k] = tenN / 2 * log10(max(dx * dx + dy * dy, 1.0)) // 10 n log10(d), d at least 1 m
-                p0 += rs[k] + logD[k]
+                l10[k] = 5 * log10(max(dx * dx + dy * dy, 1.0)) // 10 log10(d), d at least 1 m
             }
-            p0 = (p0 / xs.size).coerceIn(radio.p0Min, radio.p0Max)
-            var e = 0.0
-            for (k in xs.indices) { val d = rs[k] - (p0 - logD[k]); e += d * d }
-            return e
+            var best = Double.MAX_VALUE
+            for (n in EXPONENTS) {
+                var p0 = 0.0
+                for (k in xs.indices) p0 += rs[k] + n * l10[k]
+                p0 = (p0 / xs.size).coerceIn(radio.p0Min, radio.p0Max)
+                var e = 0.0
+                for (k in xs.indices) { val d = rs[k] + n * l10[k] - p0; e += d * d }
+                if (e < best) best = e
+            }
+            return best
         }
 
         val nx = ((maxX - minX) / step).toInt() + 1
@@ -137,7 +144,7 @@ object Locator {
 
         // 95 % region: every spot that fits nearly as well (chi-square, 2 degrees of freedom).
         // The noise is never taken below what the best fit itself shows.
-        val sigma2 = max(SIGMA_DB * SIGMA_DB, bestSse / max(1, spots.size - 3))
+        val sigma2 = max(SIGMA_DB * SIGMA_DB, bestSse / max(1, spots.size - 4)) // 4 fitted: x, y, power, exponent
         val region = sse.indices.filter { (sse[it] - bestSse) / sigma2 <= 5.99 }
         fun gx(i: Int) = minX + (i % nx) * step
         fun gy(i: Int) = minY + (i / nx) * step

@@ -22,14 +22,14 @@ class LocatorTest {
     private fun lat(y: Double) = lat0 + y / my
     private fun lon(x: Double) = lon0 + x / mx
 
-    /** What the phone hears at (x, y) from a device at (dx, dy): -59 dBm at 1 m, exponent 2.5, plus [noise]. */
-    private fun rssi(x: Double, y: Double, dx: Double, dy: Double, noise: Double = 0.0): Int {
+    /** What the phone hears at (x, y) from a device at (dx, dy): -59 dBm at 1 m, exponent [n], plus [noise]. */
+    private fun rssi(x: Double, y: Double, dx: Double, dy: Double, noise: Double = 0.0, n: Double = 2.5): Int {
         val d = sqrt((x - dx) * (x - dx) + (y - dy) * (y - dy)).coerceAtLeast(1.0)
-        return (-59 - 25 * log10(d) + noise).roundToInt()
+        return (-59 - 10 * n * log10(d) + noise).roundToInt()
     }
 
-    /** A drive along [route] (metres, one reading per metre stepped), hearing a device at (dx, dy). */
-    private fun drive(route: List<Pair<Double, Double>>, dx: Double, dy: Double, noise: (Int) -> Double = { 0.0 }): List<Reading> {
+    /** A drive along [route] (metres, one reading per 2 m stepped), hearing a device at (dx, dy). */
+    private fun drive(route: List<Pair<Double, Double>>, dx: Double, dy: Double, n: Double = 2.5, noise: (Int) -> Double = { 0.0 }): List<Reading> {
         val out = ArrayList<Reading>()
         var t = 1_000_000L
         for (i in 0 until route.size - 1) {
@@ -39,7 +39,7 @@ class LocatorTest {
             for (s in 0 until steps) {
                 val x = ax + (bx - ax) * s / steps; val y = ay + (by - ay) * s / steps
                 if (sqrt((x - dx) * (x - dx) + (y - dy) * (y - dy)) > 140) continue // out of Bluetooth range
-                out += Reading(t, lat(y), lon(x), rssi(x, y, dx, dy, noise(out.size)))
+                out += Reading(t, lat(y), lon(x), rssi(x, y, dx, dy, noise(out.size), n))
                 t += 500
             }
         }
@@ -66,10 +66,19 @@ class LocatorTest {
     @Test
     fun fadesStillLandNearAndInsideTheCircle() {
         val route = listOf(-120.0 to 0.0, 60.0 to 0.0, 60.0 to 150.0)
-        val e = Locator.estimate(drive(route, 25.0, 40.0, fades(6.0)), wifi = false)!!
+        val e = Locator.estimate(drive(route, 25.0, 40.0, noise = fades(6.0)), wifi = false)!!
         val err = errorM(e, 25.0, 40.0)
         assertTrue("within 20 m, was ${err.roundToInt()} m", err < 20)
         assertTrue("the true spot is inside the circle (${err.roundToInt()} vs ${e.radiusM.roundToInt()} m)", err <= e.radiusM)
+    }
+
+    @Test
+    fun aSignalThatFadesFastAmongBuildingsIsStillPlaced() {
+        // Exponent 3.5: a fixed 2.5 would read the steep fall as a device farther from the road.
+        val route = listOf(-120.0 to 0.0, 60.0 to 0.0, 60.0 to 150.0)
+        val e = Locator.estimate(drive(route, 25.0, 40.0, n = 3.5), wifi = false)!!
+        val err = errorM(e, 25.0, 40.0)
+        assertTrue("within 8 m, was ${err.roundToInt()} m", err < 8)
     }
 
     @Test
@@ -78,7 +87,8 @@ class LocatorTest {
         val e = Locator.estimate(drive(listOf(-150.0 to 0.0, 150.0 to 0.0), 0.0, 35.0), wifi = false)!!
         assertTrue("the true spot is inside the circle", errorM(e, 0.0, 35.0) <= e.radiusM)
         assertTrue("and its mirror on the other side too", errorM(e, 0.0, -35.0) <= e.radiusM)
-        assertTrue("but it still says where along the road (${e.radiusM.roundToInt()} m)", e.radiusM < 80)
+        // The fade rate is unknown too, so how far off the road is less sure than where along it.
+        assertTrue("but it still says where along the road (${e.radiusM.roundToInt()} m)", e.radiusM < 100)
     }
 
     @Test
@@ -124,10 +134,13 @@ class LocatorTest {
 
     // ---- Through the device registry, the way the scanner feeds it
 
-    private fun scan(mac: String, hits: List<Hit>) {
+    private fun scan(mac: String, hits: List<Hit>, stopS: Int = 0) {
         DeviceRegistry.startSession(0)
         val route = listOf(-120.0 to 0.0, 60.0 to 0.0, 60.0 to 150.0)
-        for (r in drive(route, 25.0, 40.0)) {
+        val driven = drive(route, 25.0, 40.0)
+        // Then stopped [stopS] seconds where the drive ended, still hearing it.
+        val stopped = (1..stopS * 2).map { driven.last().copy(time = driven.last().time + it * 500L) }
+        for (r in driven + stopped) {
             DeviceRegistry.report(Advert(mac, Advert.Source.BLE, r.rssi, null, emptyMap(), timestamp = r.time), hits,
                 DeviceIntel.Identity("x", emptyList()), null, null, DeviceRegistry.GeoSample(r.time, r.lat, r.lon), r.time)
         }
@@ -143,6 +156,15 @@ class LocatorTest {
         assertTrue(errorM(e!!, 25.0, 40.0) < 10)
         assertEquals(e.lat, s.place!!.lat, 1e-9)
         assertEquals(e.lon, s.place!!.lon, 1e-9)
+    }
+
+    @Test
+    fun aLongStopDoesNotPushTheDriveOutOfTheFit() {
+        // 5 minutes at a light hears it 600 times from one spot: those count once, the drive stays.
+        scan("5A:10:20:30:40:52", listOf(Hit(Category.BODY_CAM, "Body camera", 80, "e", "s")), stopS = 300)
+        val e = DeviceRegistry.get("5A:10:20:30:40:52")!!.located
+        assertNotNull(e)
+        assertTrue(errorM(e!!, 25.0, 40.0) < 10)
     }
 
     @Test
