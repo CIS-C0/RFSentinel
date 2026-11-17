@@ -228,7 +228,7 @@ Everything the app does, grouped by area.
 <summary><b>Alerts</b></summary>
 
 - Sound, vibration pattern per tier (1 / 2 / 3 pulses) and spoken announcements through the phone's own speech engine (prioritised, voice and speed pickers)
-- **Radar-detector beeps** option: after an alert, a tick each time the flagged device is heard, like a Geiger counter
+- **Radar-detector beeps** option: after an alert, ticks like a Geiger counter while the flagged device is heard (slow when it's far, fast when it's close, silent once it's gone)
 - **Short spoken alerts** option ("Body cam", "Police car", "Speed camera, 50")
 - **Say the network name** option: a WiFi alert also says the network's name ("Police car, network Fleet 12")
 - **Voice loudness** boost up to +15 dB (without distorting) for when music drowns the voice, in the car too, and an option to **pause music** while an alert is spoken

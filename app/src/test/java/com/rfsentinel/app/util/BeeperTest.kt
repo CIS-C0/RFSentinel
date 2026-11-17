@@ -15,6 +15,22 @@ class BeeperTest {
     }
 
     @Test
+    fun radarBeepsAreVerySlowFarAwayAndCappedUpClose() {
+        val slow = Beeper.RADAR_SLOWEST_MS
+        assertEquals(4000L, Beeper.tickIntervalMs(-110, slow)) // faint and far: a tick every 4 s
+        assertEquals(60L, Beeper.tickIntervalMs(-20, slow))    // as close as it gets: never faster than 60 ms
+        assertTrue((-95..-45).zipWithNext().all { (a, b) -> Beeper.tickIntervalMs(b, slow) <= Beeper.tickIntervalMs(a, slow) })
+        // The ticks stop when the device does: 0.3 s after a fast advertiser's last packet, 2.5 s at the very most.
+        assertEquals(300L, Beeper.tickFreshMs(100))
+        assertEquals(1500L, Beeper.tickFreshMs(1000))
+        assertEquals(2500L, Beeper.tickFreshMs(2000))                 // a USB WiFi adapter's 2 s reports: no break between them
+        assertEquals(2500L, Beeper.tickFreshMs(30_000))               // the phone's WiFi scan: one short run per scan
+        assertEquals(2500L, Beeper.tickFreshMs(Long.MAX_VALUE))       // first packet: no gap known
+        // One packet from far away is one tick: its run is over before the next one is due.
+        assertTrue(Beeper.tickFreshMs(Long.MAX_VALUE) < Beeper.tickIntervalMs(-95, slow))
+    }
+
+    @Test
     fun detectorTonesGetFasterAndHigherWithStrength() {
         val ka = Beeper.detectorAlert(3); val k = Beeper.detectorAlert(2); val x = Beeper.detectorAlert(1)
         assertTrue(ka.size > k.size && k.size > x.size)

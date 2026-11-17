@@ -32,10 +32,21 @@ object Beeper {
      * sharply faster up close, like a detector locking on. -95 dBm -> 1.3 s, -70 -> ~0.4 s,
      * -55 -> ~0.14 s, -45 dBm and closer -> 0.06 s.
      */
-    fun tickIntervalMs(rssi: Int): Long {
+    fun tickIntervalMs(rssi: Int, slowestMs: Int = 1300): Long {
         val t = ((rssi + 95).coerceIn(0, 50) / 50.0).pow(1.4)
-        return (1300 * (60.0 / 1300).pow(t)).toLong()
+        return (slowestMs * (60.0 / slowestMs).pow(t)).toLong()
     }
+
+    /** The radar beeps' slowest tick, at -95 dBm and fainter: far slower than Locate's, a faint device far away is barely a tick. */
+    const val RADAR_SLOWEST_MS = 4_000
+
+    /**
+     * How long radar ticks go on after a packet with nothing more heard, that packet having come [gapMs] after the one
+     * before: half as long again. A device heard steadily ticks without a break; one that stops being heard goes quiet
+     * at once: after 0.3 s for a Bluetooth device advertising many times a second, 2.5 s at most (a USB WiFi adapter
+     * reports every 2 s; the phone's own WiFi scan, far less often, gives one short run of ticks per scan).
+     */
+    fun tickFreshMs(gapMs: Long): Long = (gapMs.coerceIn(0L, 2_500L) * 3 / 2).coerceIn(300L, 2_500L)
 
     fun durationMs(pattern: List<Pair<Int, Int>>) = pattern.sumOf { it.first + it.second }
 
