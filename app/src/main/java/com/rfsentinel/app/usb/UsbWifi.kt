@@ -376,7 +376,10 @@ object UsbWifi {
                         ACTION_PERMISSION, UsbAttachActivity.ACTION_READY -> connect(app)
                         UsbManager.ACTION_USB_DEVICE_DETACHED -> {
                             val d = deviceOf(intent)
-                            if (d != null && sessions.any { it.device == d.deviceName }) stopAdapter(d.deviceName, "USB WiFi adapter unplugged")
+                            if (d != null && sessions.any { it.device == d.deviceName }) {
+                                log("%04x:%04x (%s): Android reports the adapter unplugged (off the USB bus)".format(d.vendorId, d.productId, chipOf(d)?.name))
+                                stopAdapter(d.deviceName, "USB WiFi adapter unplugged")
+                            }
                             else if (firmwareNeeded != null && d != null && chipOf(d) == firmwareNeeded) {
                                 firmwareNeeded = null; idle = ""; FirmwarePrompt.cancel(app)
                             }
