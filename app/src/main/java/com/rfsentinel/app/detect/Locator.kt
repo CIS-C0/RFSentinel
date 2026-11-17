@@ -14,7 +14,7 @@ import kotlin.math.sqrt
  * Model: rssi = P0 - 10 n log10(d). The device's power at 1 m (P0) and how fast its signal fades
  * (n) are unknown and fitted for every candidate spot, P0 within what real radios can do, so a far
  * device can't pass for a loud near one. Every spot on a grid around your route is scored, and the result is the
- * best-fitting spot with a 95 % circle - so when you only drove a straight line and
+ * best-fitting spot with an 80 % circle - so when you only drove a straight line and
  * the device could be on either side of the road, the circle honestly covers both sides
  * instead of guessing one.
  *
@@ -28,7 +28,7 @@ object Locator {
     data class Estimate(
         val lat: Double,
         val lon: Double,
-        /** 95 % circle: the device is very likely within this many metres. */
+        /** 80 % circle: the device is likely within this many metres. */
         val radiusM: Double,
         /** Distinct spots (about [CELL_M] m apart) the fit used. */
         val spots: Int,
@@ -142,10 +142,11 @@ object Locator {
         val rms = sqrt(bestSse / spots.size)
         if (rms > MAX_RMS_DB) return null
 
-        // 95 % region: every spot that fits nearly as well (chi-square, 2 degrees of freedom).
+        // 80 % region: every spot that fits nearly as well (chi-square, 2 degrees of freedom). 95 % (5.99) drew
+        // circles too big to act on; 80 % is about 20 % smaller and pinpoints more devices.
         // The noise is never taken below what the best fit itself shows.
         val sigma2 = max(SIGMA_DB * SIGMA_DB, bestSse / max(1, spots.size - 4)) // 4 fitted: x, y, power, exponent
-        val region = sse.indices.filter { (sse[it] - bestSse) / sigma2 <= 5.99 }
+        val region = sse.indices.filter { (sse[it] - bestSse) / sigma2 <= 3.22 }
         fun gx(i: Int) = minX + (i % nx) * step
         fun gy(i: Int) = minY + (i / nx) * step
 
