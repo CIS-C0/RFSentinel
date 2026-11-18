@@ -185,6 +185,9 @@ object SignatureEngine {
     private val PENGUIN_NUMERIC = Regex("^\\d{8,12}$")
     /** Zebra's default Bluetooth name is the serial: 2-char plant, 3-letter model code, YYWW + 5 digits. */
     private val ZEBRA_SERIAL = Regex("^[A-Z0-9]{2}[A-Z]{3}\\d{9}$")
+    private val PTT_CODA = UUID.fromString("2320ae58-8394-4652-95f7-0a872ac0958f")
+    private val AINA_PTT = Regex("^ASB[0-9A-F]{6}$")
+    private val PTT_Z_NAMES = setOf("PTT-Z", "PTT-AZ", "PTT-Z01")
 
     /** Brother's mobile printers by their default model names (RJ-4250WB, PJ-763MFi...). */
     private val BROTHER_MOBILE = Regex("^(rj|pj)-?\\d{3,4}", RegexOption.IGNORE_CASE)
@@ -246,6 +249,18 @@ object SignatureEngine {
             hits += Hit(Category.PUBLIC_SAFETY, "Motorola Solutions equipment (radio, camera or accessory)", 45,
                 "Motorola Solutions company ID 0x04EC or service UUID 0xFD8E/0xFE04",
                 "$SIG; the same IDs are used by retail, school and venue two-way radios")
+        }
+        // Wireless push-to-talk buttons for phone PTT apps (ESChat, ProPTT2...): police and EMS, but also guards and drivers.
+        val pttButton = when {
+            PTT_CODA in a.serviceUuids -> "Coda / Blu-PTT service UUID 2320ae58-..."
+            AINA_PTT.matches(name) -> "AINA PTT Smart Button name \"$name\" (ASB + 6 characters)"
+            name in PTT_Z_NAMES -> "push-to-talk button name \"$name\""
+            else -> null
+        }
+        pttButton?.let {
+            hits += Hit(Category.PUBLIC_SAFETY, "Push-to-talk button (phone radio app)", 30,
+                "$it - pairs with phone PTT apps such as ESChat, used by police and EMS but also security guards, " +
+                    "schools and transport crews. A connected button may stay quiet", "Fieldwatch catalog (OffGridPete, MIT)")
         }
 
         // ---- Mobile ticket printers (e-citations) ---------------------------
@@ -632,6 +647,11 @@ object SignatureEngine {
                     "WiFi address in $maker's registered block ${fmtPrefix(prefix)} - LIFEPAK monitors send their data " +
                         "over WiFi from ambulances; hospitals use them too", "$IEEE; Wardrive Go's EMS list (facts only)")
             }
+        }
+        if (a.wifi?.client != true && ssid.startsWith("ExpressLRS", ignoreCase = true)) {
+            hits += Hit(Category.DRONE, "ExpressLRS radio link in setup mode (FPV drone)", 50,
+                "WiFi network \"$ssid\": an ExpressLRS transmitter, receiver or backpack opens it for setup. " +
+                    "The link used in flight doesn't show up", "Fieldwatch catalog (OffGridPete, MIT); ExpressLRS docs")
         }
         droneByPrefix(a)?.let { hits += it }
         return hits

@@ -41,6 +41,7 @@ Before shipping, the identifiers were checked against these registries:
 | Public safety | Company ID `0x04BC` or UUID `0xFCDA` (Dräger) | 35 | SIG; roadside breath / drug screening devices, also hospital and gas-detection gear |
 | Public safety | UUID `0xFE22` / `0xFE23` (Zoll Medical) | 40 | SIG, after Wardrive Go's EMS list; ambulance defibrillators and monitors, also hospital gear and the LifeVest a patient can wear |
 | Public safety | Company ID `0x0A5F` or UUID `0xFC6E` (Stryker) | 35 | SIG, after Wardrive Go's EMS list; LIFEPAK monitors and ambulance stretchers, plenty of hospital equipment |
+| Public safety | Push-to-talk button for phone radio apps: UUID `2320ae58-8394-4652-95f7-0a872ac0958f` (Coda / Blu-PTT), name `ASB` + 6 hex (AINA), or `PTT-Z` / `PTT-AZ` / `PTT-Z01` | 30 | Fieldwatch; ESChat buttons for police and EMS, also guards, schools and transport crews |
 | Public safety | WiFi address in Physio-Control's `40:BD:9E` or Stryker's `00:0D:D1` block | 45 | IEEE, after Wardrive Go's EMS list; LIFEPAK monitors send their data over WiFi from ambulances |
 | ALPR | WiFi SSID starting with `Flock-` | 88 | ACAB (ryanohoro, GainSec) |
 | ALPR | BLE name `FS Ext Battery` | 80 | ACAB |
@@ -54,6 +55,7 @@ Before shipping, the identifiers were checked against these registries:
 | Audio sensor | 128-bit service UUIDs with short IDs `0x3100` to `0x3500` (Flock Raven) | 80 | ACAB field capture |
 | Drone | Service data `0xFFFA` with ASTM F3411 app code `0x0D`; decoded | 95 | ASTM F3411 / opendroneid |
 | Drone | WiFi vendor IE with OUI `FA:0B:BC`, type `0x0D` | 95 | ASTM F3411 |
+| Drone | WiFi network starting with `ExpressLRS` (an FPV radio link's setup network; access points only) | 50 | Fieldwatch; ExpressLRS docs |
 | Drone | Drone makers' own IEEE blocks (DJI, Parrot, Skydio, Autel /28, Yuneec /28, Hubsan, FIMI, uAvionix Remote ID modules and others); DJI handhelds named Osmo, OM, RS / Ronin or Mic are left out | 60 | IEEE / ACAB |
 | Tracker | Apple company ID `0x004C`, type `0x12`, length `0x19` (separated from owner only) | 70 | ACAB; arXiv 2501.17452 |
 | Tracker | Google `0xFEAA` service data, frame `0x41` (separated; frame `0x40` = near owner, ignored) | 70 | Find Hub Network spec |
@@ -363,7 +365,7 @@ candidate's IEEE registrant was checked against the maker the project names.
 | [Wardrive Go](https://github.com/RocketGod-git/wardrive-go) | Same Flock list; its traffic-camera and drone blocks were already here. Later (3.1.165): EMS gear, IP-camera setup networks, train WiFi and mesh radio nodes, above |
 | [Flock-You-Android](https://github.com/MaxwellDPS/Flock-You-Android) | Hikvision, Dahua, Axis, Vivotek, Amcrest, Reolink, Wyze, TVT, Reecam camera blocks; Sierra Wireless and Digi fleet gateways |
 | [FlipDeFlock](https://github.com/ReconGrunt/FlipDeFlock) | Its probe-request "skeleton" hash (element ids and lengths, vendor OUI + type), ported so its published values match: 2 candidate Flock shapes as **weak** hits, 6 shapes it found on phones and ESP32 boards marked as common. Shown as "Probe shape" in device details |
-| [Fieldwatch](https://github.com/OffGridPete/Fieldwatch) | BlueTOAD (Iteris) and BlipTrack roadside travel-time sensors; Flock-pole battery radios (weak); Hanwha, Uniview, Rhombus cameras; Sierra AirLink, Compex and Inseego (Novatel) vehicle radios |
+| [Fieldwatch](https://github.com/OffGridPete/Fieldwatch) | BlueTOAD (Iteris) and BlipTrack roadside travel-time sensors; Flock-pole battery radios (weak); Hanwha, Uniview, Rhombus cameras; Sierra AirLink, Compex and Inseego (Novatel) vehicle radios. Catalogs 94-113 (November 2026): push-to-talk buttons for phone radio apps (AINA, Coda / Blu-PTT, PTT-Z; weak public-safety hits) and ExpressLRS setup networks (FPV drones); its consumer devices, ham radios and smart-home rows are out of scope |
 
 The Flock radio list is mostly Liteon, Silicon Labs, Espressif and USI module
 blocks that are also in many laptops, smart plugs and IoT devices, so those
