@@ -180,7 +180,7 @@ object LiveRead {
             // Only while it is being heard ([sample] notes each packet): beeps that go on after it went quiet say
             // nothing about where it is. A slow advertiser (a tag every 2 s) still beeps without a break.
             if (heardAt == 0L || System.currentTimeMillis() - heardAt > Beeper.tickFreshMs(heardGap)) { main.postDelayed(this, 100L); return }
-            AlertPlayer.locateTick(ctx)
+            AlertPlayer.locateTick(ctx, heardRssi)
             // Faster as the signal gets stronger, by the newest raw reading: the smoothed one is a second or two behind your steps.
             main.postDelayed(this, Beeper.tickIntervalMs(heardRssi))
         }

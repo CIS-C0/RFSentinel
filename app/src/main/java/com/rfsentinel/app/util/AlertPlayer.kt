@@ -178,13 +178,18 @@ object AlertPlayer {
      * One Locate tick (the device screen's proximity beeps): a pulse in the radar-detector sound style, else a
      * short beep. Started by the user, so it plays whatever the alert settings, on the chosen phone volume.
      */
-    fun locateTick(context: Context) {
-        val attrs = toneAttributes(context, false)
-        if (Prefs.detectorSound(context)) detectorTick(context, attrs) else Beeper.play(attrs, listOf(60 to 0))
+    fun locateTick(context: Context, rssi: Int) {
+        val how = Prefs.locateFeedback(context)
+        if (how != Prefs.LocateFeedback.VIBRATION) {
+            val attrs = toneAttributes(context, false)
+            if (Prefs.detectorSound(context)) detectorTick(context, attrs) else Beeper.play(attrs, listOf(60 to 0))
+        }
+        if (how != Prefs.LocateFeedback.BEEPS) Beeper.vibeTap(rssi).let { (ms, amp) -> vibrator(context)?.vibrate(VibrationEffect.createOneShot(ms, amp)) }
     }
 
-    /** Locate: the device was just heard stronger than ever on this hunt ("warmer"): a short rising chirp and a tap. */
+    /** Locate: the device was just heard stronger than ever on this hunt ("warmer"): a short rising chirp and a tap (a double tap when silent). */
     fun locateWarmer(context: Context) {
+        if (Prefs.locateFeedback(context) == Prefs.LocateFeedback.VIBRATION) { vibrate(context, longArrayOf(0, 25, 70, 25)); return }
         Beeper.playTones(toneAttributes(context, false), listOf(Beeper.Tone(70, 2_100.0, 3_100.0)))
         vibrate(context, longArrayOf(0, 25))
     }
@@ -275,14 +280,18 @@ object AlertPlayer {
     }
 
     fun vibrate(context: Context, pattern: LongArray) {
-        val vibrator: Vibrator? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        vibrator(context)?.vibrate(VibrationEffect.createWaveform(pattern, -1))
+    }
+
+    /** The phone's vibrator, null when it has none. */
+    private fun vibrator(context: Context): Vibrator? {
+        val v: Vibrator? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             context.getSystemService(VibratorManager::class.java)?.defaultVibrator
         } else {
             @Suppress("DEPRECATION")
             context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
         }
-        if (vibrator?.hasVibrator() != true) return
-        vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1))
+        return v?.takeIf { it.hasVibrator() }
     }
 
     fun shutdown() = Voice.shutdown()

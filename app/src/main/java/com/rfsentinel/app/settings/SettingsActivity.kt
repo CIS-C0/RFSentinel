@@ -1302,6 +1302,8 @@ class SettingsActivity : AppCompatActivity() {
             "play through the car's speakers.")
         info(binding.radarTopLabel, "The way you face: the radar turns with the phone, like a compass, so N moves. North: N stays at the top.")
         info(binding.radarDotsLabel, "Most dots have no real direction (one antenna can't tell). Stay in place keeps them still; turn with north moves them with the compass.")
+        locateFeedbackLabel?.let { info(it, "How Locate on a device's screen leads you to it. Vibration taps come at the beeps' pace, " +
+            "faster, longer and stronger as the signal gets stronger, so you can hunt with the sound off.") }
         info(binding.radarBeepSwitch, "After an alert, ticks like a Geiger counter while the flagged device is heard: slow when it's far, fast when it's close.")
         info(binding.usbQuickClearSwitch, "A USB WiFi adapter goes through every channel in seconds. When a sweep no longer hears a device, its alert and beeps end right away instead of after the next phone scan.")
         info(binding.detectorSoundSwitch, "Alerts use radar-detector tones (Ka, K and X) and say \"GPS connected\" when the first GPS fix comes in.")
@@ -1393,6 +1395,26 @@ class SettingsActivity : AppCompatActivity() {
 
     /** Radio buttons listed in the order of the choices they stand for. */
     private fun android.widget.RadioGroup.checkIndex(i: Int) = check(getChildAt(i).id)
+
+    private var locateFeedbackLabel: TextView? = null
+    private var locateFeedbackGroup: android.widget.RadioGroup? = null
+
+    /**
+     * Settings > Alerts > Locate feedback, above Radar-detector beeps, built like Alert volume. In code: the settings
+     * layout's binding is at Java's 255-parameter limit, so it takes no more view ids.
+     */
+    private fun addLocateFeedback() {
+        val box = binding.radarBeepSwitch.parent as? android.view.ViewGroup ?: return
+        val at = box.indexOfChild(binding.radarBeepSwitch)
+        val label = TextView(this, null, 0, R.style.SettingsLabel).apply { text = "Locate feedback" }
+        val group = android.widget.RadioGroup(this)
+        for (name in listOf("Beeps", "Vibration", "Both")) group.addView(android.widget.RadioButton(this).apply { id = View.generateViewId(); text = name },
+            android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT))
+        group.checkIndex(Prefs.locateFeedback(this).ordinal)
+        box.addView(label, at)
+        box.addView(group, at + 1, android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT))
+        locateFeedbackLabel = label; locateFeedbackGroup = group
+    }
     private val android.widget.RadioGroup.checkedIndex get() = indexOfChild(findViewById(checkedRadioButtonId))
 
     /**
@@ -3230,6 +3252,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.carMessagesSwitch.isChecked = Prefs.carMessages(this)
         setupSnoozeLength()
         binding.radarBeepSwitch.isChecked = Prefs.radarBeep(this)
+        addLocateFeedback()
         binding.usbQuickClearSwitch.isChecked = Prefs.usbQuickClear(this)
         binding.detectorSoundSwitch.isChecked = Prefs.detectorSound(this)
         binding.startupSweepSwitch.isChecked = Prefs.startupSweep(this)
@@ -3589,6 +3612,7 @@ class SettingsActivity : AppCompatActivity() {
         Prefs.setRadarNames(this, binding.radarNamesSwitch.isChecked)
         Prefs.setRadarSweepLine(this, binding.radarSweepSwitch.isChecked)
         Prefs.setRadarBeep(this, binding.radarBeepSwitch.isChecked)
+        locateFeedbackGroup?.let { g -> Prefs.setLocateFeedback(this, Prefs.LocateFeedback.entries[g.checkedIndex.coerceAtLeast(0)]) }
         Prefs.setUsbQuickClear(this, binding.usbQuickClearSwitch.isChecked)
         Prefs.setDetectorSound(this, binding.detectorSoundSwitch.isChecked)
         Prefs.setStartupSweep(this, binding.startupSweepSwitch.isChecked)

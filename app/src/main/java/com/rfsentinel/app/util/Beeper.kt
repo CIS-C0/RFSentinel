@@ -37,6 +37,15 @@ object Beeper {
         return (slowestMs * (60.0 / slowestMs).pow(t)).toLong()
     }
 
+    /**
+     * A Locate vibration tap for a reading of [rssi]: (milliseconds, amplitude 1-255), longer and stronger as the signal
+     * rises, so it can be felt growing on phones without amplitude control too. Never longer than half the fastest tick.
+     */
+    fun vibeTap(rssi: Int): Pair<Long, Int> {
+        val t = (rssi + 95).coerceIn(0, 50) / 50.0
+        return (12 + 18 * t).toLong() to (70 + 185 * t).toInt()
+    }
+
     /** The radar beeps' slowest tick, at -95 dBm and fainter: far slower than Locate's, a faint device far away is barely a tick. */
     const val RADAR_SLOWEST_MS = 4_000
 

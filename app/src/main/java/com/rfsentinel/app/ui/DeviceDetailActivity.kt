@@ -635,7 +635,8 @@ class DeviceDetailActivity : AppCompatActivity() {
         binding.locateButton.text = "Stop"
         // With a compass: the chest sweep guide, for its direction. Without one only the beeps can lead you.
         if (Compass(this).available) sweepGuide = SweepGuide(this).also { it.show() }
-        else Toast.makeText(this, "Walk around: beeps speed up as the signal gets stronger", Toast.LENGTH_LONG).show()
+        else Toast.makeText(this, "Walk around: " + (if (Prefs.locateFeedback(this) == Prefs.LocateFeedback.VIBRATION) "taps" else "beeps") +
+            " speed up as the signal gets stronger", Toast.LENGTH_LONG).show()
     }
 
     override fun onDestroy() {

@@ -60,4 +60,13 @@ class BeeperTest {
         val gapMid = (140 + 55) * 22_050 / 1000
         assertEquals(0, pcm[gapMid].toInt())
     }
+
+    @Test
+    fun locateTapsGrowWithTheSignalAndFitBetweenTicks() {
+        assertEquals(12L to 70, Beeper.vibeTap(-100))
+        assertEquals(30L to 255, Beeper.vibeTap(-30))
+        val mid = Beeper.vibeTap(-70)
+        assertTrue(mid.first in 13L..29L && mid.second in 71..254)
+        for (rssi in -100..-30) assertTrue(Beeper.vibeTap(rssi).first * 2 <= Beeper.tickIntervalMs(rssi))
+    }
 }

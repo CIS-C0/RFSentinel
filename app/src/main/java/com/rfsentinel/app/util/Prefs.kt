@@ -105,6 +105,12 @@ object Prefs {
         runCatching { AlertVolume.valueOf(sp(context).getString("alert_volume", null)!!) }.getOrDefault(AlertVolume.NAVIGATION)
     fun setAlertVolume(context: Context, v: AlertVolume) = sp(context).edit { putString("alert_volume", v.name) }
 
+    /** How Locate leads you to a device: beeps, vibration taps, or both. */
+    enum class LocateFeedback { BEEPS, VIBRATION, BOTH }
+    fun locateFeedback(context: Context): LocateFeedback =
+        runCatching { LocateFeedback.valueOf(sp(context).getString("locate_feedback", null)!!) }.getOrDefault(LocateFeedback.BEEPS)
+    fun setLocateFeedback(context: Context, v: LocateFeedback) = sp(context).edit { putString("locate_feedback", v.name) }
+
     fun vibrateEnabled(context: Context): Boolean = bool(context, "vibrate_enabled", true)
     fun setVibrateEnabled(context: Context, value: Boolean) = setBool(context, "vibrate_enabled", value)
 
