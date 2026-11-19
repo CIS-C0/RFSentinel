@@ -1,0 +1,5 @@
+• Locate can vibrate instead of beeping, or both: taps get faster and stronger as you get closer (Settings › Alerts › Locate feedback).
+• Back up settings now includes the whitelist: one file sets up a new phone with settings, watchlist and whitelist.
+• The Everything export imports back into device history, however big.
+• No more evil twin alerts for two phones' hotspots sharing a default name.
+• DMR / NXDN voice: clearer on bad signal, tones played.
