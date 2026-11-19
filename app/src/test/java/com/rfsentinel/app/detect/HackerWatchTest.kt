@@ -41,6 +41,9 @@ class HackerWatchTest {
         assertNotNull(HackerWatch.evilTwin(ap("66:77:88:00:00:03", "CoffeeShop", "[ESS]")))
         assertNull(HackerWatch.evilTwin(ap("99:88:77:00:00:04", "Home", "[WPA2-PSK-CCMP][ESS]")))
         assertNull(HackerWatch.evilTwin(ap("12:34:56:00:00:05", "Home", "[WPA2-PSK-CCMP][ESS]"))) // both protected
+        // Two phones' hotspots on the same default name, both private addresses: no maker to compare.
+        assertNull(HackerWatch.evilTwin(ap("46:1C:CB:0F:98:B2", "HONOR X7d 5G", "[WPA2-PSK-CCMP][ESS]")))
+        assertNull(HackerWatch.evilTwin(ap("B2:3D:EF:76:0D:A4", "HONOR X7d 5G", "[ESS]")))
     }
 
     @Test

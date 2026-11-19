@@ -193,6 +193,8 @@ object HackerWatch {
     }
 
     private fun sameMaker(m1: String, m2: String): Boolean {
+        // Two private addresses name no maker: phone hotspots sharing a default name ("HONOR X7d 5G").
+        if (com.rfsentinel.app.util.MacUtil.isRandomized(m1) && com.rfsentinel.app.util.MacUtil.isRandomized(m2)) return true
         fun key(m: String): String = m.replace(":", "").uppercase().take(6)
         if (key(m1) == key(m2)) return true
         val v1 = VendorDb.macVendor(m1)
