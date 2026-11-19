@@ -90,7 +90,8 @@ class SettingsBackupTest {
         sp("oui_watchlist_prefs").edit().putString("entries", "[rule]").commit()
         val file = SettingsBackup.create(ctx)
         val found = SettingsBackup.inspect(file) as SettingsBackup.Inspect.Ok
-        assertEquals(listOf(SettingsBackup.Section.SETTINGS, SettingsBackup.Section.WATCHLIST, SettingsBackup.Section.PLACES, SettingsBackup.Section.FLOATING), found.sections)
+        assertEquals(listOf(SettingsBackup.Section.SETTINGS, SettingsBackup.Section.WATCHLIST, SettingsBackup.Section.WHITELIST,
+            SettingsBackup.Section.PLACES, SettingsBackup.Section.FLOATING), found.sections)
         main.edit().putInt("retention_days", 7).commit()
         sp("nav_places").edit().putString("nav_home", "ELSEWHERE").commit()
         sp("oui_watchlist_prefs").edit().putString("entries", "[mine]").commit()
@@ -99,6 +100,32 @@ class SettingsBackupTest {
         assertEquals("settings not ticked: untouched", 7, main.getInt("retention_days", 0))
         assertEquals("[rule]", sp("oui_watchlist_prefs").getString("entries", null))
         assertEquals("HOME", sp("nav_places").getString("nav_home", null))
+    }
+
+    @Test
+    fun theWhitelistTravelsInTheBackup() {
+        sp("trust_rules").edit().putString("rules", "[RULE]").commit()
+        sp("trusted_networks").edit().putString("rules", "[NET]").commit()
+        val mine = listOf(com.rfsentinel.app.data.WhitelistEntity("AA:BB:CC:00:11:22", "my watch"), com.rfsentinel.app.data.WhitelistEntity("11:22:33:44:55:66"))
+        val file = SettingsBackup.create(ctx, whitelist = mine)
+        sp("trust_rules").edit().clear().commit(); sp("trusted_networks").edit().clear().commit()
+
+        val r = SettingsBackup.restore(ctx, file, setOf(SettingsBackup.Section.WHITELIST)) as SettingsBackup.Result.Restored
+        assertEquals(mine, r.whitelist)
+        assertEquals("[RULE]", sp("trust_rules").getString("rules", null))
+        assertEquals("[NET]", sp("trusted_networks").getString("rules", null))
+        assertNull("not ticked: the table is left", (SettingsBackup.restore(ctx, file, setOf(SettingsBackup.Section.SETTINGS)) as SettingsBackup.Result.Restored).whitelist)
+        // A backup from before the whitelist was in it leaves the table alone.
+        val old = JSONObject(file).apply { remove("whitelist") }.toString()
+        assertNull((SettingsBackup.restore(ctx, old) as SettingsBackup.Result.Restored).whitelist)
+        val bad = JSONObject(file).put("whitelist", org.json.JSONArray().put(JSONObject().put("note", "no mac"))).toString()
+        assertTrue(SettingsBackup.restore(ctx, bad) is SettingsBackup.Result.Refused)
+    }
+
+    @Test
+    fun aDeviceExportIsNotTakenForABackup() {
+        val export = """{"exportedBy":"RF Sentinel 2.46.0","sessionDevices":[],"deviceHistory":[],"matchLog":[],"watchlist":[]}"""
+        assertTrue((SettingsBackup.inspect(export) as SettingsBackup.Inspect.Bad).why.contains("Import device history"))
     }
 
     @Test

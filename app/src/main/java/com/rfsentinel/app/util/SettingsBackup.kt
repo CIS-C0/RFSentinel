@@ -2,21 +2,23 @@ package com.rfsentinel.app.util
 
 import android.content.Context
 import com.rfsentinel.app.BuildConfig
+import com.rfsentinel.app.data.WhitelistEntity
 import com.rfsentinel.app.ui.CustomThemes
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.InputStream
 
 /**
- * Settings > Data > Back up / Restore settings: the app's settings, your watchlist rules, Home / Work / starred places, the
- * floating windows' positions and your custom themes (with their banners and fonts), as one JSON file you keep. Left out on
+ * Settings > Data > Back up / Restore settings: the app's settings, your watchlist rules, your whitelist (trusted devices,
+ * networks and rules), Home / Work / starred places, the floating windows' positions and your custom themes (with their banners and fonts), as one JSON file you keep. Left out on
  * purpose: API keys and other secrets (they never leave the phone's secure store), the "I accept the risk" acknowledgements
- * (asked again), recent places, snoozes and other short-lived state, where the map last looked, and detections, devices and
- * traces (those have their own export).
+ * (asked again), recent places, snoozes, ignored trackers and other short-lived state, where the map last looked, and
+ * detections, devices and traces (those have their own export).
  *
  * Restoring asks which [Section]s to take, so a file can bring back just the themes, or everything but them.
  *
- * Pure Kotlin on top of SharedPreferences, so it is unit-tested.
+ * Pure Kotlin on top of SharedPreferences, so it is unit-tested. The whitelist table lives in the database: the caller reads
+ * it for [create] and writes [Result.Restored.whitelist] back.
  */
 object SettingsBackup {
 
@@ -28,6 +30,7 @@ object SettingsBackup {
     enum class Section(val label: String) {
         SETTINGS("Settings"),
         WATCHLIST("Watchlist rules"),
+        WHITELIST("Whitelist"),
         PLACES("Home, Work and starred places"),
         FLOATING("Floating map and bubble positions"),
         THEMES("Custom themes (with their banners and fonts)")
@@ -44,16 +47,19 @@ object SettingsBackup {
             "waze_accepted", "waze_direct_accepted", "live_export", "live_export_tree")),
         Part("nav_places", Section.PLACES, only = setOf("nav_home", "nav_work", "nav_favorites")),
         Part("oui_watchlist_prefs", Section.WATCHLIST),
+        Part("trust_rules", Section.WHITELIST),
+        Part("trusted_networks", Section.WHITELIST),
         Part("floating_map", Section.FLOATING),
         Part("threat_bubble", Section.FLOATING)
     )
 
     private const val THEMES = "customThemes"
+    private const val WHITELIST = "whitelist"
 
     private fun wanted(p: Part, key: String) = (p.only?.contains(key) ?: true) && key !in p.skip
 
-    /** The backup file's text. */
-    fun create(context: Context, now: Long = System.currentTimeMillis()): String {
+    /** The backup file's text, with the whitelist table's [whitelist]. */
+    fun create(context: Context, now: Long = System.currentTimeMillis(), whitelist: List<WhitelistEntity> = emptyList()): String {
         val files = JSONObject()
         for (p in parts) {
             val out = JSONObject()
@@ -73,6 +79,7 @@ object SettingsBackup {
         }
         val root = JSONObject().put("app", "RF Sentinel").put("format", FORMAT).put("version", BuildConfig.VERSION_NAME)
             .put("created", now).put("files", files)
+            .put(WHITELIST, JSONArray(whitelist.map { JSONObject().put("mac", it.mac).put("note", it.note) }))
         val themes = CustomThemes.backup(context)
         if (themes.length() > 0) root.put(THEMES, themes)
         return root.toString(2)
@@ -92,7 +99,8 @@ object SettingsBackup {
     }
 
     sealed class Result {
-        class Restored(val count: Int) : Result()
+        /** [whitelist]: the table to put in place of this phone's, or null to leave it. */
+        class Restored(val count: Int, val whitelist: List<WhitelistEntity>? = null) : Result()
         class Refused(val why: String) : Result()
     }
 
@@ -102,18 +110,22 @@ object SettingsBackup {
         class Bad(val why: String) : Inspect()
     }
 
-    private class Opened(val files: JSONObject?, val themes: JSONArray?)
+    private class Opened(val files: JSONObject?, val themes: JSONArray?, val whitelist: JSONArray?)
 
     private fun open(text: String): Any {
         if (text.length > MAX_BYTES) return Result.Refused("That file is too big to be an RF Sentinel backup")
         val root = runCatching { JSONObject(text) }.getOrNull() ?: return Result.Refused("That isn't a backup file (not valid JSON)")
+        if (root.has("deviceHistory") || root.has("sessionDevices")) return Result.Refused(
+            "That is a device export, not a settings backup. Bring its devices back with Import device history; " +
+                "Back up settings to a file writes the file this restores.")
         if (root.optString("app") != "RF Sentinel") return Result.Refused("That isn't an RF Sentinel backup")
         val format = root.optInt("format", 0)
         if (format < 1 || format > FORMAT) return Result.Refused("That backup is from a newer version of RF Sentinel - update the app first")
         val files = root.optJSONObject("files")
         val themes = root.optJSONArray(THEMES)
-        if (files == null && themes == null) return Result.Refused("The backup has no settings in it")
-        return Opened(files, themes)
+        val whitelist = root.optJSONArray(WHITELIST)
+        if (files == null && themes == null && whitelist == null) return Result.Refused("The backup has no settings in it")
+        return Opened(files, themes, whitelist)
     }
 
     fun inspect(text: String): Inspect {
@@ -122,6 +134,7 @@ object SettingsBackup {
         o as Opened
         val found = LinkedHashSet<Section>()
         for (p in parts) if (o.files?.optJSONObject(p.file) != null) found += p.section
+        if (o.whitelist != null) found += Section.WHITELIST
         val themes = o.themes?.length() ?: 0
         if (themes > 0) found += Section.THEMES
         return Inspect.Ok(Section.entries.filter { it in found }, themes)
@@ -130,7 +143,7 @@ object SettingsBackup {
     /**
      * Puts the file's settings in place of this phone's: in each backed-up file of the chosen [only] sections (all by default)
      * every setting that is backed up is replaced (one the file has not got goes back to its default); the custom themes
-     * replace this phone's. Nothing changes if the file is not a backup of this app, or is damaged anywhere.
+     * replace this phone's, and so does the whitelist (written by the caller). Nothing changes if the file is not a backup of this app, or is damaged anywhere.
      */
     fun restore(context: Context, text: String, only: Set<Section> = Section.entries.toSet()): Result {
         val o = open(text)
@@ -160,7 +173,13 @@ object SettingsBackup {
         val themes = if (Section.THEMES in only && o.themes != null && o.themes.length() > 0) {
             try { CustomThemes.parseBackup(o.themes) } catch (e: CustomThemes.BadThemeFile) { return Result.Refused("The backup is damaged (a theme: ${e.message})") }
         } else null
-        var count = 0
+        val whitelist = if (Section.WHITELIST in only && o.whitelist != null) (0 until o.whitelist.length()).map { i ->
+            val e = o.whitelist.optJSONObject(i)
+            val mac = e?.optString("mac")?.trim().orEmpty()
+            if (mac.isEmpty()) return Result.Refused("The backup is damaged (whitelist entry ${i + 1})")
+            WhitelistEntity(mac, e!!.optString("note"))
+        } else null
+        var count = whitelist?.size ?: 0
         for (p in parts) {
             val values = plan[p.file] ?: continue
             val sp = context.getSharedPreferences(p.file, Context.MODE_PRIVATE)
@@ -180,7 +199,7 @@ object SettingsBackup {
             e.commit() // written before the app restarts
         }
         if (themes != null) count += CustomThemes.applyBackup(context, themes)
-        return Result.Restored(count)
+        return Result.Restored(count, whitelist)
     }
 
     fun fileName(now: Long = System.currentTimeMillis()): String =

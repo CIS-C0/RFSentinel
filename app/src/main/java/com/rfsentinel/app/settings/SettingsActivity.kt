@@ -1588,10 +1588,16 @@ class SettingsActivity : AppCompatActivity() {
     /** Settings > Data > Back up settings: writes the backup where you choose. */
     private val backupPicker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri == null) return@registerForActivityResult
-        val ok = runCatching {
-            contentResolver.openOutputStream(uri, "wt")!!.use { it.write(com.rfsentinel.app.util.SettingsBackup.create(this).toByteArray(Charsets.UTF_8)) }
-        }.isSuccess
-        Toast.makeText(this, if (ok) "Settings backed up. API keys and risk acknowledgements are not in the file." else "Couldn't write the file", Toast.LENGTH_LONG).show()
+        lifecycleScope.launch {
+            val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    val whitelist = com.rfsentinel.app.data.AppDatabase.getInstance(this@SettingsActivity).whitelistDao().list()
+                    val text = com.rfsentinel.app.util.SettingsBackup.create(this@SettingsActivity, whitelist = whitelist)
+                    contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray(Charsets.UTF_8)) }
+                }.isSuccess
+            }
+            Toast.makeText(this@SettingsActivity, if (ok) "Settings backed up. API keys and risk acknowledgements are not in the file." else "Couldn't write the file", Toast.LENGTH_LONG).show()
+        }
     }
 
     /** Settings > Data > Restore settings: reads a backup, asks, applies it and restarts the app. */
@@ -1599,7 +1605,11 @@ class SettingsActivity : AppCompatActivity() {
         if (uri == null) return@registerForActivityResult
         val backup = com.rfsentinel.app.util.SettingsBackup
         val text = runCatching { contentResolver.openInputStream(uri)!!.use { backup.read(it) } }.getOrNull()
-        if (text == null) { Toast.makeText(this, "Couldn't read that file (or it is too big for a backup)", Toast.LENGTH_LONG).show(); return@registerForActivityResult }
+        if (text == null) {
+            MaterialAlertDialogBuilder(this).setTitle("Not restored").setMessage("Couldn't read that file, or it is too big for a settings backup. " +
+                "A device export (Export > Everything) goes back in with Import device history.").setPositiveButton("OK", null).show()
+            return@registerForActivityResult
+        }
         val found = when (val i = backup.inspect(text)) {
             is com.rfsentinel.app.util.SettingsBackup.Inspect.Bad -> {
                 MaterialAlertDialogBuilder(this).setTitle("Not restored").setMessage(i.why).setPositiveButton("OK", null).show()
@@ -1622,9 +1632,15 @@ class SettingsActivity : AppCompatActivity() {
                 when (val r = backup.restore(this, text, chosen)) {
                     is com.rfsentinel.app.util.SettingsBackup.Result.Refused -> MaterialAlertDialogBuilder(this)
                         .setTitle("Not restored").setMessage(r.why).setPositiveButton("OK", null).show()
-                    is com.rfsentinel.app.util.SettingsBackup.Result.Restored -> {
+                    is com.rfsentinel.app.util.SettingsBackup.Result.Restored -> lifecycleScope.launch {
                         restored = true
-                        Toast.makeText(this, "Restored ${r.count} settings - restarting", Toast.LENGTH_LONG).show()
+                        // The whitelist table is written before the restart.
+                        r.whitelist?.let { list ->
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                com.rfsentinel.app.data.AppDatabase.getInstance(this@SettingsActivity).whitelistDao().replaceAll(list)
+                            }
+                        }
+                        Toast.makeText(this@SettingsActivity, "Restored ${r.count} settings - restarting", Toast.LENGTH_LONG).show()
                         // A fresh start picks everything up (themes, filters, services read their settings at start-up).
                         packageManager.getLaunchIntentForPackage(packageName)?.let {
                             startActivity(it.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK))

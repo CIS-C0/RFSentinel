@@ -24,7 +24,8 @@ import java.util.TimeZone
  */
 object DeviceHistoryImport {
 
-    const val MAX_BYTES = 120L * 1024 * 1024
+    /** Streamed, so only a guard against a wrong file: the "everything" export of a long-used phone passes 120 MB. */
+    const val MAX_BYTES = 2L * 1024 * 1024 * 1024
     /** The byte-order mark a spreadsheet may put before the first column name. */
     private val BOM = 0xFEFF.toChar().toString()
     private const val BATCH = 500
