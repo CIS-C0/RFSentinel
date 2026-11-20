@@ -162,6 +162,11 @@ object LinkStore {
     /** mqtts:// only takes a certificate a public authority signed (on) or any, like a self-signed one (off). */
     fun mqttCheckCert(c: Context) = sp(c).getBoolean("mqtt_check_cert", true)
     fun setMqttCheckCert(c: Context, on: Boolean) = sp(c).edit { putBoolean("mqtt_check_cert", on) }
+    /** Also publish each packet as readable JSON on <topic>/json (off): for the user's own tools, never on a public broker. */
+    fun mqttPlain(c: Context) = sp(c).getBoolean("mqtt_plain", false) && !publicBroker(mqttBroker(c))
+    fun setMqttPlain(c: Context, on: Boolean) = sp(c).edit { putBoolean("mqtt_plain", on) }
+    /** The default broker is open to anyone: readable JSON there would publish where you are. */
+    fun publicBroker(url: String) = MqttRelay.parse(url)?.host.equals(MqttRelay.parse(MQTT_DEFAULT_BROKER)?.host, ignoreCase = true)
 
     private var meshNext = -1L
     private var meshReserved = 0L

@@ -127,6 +127,14 @@ class MeshLinkTest {
         val back = MeshCodec.open(key, full)!!
         assertTrue(back.lat.isNaN())
         assertTrue(back.devices.size in 5 until 60)
+
+        // Readable JSON for the MQTT relay's /json topic: the same packet, opened.
+        val j = org.json.JSONObject(MeshCodec.json(MeshCodec.open(key, sealed)!!))
+        assertEquals("2a", j.getString("origin")); assertEquals(10.5, j.getDouble("lat"), 1e-5); assertEquals("Pixel 7", j.getString("name"))
+        val d0 = j.getJSONArray("devices").getJSONObject(0)
+        assertEquals("AA:BB:CC:00:11:22", d0.getString("mac")); assertEquals("BLE", d0.getString("source")); assertEquals(-61, d0.getInt("rssi"))
+        assertEquals("BODY_CAM", d0.getJSONArray("hits").getJSONObject(1).getString("category"))
+        assertTrue(org.json.JSONObject(MeshCodec.json(back)).isNull("lat")) // no position: null, not NaN
     }
 
     @Test

@@ -22,6 +22,7 @@ import javax.net.ssl.X509TrustManager
  * Sentinel Link over the internet: the same sealed packets as the Meshtastic node ([MeshCodec], AES-GCM with a key
  * from the group key), published to an MQTT broker the user chooses (their own Mosquitto, say) on a topic made from
  * the group key. The broker sees encrypted bytes, the phone's IP and when it sends; nothing else. Reconnects on its own.
+ * With "Readable JSON" on (own broker only), each packet also goes out opened, as JSON on <topic>/json ([MeshCodec.json]).
  */
 object MqttRelay {
     private const val TAG = "MqttRelay"
@@ -77,10 +78,14 @@ object MqttRelay {
     @Volatile private var socket: Socket? = null
     @Volatile private var out: OutputStream? = null
     @Volatile private var lastWrite = 0L
+    /** The message key while readable JSON is on, else null. */
+    @Volatile private var plainKey: ByteArray? = null
 
     /** Connects (again, when anything changed); [packets] gets the group's payloads, on the relay's thread. */
     @Synchronized
-    fun start(broker: Broker, user: String?, password: String?, checkCert: Boolean, groupKey: ByteArray, packets: (ByteArray) -> Unit) {
+    fun start(broker: Broker, user: String?, password: String?, checkCert: Boolean, groupKey: ByteArray, plain: Boolean = false,
+              packets: (ByteArray) -> Unit) {
+        plainKey = if (plain) MeshCodec.messageKey(groupKey) else null
         val c = Config(broker, user?.takeIf { it.isNotBlank() }, password?.takeIf { it.isNotEmpty() }, topic(groupKey), checkCert)
         if (c == config && thread?.isAlive == true) return
         stop()
@@ -101,7 +106,9 @@ object MqttRelay {
     fun send(payload: ByteArray): Boolean {
         val c = config ?: return false
         if (!ready) return false
-        return write(MqttCodec.publish(c.topic, payload)).also { if (it) lastSent = System.currentTimeMillis() }
+        val sent = write(MqttCodec.publish(c.topic, payload)).also { if (it) lastSent = System.currentTimeMillis() }
+        plainKey?.let { k -> MeshCodec.open(k, payload)?.let { m -> runCatching { MeshCodec.json(m) }.getOrNull() }?.let { write(MqttCodec.publish(c.topic + "/json", it.toByteArray())) } }
+        return sent
     }
 
     /** Called every few seconds: a ping when nothing went out for a while, so the broker keeps the session. */

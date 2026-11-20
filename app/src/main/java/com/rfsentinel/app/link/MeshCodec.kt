@@ -271,6 +271,31 @@ object MeshCodec {
     }
 
     /** A message as a Sentinel Link batch: seq kept apart from Bluetooth batches' (negative), already one hop away. */
+    /** [m] as readable JSON, for the MQTT relay's <topic>/json: what the packet carries, nothing more. */
+    fun json(m: Message): String = org.json.JSONObject().apply {
+        fun num(d: Double) = if (d.isNaN()) org.json.JSONObject.NULL else d
+        put("origin", "%x".format(m.origin)); put("time", m.time)
+        put("lat", num(m.lat)); put("lon", num(m.lon)); put("name", m.name ?: org.json.JSONObject.NULL)
+        if (m.devices.isNotEmpty()) put("devices", org.json.JSONArray(m.devices.map { d ->
+            org.json.JSONObject().put("mac", d.mac).put("source", d.source.name).put("rssi", d.rssi).put("ageSec", d.ageSec)
+                .put("name", d.name ?: org.json.JSONObject.NULL)
+                .put("hits", org.json.JSONArray(d.hits.map { h ->
+                    org.json.JSONObject().put("category", h.category.name).put("label", h.label).put("confidence", h.confidence)
+                        .put("evidence", h.evidence).put("source", h.source)
+                }))
+        }))
+        if (m.planes.isNotEmpty()) put("planes", org.json.JSONArray(m.planes.map { p ->
+            org.json.JSONObject().put("hex", p.hex).put("callsign", p.callsign).put("registration", p.registration).put("type", p.type)
+                .put("owner", p.owner).put("lat", p.lat).put("lon", p.lon).put("altitudeFt", p.altitudeFt).put("speedKt", p.speedKt)
+                .put("trackDeg", p.trackDeg).put("military", p.military)
+        }))
+        m.hardware?.let { hw -> put("hardware", org.json.JSONArray(hw.map { it.status })) }
+        m.place?.let { pl -> put("place", org.json.JSONArray(pl.map { n ->
+            org.json.JSONObject().put("kind", when (n.kind) { PLACE_GONE -> "gone"; PLACE_BACK -> "back"; PLACE_MOVED -> "moved"; else -> "status" })
+                .put("mac", n.mac).put("rssi", n.rssi).put("value", n.value).put("text", n.text)
+        })) }
+    }.toString()
+
     fun toBatch(m: Message): LinkCodec.Batch = LinkCodec.Batch(
         m.origin, m.counter or Int.MIN_VALUE, 1, m.time, m.lat, m.lon,
         m.devices.map { d ->
