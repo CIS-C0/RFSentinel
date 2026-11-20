@@ -18,10 +18,10 @@ import java.util.Locale
 /**
  * Tools › Voice history (and P25 talkgroups › Voice history): the saved voice ([P25Record.speechFiles]), P25 calls and the
  * transmissions the radio sweep played or recorded, newest first, with their text once transcribed ([P25Transcribe]).
- * Tap one to hear it.
+ * Tap one to hear it; Delete then removes it and its text.
  */
 object VoiceHistory {
-    fun show(a: AppCompatActivity) = a.lifecycleScope.launch {
+    fun show(a: AppCompatActivity): kotlinx.coroutines.Job = a.lifecycleScope.launch {
         class Loaded(val calls: List<P25Record.Saved>, val texts: List<String?>, val watched: P25Log.Watched, val rr: P25Log.Watched)
         val l = withContext(Dispatchers.IO) {
             val c = P25Record.speechFiles(a).mapNotNull { P25Record.saved(it) }
@@ -40,12 +40,14 @@ object VoiceHistory {
                 (l.texts[i]?.let { "\n“$it”" } ?: "")
         }.toTypedArray()
         var player: android.media.MediaPlayer? = null
+        var picked = -1
         fun stop() { player?.release(); player = null }
         val stopOnLeave = LifecycleEventObserver { _, e -> if (e == Lifecycle.Event.ON_STOP) stop() }
         a.lifecycle.addObserver(stopOnLeave)
         com.google.android.material.dialog.MaterialAlertDialogBuilder(a)
             .setTitle("Voice history")
             .setSingleChoiceItems(labels, -1) { _, i ->
+                picked = i
                 stop()
                 player = runCatching {
                     android.media.MediaPlayer().apply {
@@ -58,6 +60,21 @@ object VoiceHistory {
             .setNeutralButton("Share") { _, _ ->
                 com.rfsentinel.app.util.Exporter.shareFiles(a, l.calls.map { it.file }, "audio/wav",
                     "RF Sentinel voice (${l.calls.size})", "Share voice history")
+            }
+            .setNegativeButton("Delete") { _, _ ->
+                val c = l.calls.getOrNull(picked)
+                if (c == null) {
+                    android.widget.Toast.makeText(a, "Tap a recording first, then Delete", android.widget.Toast.LENGTH_SHORT).show()
+                    show(a); return@setNegativeButton
+                }
+                com.google.android.material.dialog.MaterialAlertDialogBuilder(a)
+                    .setTitle("Delete this recording?")
+                    .setMessage(labels[picked])
+                    .setPositiveButton("Delete") { _, _ ->
+                        a.lifecycleScope.launch { withContext(Dispatchers.IO) { P25Record.delete(c.file) }; show(a) }
+                    }
+                    .setNegativeButton("Cancel") { _, _ -> show(a) }
+                    .show()
             }
             .setPositiveButton("Close", null)
             .setOnDismissListener { stop(); a.lifecycle.removeObserver(stopOnLeave) }
