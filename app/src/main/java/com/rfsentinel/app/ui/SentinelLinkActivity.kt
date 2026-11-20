@@ -5,6 +5,7 @@ import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
+import com.rfsentinel.app.util.Prefs
 import android.text.format.DateUtils
 import android.view.Gravity
 import android.view.View
@@ -161,7 +162,7 @@ class SentinelLinkActivity : AppCompatActivity() {
             setPadding(pad(16), pad(16), pad(16), pad(16))
             addView(intro); addView(status); addView(nameLabel); addView(name); addView(share); addView(alertSwitch(PhoneLink.Path.BLUETOOTH))
             addView(watchOnlyBox)
-            addView(hostButton); addView(joinButton); addView(listHeader); addView(list); addView(hardwareAlertRow); addView(meshSection); addView(mqttSection); addView(leave)
+            addView(hostButton); addView(joinButton); addView(listHeader); addView(list); addView(hardwareAlertRow); addView(meshSection); addView(mqttSection); addView(takSection()); addView(leave)
         }
         val scroll = ScrollView(this).apply { addView(column) }
         setContentView(scroll)
@@ -291,6 +292,49 @@ class SentinelLinkActivity : AppCompatActivity() {
     }
 
     /** Internet relay: on / off, the MQTT broker and its login, how it's doing. */
+    /** Send matches to TAK ([com.rfsentinel.app.link.TakCot]): works with or without a group. */
+    private fun takSection(): LinearLayout {
+        val tak = com.rfsentinel.app.link.TakCot
+        val header = TextView(this).apply {
+            textSize = 16f; setTypeface(typeface, Typeface.BOLD); text = "TAK"; setPadding(0, pad(20), 0, pad(4))
+        }
+        val about = TextView(this).apply {
+            textSize = 14f
+            setLineSpacing(0f, 1.2f)
+            text = "Each logged match also shows on ATAK, WinTAK or iTAK as a Cursor on Target marker where this phone was when " +
+                "it heard it, refreshed at most every 30 seconds and greyed after 10 minutes. It goes over UDP, unencrypted, to " +
+                "TAK's multicast ${tak.DEFAULT_TARGET}, which ATAK on this phone or the same WiFi hears, or to the host:port " +
+                "of a TAK server's UDP input. Nothing is sent while it's off."
+        }
+        val address = EditText(this).apply {
+            setSingleLine(true)
+            hint = tak.DEFAULT_TARGET
+            setText(Prefs.takTarget(this@SentinelLinkActivity))
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            fun commit() {
+                val t = text.toString().trim()
+                if (t.isNotEmpty() && tak.parse(t) == null) {
+                    Toast.makeText(this@SentinelLinkActivity, "Not an address: host or host:port", Toast.LENGTH_LONG).show()
+                    setText(Prefs.takTarget(this@SentinelLinkActivity)); return
+                }
+                Prefs.setTakTarget(this@SentinelLinkActivity, t)
+            }
+            setOnFocusChangeListener { _, focused -> if (!focused) commit() }
+            setOnEditorActionListener { v, _, _ -> commit(); v.clearFocus(); false }
+        }
+        val switch = SwitchMaterial(this).apply {
+            text = "Send matches to TAK"
+            isChecked = Prefs.takOn(this@SentinelLinkActivity)
+            setOnCheckedChangeListener { _, on -> Prefs.setTakOn(this@SentinelLinkActivity, on) }
+            setPadding(0, pad(8), 0, pad(8))
+        }
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(header); addView(about); addView(switch); addView(address)
+            setPadding(0, 0, 0, pad(12))
+        }
+    }
+
     private fun mqttSection(): LinearLayout {
         val header = TextView(this).apply {
             textSize = 16f; setTypeface(typeface, Typeface.BOLD); text = "Internet relay"; setPadding(0, pad(20), 0, pad(4))
@@ -359,12 +403,33 @@ class SentinelLinkActivity : AppCompatActivity() {
             }
             setPadding(0, pad(8), 0, 0)
         }
+        val plain = SwitchMaterial(this).apply {
+            text = "Readable JSON for your own tools"
+            isChecked = LinkStore.mqttPlain(ctx)
+            setOnCheckedChangeListener { b, on ->
+                if (on && LinkStore.publicBroker(LinkStore.mqttBroker(ctx))) {
+                    b.isChecked = false
+                    Toast.makeText(ctx, "Only on your own broker: the default one is public, anyone could read where you are", Toast.LENGTH_LONG).show()
+                    return@setOnCheckedChangeListener
+                }
+                if (!on) { LinkStore.setMqttPlain(ctx, false); ScanForegroundService.refreshLink(ctx); refresh(); return@setOnCheckedChangeListener }
+                MaterialAlertDialogBuilder(ctx)
+                    .setTitle("Readable JSON")
+                    .setMessage("Each packet also goes out unencrypted as JSON on the group's topic + /json: your position, the devices " +
+                        "and what they matched. Anyone who can read your broker can read it. Use your own broker, with a password and mqtts://.")
+                    .setPositiveButton("Turn on") { _, _ -> LinkStore.setMqttPlain(ctx, true); ScanForegroundService.refreshLink(ctx); refresh() }
+                    .setNegativeButton("Cancel") { _, _ -> b.isChecked = false }
+                    .setOnCancelListener { b.isChecked = false }
+                    .show()
+            }
+            setPadding(0, pad(8), 0, 0)
+        }
         mqttStatus = TextView(this).apply { textSize = 14f; setPadding(0, pad(8), 0, 0) }
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             addView(header); addView(about); addView(switch); addView(alertSwitch(PhoneLink.Path.NET))
             views.forEach { addView(it) }
-            addView(checkCert); addView(mqttStatus)
+            addView(checkCert); addView(plain); addView(mqttStatus)
             setPadding(0, 0, 0, pad(12))
         }
     }

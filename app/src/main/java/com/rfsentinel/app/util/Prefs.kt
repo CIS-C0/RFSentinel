@@ -758,6 +758,12 @@ object Prefs {
     /** Sentinel Link: what linked Sentinels hear is saved in this phone's History too. */
     fun saveLinked(context: Context) = bool(context, "save_linked", true)
     fun setSaveLinked(context: Context, v: Boolean) = setBool(context, "save_linked", v)
+    /** Each logged match also goes to TAK as a CoT marker ([com.rfsentinel.app.link.TakCot]), off by default. */
+    fun takOn(context: Context) = bool(context, "tak_on", false)
+    fun setTakOn(context: Context, v: Boolean) = setBool(context, "tak_on", v)
+    /** "host:port" for TAK, TAK's own multicast by default. */
+    fun takTarget(context: Context) = str(context, "tak_target").ifBlank { com.rfsentinel.app.link.TakCot.DEFAULT_TARGET }
+    fun setTakTarget(context: Context, v: String) = setStr(context, "tak_target", v.trim())
     /** Linked phones with a USB WiFi adapter each visit part of the channels ([com.rfsentinel.app.usb.UsbWifi.linkSplit]). */
     fun linkWifiShare(context: Context) = bool(context, "link_wifi_share", false)
     fun setLinkWifiShare(context: Context, v: Boolean) = setBool(context, "link_wifi_share", v)

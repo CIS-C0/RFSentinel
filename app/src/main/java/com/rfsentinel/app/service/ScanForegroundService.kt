@@ -1169,7 +1169,7 @@ class ScanForegroundService : Service() {
             mqttLastName = 0L
             pipeline.postDelayed(mqttFlush, MQTT_TICK_MS)
         }
-        relay.start(broker, link.mqttUser(this), link.mqttPassword(this), link.mqttCheckCert(this), key) { com.rfsentinel.app.link.PhoneLink.meshIn(it, viaNet = true) }
+        relay.start(broker, link.mqttUser(this), link.mqttPassword(this), link.mqttCheckCert(this), key, link.mqttPlain(this)) { com.rfsentinel.app.link.PhoneLink.meshIn(it, viaNet = true) }
     }
 
     private fun stopMqtt() {
@@ -1465,6 +1465,7 @@ class ScanForegroundService : Service() {
         serviceScope.launch {
             AppDatabase.getInstance(this@ScanForegroundService).detectionDao().insert(row)
         }
+        com.rfsentinel.app.link.TakCot.send(this, mac, hit.label, hit.category.shortTag, hit.confidence, latitude, longitude, now = now)
     }
 
     /**
@@ -2360,6 +2361,8 @@ class ScanForegroundService : Service() {
                 )
             )
         }
+        if (alert.log) com.rfsentinel.app.link.TakCot.send(this, alert.key, hit.label, hit.category.shortTag, hit.confidence,
+            alert.lat, alert.lon, air = hit.category == Category.AIRCRAFT, now = now)
         // An aircraft or Waze report hidden from the list (swiped left): logged, no alert.
         if (alert.level != com.rfsentinel.app.online.WazePolice.Level.LOG &&
             // A circling aircraft you asked to hear about (Settings) alerts below the threshold: it's never strong.
