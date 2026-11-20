@@ -20,6 +20,25 @@ object DeviceRows {
     const val WEAK_COLOR = 0xFFB26A00.toInt()
     const val WHITELIST_COLOR = 0xFF6B7B80.toInt()
 
+    private val STATUS = listOf("FAR" to 0xFF2E7D32.toInt(), "NEARBY" to 0xFFB8A000.toInt(),
+        "CLOSE" to 0xFFE65100.toInt(), "VERY CLOSE" to 0xFFC62828.toInt())
+
+    /**
+     * Settings › Appearance › Status colours: a box on a flagged row, green far, yellow nearby, orange close, red very
+     * close, from its last 3 signal readings; one step up, as CLOSING, when that is 6 dB or more over what it was
+     * 15 s to 1 min before. Signal is a rough distance: a hint beside the flashing rows, which it never replaces.
+     */
+    fun status(history: List<com.rfsentinel.app.service.DeviceRegistry.Sample>): Pair<String, Int>? {
+        if (history.isEmpty()) return null
+        fun median(l: List<Int>) = l.sorted()[l.size / 2]
+        val level = median(history.takeLast(3).map { it.rssi })
+        val last = history.last().time
+        val before = history.filter { last - it.time in 15_000L..60_000L }.map { it.rssi }
+        val closing = before.isNotEmpty() && level - median(before) >= 6
+        val step = (when { level >= -55 -> 3; level >= -67 -> 2; level >= -80 -> 1; else -> 0 } + if (closing) 1 else 0).coerceAtMost(3)
+        return (if (closing) "CLOSING" else STATUS[step].first) to STATUS[step].second
+    }
+
     /** A match's tag, the same on every kind of row: "BODY CAM · strong 90%". */
     fun matchTag(name: String, confidence: Int) = "$name · ${Tier.of(confidence).label} $confidence%"
 

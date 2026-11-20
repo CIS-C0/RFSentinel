@@ -1364,6 +1364,7 @@ class MainActivity : AppCompatActivity() {
         val best = s.best
         val alert = best != null && !whitelisted
         val muted = alert && com.rfsentinel.app.data.AlertMutes.isMuted(this, s.mac, now)
+        val statusColours = Prefs.statusColours(this)
         val ageSec = (now - s.lastSeen) / 1000
         val age = com.rfsentinel.app.ui.DeviceRows.ago(ageSec)
         val badges = buildList {
@@ -1416,7 +1417,9 @@ class MainActivity : AppCompatActivity() {
             barBoost = if (s.source == Advert.Source.BLE) Prefs.btBarBoost(this) else 0,
             confidence = best?.confidence?.takeIf { !whitelisted },
             canMute = alert,
-            muted = muted
+            muted = muted,
+            badges = listOfNotNull(com.rfsentinel.app.ui.DeviceRows.status(s.history)
+                ?.takeIf { alert && statusColours && com.rfsentinel.app.ui.LiveWindow.inRange(s, now) })
         )
     }
 

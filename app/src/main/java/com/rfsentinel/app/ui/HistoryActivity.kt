@@ -117,6 +117,7 @@ class HistoryActivity : AppCompatActivity() {
         val day = 24 * 60 * 60 * 1000L
         val now = System.currentTimeMillis()
         return when (binding.rangeChips.checkedChipId) {
+            R.id.range30m -> now - 30 * 60_000L
             R.id.range24h -> now - day
             R.id.range7d -> now - 7 * day
             R.id.range30d -> now - 30 * day
@@ -187,8 +188,13 @@ class HistoryActivity : AppCompatActivity() {
         // Mapbox's night look is lit: a dot that gives off no light of its own goes black on it, so there it glows.
         val glow = if (m.provider == MapEngine.Provider.MAPBOX) "\"circle-emissive-strength\":1," else ""
         m.addLayer(JSONObject("""{"id":"$POINTS","type":"circle","source":"$POINTS","paint":{
-            $glow"circle-color":["to-color",["get","color"]],"circle-radius":6,
+            $glow"circle-color":["to-color",["get","color"]],"circle-radius":["case",[">",["get","n"],1],8,6],
+            "circle-opacity":["interpolate",["linear"],["get","n"],1,0.45,3,1],
             "circle-stroke-color":"#FFFFFF","circle-stroke-width":1.5,"circle-pitch-alignment":"viewport"}}"""))
+        // How many at one spot, on its dot.
+        m.addLayer(JSONObject("""{"id":"$POINTS-count","type":"symbol","source":"$POINTS","filter":[">",["get","n"],1],
+            "layout":{"text-field":["to-string",["get","n"]],"text-font":${org.json.JSONArray(m.labelFont)},"text-size":10,
+            "text-allow-overlap":true,"text-ignore-placement":true},"paint":{"text-color":"#FFFFFF"}}"""))
     }
 
     private fun render() {
@@ -208,8 +214,11 @@ class HistoryActivity : AppCompatActivity() {
                     History.runs(shown, ENCOUNTER_GAP_MS).filter { it.size >= 2 }.map { run ->
                         GeoJson.feature(GeoJson.line(run.map { it.lat!! to it.lon!! }), "color" to color(run.first()))
                     }))
-                mm.setData(POINTS, GeoJson.collection(shown.withIndex().map { (i, e) ->
-                    GeoJson.feature(GeoJson.point(e.lat!!, e.lon!!), "i" to i.toString(), "color" to color(e))
+                // One dot a spot (about 11 m), faint for 1 sighting there and solid from 3; the newest one's colour.
+                mm.setData(POINTS, GeoJson.collection(MapGeo.bySpot(shown.withIndex().toList(), 1e4, { it.value.lat!! }, { it.value.lon!! }).map { g ->
+                    val e = g.maxBy { it.value.time }.value
+                    GeoJson.feature(GeoJson.point(e.lat!!, e.lon!!), "i" to g.joinToString(",") { it.index.toString() },
+                        "color" to color(e), "n" to g.size)
                 }))
             }
         }
@@ -257,14 +266,24 @@ class HistoryActivity : AppCompatActivity() {
         val r = 18f * resources.displayMetrics.density
         m.query(android.graphics.RectF(x - r, y - r, x + r, y + r), listOf(POINTS to "i")) { found ->
             if (isFinishing || isDestroyed) return@query
-            val e = found.firstOrNull()?.firstOrNull()?.toIntOrNull()?.let { shown.getOrNull(it) } ?: return@query
-            MaterialAlertDialogBuilder(this)
-                .setTitle(e.label)
-                .setMessage("${dateFmt.format(Date(e.time))}\n${e.mac}")
-                .setPositiveButton("Details") { _, _ -> DeviceActions.openDetails(this, e.mac) }
+            val here = found.firstOrNull()?.firstOrNull()?.split(",")?.mapNotNull { it.toIntOrNull()?.let { i -> shown.getOrNull(i) } }
+                ?.sortedByDescending { it.time }.orEmpty()
+            if (here.size == 1) showEvent(here[0])
+            else if (here.size > 1) MaterialAlertDialogBuilder(this)
+                .setTitle("${here.size} sightings here")
+                .setItems(here.map { "${it.label} · ${dateFmt.format(Date(it.time))}" }.toTypedArray()) { _, i -> showEvent(here[i]) }
                 .setNegativeButton("Close", null)
                 .show()
         }
+    }
+
+    private fun showEvent(e: HistoryEvent) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(e.label)
+            .setMessage("${dateFmt.format(Date(e.time))}\n${e.mac}")
+            .setPositiveButton("Details") { _, _ -> DeviceActions.openDetails(this, e.mac) }
+            .setNegativeButton("Close", null)
+            .show()
     }
 
     override fun onStart() { super.onStart(); engine?.onStart() }

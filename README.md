@@ -199,7 +199,7 @@ Everything the app does, grouped by area.
 - **Address-rotation linking:** keeps following a device when its Bluetooth address changes, including in Locate
 - **Live read card:** while Locate follows a device or a flagged device is being pinpointed, the map and the floating map show its flag, signal bar, dBm, rough distance and whether you're getting closer, with a ✕ to close it
 - **GPS dot:** the main screen's status shows red without a position, yellow when rougher than 20 m, green at 20 m or better
-- **Pinpointing:** a flagged device you pass from more than one side is placed where it most likely is, from its signal at every spot you passed (multilateration), with a circle it's very likely in; a straight road that can't tell the side gets a circle covering both. GPS runs precise every second while a flagged device is in range (Settings → Location, on by default)
+- **Pinpointing:** a flagged device you pass from more than one side is placed where it most likely is, from its signal at every spot you passed (multilateration), with a circle it's very likely in (a dot too once the circle is 35 m or less); a straight road that can't tell the side gets a circle covering both. GPS runs precise every second while a flagged device is in range (Settings → Location, on by default)
 - **Follower alerts:** a tracker or flagged device that stays with you (default 10 min and 800 m, adjustable) raises *may be following you*, and so does one that keeps turning up - heard at 3 or more places along your way within 2 hours, even with gaps between
 - **Watch this place** (Settings → Trackers & followers): leave the phone in one place (home, a hotel room); it learns every device around for 5 minutes, then reports what is new, gone, back or moving
 - **Remote ID drones** decoded live, with a *drone overhead* alert within 200 m
@@ -245,10 +245,11 @@ Everything the app does, grouped by area.
 <details>
 <summary><b>Map &amp; history</b></summary>
 
-- Vector map ([MapLibre](https://maplibre.org) with [OpenFreeMap](https://openfreemap.org), OpenStreetMap data; light and a readable night map with shops, landmarks, one-way arrows and highway shields; optional [Mapbox](https://www.mapbox.com) map) with your GPS trace and every device pinned where its signal peaked, flagged devices at their pinpointed spot with its circle (tap a spot to list everything heard there), the same filter chips as the list (including Waze, which draws reports as coloured dots by type), self-centering
+- Vector map ([MapLibre](https://maplibre.org) with [OpenFreeMap](https://openfreemap.org), OpenStreetMap data; light and a readable night map with shops, landmarks, one-way arrows and highway shields; optional [Mapbox](https://www.mapbox.com) map) with your GPS trace and every device pinned where its signal peaked, flagged devices at their pinpointed spot with its circle (devices at one spot merge into one dot with how many; tap it to list them), the same filter chips as the list (including Waze, which draws reports as coloured dots by type), self-centering
 - Optional **cell tower layer** (or the map's **Cells** chip): every tower seen while scanning, at the spot where its signal was strongest
 - **Record traces** of your route and the devices along it, with the screen off (with the network names each device asked for, when a USB adapter or Marauder board is plugged in)
-- **History map & timeline:** heatmap of where flagged equipment showed up, and when (hour of day, day of week)
+- **History map & timeline:** heatmap of where flagged equipment showed up, and when (hour of day, day of week); 30 min, 24 h, 7 and 30 days or all; sightings at one spot merge into one dot, faint for one and solid from three
+- **Status colours** (optional, Settings → Appearance): a box on flagged rows, green far to red very close, and CLOSING when the signal rises fast; alert rows still flash
 - **Sightings map:** on a device's page, every spot that device was heard, joined in time order for each encounter
 - The main screen's map and the full screen map show the same view (place, zoom, heading, tilt, following you) and the same place card and routes
 - **Snapshots:** menu ⋮ → *Save snapshot* keeps the device list exactly as shown, to look at again later (History → *Snapshots*, beside the recorded traces), on the map, or exported

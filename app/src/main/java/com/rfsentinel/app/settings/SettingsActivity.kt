@@ -3331,6 +3331,17 @@ class SettingsActivity : AppCompatActivity() {
             Prefs.setFullscreen(this, on)
             (application as com.rfsentinel.app.RFSentinelApp).applyFullscreen(this) // right away
         }
+        // Built here, not in the XML: the Settings binding is at Java's parameter limit.
+        (binding.listSizeGroup.parent as android.view.ViewGroup).let { box ->
+            val sw = SwitchMaterial(this).apply {
+                text = "Status colours"
+                bindLive(Prefs.statusColours(this@SettingsActivity)) { Prefs.setStatusColours(this@SettingsActivity, it) }
+            }
+            box.addView(sw, box.indexOfChild(binding.listSizeGroup) + 1)
+            info(sw, "A box on each flagged row while it's in range: green far, yellow nearby, orange close, red very close, " +
+                "and CLOSING when its signal is rising fast. Signal strength only roughly tells distance, so take it as a hint. " +
+                "Alert rows still flash as before.")
+        }
         binding.listSizeGroup.checkIndex(Prefs.listSize(this).ordinal)
         binding.listSizeGroup.setOnCheckedChangeListener { group, _ ->
             Prefs.ListSize.entries.getOrNull(group.checkedIndex)?.let { Prefs.setListSize(this, it) }

@@ -205,9 +205,14 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
             // A saved trace's every sighting of each device (Settings › Log every sighting in traces): small, under the devices.
             layer(PINGS, "circle", paint = o("circle-color" to color, "circle-radius" to 3.0, "circle-opacity" to 0.8)),
             // Devices: flagged ones bigger and on top, in the same colours as the list.
-            layer(DOTS, "circle", DEVICES, layout = o("circle-sort-key" to a("case", flagged, 1.0, 0.0)),
-                paint = o("circle-color" to color, "circle-radius" to a("case", flagged, 8.0, 5.0),
+            // Several at one spot: one dot with how many. A device only pinpointed to a wide circle shows as its circle.
+            layer(DOTS, "circle", DEVICES, filter = a("!=", get("ring"), true), layout = o("circle-sort-key" to a("case", flagged, 1.0, 0.0)),
+                paint = o("circle-color" to color, "circle-radius" to a("case", flagged, 8.0, a("!=", get("count"), ""), 8.0, 5.0),
                     "circle-stroke-color" to "#FFFFFF", "circle-stroke-width" to 1.5)),
+            layer("$DOTS-count", "symbol", DEVICES, filter = a("!=", get("count"), ""),
+                layout = o("text-field" to get("count"), "text-font" to font, "text-size" to 10.0,
+                    "text-allow-overlap" to true, "text-ignore-placement" to true),
+                paint = o("text-color" to "#FFFFFF")),
             layer(LABELS, "symbol", DEVICES, filter = flagged,
                 layout = o("text-field" to get("label"), "text-font" to font, "text-size" to 12.0, "text-anchor" to "top",
                     "text-offset" to a(0.0, 1.1), "text-optional" to true),
@@ -264,12 +269,17 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
     fun drawPins(shown: List<MapPin>) {
         if (!ready()) return
         pins = shown.associateBy { it.mac }
-        set(DEVICES, shown.map { p ->
+        // A merged dot carries every address, comma-separated, for the tap.
+        set(DEVICES, MapPins.dots(shown).map { g ->
+            val p = g[0]
+            GeoJson.feature(GeoJson.point(p.lat, p.lon), "mac" to g.joinToString(",") { it.mac }, "label" to p.label.take(32),
+                "color" to hex(p.color), "flagged" to p.flagged, "count" to if (g.size > 1) g.size.toString() else "")
+        } + shown.filter { MapPins.ringOnly(it) }.map { p ->
             GeoJson.feature(GeoJson.point(p.lat, p.lon), "mac" to p.mac, "label" to p.label.take(32),
-                "color" to hex(p.color), "flagged" to p.flagged)
+                "color" to hex(p.color), "flagged" to p.flagged, "count" to "", "ring" to true)
         })
         set(PRECISION, shown.filter { it.radiusM != null }.map { p ->
-            GeoJson.feature(GeoJson.polygon(MapGeo.circle(p.lat, p.lon, p.radiusM!!)), "color" to hex(p.color))
+            GeoJson.feature(GeoJson.polygon(MapGeo.circle(p.lat, p.lon, p.radiusM!!)), "mac" to p.mac, "color" to hex(p.color))
         })
     }
 
@@ -537,7 +547,7 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         val r = 22f * activity.resources.displayMetrics.density
         val box = RectF(x - r, y - r, x + r, y + r)
         val asked = listOf(AIRCRAFT to "hex", WAZE to "id", DRONES to "mac", DRONE_OPS to "mac", DOTS to "mac",
-            CAMERAS to "id", CCTV to "id", TOWERS to "id", WIGLE to "id", ASKED to "id", PINGS to "mac")
+            CAMERAS to "id", CCTV to "id", TOWERS to "id", WIGLE to "id", ASKED to "id", PINGS to "mac", "$PRECISION-fill" to "mac")
         map.query(box, asked) { found ->
             if (activity.isFinishing || activity.isDestroyed) return@query
             safe("tap") { showTapped(found, me) }
@@ -560,11 +570,13 @@ internal class RfMap(private val activity: AppCompatActivity, val map: MapEngine
         (drone + op).firstNotNullOfOrNull { drones[it] }?.let { s ->
             MapDialogs.showDrone(activity, s.mac, MapDialogs.droneDetails(s, s.remoteId!!)); return
         }
-        val here = (dots + found[10]).distinct().mapNotNull { pins[it] }
+        val here = (dots + found[10]).flatMap { it.split(",") }.distinct().mapNotNull { pins[it] }
         if (here.isNotEmpty()) { MapDialogs.showPins(activity, here); return }
         cams.firstNotNullOfOrNull { cameras[it] }?.let { c -> MapDialogs.showKnownCamera(activity, c) { maybeRedrawStatic(force = true) }; return }
         cctv.firstNotNullOfOrNull { cctvs[it] }?.let { MapDialogs.showCctv(activity, it); return }
-        tower.firstNotNullOfOrNull { towers[it] }?.let { MapDialogs.showTower(activity, it) }
+        tower.firstNotNullOfOrNull { towers[it] }?.let { MapDialogs.showTower(activity, it); return }
+        // Inside a pinpointed device's circle, with nothing else under the finger.
+        found[11].distinct().mapNotNull { pins[it] }.takeIf { it.isNotEmpty() }?.let { MapDialogs.showPins(activity, it) }
     }
 
     private operator fun <T> List<T>.component6() = this[5]

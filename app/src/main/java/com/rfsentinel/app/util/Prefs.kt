@@ -301,6 +301,10 @@ object Prefs {
         sp(context).getString("list_size", null)?.let { v -> ListSize.entries.firstOrNull { it.name == v } } ?: ListSize.REGULAR
     fun setListSize(context: Context, value: ListSize) = sp(context).edit { putString("list_size", value.name) }
 
+    /** Settings › Appearance › Status colours: a distance box on flagged rows, next to their flashing (off by default). */
+    fun statusColours(context: Context): Boolean = bool(context, "status_colours", false)
+    fun setStatusColours(context: Context, on: Boolean) = sp(context).edit { putBoolean("status_colours", on) }
+
     fun fullscreen(context: Context): Boolean = bool(context, "fullscreen", false)
     fun setFullscreen(context: Context, value: Boolean) = setBool(context, "fullscreen", value)
 

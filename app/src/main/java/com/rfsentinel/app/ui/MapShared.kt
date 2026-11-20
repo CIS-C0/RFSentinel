@@ -23,6 +23,15 @@ internal data class MapPin(
 )
 
 internal object MapPins {
+    /** A pinpointed device shows as a dot only once its circle is this small; wider, as its circle alone. */
+    const val PIN_MAX_M = 35.0
+
+    fun ringOnly(p: MapPin) = (p.radiusM ?: 0.0) > PIN_MAX_M
+
+    /** The dots to draw: devices at the same spot (about a metre) as one, flagged first (ring-only ones left out). */
+    fun dots(pins: List<MapPin>): List<List<MapPin>> =
+        MapGeo.bySpot(pins.filterNot { ringOnly(it) }, 1e5, { it.lat }, { it.lon }).map { g -> g.sortedByDescending { it.flagged } }
+
 
     /** The live devices [filter] shows, with a position (pinpointed, broadcast or where heard strongest). */
     fun live(context: android.content.Context, devices: List<DeviceRegistry.Snapshot>, filter: DeviceFilter): List<MapPin> =
@@ -280,6 +289,10 @@ internal object MapDialogs {
 /** Shapes on the map, as (lat, lon) rings (closed: the last point repeats the first). */
 internal object MapGeo {
     private const val EARTH_M = 6_371_000.0
+
+    /** Things at the same spot together: positions rounded to [perDeg] steps a degree (1e5 about 1 m, 1e4 about 11 m). */
+    fun <T> bySpot(items: List<T>, perDeg: Double, lat: (T) -> Double, lon: (T) -> Double): List<List<T>> =
+        items.groupBy { Math.round(lat(it) * perDeg) to Math.round(lon(it) * perDeg) }.values.toList()
 
     /** The point [distM] metres from ([lat], [lon]) towards [bearingDeg] (clockwise from north). */
     fun offset(lat: Double, lon: Double, distM: Double, bearingDeg: Double): Pair<Double, Double> {
