@@ -132,13 +132,13 @@ class MapFragment : Fragment() {
         internal const val FLAT_ZOOM_OFFSET = 0.5
 
         /** 3D tilt from speed: 50° in town (junctions readable), up to 60° on fast roads (further down the road). */
-        internal fun tiltFor(kmh: Float, base: Double = Prefs.MAP_TILT_DEFAULT): Double = when {
+        internal fun tiltFor(kmh: Float, base: Double = Prefs.MAP_TILT_DEFAULT, max: Double = MAX_TILT): Double = when {
             kmh <= 30f -> base
-            kmh >= 110f -> (base + 10.0).coerceAtMost(MAX_TILT)
-            else -> (base + (kmh - 30f) / 80f * 10.0).coerceAtMost(MAX_TILT)
-        }
+            kmh >= 110f -> base + 10.0
+            else -> base + (kmh - 30f) / 80f * 10.0
+        }.coerceAtMost(max)
 
-        /** The most the map engines tilt (MapLibre's limit). */
+        /** The most MapLibre tilts; Mapbox goes further ([MapEngine.Provider.maxTilt]). */
         internal const val MAX_TILT = 60.0
 
         /** Top padding (px) that puts the camera's focus - your arrow - [ARROW_HEIGHT] of the way down a [height] px map. */
@@ -366,6 +366,12 @@ class MapFragment : Fragment() {
         try {
             val e = MapEngine.create(act)
             engine = e
+            e.onFailed = {
+                if (alive && engine === e) {
+                    android.widget.Toast.makeText(act, "Mapbox isn't serving maps to this version: showing OpenFreeMap", android.widget.Toast.LENGTH_LONG).show()
+                    swapEngineIfChanged()
+                }
+            }
             markerKey = "" // the new engine has not been given the marker yet
             binding.map.addView(e.view, 0, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
             binding.osmCredit.text = e.credit
@@ -1115,7 +1121,7 @@ class MapFragment : Fragment() {
         if (is3d()) {
             val pad = followPadding(h, ARROW_HEIGHT)
             lastFollowPad = pad
-            m.follow(MapEngine.Follow.HEADING, pad, tiltFor(kmh, Prefs.map3dTilt(act)), if (userZoom) null else zoomFor(kmh, base) + boost, ms)
+            m.follow(MapEngine.Follow.HEADING, pad, tiltFor(kmh, Prefs.map3dTilt(act), m.provider.maxTilt), if (userZoom) null else zoomFor(kmh, base) + boost, ms)
         } else if (Prefs.mapHeadingUp(act)) {
             // Turning with you: pulls back at speed like the 3D view; a pinch is yours until the follow button.
             lastFollowPad = followPadding(h, 0.5)

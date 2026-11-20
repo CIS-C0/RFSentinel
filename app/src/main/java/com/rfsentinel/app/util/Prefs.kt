@@ -1038,7 +1038,7 @@ object Prefs {
     /** The 3D driving view's tilt (degrees) at street speed; it leans further back by up to 10 degrees on fast roads. */
     const val MAP_TILT_DEFAULT = 50.0
     fun map3dTilt(context: Context): Double =
-        sp(context).getFloat("map_3d_tilt", MAP_TILT_DEFAULT.toFloat()).toDouble().coerceIn(30.0, 60.0)
+        sp(context).getFloat("map_3d_tilt", MAP_TILT_DEFAULT.toFloat()).toDouble().coerceIn(0.0, 85.0)
     fun setMap3dTilt(context: Context, value: Double) = sp(context).edit().putFloat("map_3d_tilt", value.toFloat()).apply()
 
     /** The marker for your position on the map ([com.rfsentinel.app.ui.MarkerArt]): its style, colour and size (1.0 = 56 dp tall). */

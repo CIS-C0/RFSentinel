@@ -278,7 +278,7 @@ Everything the app does, grouped by area.
 - The ALFA AWUS036ACS's light blinks with received traffic (Settings → External hardware switches it off, for the adapters whose light the app can control)
 - RTL-SDR and HackRF transmissions show on the **radar** too, for a minute after they were last heard
 - **P25 control channel** (experimental, RTL-SDR): finds the trunked-radio control channel and lists which talkgroups get a channel and when (Tools → P25 talkgroups), with alerts for talkgroups you watch, nearby radios, patches and radio GPS positions. With more than one SDR scan ticked (radio sweep, ADS-B, P25) the dongle takes turns
-- **Listen to P25 voice** (experimental, off by default): follows clear calls on talkgroups you pick and plays them; encrypted calls are never decoded. *Save played calls* keeps them to listen again (Tools → *Voice history*), and *Transcribe saved voice* turns them into text (Whisper in the full version, or Android 13+'s on-device speech recognition)
+- **Listen to P25 voice** (experimental, off by default): follows clear calls on talkgroups you pick and plays them; encrypted calls are never decoded. *Save played calls* keeps them to listen again, share or delete (Tools → *Voice history*), and *Transcribe saved voice* turns them into text (Whisper in the full version, or Android 13+'s on-device speech recognition)
 - **Play voice transmissions** (radio sweep, off by default): a new transmission is tuned to and played until it goes quiet: analog FM, clear P25, DMR and NXDN48 digital voice, and walkie-talkies on their real channel
 - **Tire-pressure sensors** (RTL-SDR, 315 / 433.92 MHz): the same car's wheels heard with you place after place means a vehicle following you, and a tire sensor heard again and again with a flagged Bluetooth device ties the two to one vehicle. Your own car's sensors are learned first
 - **TETRA hunting**: extra RTL-SDRs watch 380-385 MHz nonstop, with a main-screen bar (Far / Closer / Very close) and beeps
@@ -440,7 +440,7 @@ Your position, recorded traces, the devices heard around you and the known camer
   view** - tilted in perspective with your position low on the screen, like a car
   navigation app. The sun / moon button switches the map between light and dark, the gear
   opens the map settings. **Settings → Map** sets the **default zoom** (17 is close to Waze;
-  the 3D view pulls back from it as you speed up), the **3D view angle** (30° to 60°) and the
+  the 3D view pulls back from it as you speed up), the **3D view angle** (0° to 60°, or 85° on Mapbox) and the
   **map provider**: OpenFreeMap (free, no account) or Mapbox. The floating mini map always
   uses OpenFreeMap.
 - **Cell towers** (Settings → *Map* → *Show cell towers*): towers seen while scanning,

@@ -35,6 +35,9 @@ class DriveCameraTest {
         assertEquals(40.0, MapFragment.tiltFor(0f, 40.0), 1e-9)
         assertEquals(50.0, MapFragment.tiltFor(130f, 40.0), 1e-9)
         assertEquals(60.0, MapFragment.tiltFor(130f, 58.0), 1e-9)
+        assertEquals(60.0, MapFragment.tiltFor(0f, 80.0), 1e-9) // a Mapbox angle kept after switching to OpenFreeMap
+        assertEquals(85.0, MapFragment.tiltFor(130f, 80.0, MapEngine.Provider.MAPBOX.maxTilt), 1e-9)
+        assertEquals(0.0, MapFragment.tiltFor(0f, 0.0), 1e-9)
     }
 
     @Test

@@ -18,9 +18,10 @@ import org.json.JSONObject
  */
 internal interface MapEngine {
 
-    enum class Provider(val key: String, val label: String) {
-        OPENFREEMAP("openfreemap", "OpenFreeMap (OpenStreetMap, free, no account)"),
-        MAPBOX("mapbox", "Mapbox");
+    /** [maxTilt]: the steepest 3D view angle the engine draws (MapLibre stops at 60°, Mapbox at 85°). */
+    enum class Provider(val key: String, val label: String, val maxTilt: Double) {
+        OPENFREEMAP("openfreemap", "OpenFreeMap (OpenStreetMap, free, no account)", 60.0),
+        MAPBOX("mapbox", "Mapbox", 85.0);
 
         companion object {
             fun parse(key: String?) = entries.firstOrNull { it.key == key } ?: OPENFREEMAP
@@ -110,6 +111,8 @@ internal interface MapEngine {
     fun follow(mode: Follow, topPaddingPx: Double?, tilt: Double, zoom: Double?, ms: Long)
     /** You panned away: the map stopped following. */
     var onFollowDismissed: (() -> Unit)?
+    /** The map provider refused the map (Mapbox: a revoked token...): [chosen] is OpenFreeMap from now on, swap to it. */
+    var onFailed: (() -> Unit)?
     /** Where the provider's logo and info button go: their top edge, at the start or (with [atEnd]) the end. */
     fun placeBranding(topPx: Int, atEnd: Boolean = false)
     /** The room the logo and info button take, in dp (width from the edge, height); none for a provider without them. */
@@ -117,7 +120,15 @@ internal interface MapEngine {
 
     companion object {
         /** Mapbox needs the full build (the FOSS build leaves its SDK out) and a token in local.properties. */
-        val mapboxAvailable get() = MapboxSupport.INCLUDED && BuildConfig.MAPBOX_TOKEN.isNotEmpty()
+        val mapboxAvailable get() = MapboxSupport.INCLUDED && BuildConfig.MAPBOX_TOKEN.isNotEmpty() && !mapboxRefused
+
+        /** Mapbox refused this run's map: OpenFreeMap until the app restarts. */
+        @Volatile var mapboxRefused = false
+
+        /** A Mapbox loading error that means it won't serve this build: an auth error, or the style failing while online. */
+        fun refusedBy(styleError: Boolean, message: String, online: Boolean) =
+            Regex("""\b(401|403)\b|unauthori[sz]ed|forbidden|invalid token""", RegexOption.IGNORE_CASE).containsMatchIn(message) ||
+                (styleError && online)
 
         fun chosen(context: Context): Provider =
             Provider.parse(Prefs.mapProvider(context)).takeIf { it != Provider.MAPBOX || mapboxAvailable } ?: Provider.OPENFREEMAP

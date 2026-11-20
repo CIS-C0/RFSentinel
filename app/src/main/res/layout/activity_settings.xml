@@ -777,7 +777,7 @@
                 android:contentDescription="3D driving view angle in degrees"
                 android:stepSize="5"
                 android:value="50"
-                android:valueFrom="30"
+                android:valueFrom="0"
                 android:valueTo="60" />
 
             <TextView style="@style/SettingsLabel" android:text="Position marker" />

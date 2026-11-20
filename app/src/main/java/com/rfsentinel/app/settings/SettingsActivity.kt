@@ -913,7 +913,7 @@ class SettingsActivity : AppCompatActivity() {
                 "Cell towers: placed where your phone heard each one strongest - an estimate, not the tower's real position.\n\n" +
                 "The map button turns the map: north up, then with your direction of travel, then the 3D driving view - like " +
                 "a car navigation app, your arrow low on the screen, closer in town and further ahead at speed.\n\n" +
-                "3D view angle: how far the driving view leans back; on fast roads it leans up to 10° further (60° at most).\n\n" +
+                "3D view angle: how far the driving view leans back; 0° is straight down. On fast roads it leans up to 10° further, to 60° at most on OpenFreeMap and 85° on Mapbox.\n\n" +
                 "Speedometer: your speed (from the GPS) in the bottom left corner of the live map, and next to it the posted speed " +
                 "limit as a road sign: a red ring, or a \"SPEED LIMIT\" plate where distances are in miles. Your speed turns red " +
                 "above the limit. While you are guided the limits along the route come with it (one more question to the route server " +
@@ -2494,17 +2494,26 @@ class SettingsActivity : AppCompatActivity() {
 
     /** Settings > Map > 3D view angle: how far the driving view leans back (flatter = more overhead, steeper = further down the road). */
     private fun setupMapTilt() {
-        fun show(t: Double) {
-            val what = when { t <= 40 -> "flatter, more overhead"; t <= 55 -> "balanced, like Waze"; else -> "steep: far down the road" }
-            binding.map3dTiltText.text = "3D view angle: ${t.toInt()}° · $what"
-        }
-        val t = Prefs.map3dTilt(this)
-        binding.map3dTiltSlider.value = (Math.round(t / 5) * 5).toFloat(); show(t) // the slider crashes on a value off its step
         binding.map3dTiltSlider.setLabelFormatter { "${it.toInt()}°" }
         binding.map3dTiltSlider.addOnChangeListener { _, v, fromUser ->
             if (!fromUser) return@addOnChangeListener
-            Prefs.setMap3dTilt(this, v.toDouble()); show(v.toDouble())
+            Prefs.setMap3dTilt(this, v.toDouble()); showMapTilt(v.toDouble())
         }
+        refreshMapTilt()
+    }
+
+    /** The slider reaches as far as the chosen map tilts: 60° on OpenFreeMap, 85° on Mapbox. */
+    private fun refreshMapTilt() {
+        val max = com.rfsentinel.app.ui.MapEngine.chosen(this).maxTilt
+        val t = Prefs.map3dTilt(this).coerceAtMost(max)
+        binding.map3dTiltSlider.valueTo = max.toFloat()
+        binding.map3dTiltSlider.value = (Math.round(t / 5) * 5).toFloat() // the slider crashes on a value off its step
+        showMapTilt(t)
+    }
+
+    private fun showMapTilt(t: Double) {
+        val what = when { t < 15 -> "top-down"; t <= 40 -> "flatter, more overhead"; t <= 55 -> "balanced, like Waze"; else -> "steep: far down the road" }
+        binding.map3dTiltText.text = "3D view angle: ${t.toInt()}° · $what"
     }
 
     /** Settings > Map > Default zoom: how close the map follows you (the "Waze-like" button is the default). */
@@ -2549,6 +2558,7 @@ class SettingsActivity : AppCompatActivity() {
                 .setSingleChoiceItems(all.map { it.label }.toTypedArray(), current) { d, which ->
                     Prefs.setMapProvider(this, all[which].key)
                     show()
+                    refreshMapTilt()
                     d.dismiss()
                 }
                 .setNegativeButton("Cancel", null)

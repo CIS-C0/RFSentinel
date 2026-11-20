@@ -87,6 +87,7 @@ internal class MapLibreEngine(private val context: Context) : MapEngine {
     override var onLongClick: ((Double, Double) -> Unit)? = null
     override var onUserGesture: (() -> Unit)? = null
     override var onFollowDismissed: (() -> Unit)? = null
+    override var onFailed: (() -> Unit)? = null
 
     override fun onCreate(state: Bundle?) = view.onCreate(state)
     override fun onStart() = view.onStart()

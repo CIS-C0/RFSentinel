@@ -87,6 +87,7 @@ class HistoryActivity : AppCompatActivity() {
         if (isFinishing || isDestroyed || engine != null) return
         MapSafety.arm(this, MapEngine.chosen(this)); safetyArmed = true
         val e = MapEngine.create(this).also { engine = it }
+        e.onFailed = { if (!isDestroyed && engine === e) recreate() } // [MapEngine.chosen] is OpenFreeMap now
         binding.map.addView(e.view, android.view.ViewGroup.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT,
             android.view.ViewGroup.LayoutParams.MATCH_PARENT))
         binding.mapCredit.text = e.credit

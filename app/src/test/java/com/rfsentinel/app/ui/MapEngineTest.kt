@@ -60,4 +60,13 @@ class MapEngineTest {
         }
         assertEquals(9, NightLabels.layers.size)
     }
+
+    @Test
+    fun mapboxIsRefusedOnAuthErrorsOrAStyleFailingOnline() {
+        assertTrue(MapEngine.refusedBy(false, "HTTP status code 401", online = false))
+        assertTrue(MapEngine.refusedBy(false, "Not Authorized - Invalid Token", online = true))
+        assertTrue(MapEngine.refusedBy(true, "Failed to load style", online = true))
+        assertTrue(!MapEngine.refusedBy(true, "Failed to load style", online = false)) // offline is only offline
+        assertTrue(!MapEngine.refusedBy(false, "tile 14/4011/5401 timed out", online = true))
+    }
 }
