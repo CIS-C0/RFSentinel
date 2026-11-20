@@ -798,11 +798,6 @@
                 android:layout_height="wrap_content"
                 android:text="OpenFreeMap" />
 
-            <Button
-                android:id="@+id/mapboxTokenButton"
-                style="@style/SettingsTextButton"
-                android:text="Your Mapbox token" />
-
             <com.google.android.material.switchmaterial.SwitchMaterial
                 style="@style/SettingsControl"
                 android:id="@+id/mapKnownCamerasSwitch"

@@ -2546,8 +2546,13 @@ class SettingsActivity : AppCompatActivity() {
         val btn = binding.mapProviderButton
         fun show() { btn.text = com.rfsentinel.app.ui.MapEngine.chosen(this).label.substringBefore(" (") + "  ▾" }
         show()
-        binding.mapboxTokenButton.shownIf(com.rfsentinel.app.ui.MapboxSupport.INCLUDED)
-        binding.mapboxTokenButton.setOnClickListener { editMapboxToken { show(); refreshMapTilt() } }
+        // Built here, not in the XML: the Settings binding is at Java's parameter limit.
+        if (com.rfsentinel.app.ui.MapboxSupport.INCLUDED) (btn.parent as android.view.ViewGroup).let { box ->
+            box.addView(com.google.android.material.button.MaterialButton(this, null, android.R.attr.borderlessButtonStyle).apply {
+                text = "Your Mapbox token"
+                setOnClickListener { editMapboxToken { show(); refreshMapTilt() } }
+            }, box.indexOfChild(btn) + 1)
+        }
         btn.setOnClickListener {
             val all = com.rfsentinel.app.ui.MapEngine.Provider.entries
             if (!com.rfsentinel.app.ui.MapboxSupport.INCLUDED) {
