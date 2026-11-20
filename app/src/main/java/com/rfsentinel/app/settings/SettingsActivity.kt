@@ -1502,6 +1502,7 @@ class SettingsActivity : AppCompatActivity() {
      * matching settings and scrolls to the first one. Empty: everything back as it was.
      */
     private fun filterSettings(raw: String) {
+        restoreOrder()
         highlighted.forEach { (v, bg) -> v.background = bg }
         highlighted.clear()
         searchHidden.forEach { if (it.getTag(R.id.search_hidden) == true) { it.setTag(R.id.search_hidden, null); it.visibility = View.VISIBLE } }
@@ -1516,21 +1517,34 @@ class SettingsActivity : AppCompatActivity() {
         val tint = androidx.core.graphics.ColorUtils.setAlphaComponent(
             com.google.android.material.color.MaterialColors.getColor(binding.root, androidx.appcompat.R.attr.colorPrimary), 0x40)
         var first: View? = null
+        val named = mutableListOf<SectionUi>()
+        val firstHit = HashMap<SectionUi, View>()
         for (s in sectionUi) {
             val hits = mutableListOf<View>()
-            collectMatches(s.body, q, hits)
+            val nameHits = mutableListOf<View>()
+            collectMatches(s.body, q, hits, nameHits)
             val show = hits.isNotEmpty() || s.title.lowercase().contains(q) || s.info.lowercase().contains(q)
             s.row.visibility = if (show) View.VISIBLE else View.GONE
             s.divider?.visibility = s.row.visibility
             if (!show) { s.body.visibility = View.GONE; continue }
+            if (s.title.lowercase().contains(q) || nameHits.isNotEmpty()) named += s
+            (nameHits.firstOrNull() ?: hits.firstOrNull())?.let { firstHit[s] = it }
             s.expand()
             // Only the matching settings, unless the section's own name matches.
-            if (hits.isNotEmpty() && !s.title.lowercase().contains(q)) (s.body as? android.view.ViewGroup)?.let { narrow(it, hits) }
+            if (hits.isNotEmpty() && !s.title.lowercase().contains(q)) (s.body as? android.view.ViewGroup)?.let { narrow(it, hits, nameHits) }
             for (v in hits) {
                 highlighted += v to v.background
                 v.background = android.graphics.drawable.ColorDrawable(tint)
             }
-            if (first == null) first = hits.firstOrNull() ?: s.row
+        }
+        // Settings named like the search come before those only their ⓘ mentions: sections first, then inside them.
+        val ordered = named + sectionUi.filter { it !in named }
+        if (ordered != sectionUi) reorderSections(ordered)
+        for (s in ordered) {
+            if (s.row.visibility != View.VISIBLE) continue
+            first = firstHit[s] ?: s.row
+            s.divider?.visibility = View.GONE // no line above the top section
+            break
         }
         val target = first ?: return
         binding.root.post {
@@ -1550,8 +1564,9 @@ class SettingsActivity : AppCompatActivity() {
      * A match in the label shows the whole setting; a match further down shows the label and that part,
      * looking inside an options panel for just the matching options. Returns whether anything is left.
      */
-    private fun narrow(box: android.view.ViewGroup, hits: List<View>): Boolean {
-        fun holdsHit(v: View) = hits.any { h -> generateSequence(h) { it.parent as? View }.any { it === v } }
+    private fun narrow(box: android.view.ViewGroup, hits: List<View>, byName: List<View> = emptyList()): Boolean {
+        fun holds(v: View, among: List<View>) = among.any { h -> generateSequence(h) { it.parent as? View }.any { it === v } }
+        fun holdsHit(v: View) = holds(v, hits)
         fun startsSetting(v: View): Boolean = when (v) {
             is android.widget.RadioGroup -> false
             is android.widget.EditText -> false
@@ -1580,20 +1595,55 @@ class SettingsActivity : AppCompatActivity() {
             for (v in g) {
                 if (v === head) continue
                 val keep = holdsHit(v) && (v !is android.widget.LinearLayout || v is android.widget.RadioGroup ||
-                    v.orientation == android.widget.LinearLayout.HORIZONTAL || narrow(v, hits))
+                    v.orientation == android.widget.LinearLayout.HORIZONTAL || narrow(v, hits, byName))
                 if (keep) shown = true else hide(v)
             }
             if (shown) any = true else head?.let { hide(it) }
         }
+        // Settings named like the search first.
+        val first = groups.filter { g -> g.any { holds(it, byName) } }
+        if (first.isNotEmpty() && first.size < groups.size) {
+            val moved = first.flatten() + groups.filter { it !in first }.flatten()
+            val rest = (0 until box.childCount).map { box.getChildAt(it) }.filter { it !in moved }
+            reorder(box, moved + rest)
+        }
         return any
     }
 
+    /** Containers the search reordered, with their children's order before it. */
+    private val searchOrder = mutableListOf<Pair<android.view.ViewGroup, List<View>>>()
+
+    /** Puts [box]'s children in the order [kids], remembering the old one for [restoreOrder]. */
+    private fun reorder(box: android.view.ViewGroup, kids: List<View>) {
+        val before = (0 until box.childCount).map { box.getChildAt(it) }
+        if (before == kids) return
+        if (searchOrder.none { it.first === box }) searchOrder += box to before
+        box.removeAllViews()
+        kids.forEach { box.addView(it) }
+    }
+
+    private fun restoreOrder() {
+        searchOrder.asReversed().forEach { (box, kids) -> box.removeAllViews(); kids.forEach { box.addView(it) } }
+        searchOrder.clear()
+    }
+
+    /** The sections' header rows, dividers and bodies in the order [ordered], where the first of them was. */
+    private fun reorderSections(ordered: List<SectionUi>) {
+        val parent = sectionUi.first().row.parent as? android.view.ViewGroup ?: return
+        val block = { s: SectionUi -> listOfNotNull(s.divider, s.row, s.body).filter { it.parent === parent } }
+        val all = ordered.flatMap(block)
+        val kids = (0 until parent.childCount).map { parent.getChildAt(it) }
+        val at = kids.indexOfFirst { it in all }.takeIf { it >= 0 } ?: return
+        val rest = kids.filter { it !in all }
+        reorder(parent, rest.take(at) + all + rest.drop(at))
+    }
+
     /** Visible settings under [v] whose label, text or hint contains [q]. */
-    private fun collectMatches(v: View, q: String, out: MutableList<View>) {
+    private fun collectMatches(v: View, q: String, out: MutableList<View>, byName: MutableList<View>) {
         if (v is android.view.ViewGroup) {
             for (i in 0 until v.childCount) {
                 val c = v.getChildAt(i)
-                if (c.visibility == View.VISIBLE) collectMatches(c, q, out)
+                if (c.visibility == View.VISIBLE) collectMatches(c, q, out, byName)
             }
         } else if (v.tag is InfoText) {
             // An ⓘ that matches: the setting beside it lights up.
@@ -1601,7 +1651,7 @@ class SettingsActivity : AppCompatActivity() {
         } else if (v is android.widget.TextView) {
             val text = v.text?.toString().orEmpty().lowercase()
             val hint = v.hint?.toString().orEmpty().lowercase()
-            if (text.contains(q) || hint.contains(q)) out += v
+            if (text.contains(q) || hint.contains(q)) { out += v; byName += v }
         }
     }
 
