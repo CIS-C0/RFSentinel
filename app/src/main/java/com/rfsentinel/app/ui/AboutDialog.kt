@@ -17,7 +17,7 @@ object AboutDialog {
             ABSOLUTELY NO WARRANTY. Source code: github.com/CIS-C0/RFSentinel<br/><br/>
             Passive, receive-only Bluetooth LE and WiFi scanner. It never transmits to,
             connects to, jams or spoofs any device. Scans, detections, history and traces stay
-            on this phone. Internet is used only for map data: the map (OpenFreeMap${if (MapEngine.mapboxAvailable) ", or Mapbox if you choose it in Settings" else ""}),
+            on this phone. Internet is used only for map data: the map (OpenFreeMap${if (MapEngine.mapboxAvailable(activity)) ", or Mapbox if you choose it in Settings" else ""}),
             the road tiles of your area while the Waze "only ahead"
             option is on, and the list of known plate, speed and red-light cameras for the area you look at on
             screen; and, when you search for a destination or start a route (on the phone or in Android
@@ -25,7 +25,7 @@ object AboutDialog {
             OpenStreetMap servers as the cameras) and the route (Valhalla, on the OpenStreetMap Germany server).
             Those servers see your IP and that area or trip, never your scans or detections.
             Map data &copy; OpenStreetMap contributors (ODbL), &copy; OpenMapTiles; map engine
-            MapLibre Native (BSD-2-Clause), OpenFreeMap${if (MapEngine.mapboxAvailable) "; Mapbox Maps SDK (Mapbox terms) when selected" else ""}.<br/><br/>
+            MapLibre Native (BSD-2-Clause), OpenFreeMap${if (MapEngine.mapboxAvailable(activity)) "; Mapbox Maps SDK (Mapbox terms) when selected" else ""}.<br/><br/>
 
             <b>What a match means</b><br/>
             A device with that vendor or payload signature is broadcasting nearby. It is not

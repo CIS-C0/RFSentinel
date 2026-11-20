@@ -1333,7 +1333,7 @@ class SettingsActivity : AppCompatActivity() {
             "To watch it from afar: every report, and when it starts, has learned and stops, goes to linked Sentinels over " +
             "Bluetooth, the Meshtastic node and the internet relay, encrypted for your group. Whitelisted devices are left out.")
         placeFields.forEach { (key, field) -> withUnit(field, PLACE_UNITS.getValue(key), PLACE_UNIT_WIDEST) }
-        info(binding.mapProviderLabel, "OpenFreeMap: free and open, OpenStreetMap data.\n\nMapbox: Mapbox's Standard map with 3D buildings and day / night light.\n\nThe floating mini map and the Android Auto map always use OpenStreetMap maps.")
+        info(binding.mapProviderLabel, "OpenFreeMap: free and open, OpenStreetMap data.\n\nMapbox: Mapbox's Standard map with 3D buildings and day / night light. If Mapbox refuses the built-in token, add your own free one with Your Mapbox token.\n\nThe floating mini map and the Android Auto map always use OpenStreetMap maps.")
         info(binding.mapAutoRecenterSwitch, "While you drive, the map goes back to your position once you've left it alone for the time set under it (Re-center after).")
         info(binding.mapSpeedometerSwitch, "Your speed and the posted limit in a corner of the map; your speed turns red over the limit.")
         info(binding.mapSpeedLimitLiveSwitch, "Shows the posted limit with no destination too, by asking the route server (Valhalla, OpenStreetMap data) about the road you're on. Your position is sent to it.")
@@ -2546,10 +2546,16 @@ class SettingsActivity : AppCompatActivity() {
         val btn = binding.mapProviderButton
         fun show() { btn.text = com.rfsentinel.app.ui.MapEngine.chosen(this).label.substringBefore(" (") + "  ▾" }
         show()
+        binding.mapboxTokenButton.shownIf(com.rfsentinel.app.ui.MapboxSupport.INCLUDED)
+        binding.mapboxTokenButton.setOnClickListener { editMapboxToken { show(); refreshMapTilt() } }
         btn.setOnClickListener {
             val all = com.rfsentinel.app.ui.MapEngine.Provider.entries
-            if (!com.rfsentinel.app.ui.MapEngine.mapboxAvailable) {
+            if (!com.rfsentinel.app.ui.MapboxSupport.INCLUDED) {
                 Toast.makeText(this, "Mapbox isn't available in this build", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (!com.rfsentinel.app.ui.MapEngine.mapboxAvailable(this)) {
+                editMapboxToken { show(); refreshMapTilt() }
                 return@setOnClickListener
             }
             val current = all.indexOf(com.rfsentinel.app.ui.MapEngine.chosen(this))
@@ -2564,6 +2570,37 @@ class SettingsActivity : AppCompatActivity() {
                 .setNegativeButton("Cancel", null)
                 .show()
         }
+    }
+
+    /** Settings › Map › Your Mapbox token: a free public token (pk.…) from account.mapbox.com, kept encrypted on the phone. */
+    private fun editMapboxToken(done: () -> Unit) {
+        val pad = (20 * resources.displayMetrics.density).toInt()
+        val own = com.rfsentinel.app.util.SecureStore.get(this, "mapbox_token").orEmpty()
+        val input = android.widget.EditText(this).apply {
+            setText(own)
+            hint = "pk.…"
+            isSingleLine = true
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Your Mapbox token")
+            .setMessage((if (com.rfsentinel.app.ui.MapEngine.mapboxRefused) "Mapbox refused the map this time. " else "") +
+                "Make a free account at account.mapbox.com, copy your default public token, which starts with pk., and paste it here. " +
+                "Leave it empty to use the built-in one.")
+            .setView(android.widget.FrameLayout(this).apply { setPadding(pad, 0, pad, 0); addView(input) })
+            .setPositiveButton("Save") { _, _ ->
+                val t = input.text.toString().trim()
+                if (t.isNotEmpty() && !t.startsWith("pk.")) {
+                    Toast.makeText(this, "That isn't a public token: it starts with pk.", Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
+                com.rfsentinel.app.ui.MapEngine.setMapboxToken(this, t)
+                if (t.isNotEmpty()) Prefs.setMapProvider(this, com.rfsentinel.app.ui.MapEngine.Provider.MAPBOX.key)
+                done()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun showNote(view: android.widget.TextView?, text: String) {

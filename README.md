@@ -441,7 +441,9 @@ Your position, recorded traces, the devices heard around you and the known camer
   navigation app. The sun / moon button switches the map between light and dark, the gear
   opens the map settings. **Settings → Map** sets the **default zoom** (17 is close to Waze;
   the 3D view pulls back from it as you speed up), the **3D view angle** (0° to 60°, or 85° on Mapbox) and the
-  **map provider**: OpenFreeMap (free, no account) or Mapbox. The floating mini map always
+  **map provider**: OpenFreeMap (free, no account) or Mapbox, with your own free Mapbox token
+  if you like (*Your Mapbox token*; if Mapbox refuses the map, it switches to OpenFreeMap and
+  says so). The floating mini map always
   uses OpenFreeMap.
 - **Cell towers** (Settings → *Map* → *Show cell towers*): towers seen while scanning,
   at the spot where your phone heard them strongest - an estimate, not the

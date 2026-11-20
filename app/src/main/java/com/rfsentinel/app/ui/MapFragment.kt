@@ -368,7 +368,7 @@ class MapFragment : Fragment() {
             engine = e
             e.onFailed = {
                 if (alive && engine === e) {
-                    android.widget.Toast.makeText(act, "Mapbox isn't serving maps to this version: showing OpenFreeMap", android.widget.Toast.LENGTH_LONG).show()
+                    android.widget.Toast.makeText(act, "Mapbox refused the map: showing OpenFreeMap. Add your own free token in Settings › Map › Your Mapbox token", android.widget.Toast.LENGTH_LONG).show()
                     swapEngineIfChanged()
                 }
             }

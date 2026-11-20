@@ -78,7 +78,7 @@ internal class MapboxEngine(private val context: Context) : MapEngine {
     private fun telemetryOff() = runCatching { TelemetryUtils.setEventsCollectionState(false) { } }
 
     init {
-        MapboxOptions.accessToken = BuildConfig.MAPBOX_TOKEN
+        MapboxOptions.accessToken = MapEngine.mapboxToken(context)
         telemetryOff() // before any map exists
     }
 

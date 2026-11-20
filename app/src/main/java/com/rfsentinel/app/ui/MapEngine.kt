@@ -119,10 +119,22 @@ internal interface MapEngine {
     val brandingDp: Pair<Float, Float> get() = 0f to 0f
 
     companion object {
-        /** Mapbox needs the full build (the FOSS build leaves its SDK out) and a token in local.properties. */
-        val mapboxAvailable get() = MapboxSupport.INCLUDED && BuildConfig.MAPBOX_TOKEN.isNotEmpty() && !mapboxRefused
+        /** Mapbox needs the full build (the FOSS build leaves its SDK out) and a token: the user's own, else the built-in one. */
+        fun mapboxAvailable(context: Context) = MapboxSupport.INCLUDED && mapboxToken(context).isNotEmpty() && !mapboxRefused
 
-        /** Mapbox refused this run's map: OpenFreeMap until the app restarts. */
+        /** The user's own Mapbox token (Settings › Map), else the one built in from local.properties. */
+        fun mapboxToken(context: Context): String =
+            com.rfsentinel.app.util.SecureStore.get(context, MAPBOX_TOKEN_KEY)?.trim().orEmpty().ifEmpty { BuildConfig.MAPBOX_TOKEN }
+
+        /** Saves the user's own token ("" goes back to the built-in one) and gives Mapbox another try. */
+        fun setMapboxToken(context: Context, token: String) {
+            com.rfsentinel.app.util.SecureStore.put(context, MAPBOX_TOKEN_KEY, token.trim().ifEmpty { null })
+            mapboxRefused = false
+        }
+
+        private const val MAPBOX_TOKEN_KEY = "mapbox_token"
+
+        /** Mapbox refused this run's map: OpenFreeMap until the app restarts or a new token is set. */
         @Volatile var mapboxRefused = false
 
         /** A Mapbox loading error that means it won't serve this build: an auth error, or the style failing while online. */
@@ -131,7 +143,7 @@ internal interface MapEngine {
                 (styleError && online)
 
         fun chosen(context: Context): Provider =
-            Provider.parse(Prefs.mapProvider(context)).takeIf { it != Provider.MAPBOX || mapboxAvailable } ?: Provider.OPENFREEMAP
+            Provider.parse(Prefs.mapProvider(context)).takeIf { it != Provider.MAPBOX || mapboxAvailable(context) } ?: Provider.OPENFREEMAP
 
         fun create(context: Context, provider: Provider = chosen(context)): MapEngine = when (provider) {
             Provider.MAPBOX -> MapboxSupport.engine(context)
