@@ -32,14 +32,16 @@ object Exporter {
         SESSION("All nearby devices - this scan (matched or not)", listOf("csv", "json", "kml")),
         HISTORY("All devices ever seen - history", listOf("csv", "json")),
         MATCHES("Match log only", listOf("csv", "json", "gpx", "kml")),
-        WATCHLIST("My watchlist entries", listOf("json"))
+        WATCHLIST("My watchlist entries", listOf("json")),
+        AI_REPORT("Report for an AI assistant - last ${AiReport.DAYS} days", listOf("md"))
     }
 
     private val FORMAT_LABELS = mapOf(
         "csv" to "CSV - spreadsheet (Excel, Sheets)",
         "json" to "JSON - full detail, for tools and scripts",
         "kml" to "KML - map (Google Earth / My Maps)",
-        "gpx" to "GPX - map / GPS apps"
+        "gpx" to "GPX - map / GPS apps",
+        "md" to "Markdown - for a chat assistant or a local model"
     )
 
     /** Two steps: what to export, then which format. */
@@ -94,6 +96,7 @@ object Exporter {
             Scope.MATCHES -> exportLog(activity, format)
             Scope.WATCHLIST -> exportWatchlist(activity)
             Scope.EVERYTHING -> exportEverything(activity)
+            Scope.AI_REPORT -> exportAiReport(activity)
             else -> exportDevices(activity, scope, format)
         }
     }
@@ -147,6 +150,29 @@ object Exporter {
     }
 
     private const val BATCH = 500
+
+    /** The last days' matches and devices as Markdown with reading instructions ([AiReport]), to paste into a model. */
+    private fun exportAiReport(activity: AppCompatActivity) = launchExport(activity) {
+        val db = AppDatabase.getInstance(activity)
+        val now = System.currentTimeMillis()
+        val since = now - AiReport.DAYS * 86_400_000L
+        val text = withContext(Dispatchers.IO) {
+            val matches = db.detectionDao().since(since)
+            val history = db.knownDeviceDao()
+            // Newest first, a batch at a time, until the devices are older than the report.
+            val devices = mutableListOf<com.rfsentinel.app.data.KnownDeviceEntity>()
+            for (chunk in history.macsByLastSeen().chunked(BATCH)) {
+                val rows = history.getAll(chunk).filter { it.lastSeen >= since }
+                devices += rows
+                if (rows.size < chunk.size) break
+            }
+            if (matches.isEmpty() && devices.isEmpty()) null
+            else AiReport.markdown(now, com.rfsentinel.app.BuildConfig.VERSION_NAME, matches, devices,
+                com.rfsentinel.app.detect.Category.entries.map { it.title to Prefs.categoryEnabled(activity, it) },
+                com.rfsentinel.app.data.WhitelistCache::contains)
+        } ?: run { toast(activity, "Nothing heard in the last ${AiReport.DAYS} days"); return@launchExport }
+        share(activity, "rf_sentinel_ai_report_${stamp()}.md", text, "text/markdown", "Export")
+    }
 
     /**
      * The device history a batch at a time, newest first. [macs] fixes the order first, so devices heard
