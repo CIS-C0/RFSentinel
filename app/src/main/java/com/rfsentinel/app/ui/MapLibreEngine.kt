@@ -48,6 +48,35 @@ internal class MapLibreEngine(private val context: Context) : MapEngine {
         const val LIGHT_STYLE = "https://tiles.openfreemap.org/styles/liberty"
         /** A navy night map (like Waze's), lifted further in [nightTweaks]: OpenFreeMap's "dark" is near black. */
         const val DARK_STYLE = "https://tiles.openfreemap.org/styles/fiord"
+
+        /**
+         * The day map in Mapbox Standard's brighter colours: cool grey ground instead of beige, sky-blue water, vivid
+         * greens, yellow / orange highways, white streets. Same layers, only their colours.
+         */
+        fun dayTweaks(style: Style) {
+            fun fill(id: String, color: String, opacity: Float? = null) = style.getLayer(id)?.setProperties(
+                *listOfNotNull(PropertyFactory.fillColor(color), opacity?.let { PropertyFactory.fillOpacity(it) }).toTypedArray())
+            style.getLayer("background")?.setProperties(PropertyFactory.backgroundColor("#EEF0F3"))
+            fill("landuse_residential", "#E6E8EC", 0.6f)
+            fill("water", "#62C6F2")
+            listOf("waterway_tunnel", "waterway_river", "waterway_other").forEach { style.getLayer(it)?.setProperties(PropertyFactory.lineColor("#62C6F2")) }
+            fill("park", "#9CDB7E", 0.8f)
+            style.getLayer("park_outline")?.setProperties(PropertyFactory.lineColor("#8CCF6E"))
+            fill("landcover_grass", "#A8E08C", 0.7f)
+            fill("landcover_wood", "#7FCB6A", 0.7f)
+            fill("building", "#DCDDE6")
+            style.getLayer("building-3d")?.setProperties(PropertyFactory.fillExtrusionColor("#DCDDE6"))
+            // Roads: tunnel_, road_ and bridge_ layers share their suffixes.
+            val roads = mapOf(
+                "motorway" to "#FFC14D", "motorway_link" to "#FFC14D", "motorway_casing" to "#E89A3C", "motorway_link_casing" to "#E89A3C",
+                "trunk_primary" to "#FFE58A", "secondary_tertiary" to "#FFE58A", "link" to "#FFE58A",
+                "trunk_primary_casing" to "#E0B860", "secondary_tertiary_casing" to "#E0B860", "link_casing" to "#E0B860",
+                "minor" to "#FFFFFF", "street" to "#FFFFFF", "service_track" to "#FFFFFF",
+                "minor_casing" to "#D2D6DC", "street_casing" to "#D2D6DC", "service_track_casing" to "#D2D6DC")
+            for ((suffix, color) in roads) for (prefix in listOf("tunnel_", "road_", "bridge_"))
+                style.getLayer(prefix + suffix)?.setProperties(PropertyFactory.lineColor(color))
+        }
+
         const val CREDIT = "© OpenFreeMap © OpenMapTiles © OpenStreetMap contributors"
         private const val BUILDINGS = "rf-buildings-3d"
         /** A clear picture, for the puck layers that must show nothing. */
@@ -128,7 +157,7 @@ internal class MapLibreEngine(private val context: Context) : MapEngine {
     override fun setStyle(dark: Boolean, loaded: (Boolean) -> Unit) {
         val m = map ?: return
         m.setStyle(Style.Builder().fromUri(if (dark) DARK_STYLE else LIGHT_STYLE)) { style ->
-            if (dark) runCatching { nightTweaks(style) }
+            runCatching { if (dark) nightTweaks(style) else dayTweaks(style) }
             addMarkerImage(style)
             loaded(true)
         }

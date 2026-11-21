@@ -214,6 +214,7 @@ object FloatingMap {
             map = lm
             val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
             lm.setStyle(Style.Builder().fromUri(if (night) MapLibreEngine.DARK_STYLE else MapLibreEngine.LIGHT_STYLE)) { style ->
+                if (!night) runCatching { MapLibreEngine.dayTweaks(style) }
                 runCatching {
                     com.rfsentinel.app.alpr.KnownCamera.Kind.entries.forEach { style.addImage("fm-cam-${it.name}", MapIcons.cameraIcon(d * 0.85f, it)) }
                     listOf(CAMS, DOTS, ME).forEach { style.addSource(GeoJsonSource(it)) }
