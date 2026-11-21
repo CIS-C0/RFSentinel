@@ -1,0 +1,1 @@
+• Mapbox map no longer switches to OpenFreeMap after a harmless loading error: only a refused token does that now.
