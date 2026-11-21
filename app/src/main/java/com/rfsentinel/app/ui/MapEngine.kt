@@ -137,10 +137,13 @@ internal interface MapEngine {
         /** Mapbox refused this run's map: OpenFreeMap until the app restarts or a new token is set. */
         @Volatile var mapboxRefused = false
 
-        /** A Mapbox loading error that means it won't serve this build: an auth error, or the style failing while online. */
-        fun refusedBy(styleError: Boolean, message: String, online: Boolean) =
-            Regex("""\b(401|403)\b|unauthori[sz]ed|forbidden|invalid token""", RegexOption.IGNORE_CASE).containsMatchIn(message) ||
-                (styleError && online)
+        /**
+         * A Mapbox loading error that means it won't serve this token: an auth refusal only. Other style errors (a 3D
+         * model or import failing once, a cancelled load) leave the map working, so they never switch it.
+         */
+        fun refusedBy(message: String) =
+            Regex("""(status( code)?|http)\s*:?\s*40[13]\b|unauthori[sz]ed|forbidden|invalid (access )?token|valid access token""",
+                RegexOption.IGNORE_CASE).containsMatchIn(message)
 
         fun chosen(context: Context): Provider =
             Provider.parse(Prefs.mapProvider(context)).takeIf { it != Provider.MAPBOX || mapboxAvailable(context) } ?: Provider.OPENFREEMAP

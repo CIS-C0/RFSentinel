@@ -62,11 +62,12 @@ class MapEngineTest {
     }
 
     @Test
-    fun mapboxIsRefusedOnAuthErrorsOrAStyleFailingOnline() {
-        assertTrue(MapEngine.refusedBy(false, "HTTP status code 401", online = false))
-        assertTrue(MapEngine.refusedBy(false, "Not Authorized - Invalid Token", online = true))
-        assertTrue(MapEngine.refusedBy(true, "Failed to load style", online = true))
-        assertTrue(!MapEngine.refusedBy(true, "Failed to load style", online = false)) // offline is only offline
-        assertTrue(!MapEngine.refusedBy(false, "tile 14/4011/5401 timed out", online = true))
+    fun mapboxIsRefusedOnlyOnAuthErrors() {
+        assertTrue(MapEngine.refusedBy("HTTP status code 401"))
+        assertTrue(MapEngine.refusedBy("Not Authorized - Invalid Token"))
+        assertTrue(MapEngine.refusedBy("Forbidden"))
+        assertTrue(!MapEngine.refusedBy("Failed to load style")) // a blip: Mapbox keeps the map
+        assertTrue(!MapEngine.refusedBy("Failed to load model: request cancelled"))
+        assertTrue(!MapEngine.refusedBy("tile 14/4011/401 timed out")) // a tile number, not a status
     }
 }

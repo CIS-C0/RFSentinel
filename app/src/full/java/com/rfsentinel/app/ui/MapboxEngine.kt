@@ -127,7 +127,7 @@ internal class MapboxEngine(private val context: Context) : MapEngine {
             val why = e.message.replace(Regex("""access_token=[^&\s"]+"""), "access_token=…")
             android.util.Log.w("MapboxEngine", "loading error ${e.type}: $why")
             if (destroyed || failed) return@subscribeMapLoadingError
-            if (!MapEngine.refusedBy(e.type == com.mapbox.maps.MapLoadingErrorType.STYLE, why, online())) return@subscribeMapLoadingError
+            if (!MapEngine.refusedBy(why)) return@subscribeMapLoadingError
             failed = true
             MapEngine.mapboxRefused = true
             view.post { if (!destroyed) onFailed?.invoke() }
@@ -180,12 +180,6 @@ internal class MapboxEngine(private val context: Context) : MapEngine {
             loaded(true)
         }
     }
-
-    /** A validated internet connection: a style that fails offline is only offline. */
-    private fun online(): Boolean = runCatching {
-        val cm = context.getSystemService(android.net.ConnectivityManager::class.java)
-        cm.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
-    }.getOrDefault(false)
 
     private fun lightPreset(s: Style) {
         runCatching { s.setStyleImportConfigProperty("basemap", "lightPreset", Value.valueOf(if (dark) "night" else "day")) }
