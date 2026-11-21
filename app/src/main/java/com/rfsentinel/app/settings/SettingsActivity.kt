@@ -35,6 +35,21 @@ import kotlinx.coroutines.launch
 class SettingsActivity : AppCompatActivity() {
 
     companion object {
+        /**
+         * How well a setting's name matches the search: 3 it starts with it, 2 a word in it does, 1 it's inside a word,
+         * 0 not at all (found by its ⓘ only).
+         */
+        internal fun matchScore(name: String, q: String): Int {
+            val n = name.lowercase().trimStart { !it.isLetterOrDigit() }
+            val i = n.indexOf(q)
+            return when {
+                i < 0 -> 0
+                i == 0 -> 3
+                Regex("""(^|[^\p{L}\p{N}])""" + Regex.escape(q)).containsMatchIn(n) -> 2
+                else -> 1
+            }
+        }
+
         private const val FORGET_OUI_SPY = "Forget the paired board"
         /** The unit after each Watch this place field. */
         private val PLACE_UNITS = mapOf("learn_min" to "min", "min_rssi" to "dBm", "new_window_s" to "s", "gone_min" to "min",
@@ -1517,18 +1532,18 @@ class SettingsActivity : AppCompatActivity() {
         val tint = androidx.core.graphics.ColorUtils.setAlphaComponent(
             com.google.android.material.color.MaterialColors.getColor(binding.root, androidx.appcompat.R.attr.colorPrimary), 0x40)
         var first: View? = null
-        val named = mutableListOf<SectionUi>()
+        val score = HashMap<SectionUi, Int>()
         val firstHit = HashMap<SectionUi, View>()
         for (s in sectionUi) {
             val hits = mutableListOf<View>()
-            val nameHits = mutableListOf<View>()
+            val nameHits = LinkedHashMap<View, Int>()
             collectMatches(s.body, q, hits, nameHits)
             val show = hits.isNotEmpty() || s.title.lowercase().contains(q) || s.info.lowercase().contains(q)
             s.row.visibility = if (show) View.VISIBLE else View.GONE
             s.divider?.visibility = s.row.visibility
             if (!show) { s.body.visibility = View.GONE; continue }
-            if (s.title.lowercase().contains(q) || nameHits.isNotEmpty()) named += s
-            (nameHits.firstOrNull() ?: hits.firstOrNull())?.let { firstHit[s] = it }
+            score[s] = maxOf(matchScore(s.title, q), nameHits.values.maxOrNull() ?: 0)
+            (nameHits.maxByOrNull { it.value }?.key ?: hits.firstOrNull())?.let { firstHit[s] = it }
             s.expand()
             // Only the matching settings, unless the section's own name matches.
             if (hits.isNotEmpty() && !s.title.lowercase().contains(q)) (s.body as? android.view.ViewGroup)?.let { narrow(it, hits, nameHits) }
@@ -1537,8 +1552,8 @@ class SettingsActivity : AppCompatActivity() {
                 v.background = android.graphics.drawable.ColorDrawable(tint)
             }
         }
-        // Settings named like the search come before those only their ⓘ mentions: sections first, then inside them.
-        val ordered = named + sectionUi.filter { it !in named }
+        // The best-named settings first, those only their ⓘ mentions last: sections first, then inside them.
+        val ordered = sectionUi.sortedByDescending { score[it] ?: 0 }
         if (ordered != sectionUi) reorderSections(ordered)
         for (s in ordered) {
             if (s.row.visibility != View.VISIBLE) continue
@@ -1564,9 +1579,10 @@ class SettingsActivity : AppCompatActivity() {
      * A match in the label shows the whole setting; a match further down shows the label and that part,
      * looking inside an options panel for just the matching options. Returns whether anything is left.
      */
-    private fun narrow(box: android.view.ViewGroup, hits: List<View>, byName: List<View> = emptyList()): Boolean {
-        fun holds(v: View, among: List<View>) = among.any { h -> generateSequence(h) { it.parent as? View }.any { it === v } }
-        fun holdsHit(v: View) = holds(v, hits)
+    private fun narrow(box: android.view.ViewGroup, hits: List<View>, byName: Map<View, Int> = emptyMap()): Boolean {
+        fun holds(v: View, h: View) = generateSequence(h) { it.parent as? View }.any { it === v }
+        fun holdsHit(v: View) = hits.any { holds(v, it) }
+        fun score(g: List<View>) = byName.entries.filter { (h, _) -> g.any { holds(it, h) } }.maxOfOrNull { it.value } ?: 0
         fun startsSetting(v: View): Boolean = when (v) {
             is android.widget.RadioGroup -> false
             is android.widget.EditText -> false
@@ -1600,10 +1616,9 @@ class SettingsActivity : AppCompatActivity() {
             }
             if (shown) any = true else head?.let { hide(it) }
         }
-        // Settings named like the search first.
-        val first = groups.filter { g -> g.any { holds(it, byName) } }
-        if (first.isNotEmpty() && first.size < groups.size) {
-            val moved = first.flatten() + groups.filter { it !in first }.flatten()
+        // The best-named settings first.
+        if (byName.isNotEmpty()) {
+            val moved = groups.sortedByDescending { score(it) }.flatten()
             val rest = (0 until box.childCount).map { box.getChildAt(it) }.filter { it !in moved }
             reorder(box, moved + rest)
         }
@@ -1639,7 +1654,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     /** Visible settings under [v] whose label, text or hint contains [q]. */
-    private fun collectMatches(v: View, q: String, out: MutableList<View>, byName: MutableList<View>) {
+    private fun collectMatches(v: View, q: String, out: MutableList<View>, byName: MutableMap<View, Int>) {
         if (v is android.view.ViewGroup) {
             for (i in 0 until v.childCount) {
                 val c = v.getChildAt(i)
@@ -1651,7 +1666,7 @@ class SettingsActivity : AppCompatActivity() {
         } else if (v is android.widget.TextView) {
             val text = v.text?.toString().orEmpty().lowercase()
             val hint = v.hint?.toString().orEmpty().lowercase()
-            if (text.contains(q) || hint.contains(q)) { out += v; byName += v }
+            if (text.contains(q) || hint.contains(q)) { out += v; byName[v] = maxOf(matchScore(text, q), matchScore(hint, q)) }
         }
     }
 
