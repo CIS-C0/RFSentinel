@@ -1,0 +1,9 @@
+• Send matches to ATAK / WinTAK / iTAK as markers.
+• Export a Markdown report for an AI assistant.
+• Internet relay: optional readable JSON on your own broker.
+• Use your own Mapbox token; the map switches to OpenFreeMap if Mapbox refuses.
+• 3D view angle up to the map's limit.
+• Voice history: delete a recording.
+• Map: precise dots under 35 m, same-spot dots merged with a count, 30 min History range.
+• Optional status colours next to alert rows.
+• Better Settings search ranking.

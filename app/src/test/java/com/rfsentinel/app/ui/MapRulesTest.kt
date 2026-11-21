@@ -12,9 +12,9 @@ class MapRulesTest {
     @Test
     fun wideCirclesDrawNoDotAndSameSpotDotsMergeFlaggedFirst() {
         val pins = listOf(
-            pin("a", 45.000001, -73.0), pin("b", 45.000002, -73.0, flagged = true), // same metre
-            pin("c", 45.001, -73.0, flagged = true, radius = 35.0), // small enough: a dot
-            pin("d", 45.002, -73.0, flagged = true, radius = 80.0), // circle only
+            pin("a", 10.000001, 20.0), pin("b", 10.000002, 20.0, flagged = true), // same metre
+            pin("c", 10.001, 20.0, flagged = true, radius = 35.0), // small enough: a dot
+            pin("d", 10.002, 20.0, flagged = true, radius = 80.0), // circle only
         )
         val dots = MapPins.dots(pins)
         assertEquals(listOf(listOf("b", "a"), listOf("c")), dots.map { g -> g.map { it.mac } })
