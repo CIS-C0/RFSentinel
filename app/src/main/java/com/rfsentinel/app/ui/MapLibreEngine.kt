@@ -64,8 +64,9 @@ internal class MapLibreEngine(private val context: Context) : MapEngine {
             style.getLayer("park_outline")?.setProperties(PropertyFactory.lineColor("#8CCF6E"))
             fill("landcover_grass", "#A8E08C", 0.7f)
             fill("landcover_wood", "#7FCB6A", 0.7f)
-            fill("building", "#DCDDE6")
-            style.getLayer("building-3d")?.setProperties(PropertyFactory.fillExtrusionColor("#DCDDE6"))
+            // Buildings warm beige, apart from the grey ground (as on Mapbox).
+            fill("building", "#E6D9C6")
+            style.getLayer("building-3d")?.setProperties(PropertyFactory.fillExtrusionColor("#EBDDC8"), PropertyFactory.fillExtrusionOpacity(0.9f))
             // Roads: tunnel_, road_ and bridge_ layers share their suffixes.
             val roads = mapOf(
                 "motorway" to "#FFC14D", "motorway_link" to "#FFC14D", "motorway_casing" to "#E89A3C", "motorway_link_casing" to "#E89A3C",
