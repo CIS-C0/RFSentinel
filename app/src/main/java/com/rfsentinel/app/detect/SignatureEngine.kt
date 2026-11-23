@@ -109,6 +109,7 @@ object SignatureEngine {
     private const val UUID_SMARTTAG = 0xFD5A       // Samsung Electronics
     private const val UUID_DULT = 0xFCB2           // IETF unwanted-tracker standard: network ID, then the near-owner bit
     private const val DULT_LABEL = "Location tracker away from its owner"
+    private val INVOXIA_NAME = Regex("""^LWT\d{3}_""", RegexOption.IGNORE_CASE)
     private const val UUID_SMARTTAG_SETUP = 0xFD59 // Samsung Electronics (a SmartTag not yet registered)
     private const val UUID_TILE = 0xFEED           // Tile, Inc.
     private const val UUID_CHIPOLO = 0xFE33        // CHIPOLO d.o.o. (as AirGuard, SEEMOO / TU Darmstadt, Apache-2.0)
@@ -410,6 +411,12 @@ object SignatureEngine {
         // Chipolo tags often broadcast no name: their own service UUID gives them away.
         if (a.serviceData.keys.contains(Advert.uuid16(UUID_CHIPOLO)) || a.serviceUuids.contains(Advert.uuid16(UUID_CHIPOLO))) {
             hits += Hit(Category.TRACKER, "Chipolo tracker", 55, "Service UUID 0xFE33 (CHIPOLO d.o.o.)", "$SIG; AirGuard (SEEMOO, Apache-2.0)")
+        }
+
+        // Invoxia GPS trackers (LoRa / LTE-M) name themselves LWT100_ and the end of their address, with no tracker UUID.
+        if (INVOXIA_NAME.containsMatchIn(name)) {
+            hits += Hit(Category.TRACKER, "Invoxia GPS tracker", 55,
+                "Advertised name \"$name\" (Invoxia LWT100 GPS tracker; names can be changed - verify)", "Tester field capture 2026-11-22")
         }
 
         // ---- Smart / recording glasses --------------------------------------

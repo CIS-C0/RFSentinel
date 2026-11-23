@@ -122,6 +122,16 @@ class EspSoupIdeasTest {
         assertTrue(SignatureEngine.classify(other).none { it.label == "Chipolo tracker" })
     }
 
+    // ---- Invoxia (tester capture: "LWT100_E7:24", no tracker UUID)
+
+    @Test
+    fun invoxiaIsFoundByItsName() {
+        val tag = Advert("C1:22:33:44:E7:24", Advert.Source.BLE, -38, name = "LWT100_E7:24")
+        assertEquals("Invoxia GPS tracker", SignatureEngine.classify(tag).firstOrNull { it.category == Category.TRACKER }?.label)
+        val other = Advert("C1:22:33:44:E7:25", Advert.Source.BLE, -38, name = "MyLWT100")
+        assertTrue(SignatureEngine.classify(other).none { it.label == "Invoxia GPS tracker" })
+    }
+
     // ---- Locate follows an address rotation
 
     @Test
