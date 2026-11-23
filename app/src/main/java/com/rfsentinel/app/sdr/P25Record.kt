@@ -155,8 +155,11 @@ object P25Record {
         return f
     }
 
-    /** A saved recording and its transcript. */
-    fun delete(f: File) { f.delete(); P25Transcribe.sidecar(f).delete() }
+    /** A saved recording and its transcript; false when the recording is still there afterwards. */
+    fun delete(f: File): Boolean {
+        f.delete(); P25Transcribe.sidecar(f).delete()
+        return !f.exists()
+    }
 
     private fun list(context: Context, dirName: String): List<File> =
         File(context.filesDir, dirName).listFiles { f -> f.name.endsWith(".wav") }.orEmpty().sortedByDescending { it.name }

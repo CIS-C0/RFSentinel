@@ -71,7 +71,12 @@ object VoiceHistory {
                     .setTitle("Delete this recording?")
                     .setMessage(labels[picked])
                     .setPositiveButton("Delete") { _, _ ->
-                        a.lifecycleScope.launch { withContext(Dispatchers.IO) { P25Record.delete(c.file) }; show(a) }
+                        a.lifecycleScope.launch {
+                            val gone = withContext(Dispatchers.IO) { P25Record.delete(c.file) }
+                            com.rfsentinel.app.util.HwLogs.sdr.log("Voice history: recording " + if (gone) "deleted" else "not deleted, still on the phone")
+                            if (!gone) android.widget.Toast.makeText(a, "Couldn't delete this recording", android.widget.Toast.LENGTH_LONG).show()
+                            show(a)
+                        }
                     }
                     .setNegativeButton("Cancel") { _, _ -> show(a) }
                     .show()
