@@ -7,8 +7,8 @@ import com.rfsentinel.app.service.DeviceRegistry
 /**
  * How long a device stays in the live list and radar after it was last heard (Settings >
  * Scanning, defaults 30 s Bluetooth / 60 s WiFi / 60 s external hardware), flagged devices included - never shorter
- * than while they still count as in range. Favourite and following devices stay for the
- * registry's full 3 minutes.
+ * than while they still count as in range. Favourite devices stay for the registry's full 3 minutes; a device
+ * following you (watchlisted ones included) follows the settings like the others.
  */
 object LiveWindow {
     /** A Bluetooth device not heard for this long is out of range (adverts come every second or so). */
@@ -53,7 +53,7 @@ object LiveWindow {
 
     fun keep(s: DeviceRegistry.Snapshot, now: Long, bleMs: Long, wifiMs: Long, externalMs: Long = wifiMs,
              meshMs: Long = HeardBy.MESH_HOLD_MS): Boolean {
-        if (s.following || s.known?.favorite == true) return true
+        if (s.known?.favorite == true) return true
         val wifi = Advert.Source.WIFI in s.sources || s.source == Advert.Source.WIFI
         // A flagged device never leaves the list while it still alerts (bubble, banner, beeps).
         if (s.best != null && inRange(s, now)) return true

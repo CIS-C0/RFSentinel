@@ -55,6 +55,15 @@ class AlertRangeTest {
     }
 
     @Test
+    fun aWatchlistedDeviceFollowingYouStillLeavesOnTheSlider() {
+        DeviceRegistry.report(Advert("AA:00:00:00:00:05", Advert.Source.BLE, -60, "x"), listOf(hit), id, null, null, null, t0)
+        assertTrue(DeviceRegistry.markFollowing("AA:00:00:00:00:05"))
+        val s = DeviceRegistry.get("AA:00:00:00:00:05")!!
+        assertTrue(LiveWindow.keep(s, t0 + 29_000, 30_000, 60_000))
+        assertFalse(LiveWindow.keep(s, t0 + 61_000, 30_000, 60_000))
+    }
+
+    @Test
     fun wifiListWindowBelow30sIsSavedOnlyUsedWithoutScanThrottling() {
         val ctx = androidx.test.core.app.ApplicationProvider.getApplicationContext<Application>()
         // Throttled, Android scans about every 30 s: the list can't keep WiFi devices for less.

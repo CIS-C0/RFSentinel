@@ -866,7 +866,7 @@ class SettingsActivity : AppCompatActivity() {
                 "WiFi interval: Android allows about one WiFi scan per 30 s unless \"Wi-Fi scan throttling\" " +
                 "is turned off in Developer options; then down to 5 s works, at some battery cost.\n\n" +
                 "Background scanning: lets the scan keep running with the screen off.\n\n" +
-                "Remove from the list: how long an ordinary device stays in the list and radar once it stops being heard (default 30 s Bluetooth, 60 s WiFi). Flagged devices follow these too; favourite and following devices stay 3 minutes. " +
+                "Remove from the list: how long an ordinary device stays in the list and radar once it stops being heard (default 30 s Bluetooth, 60 s WiFi). Flagged and following devices follow these too; favourite devices stay 3 minutes. " +
                 "Hide trusted devices: whitelisted devices are left out of the list and radar (they stay in the history). " +
                 "All can go down to 5 s (WiFi only when \"Wi-Fi scan throttling\" is off in Developer options). " +
                 "External hardware: devices heard only by an ESP32 board or a USB WiFi adapter. " +
@@ -2681,7 +2681,7 @@ class SettingsActivity : AppCompatActivity() {
 
     /**
      * How long ordinary devices stay in the list and radar after they're last heard
-     * (flagged, favourite and following ones always stay 3 minutes). Saved as you slide.
+     * (favourite ones always stay 3 minutes). Saved as you slide.
      */
     /** True while the "Test intro" button's intro plays. */
     private var introTesting = false
@@ -2718,7 +2718,7 @@ class SettingsActivity : AppCompatActivity() {
         fun slider(
             label: (Int) -> String, from: Int, to: Int, value: Int,
             info: String = "How long a device stays in the list and radar after it was last heard. " +
-                "Flagged, favourite and following devices always stay 3 minutes.",
+                "Favourite devices always stay 3 minutes.",
             step: Int = 5,
             unit: (Int) -> String = { "$it s" },
             title: String = "Out of range",
@@ -2759,7 +2759,7 @@ class SettingsActivity : AppCompatActivity() {
         }
         slider({ "External hardware: off the list after $it s" }, 5, 180, Prefs.liveExternalSec(this),
             "How long a device heard only by an ESP32 board or a USB WiFi adapter stays in the list and radar after it " +
-                "was last heard. Flagged, favourite and following devices always stay 3 minutes.") {
+                "was last heard. Favourite devices always stay 3 minutes.") {
             Prefs.setLiveExternalSec(this, it)
         }
         val meshTime = { sec: Int -> if (sec < 60) "$sec s" else if (sec % 60 == 0) "${sec / 60} min" else "${sec / 60} min ${sec % 60} s" }
