@@ -271,11 +271,15 @@ object MeshCodec {
     }
 
     /** A message as a Sentinel Link batch: seq kept apart from Bluetooth batches' (negative), already one hop away. */
-    /** [m] as readable JSON, for the MQTT relay's <topic>/json: what the packet carries, nothing more. */
-    fun json(m: Message): String = org.json.JSONObject().apply {
+    /**
+     * [m] as readable JSON, for the MQTT relay's <topic>/json: what the packet carries. A packet with no position of its
+     * own (the hardware heartbeat) takes [lat]/[lon], the sending phone's fix; null when there's none.
+     */
+    fun json(m: Message, lat: Double = Double.NaN, lon: Double = Double.NaN): String = org.json.JSONObject().apply {
         fun num(d: Double) = if (d.isNaN()) org.json.JSONObject.NULL else d
+        val own = !m.lat.isNaN() && !m.lon.isNaN()
         put("origin", "%x".format(m.origin)); put("time", m.time)
-        put("lat", num(m.lat)); put("lon", num(m.lon)); put("name", m.name ?: org.json.JSONObject.NULL)
+        put("lat", num(if (own) m.lat else lat)); put("lon", num(if (own) m.lon else lon)); put("name", m.name ?: org.json.JSONObject.NULL)
         if (m.devices.isNotEmpty()) put("devices", org.json.JSONArray(m.devices.map { d ->
             org.json.JSONObject().put("mac", d.mac).put("source", d.source.name).put("rssi", d.rssi).put("ageSec", d.ageSec)
                 .put("name", d.name ?: org.json.JSONObject.NULL)

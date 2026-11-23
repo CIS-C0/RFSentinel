@@ -135,6 +135,8 @@ class MeshLinkTest {
         assertEquals("AA:BB:CC:00:11:22", d0.getString("mac")); assertEquals("BLE", d0.getString("source")); assertEquals(-61, d0.getInt("rssi"))
         assertEquals("BODY_CAM", d0.getJSONArray("hits").getJSONObject(1).getString("category"))
         assertTrue(org.json.JSONObject(MeshCodec.json(back)).isNull("lat")) // no position: null, not NaN
+        assertEquals(1.25, org.json.JSONObject(MeshCodec.json(back, 1.25, 2.5)).getDouble("lat"), 1e-9) // the phone's fix fills it
+        assertEquals(10.5, org.json.JSONObject(MeshCodec.json(MeshCodec.open(key, sealed)!!, 1.25, 2.5)).getDouble("lat"), 1e-5) // its own wins
     }
 
     @Test

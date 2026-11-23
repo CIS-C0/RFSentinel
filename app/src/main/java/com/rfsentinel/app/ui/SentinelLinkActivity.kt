@@ -416,7 +416,9 @@ class SentinelLinkActivity : AppCompatActivity() {
                 MaterialAlertDialogBuilder(ctx)
                     .setTitle("Readable JSON")
                     .setMessage("Each packet also goes out unencrypted as JSON on the group's topic + /json: your position, the devices " +
-                        "and what they matched. Anyone who can read your broker can read it. Use your own broker, with a password and mqtts://.")
+                        "and what they matched. The position is left out while the phone has no GPS fix within 50 m. The encrypted packets " +
+                        "still go out on the topic itself: other Sentinels read those.\n\nAnyone who can read your broker can read it. " +
+                        "Use your own broker, with a password and mqtts://.")
                     .setPositiveButton("Turn on") { _, _ -> LinkStore.setMqttPlain(ctx, true); ScanForegroundService.refreshLink(ctx); refresh() }
                     .setNegativeButton("Cancel") { _, _ -> b.isChecked = false }
                     .setOnCancelListener { b.isChecked = false }

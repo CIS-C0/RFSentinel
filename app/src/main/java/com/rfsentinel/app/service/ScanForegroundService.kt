@@ -1199,7 +1199,7 @@ class ScanForegroundService : Service() {
             val lon = loc?.longitude ?: Double.NaN
             val codec = com.rfsentinel.app.link.MeshCodec
             hardwareHere()?.takeIf { mqttHwBeat.due(it, now) }?.let { hw ->
-                if (relay.send(codec.sealHardware(codec.messageKey(key), link.myId(ctx), link.nextMeshCounter(ctx), now, hw))) mqttHwBeat.sent(hw, now)
+                if (relay.send(codec.sealHardware(codec.messageKey(key), link.myId(ctx), link.nextMeshCounter(ctx), now, hw), lat, lon)) mqttHwBeat.sent(hw, now)
             }
             placePacket(com.rfsentinel.app.link.PlaceOutbox.NET, now, lat, lon)?.let { relay.send(it) }
             if (now - mqttPlanesAt >= MQTT_PLANES_MS) {

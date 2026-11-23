@@ -102,12 +102,15 @@ object MqttRelay {
         setStatus("")
     }
 
-    /** Publishes one packet; false while not connected (the packet is dropped: the outbox sends newer ones later). */
-    fun send(payload: ByteArray): Boolean {
+    /**
+     * Publishes one packet; false while not connected (the packet is dropped: the outbox sends newer ones later).
+     * [lat]/[lon]: this phone's usable fix, for the readable JSON of packets that carry no position.
+     */
+    fun send(payload: ByteArray, lat: Double = Double.NaN, lon: Double = Double.NaN): Boolean {
         val c = config ?: return false
         if (!ready) return false
         val sent = write(MqttCodec.publish(c.topic, payload)).also { if (it) lastSent = System.currentTimeMillis() }
-        plainKey?.let { k -> MeshCodec.open(k, payload)?.let { m -> runCatching { MeshCodec.json(m) }.getOrNull() }?.let { write(MqttCodec.publish(c.topic + "/json", it.toByteArray())) } }
+        plainKey?.let { k -> MeshCodec.open(k, payload)?.let { m -> runCatching { MeshCodec.json(m, lat, lon) }.getOrNull() }?.let { write(MqttCodec.publish(c.topic + "/json", it.toByteArray())) } }
         return sent
     }
 
