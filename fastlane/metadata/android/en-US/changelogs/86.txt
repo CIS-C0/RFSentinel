@@ -1,0 +1,5 @@
+• Invoxia GPS trackers are detected by their Bluetooth name.
+• Voice history: Delete with no recording picked explains how and can delete them all.
+• A device following you now leaves the list on your list time settings.
+• MQTT readable JSON: hardware status carries the phone's position.
+• Brighter OpenFreeMap day map.
