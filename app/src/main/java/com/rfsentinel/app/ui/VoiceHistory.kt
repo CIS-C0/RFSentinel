@@ -64,8 +64,28 @@ object VoiceHistory {
             .setNegativeButton("Delete") { _, _ ->
                 val c = l.calls.getOrNull(picked)
                 if (c == null) {
-                    android.widget.Toast.makeText(a, "Tap a recording first, then Delete", android.widget.Toast.LENGTH_SHORT).show()
-                    show(a); return@setNegativeButton
+                    // A short toast here was easy to miss: the list just came back and Delete looked broken (issue #23).
+                    com.google.android.material.dialog.MaterialAlertDialogBuilder(a)
+                        .setTitle("Which recording?")
+                        .setMessage("Tap a recording in the list first (it plays and gets a dot), then Delete.")
+                        .setPositiveButton("OK") { _, _ -> show(a) }
+                        .setNegativeButton("Delete all ${l.calls.size}") { _, _ ->
+                            com.google.android.material.dialog.MaterialAlertDialogBuilder(a)
+                                .setTitle("Delete all ${l.calls.size} recordings?")
+                                .setMessage("Their text goes too. This can't be undone.")
+                                .setPositiveButton("Delete all") { _, _ ->
+                                    a.lifecycleScope.launch {
+                                        val left = withContext(Dispatchers.IO) { l.calls.count { !P25Record.delete(it.file) } }
+                                        com.rfsentinel.app.util.HwLogs.sdr.log("Voice history: all deleted, $left still on the phone")
+                                        android.widget.Toast.makeText(a, if (left > 0) "Couldn't delete $left recordings" else "Voice history cleared",
+                                            android.widget.Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                                .setNegativeButton("Cancel") { _, _ -> show(a) }
+                                .show()
+                        }
+                        .show()
+                    return@setNegativeButton
                 }
                 com.google.android.material.dialog.MaterialAlertDialogBuilder(a)
                     .setTitle("Delete this recording?")
