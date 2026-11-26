@@ -332,6 +332,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // Landscape (not split screen): the list and map get the status and gesture bars' height; a swipe from the edge shows them for a moment.
+        if (resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE && !isInMultiWindowMode)
+            androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
+                systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            }
         // Back from the full screen map: show the filter picked there.
         com.rfsentinel.app.ui.DeviceFilter.parse(Prefs.mapFilter(this)).let { f ->
             if (f != filter) filterChips[f]?.let { it.isChecked = true; scrollToChip(it) }
@@ -450,8 +456,10 @@ class MainActivity : AppCompatActivity() {
         com.rfsentinel.app.ui.ChipStyle.apply(chip, minTouchTarget = false)
         val stock = chipPadding ?: floatArrayOf(chip.chipStartPadding, chip.textStartPadding, chip.textEndPadding, chip.chipEndPadding)
             .also { chipPadding = it }
+        // Landscape and split screen: shorter chips, so the views below get the height.
+        val shorter = if (railMode) 4 * dp else 0f
         if (!visual) {
-            chip.chipMinHeight = 32 * dp
+            chip.chipMinHeight = 32 * dp - shorter
             chip.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14f)
             chip.chipStartPadding = stock[0]; chip.textStartPadding = stock[1]; chip.textEndPadding = stock[2]; chip.chipEndPadding = stock[3]
             sameSize(chip)
@@ -461,7 +469,7 @@ class MainActivity : AppCompatActivity() {
         chip.chipStartPadding = 2 * dp; chip.textStartPadding = 6 * dp; chip.textEndPadding = 6 * dp; chip.chipEndPadding = 2 * dp
         tintVisualChip(chip, color)
         chip.chipStrokeWidth = 1.2f * dp
-        chip.chipMinHeight = 28 * dp
+        chip.chipMinHeight = 28 * dp - shorter
         chip.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13f)
         sameSize(chip)
     }
@@ -485,6 +493,8 @@ class MainActivity : AppCompatActivity() {
     private fun sameSize(chip: com.google.android.material.chip.Chip) {
         chip.setEnsureMinTouchTargetSize(false) // no invisible 48 dp frame (see setupFilterChips)
         chip.minHeight = chip.chipMinHeight.toInt()
+        // Landscape and split screen: the stock 8 dp above and below the label made every chip 31 dp, whatever its minimum.
+        if (railMode) ((chip.chipMinHeight.toInt() - chip.lineHeight) / 2).coerceAtLeast(0).let { chip.setPadding(chip.paddingLeft, it, chip.paddingRight, it) }
         chip.requestLayout()
     }
 
@@ -690,7 +700,7 @@ class MainActivity : AppCompatActivity() {
         val wrap = android.view.ViewGroup.LayoutParams.WRAP_CONTENT
         val root = binding.root
         val rail = binding.controlRow
-        root.setPaddingRelative((8 * d).toInt(), root.paddingTop, (8 * d).toInt(), (2 * d).toInt())
+        root.setPaddingRelative((4 * d).toInt(), root.paddingTop, (4 * d).toInt(), (2 * d).toInt())
         // Everything but the styled header (it stays across the top) moves to the right, in the same order.
         val column = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.VERTICAL }
         (0 until root.childCount).map { root.getChildAt(it) }.filter { it !== binding.themedHeader }.forEach {
@@ -703,19 +713,19 @@ class MainActivity : AppCompatActivity() {
         val top = android.widget.LinearLayout(this).apply { gravity = android.view.Gravity.CENTER_VERTICAL }
         top.addView(chips, android.widget.LinearLayout.LayoutParams(0, wrap, 1f))
         val bar = androidx.appcompat.widget.Toolbar(this).apply { setContentInsetsRelative(0, 0); contentInsetStartWithNavigation = 0 }
-        top.addView(bar, android.widget.LinearLayout.LayoutParams(wrap, (40 * d).toInt()))
+        top.addView(bar, android.widget.LinearLayout.LayoutParams(wrap, (28 * d).toInt()))
         column.addView(top, 0, android.widget.LinearLayout.LayoutParams(match, wrap))
         setSupportActionBar(bar)
         rail.orientation = android.widget.LinearLayout.VERTICAL
         val body = android.widget.LinearLayout(this)
-        body.addView(rail, android.widget.LinearLayout.LayoutParams((56 * d).toInt(), match).apply { marginEnd = (6 * d).toInt() })
+        body.addView(rail, android.widget.LinearLayout.LayoutParams((44 * d).toInt(), match).apply { marginEnd = (4 * d).toInt() })
         body.addView(column, android.widget.LinearLayout.LayoutParams(0, match, 1f))
         root.addView(body, android.widget.LinearLayout.LayoutParams(match, 0, 1f))
         fun fill(v: View, weight: Float, gapAbove: Int = 0) {
             (v.layoutParams as android.widget.LinearLayout.LayoutParams).apply {
                 width = match; height = 0; this.weight = weight; marginStart = 0; marginEnd = 0; topMargin = gapAbove
             }
-            (v as? android.widget.TextView)?.minHeight = 0
+            (v as? android.widget.TextView)?.apply { minHeight = 0; minWidth = 0; minimumWidth = 0; setPaddingRelative(0, paddingTop, 0, paddingBottom) }
         }
         fill(binding.startStopButton, 1.4f)
         binding.viewToggle.orientation = android.widget.LinearLayout.VERTICAL
