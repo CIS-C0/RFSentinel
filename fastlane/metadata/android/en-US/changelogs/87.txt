@@ -1,0 +1,3 @@
+• Landscape: Start/Stop, views and Tools move to a narrow side rail; search, sound, settings and GPS sit beside the filter chips; the status and gesture bars hide (swipe from the edge to see them). The list and map get about a third more height.
+• Split screen gets the side rail too, and the small map's buttons and speed card fit its size.
+• Meshtastic node card says when the group was last heard.
