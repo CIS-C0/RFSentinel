@@ -120,11 +120,17 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        railMode = resources.configuration.let {
+            it.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE || it.screenHeightDp < SHORT_WINDOW_DP
+        }
         // Styled themes with a banner: the title bar sits over the banner's top, so the banner takes less room.
-        val tucked = hasThemeHeader()
+        val tucked = hasThemeHeader() && !railMode
         if (tucked) supportRequestWindowFeature(androidx.appcompat.app.AppCompatDelegate.FEATURE_SUPPORT_ACTION_BAR_OVERLAY)
+        // The side rail brings its own small toolbar in the chips row instead of the title bar.
+        if (railMode) supportRequestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        if (railMode) sideRail()
         binding.root.applySystemBarInsets()
         if (tucked) supportActionBar?.apply {
             // A soft dark fade keeps the title and icons readable over the art.
@@ -207,7 +213,6 @@ class MainActivity : AppCompatActivity() {
         panes = com.rfsentinel.app.ui.MainPanes(this, binding)
         if (mapRecovery != com.rfsentinel.app.ui.MapSafety.Recovery.NONE) binding.root.post { if (!isFinishing && !isDestroyed) com.rfsentinel.app.ui.MapSafetyUi.tell(this, mapRecovery) }
 
-        sideRailWhenShort()
         binding.startStopButton.addOnLayoutChangeListener { _, l, _, r, _, ol, _, or, _ -> if (r - l != or - ol) fitStartButton() }
         binding.startStopButton.setOnClickListener {
             it.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
@@ -608,7 +613,7 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * The GPS dot goes in the title bar, small, right of the app's name, so it takes no row of its own. A styled
-     * header hides that title: then it's returned, for the status.
+     * header hides that title: then it's returned, for the status. In the side rail's small toolbar, only the GPS.
      */
     private fun gpsInTitleBar(line: CharSequence?): CharSequence? {
         val bar = supportActionBar
@@ -616,7 +621,8 @@ class MainActivity : AppCompatActivity() {
         if (bar != null) {
             bar.subtitle = null
             // [title] stays the app's name: only the bar's copy gets the GPS after it.
-            val shown: CharSequence = if (titled && line != null) android.text.SpannableStringBuilder(title).append("   ").also {
+            val shown: CharSequence = if (railMode && line == null) "" else if (titled && line != null) android.text.SpannableStringBuilder(
+                if (railMode) "" else "$title   ").also {
                 val start = it.length
                 it.append(line)
                 it.setSpan(android.text.style.RelativeSizeSpan(0.65f), start, it.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -669,28 +675,40 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Landscape or a short window (half of a split screen): the main screen's buttons are in a side rail. */
+    private var railMode = false
+
     /**
-     * Landscape, or a short window (half of a split screen): Start/Stop, the view buttons and Tools go in a narrow
-     * column on the left, so the banner, status,
-     * chips and list/radar/map get the screen's whole height. The rail's height is shared out by weight (Stop a
-     * little taller), so it fits any screen. The activity is made again on a rotation, so once is enough.
+     * [railMode]: Start/Stop, the view buttons and Tools go in a narrow column on the left, and the title bar's icons
+     * (with the GPS) go in a small toolbar at the end of the chips row, so the banner, status and list/radar/map get
+     * nearly the whole height. Thinner margins too. The rail's height is shared out by weight (Stop a little taller),
+     * so it fits any screen. The activity is made again on a rotation or resize, so once is enough.
      */
-    private fun sideRailWhenShort() {
-        val c = resources.configuration
-        if (c.orientation != android.content.res.Configuration.ORIENTATION_LANDSCAPE && c.screenHeightDp >= SHORT_WINDOW_DP) return
+    private fun sideRail() {
         val d = resources.displayMetrics.density
         val match = android.view.ViewGroup.LayoutParams.MATCH_PARENT
+        val wrap = android.view.ViewGroup.LayoutParams.WRAP_CONTENT
         val root = binding.root
         val rail = binding.controlRow
+        root.setPaddingRelative((8 * d).toInt(), root.paddingTop, (8 * d).toInt(), (2 * d).toInt())
         // Everything but the styled header (it stays across the top) moves to the right, in the same order.
         val column = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.VERTICAL }
         (0 until root.childCount).map { root.getChildAt(it) }.filter { it !== binding.themedHeader }.forEach {
             root.removeView(it)
             if (it !== rail) column.addView(it)
         }
+        // At the top of the right side: the chips, then the toolbar (GPS, search, sound, settings, menu).
+        val chips = binding.filterChips.parent as android.view.View
+        column.removeView(chips)
+        val top = android.widget.LinearLayout(this).apply { gravity = android.view.Gravity.CENTER_VERTICAL }
+        top.addView(chips, android.widget.LinearLayout.LayoutParams(0, wrap, 1f))
+        val bar = androidx.appcompat.widget.Toolbar(this).apply { setContentInsetsRelative(0, 0); contentInsetStartWithNavigation = 0 }
+        top.addView(bar, android.widget.LinearLayout.LayoutParams(wrap, (40 * d).toInt()))
+        column.addView(top, 0, android.widget.LinearLayout.LayoutParams(match, wrap))
+        setSupportActionBar(bar)
         rail.orientation = android.widget.LinearLayout.VERTICAL
         val body = android.widget.LinearLayout(this)
-        body.addView(rail, android.widget.LinearLayout.LayoutParams((56 * d).toInt(), match).apply { marginEnd = (8 * d).toInt() })
+        body.addView(rail, android.widget.LinearLayout.LayoutParams((56 * d).toInt(), match).apply { marginEnd = (6 * d).toInt() })
         body.addView(column, android.widget.LinearLayout.LayoutParams(0, match, 1f))
         root.addView(body, android.widget.LinearLayout.LayoutParams(match, 0, 1f))
         fun fill(v: View, weight: Float, gapAbove: Int = 0) {

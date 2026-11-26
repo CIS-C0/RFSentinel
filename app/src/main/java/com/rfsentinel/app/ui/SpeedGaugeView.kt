@@ -26,10 +26,14 @@ class SpeedGaugeView @JvmOverloads constructor(context: Context, attrs: Attribut
     private var dark = false
     private val d = resources.displayMetrics.density
 
-    /** The card's height: about a sixth of the screen's short side, between 52 and 84 dp. */
+    /** The small map's height when the gauge is in it (0: the full map): a short pane gets a smaller card. */
+    var paneHeight = 0
+
+    /** The card's height: about a sixth of the screen's short side, between 52 and 84 dp; in a short pane, down to 40 dp. */
     private fun unit(): Float {
         val shortSide = min(resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels)
-        return (shortSide / 6.2f).coerceIn(52 * d, 84 * d)
+        val u = (shortSide / 6.2f).coerceIn(52 * d, 84 * d)
+        return if (paneHeight > 0) min(u, (paneHeight / 4.5f).coerceAtLeast(40 * d)) else u
     }
 
     /** [speedKmh] null = no speed yet (hidden); [limitKmh] null = no limit known (no sign). Both in km/h; shown in mph when [miles]. */

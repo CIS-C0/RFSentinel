@@ -691,7 +691,7 @@ class MapFragment : Fragment() {
         val d = resources.displayMetrics.density
         val panel = listOf(b.navCard, b.navBar).firstOrNull { it.visibility == View.VISIBLE }
         var hide = emptyList<View>()
-        val fab = 56 * d // a button and its margin
+        val fab = roundButtonSize() + 16 * d // a button and its margin
         if (panel == null && b.statusText.visibility == View.VISIBLE && b.statusBox.height > 0) {
             // The status line at the top of a short pane: the column of buttons under it gives way, the compass first.
             val top = b.statusBox.top + b.statusBox.translationY + b.statusBox.height + 4 * d
@@ -751,7 +751,7 @@ class MapFragment : Fragment() {
         val b = _binding ?: return
         if (sidePending) return
         sidePending = true
-        b.root.post { sidePending = false; if (_binding != null) { arrangeForShape(); fitCompactRow(); liftSideButtons(); fitSideButtons(); placeGauge(); refollowForPanels() } }
+        b.root.post { sidePending = false; if (_binding != null) { arrangeForShape(); sizeSideButtons(); fitCompactRow(); liftSideButtons(); fitSideButtons(); placeGauge(); refollowForPanels() } }
     }
 
     /**
@@ -766,11 +766,14 @@ class MapFragment : Fragment() {
         val d = resources.displayMetrics.density
         val kids = row.children.filter { it.visibility != View.GONE }.toList()
         if (kids.size < 2) return
+        val fabs = kids.filterIsInstance<com.google.android.material.floatingactionbutton.FloatingActionButton>()
+        val natural = roundButtonSize()
+        // A pane that got shorter: no button over its size (the row is laid out again, and this runs again after).
+        val tooBig = fabs.filter { (if (it.customSize > 0) it.customSize else it.width) > natural }
+        if (tooBig.isNotEmpty()) { tooBig.forEach { it.customSize = natural }; return }
         // Worked out from what is on screen now: how much room is left (or missing) between the row's end and the pane's edge.
         val diff = b.root.width - (8 * d).toInt() - row.left - row.width
         if (kotlin.math.abs(diff) < 2) return
-        val fabs = kids.filterIsInstance<com.google.android.material.floatingactionbutton.FloatingActionButton>()
-        val natural = (40 * d).toInt()
         val gapMax = (8 * d).toInt()
         val curGap = (kids[1].layoutParams as? ViewGroup.MarginLayoutParams)?.marginStart ?: return
         val gap = curGap + diff / (kids.size - 1)
@@ -779,20 +782,39 @@ class MapFragment : Fragment() {
             val want = if (i == 0) 0 else g
             if (lp.marginStart != want) { lp.marginStart = want; v.layoutParams = lp }
         }
+        // One size for the whole row, so no button ends up smaller than the others.
         fun resize(by: Int) {
-            for (f in fabs) {
-                val now = if (f.customSize > 0) f.customSize else f.width
-                val to = (now + by).coerceIn((32 * d).toInt(), natural)
-                if (to != f.customSize) f.customSize = to
-            }
+            val now = fabs.maxOf { if (it.customSize > 0) it.customSize else it.width }
+            val to = (now + by).coerceIn((32 * d).toInt(), natural)
+            for (f in fabs) if (to != f.customSize) f.customSize = to
         }
         when {
             gap in 0..gapMax -> setGap(gap)
             // More room than the spacing needs: the buttons grow back to their size.
             gap > gapMax -> { setGap(gapMax); if (fabs.isNotEmpty()) resize((diff - (gapMax - curGap) * (kids.size - 1)) / fabs.size) }
             // Not enough even without spacing: the buttons get smaller (not under 32 dp).
-            else -> { setGap(0); if (fabs.isNotEmpty()) resize((diff + curGap * (kids.size - 1)) / fabs.size) }
+            // The invisible 48 dp touch frame goes too, or the buttons never get narrower than it.
+            else -> { setGap(0); fabs.forEach { if (it.shouldEnsureMinTouchTargetSize()) it.setEnsureMinTouchTargetSize(false) }
+                if (fabs.isNotEmpty()) resize((diff + curGap * (kids.size - 1)) / fabs.size) }
         }
+    }
+
+    /**
+     * The small map's round buttons: their usual 40 dp, or smaller in a short pane (landscape, split screen), about a
+     * seventh of its height, not under 32 dp.
+     */
+    private fun roundButtonSize(): Int {
+        val d = resources.displayMetrics.density
+        val h = _binding?.root?.height ?: 0
+        return if (!embedded || h == 0) (40 * d).toInt() else (h * 0.14f).coerceIn(32 * d, 40 * d).toInt()
+    }
+
+    /** The follow and north-up buttons at the side take the same size as the row's. */
+    private fun sizeSideButtons() {
+        val b = _binding ?: return
+        if (!embedded) return
+        val size = roundButtonSize()
+        for (f in listOf(b.orientationButton, b.centerButton)) if (f.customSize != size) f.customSize = size
     }
 
     private var origBasePad: List<Int>? = null
@@ -927,6 +949,7 @@ class MapFragment : Fragment() {
         val b = _binding ?: return
         val g = b.speedGauge
         if (g.visibility != View.VISIBLE || b.root.height == 0) return
+        if (embedded && g.paneHeight != b.root.height) { g.paneHeight = b.root.height; g.requestLayout() }
         val d = resources.displayMetrics.density
         var top = b.root.height.toFloat() - (if (embedded) 0 else bottomInset)
         for (p in listOf(b.navCard, b.navBar, b.mapFilterScroll, b.controls)) {
