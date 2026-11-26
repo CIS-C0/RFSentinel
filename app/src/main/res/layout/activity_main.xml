@@ -83,7 +83,7 @@
         android:layout_height="wrap_content"
         android:visibility="gone" />
 
-    <!-- In landscape or a short window this row becomes a column on the left (MainActivity.sideRailWhenShort). -->
+    <!-- In landscape or a short window this row becomes a column on the left (MainActivity.sideRail). -->
     <LinearLayout
         android:id="@+id/controlRow"
         android:layout_width="match_parent"
