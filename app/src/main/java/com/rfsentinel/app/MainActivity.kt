@@ -205,6 +205,7 @@ class MainActivity : AppCompatActivity() {
         panes = com.rfsentinel.app.ui.MainPanes(this, binding)
         if (mapRecovery != com.rfsentinel.app.ui.MapSafety.Recovery.NONE) binding.root.post { if (!isFinishing && !isDestroyed) com.rfsentinel.app.ui.MapSafetyUi.tell(this, mapRecovery) }
 
+        shortenButtonRowInLandscape()
         binding.startStopButton.addOnLayoutChangeListener { _, l, _, r, _, ol, _, or, _ -> if (r - l != or - ol) fitStartButton() }
         binding.startStopButton.setOnClickListener {
             it.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
@@ -548,7 +549,7 @@ class MainActivity : AppCompatActivity() {
                 com.rfsentinel.app.sdr.RadioReference.status.takeIf { it.isNotBlank() && com.rfsentinel.app.util.Prefs.radioReferenceOn(this) }
                     ?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) },
                 com.rfsentinel.app.link.PhoneLink.status.takeIf { it.isNotBlank() }?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) },
-                com.rfsentinel.app.link.MeshNode.status.takeIf { it.isNotBlank() }?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) }
+                meshStatus().takeIf { it.isNotBlank() }?.let { com.rfsentinel.app.ui.StatusPanel.Hardware(it) }
             )
             statusPanel.update(running, warning, hardware, if (locationOff) ::openLocationSettings else null,
                 gpsInTitleBar(if (running && !locationOff) com.rfsentinel.app.ui.GpsDot.text(this, demoMode) else null))
@@ -559,7 +560,7 @@ class MainActivity : AppCompatActivity() {
             com.rfsentinel.app.esp.OuiSpyBle.status, com.rfsentinel.app.esp.EspBoards.status, com.rfsentinel.app.usb.UsbWifi.status,
             com.rfsentinel.app.usb.UsbBluetooth.status, com.rfsentinel.app.sdr.SdrRadio.status,
             com.rfsentinel.app.sdr.RadioReference.status.takeIf { com.rfsentinel.app.util.Prefs.radioReferenceOn(this) }.orEmpty(),
-            com.rfsentinel.app.link.PhoneLink.status, com.rfsentinel.app.link.MeshNode.status
+            com.rfsentinel.app.link.PhoneLink.status, meshStatus()
         ).filter { it.isNotBlank() }
         when {
             locationOff -> binding.statusText.setOnClickListener { openLocationSettings() }
@@ -590,6 +591,14 @@ class MainActivity : AppCompatActivity() {
         }
         val gps = gpsInTitleBar(if (running && !locationOff) com.rfsentinel.app.ui.GpsDot.text(this, demoMode) else null)
         binding.statusText.text = if (gps != null) android.text.SpannableStringBuilder(gps).append(" · ").append(line) else line
+    }
+
+    /** The Meshtastic node's line, with when the group was last heard over the mesh once the node is ready. */
+    private fun meshStatus(): String {
+        val m = com.rfsentinel.app.link.MeshNode
+        if (!m.ready || m.status.isBlank()) return m.status
+        return m.status + (m.lastHeard.takeIf { it > 0 }
+            ?.let { " · group heard " + com.rfsentinel.app.ui.DeviceRows.ago((System.currentTimeMillis() - it) / 1000) } ?: " · group not heard yet")
     }
 
     /** The text style's hardware lines, unfolded (tap the status). */
@@ -656,6 +665,18 @@ class MainActivity : AppCompatActivity() {
             b.iconGravity = com.google.android.material.button.MaterialButton.ICON_GRAVITY_TEXT_START
             b.setPaddingRelative(startPadStart, b.paddingTop, startPadEnd, b.paddingBottom); b.minWidth = (48 * d).toInt()
         }
+    }
+
+    /**
+     * Landscape leaves little height for the map, radar and list: Start/Stop, the view buttons and Tools get shorter,
+     * about a tenth of the screen's height (34 to 44 dp). The activity is made again on a rotation, so once is enough.
+     */
+    private fun shortenButtonRowInLandscape() {
+        val c = resources.configuration
+        if (c.orientation != android.content.res.Configuration.ORIENTATION_LANDSCAPE) return
+        val h = ((c.screenHeightDp * 0.09f).coerceIn(34f, 44f) * resources.displayMetrics.density).toInt()
+        for (b in listOf(binding.startStopButton, binding.viewListButton, binding.viewRadarButton, binding.viewMapButton, binding.toolsButton))
+            b.minHeight = h
     }
 
     /** Alerts (flagged rows) already shown, so a new one above the screen can be pointed out. */
