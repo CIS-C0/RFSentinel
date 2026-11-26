@@ -42,6 +42,8 @@ class MainActivity : AppCompatActivity() {
     companion object {
         /** Row id prefix of the live cell tower rows (not devices). */
         private const val CELL_ROW = "cell:"
+        /** Under this height (half of a split screen) the main screen's buttons move to a side rail, as in landscape. */
+        private const val SHORT_WINDOW_DP = 560
         private const val WAZE_ROW = "waze:"
         /** All clear closed with its X: alerts still show, and it comes back when the app restarts. */
         private var allClearClosed = false
@@ -205,7 +207,7 @@ class MainActivity : AppCompatActivity() {
         panes = com.rfsentinel.app.ui.MainPanes(this, binding)
         if (mapRecovery != com.rfsentinel.app.ui.MapSafety.Recovery.NONE) binding.root.post { if (!isFinishing && !isDestroyed) com.rfsentinel.app.ui.MapSafetyUi.tell(this, mapRecovery) }
 
-        shortenButtonRowInLandscape()
+        sideRailWhenShort()
         binding.startStopButton.addOnLayoutChangeListener { _, l, _, r, _, ol, _, or, _ -> if (r - l != or - ol) fitStartButton() }
         binding.startStopButton.setOnClickListener {
             it.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
@@ -668,15 +670,40 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Landscape leaves little height for the map, radar and list: Start/Stop, the view buttons and Tools get shorter,
-     * about a tenth of the screen's height (34 to 44 dp). The activity is made again on a rotation, so once is enough.
+     * Landscape, or a short window (half of a split screen): Start/Stop, the view buttons and Tools go in a narrow
+     * column on the left, so the banner, status,
+     * chips and list/radar/map get the screen's whole height. The rail's height is shared out by weight (Stop a
+     * little taller), so it fits any screen. The activity is made again on a rotation, so once is enough.
      */
-    private fun shortenButtonRowInLandscape() {
+    private fun sideRailWhenShort() {
         val c = resources.configuration
-        if (c.orientation != android.content.res.Configuration.ORIENTATION_LANDSCAPE) return
-        val h = ((c.screenHeightDp * 0.09f).coerceIn(34f, 44f) * resources.displayMetrics.density).toInt()
-        for (b in listOf(binding.startStopButton, binding.viewListButton, binding.viewRadarButton, binding.viewMapButton, binding.toolsButton))
-            b.minHeight = h
+        if (c.orientation != android.content.res.Configuration.ORIENTATION_LANDSCAPE && c.screenHeightDp >= SHORT_WINDOW_DP) return
+        val d = resources.displayMetrics.density
+        val match = android.view.ViewGroup.LayoutParams.MATCH_PARENT
+        val root = binding.root
+        val rail = binding.controlRow
+        // Everything but the styled header (it stays across the top) moves to the right, in the same order.
+        val column = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.VERTICAL }
+        (0 until root.childCount).map { root.getChildAt(it) }.filter { it !== binding.themedHeader }.forEach {
+            root.removeView(it)
+            if (it !== rail) column.addView(it)
+        }
+        rail.orientation = android.widget.LinearLayout.VERTICAL
+        val body = android.widget.LinearLayout(this)
+        body.addView(rail, android.widget.LinearLayout.LayoutParams((56 * d).toInt(), match).apply { marginEnd = (8 * d).toInt() })
+        body.addView(column, android.widget.LinearLayout.LayoutParams(0, match, 1f))
+        root.addView(body, android.widget.LinearLayout.LayoutParams(match, 0, 1f))
+        fun fill(v: View, weight: Float, gapAbove: Int = 0) {
+            (v.layoutParams as android.widget.LinearLayout.LayoutParams).apply {
+                width = match; height = 0; this.weight = weight; marginStart = 0; marginEnd = 0; topMargin = gapAbove
+            }
+            (v as? android.widget.TextView)?.minHeight = 0
+        }
+        fill(binding.startStopButton, 1.4f)
+        binding.viewToggle.orientation = android.widget.LinearLayout.VERTICAL
+        fill(binding.viewToggle, 3f, (8 * d).toInt())
+        for (b in listOf(binding.viewListButton, binding.viewRadarButton, binding.viewMapButton)) fill(b, 1f)
+        fill(binding.toolsButton, 1f, (8 * d).toInt())
     }
 
     /** Alerts (flagged rows) already shown, so a new one above the screen can be pointed out. */
